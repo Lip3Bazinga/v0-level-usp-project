@@ -71,6 +71,14 @@ export default function DesignSystemShowcase() {
                 </span>
               </LevelButton>
             </Link>
+            <Link href="/perfil">
+              <LevelButton size="lg" variant="secondary">
+                <span className="flex items-center gap-2">
+                  Ver Perfil
+                  <ExternalLink className="h-4 w-4" />
+                </span>
+              </LevelButton>
+            </Link>
           </div>
 
           {/* Stats */}
