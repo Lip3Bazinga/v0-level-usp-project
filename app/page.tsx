@@ -87,6 +87,14 @@ export default function DesignSystemShowcase() {
                 </span>
               </LevelButton>
             </Link>
+            <Link href="/admin">
+              <LevelButton size="lg" variant="ghost">
+                <span className="flex items-center gap-2">
+                  Painel Admin
+                  <ExternalLink className="h-4 w-4" />
+                </span>
+              </LevelButton>
+            </Link>
           </div>
 
           {/* Stats */}
