@@ -43,11 +43,11 @@ const getLanguageIcon = (lang: string) => {
 const getLanguageColor = (lang: string) => {
   switch (lang) {
     case "python":
-      return "text-primary"
+      return "text-level-purple"
     case "csv":
-      return "text-accent"
+      return "text-success"
     case "json":
-      return "text-chart-4"
+      return "text-warning"
     default:
       return "text-muted-foreground"
   }
@@ -95,7 +95,7 @@ export function CodeEditor({
   return (
     <div className="flex h-full flex-col bg-editor-bg">
       {/* Toolbar */}
-      <div className="flex items-center justify-between border-b border-border bg-card px-2 py-1">
+      <div className="flex items-center justify-between border-b border-border bg-white px-2 py-1">
         {/* Tabs */}
         <div className="flex items-center">
           {files.map((file) => (
@@ -104,16 +104,16 @@ export function CodeEditor({
               onClick={() => onFileChange(file.id)}
               className={`group flex items-center gap-2 border-r border-border px-3 py-2 text-sm transition-colors ${
                 file.id === activeFileId
-                  ? "bg-editor-bg text-foreground"
-                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                  ? "bg-editor-bg text-white"
+                  : "bg-level-purple-subtle text-muted-foreground hover:bg-level-purple-light"
               }`}
             >
               <span className="text-xs">{getLanguageIcon(file.language)}</span>
-              <span className={getLanguageColor(file.language)}>{file.name}</span>
+              <span className={file.id === activeFileId ? "text-white" : getLanguageColor(file.language)}>{file.name}</span>
               <X className="h-3 w-3 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100" />
             </button>
           ))}
-          <button className="flex items-center gap-1 px-3 py-2 text-muted-foreground transition-colors hover:text-foreground">
+          <button className="flex items-center gap-1 px-3 py-2 text-muted-foreground transition-colors hover:text-level-purple">
             <Plus className="h-4 w-4" />
           </button>
         </div>
@@ -126,11 +126,11 @@ export function CodeEditor({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
+                  className="h-8 w-8 hover:bg-level-purple-light hover:text-level-purple"
                   onClick={handleCopy}
                 >
                   {copied ? (
-                    <Check className="h-4 w-4 text-primary" />
+                    <Check className="h-4 w-4 text-success" />
                   ) : (
                     <Copy className="h-4 w-4" />
                   )}
@@ -143,7 +143,7 @@ export function CodeEditor({
 
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onReset}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-level-purple-light hover:text-level-purple" onClick={onReset}>
                   <RotateCcw className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
@@ -156,7 +156,7 @@ export function CodeEditor({
               <TooltipTrigger asChild>
                 <Button
                   size="sm"
-                  className="ml-2 gap-2"
+                  className="ml-2 gap-2 bg-level-purple hover:bg-level-purple-medium text-white rounded-lg"
                   onClick={onRun}
                 >
                   <Play className="h-4 w-4" />
@@ -199,7 +199,7 @@ export function CodeEditor({
       </ScrollArea>
 
       {/* Status bar */}
-      <div className="flex items-center justify-between border-t border-border bg-card px-3 py-1 text-xs text-muted-foreground">
+      <div className="flex items-center justify-between border-t border-border bg-level-purple-subtle px-3 py-1 text-xs text-level-purple-dark">
         <div className="flex items-center gap-4">
           <span>Linha {lines.length}</span>
           <span>

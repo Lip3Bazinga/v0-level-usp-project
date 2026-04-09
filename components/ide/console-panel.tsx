@@ -21,11 +21,11 @@ interface ConsolePanelProps {
 const getIcon = (type: ConsoleOutput["type"]) => {
   switch (type) {
     case "success":
-      return <CheckCircle2 className="h-4 w-4 text-primary" />
+      return <CheckCircle2 className="h-4 w-4 text-success" />
     case "error":
       return <XCircle className="h-4 w-4 text-destructive" />
     case "warning":
-      return <AlertCircle className="h-4 w-4 text-accent" />
+      return <AlertCircle className="h-4 w-4 text-warning" />
     default:
       return null
   }
@@ -34,11 +34,11 @@ const getIcon = (type: ConsoleOutput["type"]) => {
 const getTextColor = (type: ConsoleOutput["type"]) => {
   switch (type) {
     case "success":
-      return "text-primary"
+      return "text-success"
     case "error":
       return "text-destructive"
     case "warning":
-      return "text-accent"
+      return "text-warning"
     default:
       return "text-foreground"
   }
@@ -54,23 +54,23 @@ export function ConsolePanel({ outputs, onClear, isRunning }: ConsolePanelProps)
   }, [outputs])
 
   return (
-    <div className="flex h-full flex-col bg-card">
+    <div className="flex h-full flex-col bg-white">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
         <div className="flex items-center gap-2">
-          <Terminal className="h-4 w-4 text-primary" />
-          <span className="text-sm font-medium text-foreground">Console</span>
+          <Terminal className="h-4 w-4 text-level-purple" />
+          <span className="text-sm font-semibold text-level-purple-dark">Console</span>
           {isRunning && (
-            <Badge variant="secondary" className="animate-pulse text-xs">
+            <Badge className="animate-pulse text-xs bg-level-purple text-white border-0">
               Executando...
             </Badge>
           )}
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7">
+          <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-level-purple-light hover:text-level-purple">
             <Download className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClear}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-level-purple-light hover:text-level-purple" onClick={onClear}>
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -95,8 +95,8 @@ export function ConsolePanel({ outputs, onClear, isRunning }: ConsolePanelProps)
             ))}
             {isRunning && (
               <div className="flex items-center gap-2">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                <span className="text-muted-foreground">Processando...</span>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-level-purple border-t-transparent" />
+                <span className="text-level-purple">Processando...</span>
               </div>
             )}
           </div>
@@ -104,9 +104,9 @@ export function ConsolePanel({ outputs, onClear, isRunning }: ConsolePanelProps)
       </div>
 
       {/* Input line (opcional) */}
-      <div className="border-t border-border px-3 py-2">
+      <div className="border-t border-border px-3 py-2 bg-level-purple-subtle">
         <div className="flex items-center gap-2 font-mono text-sm text-muted-foreground">
-          <span className="text-primary">{">>>"}</span>
+          <span className="text-level-purple font-bold">{">>>"}</span>
           <input
             type="text"
             placeholder="Digite um comando..."

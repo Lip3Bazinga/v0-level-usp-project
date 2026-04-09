@@ -79,22 +79,22 @@ function FileTreeItem({
             onFileSelect(item.id)
           }
         }}
-        className={`group flex w-full items-center gap-1 px-2 py-1 text-sm transition-colors hover:bg-secondary ${
-          isActive ? "bg-primary/10 text-primary" : "text-foreground"
+        className={`group flex w-full items-center gap-1 px-2 py-1.5 text-sm transition-colors hover:bg-level-purple-light ${
+          isActive ? "bg-level-purple-light text-level-purple-dark" : "text-foreground"
         }`}
         style={{ paddingLeft: `${level * 12 + 8}px` }}
       >
         {isFolder ? (
           <>
             {isOpen ? (
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              <ChevronDown className="h-4 w-4 text-level-purple" />
             ) : (
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <ChevronRight className="h-4 w-4 text-level-purple" />
             )}
             {isOpen ? (
-              <FolderOpen className="h-4 w-4 text-accent" />
+              <FolderOpen className="h-4 w-4 text-level-purple" />
             ) : (
-              <Folder className="h-4 w-4 text-accent" />
+              <Folder className="h-4 w-4 text-level-purple" />
             )}
           </>
         ) : (
@@ -143,28 +143,28 @@ export function FileExplorer({ files, activeFileId, onFileSelect }: FileExplorer
   const [searchQuery, setSearchQuery] = useState("")
 
   return (
-    <div className="flex h-full flex-col bg-sidebar">
+    <div className="flex h-full flex-col bg-white">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-sidebar-border px-3 py-2">
-        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      <div className="flex items-center justify-between border-b border-border px-3 py-2">
+        <span className="text-xs font-semibold uppercase tracking-wider text-level-purple-dark">
           Arquivos
         </span>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-6 w-6">
+          <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-level-purple-light hover:text-level-purple">
             <Plus className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
 
       {/* Search */}
-      <div className="border-b border-sidebar-border p-2">
+      <div className="border-b border-border p-2">
         <div className="relative">
           <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar..."
-            className="h-7 bg-sidebar-accent pl-7 text-xs"
+            className="h-7 bg-level-purple-subtle pl-7 text-xs border-0 focus-visible:ring-level-purple"
           />
         </div>
       </div>
@@ -184,9 +184,9 @@ export function FileExplorer({ files, activeFileId, onFileSelect }: FileExplorer
       </ScrollArea>
 
       {/* Footer */}
-      <div className="border-t border-sidebar-border px-3 py-2">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <FileCode className="h-3.5 w-3.5" />
+      <div className="border-t border-border px-3 py-2 bg-level-purple-subtle">
+        <div className="flex items-center gap-2 text-xs text-level-purple-dark">
+          <FileCode className="h-3.5 w-3.5 text-level-purple" />
           <span>3 arquivos</span>
         </div>
       </div>

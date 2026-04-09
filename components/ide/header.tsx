@@ -23,33 +23,38 @@ interface HeaderProps {
 
 export function Header({ xp, maxXp, streak, level, lessonTitle, lessonProgress }: HeaderProps) {
   return (
-    <header className="flex h-14 items-center justify-between border-b border-border bg-card px-4">
+    <header className="flex h-14 items-center justify-between border-b border-border bg-white px-4">
       {/* Logo e Título */}
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <span className="text-sm font-bold text-primary-foreground">L</span>
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-level-purple">
+            <span className="text-sm font-bold text-white">L</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-bold text-foreground">LevelUSP</span>
+            <span className="text-sm font-bold text-level-purple-dark">LevelUSP</span>
             <span className="text-[10px] text-muted-foreground">100% Gratuito</span>
           </div>
         </div>
         <div className="hidden h-6 w-px bg-border md:block" />
         <div className="hidden md:block">
-          <span className="text-sm font-medium text-foreground">{lessonTitle}</span>
+          <span className="text-sm font-medium text-level-purple-dark">{lessonTitle}</span>
         </div>
       </div>
 
       {/* Barra de progresso central */}
       <div className="hidden flex-1 items-center justify-center gap-3 px-8 md:flex">
-        <div className="flex items-center gap-2">
-          <Trophy className="h-4 w-4 text-accent" />
-          <span className="text-xs font-medium text-muted-foreground">Nível {level}</span>
+        <div className="flex items-center gap-2 rounded-full bg-level-purple-light px-3 py-1">
+          <Trophy className="h-4 w-4 text-level-purple" />
+          <span className="text-xs font-semibold text-level-purple-dark">Nível {level}</span>
         </div>
         <div className="relative w-64">
-          <Progress value={lessonProgress} className="h-2" />
-          <span className="absolute right-0 top-3 text-[10px] text-muted-foreground">
+          <div className="h-3 w-full overflow-hidden rounded-full bg-level-purple-subtle">
+            <div 
+              className="h-full rounded-full bg-gradient-to-r from-level-purple to-level-purple-medium transition-all duration-500"
+              style={{ width: `${lessonProgress}%` }}
+            />
+          </div>
+          <span className="absolute right-0 top-4 text-[10px] font-medium text-level-purple">
             {lessonProgress}% completo
           </span>
         </div>
@@ -58,33 +63,33 @@ export function Header({ xp, maxXp, streak, level, lessonTitle, lessonProgress }
       {/* Gamificação e Perfil */}
       <div className="flex items-center gap-3">
         {/* XP */}
-        <div className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5">
-          <Zap className="h-4 w-4 text-primary" />
+        <div className="flex items-center gap-1.5 rounded-full bg-level-purple px-3 py-1.5 text-white">
+          <Zap className="h-4 w-4 text-yellow-300" />
           <div className="flex flex-col">
-            <span className="text-xs font-bold text-foreground">{xp.toLocaleString()}</span>
-            <span className="text-[9px] text-muted-foreground">/{maxXp.toLocaleString()} XP</span>
+            <span className="text-xs font-bold">{xp.toLocaleString()}</span>
+            <span className="text-[9px] opacity-80">/{maxXp.toLocaleString()} XP</span>
           </div>
         </div>
 
         {/* Streak */}
-        <div className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5">
-          <Flame className="h-4 w-4 text-accent" />
+        <div className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-orange-500 to-red-500 px-3 py-1.5 text-white">
+          <Flame className="h-4 w-4 text-yellow-300" />
           <div className="flex flex-col">
-            <span className="text-xs font-bold text-foreground">{streak}</span>
-            <span className="text-[9px] text-muted-foreground">dias</span>
+            <span className="text-xs font-bold">{streak}</span>
+            <span className="text-[9px] opacity-80">dias</span>
           </div>
         </div>
 
         {/* Avatar/Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 px-2">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+            <Button variant="ghost" className="flex items-center gap-2 rounded-full px-2 hover:bg-level-purple-light">
+              <Avatar className="h-8 w-8 border-2 border-level-purple">
+                <AvatarFallback className="bg-level-purple-light text-level-purple-dark text-xs font-bold">
                   JS
                 </AvatarFallback>
               </Avatar>
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              <ChevronDown className="h-4 w-4 text-level-purple" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
