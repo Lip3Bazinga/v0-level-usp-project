@@ -25,6 +25,8 @@ interface CodeEditorProps {
   onContentChange: (fileId: string, content: string) => void
   onRun: () => void
   onReset: () => void
+  isRunning?: boolean
+  pyodideStatus?: "idle" | "loading" | "ready" | "error"
 }
 
 const getLanguageIcon = (lang: string) => {
@@ -60,6 +62,8 @@ export function CodeEditor({
   onContentChange,
   onRun,
   onReset,
+  isRunning = false,
+  pyodideStatus = "idle",
 }: CodeEditorProps) {
   const [copied, setCopied] = useState(false)
   const activeFile = files.find((f) => f.id === activeFileId)
@@ -156,15 +160,30 @@ export function CodeEditor({
               <TooltipTrigger asChild>
                 <Button
                   size="sm"
-                  className="ml-2 gap-2 bg-level-purple hover:bg-level-purple-medium text-white rounded-lg"
+                  className="ml-2 gap-2 bg-level-purple hover:bg-level-purple-medium text-white rounded-lg disabled:opacity-50"
                   onClick={onRun}
+                  disabled={isRunning || pyodideStatus === "loading"}
                 >
-                  <Play className="h-4 w-4" />
-                  Executar
+                  {isRunning ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      Executando...
+                    </>
+                  ) : pyodideStatus === "loading" ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      Carregando...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4" />
+                      Executar
+                    </>
+                  )}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Ctrl + Enter</p>
+                <p>{pyodideStatus === "ready" ? "Ctrl + Enter" : "Aguarde o Python carregar"}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -204,8 +223,18 @@ export function CodeEditor({
           <span>Linha {lines.length}</span>
           <span>
             {activeFile?.language === "python"
-              ? "Python 3.11"
+              ? "Python 3.11 (Pyodide)"
               : activeFile?.language.toUpperCase()}
+          </span>
+          <span className="flex items-center gap-1">
+            <span className={`h-2 w-2 rounded-full ${
+              pyodideStatus === "ready" ? "bg-success" :
+              pyodideStatus === "loading" ? "bg-warning animate-pulse" :
+              pyodideStatus === "error" ? "bg-destructive" : "bg-muted-foreground"
+            }`} />
+            {pyodideStatus === "ready" ? "Pronto" :
+             pyodideStatus === "loading" ? "Carregando..." :
+             pyodideStatus === "error" ? "Erro" : "Aguardando"}
           </span>
         </div>
         <div className="flex items-center gap-4">

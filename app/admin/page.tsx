@@ -2,24 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { 
-  ArrowLeft, 
-  Save, 
-  Eye, 
-  Plus, 
-  Trash2, 
-  GripVertical,
-  BookOpen,
-  Code2,
-  FlaskConical,
-  CheckCircle2,
-  AlertCircle,
-  Info,
-  ChevronDown,
-  X,
-  FileText,
-  Play
-} from "lucide-react"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { LevelButton } from "@/components/design-system/level-button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -30,496 +13,297 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+  Rocket,
+  ChevronLeft,
+  Users,
+  BookOpen,
+  BarChart3,
+  Shield,
+  Search,
+  MoreHorizontal,
+  UserCheck,
+  UserX,
+  TrendingUp,
+  Activity,
+  GraduationCap,
+  Crown,
+  AlertCircle,
+} from "lucide-react"
 
-// Available libraries for Python lessons
-const AVAILABLE_LIBRARIES = [
-  { id: "pandas", name: "Pandas", description: "Manipulacao de dados" },
-  { id: "numpy", name: "NumPy", description: "Computacao numerica" },
-  { id: "matplotlib", name: "Matplotlib", description: "Visualizacao de dados" },
-  { id: "seaborn", name: "Seaborn", description: "Visualizacao estatistica" },
-  { id: "scikit-learn", name: "Scikit-learn", description: "Machine Learning" },
-  { id: "scipy", name: "SciPy", description: "Computacao cientifica" },
-  { id: "requests", name: "Requests", description: "HTTP requests" },
-  { id: "beautifulsoup4", name: "BeautifulSoup", description: "Web scraping" },
+// Mock platform metrics
+const platformMetrics = {
+  totalUsers: 12487,
+  activeUsers30d: 8342,
+  totalLessons: 156,
+  publishedLessons: 128,
+  totalCompletions: 245000,
+  avgDailyActive: 2150,
+  teachers: 23,
+  admins: 3,
+}
+
+// Mock users for management
+const mockUsers = [
+  { id: "1", name: "Ana Beatriz Souza", email: "ana.souza@usp.br", role: "student" as const, level: 32, totalXp: 78450, status: "active" as const, joinedAt: "2024-01-15" },
+  { id: "2", name: "Prof. Ricardo Lima", email: "ricardo.lima@usp.br", role: "teacher" as const, level: 45, totalXp: 120000, status: "active" as const, joinedAt: "2023-09-01" },
+  { id: "3", name: "Carlos Eduardo Mendes", email: "carlos.mendes@usp.br", role: "student" as const, level: 30, totalXp: 72100, status: "active" as const, joinedAt: "2024-02-20" },
+  { id: "4", name: "Maria Clara Ferreira", email: "maria.ferreira@usp.br", role: "student" as const, level: 29, totalXp: 68920, status: "inactive" as const, joinedAt: "2024-03-10" },
+  { id: "5", name: "Prof. Juliana Santos", email: "juliana.santos@usp.br", role: "teacher" as const, level: 38, totalXp: 95000, status: "active" as const, joinedAt: "2023-11-15" },
+  { id: "6", name: "Pedro Henrique Oliveira", email: "pedro.oliveira@usp.br", role: "student" as const, level: 27, totalXp: 61500, status: "active" as const, joinedAt: "2024-04-05" },
+  { id: "7", name: "Fernanda Lima Costa", email: "fernanda.costa@usp.br", role: "student" as const, level: 25, totalXp: 54800, status: "active" as const, joinedAt: "2024-05-12" },
+  { id: "8", name: "Admin Sistema", email: "admin@levelusp.com", role: "admin" as const, level: 50, totalXp: 200000, status: "active" as const, joinedAt: "2023-01-01" },
 ]
 
+function getRoleBadge(role: string) {
+  switch (role) {
+    case "admin":
+      return <Badge className="bg-destructive/10 text-destructive border-0 text-xs">Admin</Badge>
+    case "teacher":
+      return <Badge className="bg-level-purple/10 text-level-purple border-0 text-xs">Professor</Badge>
+    default:
+      return <Badge className="bg-muted text-muted-foreground border-0 text-xs">Aluno</Badge>
+  }
+}
+
+function getStatusBadge(status: string) {
+  switch (status) {
+    case "active":
+      return <Badge className="bg-success/10 text-success border-0 text-xs">Ativo</Badge>
+    default:
+      return <Badge className="bg-muted text-muted-foreground border-0 text-xs">Inativo</Badge>
+  }
+}
+
 export default function AdminPage() {
-  // Lesson form state
-  const [lessonTitle, setLessonTitle] = useState("")
-  const [lessonOrder, setLessonOrder] = useState(1)
-  const [lessonContent, setLessonContent] = useState(`## Introducao
+  const [searchQuery, setSearchQuery] = useState("")
+  const [roleFilter, setRoleFilter] = useState("all")
+  const [users, setUsers] = useState(mockUsers)
 
-Escreva aqui o conteudo da licao em **Markdown**.
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch =
+      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesRole = roleFilter === "all" || user.role === roleFilter
+    return matchesSearch && matchesRole
+  })
 
-### Objetivos
-- Objetivo 1
-- Objetivo 2
-
-### Conceitos
-Explique os conceitos principais...
-
-\`\`\`python
-# Exemplo de codigo
-print("Hello, World!")
-\`\`\`
-`)
-  const [lessonModule, setLessonModule] = useState("python-basico")
-  const [lessonDifficulty, setLessonDifficulty] = useState("iniciante")
-
-  // Challenge form state
-  const [starterCode, setStarterCode] = useState(`# Escreva sua solucao aqui
-def soma(a, b):
-    # Implemente a funcao
-    pass
-
-# Teste sua funcao
-resultado = soma(2, 3)
-print(f"Resultado: {resultado}")
-`)
-  const [hiddenTests, setHiddenTests] = useState(`import unittest
-
-class TestSoma(unittest.TestCase):
-    def test_soma_positivos(self):
-        self.assertEqual(soma(2, 3), 5)
-    
-    def test_soma_negativos(self):
-        self.assertEqual(soma(-1, -1), -2)
-    
-    def test_soma_zero(self):
-        self.assertEqual(soma(0, 0), 0)
-
-if __name__ == '__main__':
-    unittest.main()
-`)
-  const [selectedLibraries, setSelectedLibraries] = useState<string[]>(["numpy"])
-  const [xpReward, setXpReward] = useState(50)
-  const [timeLimit, setTimeLimit] = useState(300)
-
-  // UI state
-  const [isSaving, setIsSaving] = useState(false)
-  const [showPreview, setShowPreview] = useState(false)
-
-  const toggleLibrary = (libId: string) => {
-    setSelectedLibraries(prev => 
-      prev.includes(libId) 
-        ? prev.filter(id => id !== libId)
-        : [...prev, libId]
+  const handleRoleChange = (userId: string, newRole: "student" | "teacher" | "admin") => {
+    setUsers((prev: any) =>
+      prev.map((u: any) => (u.id === userId ? { ...u, role: newRole } : u))
     )
   }
 
-  const handleSave = async () => {
-    setIsSaving(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    setIsSaving(false)
-  }
-
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border bg-white/95 backdrop-blur">
+      <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-2 text-muted-foreground hover:text-level-purple transition-colors">
-              <ArrowLeft className="h-4 w-4" />
-              <span className="text-sm">Voltar</span>
+            <Link href="/dashboard" className="flex items-center gap-2 text-muted-foreground hover:text-level-purple transition-colors">
+              <ChevronLeft className="h-4 w-4" />
+              <span className="text-sm">Dashboard</span>
             </Link>
             <div className="h-6 w-px bg-border" />
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-level-purple">
-                <BookOpen className="h-4 w-4 text-white" />
+                <Shield className="h-4 w-4 text-white" />
               </div>
               <div>
-                <h1 className="text-sm font-semibold text-level-purple-dark">Painel do Professor</h1>
-                <p className="text-xs text-muted-foreground">Criar Nova Licao</p>
+                <h1 className="text-sm font-semibold text-level-purple-dark">Admin Console</h1>
+                <p className="text-xs text-muted-foreground">Gestao da Plataforma</p>
               </div>
             </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    onClick={() => setShowPreview(!showPreview)}
-                    className="flex items-center gap-2 rounded-xl border-2 border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:border-level-purple hover:text-level-purple transition-colors"
-                  >
-                    <Eye className="h-4 w-4" />
-                    Preview
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Visualizar licao</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            
-            <LevelButton 
-              variant="primary" 
-              size="md"
-              onClick={handleSave}
-              disabled={isSaving || !lessonTitle}
-            >
-              {isSaving ? (
-                <span className="flex items-center gap-2">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  Salvando...
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  <Save className="h-4 w-4" />
-                  Salvar Licao
-                </span>
-              )}
-            </LevelButton>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="mx-auto max-w-7xl px-6 py-8">
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-          
-          {/* Left Column - Lesson Form */}
-          <div className="space-y-6">
-            <div className="rounded-2xl border-2 border-border bg-white p-6">
-              <div className="mb-6 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple-light">
-                  <FileText className="h-5 w-5 text-level-purple" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-level-purple-dark">Criar Nova Licao</h2>
-                  <p className="text-sm text-muted-foreground">Defina o conteudo educativo</p>
-                </div>
+        {/* Platform Metrics */}
+        <h2 className="mb-4 text-lg font-bold text-level-purple-dark">Metricas da Plataforma</h2>
+        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-2xl border border-border bg-white p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple-light">
+                <Users className="h-5 w-5 text-level-purple" />
               </div>
-
-              <div className="space-y-5">
-                {/* Title */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-level-purple-dark">
-                    Titulo da Licao <span className="text-destructive">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={lessonTitle}
-                    onChange={(e) => setLessonTitle(e.target.value)}
-                    placeholder="Ex: Introducao a Variaveis em Python"
-                    className="w-full rounded-xl border-2 border-border bg-white px-4 py-3 text-foreground placeholder:text-muted-foreground focus:border-level-purple focus:outline-none transition-colors"
-                  />
-                </div>
-
-                {/* Order and Module Row */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-level-purple-dark">
-                      Ordem
-                    </label>
-                    <input
-                      type="number"
-                      value={lessonOrder}
-                      onChange={(e) => setLessonOrder(parseInt(e.target.value) || 1)}
-                      min={1}
-                      className="w-full rounded-xl border-2 border-border bg-white px-4 py-3 text-foreground focus:border-level-purple focus:outline-none transition-colors"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-level-purple-dark">
-                      Modulo
-                    </label>
-                    <Select value={lessonModule} onValueChange={setLessonModule}>
-                      <SelectTrigger className="h-12 rounded-xl border-2 border-border focus:border-level-purple focus:ring-0">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="python-basico">Python Basico</SelectItem>
-                        <SelectItem value="python-intermediario">Python Intermediario</SelectItem>
-                        <SelectItem value="ciencia-dados">Ciencia de Dados</SelectItem>
-                        <SelectItem value="machine-learning">Machine Learning</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Difficulty */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-level-purple-dark">
-                    Dificuldade
-                  </label>
-                  <div className="flex gap-2">
-                    {[
-                      { value: "iniciante", label: "Iniciante", color: "bg-success" },
-                      { value: "intermediario", label: "Intermediario", color: "bg-warning" },
-                      { value: "avancado", label: "Avancado", color: "bg-destructive" },
-                    ].map((diff) => (
-                      <button
-                        key={diff.value}
-                        onClick={() => setLessonDifficulty(diff.value)}
-                        className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all ${
-                          lessonDifficulty === diff.value
-                            ? "bg-level-purple text-white"
-                            : "bg-level-purple-subtle text-level-purple-dark hover:bg-level-purple-light"
-                        }`}
-                      >
-                        <span className={`h-2 w-2 rounded-full ${diff.color}`} />
-                        {diff.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Markdown Content */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-level-purple-dark">
-                      Conteudo em Markdown
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <Badge className="bg-level-purple-light text-level-purple-dark border-0 text-xs">
-                        Markdown
-                      </Badge>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <Info className="h-4 w-4 text-muted-foreground" />
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <p>Use Markdown para formatar: **negrito**, *italico*, # titulos, ```codigo```</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                  </div>
-                  <textarea
-                    value={lessonContent}
-                    onChange={(e) => setLessonContent(e.target.value)}
-                    rows={16}
-                    className="w-full rounded-xl border-2 border-border bg-level-purple-subtle/30 px-4 py-3 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:border-level-purple focus:outline-none transition-colors resize-none"
-                  />
-                </div>
+              <div>
+                <p className="text-2xl font-bold text-level-purple-dark">{platformMetrics.totalUsers.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Usuarios Total</p>
               </div>
             </div>
           </div>
-
-          {/* Right Column - Challenge Configuration */}
-          <div className="space-y-6">
-            {/* Starter Code */}
-            <div className="rounded-2xl border-2 border-border bg-white p-6">
-              <div className="mb-6 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple-light">
-                    <Code2 className="h-5 w-5 text-level-purple" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-semibold text-level-purple-dark">Desafio Pratico</h2>
-                    <p className="text-sm text-muted-foreground">Codigo inicial para o aluno</p>
-                  </div>
-                </div>
-                <button className="flex items-center gap-2 rounded-xl bg-level-purple-subtle px-3 py-2 text-sm font-medium text-level-purple hover:bg-level-purple-light transition-colors">
-                  <Play className="h-4 w-4" />
-                  Testar
-                </button>
+          <div className="rounded-2xl border border-border bg-white p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/10">
+                <Activity className="h-5 w-5 text-success" />
               </div>
-
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-level-purple-dark">
-                    Codigo Inicial (Starter Code)
-                  </label>
-                  <div className="overflow-hidden rounded-xl border-2 border-border">
-                    <div className="flex items-center justify-between bg-editor-bg px-4 py-2">
-                      <span className="text-xs font-medium text-gray-400">main.py</span>
-                      <Badge className="bg-level-purple/20 text-level-purple-medium border-0 text-xs">
-                        Python
-                      </Badge>
-                    </div>
-                    <textarea
-                      value={starterCode}
-                      onChange={(e) => setStarterCode(e.target.value)}
-                      rows={10}
-                      className="w-full border-0 bg-editor-bg px-4 py-3 font-mono text-sm text-gray-300 placeholder:text-gray-500 focus:outline-none resize-none"
-                    />
-                  </div>
-                </div>
-
-                {/* XP and Time Limit Row */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-level-purple-dark">
-                      Recompensa XP
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={xpReward}
-                        onChange={(e) => setXpReward(parseInt(e.target.value) || 0)}
-                        min={0}
-                        step={10}
-                        className="w-full rounded-xl border-2 border-border bg-white px-4 py-3 pr-12 text-foreground focus:border-level-purple focus:outline-none transition-colors"
-                      />
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-level-purple">
-                        XP
-                      </span>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-level-purple-dark">
-                      Tempo Limite
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={timeLimit}
-                        onChange={(e) => setTimeLimit(parseInt(e.target.value) || 0)}
-                        min={0}
-                        step={30}
-                        className="w-full rounded-xl border-2 border-border bg-white px-4 py-3 pr-12 text-foreground focus:border-level-purple focus:outline-none transition-colors"
-                      />
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
-                        seg
-                      </span>
-                    </div>
-                  </div>
-                </div>
+              <div>
+                <p className="text-2xl font-bold text-level-purple-dark">{platformMetrics.activeUsers30d.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Ativos (30 dias)</p>
               </div>
             </div>
-
-            {/* Hidden Tests */}
-            <div className="rounded-2xl border-2 border-border bg-white p-6">
-              <div className="mb-6 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple-light">
-                  <FlaskConical className="h-5 w-5 text-level-purple" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-level-purple-dark">Testes Unitarios</h2>
-                  <p className="text-sm text-muted-foreground">Script de validacao oculto</p>
-                </div>
+          </div>
+          <div className="rounded-2xl border border-border bg-white p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-warning/10">
+                <TrendingUp className="h-5 w-5 text-warning" />
               </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 rounded-xl bg-warning/10 px-4 py-3">
-                  <AlertCircle className="h-4 w-4 text-warning" />
-                  <span className="text-sm text-warning">Os testes sao ocultos para o aluno</span>
-                </div>
-
-                <div className="overflow-hidden rounded-xl border-2 border-border">
-                  <div className="flex items-center justify-between bg-editor-bg px-4 py-2">
-                    <span className="text-xs font-medium text-gray-400">test_solution.py</span>
-                    <Badge className="bg-success/20 text-success border-0 text-xs">
-                      unittest
-                    </Badge>
-                  </div>
-                  <textarea
-                    value={hiddenTests}
-                    onChange={(e) => setHiddenTests(e.target.value)}
-                    rows={12}
-                    className="w-full border-0 bg-editor-bg px-4 py-3 font-mono text-sm text-gray-300 placeholder:text-gray-500 focus:outline-none resize-none"
-                  />
-                </div>
+              <div>
+                <p className="text-2xl font-bold text-level-purple-dark">{platformMetrics.avgDailyActive.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Media Diaria Ativa</p>
               </div>
             </div>
-
-            {/* Libraries Selection */}
-            <div className="rounded-2xl border-2 border-border bg-white p-6">
-              <div className="mb-6 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple-light">
-                  <Plus className="h-5 w-5 text-level-purple" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-level-purple-dark">Bibliotecas</h2>
-                  <p className="text-sm text-muted-foreground">Selecione as bibliotecas disponiveis</p>
-                </div>
+          </div>
+          <div className="rounded-2xl border border-border bg-white p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple-light">
+                <BookOpen className="h-5 w-5 text-level-purple" />
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                {AVAILABLE_LIBRARIES.map((lib) => {
-                  const isSelected = selectedLibraries.includes(lib.id)
-                  return (
-                    <button
-                      key={lib.id}
-                      onClick={() => toggleLibrary(lib.id)}
-                      className={`flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-all ${
-                        isSelected
-                          ? "border-level-purple bg-level-purple-light"
-                          : "border-border bg-white hover:border-level-purple-medium hover:bg-level-purple-subtle"
-                      }`}
-                    >
-                      <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                        isSelected ? "bg-level-purple" : "bg-level-purple-subtle"
-                      }`}>
-                        {isSelected ? (
-                          <CheckCircle2 className="h-4 w-4 text-white" />
-                        ) : (
-                          <Plus className="h-4 w-4 text-level-purple" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-medium truncate ${
-                          isSelected ? "text-level-purple-dark" : "text-foreground"
-                        }`}>
-                          {lib.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {lib.description}
-                        </p>
-                      </div>
-                    </button>
-                  )
-                })}
+              <div>
+                <p className="text-2xl font-bold text-level-purple-dark">{platformMetrics.publishedLessons}/{platformMetrics.totalLessons}</p>
+                <p className="text-xs text-muted-foreground">Licoes Publicadas</p>
               </div>
-
-              {selectedLibraries.length > 0 && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {selectedLibraries.map((libId) => {
-                    const lib = AVAILABLE_LIBRARIES.find(l => l.id === libId)
-                    return (
-                      <Badge 
-                        key={libId}
-                        className="bg-level-purple text-white border-0 px-3 py-1 flex items-center gap-1"
-                      >
-                        {lib?.name}
-                        <button 
-                          onClick={() => toggleLibrary(libId)}
-                          className="ml-1 hover:bg-white/20 rounded-full p-0.5 transition-colors"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    )
-                  })}
-                </div>
-              )}
             </div>
           </div>
         </div>
 
-        {/* Bottom Actions */}
-        <div className="mt-8 flex items-center justify-between rounded-2xl border-2 border-level-purple-light bg-level-purple-subtle/50 p-6">
-          <div className="flex items-center gap-3">
-            <CheckCircle2 className="h-5 w-5 text-success" />
+        {/* Role Distribution */}
+        <div className="mb-8 grid gap-4 sm:grid-cols-3">
+          <div className="flex items-center gap-4 rounded-2xl border border-border bg-white p-5">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted">
+              <GraduationCap className="h-6 w-6 text-muted-foreground" />
+            </div>
             <div>
-              <p className="text-sm font-medium text-level-purple-dark">Pronto para salvar</p>
-              <p className="text-xs text-muted-foreground">
-                {lessonTitle ? `"${lessonTitle}"` : "Adicione um titulo"} - {selectedLibraries.length} bibliotecas selecionadas
+              <p className="text-2xl font-bold text-level-purple-dark">
+                {platformMetrics.totalUsers - platformMetrics.teachers - platformMetrics.admins}
               </p>
+              <p className="text-sm text-muted-foreground">Alunos</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <LevelButton variant="outline" size="sm">
-              Salvar Rascunho
-            </LevelButton>
-            <LevelButton 
-              variant="primary" 
-              size="sm"
-              onClick={handleSave}
-              disabled={isSaving || !lessonTitle}
-            >
-              Publicar Licao
-            </LevelButton>
+          <div className="flex items-center gap-4 rounded-2xl border border-border bg-white p-5">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-level-purple-light">
+              <BookOpen className="h-6 w-6 text-level-purple" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-level-purple-dark">{platformMetrics.teachers}</p>
+              <p className="text-sm text-muted-foreground">Professores</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 rounded-2xl border border-border bg-white p-5">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10">
+              <Crown className="h-6 w-6 text-destructive" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-level-purple-dark">{platformMetrics.admins}</p>
+              <p className="text-sm text-muted-foreground">Administradores</p>
+            </div>
+          </div>
+        </div>
+
+        {/* User Management */}
+        <h2 className="mb-4 text-lg font-bold text-level-purple-dark">Gestao de Usuarios</h2>
+        <div className="rounded-2xl border border-border bg-white">
+          {/* Toolbar */}
+          <div className="flex flex-col gap-4 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar por nome ou email..."
+                className="w-full rounded-xl border border-border bg-white pl-10 pr-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-level-purple focus:outline-none transition-colors"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              {[
+                { value: "all", label: "Todos" },
+                { value: "student", label: "Alunos" },
+                { value: "teacher", label: "Professores" },
+                { value: "admin", label: "Admins" },
+              ].map((f) => (
+                <button
+                  key={f.value}
+                  onClick={() => setRoleFilter(f.value)}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${roleFilter === f.value
+                    ? "bg-level-purple text-white"
+                    : "bg-muted text-muted-foreground hover:bg-level-purple-subtle"
+                    }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* User Table */}
+          <div className="divide-y divide-border">
+            {filteredUsers.map((user) => (
+              <div key={user.id} className="flex items-center gap-4 p-4 hover:bg-muted/30 transition-colors">
+                <Avatar className="h-10 w-10 shrink-0">
+                  <AvatarFallback className={`text-sm font-bold ${user.role === "admin" ? "bg-destructive/10 text-destructive" :
+                    user.role === "teacher" ? "bg-level-purple-light text-level-purple-dark" :
+                      "bg-muted text-muted-foreground"
+                    }`}>
+                    {user.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                  </AvatarFallback>
+                </Avatar>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-semibold text-level-purple-dark">{user.name}</p>
+                    {getRoleBadge(user.role)}
+                    {getStatusBadge(user.status)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{user.email}</p>
+                </div>
+
+                <div className="hidden sm:flex items-center gap-6 text-sm">
+                  <div className="text-center">
+                    <p className="font-semibold text-level-purple-dark">Nv. {user.level}</p>
+                    <p className="text-xs text-muted-foreground">Nivel</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="font-semibold text-level-purple-dark">{user.totalXp.toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">XP</p>
+                  </div>
+                </div>
+
+                {/* Role Change Dropdown */}
+                <Select
+                  value={user.role}
+                  onValueChange={(value) => handleRoleChange(user.id, value as "student" | "teacher" | "admin")}
+                >
+                  <SelectTrigger className="h-9 w-32 rounded-lg border border-border text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="student">Aluno</SelectItem>
+                    <SelectItem value="teacher">Professor</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+
+            {filteredUsers.length === 0 && (
+              <div className="py-12 text-center">
+                <Users className="mx-auto h-12 w-12 text-muted-foreground/30" />
+                <p className="mt-4 text-sm text-muted-foreground">Nenhum usuario encontrado</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Warning */}
+        <div className="mt-6 flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/5 p-4">
+          <AlertCircle className="h-5 w-5 shrink-0 text-warning mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-warning">Atencao ao promover usuarios</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Professores podem criar e editar licoes. Administradores tem acesso total a plataforma.
+              Altere roles com cuidado.
+            </p>
           </div>
         </div>
       </main>

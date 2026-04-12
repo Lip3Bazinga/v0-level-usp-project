@@ -1,336 +1,480 @@
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
 import { LevelButton } from "@/components/design-system/level-button"
-import { LevelProgress } from "@/components/design-system/level-progress"
-import { CourseCard } from "@/components/design-system/course-card"
-import { XPBadge } from "@/components/design-system/xp-badge"
-import { StreakCounter } from "@/components/design-system/streak-counter"
-import { Code2, Database, Globe, Rocket, Terminal, BookOpen, ExternalLink, Zap, Trophy, Flame } from "lucide-react"
+import { 
+  Code2, 
+  Database, 
+  Gamepad2, 
+  Rocket, 
+  ChevronRight, 
+  Play,
+  BookOpen,
+  Users,
+  Trophy,
+  Zap,
+  ArrowRight,
+  CheckCircle2,
+  Terminal,
+  FileCode,
+  Star
+} from "lucide-react"
 
-export default function DesignSystemShowcase() {
-  const [progress, setProgress] = useState(65)
-
+export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-sm">
+    <div className="min-h-screen bg-white">
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-gray-100 bg-white/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#7C3AED]">
               <Rocket className="h-5 w-5 text-white" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-level-purple-dark">LevelUSP</h1>
-              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Iniciativa USP
-              </p>
-            </div>
+            <span className="text-xl font-bold text-[#4C1D95]">LevelUSP</span>
+          </div>
+          
+          <div className="hidden items-center gap-8 md:flex">
+            <a href="#features" className="text-sm font-medium text-gray-600 hover:text-[#7C3AED] transition-colors">
+              Recursos
+            </a>
+            <a href="#courses" className="text-sm font-medium text-gray-600 hover:text-[#7C3AED] transition-colors">
+              Cursos
+            </a>
+            <a href="#ide" className="text-sm font-medium text-gray-600 hover:text-[#7C3AED] transition-colors">
+              IDE
+            </a>
           </div>
 
-          {/* Gamification Stats */}
           <div className="flex items-center gap-3">
-            <XPBadge type="xp" value="2,450" />
-            <StreakCounter days={7} />
-            <XPBadge type="level" value={12} />
+            <Link href="/login" className="hidden text-sm font-medium text-[#7C3AED] hover:text-[#4C1D95] transition-colors sm:block">
+              Entrar
+            </Link>
+            <Link href="/signup">
+              <button className="rounded-full bg-[#7C3AED] px-6 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[#6D28D9] hover:shadow-lg hover:shadow-purple-200">
+                Comecar Gratis
+              </button>
+            </Link>
           </div>
         </div>
-      </header>
+      </nav>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-level-purple-light to-white py-16 sm:py-24">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiM3QzNBRUQiIGZpbGwtb3BhY2l0eT0iMC4wNCI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iNCIvPjwvZz48L2c+PC9zdmc+')] opacity-50" />
+      <section className="relative overflow-hidden pt-32 pb-20 lg:pt-40 lg:pb-32">
+        {/* Background decoration */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] rounded-full bg-gradient-to-b from-[#F3E8FF] to-transparent opacity-60 blur-3xl" />
         
-        <div className="relative mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
-          <div className="inline-flex items-center gap-2 rounded-full bg-level-purple-subtle px-4 py-2 text-sm font-medium text-level-purple-dark mb-6">
-            <Zap className="h-4 w-4 text-level-purple" />
-            100% Gratuito
-          </div>
-          
-          <h1 className="mx-auto max-w-4xl text-4xl font-bold tracking-tight text-level-purple-dark sm:text-5xl lg:text-6xl text-balance">
-            Aprenda programação de forma
-            <span className="text-level-purple"> gamificada</span>
-          </h1>
-          
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground text-pretty">
-            Uma iniciativa da Universidade de São Paulo para expandir o conhecimento 
-            de computação por todo o Brasil. Sem custos, sem barreiras.
-          </p>
-
-          <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <LevelButton size="lg" variant="primary">
-              Começar Agora
-            </LevelButton>
-            <Link href="/ide">
-              <LevelButton size="lg" variant="outline">
-                <span className="flex items-center gap-2">
-                  Ver IDE
-                  <ExternalLink className="h-4 w-4" />
-                </span>
-              </LevelButton>
-            </Link>
-            <Link href="/perfil">
-              <LevelButton size="lg" variant="secondary">
-                <span className="flex items-center gap-2">
-                  Ver Perfil
-                  <ExternalLink className="h-4 w-4" />
-                </span>
-              </LevelButton>
-            </Link>
-            <Link href="/landing">
-              <LevelButton size="lg" variant="ghost">
-                <span className="flex items-center gap-2">
-                  Landing Page
-                  <ExternalLink className="h-4 w-4" />
-                </span>
-              </LevelButton>
-            </Link>
-            <Link href="/admin">
-              <LevelButton size="lg" variant="ghost">
-                <span className="flex items-center gap-2">
-                  Painel Admin
-                  <ExternalLink className="h-4 w-4" />
-                </span>
-              </LevelButton>
-            </Link>
-          </div>
-
-          {/* Stats */}
-          <div className="mt-16 grid grid-cols-3 gap-8 border-t border-level-purple-subtle pt-10">
-            <div>
-              <div className="text-3xl font-bold text-level-purple-dark">50K+</div>
-              <div className="text-sm text-muted-foreground">Estudantes ativos</div>
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 rounded-full bg-[#F3E8FF] px-4 py-2 text-sm font-medium text-[#7C3AED] mb-8">
+              <Zap className="h-4 w-4" />
+              Uma iniciativa da USP - 100% Gratuito
             </div>
-            <div>
-              <div className="text-3xl font-bold text-level-purple-dark">200+</div>
-              <div className="text-sm text-muted-foreground">Lições interativas</div>
+            
+            {/* Main heading */}
+            <h1 className="mx-auto max-w-4xl text-5xl font-bold tracking-tight text-[#4C1D95] sm:text-6xl lg:text-7xl text-balance leading-tight">
+              Aprenda a programar de forma{" "}
+              <span className="relative">
+                <span className="relative z-10 text-[#7C3AED]">gamificada</span>
+                <span className="absolute bottom-2 left-0 right-0 h-3 bg-[#E9D5FF] -z-0 rounded" />
+              </span>
+            </h1>
+            
+            {/* Subtitle */}
+            <p className="mx-auto mt-8 max-w-2xl text-xl text-gray-600 leading-relaxed text-pretty">
+              Transforme sua jornada de aprendizado em uma aventura. Ganhe XP, 
+              conquiste badges e evolua suas habilidades enquanto domina Python 
+              e Ciencia de Dados.
+            </p>
+
+            {/* CTA Buttons */}
+            <div className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row">
+              <Link href="/signup">
+                <button className="group relative inline-flex items-center gap-2 rounded-2xl bg-[#7C3AED] px-10 py-5 text-lg font-bold text-white transition-all hover:bg-[#6D28D9] btn-3d">
+                  <Play className="h-5 w-5" />
+                  Comecar Agora
+                  <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                </button>
+              </Link>
+              <button className="inline-flex items-center gap-2 rounded-2xl border-2 border-[#E9D5FF] px-8 py-4 text-lg font-semibold text-[#7C3AED] transition-all hover:bg-[#F3E8FF] hover:border-[#7C3AED]">
+                <BookOpen className="h-5 w-5" />
+                Ver Cursos
+              </button>
             </div>
-            <div>
-              <div className="text-3xl font-bold text-level-purple-dark">15</div>
-              <div className="text-sm text-muted-foreground">Trilhas de aprendizado</div>
+
+            {/* Social proof */}
+            <div className="mt-16 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+              <div className="flex -space-x-3">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div
+                    key={i}
+                    className="h-10 w-10 rounded-full border-2 border-white bg-gradient-to-br from-[#A78BFA] to-[#7C3AED]"
+                  />
+                ))}
+              </div>
+              <div className="text-left">
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                  ))}
+                </div>
+                <p className="text-sm text-gray-600">
+                  <span className="font-semibold text-[#4C1D95]">50,000+</span> estudantes ativos
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Design System Showcase */}
-      <section className="py-16 sm:py-24">
+      {/* Features Section */}
+      <section id="features" className="py-24 lg:py-32">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-level-purple-dark">Design System</h2>
-            <p className="mt-4 text-muted-foreground">
-              Componentes modernos e gamificados para a plataforma LevelUSP
+          <div className="text-center mb-20">
+            <p className="text-sm font-semibold uppercase tracking-wider text-[#7C3AED] mb-4">
+              Recursos
+            </p>
+            <h2 className="text-4xl font-bold text-[#4C1D95] sm:text-5xl">
+              Tudo que voce precisa para aprender
+            </h2>
+            <p className="mt-6 text-lg text-gray-600 max-w-2xl mx-auto">
+              Uma plataforma completa com ferramentas modernas e metodologia gamificada
             </p>
           </div>
 
-          {/* Buttons Section */}
-          <div className="mb-16">
-            <h3 className="mb-6 text-lg font-semibold text-level-purple-dark">
-              Botões com Efeito 3D
-            </h3>
-            <div className="rounded-2xl border border-border bg-white p-8">
-              <div className="flex flex-wrap items-center gap-4">
-                <LevelButton variant="primary" size="sm">Pequeno</LevelButton>
-                <LevelButton variant="primary" size="md">Médio</LevelButton>
-                <LevelButton variant="primary" size="lg">Grande</LevelButton>
-                <LevelButton variant="secondary" size="md">Secundário</LevelButton>
-                <LevelButton variant="outline" size="md">Outline</LevelButton>
-                <LevelButton variant="ghost" size="md">Ghost</LevelButton>
-                <LevelButton variant="primary" size="md" disabled>Desabilitado</LevelButton>
+          {/* Feature Cards */}
+          <div className="grid gap-8 md:grid-cols-3">
+            {/* Python Card */}
+            <div className="group relative rounded-3xl border border-gray-100 bg-white p-8 transition-all hover:border-[#E9D5FF] hover:shadow-xl hover:shadow-purple-100">
+              <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F3E8FF]">
+                <Code2 className="h-7 w-7 text-[#7C3AED]" />
               </div>
-            </div>
-          </div>
-
-          {/* Progress Bars Section */}
-          <div className="mb-16">
-            <h3 className="mb-6 text-lg font-semibold text-level-purple-dark">
-              Barras de Progresso
-            </h3>
-            <div className="rounded-2xl border border-border bg-white p-8 space-y-8">
-              <div>
-                <p className="mb-3 text-sm font-medium text-muted-foreground">Pequena (slim)</p>
-                <LevelProgress value={progress} size="sm" />
-              </div>
-              <div>
-                <p className="mb-3 text-sm font-medium text-muted-foreground">Média</p>
-                <LevelProgress value={progress} size="md" />
-              </div>
-              <div>
-                <p className="mb-3 text-sm font-medium text-muted-foreground">Grande (grossa)</p>
-                <LevelProgress value={progress} size="lg" showLabel />
-              </div>
-              <div className="flex items-center gap-4 pt-4 border-t border-border">
-                <span className="text-sm text-muted-foreground">Ajustar progresso:</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={progress}
-                  onChange={(e) => setProgress(Number(e.target.value))}
-                  className="w-48 accent-level-purple"
-                />
-                <span className="text-sm font-semibold text-level-purple">{progress}%</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Badges Section */}
-          <div className="mb-16">
-            <h3 className="mb-6 text-lg font-semibold text-level-purple-dark">
-              Badges de Gamificação
-            </h3>
-            <div className="rounded-2xl border border-border bg-white p-8">
-              <div className="flex flex-wrap items-center gap-4">
-                <XPBadge type="xp" value="1,250" size="sm" />
-                <XPBadge type="xp" value="2,450" size="md" />
-                <XPBadge type="xp" value="5,000" size="lg" />
-                <XPBadge type="streak" value={7} label="dias" size="md" />
-                <XPBadge type="level" value={12} size="md" />
-                <XPBadge type="achievement" value="!" size="md" />
-                <StreakCounter days={7} />
-              </div>
-            </div>
-          </div>
-
-          {/* Course Cards Section */}
-          <div className="mb-16">
-            <h3 className="mb-6 text-lg font-semibold text-level-purple-dark">
-              Cards de Curso
-            </h3>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              <CourseCard
-                title="Python Básico"
-                description="Aprenda os fundamentos da linguagem Python do zero ao intermediário."
-                icon={<Code2 className="h-7 w-7" />}
-                progress={75}
-                totalLessons={20}
-                completedLessons={15}
-                status="in-progress"
-              />
-              <CourseCard
-                title="Banco de Dados"
-                description="Domine SQL e aprenda a modelar dados para suas aplicações."
-                icon={<Database className="h-7 w-7" />}
-                progress={100}
-                totalLessons={15}
-                completedLessons={15}
-                status="completed"
-              />
-              <CourseCard
-                title="Desenvolvimento Web"
-                description="Construa sites modernos com HTML, CSS e JavaScript."
-                icon={<Globe className="h-7 w-7" />}
-                progress={0}
-                totalLessons={25}
-                completedLessons={0}
-                status="locked"
-              />
-            </div>
-          </div>
-
-          {/* Typography Section */}
-          <div className="mb-16">
-            <h3 className="mb-6 text-lg font-semibold text-level-purple-dark">
-              Tipografia
-            </h3>
-            <div className="rounded-2xl border border-border bg-white p-8 space-y-6">
-              <div>
-                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Fonte: Inter</span>
-              </div>
-              <h1 className="text-4xl font-bold text-level-purple-dark">Heading 1 - LevelUSP</h1>
-              <h2 className="text-3xl font-bold text-level-purple-dark">Heading 2 - Aprenda a programar</h2>
-              <h3 className="text-2xl font-semibold text-level-purple-dark">Heading 3 - Python Básico</h3>
-              <h4 className="text-xl font-semibold text-foreground">Heading 4 - Variáveis e Tipos</h4>
-              <p className="text-base text-foreground">
-                Parágrafo normal - Esta é uma plataforma gratuita de ensino de programação, 
-                desenvolvida pela Universidade de São Paulo.
+              <h3 className="mb-3 text-xl font-bold text-[#4C1D95]">
+                Aprenda Python
+              </h3>
+              <p className="text-gray-600 leading-relaxed">
+                Domine a linguagem mais popular do mercado. Do basico ao avancado, 
+                com exercicios praticos e projetos reais.
               </p>
-              <p className="text-sm text-muted-foreground">
-                Texto secundário - Aprenda no seu ritmo, com exercícios práticos e gamificação.
-              </p>
-              <code className="inline-block rounded-lg bg-level-purple-subtle px-3 py-1 font-mono text-sm text-level-purple-dark">
-                print(&quot;Hello, World!&quot;)
-              </code>
+              <ul className="mt-6 space-y-3">
+                {["Sintaxe moderna", "POO completo", "Projetos praticos"].map((item) => (
+                  <li key={item} className="flex items-center gap-2 text-sm text-gray-600">
+                    <CheckCircle2 className="h-4 w-4 text-[#7C3AED]" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-8">
+                <button className="inline-flex items-center gap-1 text-sm font-semibold text-[#7C3AED] transition-all group-hover:gap-2">
+                  Explorar curso <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
             </div>
-          </div>
 
-          {/* Colors Section */}
-          <div>
-            <h3 className="mb-6 text-lg font-semibold text-level-purple-dark">
-              Paleta de Cores
-            </h3>
-            <div className="rounded-2xl border border-border bg-white p-8">
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
-                <div className="space-y-2">
-                  <div className="h-20 rounded-xl bg-level-purple shadow-sm" />
-                  <p className="text-xs font-medium">LevelPurple</p>
-                  <p className="text-xs text-muted-foreground">#7C3AED</p>
-                </div>
-                <div className="space-y-2">
-                  <div className="h-20 rounded-xl bg-level-purple-dark shadow-sm" />
-                  <p className="text-xs font-medium">LevelPurpleDark</p>
-                  <p className="text-xs text-muted-foreground">#4C1D95</p>
-                </div>
-                <div className="space-y-2">
-                  <div className="h-20 rounded-xl bg-level-purple-medium shadow-sm" />
-                  <p className="text-xs font-medium">LevelPurpleMedium</p>
-                  <p className="text-xs text-muted-foreground">#A78BFA</p>
-                </div>
-                <div className="space-y-2">
-                  <div className="h-20 rounded-xl border border-border bg-level-purple-light shadow-sm" />
-                  <p className="text-xs font-medium">LevelPurpleLight</p>
-                  <p className="text-xs text-muted-foreground">#F3E8FF</p>
-                </div>
-                <div className="space-y-2">
-                  <div className="h-20 rounded-xl border border-border bg-white shadow-sm" />
-                  <p className="text-xs font-medium">Background</p>
-                  <p className="text-xs text-muted-foreground">#FFFFFF</p>
-                </div>
+            {/* Data Science Card */}
+            <div className="group relative rounded-3xl border border-gray-100 bg-white p-8 transition-all hover:border-[#E9D5FF] hover:shadow-xl hover:shadow-purple-100">
+              <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F3E8FF]">
+                <Database className="h-7 w-7 text-[#7C3AED]" />
+              </div>
+              <h3 className="mb-3 text-xl font-bold text-[#4C1D95]">
+                Ciencia de Dados
+              </h3>
+              <p className="text-gray-600 leading-relaxed">
+                Analise dados como um profissional. Aprenda pandas, numpy, 
+                visualizacao e machine learning basico.
+              </p>
+              <ul className="mt-6 space-y-3">
+                {["Pandas & NumPy", "Visualizacao", "Machine Learning"].map((item) => (
+                  <li key={item} className="flex items-center gap-2 text-sm text-gray-600">
+                    <CheckCircle2 className="h-4 w-4 text-[#7C3AED]" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-8">
+                <button className="inline-flex items-center gap-1 text-sm font-semibold text-[#7C3AED] transition-all group-hover:gap-2">
+                  Explorar curso <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Gamification Card */}
+            <div className="group relative rounded-3xl border border-gray-100 bg-white p-8 transition-all hover:border-[#E9D5FF] hover:shadow-xl hover:shadow-purple-100">
+              <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F3E8FF]">
+                <Gamepad2 className="h-7 w-7 text-[#7C3AED]" />
+              </div>
+              <h3 className="mb-3 text-xl font-bold text-[#4C1D95]">
+                Gamificacao
+              </h3>
+              <p className="text-gray-600 leading-relaxed">
+                Transforme o aprendizado em uma aventura. Ganhe XP, suba de nivel, 
+                colecione badges e compita com amigos.
+              </p>
+              <ul className="mt-6 space-y-3">
+                {["Sistema de XP", "Badges e conquistas", "Rankings"].map((item) => (
+                  <li key={item} className="flex items-center gap-2 text-sm text-gray-600">
+                    <CheckCircle2 className="h-4 w-4 text-[#7C3AED]" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-8">
+                <button className="inline-flex items-center gap-1 text-sm font-semibold text-[#7C3AED] transition-all group-hover:gap-2">
+                  Saiba mais <ChevronRight className="h-4 w-4" />
+                </button>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="bg-level-purple py-16">
-        <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-white sm:text-4xl">
-            Pronto para começar sua jornada?
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-level-purple-light">
-            Junte-se a milhares de brasileiros que estão aprendendo programação gratuitamente.
-          </p>
-          <div className="mt-8">
-            <Link href="/ide">
-              <button className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-lg font-semibold text-level-purple transition-all hover:bg-level-purple-light hover:shadow-lg">
+      {/* IDE Mockup Section */}
+      <section id="ide" className="py-24 lg:py-32 bg-gradient-to-b from-white via-[#FAFAFA] to-white">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <p className="text-sm font-semibold uppercase tracking-wider text-[#7C3AED] mb-4">
+              Ambiente de Desenvolvimento
+            </p>
+            <h2 className="text-4xl font-bold text-[#4C1D95] sm:text-5xl">
+              IDE completa no navegador
+            </h2>
+            <p className="mt-6 text-lg text-gray-600 max-w-2xl mx-auto">
+              Escreva, execute e teste seu codigo diretamente no navegador. 
+              Sem instalacoes, sem configuracoes.
+            </p>
+          </div>
+
+          {/* IDE Mockup */}
+          <div className="relative mx-auto max-w-5xl">
+            {/* Glow effect */}
+            <div className="absolute -inset-4 rounded-3xl bg-gradient-to-r from-[#7C3AED] via-[#A78BFA] to-[#7C3AED] opacity-20 blur-2xl" />
+            
+            {/* IDE Window */}
+            <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
+              {/* Title bar */}
+              <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full bg-red-400" />
+                  <div className="h-3 w-3 rounded-full bg-yellow-400" />
+                  <div className="h-3 w-3 rounded-full bg-green-400" />
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <FileCode className="h-4 w-4" />
+                  main.py - LevelUSP IDE
+                </div>
+                <div className="w-16" />
+              </div>
+
+              {/* IDE Content */}
+              <div className="flex">
+                {/* Sidebar */}
+                <div className="w-48 border-r border-gray-100 bg-gray-50 p-3">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                    Arquivos
+                  </p>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 rounded-lg bg-[#F3E8FF] px-3 py-2 text-sm font-medium text-[#7C3AED]">
+                      <FileCode className="h-4 w-4" />
+                      main.py
+                    </div>
+                    <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100">
+                      <FileCode className="h-4 w-4" />
+                      data.csv
+                    </div>
+                    <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100">
+                      <FileCode className="h-4 w-4" />
+                      utils.py
+                    </div>
+                  </div>
+                </div>
+
+                {/* Editor */}
+                <div className="flex-1">
+                  {/* Editor tabs */}
+                  <div className="flex border-b border-gray-100">
+                    <div className="flex items-center gap-2 border-b-2 border-[#7C3AED] bg-white px-4 py-2 text-sm font-medium text-[#4C1D95]">
+                      <Code2 className="h-4 w-4 text-[#7C3AED]" />
+                      main.py
+                    </div>
+                  </div>
+
+                  {/* Code area */}
+                  <div className="bg-[#1E1E2E] p-4 font-mono text-sm">
+                    <div className="space-y-1">
+                      <div className="flex">
+                        <span className="w-8 text-gray-500">1</span>
+                        <span><span className="text-[#C586C0]">def</span> <span className="text-[#DCDCAA]">calcular_media</span><span className="text-gray-300">(notas):</span></span>
+                      </div>
+                      <div className="flex">
+                        <span className="w-8 text-gray-500">2</span>
+                        <span className="pl-4"><span className="text-[#6A9955]"># Calcula a media das notas</span></span>
+                      </div>
+                      <div className="flex">
+                        <span className="w-8 text-gray-500">3</span>
+                        <span className="pl-4"><span className="text-[#C586C0]">return</span> <span className="text-[#DCDCAA]">sum</span><span className="text-gray-300">(notas) / </span><span className="text-[#DCDCAA]">len</span><span className="text-gray-300">(notas)</span></span>
+                      </div>
+                      <div className="flex">
+                        <span className="w-8 text-gray-500">4</span>
+                        <span></span>
+                      </div>
+                      <div className="flex">
+                        <span className="w-8 text-gray-500">5</span>
+                        <span><span className="text-[#9CDCFE]">notas</span> <span className="text-gray-300">=</span> <span className="text-gray-300">[</span><span className="text-[#B5CEA8]">8.5</span><span className="text-gray-300">,</span> <span className="text-[#B5CEA8]">9.0</span><span className="text-gray-300">,</span> <span className="text-[#B5CEA8]">7.5</span><span className="text-gray-300">,</span> <span className="text-[#B5CEA8]">10.0</span><span className="text-gray-300">]</span></span>
+                      </div>
+                      <div className="flex">
+                        <span className="w-8 text-gray-500">6</span>
+                        <span><span className="text-[#9CDCFE]">media</span> <span className="text-gray-300">=</span> <span className="text-[#DCDCAA]">calcular_media</span><span className="text-gray-300">(notas)</span></span>
+                      </div>
+                      <div className="flex">
+                        <span className="w-8 text-gray-500">7</span>
+                        <span><span className="text-[#DCDCAA]">print</span><span className="text-gray-300">(</span><span className="text-[#CE9178]">f&quot;Sua media e: </span><span className="text-[#9CDCFE]">{"{"}media{"}"}</span><span className="text-[#CE9178]">&quot;</span><span className="text-gray-300">)</span></span>
+                      </div>
+                      <div className="flex">
+                        <span className="w-8 text-gray-500">8</span>
+                        <span className="animate-pulse text-gray-300">|</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Console output */}
+                  <div className="border-t border-gray-200 bg-gray-50 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Terminal className="h-4 w-4 text-[#7C3AED]" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Console</span>
+                    </div>
+                    <div className="rounded-lg bg-[#1E1E2E] p-3 font-mono text-sm">
+                      <div className="flex items-center gap-2 text-green-400">
+                        <CheckCircle2 className="h-4 w-4" />
+                        <span>Sua media e: 8.75</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Floating badges */}
+            <div className="absolute -left-4 top-1/4 rounded-2xl bg-white p-4 shadow-xl">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#7C3AED]">
+                  <Zap className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">XP Ganho</p>
+                  <p className="font-bold text-[#4C1D95]">+50 XP</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="absolute -right-4 top-1/3 rounded-2xl bg-white p-4 shadow-xl">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500">
+                  <CheckCircle2 className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Status</p>
+                  <p className="font-bold text-green-600">Correto!</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* CTA after IDE */}
+          <div className="mt-16 text-center">
+            <Link href="/signup">
+              <button className="inline-flex items-center gap-2 rounded-2xl bg-[#7C3AED] px-8 py-4 text-lg font-bold text-white transition-all hover:bg-[#6D28D9] btn-3d">
                 <Terminal className="h-5 w-5" />
-                Acessar IDE
+                Experimentar IDE
               </button>
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-border bg-white py-12">
+      {/* Stats Section */}
+      <section className="py-24 lg:py-32">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-level-purple">
-                <Rocket className="h-4 w-4 text-white" />
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { value: "50K+", label: "Estudantes ativos", icon: Users },
+              { value: "200+", label: "Licoes interativas", icon: BookOpen },
+              { value: "15", label: "Trilhas de aprendizado", icon: Rocket },
+              { value: "98%", label: "Satisfacao", icon: Trophy },
+            ].map((stat) => (
+              <div key={stat.label} className="text-center">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F3E8FF]">
+                  <stat.icon className="h-7 w-7 text-[#7C3AED]" />
+                </div>
+                <div className="text-4xl font-bold text-[#4C1D95]">{stat.value}</div>
+                <div className="mt-1 text-gray-600">{stat.label}</div>
               </div>
-              <span className="font-bold text-level-purple-dark">LevelUSP</span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-24 lg:py-32">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="relative overflow-hidden rounded-3xl bg-[#7C3AED] px-8 py-16 sm:px-16 sm:py-24">
+            {/* Background pattern */}
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNGRkZGRkYiIGZpbGwtb3BhY2l0eT0iMC4xIj48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSI0Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
+            
+            <div className="relative text-center">
+              <h2 className="text-4xl font-bold text-white sm:text-5xl">
+                Pronto para comecar sua jornada?
+              </h2>
+              <p className="mx-auto mt-6 max-w-2xl text-xl text-purple-100">
+                Junte-se a milhares de brasileiros que estao aprendendo 
+                programacao gratuitamente com a LevelUSP.
+              </p>
+              <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+                <Link href="/signup">
+                  <button className="inline-flex items-center gap-2 rounded-2xl bg-white px-10 py-5 text-lg font-bold text-[#7C3AED] transition-all hover:bg-purple-50 hover:shadow-xl">
+                    <Play className="h-5 w-5" />
+                    Comecar Gratis
+                  </button>
+                </Link>
+                <Link href="/login">
+                  <button className="inline-flex items-center gap-2 rounded-2xl border-2 border-white/30 px-8 py-4 text-lg font-semibold text-white transition-all hover:bg-white/10">
+                    Ja tenho conta
+                  </button>
+                </Link>
+              </div>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Uma iniciativa da Universidade de São Paulo para a democratização do ensino de programação.
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-gray-100 bg-white py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col items-center justify-between gap-8 md:flex-row">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#7C3AED]">
+                <Rocket className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <span className="text-xl font-bold text-[#4C1D95]">LevelUSP</span>
+                <p className="text-xs text-gray-500">Uma iniciativa da USP</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-8">
+              <Link href="/leaderboard" className="text-sm text-gray-600 hover:text-[#7C3AED]">
+                Ranking
+              </Link>
+              <Link href="/login" className="text-sm text-gray-600 hover:text-[#7C3AED]">
+                Entrar
+              </Link>
+              <Link href="/signup" className="text-sm text-gray-600 hover:text-[#7C3AED]">
+                Cadastrar
+              </Link>
+            </div>
+
+            <p className="text-sm text-gray-500">
+              100% Gratuito para todos os brasileiros
             </p>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <BookOpen className="h-4 w-4" />
-              100% Gratuito
-            </div>
           </div>
         </div>
       </footer>

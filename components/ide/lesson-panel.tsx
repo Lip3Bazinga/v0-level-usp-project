@@ -3,7 +3,7 @@
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { CheckCircle2, Circle, PlayCircle, BookOpen, Code2, Lightbulb } from "lucide-react"
+import { CheckCircle2, Circle, PlayCircle, BookOpen, Code2, Lightbulb, ShieldCheck } from "lucide-react"
 
 interface LessonStep {
   id: number
@@ -18,9 +18,11 @@ interface LessonPanelProps {
   content: string
   steps: LessonStep[]
   onStepClick: (stepId: number) => void
+  onVerify?: () => void
+  isVerifying?: boolean
 }
 
-export function LessonPanel({ title, description, content, steps, onStepClick }: LessonPanelProps) {
+export function LessonPanel({ title, description, content, steps, onStepClick, onVerify, isVerifying }: LessonPanelProps) {
   return (
     <div className="flex h-full flex-col bg-white">
       {/* Header do painel */}
@@ -109,11 +111,30 @@ export function LessonPanel({ title, description, content, steps, onStepClick }:
             </div>
           </div>
 
-          {/* Botão de ação */}
-          <div className="mt-6">
+          {/* Botoes de acao */}
+          <div className="mt-6 space-y-3">
+            {onVerify && (
+              <button
+                onClick={onVerify}
+                disabled={isVerifying}
+                className="w-full rounded-xl bg-success py-3 text-sm font-semibold text-white btn-3d flex items-center justify-center gap-2 hover:bg-success/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isVerifying ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Verificando...
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="h-4 w-4" />
+                    Verificar Resposta
+                  </>
+                )}
+              </button>
+            )}
             <button className="w-full rounded-xl bg-level-purple py-3 text-sm font-semibold text-white btn-3d flex items-center justify-center gap-2 hover:bg-level-purple-medium transition-colors">
               <PlayCircle className="h-4 w-4" />
-              Continuar Exercício
+              Continuar Exercicio
             </button>
           </div>
         </div>
