@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useCallback } from "react"
-import { useParams } from "next/navigation"
+import { useState, useCallback, useEffect, useRef } from "react"
+import { useParams, useRouter } from "next/navigation"
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -12,93 +12,77 @@ import { LessonPanel } from "@/components/ide/lesson-panel"
 import { CodeEditor } from "@/components/ide/code-editor"
 import { ConsolePanel, type ConsoleOutput } from "@/components/ide/console-panel"
 import { FileExplorer } from "@/components/ide/file-explorer"
+import { SuccessFeedback } from "@/components/ide/success-feedback"
+import { usePython } from "@/hooks/use-python"
+import { parsePythonError } from "@/lib/parse-python-error"
+import { fetchLessonById, awardXp } from "@/lib/supabase/lessons"
+import { useAuth } from "@/contexts/auth-context"
+import type { Lesson } from "@/lib/supabase/types"
+import { Loader2, BookOpen } from "lucide-react"
 
-// Mock lesson data - in production, fetch from Supabase by params.id
-const lessonData: Record<string, { title: string; module: string; content: string; starterCode: string }> = {
-  "1": {
-    title: "Variaveis e Tipos de Dados",
-    module: "Modulo 1: Python Basico",
-    content: `
-<h3 class="text-base font-semibold text-foreground mb-3">O que sao Variaveis?</h3>
-<p class="text-muted-foreground mb-4">
-  Em Python, variaveis sao utilizadas para armazenar valores na memoria do computador.
-  Voce pode pensar nelas como "etiquetas" que damos aos dados.
-</p>
-<h3 class="text-base font-semibold text-foreground mb-3">Tipos de Dados Basicos</h3>
-<ul class="list-disc list-inside space-y-2 text-muted-foreground mb-4">
-  <li><strong class="text-foreground">String (str)</strong>: Texto entre aspas, ex: "Maria"</li>
-  <li><strong class="text-foreground">Inteiro (int)</strong>: Numeros inteiros, ex: 25</li>
-  <li><strong class="text-foreground">Decimal (float)</strong>: Numeros com casas decimais, ex: 1.75</li>
-  <li><strong class="text-foreground">Booleano (bool)</strong>: Verdadeiro ou Falso (True/False)</li>
-</ul>
-<h3 class="text-base font-semibold text-foreground mb-3">Seu Desafio</h3>
-<p class="text-muted-foreground">
-  No editor ao lado, complete o codigo criando variaveis com seu nome e idade,
-  e depois execute para ver o resultado!
-</p>
-`,
-    starterCode: `# Bem-vindo ao LevelUSP!
-# Complete o exercicio abaixo
-
-# Crie uma variavel chamada 'nome' com seu nome
-nome = ""
-
-# Crie uma variavel chamada 'idade' com sua idade
-idade = 0
-
-# Imprima uma mensagem de boas-vindas
-print(f"Ola, {nome}! Voce tem {idade} anos.")
-`,
-  },
-  "4": {
-    title: "Loops e Iteracao",
-    module: "Modulo 1: Python Basico",
-    content: `
-<h3 class="text-base font-semibold text-foreground mb-3">O que sao Loops?</h3>
-<p class="text-muted-foreground mb-4">
-  Loops permitem executar um bloco de codigo repetidamente. Python tem dois tipos principais: for e while.
-</p>
-<h3 class="text-base font-semibold text-foreground mb-3">Loop For</h3>
-<p class="text-muted-foreground mb-4">
-  Usado para iterar sobre sequencias (listas, strings, ranges).
-</p>
-<h3 class="text-base font-semibold text-foreground mb-3">Seu Desafio</h3>
-<p class="text-muted-foreground">
-  Use um loop for para calcular a soma dos numeros de 1 a 10.
-</p>
-`,
-    starterCode: `# Calcule a soma dos numeros de 1 a 10 usando um loop for
-soma = 0
-
-# Seu codigo aqui:
-for i in range(1, 11):
-    pass  # Substitua o 'pass' pela logica correta
-
-print(f"A soma de 1 a 10 e: {soma}")
-`,
-  },
-}
-
-const defaultLesson = {
-  title: "Licao",
-  module: "Modulo",
-  content: "<p class='text-muted-foreground'>Conteudo da licao sera carregado do banco de dados.</p>",
-  starterCode: "# Seu codigo aqui\n",
-}
+// ── Componente principal ──────────────────────────────────────────────────────
 
 export default function LessonPage() {
   const params = useParams()
+  const router = useRouter()
   const lessonId = params.id as string
-  const lesson = lessonData[lessonId] || defaultLesson
+  const { profile, refreshProfile } = useAuth()
 
-  const initialFiles = [
-    {
-      id: "main",
-      name: "main.py",
-      language: "python",
-      content: lesson.starterCode,
-    },
-  ]
+  // Lição carregada do Supabase
+  const [lesson, setLesson] = useState<Lesson | null>(null)
+  const [lessonLoading, setLessonLoading] = useState(true)
+  const [lessonError, setLessonError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function load() {
+      setLessonLoading(true)
+      setLessonError(null)
+      const data = await fetchLessonById(lessonId)
+      if (!data) {
+        setLessonError("Lição não encontrada.")
+      } else {
+        setLesson(data)
+      }
+      setLessonLoading(false)
+    }
+    load()
+  }, [lessonId])
+
+  // Python runtime (Pyodide via Web Worker)
+  const { status: pythonStatus, execute } = usePython()
+
+  // Arquivos do editor (populados quando a lição carrega)
+  const [files, setFiles] = useState([
+    { id: "main", name: "main.py", language: "python" as const, content: "# Carregando lição..." },
+  ])
+  const [activeFileId, setActiveFileId] = useState("main")
+
+  // Popula o editor assim que a lição carrega
+  useEffect(() => {
+    if (lesson) {
+      setFiles([
+        { id: "main", name: "main.py", language: "python" as const, content: lesson.starter_code },
+      ])
+    }
+  }, [lesson])
+
+  // Console
+  const [consoleOutputs, setConsoleOutputs] = useState<ConsoleOutput[]>([])
+
+  // Estado de execução
+  const [isRunning, setIsRunning] = useState(false)
+  const [isVerifying, setIsVerifying] = useState(false)
+
+  // Overlay de sucesso
+  const [showSuccess, setShowSuccess] = useState(false)
+  const lessonCompletedRef = useRef(false)
+
+  // Passos da lição
+  const [steps, setSteps] = useState([
+    { id: 1, title: "Ler a teoria", completed: true, active: false },
+    { id: 2, title: "Escrever o código", completed: false, active: true },
+    { id: 3, title: "Verificar a solução", completed: false, active: false },
+  ])
 
   const fileTree = [
     {
@@ -106,106 +90,220 @@ export default function LessonPage() {
       name: "meu-projeto",
       type: "folder" as const,
       children: [
-        { id: "main", name: "main.py", type: "file" as const, language: "python" },
+        { id: "main", name: "main.py", type: "file" as const, language: "python" as const },
       ],
     },
   ]
 
-  const lessonSteps = [
-    { id: 1, title: "Ler a teoria", completed: true, active: false },
-    { id: 2, title: "Escrever o codigo", completed: false, active: true },
-    { id: 3, title: "Executar e validar", completed: false, active: false },
-  ]
-
-  const [files, setFiles] = useState(initialFiles)
-  const [activeFileId, setActiveFileId] = useState("main")
-  const [consoleOutputs, setConsoleOutputs] = useState<ConsoleOutput[]>([])
-  const [isRunning, setIsRunning] = useState(false)
-  const [steps, setSteps] = useState(lessonSteps)
-
-  const handleContentChange = useCallback((fileId: string, content: string) => {
-    setFiles((prev) =>
-      prev.map((f) => (f.id === fileId ? { ...f, content } : f))
-    )
-  }, [])
-
-  const handleRun = useCallback(() => {
-    setIsRunning(true)
+  // ── Helpers de console ──────────────────────────────────────────────────────
+  const addOutput = useCallback((type: ConsoleOutput["type"], message: string) => {
     setConsoleOutputs((prev) => [
       ...prev,
-      {
-        id: Date.now().toString(),
-        type: "info",
-        message: "Executando main.py...",
-        timestamp: new Date(),
-      },
+      { id: crypto.randomUUID(), type, message, timestamp: new Date() },
     ])
+  }, [])
 
-    setTimeout(() => {
-      setConsoleOutputs((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          type: "output",
-          message: "Codigo executado.",
-          timestamp: new Date(),
-        },
-        {
-          id: (Date.now() + 2).toString(),
-          type: "success",
-          message: "Codigo executado com sucesso! +50 XP",
-          timestamp: new Date(),
-        },
-      ])
-      setIsRunning(false)
-    }, 1500)
+  // ── Handlers do editor ──────────────────────────────────────────────────────
+  const handleContentChange = useCallback((fileId: string, content: string) => {
+    setFiles((prev) => prev.map((f) => (f.id === fileId ? { ...f, content } : f)))
   }, [])
 
   const handleReset = useCallback(() => {
-    setFiles(initialFiles)
+    if (!lesson) return
+    setFiles([{ id: "main", name: "main.py", language: "python" as const, content: lesson.starter_code }])
     setConsoleOutputs([
-      {
-        id: Date.now().toString(),
-        type: "info",
-        message: "Codigo resetado para o estado inicial.",
-        timestamp: new Date(),
-      },
+      { id: crypto.randomUUID(), type: "info", message: "Código resetado para o estado inicial.", timestamp: new Date() },
     ])
-  }, [])
+    lessonCompletedRef.current = false
+  }, [lesson])
 
-  const handleClearConsole = useCallback(() => {
-    setConsoleOutputs([])
-  }, [])
+  const handleClearConsole = useCallback(() => setConsoleOutputs([]), [])
 
   const handleStepClick = useCallback((stepId: number) => {
-    setSteps((prev) =>
-      prev.map((s) => ({
-        ...s,
-        active: s.id === stepId,
-      }))
-    )
+    setSteps((prev) => prev.map((s) => ({ ...s, active: s.id === stepId })))
   }, [])
 
+  // ── Executar código ─────────────────────────────────────────────────────────
+  const handleRun = useCallback(() => {
+    const activeFile = files.find((f) => f.id === activeFileId)
+    if (!activeFile || activeFile.language !== "python") return
+
+    if (pythonStatus === "loading") {
+      addOutput("warning", "O runtime Python ainda está carregando. Aguarde...")
+      return
+    }
+    if (pythonStatus === "error") {
+      addOutput("error", "Erro ao carregar o runtime Python. Recarregue a página.")
+      return
+    }
+    if (pythonStatus !== "ready") return
+
+    setIsRunning(true)
+    addOutput("info", "▶ Executando main.py...")
+
+    execute(activeFile.content, {
+      onResult: (result) => {
+        if (result.stdout) {
+          result.stdout.split("\n").filter((l) => l.length > 0).forEach((l) => addOutput("output", l))
+        }
+        if (result.stderr) {
+          result.stderr.split("\n").filter((l) => l.length > 0).forEach((l) => addOutput("warning", l))
+        }
+        if (!result.stderr) {
+          addOutput("success", "✓ Código executado com sucesso!")
+        }
+        setIsRunning(false)
+      },
+      onError: (error) => {
+        const parsed = parsePythonError(error)
+        addOutput("error", `${parsed.title}: ${parsed.explanation}`)
+        addOutput("info", `💡 Dica: ${parsed.hint}`)
+        setIsRunning(false)
+      },
+    })
+  }, [files, activeFileId, pythonStatus, execute, addOutput])
+
+  // ── Verificar resposta ──────────────────────────────────────────────────────
+  const handleVerify = useCallback(() => {
+    if (!lesson) return
+    if (lessonCompletedRef.current) {
+      addOutput("info", "Você já completou essa lição! Avance para a próxima.")
+      return
+    }
+
+    const activeFile = files.find((f) => f.id === activeFileId)
+    if (!activeFile || activeFile.language !== "python") return
+
+    if (pythonStatus !== "ready") {
+      addOutput("warning",
+        pythonStatus === "loading"
+          ? "O runtime Python ainda está carregando. Aguarde..."
+          : "Erro no runtime Python. Recarregue a página."
+      )
+      return
+    }
+
+    setIsVerifying(true)
+    addOutput("info", "🔬 Verificando sua solução com testes ocultos...")
+
+    execute(activeFile.content, {
+      testCode: lesson.hidden_tests,
+      onResult: (result) => {
+        if (result.stdout) {
+          result.stdout.split("\n").filter((l) => l.length > 0).forEach((l) => addOutput("output", l))
+        }
+      },
+      onError: (error) => {
+        const parsed = parsePythonError(error)
+        addOutput("error", `${parsed.title}: ${parsed.explanation}`)
+        addOutput("info", `💡 Dica: ${parsed.hint}`)
+        setIsVerifying(false)
+      },
+      onTestResult: async (result) => {
+        if (result.allPassed) {
+          addOutput("success", `✓ Todos os testes passaram! +${lesson.xp_reward} XP conquistado!`)
+          lessonCompletedRef.current = true
+          setShowSuccess(true)
+          setSteps((prev) =>
+            prev.map((s) => (s.id === 3 ? { ...s, completed: true, active: false } : s))
+          )
+          // Salva progresso e credita XP no Supabase
+          if (profile) {
+            try {
+              await awardXp(profile.id, lesson.id, lesson.xp_reward)
+              await refreshProfile()
+            } catch {
+              // Silencioso — o aluno já viu o feedback de sucesso
+            }
+          }
+        } else {
+          result.failureDetails.forEach((msg) => addOutput("error", msg))
+          addOutput("info", "Continue tentando! Leia o feedback acima e ajuste seu código.")
+        }
+        setIsVerifying(false)
+      },
+      onTestError: (error) => {
+        const parsed = parsePythonError(error)
+        addOutput("error", `${parsed.title}: ${parsed.explanation}`)
+        addOutput("info", `💡 Dica: ${parsed.hint}`)
+        setIsVerifying(false)
+      },
+    })
+  }, [files, activeFileId, pythonStatus, execute, lesson, addOutput, profile, refreshProfile])
+
+  // ── Atalho Ctrl+Enter ───────────────────────────────────────────────────────
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault()
+        handleRun()
+      }
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [handleRun])
+
+  // ── Estados de carregamento / erro ──────────────────────────────────────────
+  if (lessonLoading) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-white">
+        <Loader2 className="h-10 w-10 animate-spin text-level-purple" />
+        <p className="text-sm text-muted-foreground">Carregando lição...</p>
+      </div>
+    )
+  }
+
+  if (lessonError || !lesson) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-white">
+        <BookOpen className="h-16 w-16 text-muted-foreground/30" />
+        <h2 className="text-lg font-semibold text-level-purple-dark">Lição não encontrada</h2>
+        <p className="text-sm text-muted-foreground">{lessonError ?? "Esta lição não existe ou não está disponível."}</p>
+        <button
+          onClick={() => router.push("/dashboard")}
+          className="rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors"
+        >
+          Voltar ao Dashboard
+        </button>
+      </div>
+    )
+  }
+
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-white">
-      <Header
-        xp={2450}
-        maxXp={3000}
-        streak={7}
-        level={12}
-        lessonTitle={lesson.module}
-        lessonProgress={45}
-      />
+      <Header lessonTitle={lesson.module} lessonProgress={45} />
 
+      {/* Barra de status do runtime Python */}
+      {pythonStatus !== "ready" && (
+        <div className={`flex items-center justify-center gap-2 py-1.5 text-xs font-medium ${
+          pythonStatus === "loading" ? "bg-amber-50 text-amber-700"
+          : pythonStatus === "idle" ? "bg-blue-50 text-blue-700"
+          : "bg-red-50 text-red-700"
+        }`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${
+            pythonStatus === "loading" ? "animate-pulse bg-amber-500"
+            : pythonStatus === "idle" ? "bg-blue-400"
+            : "bg-red-500"
+          }`} />
+          {pythonStatus === "loading" && "Carregando runtime Python (Pyodide)..."}
+          {pythonStatus === "idle" && "Inicializando runtime Python..."}
+          {pythonStatus === "error" && "Erro ao carregar o runtime Python. Recarregue a página."}
+        </div>
+      )}
+
+      {/* Layout principal */}
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup direction="horizontal" className="h-full">
           <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
             <LessonPanel
               title={lesson.title}
-              description="Complete o desafio para ganhar XP e avancar."
-              content={lesson.content}
+              description={`Dificuldade: ${lesson.difficulty} · +${lesson.xp_reward} XP`}
+              content={lesson.content_markdown}
               steps={steps}
               onStepClick={handleStepClick}
+              onVerify={handleVerify}
+              isVerifying={isVerifying}
             />
           </ResizablePanel>
 
@@ -223,14 +321,12 @@ export default function LessonPage() {
                   onReset={handleReset}
                 />
               </ResizablePanel>
-
               <ResizableHandle withHandle />
-
               <ResizablePanel defaultSize={30} minSize={15} maxSize={50}>
                 <ConsolePanel
                   outputs={consoleOutputs}
                   onClear={handleClearConsole}
-                  isRunning={isRunning}
+                  isRunning={isRunning || isVerifying}
                 />
               </ResizablePanel>
             </ResizablePanelGroup>
@@ -247,6 +343,15 @@ export default function LessonPage() {
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
+
+      <SuccessFeedback
+        show={showSuccess}
+        xpEarned={lesson.xp_reward}
+        onClose={() => {
+          setShowSuccess(false)
+          router.push("/dashboard")
+        }}
+      />
     </div>
   )
 }

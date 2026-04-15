@@ -13,7 +13,7 @@ export function StreakCounter({ days, className }: StreakCounterProps) {
   return (
     <div
       className={cn(
-        "flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-4 py-2 font-bold text-white shadow-lg",
+        "flex items-center gap-2 rounded-xl bg-linear-to-r from-orange-500 to-red-500 px-4 py-2 font-bold text-white shadow-lg",
         className
       )}
     >

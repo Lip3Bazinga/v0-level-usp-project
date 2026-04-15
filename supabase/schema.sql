@@ -42,17 +42,39 @@ CREATE POLICY "Admins can update any profile"
     )
   );
 
--- Auto-create profile on signup
+-- Auto-create profile on signup (supports email/password + Google/GitHub OAuth)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  _full_name TEXT;
+  _username  TEXT;
+  _base_username TEXT;
 BEGIN
-  INSERT INTO public.profiles (id, email, full_name, username)
+  -- Suporta metadados do Google (full_name), GitHub (name) e fallback para email
+  _full_name := COALESCE(
+    NEW.raw_user_meta_data->>'full_name',
+    NEW.raw_user_meta_data->>'name',
+    SPLIT_PART(NEW.email, '@', 1)
+  );
+
+  -- Gera username base a partir do email (sem caracteres especiais)
+  _base_username := LOWER(REGEXP_REPLACE(SPLIT_PART(NEW.email, '@', 1), '[^a-z0-9]', '_', 'g'));
+  _username := _base_username;
+
+  -- Garante unicidade adicionando sufixo numérico se necessário
+  WHILE EXISTS (SELECT 1 FROM public.profiles WHERE username = _username) LOOP
+    _username := _base_username || FLOOR(RANDOM() * 9000 + 1000)::TEXT;
+  END LOOP;
+
+  INSERT INTO public.profiles (id, email, full_name, username, avatar_url)
   VALUES (
     NEW.id,
     NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
-    LOWER(REPLACE(COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email), ' ', ''))
+    _full_name,
+    _username,
+    NEW.raw_user_meta_data->>'avatar_url'
   );
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -148,7 +170,36 @@ CREATE POLICY "Users can update their own progress"
   ON public.lesson_progress FOR UPDATE
   USING (user_id = auth.uid());
 
--- 4. Updated_at trigger
+-- 4. award_xp — credita XP e atualiza nível ao completar uma lição
+-- Uso: SELECT award_xp('<user_id>', '<lesson_id>', 50);
+CREATE OR REPLACE FUNCTION public.award_xp(
+  p_user_id   UUID,
+  p_lesson_id UUID,
+  p_xp        INTEGER
+)
+RETURNS VOID AS $$
+BEGIN
+  -- Marca lição como completa (idempotente via ON CONFLICT)
+  INSERT INTO public.lesson_progress (user_id, lesson_id, status, xp_earned, completed_at)
+  VALUES (p_user_id, p_lesson_id, 'completed', p_xp, NOW())
+  ON CONFLICT (user_id, lesson_id)
+  DO UPDATE SET
+    status       = 'completed',
+    xp_earned    = p_xp,
+    completed_at = NOW();
+
+  -- Credita XP e recalcula nível (régua: 1000 XP por nível)
+  UPDATE public.profiles
+  SET
+    total_xp          = total_xp + p_xp,
+    lessons_completed = lessons_completed + 1,
+    level             = GREATEST(1, FLOOR((total_xp + p_xp) / 1000) + 1)::INTEGER,
+    updated_at        = NOW()
+  WHERE id = p_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 5. Updated_at trigger
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN

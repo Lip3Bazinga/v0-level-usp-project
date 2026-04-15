@@ -1,21 +1,36 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { LevelButton } from "@/components/design-system/level-button"
 import { Rocket, Mail, Lock, Eye, EyeOff, Github, AlertCircle } from "lucide-react"
 
-export default function LoginPage() {
+function translateAuthError(message: string): string {
+  if (message.includes("Invalid login credentials"))
+    return "Email ou senha incorretos."
+  if (message.includes("Email not confirmed"))
+    return "Confirme seu email antes de entrar. Verifique sua caixa de entrada."
+  if (message.includes("Too many requests"))
+    return "Muitas tentativas. Aguarde alguns minutos e tente novamente."
+  if (message.includes("User not found"))
+    return "Nenhuma conta encontrada com esse email."
+  return message
+}
+
+function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams.get("redirect") || "/dashboard"
+  const hasAuthError = searchParams.get("error") === "auth"
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState("")
+  const [error, setError] = useState(
+    hasAuthError ? "Ocorreu um erro na autenticação. Tente novamente." : ""
+  )
   const [loading, setLoading] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -24,16 +39,10 @@ export default function LoginPage() {
     setLoading(true)
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
-      setError(error.message === "Invalid login credentials"
-        ? "Email ou senha incorretos."
-        : error.message
-      )
+      setError(translateAuthError(error.message))
       setLoading(false)
       return
     }
@@ -54,16 +63,16 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen">
-      {/* Left side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-level-purple to-level-purple-dark items-center justify-center p-12">
+      {/* Left side — Branding */}
+      <div className="hidden lg:flex lg:w-1/2 bg-linear-to-br from-level-purple to-level-purple-dark items-center justify-center p-12">
         <div className="max-w-md text-center">
           <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 backdrop-blur">
             <Rocket className="h-10 w-10 text-white" />
           </div>
           <h1 className="text-4xl font-bold text-white mb-4">LevelUSP</h1>
           <p className="text-lg text-purple-200 leading-relaxed">
-            Aprenda programacao de forma gamificada. Uma iniciativa gratuita da
-            Universidade de Sao Paulo para todo o Brasil.
+            Aprenda programação de forma gamificada. Uma iniciativa gratuita da
+            Universidade de São Paulo para todo o Brasil.
           </p>
           <div className="mt-12 grid grid-cols-3 gap-6">
             <div>
@@ -72,7 +81,7 @@ export default function LoginPage() {
             </div>
             <div>
               <div className="text-3xl font-bold text-white">200+</div>
-              <div className="text-sm text-purple-200">Licoes</div>
+              <div className="text-sm text-purple-200">Lições</div>
             </div>
             <div>
               <div className="text-3xl font-bold text-white">15</div>
@@ -82,7 +91,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Right side - Login Form */}
+      {/* Right side — Login Form */}
       <div className="flex w-full lg:w-1/2 items-center justify-center p-8">
         <div className="w-full max-w-md">
           {/* Mobile logo */}
@@ -160,7 +169,10 @@ export default function LoginPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium text-level-purple-dark">Senha</label>
-                <Link href="/login" className="text-sm text-level-purple hover:text-level-purple-dark transition-colors">
+                <Link
+                  href="/login"
+                  className="text-sm text-level-purple hover:text-level-purple-dark transition-colors"
+                >
                   Esqueceu a senha?
                 </Link>
               </div>
@@ -202,7 +214,7 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            Nao tem uma conta?{" "}
+            Não tem uma conta?{" "}
             <Link href="/signup" className="font-semibold text-level-purple hover:text-level-purple-dark transition-colors">
               Cadastre-se gratuitamente
             </Link>
@@ -210,5 +222,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }

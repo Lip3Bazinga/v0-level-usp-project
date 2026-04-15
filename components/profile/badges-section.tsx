@@ -58,7 +58,7 @@ const rarityColors = {
     glow: "shadow-[0_0_12px_rgba(124,58,237,0.3)]",
   },
   legendary: {
-    bg: "bg-gradient-to-br from-yellow-50 to-orange-50",
+    bg: "bg-linear-to-br from-yellow-50 to-orange-50",
     border: "border-yellow-400",
     icon: "text-yellow-500",
     glow: "shadow-[0_0_16px_rgba(234,179,8,0.4)]",

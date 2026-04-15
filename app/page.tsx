@@ -61,7 +61,7 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="relative overflow-hidden pt-32 pb-20 lg:pt-40 lg:pb-32">
         {/* Background decoration */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] rounded-full bg-gradient-to-b from-[#F3E8FF] to-transparent opacity-60 blur-3xl" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] rounded-full bg-linear-to-b from-[#F3E8FF] to-transparent opacity-60 blur-3xl" />
         
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center">
@@ -108,7 +108,7 @@ export default function LandingPage() {
                 {[1, 2, 3, 4, 5].map((i) => (
                   <div
                     key={i}
-                    className="h-10 w-10 rounded-full border-2 border-white bg-gradient-to-br from-[#A78BFA] to-[#7C3AED]"
+                    className="h-10 w-10 rounded-full border-2 border-white bg-linear-to-br from-[#A78BFA] to-[#7C3AED]"
                   />
                 ))}
               </div>
@@ -229,7 +229,7 @@ export default function LandingPage() {
       </section>
 
       {/* IDE Mockup Section */}
-      <section id="ide" className="py-24 lg:py-32 bg-gradient-to-b from-white via-[#FAFAFA] to-white">
+      <section id="ide" className="py-24 lg:py-32 bg-linear-to-b from-white via-[#FAFAFA] to-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <p className="text-sm font-semibold uppercase tracking-wider text-[#7C3AED] mb-4">
@@ -247,7 +247,7 @@ export default function LandingPage() {
           {/* IDE Mockup */}
           <div className="relative mx-auto max-w-5xl">
             {/* Glow effect */}
-            <div className="absolute -inset-4 rounded-3xl bg-gradient-to-r from-[#7C3AED] via-[#A78BFA] to-[#7C3AED] opacity-20 blur-2xl" />
+            <div className="absolute -inset-4 rounded-3xl bg-linear-to-r from-[#7C3AED] via-[#A78BFA] to-[#7C3AED] opacity-20 blur-2xl" />
             
             {/* IDE Window */}
             <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">

@@ -80,7 +80,7 @@ export function SuccessFeedback({ show, xpEarned, onClose }: SuccessFeedbackProp
             className="relative mx-4 w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl"
           >
             {/* Header gradient */}
-            <div className="relative bg-gradient-to-br from-level-purple to-level-purple-dark px-8 pb-12 pt-8 text-center">
+            <div className="relative bg-linear-to-br from-level-purple to-level-purple-dark px-8 pb-12 pt-8 text-center">
               {/* Estrelas decorativas */}
               <motion.div
                 initial={{ scale: 0, rotate: -180 }}

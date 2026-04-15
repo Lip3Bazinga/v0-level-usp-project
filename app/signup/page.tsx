@@ -7,6 +7,18 @@ import { createClient } from "@/lib/supabase/client"
 import { LevelButton } from "@/components/design-system/level-button"
 import { Rocket, Mail, Lock, Eye, EyeOff, Github, User, AlertCircle, CheckCircle2 } from "lucide-react"
 
+function translateAuthError(message: string): string {
+  if (message.includes("User already registered"))
+    return "Este email já está cadastrado. Tente fazer login."
+  if (message.includes("Password should be at least"))
+    return "A senha deve ter pelo menos 6 caracteres."
+  if (message.includes("Unable to validate email address"))
+    return "Email inválido. Verifique e tente novamente."
+  if (message.includes("Email rate limit exceeded"))
+    return "Muitas tentativas. Aguarde alguns minutos e tente novamente."
+  return message
+}
+
 export default function SignupPage() {
   const router = useRouter()
 
@@ -30,23 +42,30 @@ export default function SignupPage() {
     }
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: {
-          full_name: fullName,
-        },
+        data: { full_name: fullName },
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     })
 
     if (error) {
-      setError(error.message)
+      setError(translateAuthError(error.message))
       setLoading(false)
       return
     }
 
+    // Se confirmação de email estiver desativada no Supabase,
+    // a sessão já vem na resposta — redireciona direto ao dashboard.
+    if (data.session) {
+      router.push("/dashboard")
+      router.refresh()
+      return
+    }
+
+    // Confirmação de email ativada — mostrar tela "verifique seu email"
     setSuccess(true)
     setLoading(false)
   }
@@ -70,8 +89,9 @@ export default function SignupPage() {
           </div>
           <h2 className="text-2xl font-bold text-level-purple-dark mb-3">Verifique seu email!</h2>
           <p className="text-muted-foreground mb-6">
-            Enviamos um link de confirmacao para <span className="font-semibold text-foreground">{email}</span>.
-            Clique no link para ativar sua conta.
+            Enviamos um link de confirmação para{" "}
+            <span className="font-semibold text-foreground">{email}</span>.
+            Clique no link para ativar sua conta e começar a aprender.
           </p>
           <Link href="/login">
             <LevelButton variant="primary" size="md">
@@ -85,20 +105,20 @@ export default function SignupPage() {
 
   return (
     <div className="flex min-h-screen">
-      {/* Left side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-level-purple to-level-purple-dark items-center justify-center p-12">
+      {/* Left side — Branding */}
+      <div className="hidden lg:flex lg:w-1/2 bg-linear-to-br from-level-purple to-level-purple-dark items-center justify-center p-12">
         <div className="max-w-md text-center">
           <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 backdrop-blur">
             <Rocket className="h-10 w-10 text-white" />
           </div>
           <h1 className="text-4xl font-bold text-white mb-4">LevelUSP</h1>
           <p className="text-lg text-purple-200 leading-relaxed">
-            Comece sua jornada na programacao hoje. 100% gratuito, 100% gamificado.
+            Comece sua jornada na programação hoje. 100% gratuito, 100% gamificado.
           </p>
           <div className="mt-12 space-y-4 text-left">
             {[
-              "Aprenda Python do zero ao avancado",
-              "Ganhe XP e suba de nivel",
+              "Aprenda Python do zero ao avançado",
+              "Ganhe XP e suba de nível",
               "IDE completa no navegador",
               "Certificados reconhecidos pela USP",
             ].map((item) => (
@@ -111,7 +131,7 @@ export default function SignupPage() {
         </div>
       </div>
 
-      {/* Right side - Signup Form */}
+      {/* Right side — Signup Form */}
       <div className="flex w-full lg:w-1/2 items-center justify-center p-8">
         <div className="w-full max-w-md">
           {/* Mobile logo */}
@@ -125,7 +145,7 @@ export default function SignupPage() {
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-level-purple-dark">Crie sua conta</h2>
             <p className="mt-2 text-muted-foreground">
-              Comece a aprender programacao gratuitamente
+              Comece a aprender programação gratuitamente
             </p>
           </div>
 
@@ -209,7 +229,7 @@ export default function SignupPage() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Minimo 6 caracteres"
+                  placeholder="Mínimo 6 caracteres"
                   required
                   minLength={6}
                   className="w-full rounded-xl border-2 border-border bg-white pl-11 pr-12 py-3 text-foreground placeholder:text-muted-foreground focus:border-level-purple focus:outline-none transition-colors"
@@ -242,7 +262,7 @@ export default function SignupPage() {
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            Ja tem uma conta?{" "}
+            Já tem uma conta?{" "}
             <Link href="/login" className="font-semibold text-level-purple hover:text-level-purple-dark transition-colors">
               Fazer login
             </Link>

@@ -118,96 +118,69 @@ sys.stderr = sys.__stderr__
   }
 }
 
-// Executa testes unitários ocultos
+// Executa testes ocultos baseados em assert statements
+// Estratégia: executa studentCode + testCode (asserts); qualquer exceção = falha
 async function runTests(py, studentCode, testCode) {
   self.postMessage({ type: "test-start" });
 
   try {
-    // Reseta captura
-    await py.runPythonAsync(`
-import sys
-import io
-__test_stdout = io.StringIO()
-__test_stderr = io.StringIO()
-sys.stdout = __test_stdout
-sys.stderr = __test_stderr
-`);
-
-    // Combina código do aluno + testes (sem executar unittest.main())
+    // Ambiente isolado para os testes (não polui o namespace do aluno)
     const combinedCode = `
+import sys as _sys
+import io as _io
+_test_stdout = _io.StringIO()
+_sys.stdout = _test_stdout
+_sys.stderr = _io.StringIO()
+
 ${studentCode}
 
-import unittest
-import io
+${testCode}
 
-# Parse test code, removendo o if __name__ block
-_test_source = ${JSON.stringify(testCode)}
-_test_lines = []
-_skip = False
-for _line in _test_source.split('\\n'):
-    if _line.strip().startswith("if __name__"):
-        _skip = True
-        continue
-    if _skip and (_line.startswith('    ') or _line.startswith('\\t')):
-        continue
-    _skip = False
-    _test_lines.append(_line)
-
-exec('\\n'.join(_test_lines))
-
-# Roda os testes programaticamente
-_loader = unittest.TestLoader()
-_suite = unittest.TestSuite()
-
-# Encontra todas as classes de teste
-for _name, _obj in list(locals().items()):
-    if isinstance(_obj, type) and issubclass(_obj, unittest.TestCase) and _obj is not unittest.TestCase:
-        _suite.addTests(_loader.loadTestsFromTestCase(_obj))
-
-_runner = unittest.TextTestRunner(stream=io.StringIO(), verbosity=2)
-_result = _runner.run(_suite)
-
-_tests_run = _result.testsRun
-_failures = len(_result.failures)
-_errors = len(_result.errors)
-_passed = _tests_run - _failures - _errors
-_all_passed = _failures == 0 and _errors == 0
-
-# Coleta detalhes das falhas
-_failure_details = []
-for _fail in _result.failures + _result.errors:
-    _failure_details.append(str(_fail[1]))
+_sys.stdout = _sys.__stdout__
+_sys.stderr = _sys.__stderr__
 `;
 
     await py.runPythonAsync(combinedCode);
 
-    const testsRun = py.runPython("_tests_run");
-    const passed = py.runPython("_passed");
-    const failures = py.runPython("_failures");
-    const errors = py.runPython("_errors");
-    const allPassed = py.runPython("_all_passed");
-    const failureDetails = py.runPython("'|||'.join(_failure_details)");
-
+    // Todos os asserts passaram
     self.postMessage({
       type: "test-result",
-      testsRun,
-      passed,
-      failures,
-      errors,
-      allPassed,
-      failureDetails: failureDetails ? failureDetails.split("|||") : [],
+      testsRun: 1,
+      passed: 1,
+      failures: 0,
+      errors: 0,
+      allPassed: true,
+      failureDetails: [],
     });
   } catch (error) {
-    self.postMessage({
-      type: "test-error",
-      error: error.message || String(error),
-    });
-  } finally {
-    await py.runPythonAsync(`
-import sys
-sys.stdout = sys.__stdout__
-sys.stderr = sys.__stderr__
-`);
+    const errorMessage = error.message || String(error);
+
+    // Restaura stdout/stderr antes de reportar
+    try { await py.runPythonAsync("import sys; sys.stdout = sys.__stdout__; sys.stderr = sys.__stderr__"); } catch {}
+
+    // AssertionError = resposta errada do aluno
+    if (errorMessage.includes("AssertionError")) {
+      // Extrai só a mensagem do assert (remove o traceback)
+      const lines = errorMessage.split("\n");
+      const assertLine = lines.find((l) => l.includes("AssertionError")) || errorMessage;
+      const msg = assertLine.replace(/^.*AssertionError:\s*/, "").trim() || "Resposta incorreta. Verifique seu código.";
+
+      self.postMessage({
+        type: "test-result",
+        testsRun: 1,
+        passed: 0,
+        failures: 1,
+        errors: 0,
+        allPassed: false,
+        failureDetails: [msg],
+      });
+    } else {
+      // Erro no código do aluno (SyntaxError, NameError, etc.)
+      self.postMessage({
+        type: "test-error",
+        error: errorMessage,
+      });
+    }
   }
 }
 

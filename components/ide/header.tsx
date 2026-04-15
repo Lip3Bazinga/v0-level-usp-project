@@ -11,17 +11,48 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
 
 interface HeaderProps {
-  xp: number
-  maxXp: number
-  streak: number
-  level: number
   lessonTitle: string
   lessonProgress: number
 }
 
-export function Header({ xp, maxXp, streak, level, lessonTitle, lessonProgress }: HeaderProps) {
+/** XP necessário para completar o nível atual (régua simples: 1000 XP por nível). */
+function xpForLevel(level: number) {
+  return level * 1000
+}
+
+/** Retorna as iniciais do nome completo (ex: "João Silva" → "JS"). */
+function getInitials(fullName: string) {
+  return fullName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join("")
+}
+
+export function Header({ lessonTitle, lessonProgress }: HeaderProps) {
+  const router = useRouter()
+  const { profile, signOut } = useAuth()
+
+  // Gamificação derivada do perfil
+  const level = profile?.level ?? 1
+  const totalXp = profile?.total_xp ?? 0
+  const streak = profile?.current_streak ?? 0
+  const xpFloor = xpForLevel(level - 1)     // XP acumulado no início do nível atual
+  const xpCeil = xpForLevel(level)           // XP necessário para o próximo nível
+  const xpInLevel = totalXp - xpFloor       // XP acumulado dentro do nível atual
+  const initials = profile?.full_name ? getInitials(profile.full_name) : "?"
+
+  const handleSignOut = async () => {
+    await signOut()
+    router.refresh()
+    router.push("/login")
+  }
+
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-white px-4">
       {/* Logo e Título */}
@@ -49,8 +80,8 @@ export function Header({ xp, maxXp, streak, level, lessonTitle, lessonProgress }
         </div>
         <div className="relative w-64">
           <div className="h-3 w-full overflow-hidden rounded-full bg-level-purple-subtle">
-            <div 
-              className="h-full rounded-full bg-gradient-to-r from-level-purple to-level-purple-medium transition-all duration-500"
+            <div
+              className="h-full rounded-full bg-linear-to-r from-level-purple to-level-purple-medium transition-all duration-500"
               style={{ width: `${lessonProgress}%` }}
             />
           </div>
@@ -66,13 +97,13 @@ export function Header({ xp, maxXp, streak, level, lessonTitle, lessonProgress }
         <div className="flex items-center gap-1.5 rounded-full bg-level-purple px-3 py-1.5 text-white">
           <Zap className="h-4 w-4 text-yellow-300" />
           <div className="flex flex-col">
-            <span className="text-xs font-bold">{xp.toLocaleString()}</span>
-            <span className="text-[9px] opacity-80">/{maxXp.toLocaleString()} XP</span>
+            <span className="text-xs font-bold">{xpInLevel.toLocaleString("pt-BR")}</span>
+            <span className="text-[9px] opacity-80">/{xpCeil.toLocaleString("pt-BR")} XP</span>
           </div>
         </div>
 
         {/* Streak */}
-        <div className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-orange-500 to-red-500 px-3 py-1.5 text-white">
+        <div className="flex items-center gap-1.5 rounded-full bg-linear-to-r from-orange-500 to-red-500 px-3 py-1.5 text-white">
           <Flame className="h-4 w-4 text-yellow-300" />
           <div className="flex flex-col">
             <span className="text-xs font-bold">{streak}</span>
@@ -86,23 +117,23 @@ export function Header({ xp, maxXp, streak, level, lessonTitle, lessonProgress }
             <Button variant="ghost" className="flex items-center gap-2 rounded-full px-2 hover:bg-level-purple-light">
               <Avatar className="h-8 w-8 border-2 border-level-purple">
                 <AvatarFallback className="bg-level-purple-light text-level-purple-dark text-xs font-bold">
-                  JS
+                  {initials}
                 </AvatarFallback>
               </Avatar>
               <ChevronDown className="h-4 w-4 text-level-purple" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push(`/perfil/${profile?.username ?? "me"}`)}>
               <User className="mr-2 h-4 w-4" />
               Meu Perfil
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/settings")}>
               <Settings className="mr-2 h-4 w-4" />
               Configurações
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuItem className="text-destructive" onClick={handleSignOut}>
               <LogOut className="mr-2 h-4 w-4" />
               Sair
             </DropdownMenuItem>

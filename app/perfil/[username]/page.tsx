@@ -132,7 +132,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="h-3 w-full overflow-hidden rounded-full bg-level-purple-subtle">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-level-purple to-level-purple-medium transition-all duration-500"
+                    className="h-full rounded-full bg-linear-to-r from-level-purple to-level-purple-medium transition-all duration-500"
                     style={{ width: `${progressToNextLevel}%` }}
                   />
                 </div>
