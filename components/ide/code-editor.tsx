@@ -3,13 +3,15 @@
 import { useState, useCallback } from "react"
 import { X, Plus, Play, RotateCcw, Copy, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import CodeMirror from "@uiw/react-codemirror"
+import { python } from "@codemirror/lang-python"
+import { oneDark } from "@codemirror/theme-one-dark"
 
 interface FileTab {
   id: string
@@ -55,6 +57,8 @@ const getLanguageColor = (lang: string) => {
   }
 }
 
+const extensions = [python()]
+
 export function CodeEditor({
   files,
   activeFileId,
@@ -76,28 +80,15 @@ export function CodeEditor({
     }
   }, [activeFile])
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === "Tab") {
-        e.preventDefault()
-        const target = e.target as HTMLTextAreaElement
-        const start = target.selectionStart
-        const end = target.selectionEnd
-        const value = target.value
-        const newValue = value.substring(0, start) + "    " + value.substring(end)
-        onContentChange(activeFileId, newValue)
-        setTimeout(() => {
-          target.selectionStart = target.selectionEnd = start + 4
-        }, 0)
-      }
+  const handleChange = useCallback(
+    (value: string) => {
+      onContentChange(activeFileId, value)
     },
     [activeFileId, onContentChange]
   )
 
-  const lines = activeFile?.content.split("\n") || []
-
   return (
-    <div className="flex h-full flex-col bg-editor-bg">
+    <div className="flex h-full flex-col bg-[#282c34]">
       {/* Toolbar */}
       <div className="flex items-center justify-between border-b border-border bg-white px-2 py-1">
         {/* Tabs */}
@@ -108,7 +99,7 @@ export function CodeEditor({
               onClick={() => onFileChange(file.id)}
               className={`group flex items-center gap-2 border-r border-border px-3 py-2 text-sm transition-colors ${
                 file.id === activeFileId
-                  ? "bg-editor-bg text-white"
+                  ? "bg-[#282c34] text-white"
                   : "bg-level-purple-subtle text-muted-foreground hover:bg-level-purple-light"
               }`}
             >
@@ -191,36 +182,31 @@ export function CodeEditor({
       </div>
 
       {/* Editor */}
-      <ScrollArea className="flex-1">
-        <div className="flex min-h-full">
-          {/* Line numbers */}
-          <div className="sticky left-0 flex flex-col bg-editor-bg px-3 py-3 text-right font-mono text-xs text-muted-foreground select-none">
-            {lines.map((_, i) => (
-              <div key={i} className="leading-6">
-                {i + 1}
-              </div>
-            ))}
-          </div>
-
-          {/* Code area */}
-          <div className="relative flex-1">
-            <textarea
-              value={activeFile?.content || ""}
-              onChange={(e) => onContentChange(activeFileId, e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="absolute inset-0 w-full resize-none bg-transparent p-3 font-mono text-sm leading-6 text-foreground caret-primary outline-none"
-              spellCheck={false}
-              style={{ tabSize: 4 }}
-            />
-            {/* Syntax highlighted overlay would go here */}
-          </div>
-        </div>
-      </ScrollArea>
+      <div className="flex-1 overflow-auto">
+        <CodeMirror
+          value={activeFile?.content || ""}
+          onChange={handleChange}
+          theme={oneDark}
+          extensions={extensions}
+          height="100%"
+          style={{ height: "100%" }}
+          basicSetup={{
+            lineNumbers: true,
+            highlightActiveLineGutter: true,
+            highlightActiveLine: true,
+            foldGutter: true,
+            autocompletion: true,
+            bracketMatching: true,
+            closeBrackets: true,
+            indentOnInput: true,
+            tabSize: 4,
+          }}
+        />
+      </div>
 
       {/* Status bar */}
-      <div className="flex items-center justify-between border-t border-border bg-level-purple-subtle px-3 py-1 text-xs text-level-purple-dark">
+      <div className="flex items-center justify-between border-t border-[#3e4451] bg-[#21252b] px-3 py-1 text-xs text-[#abb2bf]">
         <div className="flex items-center gap-4">
-          <span>Linha {lines.length}</span>
           <span>
             {activeFile?.language === "python"
               ? "Python 3.11 (Pyodide)"

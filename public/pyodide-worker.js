@@ -124,13 +124,18 @@ async function runTests(py, studentCode, testCode) {
   self.postMessage({ type: "test-start" });
 
   try {
-    // Ambiente isolado para os testes (não polui o namespace do aluno)
+    // Injeta user_code via base64 para evitar qualquer problema de escaping
+    const base64Code = btoa(unescape(encodeURIComponent(studentCode)));
+
     const combinedCode = `
 import sys as _sys
 import io as _io
+import base64 as _b64
 _test_stdout = _io.StringIO()
 _sys.stdout = _test_stdout
 _sys.stderr = _io.StringIO()
+
+user_code = _b64.b64decode("${base64Code}").decode("utf-8")
 
 ${studentCode}
 

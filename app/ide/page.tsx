@@ -14,7 +14,7 @@ import { FileExplorer } from "@/components/ide/file-explorer"
 import { SuccessFeedback } from "@/components/ide/success-feedback"
 import { usePython } from "@/hooks/use-python"
 import { parsePythonError } from "@/lib/parse-python-error"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/client"
 import type { Lesson } from "@/lib/database.types"
 
 // Dados fallback para quando Supabase nao esta configurado

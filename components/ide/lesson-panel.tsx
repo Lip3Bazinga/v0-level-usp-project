@@ -2,8 +2,9 @@
 
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { CheckCircle2, Circle, PlayCircle, BookOpen, Code2, Lightbulb, ShieldCheck } from "lucide-react"
+import { CheckCircle2, Circle, PlayCircle, BookOpen, ShieldCheck } from "lucide-react"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 
 interface LessonStep {
   id: number
@@ -32,7 +33,7 @@ export function LessonPanel({ title, description, content, steps, onStepClick, o
           <span className="text-sm font-medium text-level-purple-dark">Conteúdo</span>
         </div>
         <Badge className="bg-level-purple-light text-level-purple-dark text-xs border-0">
-          Lição 3 de 12
+          Lição
         </Badge>
       </div>
 
@@ -41,39 +42,12 @@ export function LessonPanel({ title, description, content, steps, onStepClick, o
           {/* Título e descrição */}
           <div className="mb-6">
             <h2 className="mb-2 text-lg font-bold text-level-purple-dark">{title}</h2>
-            <p className="text-sm text-muted-foreground">{description}</p>
+            <p className="text-sm text-gray-500">{description}</p>
           </div>
 
-          {/* Conteúdo em Markdown simulado */}
-          <div className="prose prose-sm max-w-none">
-            <div className="mb-6 rounded-xl border border-warning/30 bg-warning/10 p-4">
-              <div className="mb-2 flex items-center gap-2">
-                <Lightbulb className="h-4 w-4 text-warning" />
-                <span className="text-sm font-semibold text-warning">Dica</span>
-              </div>
-              <p className="text-sm text-foreground">
-                Variáveis são como &quot;caixas&quot; que armazenam valores na memória do computador.
-              </p>
-            </div>
-
-            <div className="space-y-4 text-sm text-foreground" dangerouslySetInnerHTML={{ __html: content }} />
-
-            {/* Exemplo de código */}
-            <div className="mt-6 rounded-xl border border-border bg-editor-bg p-4">
-              <div className="mb-2 flex items-center gap-2">
-                <Code2 className="h-4 w-4 text-level-purple-medium" />
-                <span className="text-sm font-medium text-white">Exemplo</span>
-              </div>
-              <pre className="overflow-x-auto font-mono text-sm">
-                <code className="text-gray-300">
-                  <span className="text-level-purple-medium">nome</span> = <span className="text-green-400">&quot;Maria&quot;</span>{"\n"}
-                  <span className="text-level-purple-medium">idade</span> = <span className="text-orange-400">25</span>{"\n"}
-                  <span className="text-level-purple-medium">altura</span> = <span className="text-orange-400">1.68</span>{"\n\n"}
-                  <span className="text-gray-500"># Exibindo os valores</span>{"\n"}
-                  <span className="text-cyan-400">print</span>(<span className="text-green-400">f&quot;Nome: </span><span className="text-level-purple-medium">{"{"}nome{"}"}</span><span className="text-green-400">&quot;</span>)
-                </code>
-              </pre>
-            </div>
+          {/* Conteúdo Markdown renderizado */}
+          <div className="prose-lesson">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
           </div>
 
           {/* Passos da lição */}
@@ -88,20 +62,20 @@ export function LessonPanel({ title, description, content, steps, onStepClick, o
                     step.active
                       ? "border-level-purple bg-level-purple-light"
                       : step.completed
-                      ? "border-success/30 bg-success/10"
-                      : "border-border bg-transparent hover:border-level-purple-medium hover:bg-level-purple-subtle"
+                      ? "border-green-200 bg-green-50"
+                      : "border-gray-200 bg-transparent hover:border-level-purple-medium hover:bg-level-purple-subtle"
                   }`}
                 >
                   {step.completed ? (
-                    <CheckCircle2 className="h-5 w-5 text-success" />
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
                   ) : step.active ? (
                     <PlayCircle className="h-5 w-5 text-level-purple" />
                   ) : (
-                    <Circle className="h-5 w-5 text-muted-foreground" />
+                    <Circle className="h-5 w-5 text-gray-400" />
                   )}
                   <span
                     className={`text-sm ${
-                      step.active ? "font-medium text-level-purple-dark" : step.completed ? "text-success" : "text-muted-foreground"
+                      step.active ? "font-medium text-level-purple-dark" : step.completed ? "text-green-600" : "text-gray-500"
                     }`}
                   >
                     {step.title}
@@ -117,7 +91,7 @@ export function LessonPanel({ title, description, content, steps, onStepClick, o
               <button
                 onClick={onVerify}
                 disabled={isVerifying}
-                className="w-full rounded-xl bg-success py-3 text-sm font-semibold text-white btn-3d flex items-center justify-center gap-2 hover:bg-success/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full rounded-xl bg-green-500 py-3 text-sm font-semibold text-white btn-3d flex items-center justify-center gap-2 hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isVerifying ? (
                   <>
@@ -132,10 +106,6 @@ export function LessonPanel({ title, description, content, steps, onStepClick, o
                 )}
               </button>
             )}
-            <button className="w-full rounded-xl bg-level-purple py-3 text-sm font-semibold text-white btn-3d flex items-center justify-center gap-2 hover:bg-level-purple-medium transition-colors">
-              <PlayCircle className="h-4 w-4" />
-              Continuar Exercicio
-            </button>
           </div>
         </div>
       </ScrollArea>

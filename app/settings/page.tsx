@@ -1,7 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
+import { createClient } from "@/lib/supabase/client"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { LevelButton } from "@/components/design-system/level-button"
 import {
@@ -10,43 +13,98 @@ import {
   User,
   Mail,
   Lock,
-  Bell,
-  Palette,
-  Globe,
   Shield,
   LogOut,
   Camera,
   Save,
-  Eye,
-  EyeOff,
-  AlertCircle,
+  Loader2,
+  CheckCircle2,
 } from "lucide-react"
 
+function getInitials(name: string) {
+  return name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("")
+}
+
 export default function SettingsPage() {
+  const router = useRouter()
+  const { profile, isLoading: authLoading, signOut, refreshProfile } = useAuth()
   const [activeTab, setActiveTab] = useState("profile")
-  const [fullName, setFullName] = useState("Joao Silva")
-  const [username, setUsername] = useState("joaosilva")
-  const [bio, setBio] = useState("Estudante de Ciencia da Computacao na USP.")
-  const [email] = useState("joao.silva@usp.br")
-  const [notifications, setNotifications] = useState({
-    email: true,
-    streak: true,
-    leaderboard: false,
-    newLessons: true,
-  })
+
+  // Profile fields
+  const [fullName, setFullName] = useState("")
+  const [username, setUsername] = useState("")
+  const [bio, setBio] = useState("")
   const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState("")
+
+  // Hydrate fields from profile
+  useEffect(() => {
+    if (profile) {
+      setFullName(profile.full_name ?? "")
+      setUsername(profile.username ?? "")
+      setBio(profile.bio ?? "")
+    }
+  }, [profile])
+
+  // Redirect if not logged in
+  useEffect(() => {
+    if (!authLoading && !profile) {
+      router.push("/login?redirect=/settings")
+    }
+  }, [authLoading, profile, router])
 
   const handleSave = async () => {
+    if (!profile) return
     setSaving(true)
-    await new Promise((r) => setTimeout(r, 1000))
+    setError("")
+    setSaved(false)
+
+    const supabase = createClient()
+    const updates: Record<string, unknown> = {
+      full_name: fullName.trim(),
+      username: username.trim().toLowerCase(),
+      bio: bio.trim() || null,
+    }
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update(updates as never)
+      .eq("id", profile.id)
+
+    if (updateError) {
+      if (updateError.message.includes("duplicate") || updateError.message.includes("unique")) {
+        setError("Este username ja esta em uso. Escolha outro.")
+      } else {
+        setError("Erro ao salvar. Tente novamente.")
+      }
+    } else {
+      await refreshProfile()
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    }
+
     setSaving(false)
+  }
+
+  const handleSignOut = async () => {
+    await signOut()
+    window.location.href = "/login"
   }
 
   const tabs = [
     { id: "profile", label: "Perfil", icon: User },
-    { id: "notifications", label: "Notificacoes", icon: Bell },
     { id: "security", label: "Seguranca", icon: Shield },
   ]
+
+  if (authLoading || !profile) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-level-purple" />
+      </div>
+    )
+  }
+
+  const initials = getInitials(profile.full_name)
 
   return (
     <div className="min-h-screen bg-background">
@@ -91,7 +149,10 @@ export default function SettingsPage() {
 
               <div className="my-4 border-t border-border" />
 
-              <button className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors">
+              <button
+                onClick={handleSignOut}
+                className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+              >
                 <LogOut className="h-4 w-4" />
                 Sair da conta
               </button>
@@ -111,7 +172,7 @@ export default function SettingsPage() {
                     <div className="relative">
                       <Avatar className="h-20 w-20 border-4 border-level-purple-light">
                         <AvatarFallback className="bg-level-purple-light text-xl font-bold text-level-purple-dark">
-                          JS
+                          {initials}
                         </AvatarFallback>
                       </Avatar>
                       <button className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-level-purple text-white shadow-md hover:bg-level-purple-dark transition-colors">
@@ -123,6 +184,19 @@ export default function SettingsPage() {
                       <p className="text-xs text-muted-foreground">JPG, PNG. Max 2MB.</p>
                     </div>
                   </div>
+
+                  {error && (
+                    <div className="mb-4 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                      {error}
+                    </div>
+                  )}
+
+                  {saved && (
+                    <div className="mb-4 flex items-center gap-2 rounded-xl bg-success/10 px-4 py-3 text-sm text-success">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Alteracoes salvas com sucesso!
+                    </div>
+                  )}
 
                   <div className="space-y-4">
                     <div className="space-y-2">
@@ -164,7 +238,7 @@ export default function SettingsPage() {
                         <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <input
                           type="email"
-                          value={email}
+                          value={profile.email}
                           disabled
                           className="w-full rounded-xl border-2 border-border bg-muted pl-11 pr-4 py-3 text-muted-foreground cursor-not-allowed"
                         />
@@ -192,74 +266,30 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Notifications Tab */}
-            {activeTab === "notifications" && (
-              <div className="rounded-2xl border border-border bg-white p-6">
-                <h2 className="mb-6 text-lg font-bold text-level-purple-dark">Preferencias de Notificacao</h2>
-                <div className="space-y-4">
-                  {[
-                    { key: "email" as const, label: "Notificacoes por email", desc: "Receba atualizacoes no seu email" },
-                    { key: "streak" as const, label: "Lembrete de streak", desc: "Nao perca sua sequencia diaria" },
-                    { key: "leaderboard" as const, label: "Mudancas no ranking", desc: "Saiba quando subir ou descer no ranking" },
-                    { key: "newLessons" as const, label: "Novas licoes", desc: "Seja notificado quando novas licoes forem publicadas" },
-                  ].map((item) => (
-                    <div key={item.key} className="flex items-center justify-between rounded-xl border border-border p-4">
-                      <div>
-                        <p className="text-sm font-medium text-level-purple-dark">{item.label}</p>
-                        <p className="text-xs text-muted-foreground">{item.desc}</p>
-                      </div>
-                      <button
-                        onClick={() =>
-                          setNotifications((prev) => ({ ...prev, [item.key]: !prev[item.key] }))
-                        }
-                        className={`relative h-6 w-11 rounded-full transition-colors ${
-                          notifications[item.key] ? "bg-level-purple" : "bg-muted"
-                        }`}
-                      >
-                        <span
-                          className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                            notifications[item.key] ? "translate-x-5" : ""
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Security Tab */}
             {activeTab === "security" && (
               <div className="space-y-6">
                 <div className="rounded-2xl border border-border bg-white p-6">
                   <h2 className="mb-6 text-lg font-bold text-level-purple-dark">Alterar Senha</h2>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-level-purple-dark">Senha atual</label>
-                      <div className="relative">
-                        <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <input
-                          type="password"
-                          placeholder="Sua senha atual"
-                          className="w-full rounded-xl border-2 border-border bg-white pl-11 pr-4 py-3 text-foreground placeholder:text-muted-foreground focus:border-level-purple focus:outline-none transition-colors"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-level-purple-dark">Nova senha</label>
-                      <div className="relative">
-                        <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <input
-                          type="password"
-                          placeholder="Minimo 6 caracteres"
-                          className="w-full rounded-xl border-2 border-border bg-white pl-11 pr-4 py-3 text-foreground placeholder:text-muted-foreground focus:border-level-purple focus:outline-none transition-colors"
-                        />
-                      </div>
-                    </div>
-                    <LevelButton variant="primary" size="md">
-                      Atualizar senha
-                    </LevelButton>
-                  </div>
+                  <p className="mb-4 text-sm text-muted-foreground">
+                    Para alterar sua senha, clique no botao abaixo. Um email sera enviado para <strong>{profile.email}</strong> com as instrucoes.
+                  </p>
+                  <LevelButton
+                    variant="primary"
+                    size="md"
+                    onClick={async () => {
+                      const supabase = createClient()
+                      await supabase.auth.resetPasswordForEmail(profile.email, {
+                        redirectTo: `${window.location.origin}/auth/callback?redirect=/settings`,
+                      })
+                      alert("Email enviado! Verifique sua caixa de entrada.")
+                    }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Lock className="h-4 w-4" />
+                      Enviar email de redefinicao
+                    </span>
+                  </LevelButton>
                 </div>
 
                 <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6">

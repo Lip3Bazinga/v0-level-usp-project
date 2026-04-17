@@ -21,11 +21,11 @@ interface ConsolePanelProps {
 const getIcon = (type: ConsoleOutput["type"]) => {
   switch (type) {
     case "success":
-      return <CheckCircle2 className="h-4 w-4 text-success" />
+      return <CheckCircle2 className="h-4 w-4 text-green-400" />
     case "error":
-      return <XCircle className="h-4 w-4 text-destructive" />
+      return <XCircle className="h-4 w-4 text-red-400" />
     case "warning":
-      return <AlertCircle className="h-4 w-4 text-warning" />
+      return <AlertCircle className="h-4 w-4 text-yellow-400" />
     default:
       return null
   }
@@ -34,13 +34,15 @@ const getIcon = (type: ConsoleOutput["type"]) => {
 const getTextColor = (type: ConsoleOutput["type"]) => {
   switch (type) {
     case "success":
-      return "text-success"
+      return "text-green-400"
     case "error":
-      return "text-destructive"
+      return "text-red-400"
     case "warning":
-      return "text-warning"
+      return "text-yellow-400"
+    case "output":
+      return "text-gray-200"
     default:
-      return "text-foreground"
+      return "text-gray-400"
   }
 }
 
@@ -54,12 +56,12 @@ export function ConsolePanel({ outputs, onClear, isRunning }: ConsolePanelProps)
   }, [outputs])
 
   return (
-    <div className="flex h-full flex-col bg-white">
+    <div className="flex h-full flex-col bg-[#1e1e2e]">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-3 py-2">
+      <div className="flex items-center justify-between border-b border-[#3e4451] px-3 py-2">
         <div className="flex items-center gap-2">
-          <Terminal className="h-4 w-4 text-level-purple" />
-          <span className="text-sm font-semibold text-level-purple-dark">Console</span>
+          <Terminal className="h-4 w-4 text-green-400" />
+          <span className="text-sm font-semibold text-gray-200">Console</span>
           {isRunning && (
             <Badge className="animate-pulse text-xs bg-level-purple text-white border-0">
               Executando...
@@ -67,10 +69,10 @@ export function ConsolePanel({ outputs, onClear, isRunning }: ConsolePanelProps)
           )}
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-level-purple-light hover:text-level-purple">
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:bg-[#2d2d3d] hover:text-gray-200">
             <Download className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-level-purple-light hover:text-level-purple" onClick={onClear}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:bg-[#2d2d3d] hover:text-gray-200" onClick={onClear}>
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -79,7 +81,7 @@ export function ConsolePanel({ outputs, onClear, isRunning }: ConsolePanelProps)
       {/* Output area */}
       <div className="flex-1 overflow-auto p-3" ref={scrollRef}>
         {outputs.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+          <div className="flex h-full items-center justify-center text-sm text-gray-500">
             <p>Clique em &quot;Executar&quot; para ver a saída do seu código</p>
           </div>
         ) : (
@@ -87,7 +89,7 @@ export function ConsolePanel({ outputs, onClear, isRunning }: ConsolePanelProps)
             {outputs.map((output) => (
               <div key={output.id} className="flex items-start gap-2">
                 {getIcon(output.type)}
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-[10px] text-gray-600">
                   [{output.timestamp.toLocaleTimeString()}]
                 </span>
                 <span className={getTextColor(output.type)}>{output.message}</span>
@@ -96,21 +98,21 @@ export function ConsolePanel({ outputs, onClear, isRunning }: ConsolePanelProps)
             {isRunning && (
               <div className="flex items-center gap-2">
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-level-purple border-t-transparent" />
-                <span className="text-level-purple">Processando...</span>
+                <span className="text-purple-400">Processando...</span>
               </div>
             )}
           </div>
         )}
       </div>
 
-      {/* Input line (opcional) */}
-      <div className="border-t border-border px-3 py-2 bg-level-purple-subtle">
-        <div className="flex items-center gap-2 font-mono text-sm text-muted-foreground">
-          <span className="text-level-purple font-bold">{">>>"}</span>
+      {/* Input line */}
+      <div className="border-t border-[#3e4451] px-3 py-2 bg-[#16162a]">
+        <div className="flex items-center gap-2 font-mono text-sm text-gray-400">
+          <span className="text-green-400 font-bold">{">>>"}</span>
           <input
             type="text"
             placeholder="Digite um comando..."
-            className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground outline-none"
+            className="flex-1 bg-transparent text-gray-200 placeholder:text-gray-600 outline-none"
           />
         </div>
       </div>

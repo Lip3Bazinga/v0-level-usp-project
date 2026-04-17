@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { LevelButton } from "@/components/design-system/level-button"
-import { Rocket, Mail, Lock, Eye, EyeOff, Github, AlertCircle } from "lucide-react"
+import { Rocket, Mail, Lock, Eye, EyeOff, Github, AlertCircle, CheckCircle2 } from "lucide-react"
 
 function translateAuthError(message: string): string {
   if (message.includes("Invalid login credentials"))
@@ -32,6 +32,24 @@ function LoginForm() {
     hasAuthError ? "Ocorreu um erro na autenticação. Tente novamente." : ""
   )
   const [loading, setLoading] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError("Digite seu email acima para receber o link de redefinição.")
+      return
+    }
+    const supabase = createClient()
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?redirect=/settings`,
+    })
+    if (error) {
+      setError(translateAuthError(error.message))
+      return
+    }
+    setResetSent(true)
+    setTimeout(() => setResetSent(false), 5000)
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -151,6 +169,13 @@ function LoginForm() {
               </div>
             )}
 
+            {resetSent && (
+              <div className="flex items-center gap-2 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                Email de redefinição enviado! Verifique sua caixa de entrada.
+              </div>
+            )}
+
             <div className="space-y-2">
               <label className="text-sm font-medium text-level-purple-dark">Email</label>
               <div className="relative">
@@ -169,12 +194,13 @@ function LoginForm() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium text-level-purple-dark">Senha</label>
-                <Link
-                  href="/login"
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
                   className="text-sm text-level-purple hover:text-level-purple-dark transition-colors"
                 >
                   Esqueceu a senha?
-                </Link>
+                </button>
               </div>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

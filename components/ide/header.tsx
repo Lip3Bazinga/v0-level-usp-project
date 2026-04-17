@@ -49,8 +49,7 @@ export function Header({ lessonTitle, lessonProgress }: HeaderProps) {
 
   const handleSignOut = async () => {
     await signOut()
-    router.refresh()
-    router.push("/login")
+    window.location.href = "/login"
   }
 
   return (
