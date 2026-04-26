@@ -37,7 +37,7 @@ export default function ProfilePage() {
   const params = useParams()
   const router = useRouter()
   const username = params.username as string
-  const { profile: currentUser } = useAuth()
+  const { profile: currentUser, isLoading: authLoading } = useAuth()
   const activityData = React.useMemo(() => generateMockActivityData(), [])
 
   const [user, setUser] = React.useState<Profile | null>(null)
@@ -45,30 +45,45 @@ export default function ProfilePage() {
 
   const isOwnProfile = username === "me" || username === currentUser?.username
 
+  const currentUsername = currentUser?.username
+  const currentUserId = currentUser?.id
   React.useEffect(() => {
+    if (authLoading) return
+
     async function load() {
       setLoading(true)
 
-      // Se for "me", usa o perfil do contexto
-      if (username === "me" && currentUser) {
+      if (username === "me") {
+        if (!currentUser) {
+          router.replace("/login?redirect=/perfil/me")
+          return
+        }
         setUser(currentUser)
         setLoading(false)
         return
       }
 
-      // Busca pelo username no Supabase
+      if (currentUsername && username === currentUsername) {
+        setUser(currentUser)
+        setLoading(false)
+        return
+      }
+
       const supabase = createClient()
       const { data } = await supabase
         .from("profiles")
         .select("*")
-        .eq("username", username === "me" ? currentUser?.username ?? "" : username)
-        .single()
+        .eq("username", username)
+        .maybeSingle()
 
-      setUser(data ?? null)
+      setUser(data ? (data as Profile) : null)
       setLoading(false)
     }
     load()
-  }, [username, currentUser])
+  // currentUsername e currentUserId são primitivos — não causam re-execução
+  // desnecessária quando o objeto currentUser é recriado.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [username, currentUsername, currentUserId, authLoading, router])
 
   if (loading) {
     return (

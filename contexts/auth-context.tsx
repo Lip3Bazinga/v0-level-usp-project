@@ -6,21 +6,27 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react"
+import type { User } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/client"
 import type { Profile } from "@/lib/supabase/types"
+import { checkAndUpdateDailyStreak } from "@/lib/supabase/lessons"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
+export interface StreakResult {
+  streakUpdated: boolean
+  newStreak: number
+}
+
 export interface AuthContextValue {
-  /** Perfil completo do usuário logado (incluindo XP, level, role). Null se não autenticado. */
+  user: User | null
   profile: Profile | null
-  /** True apenas durante a hidratação inicial da sessão (primeiro render). */
   isLoading: boolean
-  /** Desloga e limpa o perfil local. */
+  signIn: (email: string, password: string) => Promise<{ error: string | null; streakResult?: StreakResult }>
   signOut: () => Promise<void>
-  /** Re-busca o perfil do Supabase (útil após ganhar XP ou subir de nível). */
   refreshProfile: () => Promise<void>
 }
 
@@ -28,64 +34,106 @@ export interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+// ── Singleton do client Supabase ──────────────────────────────────────────────
+// Criado uma vez fora do componente para que React Strict Mode (que desmonta e
+// remonta em dev) não instancie múltiplos listeners disputando o mesmo lock de
+// token do GoTrue.
+const supabase = createClient()
+
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  // Evita fetch de perfil após unmount (Strict Mode double-invoke)
+  const mounted = useRef(true)
 
   const fetchProfile = useCallback(async (userId: string) => {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single()
-    setProfile(data ?? null)
+    // Retry uma vez em caso de falha transitória (ex: RLS ainda propagando)
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single()
+
+      if (!mounted.current) return
+
+      if (!error && data) {
+        setProfile(data as Profile)
+        return
+      }
+
+      if (attempt === 0) {
+        // Pequena espera antes de tentar novamente
+        await new Promise((r) => setTimeout(r, 400))
+      }
+    }
+    // Após 2 tentativas, mantém null — o usuário está autenticado mas sem perfil
+    setProfile(null)
   }, [])
 
   useEffect(() => {
-    const supabase = createClient()
+    mounted.current = true
 
-    // Hidrata a sessão existente (ex: aba reaberta, F5)
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        await fetchProfile(session.user.id)
-      }
-      setIsLoading(false)
-    })
-
-    // Escuta login, logout e refresh de token em tempo real
+    // onAuthStateChange dispara imediatamente com a sessão atual (INITIAL_SESSION),
+    // então NÃO precisamos de getSession() separado — isso evita a corrida de
+    // dois caminhos assíncronos tentando adquirir o lock do token ao mesmo tempo.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted.current) return
+
       if (session?.user) {
+        setUser(session.user)
         await fetchProfile(session.user.id)
       } else {
+        setUser(null)
         setProfile(null)
       }
-      setIsLoading(false)
+
+      if (mounted.current) setIsLoading(false)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted.current = false
+      subscription.unsubscribe()
+    }
   }, [fetchProfile])
 
+  const signIn = useCallback(
+    async (email: string, password: string): Promise<{ error: string | null; streakResult?: StreakResult }> => {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) return { error: error.message }
+      // Check and update daily streak on login
+      let streakResult: StreakResult | undefined
+      if (data?.user) {
+        try {
+          streakResult = await checkAndUpdateDailyStreak(data.user.id)
+        } catch { /* streak is non-critical */ }
+      }
+      return { error: null, streakResult }
+    },
+    [],
+  )
+
   const signOut = useCallback(async () => {
-    const supabase = createClient()
     await supabase.auth.signOut()
+    setUser(null)
     setProfile(null)
   }, [])
 
   const refreshProfile = useCallback(async () => {
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (user) await fetchProfile(user.id)
+    const { data: { user: currentUser } } = await supabase.auth.getUser()
+    if (currentUser) {
+      setUser(currentUser)
+      await fetchProfile(currentUser.id)
+    }
   }, [fetchProfile])
 
   return (
-    <AuthContext.Provider value={{ profile, isLoading, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, isLoading, signIn, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   )

@@ -11,13 +11,20 @@ import {
   deleteLesson,
   toggleLessonPublished,
 } from "@/lib/supabase/lessons"
-import type { Lesson } from "@/lib/supabase/types"
+import {
+  fetchTeacherCourses,
+  toggleCoursePublished,
+  deleteCourse,
+} from "@/lib/supabase/courses"
+import type { Lesson, Course } from "@/lib/supabase/types"
 import {
   Rocket, Plus, BookOpen, Users, BarChart3, Search,
   Eye, Edit3, Trash2, CheckCircle2, FileText, ChevronLeft,
   TrendingUp, Loader2, Globe, EyeOff, AlertTriangle,
+  GraduationCap, Star,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { swalConfirm, swalError, swalToast } from "@/lib/swal"
 
 function getDifficultyColor(difficulty: string) {
   switch (difficulty) {
@@ -28,47 +35,6 @@ function getDifficultyColor(difficulty: string) {
   }
 }
 
-// ── Dialog de confirmação de exclusão ────────────────────────────────────────
-
-function DeleteDialog({
-  lesson,
-  onConfirm,
-  onCancel,
-}: {
-  lesson: Lesson
-  onConfirm: () => void
-  onCancel: () => void
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="mx-4 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10">
-          <AlertTriangle className="h-6 w-6 text-destructive" />
-        </div>
-        <h2 className="text-lg font-bold text-level-purple-dark">Excluir lição?</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          A lição <span className="font-semibold text-foreground">&quot;{lesson.title}&quot;</span> será excluída permanentemente.
-          O progresso dos alunos nesta lição também será removido.
-        </p>
-        <div className="mt-6 flex items-center justify-end gap-3">
-          <button
-            onClick={onCancel}
-            className="rounded-xl border-2 border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={onConfirm}
-            className="rounded-xl bg-destructive px-4 py-2 text-sm font-semibold text-white hover:bg-destructive/90 transition-colors"
-          >
-            Excluir
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── Componente principal ──────────────────────────────────────────────────────
 
 export default function TeacherPage() {
@@ -76,26 +42,78 @@ export default function TeacherPage() {
   const { profile, isLoading: authLoading } = useAuth()
 
   const [lessons, setLessons] = useState<Lesson[]>([])
+  const [courses, setCourses] = useState<Course[]>([])
   const [completions, setCompletions] = useState(0)
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [filter, setFilter] = useState<"all" | "published" | "draft">("all")
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [toDelete, setToDelete] = useState<Lesson | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [deletingCourseId, setDeletingCourseId] = useState<string | null>(null)
+  const [togglingCourseId, setTogglingCourseId] = useState<string | null>(null)
 
+  const profileId = profile?.id
   useEffect(() => {
-    if (authLoading || !profile) return
+    if (authLoading || !profileId) return
     async function load() {
       setLoading(true)
-      const fetched = await fetchTeacherLessons(profile!.id)
+      const [fetched, fetchedCourses] = await Promise.all([
+        fetchTeacherLessons(profileId!),
+        fetchTeacherCourses(profileId!),
+      ])
       setLessons(fetched)
+      setCourses(fetchedCourses)
       const { completions: c } = await fetchTeacherMetrics(fetched.map((l) => l.id))
       setCompletions(c)
       setLoading(false)
     }
     load()
-  }, [authLoading, profile])
+  }, [authLoading, profileId])
+
+  const handleToggleCoursePublished = async (course: Course) => {
+    const action = course.published ? "despublicar" : "publicar"
+    const confirmed = await swalConfirm({
+      title: `Deseja ${action} este curso?`,
+      text: course.published
+        ? "O curso ficará invisível para os alunos."
+        : "O curso ficará visível para todos os alunos matriculados.",
+      confirmText: course.published ? "Despublicar" : "Publicar",
+      icon: "question",
+    })
+    if (!confirmed) return
+
+    setTogglingCourseId(course.id)
+    try {
+      await toggleCoursePublished(course.id, !course.published)
+      setCourses((prev) => prev.map((c) => c.id === course.id ? { ...c, published: !course.published } : c))
+      swalToast({ title: course.published ? "Curso despublicado." : "Curso publicado!", icon: "success" })
+    } catch {
+      await swalError({ text: "Erro ao alterar status do curso." })
+    } finally {
+      setTogglingCourseId(null)
+    }
+  }
+
+  const handleDeleteCourse = async (course: Course) => {
+    const confirmed = await swalConfirm({
+      title: "Excluir curso?",
+      text: `O curso "${course.title}" será excluído permanentemente. Esta ação não pode ser desfeita.`,
+      confirmText: "Excluir",
+      danger: true,
+    })
+    if (!confirmed) return
+
+    setDeletingCourseId(course.id)
+    try {
+      await deleteCourse(course.id)
+      setCourses((prev) => prev.filter((c) => c.id !== course.id))
+      swalToast({ title: "Curso excluído.", icon: "success" })
+    } catch {
+      await swalError({ text: "Erro ao excluir curso." })
+    } finally {
+      setDeletingCourseId(null)
+    }
+  }
 
   const filteredLessons = lessons.filter((lesson) => {
     const matchesSearch = lesson.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -106,25 +124,48 @@ export default function TeacherPage() {
     return matchesSearch && matchesFilter
   })
 
-  const handleDelete = async () => {
-    if (!toDelete) return
-    setDeletingId(toDelete.id)
-    setToDelete(null)
+  const handleDelete = async (lesson: Lesson) => {
+    const confirmed = await swalConfirm({
+      title: "Excluir lição?",
+      text: `A lição "${lesson.title}" será excluída permanentemente. O progresso dos alunos também será removido.`,
+      confirmText: "Excluir",
+      danger: true,
+    })
+    if (!confirmed) return
+
+    setDeletingId(lesson.id)
     try {
-      await deleteLesson(toDelete.id)
-      setLessons((prev) => prev.filter((l) => l.id !== toDelete.id))
+      await deleteLesson(lesson.id)
+      setLessons((prev) => prev.filter((l) => l.id !== lesson.id))
+      swalToast({ title: "Lição excluída.", icon: "success" })
+    } catch {
+      await swalError({ text: "Erro ao excluir lição." })
     } finally {
       setDeletingId(null)
     }
   }
 
   const handleTogglePublished = async (lesson: Lesson) => {
+    const action = lesson.published ? "despublicar" : "publicar"
+    const confirmed = await swalConfirm({
+      title: `Deseja ${action} esta lição?`,
+      text: lesson.published
+        ? "A lição ficará invisível para os alunos."
+        : "A lição ficará disponível para todos os alunos.",
+      confirmText: lesson.published ? "Despublicar" : "Publicar",
+      icon: "question",
+    })
+    if (!confirmed) return
+
     setTogglingId(lesson.id)
     try {
       await toggleLessonPublished(lesson.id, !lesson.published)
       setLessons((prev) =>
         prev.map((l) => (l.id === lesson.id ? { ...l, published: !lesson.published } : l))
       )
+      swalToast({ title: lesson.published ? "Lição despublicada." : "Lição publicada!", icon: "success" })
+    } catch {
+      await swalError({ text: "Erro ao alterar status da lição." })
     } finally {
       setTogglingId(null)
     }
@@ -138,14 +179,6 @@ export default function TeacherPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {toDelete && (
-        <DeleteDialog
-          lesson={toDelete}
-          onConfirm={handleDelete}
-          onCancel={() => setToDelete(null)}
-        />
-      )}
-
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-border bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
@@ -168,14 +201,24 @@ export default function TeacherPage() {
             </div>
           </div>
 
-          <Link href="/teacher/edit/new">
-            <LevelButton variant="primary" size="md">
-              <span className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Nova Lição
-              </span>
-            </LevelButton>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/teacher/curso/new">
+              <LevelButton variant="secondary" size="md">
+                <span className="flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4" />
+                  Novo Curso
+                </span>
+              </LevelButton>
+            </Link>
+            <Link href="/teacher/edit/new">
+              <LevelButton variant="primary" size="md">
+                <span className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Nova Lição
+                </span>
+              </LevelButton>
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -217,6 +260,106 @@ export default function TeacherPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Courses Section */}
+        <div className="mb-8">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <GraduationCap className="h-5 w-5 text-level-purple" />
+              <h2 className="text-base font-semibold text-level-purple-dark">Meus Cursos</h2>
+              <span className="text-xs text-muted-foreground">({courses.length})</span>
+            </div>
+            <Link href="/teacher/curso/new" className="flex items-center gap-1.5 rounded-lg bg-level-purple px-3 py-1.5 text-xs font-semibold text-white hover:bg-level-purple-dark transition-colors">
+              <Plus className="h-3.5 w-3.5" /> Novo Curso
+            </Link>
+          </div>
+
+          {loading ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {[1,2,3].map((i) => (
+                <div key={i} className="h-28 animate-pulse rounded-2xl bg-muted" />
+              ))}
+            </div>
+          ) : courses.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border py-10 text-center">
+              <GraduationCap className="mb-3 h-10 w-10 text-muted-foreground/30" />
+              <p className="text-sm font-medium text-level-purple-dark">Nenhum curso criado</p>
+              <p className="mt-1 text-xs text-muted-foreground">Crie um curso para organizar suas lições</p>
+              <Link href="/teacher/curso/new" className="mt-4 rounded-xl bg-level-purple px-5 py-2 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors">
+                Criar primeiro curso
+              </Link>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {courses.map((course) => (
+                <div key={course.id} className="group relative overflow-hidden rounded-2xl border border-border bg-white p-5 transition-shadow hover:shadow-md">
+                  {course.cover_image_url ? (
+                    <div className="mb-3 h-20 overflow-hidden rounded-xl">
+                      <img src={course.cover_image_url} alt={course.title} className="h-full w-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="mb-3 flex h-20 items-center justify-center rounded-xl bg-level-purple-subtle">
+                      <GraduationCap className="h-8 w-8 text-level-purple/50" />
+                    </div>
+                  )}
+
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-level-purple-dark">{course.title}</p>
+                      <div className="mt-1 flex items-center gap-2">
+                        {course.published ? (
+                          <Badge className="border-0 bg-green-100 text-green-700 text-[10px]">Publicado</Badge>
+                        ) : (
+                          <Badge className="border-0 bg-muted text-muted-foreground text-[10px]">Rascunho</Badge>
+                        )}
+                        <span className="text-[10px] text-muted-foreground">{course.lesson_count ?? 0} lições</span>
+                        {course.final_project_title && (
+                          <span title="Tem projeto final">
+                            <Star className="h-3 w-3 text-yellow-500" />
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Ações */}
+                  <div className="mt-3 flex items-center gap-1">
+                    <button
+                      onClick={() => handleToggleCoursePublished(course)}
+                      disabled={togglingCourseId === course.id}
+                      title={course.published ? "Despublicar" : "Publicar"}
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+                        course.published ? "text-green-600 hover:bg-green-50" : "text-muted-foreground hover:bg-level-purple-light hover:text-level-purple"
+                      }`}
+                    >
+                      {togglingCourseId === course.id ? <Loader2 className="h-4 w-4 animate-spin" /> : course.published ? <Globe className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                    </button>
+                    {course.published && (
+                      <Link href={`/cursos/${course.id}`} target="_blank">
+                        <button title="Ver página" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-level-purple-light hover:text-level-purple transition-colors">
+                          <Eye className="h-4 w-4" />
+                        </button>
+                      </Link>
+                    )}
+                    <Link href={`/teacher/curso/${course.id}`}>
+                      <button title="Editar" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-level-purple-light hover:text-level-purple transition-colors">
+                        <Edit3 className="h-4 w-4" />
+                      </button>
+                    </Link>
+                    <button
+                      onClick={() => handleDeleteCourse(course)}
+                      disabled={deletingCourseId === course.id}
+                      title="Excluir"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-500 transition-colors"
+                    >
+                      {deletingCourseId === course.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Lessons List */}
@@ -281,7 +424,6 @@ export default function TeacherPage() {
 
                   {/* Ações */}
                   <div className="flex items-center gap-1 shrink-0">
-                    {/* Toggle publicado */}
                     <button
                       onClick={() => handleTogglePublished(lesson)}
                       disabled={togglingId === lesson.id}
@@ -301,7 +443,6 @@ export default function TeacherPage() {
                       )}
                     </button>
 
-                    {/* Visualizar */}
                     {lesson.published && (
                       <Link href={`/lesson/${lesson.id}`} target="_blank">
                         <button
@@ -313,7 +454,6 @@ export default function TeacherPage() {
                       </Link>
                     )}
 
-                    {/* Editar */}
                     <Link href={`/teacher/edit/${lesson.id}`}>
                       <button
                         title="Editar"
@@ -323,9 +463,8 @@ export default function TeacherPage() {
                       </button>
                     </Link>
 
-                    {/* Excluir */}
                     <button
-                      onClick={() => setToDelete(lesson)}
+                      onClick={() => handleDelete(lesson)}
                       disabled={deletingId === lesson.id}
                       title="Excluir"
                       className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"

@@ -1,10 +1,8 @@
 // Web Worker para execução Python via Pyodide
-// Roda em thread separada para não travar a UI
 
 let pyodide = null;
 let isLoading = false;
 
-// Carrega o Pyodide runtime
 async function loadPyodideRuntime() {
   if (pyodide) return pyodide;
   if (isLoading) return null;
@@ -16,180 +14,252 @@ async function loadPyodideRuntime() {
     importScripts("https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js");
     pyodide = await loadPyodide({
       indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.1/full/",
-      stdout: (text) => {
-        self.postMessage({ type: "stdout", text });
-      },
-      stderr: (text) => {
-        self.postMessage({ type: "stderr", text });
-      },
     });
-
-    // Redireciona stdout/stderr do Python
-    await pyodide.runPythonAsync(`
-import sys
-import io
-
-class OutputCapture:
-    def __init__(self, stream_type):
-        self.stream_type = stream_type
-        self.buffer = io.StringIO()
-
-    def write(self, text):
-        if text and text.strip():
-            self.buffer.write(text)
-            from js import postMessage
-            postMessage(type=self.stream_type, text=text)
-
-    def flush(self):
-        pass
-
-    def getvalue(self):
-        return self.buffer.getvalue()
-`);
-
     self.postMessage({ type: "status", status: "ready" });
     isLoading = false;
     return pyodide;
   } catch (error) {
     isLoading = false;
-    self.postMessage({
-      type: "status",
-      status: "error",
-      error: error.message,
-    });
+    self.postMessage({ type: "status", status: "error", error: error.message });
     return null;
   }
 }
 
-// Executa código Python
 async function executePython(code, testCode) {
   const py = await loadPyodideRuntime();
   if (!py) {
-    self.postMessage({
-      type: "error",
-      error: "Pyodide não está disponível. Tente recarregar a página.",
-    });
+    self.postMessage({ type: "error", error: "Pyodide não está disponível. Tente recarregar a página." });
     return;
   }
 
   self.postMessage({ type: "execution-start" });
 
   try {
-    // Captura stdout
-    await py.runPythonAsync(`
-import sys
-import io
-__stdout_capture = io.StringIO()
-__stderr_capture = io.StringIO()
-sys.stdout = __stdout_capture
-sys.stderr = __stderr_capture
+    // Captura stdout/stderr
+    py.runPython(`
+import sys, io
+_stdout_buf = io.StringIO()
+_stderr_buf = io.StringIO()
+sys.stdout = _stdout_buf
+sys.stderr = _stderr_buf
 `);
 
-    // Executa o código do aluno
-    await py.runPythonAsync(code);
-
-    // Captura o output
-    const stdout = py.runPython("__stdout_capture.getvalue()");
-    const stderr = py.runPython("__stderr_capture.getvalue()");
-
-    self.postMessage({
-      type: "execution-result",
-      stdout: stdout || "",
-      stderr: stderr || "",
-    });
-
-    // Se há testes, executa a validação
-    if (testCode) {
-      await runTests(py, code, testCode);
+    let execErr = null;
+    try {
+      py.runPython(code);
+    } catch (e) {
+      execErr = e.message || String(e);
     }
-  } catch (error) {
-    const errorMessage = error.message || String(error);
-    self.postMessage({
-      type: "execution-error",
-      error: errorMessage,
-    });
-  } finally {
-    // Restaura stdout/stderr
-    await py.runPythonAsync(`
-import sys
+
+    const stdout = py.runPython("_stdout_buf.getvalue()") || "";
+    const stderr = py.runPython("_stderr_buf.getvalue()") || "";
+
+    py.runPython(`
 sys.stdout = sys.__stdout__
 sys.stderr = sys.__stderr__
 `);
+
+    if (execErr) {
+      self.postMessage({ type: "execution-result", stdout, stderr: execErr });
+      self.postMessage({ type: "execution-error", error: execErr });
+      return;
+    }
+
+    self.postMessage({ type: "execution-result", stdout, stderr });
+
+    if (testCode) {
+      await runTests(py, code, testCode);
+    }
+
+  } catch (error) {
+    safeRestoreStdout(py);
+    self.postMessage({ type: "execution-error", error: error.message || String(error) });
   }
 }
 
-// Executa testes ocultos baseados em assert statements
-// Estratégia: executa studentCode + testCode (asserts); qualquer exceção = falha
+function safeRestoreStdout(py) {
+  try { py.runPython("import sys; sys.stdout = sys.__stdout__; sys.stderr = sys.__stderr__"); } catch {}
+}
+
+// Detecta se o testCode declara classes unittest.TestCase
+function detectUnittest(testCode) {
+  return /class\s+\w+\s*\(\s*unittest\.TestCase\s*\)/.test(testCode);
+}
+
 async function runTests(py, studentCode, testCode) {
   self.postMessage({ type: "test-start" });
 
   try {
-    // Injeta user_code via base64 para evitar qualquer problema de escaping
-    const base64Code = btoa(unescape(encodeURIComponent(studentCode)));
+    if (detectUnittest(testCode)) {
+      await runUnittestTests(py, studentCode, testCode);
+    } else {
+      await runAssertTests(py, studentCode, testCode);
+    }
+  } catch (error) {
+    safeRestoreStdout(py);
+    self.postMessage({ type: "test-error", error: error.message || String(error) });
+  }
+}
 
-    const combinedCode = `
-import sys as _sys
-import io as _io
-import base64 as _b64
-_test_stdout = _io.StringIO()
-_sys.stdout = _test_stdout
-_sys.stderr = _io.StringIO()
+// ── unittest mode ─────────────────────────────────────────────────────────────
+// Estratégia: armazena os códigos em variáveis Python, roda com exec em dict
+// isolado, coleta resultado via objeto Python — sem interpolação problemática.
 
-user_code = _b64.b64decode("${base64Code}").decode("utf-8")
+async function runUnittestTests(py, studentCode, testCode) {
+  // Passa os códigos para o Python via globals do pyodide (seguro para qualquer caractere)
+  py.globals.set("_raw_student_code", studentCode);
+  py.globals.set("_raw_test_code", testCode);
 
-${studentCode}
+  let result;
+  try {
+    result = py.runPython(`
+import sys, io, unittest, json
 
-${testCode}
+# Namespace compartilhado aluno+testes
+_ns = {}
 
-_sys.stdout = _sys.__stdout__
-_sys.stderr = _sys.__stderr__
-`;
+# Captura stdout do aluno (não queremos misturar com resultado dos testes)
+_cap = io.StringIO()
+_orig_out = sys.stdout
+_orig_err = sys.stderr
+sys.stdout = _cap
+sys.stderr = io.StringIO()
 
-    await py.runPythonAsync(combinedCode);
+try:
+    exec(compile(_raw_student_code, "<student>", "exec"), _ns)
+except Exception as _student_err:
+    sys.stdout = _orig_out
+    sys.stderr = _orig_err
+    raise _student_err
 
-    // Todos os asserts passaram
+sys.stdout = _orig_out
+sys.stderr = _orig_err
+
+# Injeta testes no mesmo namespace (eles enxergam variáveis do aluno)
+exec(compile(_raw_test_code, "<tests>", "exec"), _ns)
+
+# Descobre e roda as suítes
+_suite = unittest.TestSuite()
+_loader = unittest.TestLoader()
+for _obj in _ns.values():
+    try:
+        if isinstance(_obj, type) and issubclass(_obj, unittest.TestCase) and _obj is not unittest.TestCase:
+            _suite.addTests(_loader.loadTestsFromTestCase(_obj))
+    except Exception:
+        pass
+
+_buf = io.StringIO()
+_runner = unittest.TextTestRunner(stream=_buf, verbosity=0)
+_res = _runner.run(_suite)
+
+_failures = []
+for _t, _tb in _res.failures + _res.errors:
+    _lines = _tb.strip().split("\\n")
+    _msg = next((l for l in reversed(_lines) if l.strip()), str(_t))
+    _failures.append(_msg)
+
+json.dumps({
+    "testsRun": _res.testsRun,
+    "failures": len(_res.failures),
+    "errors": len(_res.errors),
+    "allPassed": _res.wasSuccessful(),
+    "failureDetails": _failures
+})
+`);
+  } catch (err) {
+    py.globals.delete("_raw_student_code");
+    py.globals.delete("_raw_test_code");
+    const msg = err.message || String(err);
+    if (msg.includes("AssertionError")) {
+      const lines = msg.split("\n");
+      const line = lines.find(l => l.includes("AssertionError")) || msg;
+      const detail = line.replace(/^.*AssertionError:\s*/, "").trim() || "Resposta incorreta.";
+      self.postMessage({ type: "test-result", testsRun: 1, passed: 0, failures: 1, errors: 0, allPassed: false, failureDetails: [detail] });
+    } else {
+      self.postMessage({ type: "test-error", error: msg });
+    }
+    return;
+  }
+
+  py.globals.delete("_raw_student_code");
+  py.globals.delete("_raw_test_code");
+
+  try {
+    const parsed = JSON.parse(result);
     self.postMessage({
       type: "test-result",
-      testsRun: 1,
-      passed: 1,
+      testsRun: parsed.testsRun,
+      passed: parsed.testsRun - parsed.failures - parsed.errors,
+      failures: parsed.failures,
+      errors: parsed.errors,
+      allPassed: parsed.allPassed,
+      failureDetails: parsed.failureDetails,
+    });
+  } catch {
+    self.postMessage({ type: "test-error", error: "Erro ao processar resultado dos testes." });
+  }
+}
+
+// ── assert mode ───────────────────────────────────────────────────────────────
+
+async function runAssertTests(py, studentCode, testCode) {
+  py.globals.set("_raw_student_code", studentCode);
+  py.globals.set("_raw_test_code", testCode);
+
+  try {
+    py.runPython(`
+import sys, io
+
+_ns = {}
+
+_cap = io.StringIO()
+sys.stdout = _cap
+sys.stderr = io.StringIO()
+
+try:
+    exec(compile(_raw_student_code, "<student>", "exec"), _ns)
+except Exception as _e:
+    sys.stdout = sys.__stdout__
+    sys.stderr = sys.__stderr__
+    raise _e
+
+sys.stdout = sys.__stdout__
+sys.stderr = sys.__stderr__
+
+exec(compile(_raw_test_code, "<tests>", "exec"), _ns)
+`);
+
+    py.globals.delete("_raw_student_code");
+    py.globals.delete("_raw_test_code");
+
+    const assertCount = (testCode.match(/^\s*assert /gm) || []).length || 1;
+    self.postMessage({
+      type: "test-result",
+      testsRun: assertCount,
+      passed: assertCount,
       failures: 0,
       errors: 0,
       allPassed: true,
       failureDetails: [],
     });
-  } catch (error) {
-    const errorMessage = error.message || String(error);
+  } catch (err) {
+    py.globals.delete("_raw_student_code");
+    py.globals.delete("_raw_test_code");
 
-    // Restaura stdout/stderr antes de reportar
-    try { await py.runPythonAsync("import sys; sys.stdout = sys.__stdout__; sys.stderr = sys.__stderr__"); } catch {}
-
-    // AssertionError = resposta errada do aluno
-    if (errorMessage.includes("AssertionError")) {
-      // Extrai só a mensagem do assert (remove o traceback)
-      const lines = errorMessage.split("\n");
-      const assertLine = lines.find((l) => l.includes("AssertionError")) || errorMessage;
-      const msg = assertLine.replace(/^.*AssertionError:\s*/, "").trim() || "Resposta incorreta. Verifique seu código.";
-
-      self.postMessage({
-        type: "test-result",
-        testsRun: 1,
-        passed: 0,
-        failures: 1,
-        errors: 0,
-        allPassed: false,
-        failureDetails: [msg],
-      });
+    const msg = err.message || String(err);
+    if (msg.includes("AssertionError")) {
+      const lines = msg.split("\n");
+      const line = lines.find(l => l.includes("AssertionError")) || msg;
+      const detail = line.replace(/^.*AssertionError:\s*/, "").trim() || "Resposta incorreta. Verifique seu código.";
+      self.postMessage({ type: "test-result", testsRun: 1, passed: 0, failures: 1, errors: 0, allPassed: false, failureDetails: [detail] });
     } else {
-      // Erro no código do aluno (SyntaxError, NameError, etc.)
-      self.postMessage({
-        type: "test-error",
-        error: errorMessage,
-      });
+      self.postMessage({ type: "test-error", error: msg });
     }
   }
 }
 
-// Instala pacotes Python (micropip)
+// ── install packages ──────────────────────────────────────────────────────────
+
 async function installPackages(packages) {
   const py = await loadPyodideRuntime();
   if (!py) return;
@@ -200,27 +270,18 @@ async function installPackages(packages) {
     for (const pkg of packages) {
       try {
         await micropip.install(pkg);
-        self.postMessage({
-          type: "package-installed",
-          package: pkg,
-        });
+        self.postMessage({ type: "package-installed", package: pkg });
       } catch {
-        self.postMessage({
-          type: "package-error",
-          package: pkg,
-          error: `Não foi possível instalar ${pkg}`,
-        });
+        self.postMessage({ type: "package-error", package: pkg, error: `Não foi possível instalar ${pkg}` });
       }
     }
   } catch (error) {
-    self.postMessage({
-      type: "error",
-      error: "Erro ao configurar sistema de pacotes: " + error.message,
-    });
+    self.postMessage({ type: "error", error: "Erro ao configurar sistema de pacotes: " + error.message });
   }
 }
 
-// Listener de mensagens
+// ── message handler ───────────────────────────────────────────────────────────
+
 self.onmessage = async function (event) {
   const { type, code, testCode, packages } = event.data;
 

@@ -1,5 +1,6 @@
 "use client"
 
+import { useRef, useEffect, useState } from "react"
 import { Flame, Zap, Trophy, ChevronDown, User, Settings, LogOut } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
@@ -13,10 +14,12 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
+import { motion, AnimatePresence } from "framer-motion"
 
 interface HeaderProps {
   lessonTitle: string
   lessonProgress: number
+  xpBadgeRef?: React.RefObject<HTMLDivElement | null>
 }
 
 /** XP necessário para completar o nível atual (régua simples: 1000 XP por nível). */
@@ -34,9 +37,11 @@ function getInitials(fullName: string) {
     .join("")
 }
 
-export function Header({ lessonTitle, lessonProgress }: HeaderProps) {
+export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps) {
   const router = useRouter()
   const { profile, signOut } = useAuth()
+  const internalBadgeRef = useRef<HTMLDivElement>(null)
+  const resolvedRef = xpBadgeRef ?? internalBadgeRef
 
   // Gamificação derivada do perfil
   const level = profile?.level ?? 1
@@ -45,12 +50,31 @@ export function Header({ lessonTitle, lessonProgress }: HeaderProps) {
   const xpFloor = xpForLevel(level - 1)     // XP acumulado no início do nível atual
   const xpCeil = xpForLevel(level)           // XP necessário para o próximo nível
   const xpInLevel = totalXp - xpFloor       // XP acumulado dentro do nível atual
+  const xpPct = Math.min(100, Math.round((xpInLevel / (xpCeil - xpFloor)) * 100))
   const initials = profile?.full_name ? getInitials(profile.full_name) : "?"
+
+  // Pulse animation on xp change
+  const [xpPulse, setXpPulse] = useState(false)
+  const prevTotalXp = useRef(totalXp)
+  useEffect(() => {
+    if (totalXp !== prevTotalXp.current && prevTotalXp.current !== 0) {
+      setXpPulse(true)
+      const t = setTimeout(() => setXpPulse(false), 900)
+      prevTotalXp.current = totalXp
+      return () => clearTimeout(t)
+    }
+    prevTotalXp.current = totalXp
+  }, [totalXp])
 
   const handleSignOut = async () => {
     await signOut()
     window.location.href = "/login"
   }
+
+  // SVG circle arc for XP border fill
+  const radius = 22
+  const circumference = 2 * Math.PI * radius
+  const dashOffset = circumference - (xpPct / 100) * circumference
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-white px-4">
@@ -92,18 +116,81 @@ export function Header({ lessonTitle, lessonProgress }: HeaderProps) {
 
       {/* Gamificação e Perfil */}
       <div className="flex items-center gap-3">
-        {/* XP */}
-        <div className="flex items-center gap-1.5 rounded-full bg-level-purple px-3 py-1.5 text-white">
-          <Zap className="h-4 w-4 text-yellow-300" />
-          <div className="flex flex-col">
-            <span className="text-xs font-bold">{xpInLevel.toLocaleString("pt-BR")}</span>
-            <span className="text-[9px] opacity-80">/{xpCeil.toLocaleString("pt-BR")} XP</span>
+        {/* XP Badge with animated circular border */}
+        <motion.div
+          ref={resolvedRef as React.RefObject<HTMLDivElement>}
+          animate={xpPulse ? { scale: [1, 1.18, 1] } : {}}
+          transition={{ duration: 0.4, ease: "easeInOut" }}
+          className="relative flex items-center"
+          title={`${xpInLevel} / ${xpCeil - xpFloor} XP neste nível`}
+        >
+          {/* SVG circular border */}
+          <svg
+            width="52"
+            height="52"
+            viewBox="0 0 52 52"
+            className="absolute -left-0.5 -top-0.5"
+            style={{ transform: "rotate(-90deg)" }}
+          >
+            {/* Background track */}
+            <circle
+              cx="26"
+              cy="26"
+              r={radius}
+              fill="none"
+              stroke="rgba(250, 204, 21, 0.2)"
+              strokeWidth="3"
+            />
+            {/* Progress arc */}
+            <motion.circle
+              cx="26"
+              cy="26"
+              r={radius}
+              fill="none"
+              stroke="#FACC15"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              initial={{ strokeDashoffset: circumference }}
+              animate={{ strokeDashoffset: dashOffset }}
+              transition={{ duration: 1.2, ease: "easeOut" }}
+              style={{ filter: "drop-shadow(0 0 4px #FACC15)" }}
+            />
+          </svg>
+
+          {/* Badge content */}
+          <div className="flex items-center gap-1.5 rounded-full bg-level-purple px-3 py-1.5 text-white">
+            <Zap className="h-4 w-4 text-yellow-300" />
+            <div className="flex flex-col">
+              <span className="text-xs font-bold">{xpInLevel.toLocaleString("pt-BR")}</span>
+              <span className="text-[9px] opacity-80">/{(xpCeil - xpFloor).toLocaleString("pt-BR")} XP</span>
+            </div>
           </div>
-        </div>
+
+          {/* XP gain pop */}
+          <AnimatePresence>
+            {xpPulse && (
+              <motion.div
+                initial={{ opacity: 0, y: 0, scale: 0.8 }}
+                animate={{ opacity: 1, y: -28, scale: 1 }}
+                exit={{ opacity: 0, y: -40, scale: 0.7 }}
+                transition={{ duration: 0.6 }}
+                className="pointer-events-none absolute left-1/2 -translate-x-1/2 rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-black text-yellow-900 shadow-lg"
+              >
+                +XP!
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
 
         {/* Streak */}
         <div className="flex items-center gap-1.5 rounded-full bg-linear-to-r from-orange-500 to-red-500 px-3 py-1.5 text-white">
-          <Flame className="h-4 w-4 text-yellow-300" />
+          <motion.div
+            animate={streak > 0 ? { scale: [1, 1.2, 1], rotate: [-5, 5, 0] } : {}}
+            transition={{ duration: 0.6, repeat: streak > 0 ? Infinity : 0, repeatDelay: 3 }}
+          >
+            <Flame className="h-4 w-4 text-yellow-300" />
+          </motion.div>
           <div className="flex flex-col">
             <span className="text-xs font-bold">{streak}</span>
             <span className="text-[9px] opacity-80">dias</span>
@@ -123,7 +210,7 @@ export function Header({ lessonTitle, lessonProgress }: HeaderProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={() => router.push(`/perfil/${profile?.username ?? "me"}`)}>
+            <DropdownMenuItem onClick={() => router.push(`/perfil/${profile?.username || "me"}`)}>
               <User className="mr-2 h-4 w-4" />
               Meu Perfil
             </DropdownMenuItem>

@@ -70,7 +70,7 @@ export default function LeaderboardPage() {
             <Link href="/leaderboard" className="flex items-center gap-2 text-sm font-medium text-level-purple">
               <Trophy className="h-4 w-4" /> Ranking
             </Link>
-            <Link href={`/perfil/${profile?.username ?? "me"}`} className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
+            <Link href={`/perfil/${profile?.username || "me"}`} className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
               <User className="h-4 w-4" /> Perfil
             </Link>
           </nav>
@@ -230,7 +230,7 @@ export default function LeaderboardPage() {
             <Trophy className="h-5 w-5" />
             <span className="text-xs font-medium">Ranking</span>
           </Link>
-          <Link href={`/perfil/${profile?.username ?? "me"}`} className="flex flex-col items-center gap-1 px-4 py-2 text-muted-foreground">
+          <Link href={`/perfil/${profile?.username || "me"}`} className="flex flex-col items-center gap-1 px-4 py-2 text-muted-foreground">
             <User className="h-5 w-5" />
             <span className="text-xs font-medium">Perfil</span>
           </Link>

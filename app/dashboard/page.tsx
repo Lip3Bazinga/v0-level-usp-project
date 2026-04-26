@@ -15,7 +15,7 @@ import type { Lesson, LessonProgress } from "@/lib/supabase/types"
 import {
   Rocket, Lock, CheckCircle2, Play, Star, Trophy, Zap, User,
   Settings, BookOpen, Code2, Database, Brain, ChevronRight,
-  Flame, LogOut, Loader2,
+  Flame, LogOut, Loader2, Shield, GraduationCap,
 } from "lucide-react"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -64,6 +64,9 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null)
 
   // Carrega lições e progresso do usuário
+  // Depende de profile.id (não do objeto inteiro) para não re-disparar em cada
+  // re-render do AuthProvider.
+  const profileId = profile?.id
   useEffect(() => {
     if (authLoading) return
     async function load() {
@@ -72,7 +75,7 @@ export default function DashboardPage() {
       try {
         const [fetchedLessons, fetchedProgress] = await Promise.all([
           fetchPublishedLessons(),
-          profile ? fetchUserProgress(profile.id) : Promise.resolve([]),
+          profileId ? fetchUserProgress(profileId) : Promise.resolve([]),
         ])
         setLessons(fetchedLessons)
         setProgressList(fetchedProgress)
@@ -83,7 +86,7 @@ export default function DashboardPage() {
       }
     }
     load()
-  }, [authLoading, profile])
+  }, [authLoading, profileId])
 
   // Mapa de progresso por lesson_id
   const progressMap = useMemo(
@@ -140,10 +143,13 @@ export default function DashboardPage() {
             <Link href="/dashboard" className="flex items-center gap-2 text-sm font-medium text-level-purple">
               <BookOpen className="h-4 w-4" /> Aprender
             </Link>
+            <Link href="/cursos" className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
+              <GraduationCap className="h-4 w-4" /> Cursos
+            </Link>
             <Link href="/leaderboard" className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
               <Trophy className="h-4 w-4" /> Ranking
             </Link>
-            <Link href={`/perfil/${profile?.username ?? "me"}`} className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
+            <Link href={`/perfil/${profile?.username || "me"}`} className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
               <User className="h-4 w-4" /> Perfil
             </Link>
           </nav>
@@ -172,7 +178,7 @@ export default function DashboardPage() {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => router.push(`/perfil/${profile?.username ?? "me"}`)}>
+                <DropdownMenuItem onClick={() => router.push(`/perfil/${profile?.username || "me"}`)}>
                   <User className="mr-2 h-4 w-4" /> Meu Perfil
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push("/settings")}>
@@ -181,6 +187,11 @@ export default function DashboardPage() {
                 {profile?.role === "teacher" || profile?.role === "admin" ? (
                   <DropdownMenuItem onClick={() => router.push("/teacher")}>
                     <BookOpen className="mr-2 h-4 w-4" /> Painel Professor
+                  </DropdownMenuItem>
+                ) : null}
+                {profile?.role === "admin" ? (
+                  <DropdownMenuItem onClick={() => router.push("/admin")}>
+                    <Shield className="mr-2 h-4 w-4" /> Painel Admin
                   </DropdownMenuItem>
                 ) : null}
                 <DropdownMenuSeparator />
@@ -352,17 +363,17 @@ export default function DashboardPage() {
       {/* Mobile nav */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-white md:hidden">
         <div className="flex items-center justify-around py-2">
-          <Link href="/dashboard" className="flex flex-col items-center gap-1 px-4 py-2 text-level-purple">
+          <Link href="/dashboard" className="flex flex-col items-center gap-1 px-3 py-2 text-level-purple">
             <BookOpen className="h-5 w-5" /><span className="text-xs font-medium">Aprender</span>
           </Link>
-          <Link href="/leaderboard" className="flex flex-col items-center gap-1 px-4 py-2 text-muted-foreground">
-            <Trophy className="h-5 w-5" /><span className="text-xs font-medium">Ranking</span>
+          <Link href="/cursos" className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground">
+            <GraduationCap className="h-5 w-5" /><span className="text-xs">Cursos</span>
           </Link>
-          <Link href={`/perfil/${profile?.username ?? "me"}`} className="flex flex-col items-center gap-1 px-4 py-2 text-muted-foreground">
-            <User className="h-5 w-5" /><span className="text-xs font-medium">Perfil</span>
+          <Link href="/leaderboard" className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground">
+            <Trophy className="h-5 w-5" /><span className="text-xs">Ranking</span>
           </Link>
-          <Link href="/settings" className="flex flex-col items-center gap-1 px-4 py-2 text-muted-foreground">
-            <Settings className="h-5 w-5" /><span className="text-xs font-medium">Config</span>
+          <Link href={`/perfil/${profile?.username || "me"}`} className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground">
+            <User className="h-5 w-5" /><span className="text-xs">Perfil</span>
           </Link>
         </div>
       </nav>

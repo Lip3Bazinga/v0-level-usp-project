@@ -7,6 +7,7 @@ export type PyodideStatus = "idle" | "loading" | "ready" | "error"
 export interface ExecutionResult {
   stdout: string
   stderr: string
+  figures: string[]   // base64 PNG de cada figura matplotlib
 }
 
 export interface TestResult {
@@ -25,6 +26,9 @@ interface WorkerMessage {
   text?: string
   stdout?: string
   stderr?: string
+  figures?: string[]
+  data?: string        // base64 de uma figura individual
+  index?: number
   testsRun?: number
   passed?: number
   failures?: number
@@ -39,17 +43,17 @@ export function usePython() {
   const [status, setStatus] = useState<PyodideStatus>("idle")
   const [isExecuting, setIsExecuting] = useState(false)
 
-  // Callbacks armazenados via ref para evitar re-renders
-  const onStdoutRef = useRef<((text: string) => void) | null>(null)
-  const onStderrRef = useRef<((text: string) => void) | null>(null)
-  const onResultRef = useRef<((result: ExecutionResult) => void) | null>(null)
-  const onErrorRef = useRef<((error: string) => void) | null>(null)
-  const onTestResultRef = useRef<((result: TestResult) => void) | null>(null)
-  const onTestErrorRef = useRef<((error: string) => void) | null>(null)
+  const onStdoutRef      = useRef<((text: string) => void) | null>(null)
+  const onStderrRef      = useRef<((text: string) => void) | null>(null)
+  const onResultRef      = useRef<((result: ExecutionResult) => void) | null>(null)
+  const onFigureRef      = useRef<((b64: string, index: number) => void) | null>(null)
+  const onErrorRef       = useRef<((error: string) => void) | null>(null)
+  const onTestResultRef  = useRef<((result: TestResult) => void) | null>(null)
+  const onTestErrorRef   = useRef<((error: string) => void) | null>(null)
+  const hasPendingTestRef = useRef(false)
 
-  // Inicializa o Web Worker
   useEffect(() => {
-    const worker = new Worker("/pyodide-worker.js")
+    const worker = new Worker("/pyodide-worker-v2.js")
     workerRef.current = worker
 
     worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
@@ -73,30 +77,44 @@ export function usePython() {
           break
 
         case "execution-result":
-          setIsExecuting(false)
+          if (!hasPendingTestRef.current) setIsExecuting(false)
           onResultRef.current?.({
-            stdout: data.stdout || "",
-            stderr: data.stderr || "",
+            stdout:  data.stdout  || "",
+            stderr:  data.stderr  || "",
+            figures: data.figures || [],
           })
           break
 
+        case "figure":
+          // Figura individual — chama callback com base64
+          if (data.data) onFigureRef.current?.(data.data, data.index ?? 0)
+          break
+
         case "execution-error":
+          hasPendingTestRef.current = false
           setIsExecuting(false)
           onErrorRef.current?.(data.error || "Erro desconhecido")
           break
 
+        case "test-start":
+          break
+
         case "test-result":
+          hasPendingTestRef.current = false
+          setIsExecuting(false)
           onTestResultRef.current?.({
-            testsRun: data.testsRun || 0,
-            passed: data.passed || 0,
-            failures: data.failures || 0,
-            errors: data.errors || 0,
-            allPassed: data.allPassed || false,
+            testsRun:       data.testsRun      || 0,
+            passed:         data.passed        || 0,
+            failures:       data.failures      || 0,
+            errors:         data.errors        || 0,
+            allPassed:      data.allPassed     || false,
             failureDetails: data.failureDetails || [],
           })
           break
 
         case "test-error":
+          hasPendingTestRef.current = false
+          setIsExecuting(false)
           onTestErrorRef.current?.(data.error || "Erro nos testes")
           break
 
@@ -111,7 +129,6 @@ export function usePython() {
       onErrorRef.current?.(`Worker error: ${error.message}`)
     }
 
-    // Inicia carregamento do Pyodide
     worker.postMessage({ type: "init" })
 
     return () => {
@@ -120,7 +137,6 @@ export function usePython() {
     }
   }, [])
 
-  // Executa código Python (opcionalmente com testes)
   const execute = useCallback(
     (
       code: string,
@@ -129,6 +145,7 @@ export function usePython() {
         onStdout?: (text: string) => void
         onStderr?: (text: string) => void
         onResult?: (result: ExecutionResult) => void
+        onFigure?: (b64: string, index: number) => void
         onError?: (error: string) => void
         onTestResult?: (result: TestResult) => void
         onTestError?: (error: string) => void
@@ -136,24 +153,20 @@ export function usePython() {
     ) => {
       if (!workerRef.current || status !== "ready") return
 
-      // Configura callbacks
-      onStdoutRef.current = options?.onStdout || null
-      onStderrRef.current = options?.onStderr || null
-      onResultRef.current = options?.onResult || null
-      onErrorRef.current = options?.onError || null
+      onStdoutRef.current     = options?.onStdout     || null
+      onStderrRef.current     = options?.onStderr     || null
+      onResultRef.current     = options?.onResult     || null
+      onFigureRef.current     = options?.onFigure     || null
+      onErrorRef.current      = options?.onError      || null
       onTestResultRef.current = options?.onTestResult || null
-      onTestErrorRef.current = options?.onTestError || null
+      onTestErrorRef.current  = options?.onTestError  || null
+      hasPendingTestRef.current = !!options?.testCode
 
-      workerRef.current.postMessage({
-        type: "execute",
-        code,
-        testCode: options?.testCode,
-      })
+      workerRef.current.postMessage({ type: "execute", code, testCode: options?.testCode })
     },
     [status]
   )
 
-  // Instala pacotes Python extras
   const installPackages = useCallback(
     (packages: string[]) => {
       if (!workerRef.current || status !== "ready") return
@@ -162,10 +175,5 @@ export function usePython() {
     [status]
   )
 
-  return {
-    status,
-    isExecuting,
-    execute,
-    installPackages,
-  }
+  return { status, isExecuting, execute, installPackages }
 }

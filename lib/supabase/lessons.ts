@@ -1,13 +1,13 @@
 import { createClient } from "@/lib/supabase/client"
 import type { Lesson, LessonProgress } from "@/lib/supabase/types"
 
-// ── Slug ─────────────────────────────────────────────────────────────────────
+// ── Slug ──────────────────────────────────────────────────────────────────────
 
 export function generateSlug(title: string): string {
   return title
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
@@ -16,16 +16,17 @@ export function generateSlug(title: string): string {
 
 // ── Leitura ───────────────────────────────────────────────────────────────────
 
-/** Retorna todas as lições publicadas, ordenadas por módulo e ordem. */
+/** Retorna todas as lições publicadas, ordenadas por course_id e ordem. */
 export async function fetchPublishedLessons(): Promise<Lesson[]> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from("lessons")
     .select("*")
     .eq("published", true)
+    .order("course_id", { ascending: true, nullsFirst: false })
     .order("order", { ascending: true })
   if (error) throw error
-  return data ?? []
+  return (data ?? []) as Lesson[]
 }
 
 /** Retorna uma lição pelo id (UUID). */
@@ -37,7 +38,7 @@ export async function fetchLessonById(id: string): Promise<Lesson | null> {
     .eq("id", id)
     .single()
   if (error) return null
-  return data
+  return data as Lesson
 }
 
 /** Retorna todas as lições criadas por um professor (publicadas ou não). */
@@ -49,7 +50,7 @@ export async function fetchTeacherLessons(userId: string): Promise<Lesson[]> {
     .eq("created_by", userId)
     .order("order", { ascending: true })
   if (error) throw error
-  return data ?? []
+  return (data ?? []) as Lesson[]
 }
 
 /** Retorna o progresso do usuário em todas as lições. */
@@ -60,7 +61,7 @@ export async function fetchUserProgress(userId: string): Promise<LessonProgress[
     .select("*")
     .eq("user_id", userId)
   if (error) throw error
-  return data ?? []
+  return (data ?? []) as LessonProgress[]
 }
 
 /** Conta quantos alunos completaram lições de um professor. */
@@ -79,6 +80,7 @@ export async function fetchTeacherMetrics(lessonIds: string[]) {
 
 export type LessonFormData = {
   title: string
+  description: string
   module: string
   order: number
   difficulty: "iniciante" | "intermediario" | "avancado"
@@ -89,6 +91,7 @@ export type LessonFormData = {
   xp_reward: number
   time_limit: number
   published: boolean
+  course_id?: string | null
 }
 
 /** Cria uma nova lição e retorna o registro inserido. */
@@ -100,11 +103,11 @@ export async function createLesson(
   const slug = generateSlug(data.title) + "-" + Date.now().toString(36)
   const { data: created, error } = await supabase
     .from("lessons")
-    .insert({ ...data, slug, created_by: userId })
+    .insert({ ...data, slug, created_by: userId } as never)
     .select()
     .single()
   if (error) throw error
-  return created
+  return created as Lesson
 }
 
 /** Atualiza uma lição existente. */
@@ -115,12 +118,12 @@ export async function updateLesson(
   const supabase = createClient()
   const { data: updated, error } = await supabase
     .from("lessons")
-    .update(data)
+    .update(data as never)
     .eq("id", id)
     .select()
     .single()
   if (error) throw error
-  return updated
+  return updated as Lesson
 }
 
 /** Exclui permanentemente uma lição. */
@@ -138,7 +141,7 @@ export async function toggleLessonPublished(
   const supabase = createClient()
   const { error } = await supabase
     .from("lessons")
-    .update({ published })
+    .update({ published } as never)
     .eq("id", id)
   if (error) throw error
 }
@@ -152,11 +155,11 @@ export async function awardXp(
   xp: number
 ): Promise<void> {
   const supabase = createClient()
-  const { error } = await supabase.rpc("award_xp", {
+  const { error } = await supabase.rpc("award_xp" as never, {
     p_user_id: userId,
     p_lesson_id: lessonId,
     p_xp: xp,
-  })
+  } as never)
   if (error) throw error
 }
 
@@ -175,7 +178,7 @@ export function computeModuleStatuses(
   progressMap: Map<string, LessonProgress>
 ): LessonStatus[] {
   const statuses: LessonStatus[] = []
-  let canUnlock = true // a primeira lição está sempre desbloqueada
+  let canUnlock = true
 
   for (const lesson of sortedLessons) {
     const prog = progressMap.get(lesson.id)
@@ -183,11 +186,53 @@ export function computeModuleStatuses(
       statuses.push("completed")
     } else if (canUnlock) {
       statuses.push("in-progress")
-      canUnlock = false // as seguintes ficam bloqueadas
+      canUnlock = false
     } else {
       statuses.push("locked")
     }
   }
 
   return statuses
+}
+
+// ── Streak diário ─────────────────────────────────────────────────────────────
+
+/**
+ * Verifica se o usuário já fez login hoje e, se não, incrementa o streak.
+ * Retorna { streakUpdated, newStreak } para acionar a animação.
+ */
+export async function checkAndUpdateDailyStreak(
+  userId: string
+): Promise<{ streakUpdated: boolean; newStreak: number }> {
+  const supabase = createClient()
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("current_streak, last_login_date")
+    .eq("id", userId)
+    .single()
+
+  if (!profile) return { streakUpdated: false, newStreak: 0 }
+
+  const today = new Date().toISOString().split("T")[0]
+  const lastLogin = (profile as any).last_login_date as string | null
+
+  if (lastLogin === today) {
+    return { streakUpdated: false, newStreak: (profile as any).current_streak ?? 0 }
+  }
+
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0]
+  const isConsecutive = lastLogin === yesterday
+  const newStreak = isConsecutive ? ((profile as any).current_streak ?? 0) + 1 : 1
+
+  await supabase
+    .from("profiles")
+    .update({
+      current_streak: newStreak,
+      last_login_date: today,
+      max_streak: Math.max((profile as any).current_streak ?? 0, newStreak),
+    } as never)
+    .eq("id", userId)
+
+  return { streakUpdated: true, newStreak }
 }

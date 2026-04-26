@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import {
   ArrowLeft, Save, Eye, Plus, BookOpen, Code2, FlaskConical,
-  CheckCircle2, AlertCircle, X, FileText, Loader2,
+  CheckCircle2, AlertCircle, X, FileText, Loader2, GraduationCap,
 } from "lucide-react"
 import { LevelButton } from "@/components/design-system/level-button"
 import { Badge } from "@/components/ui/badge"
@@ -19,6 +19,10 @@ import {
   updateLesson,
   type LessonFormData,
 } from "@/lib/supabase/lessons"
+import { fetchTeacherCourses } from "@/lib/supabase/courses"
+import type { Course } from "@/lib/supabase/types"
+import { TeacherSuccessModal } from "@/components/gamification/teacher-success-modal"
+import { swalConfirm, swalError } from "@/lib/swal"
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -43,13 +47,17 @@ resultado = soma(2, 3)
 print(f"Resultado: {resultado}")
 `
 
-const DEFAULT_TESTS = `# Testes ocultos — use assert statements
-# O código do aluno é combinado com estes testes e executado juntos.
-# AssertionError = resposta incorreta; qualquer outra exceção = erro no código.
+const DEFAULT_TESTS = `import unittest
 
-assert soma(2, 3) == 5, "soma(2, 3) deve retornar 5"
-assert soma(-1, -1) == -2, "soma(-1, -1) deve retornar -2"
-assert soma(0, 0) == 0, "soma(0, 0) deve retornar 0"
+class TestSoma(unittest.TestCase):
+    def test_soma_positivos(self):
+        self.assertEqual(soma(2, 3), 5, "soma(2, 3) deve retornar 5")
+
+    def test_soma_negativos(self):
+        self.assertEqual(soma(-1, -1), -2, "soma(-1, -1) deve retornar -2")
+
+    def test_soma_zeros(self):
+        self.assertEqual(soma(0, 0), 0, "soma(0, 0) deve retornar 0")
 `
 
 const DEFAULT_CONTENT = `<h3 class="text-base font-semibold text-foreground mb-3">Introdução</h3>
@@ -71,6 +79,7 @@ export default function TeacherEditPage() {
 
   // Campos do formulário
   const [title, setTitle]           = useState("")
+  const [description, setDescription] = useState("")
   const [module, setModule]         = useState("Python Básico")
   const [order, setOrder]           = useState(1)
   const [difficulty, setDifficulty] = useState<LessonFormData["difficulty"]>("iniciante")
@@ -80,12 +89,24 @@ export default function TeacherEditPage() {
   const [libraries, setLibraries]   = useState<string[]>([])
   const [xpReward, setXpReward]     = useState(50)
   const [timeLimit, setTimeLimit]   = useState(0)
+  const [courseId, setCourseId]     = useState<string | null>(null)
+
+  // Cursos do professor para o seletor
+  const [teacherCourses, setTeacherCourses] = useState<Course[]>([])
 
   // Estado da UI
-  const [loading, setLoading]     = useState(!isNew)
-  const [saving, setSaving]       = useState(false)
-  const [saved, setSaved]         = useState(false)
-  const [error, setError]         = useState<string | null>(null)
+  const [loading,        setLoading]       = useState(!isNew)
+  const [saving,         setSaving]        = useState(false)
+  const [saved,          setSaved]         = useState(false)
+  const [error,          setError]         = useState<string | null>(null)
+  const [showSuccessAnim, setShowSuccessAnim] = useState(false)
+  const [lessonIdForView, setLessonIdForView] = useState<string | null>(isNew ? null : params.id as string)
+
+  // Carrega cursos do professor (sempre, para popular o seletor)
+  useEffect(() => {
+    if (!profile?.id) return
+    fetchTeacherCourses(profile.id).then(setTeacherCourses)
+  }, [profile?.id])
 
   // Carrega a lição existente
   useEffect(() => {
@@ -99,6 +120,7 @@ export default function TeacherEditPage() {
         return
       }
       setTitle(lesson.title)
+      setDescription(lesson.description ?? "")
       setModule(lesson.module)
       setOrder(lesson.order)
       setDifficulty(lesson.difficulty)
@@ -108,6 +130,7 @@ export default function TeacherEditPage() {
       setLibraries(lesson.libraries ?? [])
       setXpReward(lesson.xp_reward)
       setTimeLimit(lesson.time_limit)
+      setCourseId((lesson as any).course_id ?? null)
       setLoading(false)
     }
     load()
@@ -121,6 +144,7 @@ export default function TeacherEditPage() {
 
   const buildFormData = (published: boolean): LessonFormData => ({
     title,
+    description,
     module,
     order,
     difficulty,
@@ -131,33 +155,49 @@ export default function TeacherEditPage() {
     xp_reward: xpReward,
     time_limit: timeLimit,
     published,
+    course_id: courseId || null,
   })
 
   const handleSave = useCallback(async (published: boolean) => {
     if (!title.trim()) {
-      setError("O título da lição é obrigatório.")
+      await swalError({ title: "Campo obrigatório", text: "O título da lição é obrigatório." })
       return
     }
     if (!profile) return
+
+    if (published && !isNew) {
+      const confirmed = await swalConfirm({
+        title: "Publicar lição?",
+        text: "A lição ficará disponível para todos os alunos.",
+        confirmText: "Publicar",
+        icon: "question",
+      })
+      if (!confirmed) return
+    }
+
     setSaving(true)
     setError(null)
     try {
       if (isNew) {
         const created = await createLesson(buildFormData(published), profile.id)
         setSaved(true)
+        setLessonIdForView(created.id)
+        setShowSuccessAnim(true)
         router.replace(`/teacher/edit/${created.id}`)
       } else {
         await updateLesson(params.id as string, buildFormData(published))
         setSaved(true)
+        setShowSuccessAnim(true)
         setTimeout(() => setSaved(false), 2500)
       }
     } catch (e: unknown) {
+      await swalError({ title: "Erro ao salvar", text: e instanceof Error ? e.message : "Tente novamente." })
       setError(e instanceof Error ? e.message : "Erro ao salvar. Tente novamente.")
     } finally {
       setSaving(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, module, order, difficulty, content, starterCode, hiddenTests, libraries, xpReward, timeLimit, profile, isNew, params.id])
+  }, [title, description, module, order, difficulty, content, starterCode, hiddenTests, libraries, xpReward, timeLimit, profile, isNew, params.id])
 
   if (loading) {
     return (
@@ -169,6 +209,14 @@ export default function TeacherEditPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      <TeacherSuccessModal
+        show={showSuccessAnim}
+        type="lesson"
+        title={title}
+        onClose={() => setShowSuccessAnim(false)}
+        onView={lessonIdForView ? () => router.push(`/lesson/${lessonIdForView}`) : undefined}
+      />
+
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-white/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
@@ -257,6 +305,55 @@ export default function TeacherEditPage() {
                     placeholder="Ex: Introdução a Variáveis em Python"
                     className="w-full rounded-xl border-2 border-border bg-white px-4 py-3 text-foreground placeholder:text-muted-foreground focus:border-level-purple focus:outline-none transition-colors"
                   />
+                </div>
+
+                {/* Curso */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-level-purple-dark flex items-center gap-2">
+                    <GraduationCap className="h-4 w-4 text-level-purple" />
+                    Curso
+                    <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+                  </label>
+                  {teacherCourses.length === 0 ? (
+                    <div className="flex items-center gap-2 rounded-xl border-2 border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
+                      <GraduationCap className="h-4 w-4 shrink-0" />
+                      Nenhum curso criado ainda.{" "}
+                      <a href="/teacher/curso/new" className="font-medium text-level-purple hover:underline">
+                        Criar um curso
+                      </a>
+                    </div>
+                  ) : (
+                    <Select
+                      value={courseId ?? "none"}
+                      onValueChange={(v) => setCourseId(v === "none" ? null : v)}
+                    >
+                      <SelectTrigger className="h-12 rounded-xl border-2 border-border focus:border-level-purple focus:ring-0">
+                        <SelectValue placeholder="Selecionar curso..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">
+                          <span className="text-muted-foreground">Sem curso (lição avulsa)</span>
+                        </SelectItem>
+                        {teacherCourses.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            <div className="flex items-center gap-2">
+                              <span>{c.title}</span>
+                              {!c.published && (
+                                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                  Rascunho
+                                </span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {courseId && (
+                    <p className="text-xs text-muted-foreground">
+                      Esta lição aparecerá na página do curso selecionado.
+                    </p>
+                  )}
                 </div>
 
                 {/* Ordem + Módulo */}
@@ -412,9 +509,9 @@ export default function TeacherEditPage() {
                 <div className="flex items-start gap-2 rounded-xl bg-level-purple-subtle px-4 py-3">
                   <AlertCircle className="h-4 w-4 text-level-purple mt-0.5 shrink-0" />
                   <div className="text-sm text-level-purple-dark">
-                    <p className="font-medium">Use <code className="bg-level-purple/10 px-1 rounded">assert</code> statements, não unittest.</p>
+                    <p className="font-medium">Use <code className="bg-level-purple/10 px-1 rounded">unittest.TestCase</code> ou <code className="bg-level-purple/10 px-1 rounded">assert</code> simples.</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      O código do aluno e os testes são executados juntos. <code>AssertionError</code> com mensagem = resposta errada.
+                      O código do aluno é executado antes dos testes. Com <code>unittest</code>, cada método <code>test_*</code> é contado separadamente — resultados mais detalhados.
                     </p>
                   </div>
                 </div>
@@ -422,7 +519,7 @@ export default function TeacherEditPage() {
                 <div className="overflow-hidden rounded-xl border-2 border-border">
                   <div className="flex items-center justify-between bg-[#1E1E2E] px-4 py-2">
                     <span className="text-xs font-medium text-gray-400">hidden_tests.py</span>
-                    <Badge className="bg-success/20 text-success border-0 text-xs">assert</Badge>
+                    <Badge className="bg-success/20 text-success border-0 text-xs">unittest / assert</Badge>
                   </div>
                   <textarea
                     value={hiddenTests}

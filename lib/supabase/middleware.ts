@@ -35,9 +35,10 @@ export async function updateSession(request: NextRequest) {
 
   // Public routes that don't require authentication
   const publicRoutes = ["/", "/login", "/signup"]
-  const isPublicRoute = publicRoutes.some(
-    (route) => request.nextUrl.pathname === route
-  )
+  const publicPrefixes = ["/lesson/", "/cursos/"]
+  const isPublicRoute =
+    publicRoutes.some((route) => request.nextUrl.pathname === route) ||
+    publicPrefixes.some((prefix) => request.nextUrl.pathname.startsWith(prefix))
 
   // If user is not logged in and trying to access a protected route
   if (!user && !isPublicRoute) {
@@ -47,9 +48,9 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // If user is logged in and trying to access public-only pages, redirect to dashboard
-  const authRedirectRoutes = ["/", "/login", "/signup"]
-  if (user && authRedirectRoutes.includes(request.nextUrl.pathname)) {
+  // If user is logged in and trying to access the landing page only, redirect to dashboard.
+  // /login and /signup are intentionally left open so that signOut() navigation lands correctly.
+  if (user && request.nextUrl.pathname === "/") {
     const url = request.nextUrl.clone()
     url.pathname = "/dashboard"
     return NextResponse.redirect(url)
@@ -57,13 +58,20 @@ export async function updateSession(request: NextRequest) {
 
   // Role-based access control for admin and teacher routes
   if (user && (request.nextUrl.pathname.startsWith("/admin") || request.nextUrl.pathname.startsWith("/teacher"))) {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single()
 
-    const role = profile?.role || "student"
+    // Se a query falhou (ex: erro de banco, RLS), deixa passar — o client-side
+    // vai lidar com o acesso. Redirecionar em caso de erro mascararia o problema
+    // e causaria loops de redirect.
+    if (profileError || !profile) {
+      return supabaseResponse
+    }
+
+    const role = profile.role
 
     if (request.nextUrl.pathname.startsWith("/admin") && role !== "admin") {
       const url = request.nextUrl.clone()

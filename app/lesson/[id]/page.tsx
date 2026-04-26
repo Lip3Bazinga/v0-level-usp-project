@@ -9,18 +9,17 @@ import {
 } from "@/components/ui/resizable"
 import { Header } from "@/components/ide/header"
 import { LessonPanel } from "@/components/ide/lesson-panel"
+import { LessonFooter } from "@/components/ide/lesson-footer"
 import { CodeEditor } from "@/components/ide/code-editor"
 import { ConsolePanel, type ConsoleOutput } from "@/components/ide/console-panel"
 import { FileExplorer } from "@/components/ide/file-explorer"
 import { SuccessFeedback } from "@/components/ide/success-feedback"
 import { usePython } from "@/hooks/use-python"
 import { parsePythonError } from "@/lib/parse-python-error"
-import { fetchLessonById, awardXp } from "@/lib/supabase/lessons"
+import { fetchPublishedLessons, fetchLessonById, awardXp } from "@/lib/supabase/lessons"
 import { useAuth } from "@/contexts/auth-context"
 import type { Lesson } from "@/lib/supabase/types"
 import { Loader2, BookOpen } from "lucide-react"
-
-// ── Componente principal ──────────────────────────────────────────────────────
 
 export default function LessonPage() {
   const params = useParams()
@@ -28,7 +27,11 @@ export default function LessonPage() {
   const lessonId = params.id as string
   const { profile, refreshProfile } = useAuth()
 
-  // Lição carregada do Supabase
+  // Lista completa de lições para navegação com footer
+  const [allLessons, setAllLessons] = useState<Lesson[]>([])
+  const [currentIndex, setCurrentIndex] = useState(0)
+
+  // Lição ativa
   const [lesson, setLesson] = useState<Lesson | null>(null)
   const [lessonLoading, setLessonLoading] = useState(true)
   const [lessonError, setLessonError] = useState<string | null>(null)
@@ -37,52 +40,67 @@ export default function LessonPage() {
     async function load() {
       setLessonLoading(true)
       setLessonError(null)
-      const data = await fetchLessonById(lessonId)
-      if (!data) {
-        setLessonError("Lição não encontrada.")
-      } else {
-        setLesson(data)
+      try {
+        // Busca a lição diretamente e a lista completa em paralelo
+        const [lessons, direct] = await Promise.all([
+          fetchPublishedLessons(),
+          fetchLessonById(lessonId),
+        ])
+        setAllLessons(lessons)
+        const idx = lessons.findIndex((l) => l.id === lessonId)
+        if (idx >= 0) {
+          setCurrentIndex(idx)
+          setLesson(lessons[idx])
+        } else if (direct) {
+          // Lição existe mas não apareceu no array (ex: ordenação edge case)
+          setLesson(direct)
+          setCurrentIndex(0)
+        } else {
+          setLessonError("Lição não encontrada.")
+        }
+      } catch {
+        setLessonError("Erro ao carregar lição.")
+      } finally {
+        setLessonLoading(false)
       }
-      setLessonLoading(false)
     }
     load()
   }, [lessonId])
 
-  // Python runtime (Pyodide via Web Worker)
-  const { status: pythonStatus, execute } = usePython()
+  // Pyodide
+  const { status: pythonStatus, isExecuting, execute, installPackages } = usePython()
 
-  // Arquivos do editor (populados quando a lição carrega)
+  // Editor
   const [files, setFiles] = useState([
     { id: "main", name: "main.py", language: "python" as const, content: "# Carregando lição..." },
   ])
   const [activeFileId, setActiveFileId] = useState("main")
 
-  // Popula o editor assim que a lição carrega
   useEffect(() => {
     if (lesson) {
-      setFiles([
-        { id: "main", name: "main.py", language: "python" as const, content: lesson.starter_code },
-      ])
+      setFiles([{ id: "main", name: "main.py", language: "python" as const, content: lesson.starter_code }])
     }
-  }, [lesson])
+  }, [lesson?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Instala pacotes quando Pyodide fica pronto
+  useEffect(() => {
+    if (pythonStatus === "ready" && lesson?.libraries?.length) {
+      addOutput("info", `Instalando pacotes: ${lesson.libraries.join(", ")}...`)
+      installPackages(lesson.libraries)
+    }
+  }, [pythonStatus, lesson?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Console
   const [consoleOutputs, setConsoleOutputs] = useState<ConsoleOutput[]>([])
 
-  // Estado de execução
-  const [isRunning, setIsRunning] = useState(false)
-  const [isVerifying, setIsVerifying] = useState(false)
+  // Progresso dinâmico
+  const [hasRun, setHasRun] = useState(false)
+  const [hasOutput, setHasOutput] = useState(false)
+  const [lessonProgress, setLessonProgress] = useState(0)
+  const [allPassed, setAllPassed] = useState(false)
 
-  // Overlay de sucesso
   const [showSuccess, setShowSuccess] = useState(false)
   const lessonCompletedRef = useRef(false)
-
-  // Passos da lição
-  const [steps, setSteps] = useState([
-    { id: 1, title: "Ler a teoria", completed: true, active: false },
-    { id: 2, title: "Escrever o código", completed: false, active: true },
-    { id: 3, title: "Verificar a solução", completed: false, active: false },
-  ])
 
   const fileTree = [
     {
@@ -95,7 +113,7 @@ export default function LessonPage() {
     },
   ]
 
-  // ── Helpers de console ──────────────────────────────────────────────────────
+  // ── Helpers de console ────────────────────────────────────────────────────────
   const addOutput = useCallback((type: ConsoleOutput["type"], message: string) => {
     setConsoleOutputs((prev) => [
       ...prev,
@@ -103,7 +121,18 @@ export default function LessonPage() {
     ])
   }, [])
 
-  // ── Handlers do editor ──────────────────────────────────────────────────────
+  // ── Status Pyodide no console ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (pythonStatus === "loading") {
+      setConsoleOutputs([{ id: crypto.randomUUID(), type: "info", message: "Inicializando Python no navegador...", timestamp: new Date() }])
+    } else if (pythonStatus === "ready") {
+      setConsoleOutputs((prev) => [...prev, { id: crypto.randomUUID(), type: "success", message: "Python pronto! Você pode executar seu código.", timestamp: new Date() }])
+    } else if (pythonStatus === "error") {
+      setConsoleOutputs((prev) => [...prev, { id: crypto.randomUUID(), type: "error", message: "Erro ao carregar Python. Verifique sua conexão e recarregue a página.", timestamp: new Date() }])
+    }
+  }, [pythonStatus])
+
+  // ── Handlers ──────────────────────────────────────────────────────────────────
   const handleContentChange = useCallback((fileId: string, content: string) => {
     setFiles((prev) => prev.map((f) => (f.id === fileId ? { ...f, content } : f)))
   }, [])
@@ -111,19 +140,15 @@ export default function LessonPage() {
   const handleReset = useCallback(() => {
     if (!lesson) return
     setFiles([{ id: "main", name: "main.py", language: "python" as const, content: lesson.starter_code }])
-    setConsoleOutputs([
-      { id: crypto.randomUUID(), type: "info", message: "Código resetado para o estado inicial.", timestamp: new Date() },
-    ])
+    setConsoleOutputs([{ id: crypto.randomUUID(), type: "info", message: "Código resetado para o estado inicial.", timestamp: new Date() }])
+    setHasRun(false)
+    setHasOutput(false)
     lessonCompletedRef.current = false
   }, [lesson])
 
   const handleClearConsole = useCallback(() => setConsoleOutputs([]), [])
 
-  const handleStepClick = useCallback((stepId: number) => {
-    setSteps((prev) => prev.map((s) => ({ ...s, active: s.id === stepId })))
-  }, [])
-
-  // ── Executar código ─────────────────────────────────────────────────────────
+  // ── Executar código ───────────────────────────────────────────────────────────
   const handleRun = useCallback(() => {
     const activeFile = files.find((f) => f.id === activeFileId)
     if (!activeFile || activeFile.language !== "python") return
@@ -132,38 +157,50 @@ export default function LessonPage() {
       addOutput("warning", "O runtime Python ainda está carregando. Aguarde...")
       return
     }
-    if (pythonStatus === "error") {
-      addOutput("error", "Erro ao carregar o runtime Python. Recarregue a página.")
-      return
-    }
     if (pythonStatus !== "ready") return
 
-    setIsRunning(true)
-    addOutput("info", "▶ Executando main.py...")
+    setHasRun(true)
+    setLessonProgress((p) => Math.max(p, 40))
+    setConsoleOutputs([{ id: crypto.randomUUID(), type: "info", message: `Executando ${activeFile.name}...`, timestamp: new Date() }])
 
     execute(activeFile.content, {
       onResult: (result) => {
         if (result.stdout) {
           result.stdout.split("\n").filter((l) => l.length > 0).forEach((l) => addOutput("output", l))
         }
+        // Renderiza figuras matplotlib inline
+        result.figures?.forEach((b64, i) => {
+          setConsoleOutputs((prev) => [...prev, {
+            id: crypto.randomUUID(),
+            type: "figure",
+            message: `Figura ${i + 1}`,
+            timestamp: new Date(),
+            figureB64: b64,
+          }])
+        })
         if (result.stderr) {
-          result.stderr.split("\n").filter((l) => l.length > 0).forEach((l) => addOutput("warning", l))
-        }
-        if (!result.stderr) {
+          const parsed = parsePythonError(result.stderr)
+          addOutput("error", `${parsed.title}: ${parsed.explanation}`)
+          addOutput("warning", `Erro original: ${parsed.original}`)
+          addOutput("warning", `💡 Dica: ${parsed.hint}`)
+          setHasOutput(false)
+        } else {
           addOutput("success", "✓ Código executado com sucesso!")
+          setHasOutput(true)
+          setLessonProgress((p) => Math.max(p, 60))
         }
-        setIsRunning(false)
       },
       onError: (error) => {
         const parsed = parsePythonError(error)
         addOutput("error", `${parsed.title}: ${parsed.explanation}`)
-        addOutput("info", `💡 Dica: ${parsed.hint}`)
-        setIsRunning(false)
+        addOutput("warning", `Erro original: ${parsed.original}`)
+        addOutput("warning", `💡 Dica: ${parsed.hint}`)
+        setHasOutput(false)
       },
     })
   }, [files, activeFileId, pythonStatus, execute, addOutput])
 
-  // ── Verificar resposta ──────────────────────────────────────────────────────
+  // ── Verificar resposta ────────────────────────────────────────────────────────
   const handleVerify = useCallback(() => {
     if (!lesson) return
     if (lessonCompletedRef.current) {
@@ -183,7 +220,6 @@ export default function LessonPage() {
       return
     }
 
-    setIsVerifying(true)
     addOutput("info", "🔬 Verificando sua solução com testes ocultos...")
 
     execute(activeFile.content, {
@@ -196,54 +232,60 @@ export default function LessonPage() {
       onError: (error) => {
         const parsed = parsePythonError(error)
         addOutput("error", `${parsed.title}: ${parsed.explanation}`)
-        addOutput("info", `💡 Dica: ${parsed.hint}`)
-        setIsVerifying(false)
+        addOutput("warning", `💡 Dica: ${parsed.hint}`)
       },
       onTestResult: async (result) => {
         if (result.allPassed) {
           addOutput("success", `✓ Todos os testes passaram! +${lesson.xp_reward} XP conquistado!`)
           lessonCompletedRef.current = true
+          setAllPassed(true)
+          setLessonProgress(100)
           setShowSuccess(true)
-          setSteps((prev) =>
-            prev.map((s) => (s.id === 3 ? { ...s, completed: true, active: false } : s))
-          )
-          // Salva progresso e credita XP no Supabase
           if (profile) {
             try {
               await awardXp(profile.id, lesson.id, lesson.xp_reward)
               await refreshProfile()
-            } catch {
-              // Silencioso — o aluno já viu o feedback de sucesso
-            }
+            } catch { /* silencioso */ }
           }
         } else {
-          result.failureDetails.forEach((msg) => addOutput("error", msg))
+          const failCount = result.failures + result.errors
+          addOutput("error", `${failCount} de ${result.testsRun} testes falharam.`)
+          result.failureDetails.forEach((msg) => addOutput("warning", msg))
           addOutput("info", "Continue tentando! Leia o feedback acima e ajuste seu código.")
+          setLessonProgress((p) => Math.max(p, 70))
         }
-        setIsVerifying(false)
       },
       onTestError: (error) => {
         const parsed = parsePythonError(error)
         addOutput("error", `${parsed.title}: ${parsed.explanation}`)
-        addOutput("info", `💡 Dica: ${parsed.hint}`)
-        setIsVerifying(false)
+        addOutput("warning", `💡 Dica: ${parsed.hint}`)
       },
     })
   }, [files, activeFileId, pythonStatus, execute, lesson, addOutput, profile, refreshProfile])
 
-  // ── Atalho Ctrl+Enter ───────────────────────────────────────────────────────
+  // ── Navegação ─────────────────────────────────────────────────────────────────
+  const handlePrev = useCallback(() => {
+    const prev = allLessons[currentIndex - 1]
+    if (prev) router.push(`/lesson/${prev.id}`)
+  }, [allLessons, currentIndex, router])
+
+  const handleNext = useCallback(() => {
+    const next = allLessons[currentIndex + 1]
+    if (next) router.push(`/lesson/${next.id}`)
+    else router.push("/dashboard")
+  }, [allLessons, currentIndex, router])
+
+  // ── Atalhos de teclado ────────────────────────────────────────────────────────
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-        e.preventDefault()
-        handleRun()
-      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); handleRun() }
+      if (e.altKey && e.key === "g") { e.preventDefault(); handleReset() }
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [handleRun])
+  }, [handleRun, handleReset])
 
-  // ── Estados de carregamento / erro ──────────────────────────────────────────
+  // ── Loading / erro ────────────────────────────────────────────────────────────
   if (lessonLoading) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-white">
@@ -269,49 +311,39 @@ export default function LessonPage() {
     )
   }
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  const hasNextLesson = currentIndex < allLessons.length - 1
+
+  // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-white">
-      <Header lessonTitle={lesson.module} lessonProgress={45} />
+      <Header
+        lessonTitle={`Módulo: ${lesson.module} — ${lesson.title}`}
+        lessonProgress={lessonProgress}
+      />
 
-      {/* Barra de status do runtime Python */}
-      {pythonStatus !== "ready" && (
-        <div className={`flex items-center justify-center gap-2 py-1.5 text-xs font-medium ${
-          pythonStatus === "loading" ? "bg-amber-50 text-amber-700"
-          : pythonStatus === "idle" ? "bg-blue-50 text-blue-700"
-          : "bg-red-50 text-red-700"
-        }`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${
-            pythonStatus === "loading" ? "animate-pulse bg-amber-500"
-            : pythonStatus === "idle" ? "bg-blue-400"
-            : "bg-red-500"
-          }`} />
-          {pythonStatus === "loading" && "Carregando runtime Python (Pyodide)..."}
-          {pythonStatus === "idle" && "Inicializando runtime Python..."}
-          {pythonStatus === "error" && "Erro ao carregar o runtime Python. Recarregue a página."}
-        </div>
-      )}
-
-      {/* Layout principal */}
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup direction="horizontal" className="h-full">
-          <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
+          {/* Painel esquerdo: teoria + instruções */}
+          <ResizablePanel defaultSize={28} minSize={22} maxSize={42}>
             <LessonPanel
+              moduleName={lesson.module}
               title={lesson.title}
-              description={`Dificuldade: ${lesson.difficulty} · +${lesson.xp_reward} XP`}
+              estimatedTime={`Dificuldade: ${lesson.difficulty} · +${lesson.xp_reward} XP`}
               content={lesson.content_markdown}
-              steps={steps}
-              onStepClick={handleStepClick}
+              checkpoints={[]}
+              hasRun={hasRun}
+              hasOutput={hasOutput}
               onVerify={handleVerify}
-              isVerifying={isVerifying}
+              isVerifying={isExecuting}
             />
           </ResizablePanel>
 
           <ResizableHandle withHandle />
 
-          <ResizablePanel defaultSize={55} minSize={40}>
+          {/* Editor + Console */}
+          <ResizablePanel defaultSize={52} minSize={38}>
             <ResizablePanelGroup direction="vertical">
-              <ResizablePanel defaultSize={70} minSize={30}>
+              <ResizablePanel defaultSize={65} minSize={30}>
                 <CodeEditor
                   files={files}
                   activeFileId={activeFileId}
@@ -319,14 +351,32 @@ export default function LessonPage() {
                   onContentChange={handleContentChange}
                   onRun={handleRun}
                   onReset={handleReset}
+                  isRunning={isExecuting}
+                  pyodideStatus={pythonStatus}
+                  solutionCode={lesson.solution_code ?? undefined}
                 />
               </ResizablePanel>
               <ResizableHandle withHandle />
-              <ResizablePanel defaultSize={30} minSize={15} maxSize={50}>
+              <ResizablePanel defaultSize={35} minSize={20} maxSize={55}>
                 <ConsolePanel
                   outputs={consoleOutputs}
                   onClear={handleClearConsole}
-                  isRunning={isRunning || isVerifying}
+                  isRunning={isExecuting}
+                  onRunCommand={(cmd) => {
+                    // Executa linha avulsa no mesmo namespace do Pyodide
+                    if (pythonStatus !== "ready") {
+                      addOutput("warning", "Python ainda não está pronto.")
+                      return
+                    }
+                    addOutput("info", `>>> ${cmd}`)
+                    execute(cmd, {
+                      onResult: (r) => {
+                        if (r.stdout) r.stdout.split("\n").filter(Boolean).forEach((l) => addOutput("output", l))
+                        if (r.stderr) addOutput("error", r.stderr.trim())
+                      },
+                      onError: (e) => addOutput("error", e),
+                    })
+                  }}
                 />
               </ResizablePanel>
             </ResizablePanelGroup>
@@ -334,7 +384,8 @@ export default function LessonPage() {
 
           <ResizableHandle withHandle />
 
-          <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
+          {/* Explorador de arquivos */}
+          <ResizablePanel defaultSize={20} minSize={15} maxSize={28}>
             <FileExplorer
               files={fileTree}
               activeFileId={activeFileId}
@@ -344,13 +395,19 @@ export default function LessonPage() {
         </ResizablePanelGroup>
       </div>
 
+      <LessonFooter
+        currentIndex={currentIndex}
+        total={allLessons.length || 1}
+        onPrev={handlePrev}
+        onNext={handleNext}
+      />
+
       <SuccessFeedback
         show={showSuccess}
         xpEarned={lesson.xp_reward}
-        onClose={() => {
-          setShowSuccess(false)
-          router.push("/dashboard")
-        }}
+        hasNextLesson={hasNextLesson}
+        onClose={() => setShowSuccess(false)}
+        onNext={handleNext}
       />
     </div>
   )
