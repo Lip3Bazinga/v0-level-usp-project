@@ -24,8 +24,11 @@ import {
   Loader2,
 } from "lucide-react"
 import { StatCard } from "@/components/profile/stat-card"
-import { ActivityMap, generateMockActivityData } from "@/components/profile/activity-map"
-import { BadgesSection, mockBadges } from "@/components/profile/badges-section"
+import { ActivityMap } from "@/components/profile/activity-map"
+import type { ActivityDay } from "@/components/profile/activity-map"
+import { BadgesSection, type DisplayBadge } from "@/components/profile/badges-section"
+import { fetchUserActivity } from "@/lib/supabase/lessons"
+import { fetchAllBadges, fetchUserBadges } from "@/lib/supabase/badges"
 
 function getInitials(name: string) {
   return name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("")
@@ -38,10 +41,11 @@ export default function ProfilePage() {
   const router = useRouter()
   const username = params.username as string
   const { profile: currentUser, isLoading: authLoading } = useAuth()
-  const activityData = React.useMemo(() => generateMockActivityData(), [])
 
   const [user, setUser] = React.useState<Profile | null>(null)
   const [loading, setLoading] = React.useState(true)
+  const [activityData, setActivityData] = React.useState<ActivityDay[]>([])
+  const [badges, setBadges] = React.useState<DisplayBadge[]>([])
 
   const isOwnProfile = username === "me" || username === currentUser?.username
 
@@ -53,31 +57,48 @@ export default function ProfilePage() {
     async function load() {
       setLoading(true)
 
+      let resolvedUser: Profile | null = null
+
       if (username === "me") {
         if (!currentUser) {
           router.replace("/login?redirect=/perfil/me")
           return
         }
-        setUser(currentUser)
-        setLoading(false)
-        return
+        resolvedUser = currentUser
+      } else if (currentUsername && username === currentUsername) {
+        resolvedUser = currentUser
+      } else {
+        const supabase = createClient()
+        const { data } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("username", username)
+          .maybeSingle()
+        resolvedUser = data ? (data as Profile) : null
       }
 
-      if (currentUsername && username === currentUsername) {
-        setUser(currentUser)
-        setLoading(false)
-        return
-      }
-
-      const supabase = createClient()
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("username", username)
-        .maybeSingle()
-
-      setUser(data ? (data as Profile) : null)
+      setUser(resolvedUser)
       setLoading(false)
+
+      if (resolvedUser) {
+        fetchUserActivity(resolvedUser.id)
+          .then(setActivityData)
+          .catch(() => setActivityData([]))
+
+        // Badges: catálogo + conquistas do dono do perfil (públicas)
+        Promise.all([fetchAllBadges(), fetchUserBadges(resolvedUser.id)])
+          .then(([catalog, earned]) => {
+            const earnedMap = new Map(earned.map((e) => [e.badge_id, e.earned_at]))
+            setBadges(
+              catalog.map((b) => ({
+                ...b,
+                isEarned: earnedMap.has(b.id),
+                earnedAt: earnedMap.has(b.id) ? new Date(earnedMap.get(b.id)!) : undefined,
+              })),
+            )
+          })
+          .catch(() => setBadges([]))
+      }
     }
     load()
   // currentUsername e currentUserId são primitivos — não causam re-execução
@@ -231,7 +252,7 @@ export default function ProfilePage() {
 
         {/* Badges Section */}
         <section className="mb-8">
-          <BadgesSection badges={mockBadges} />
+          <BadgesSection badges={badges} />
         </section>
       </main>
     </div>

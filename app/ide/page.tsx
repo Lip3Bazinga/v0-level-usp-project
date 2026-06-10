@@ -18,6 +18,7 @@ import { usePython } from "@/hooks/use-python"
 import { parsePythonError } from "@/lib/parse-python-error"
 import { createClient } from "@/lib/supabase/client"
 import { fetchPublishedLessons, awardXp } from "@/lib/supabase/lessons"
+import { evaluateOnServer } from "@/lib/evaluate"
 import { useAuth } from "@/contexts/auth-context"
 import type { Lesson } from "@/lib/database.types"
 
@@ -63,35 +64,17 @@ idade = 0
 # Imprima uma mensagem de boas-vindas
 print(f"Olá, {nome}! Você tem {idade} anos.")
 `,
-  hidden_tests: `import unittest
-
-class TestVariaveis(unittest.TestCase):
-    def test_nome_preenchido(self):
-        self.assertIsInstance(nome, str)
-        self.assertTrue(len(nome) > 0, "A variável 'nome' deve ter pelo menos um caractere")
-
-    def test_idade_valida(self):
-        self.assertIsInstance(idade, int)
-        self.assertGreater(idade, 0, "A variável 'idade' deve ser maior que zero")
-`,
   xp_reward: 50,
   time_limit: 300,
   libraries: [],
+  checkpoints: [],
+  starter_files: [],
+  module_id: null,
   published: true,
   created_at: "",
   updated_at: "",
 }
 
-const defaultFileTree = [
-  {
-    id: "project",
-    name: "meu-projeto",
-    type: "folder" as const,
-    children: [
-      { id: "main", name: "main.py", type: "file" as const, language: "python" },
-    ],
-  },
-]
 
 function createOutput(type: ConsoleOutput["type"], message: string): ConsoleOutput {
   return {
@@ -102,37 +85,16 @@ function createOutput(type: ConsoleOutput["type"], message: string): ConsoleOutp
   }
 }
 
-/** Converte content_markdown + hidden_tests de uma lição em checkpoints simples. */
+/** Gera um checkpoint único a partir do enunciado da lição. */
 function buildCheckpoints(lesson: Lesson): Checkpoint[] {
-  if (!lesson.hidden_tests) {
-    return [
-      {
-        id: 1,
-        instruction: lesson.description,
-        hint: "Execute o código e verifique a saída no terminal.",
-        completed: false,
-      },
-    ]
-  }
-
-  const matches = [...lesson.hidden_tests.matchAll(/def (test_\w+)/g)]
-  if (matches.length === 0) {
-    return [
-      {
-        id: 1,
-        instruction: lesson.description,
-        hint: "Execute o código e clique em Verificar Resposta.",
-        completed: false,
-      },
-    ]
-  }
-
-  return matches.map((m, i) => ({
-    id: i + 1,
-    instruction: `Complete o requisito: \`${m[1].replace("test_", "").replaceAll("_", " ")}\``,
-    hint: "Leia o enunciado com atenção e execute seu código antes de verificar.",
-    completed: false,
-  }))
+  return [
+    {
+      id: 1,
+      instruction: lesson.description || "Complete o exercício e clique em Verificar Resposta.",
+      hint: "Leia o enunciado com atenção e execute seu código antes de verificar.",
+      completed: false,
+    },
+  ]
 }
 
 function xpForLevel(level: number) { return level * 1000 }
@@ -319,70 +281,67 @@ export default function LevelUSPIDE() {
 
   // ── Verificar resposta ────────────────────────────────────────────────────
 
-  const handleVerify = useCallback(() => {
+  const [isVerifyingServer, setIsVerifyingServer] = useState(false)
+
+  const handleVerify = useCallback(async () => {
     const activeFile = files.find((f) => f.id === activeFileId)
     if (!activeFile) return
 
-    if (pyStatus !== "ready") {
-      addOutput("warning", "Aguarde o Python terminar de carregar para verificar sua resposta.")
+    if (lesson.id === "local-1") {
+      addOutput("warning", "Carregue uma lição do servidor para verificar sua resposta.")
       return
     }
 
     addOutput("info", "Verificando sua resposta...")
+    setIsVerifyingServer(true)
 
-    execute(activeFile.content, {
-      testCode: lesson.hidden_tests,
-      onResult: (result) => {
-        if (result.stdout) {
-          result.stdout.split("\n").filter(Boolean).forEach((line) => addOutput("output", line))
-        }
-      },
-      onTestResult: async (testResult) => {
-        if (testResult.allPassed) {
-          addOutput("success", `Todos os ${testResult.testsRun} testes passaram! +${lesson.xp_reward} XP`)
+    // Avaliação server-side: o gabarito nunca chega ao browser
+    const res = await evaluateOnServer(
+      lesson.id,
+      files.map((f) => ({ path: f.name, content: f.content })),
+    )
+    setIsVerifyingServer(false)
 
-          setCheckpoints((prev) => prev.map((c) => ({ ...c, completed: true })))
-          setLessonProgress(100)
+    if (!res.ok) {
+      switch (res.error.type) {
+        case "unauthenticated": router.push("/login"); return
+        case "not_found": addOutput("error", "Lição não encontrada no servidor."); return
+        case "timeout": addOutput("error", res.error.message); return
+        case "server_error": addOutput("error", res.error.message); return
+        case "network_error": addOutput("error", "Erro de conexão ao verificar. Verifique sua internet e tente novamente."); return
+      }
+      return
+    }
 
-          if (user) {
-            try {
-              // Snapshot level before awarding xp
-              const currentLevel = profile?.level ?? 1
-              setPrevLevel(currentLevel)
+    const testResult = res.result
+    if (testResult.allPassed) {
+      addOutput("success", `Todos os ${testResult.testsRun} testes passaram! +${lesson.xp_reward} XP`)
+      setCheckpoints((prev) => prev.map((c) => ({ ...c, completed: true })))
+      setLessonProgress(100)
 
-              await awardXp(user.id, lesson.id, lesson.xp_reward)
-              await refreshProfile()
+      if (user) {
+        try {
+          const currentLevel = profile?.level ?? 1
+          setPrevLevel(currentLevel)
+          await awardXp(user.id, lesson.id, lesson.xp_reward)
+          await refreshProfile()
+          const newLvl = Math.floor(((profile?.total_xp ?? 0) + lesson.xp_reward) / 1000) + 1
+          setAwardedLevel(newLvl > currentLevel ? newLvl : currentLevel)
+        } catch { /* sem auth configurado */ }
+      }
 
-              // After refresh, newLevel will be read from updated profile in the modal
-              const newLvl = Math.floor(((profile?.total_xp ?? 0) + lesson.xp_reward) / 1000) + 1
-              setAwardedLevel(newLvl > currentLevel ? newLvl : currentLevel)
-            } catch { /* sem auth configurado */ }
-          }
-
-          setShowSuccess(true)
-        } else {
-          const failCount = testResult.failures + testResult.errors
-          addOutput("error", `${failCount} de ${testResult.testsRun} testes falharam.`)
-          testResult.failureDetails.forEach((detail) => {
-            const lines = detail.split("\n").filter(Boolean)
-            addOutput("warning", `Falha: ${lines[lines.length - 1] || detail}`)
-          })
-          addOutput("info", "Revise seu código e tente novamente. Leia as dicas no painel de conteúdo!")
-          setLessonProgress((p) => Math.max(p, 60))
-        }
-      },
-      onTestError: (error) => {
-        const parsed = parsePythonError(error)
-        addOutput("error", `Erro na verificação: ${parsed.explanation}`)
-        addOutput("warning", `Dica: ${parsed.hint}`)
-      },
-      onError: (error) => {
-        const parsed = parsePythonError(error)
-        addOutput("error", `${parsed.title}: ${parsed.explanation}`)
-        addOutput("warning", `Dica: ${parsed.hint}`)
-      },
-    })
-  }, [files, activeFileId, pyStatus, execute, lesson, addOutput, user, profile, refreshProfile]) // eslint-disable-line react-hooks/exhaustive-deps
+      setShowSuccess(true)
+    } else {
+      const failCount = testResult.failures + testResult.errors
+      addOutput("error", `${failCount} de ${testResult.testsRun} testes falharam.`)
+      testResult.failureDetails.forEach((detail) => {
+        const lines = detail.split("\n").filter(Boolean)
+        addOutput("warning", `Falha: ${lines[lines.length - 1] || detail}`)
+      })
+      addOutput("info", "Revise seu código e tente novamente. Leia as dicas no painel de conteúdo!")
+      setLessonProgress((p) => Math.max(p, 60))
+    }
+  }, [files, activeFileId, lesson, addOutput, user, profile, refreshProfile, router]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Reset ─────────────────────────────────────────────────────────────────
 
@@ -449,7 +408,7 @@ export default function LevelUSPIDE() {
               hasRun={hasRun}
               hasOutput={hasOutput}
               onVerify={handleVerify}
-              isVerifying={isExecuting}
+              isVerifying={isVerifyingServer}
             />
           </ResizablePanel>
 
@@ -460,17 +419,21 @@ export default function LevelUSPIDE() {
             <ResizablePanelGroup direction="vertical">
               <ResizablePanel defaultSize={70} minSize={30}>
                 <CodeEditor
-                  files={files}
-                  activeFileId={activeFileId}
-                  onFileChange={setActiveFileId}
-                  onContentChange={(fileId, content) =>
-                    setFiles((prev) => prev.map((f) => (f.id === fileId ? { ...f, content } : f)))
+                  tabs={files.map((f) => ({ path: f.name, content: f.content }))}
+                  activePath={files.find((f) => f.id === activeFileId)?.name ?? "main.py"}
+                  onTabSelect={(path) => {
+                    const f = files.find((ff) => ff.name === path)
+                    if (f) setActiveFileId(f.id)
+                  }}
+                  onTabClose={() => { /* playground mono-arquivo: sem fechar */ }}
+                  onContentChange={(path, content) =>
+                    setFiles((prev) => prev.map((f) => (f.name === path ? { ...f, content } : f)))
                   }
                   onRun={handleRun}
                   onReset={handleReset}
                   isRunning={isExecuting}
                   pyodideStatus={pyStatus}
-                  solutionCode={lesson.solution_code ?? undefined}
+                  solutionCode={undefined}
                 />
               </ResizablePanel>
 
@@ -505,9 +468,13 @@ export default function LevelUSPIDE() {
           {/* Explorador de arquivos (direita) */}
           <ResizablePanel defaultSize={20} minSize={15} maxSize={28}>
             <FileExplorer
-              files={defaultFileTree}
-              activeFileId={activeFileId}
-              onFileSelect={setActiveFileId}
+              files={files.map((f) => ({ path: f.name, content: f.content }))}
+              activePath={files.find((f) => f.id === activeFileId)?.name ?? "main.py"}
+              onSelect={(path) => {
+                const f = files.find((ff) => ff.name === path)
+                if (f) setActiveFileId(f.id)
+              }}
+              readOnly
             />
           </ResizablePanel>
         </ResizablePanelGroup>

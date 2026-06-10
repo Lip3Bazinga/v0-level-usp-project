@@ -1,17 +1,16 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useMemo } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
+import { useProgress } from "@/contexts/progress-context"
 import { LevelProgress } from "@/components/design-system/level-progress"
 import {
-  fetchPublishedLessons,
-  fetchUserProgress,
   computeModuleStatuses,
   type LessonStatus,
 } from "@/lib/supabase/lessons"
-import type { Lesson, LessonProgress } from "@/lib/supabase/types"
+import type { Lesson } from "@/lib/supabase/types"
 import {
   Rocket, Lock, CheckCircle2, Play, Star, Trophy, Zap, User,
   Settings, BookOpen, Code2, Database, Brain, ChevronRight,
@@ -24,8 +23,6 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function xpForLevel(level: number) { return level * 1000 }
 
 function getInitials(fullName: string) {
   return fullName.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("")
@@ -58,41 +55,8 @@ export default function DashboardPage() {
   const router = useRouter()
   const { profile, isLoading: authLoading, signOut } = useAuth()
 
-  const [lessons, setLessons] = useState<Lesson[]>([])
-  const [progressList, setProgressList] = useState<LessonProgress[]>([])
-  const [dataLoading, setDataLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  // Carrega lições e progresso do usuário
-  // Depende de profile.id (não do objeto inteiro) para não re-disparar em cada
-  // re-render do AuthProvider.
-  const profileId = profile?.id
-  useEffect(() => {
-    if (authLoading) return
-    async function load() {
-      setDataLoading(true)
-      setError(null)
-      try {
-        const [fetchedLessons, fetchedProgress] = await Promise.all([
-          fetchPublishedLessons(),
-          profileId ? fetchUserProgress(profileId) : Promise.resolve([]),
-        ])
-        setLessons(fetchedLessons)
-        setProgressList(fetchedProgress)
-      } catch {
-        setError("Não foi possível carregar as lições. Tente novamente.")
-      } finally {
-        setDataLoading(false)
-      }
-    }
-    load()
-  }, [authLoading, profileId])
-
-  // Mapa de progresso por lesson_id
-  const progressMap = useMemo(
-    () => new Map(progressList.map((p) => [p.lesson_id, p])),
-    [progressList]
-  )
+  // Lições + progresso + gamificação vêm da fonte única (ProgressContext)
+  const { lessons, progressMap, isLoading: dataLoading, error, gamification } = useProgress()
 
   // Agrupa lições por módulo, ordenadas por order
   const modules = useMemo(() => {
@@ -111,14 +75,8 @@ export default function DashboardPage() {
       .sort((a, b) => a.meta.order - b.meta.order)
   }, [lessons])
 
-  // Gamificação
-  const level = profile?.level ?? 1
-  const totalXp = profile?.total_xp ?? 0
-  const streak = profile?.current_streak ?? 0
-  const xpFloor = xpForLevel(level - 1)
-  const xpCeil = xpForLevel(level)
-  const xpInLevel = totalXp - xpFloor
-  const xpProgress = xpCeil > 0 ? Math.min(100, Math.round((xpInLevel / xpCeil) * 100)) : 0
+  // Gamificação — derivada no ProgressContext (fonte única)
+  const { level, totalXp, streak, xpInLevel, xpCeil, xpProgress } = gamification
   const firstName = profile?.full_name?.split(" ")[0] ?? "Estudante"
   const initials = profile?.full_name ? getInitials(profile.full_name) : "?"
 

@@ -1,6 +1,5 @@
 "use client"
 
-import * as React from "react"
 import { cn } from "@/lib/utils"
 import {
   Tooltip,
@@ -8,33 +7,18 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import {
-  Code2,
-  Flame,
-  Trophy,
-  Zap,
-  Target,
-  BookOpen,
-  Lightbulb,
-  Rocket,
-  Star,
-  Crown,
-  Medal,
-  Award,
-} from "lucide-react"
+import { Crown, Star } from "lucide-react"
+import { badgeIcon } from "@/lib/badge-icons"
+import type { Badge as CatalogBadge } from "@/lib/supabase/types"
 
-interface Badge {
-  id: string
-  name: string
-  description: string
-  icon: React.ElementType
-  earnedAt?: Date
+/** Badge do catálogo + estado de conquista do usuário sendo exibido. */
+export interface DisplayBadge extends CatalogBadge {
   isEarned: boolean
-  rarity: "common" | "rare" | "epic" | "legendary"
+  earnedAt?: Date
 }
 
 interface BadgesSectionProps {
-  badges: Badge[]
+  badges: DisplayBadge[]
   className?: string
 }
 
@@ -72,115 +56,6 @@ const rarityLabels = {
   legendary: "Lendário",
 }
 
-export const mockBadges: Badge[] = [
-  {
-    id: "first-code",
-    name: "Primeira Linha",
-    description: "Escreveu sua primeira linha de código",
-    icon: Code2,
-    earnedAt: new Date("2024-01-15"),
-    isEarned: true,
-    rarity: "common",
-  },
-  {
-    id: "streak-7",
-    name: "Semana de Fogo",
-    description: "Manteve um streak de 7 dias",
-    icon: Flame,
-    earnedAt: new Date("2024-02-01"),
-    isEarned: true,
-    rarity: "common",
-  },
-  {
-    id: "streak-30",
-    name: "Mês Imparável",
-    description: "Manteve um streak de 30 dias",
-    icon: Flame,
-    earnedAt: new Date("2024-03-10"),
-    isEarned: true,
-    rarity: "rare",
-  },
-  {
-    id: "xp-1000",
-    name: "Mil XP",
-    description: "Acumulou 1.000 XP",
-    icon: Zap,
-    earnedAt: new Date("2024-01-20"),
-    isEarned: true,
-    rarity: "common",
-  },
-  {
-    id: "xp-10000",
-    name: "Dez Mil XP",
-    description: "Acumulou 10.000 XP",
-    icon: Zap,
-    earnedAt: new Date("2024-04-05"),
-    isEarned: true,
-    rarity: "rare",
-  },
-  {
-    id: "course-complete",
-    name: "Missão Cumprida",
-    description: "Completou um curso inteiro",
-    icon: Trophy,
-    earnedAt: new Date("2024-02-20"),
-    isEarned: true,
-    rarity: "epic",
-  },
-  {
-    id: "perfect-quiz",
-    name: "Perfeição",
-    description: "Acertou todas as questões de um quiz",
-    icon: Target,
-    earnedAt: new Date("2024-01-25"),
-    isEarned: true,
-    rarity: "common",
-  },
-  {
-    id: "bookworm",
-    name: "Leitor Ávido",
-    description: "Leu 50 lições teóricas",
-    icon: BookOpen,
-    earnedAt: new Date("2024-03-15"),
-    isEarned: true,
-    rarity: "rare",
-  },
-  {
-    id: "eureka",
-    name: "Eureka!",
-    description: "Resolveu 10 desafios sem dicas",
-    icon: Lightbulb,
-    earnedAt: new Date("2024-04-01"),
-    isEarned: true,
-    rarity: "epic",
-  },
-  {
-    id: "pioneer",
-    name: "Pioneiro USP",
-    description: "Está entre os primeiros 1.000 usuários",
-    icon: Rocket,
-    earnedAt: new Date("2024-01-01"),
-    isEarned: true,
-    rarity: "legendary",
-  },
-  {
-    id: "all-stars",
-    name: "Todas as Estrelas",
-    description: "Obteve nota máxima em 10 lições",
-    icon: Star,
-    isEarned: false,
-    rarity: "epic",
-  },
-  {
-    id: "grandmaster",
-    name: "Grão-Mestre",
-    description: "Completou todos os cursos disponíveis",
-    icon: Crown,
-    isEarned: false,
-    rarity: "legendary",
-  },
-]
-
 export function BadgesSection({ badges, className }: BadgesSectionProps) {
   const earnedBadges = badges.filter((b) => b.isEarned)
   const lockedBadges = badges.filter((b) => !b.isEarned)
@@ -209,7 +84,7 @@ export function BadgesSection({ badges, className }: BadgesSectionProps) {
           <div className="flex flex-wrap gap-4">
             {earnedBadges.map((badge) => {
               const colors = rarityColors[badge.rarity]
-              const Icon = badge.icon
+              const Icon = badgeIcon(badge.icon)
               
               return (
                 <Tooltip key={badge.id}>
@@ -273,7 +148,7 @@ export function BadgesSection({ badges, className }: BadgesSectionProps) {
           <TooltipProvider delayDuration={200}>
             <div className="flex flex-wrap gap-4">
               {lockedBadges.map((badge) => {
-                const Icon = badge.icon
+                const Icon = badgeIcon(badge.icon)
                 
                 return (
                   <Tooltip key={badge.id}>

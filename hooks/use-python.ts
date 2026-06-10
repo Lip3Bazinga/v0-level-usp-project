@@ -1,13 +1,21 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
+import {
+  ensureWorker,
+  replaceWorker,
+  getWorkerStatus,
+  addListener,
+  removeListener,
+  type WorkerListener,
+} from "@/lib/pyodide-worker-singleton"
 
 export type PyodideStatus = "idle" | "loading" | "ready" | "error"
 
 export interface ExecutionResult {
   stdout: string
   stderr: string
-  figures: string[]   // base64 PNG de cada figura matplotlib
+  figures: string[]
 }
 
 export interface TestResult {
@@ -19,29 +27,14 @@ export interface TestResult {
   failureDetails: string[]
 }
 
-interface WorkerMessage {
-  type: string
-  status?: PyodideStatus
-  error?: string
-  text?: string
-  stdout?: string
-  stderr?: string
-  figures?: string[]
-  data?: string        // base64 de uma figura individual
-  index?: number
-  testsRun?: number
-  passed?: number
-  failures?: number
-  errors?: number
-  allPassed?: boolean
-  failureDetails?: string[]
-  package?: string
-}
+// Tempo máximo de execução em ms antes de matar o worker
+const EXECUTION_TIMEOUT_MS = 10_000
 
 export function usePython() {
-  const workerRef = useRef<Worker | null>(null)
-  const [status, setStatus] = useState<PyodideStatus>("idle")
+  const [status, setStatus] = useState<PyodideStatus>(() => getWorkerStatus())
   const [isExecuting, setIsExecuting] = useState(false)
+  const [pendingPackages, setPendingPackages] = useState<Set<string>>(new Set())
+  const isInstalling = pendingPackages.size > 0
 
   const onStdoutRef      = useRef<((text: string) => void) | null>(null)
   const onStderrRef      = useRef<((text: string) => void) | null>(null)
@@ -51,96 +44,135 @@ export function usePython() {
   const onTestResultRef  = useRef<((result: TestResult) => void) | null>(null)
   const onTestErrorRef   = useRef<((error: string) => void) | null>(null)
   const hasPendingTestRef = useRef(false)
+  const timeoutRef       = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    const worker = new Worker("/pyodide-worker-v2.js")
-    workerRef.current = worker
+    const listener: WorkerListener = {
+      onMessage(data) {
+        switch (data.type) {
+          case "status":
+            setStatus(data.status || "idle")
+            break
 
-    worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
-      const data = event.data
+          case "stdout":
+            onStdoutRef.current?.(data.text || "")
+            break
 
-      switch (data.type) {
-        case "status":
-          setStatus(data.status || "idle")
-          break
+          case "stderr":
+            onStderrRef.current?.(data.text || "")
+            break
 
-        case "stdout":
-          onStdoutRef.current?.(data.text || "")
-          break
+          case "execution-start":
+            setIsExecuting(true)
+            if (timeoutRef.current) clearTimeout(timeoutRef.current)
+            timeoutRef.current = setTimeout(() => {
+              replaceWorker()
+              setIsExecuting(false)
+              hasPendingTestRef.current = false
+              onErrorRef.current?.("Execução interrompida: tempo limite excedido (10s). Verifique se seu código tem loops infinitos.")
+            }, EXECUTION_TIMEOUT_MS)
+            break
 
-        case "stderr":
-          onStderrRef.current?.(data.text || "")
-          break
+          case "execution-result":
+            if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null }
+            if (!hasPendingTestRef.current) setIsExecuting(false)
+            onResultRef.current?.({
+              stdout:  data.stdout  || "",
+              stderr:  data.stderr  || "",
+              figures: data.figures || [],
+            })
+            break
 
-        case "execution-start":
-          setIsExecuting(true)
-          break
+          case "figure":
+            if (data.data) onFigureRef.current?.(data.data, data.index ?? 0)
+            break
 
-        case "execution-result":
-          if (!hasPendingTestRef.current) setIsExecuting(false)
-          onResultRef.current?.({
-            stdout:  data.stdout  || "",
-            stderr:  data.stderr  || "",
-            figures: data.figures || [],
-          })
-          break
+          case "execution-error":
+            if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null }
+            hasPendingTestRef.current = false
+            setIsExecuting(false)
+            onErrorRef.current?.(data.error || "Erro desconhecido")
+            break
 
-        case "figure":
-          // Figura individual — chama callback com base64
-          if (data.data) onFigureRef.current?.(data.data, data.index ?? 0)
-          break
+          case "test-start":
+            break
 
-        case "execution-error":
-          hasPendingTestRef.current = false
-          setIsExecuting(false)
-          onErrorRef.current?.(data.error || "Erro desconhecido")
-          break
+          case "test-result":
+            if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null }
+            hasPendingTestRef.current = false
+            setIsExecuting(false)
+            onTestResultRef.current?.({
+              testsRun:       data.testsRun      || 0,
+              passed:         data.passed        || 0,
+              failures:       data.failures      || 0,
+              errors:         data.errors        || 0,
+              allPassed:      data.allPassed     || false,
+              failureDetails: data.failureDetails || [],
+            })
+            break
 
-        case "test-start":
-          break
+          case "test-error":
+            if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null }
+            hasPendingTestRef.current = false
+            setIsExecuting(false)
+            onTestErrorRef.current?.(data.error || "Erro nos testes")
+            break
 
-        case "test-result":
-          hasPendingTestRef.current = false
-          setIsExecuting(false)
-          onTestResultRef.current?.({
-            testsRun:       data.testsRun      || 0,
-            passed:         data.passed        || 0,
-            failures:       data.failures      || 0,
-            errors:         data.errors        || 0,
-            allPassed:      data.allPassed     || false,
-            failureDetails: data.failureDetails || [],
-          })
-          break
+          case "error":
+            onErrorRef.current?.(data.error || "Erro interno")
+            break
 
-        case "test-error":
-          hasPendingTestRef.current = false
-          setIsExecuting(false)
-          onTestErrorRef.current?.(data.error || "Erro nos testes")
-          break
+          case "package-installed":
+            setPendingPackages((prev) => {
+              const next = new Set(prev)
+              next.delete(data.package || "")
+              return next
+            })
+            break
 
-        case "error":
-          onErrorRef.current?.(data.error || "Erro interno")
-          break
-      }
+          case "package-error":
+            setPendingPackages((prev) => {
+              const next = new Set(prev)
+              next.delete(data.package || "")
+              return next
+            })
+            break
+        }
+      },
+      onError(ev) {
+        if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null }
+        setStatus("error")
+        setIsExecuting(false)
+        onErrorRef.current?.(`Worker error: ${ev.message}`)
+      },
     }
 
-    worker.onerror = (error) => {
-      setStatus("error")
-      onErrorRef.current?.(`Worker error: ${error.message}`)
-    }
-
-    worker.postMessage({ type: "init" })
+    addListener(listener)
+    // Sincroniza o status inicial caso o worker já esteja pronto (navegação de volta à lição)
+    setStatus(getWorkerStatus())
 
     return () => {
-      worker.terminate()
-      workerRef.current = null
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      removeListener(listener)
     }
+  }, [])
+
+  const stop = useCallback(() => {
+    if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null }
+    replaceWorker()
+    setIsExecuting(false)
+    hasPendingTestRef.current = false
+    onErrorRef.current?.("Execução interrompida pelo usuário.")
   }, [])
 
   const execute = useCallback(
     (
       code: string,
       options?: {
+        /** Projeto multi-arquivo. Se fornecido, tem precedência sobre `code`. */
+        files?: { path: string; content: string }[]
+        /** Arquivo de entrada a executar (padrão: main.py). Ignorado na verificação. */
+        entryPath?: string
         testCode?: string
         onStdout?: (text: string) => void
         onStderr?: (text: string) => void
@@ -151,7 +183,7 @@ export function usePython() {
         onTestError?: (error: string) => void
       }
     ) => {
-      if (!workerRef.current || status !== "ready") return
+      if (status !== "ready") return
 
       onStdoutRef.current     = options?.onStdout     || null
       onStderrRef.current     = options?.onStderr     || null
@@ -162,18 +194,25 @@ export function usePython() {
       onTestErrorRef.current  = options?.onTestError  || null
       hasPendingTestRef.current = !!options?.testCode
 
-      workerRef.current.postMessage({ type: "execute", code, testCode: options?.testCode })
+      ensureWorker().postMessage({
+        type: "execute",
+        code,
+        files: options?.files,
+        entryPath: options?.entryPath,
+        testCode: options?.testCode,
+      })
     },
     [status]
   )
 
   const installPackages = useCallback(
     (packages: string[]) => {
-      if (!workerRef.current || status !== "ready") return
-      workerRef.current.postMessage({ type: "install", packages })
+      if (status !== "ready") return
+      setPendingPackages(new Set(packages))
+      ensureWorker().postMessage({ type: "install", packages })
     },
     [status]
   )
 
-  return { status, isExecuting, execute, installPackages }
+  return { status, isExecuting, isInstalling, execute, installPackages, stop }
 }

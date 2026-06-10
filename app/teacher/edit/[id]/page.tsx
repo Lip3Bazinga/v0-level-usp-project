@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation"
 import {
   ArrowLeft, Save, Eye, Plus, BookOpen, Code2, FlaskConical,
   CheckCircle2, AlertCircle, X, FileText, Loader2, GraduationCap,
+  ListChecks, Trash2, ChevronUp, ChevronDown,
 } from "lucide-react"
 import { LevelButton } from "@/components/design-system/level-button"
 import { Badge } from "@/components/ui/badge"
@@ -14,13 +15,14 @@ import {
 } from "@/components/ui/select"
 import { useAuth } from "@/contexts/auth-context"
 import {
-  fetchLessonById,
+  fetchLessonByIdFull,
   createLesson,
   updateLesson,
   type LessonFormData,
 } from "@/lib/supabase/lessons"
 import { fetchTeacherCourses } from "@/lib/supabase/courses"
-import type { Course } from "@/lib/supabase/types"
+import type { Course, Checkpoint, ProjectFile } from "@/lib/supabase/types"
+import { parseProjectFiles } from "@/lib/supabase/lessons"
 import { TeacherSuccessModal } from "@/components/gamification/teacher-success-modal"
 import { swalConfirm, swalError } from "@/lib/swal"
 
@@ -86,6 +88,8 @@ export default function TeacherEditPage() {
   const [content, setContent]       = useState(DEFAULT_CONTENT)
   const [starterCode, setStarterCode] = useState(DEFAULT_STARTER)
   const [hiddenTests, setHiddenTests] = useState(DEFAULT_TESTS)
+  const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([])
+  const [starterFiles, setStarterFiles] = useState<ProjectFile[]>([])
   const [libraries, setLibraries]   = useState<string[]>([])
   const [xpReward, setXpReward]     = useState(50)
   const [timeLimit, setTimeLimit]   = useState(0)
@@ -113,7 +117,7 @@ export default function TeacherEditPage() {
     if (isNew) return
     async function load() {
       setLoading(true)
-      const lesson = await fetchLessonById(params.id as string)
+      const lesson = await fetchLessonByIdFull(params.id as string)
       if (!lesson) {
         setError("Lição não encontrada.")
         setLoading(false)
@@ -126,7 +130,9 @@ export default function TeacherEditPage() {
       setDifficulty(lesson.difficulty)
       setContent(lesson.content_markdown)
       setStarterCode(lesson.starter_code)
-      setHiddenTests(lesson.hidden_tests)
+      setHiddenTests(lesson.hidden_tests ?? "")
+      setCheckpoints(lesson.checkpoints ?? [])
+      setStarterFiles(parseProjectFiles(lesson.starter_files, [{ path: "main.py", content: lesson.starter_code ?? "" }]))
       setLibraries(lesson.libraries ?? [])
       setXpReward(lesson.xp_reward)
       setTimeLimit(lesson.time_limit)
@@ -142,6 +148,76 @@ export default function TeacherEditPage() {
     )
   }
 
+  // ── Arquivos-semente (starter_files) ────────────────────────────────────────
+  const [activeStarterPath, setActiveStarterPath] = useState("main.py")
+
+  const starterFilesOrDefault = starterFiles.length
+    ? starterFiles
+    : [{ path: "main.py", content: starterCode }]
+  const activeStarter = starterFilesOrDefault.find((f) => f.path === activeStarterPath)
+    ?? starterFilesOrDefault[0]
+
+  const updateStarterContent = (path: string, content: string) => {
+    setStarterFiles((prev) => {
+      const base = prev.length ? prev : [{ path: "main.py", content: starterCode }]
+      const next = base.map((f) => (f.path === path ? { ...f, content } : f))
+      // Mantém starter_code sincronizado com o main.py (retrocompat)
+      if (path === "main.py") setStarterCode(content)
+      return next
+    })
+  }
+
+  const addStarterFile = () => {
+    const name = window.prompt("Nome do arquivo (ex: utils.py ou pasta/mod.py):")
+    if (!name) return
+    const path = name.trim().replace(/^\/+/, "")
+    if (!/^[\w\-./]+\.py$/.test(path) || path.includes("..")) {
+      setError("Nome de arquivo inválido. Use letras, números e termine com .py")
+      return
+    }
+    setStarterFiles((prev) => {
+      const base = prev.length ? prev : [{ path: "main.py", content: starterCode }]
+      if (base.some((f) => f.path === path)) {
+        setError("Já existe um arquivo com esse nome.")
+        return base
+      }
+      return [...base, { path, content: "" }]
+    })
+    setActiveStarterPath(path)
+  }
+
+  const removeStarterFile = (path: string) => {
+    if (path === "main.py") return
+    setStarterFiles((prev) => {
+      const base = prev.length ? prev : [{ path: "main.py", content: starterCode }]
+      return base.filter((f) => f.path !== path)
+    })
+    setActiveStarterPath("main.py")
+  }
+
+  // ── Checkpoints (instruções por passo) ──────────────────────────────────────
+  const addCheckpoint = () =>
+    setCheckpoints((prev) => [
+      ...prev,
+      { id: prev.length ? Math.max(...prev.map((c) => c.id)) + 1 : 1, instruction: "", hint: "" },
+    ])
+
+  const updateCheckpoint = (id: number, patch: Partial<Checkpoint>) =>
+    setCheckpoints((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)))
+
+  const removeCheckpoint = (id: number) =>
+    setCheckpoints((prev) => prev.filter((c) => c.id !== id))
+
+  const moveCheckpoint = (id: number, dir: -1 | 1) =>
+    setCheckpoints((prev) => {
+      const idx = prev.findIndex((c) => c.id === id)
+      const next = idx + dir
+      if (idx < 0 || next < 0 || next >= prev.length) return prev
+      const copy = [...prev]
+      ;[copy[idx], copy[next]] = [copy[next], copy[idx]]
+      return copy
+    })
+
   const buildFormData = (published: boolean): LessonFormData => ({
     title,
     description,
@@ -150,7 +226,9 @@ export default function TeacherEditPage() {
     difficulty,
     content_markdown: content,
     starter_code: starterCode,
+    starter_files: starterFiles.length ? starterFiles : [{ path: "main.py", content: starterCode }],
     hidden_tests: hiddenTests,
+    checkpoints,
     libraries,
     xp_reward: xpReward,
     time_limit: timeLimit,
@@ -197,7 +275,7 @@ export default function TeacherEditPage() {
       setSaving(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, description, module, order, difficulty, content, starterCode, hiddenTests, libraries, xpReward, timeLimit, profile, isNew, params.id])
+  }, [title, description, module, order, difficulty, content, starterCode, starterFiles, hiddenTests, checkpoints, libraries, xpReward, timeLimit, profile, isNew, params.id])
 
   if (loading) {
     return (
@@ -442,21 +520,51 @@ export default function TeacherEditPage() {
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple-light">
                   <Code2 className="h-5 w-5 text-level-purple" />
                 </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-level-purple-dark">Código Inicial</h2>
-                  <p className="text-sm text-muted-foreground">Código que o aluno recebe ao abrir a lição</p>
+                <div className="flex-1">
+                  <h2 className="text-lg font-semibold text-level-purple-dark">Arquivos do Exercício</h2>
+                  <p className="text-sm text-muted-foreground">Arquivos que o aluno recebe ao abrir a lição (main.py é obrigatório)</p>
                 </div>
+                <button
+                  type="button"
+                  onClick={addStarterFile}
+                  className="flex items-center gap-1.5 rounded-xl border-2 border-level-purple bg-level-purple-subtle px-3 py-2 text-sm font-semibold text-level-purple transition-colors hover:bg-level-purple-light"
+                >
+                  <Plus className="h-4 w-4" /> Arquivo
+                </button>
               </div>
 
               <div className="space-y-4">
                 <div className="overflow-hidden rounded-xl border-2 border-border">
-                  <div className="flex items-center justify-between bg-[#1E1E2E] px-4 py-2">
-                    <span className="text-xs font-medium text-gray-400">main.py</span>
-                    <Badge className="bg-level-purple/20 text-level-purple border-0 text-xs">Python</Badge>
+                  {/* Abas dos arquivos-semente */}
+                  <div className="flex items-center overflow-x-auto bg-[#1E1E2E] px-2 pt-2">
+                    {starterFilesOrDefault.map((f) => (
+                      <div
+                        key={f.path}
+                        onClick={() => setActiveStarterPath(f.path)}
+                        className={`group flex cursor-pointer items-center gap-2 rounded-t-lg px-3 py-1.5 text-xs transition-colors ${
+                          f.path === activeStarter.path
+                            ? "bg-[#2d2d3d] text-white"
+                            : "text-gray-400 hover:text-gray-200"
+                        }`}
+                      >
+                        <span>🐍</span>
+                        <span>{f.path}</span>
+                        {f.path !== "main.py" && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); removeStarterFile(f.path) }}
+                            className="rounded p-0.5 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                            title="Remover arquivo"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
                   </div>
                   <textarea
-                    value={starterCode}
-                    onChange={(e) => setStarterCode(e.target.value)}
+                    value={activeStarter.content}
+                    onChange={(e) => updateStarterContent(activeStarter.path, e.target.value)}
                     rows={10}
                     className="w-full border-0 bg-[#1E1E2E] px-4 py-3 font-mono text-sm text-gray-300 focus:outline-none resize-none"
                   />
@@ -529,6 +637,80 @@ export default function TeacherEditPage() {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Checkpoints / Instruções */}
+            <div className="rounded-2xl border-2 border-border bg-white p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple-light">
+                    <ListChecks className="h-5 w-5 text-level-purple" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-level-purple-dark">Instruções (Checkpoints)</h2>
+                    <p className="text-sm text-muted-foreground">Passos guiados que o aluno vê no painel da lição</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={addCheckpoint}
+                  className="flex items-center gap-1.5 rounded-xl border-2 border-level-purple bg-level-purple-subtle px-3 py-2 text-sm font-semibold text-level-purple transition-colors hover:bg-level-purple-light"
+                >
+                  <Plus className="h-4 w-4" /> Adicionar passo
+                </button>
+              </div>
+
+              {checkpoints.length === 0 ? (
+                <div className="rounded-xl border-2 border-dashed border-border py-8 text-center">
+                  <ListChecks className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">Nenhum passo ainda. Adicione instruções para guiar o aluno.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {checkpoints.map((cp, idx) => (
+                    <div key={cp.id} className="rounded-xl border-2 border-border p-4">
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-level-purple">Passo {idx + 1}</span>
+                        <div className="flex items-center gap-1">
+                          <button type="button" onClick={() => moveCheckpoint(cp.id, -1)} disabled={idx === 0}
+                            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-30">
+                            <ChevronUp className="h-4 w-4" />
+                          </button>
+                          <button type="button" onClick={() => moveCheckpoint(cp.id, 1)} disabled={idx === checkpoints.length - 1}
+                            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-30">
+                            <ChevronDown className="h-4 w-4" />
+                          </button>
+                          <button type="button" onClick={() => removeCheckpoint(cp.id)}
+                            className="flex h-7 w-7 items-center justify-center rounded-lg text-destructive hover:bg-destructive/10">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div>
+                          <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Instrução</label>
+                          <textarea
+                            value={cp.instruction}
+                            onChange={(e) => updateCheckpoint(cp.id, { instruction: e.target.value })}
+                            rows={2}
+                            placeholder="Ex: Defina a função soma(a, b) que retorna a + b"
+                            className="w-full rounded-xl border-2 border-border px-3 py-2 text-sm focus:border-level-purple focus:outline-none resize-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Dica (opcional)</label>
+                          <input
+                            value={cp.hint ?? ""}
+                            onChange={(e) => updateCheckpoint(cp.id, { hint: e.target.value })}
+                            placeholder="Ex: Use return a + b"
+                            className="w-full rounded-xl border-2 border-border px-3 py-2 text-sm focus:border-level-purple focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Bibliotecas */}

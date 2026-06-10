@@ -106,6 +106,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string): Promise<{ error: string | null; streakResult?: StreakResult }> => {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) return { error: error.message }
+
+      // Bloqueia contas suspensas (camada extra além do ban do Auth)
+      if (data?.user) {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("suspended")
+          .eq("id", data.user.id)
+          .single()
+        if (prof && (prof as { suspended?: boolean }).suspended) {
+          await supabase.auth.signOut()
+          return { error: "Esta conta está suspensa. Entre em contato com o suporte." }
+        }
+      }
+
       // Check and update daily streak on login
       let streakResult: StreakResult | undefined
       if (data?.user) {

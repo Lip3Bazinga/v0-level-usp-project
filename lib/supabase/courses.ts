@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client"
+import { PUBLIC_LESSON_FIELDS } from "@/lib/supabase/lessons"
 import type { Course, Lesson } from "@/lib/supabase/types"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -67,7 +68,7 @@ export async function fetchCourseById(
 
   const { data: lessons } = await supabase
     .from("lessons")
-    .select("*")
+    .select(PUBLIC_LESSON_FIELDS)
     .eq("course_id", courseId)
     .eq("published", true)
     .order("order")
@@ -218,7 +219,7 @@ export async function fetchCourseLessons(courseId: string): Promise<Lesson[]> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from("lessons")
-    .select("*")
+    .select(PUBLIC_LESSON_FIELDS)
     .eq("course_id", courseId)
     .order("order")
   if (error) throw error

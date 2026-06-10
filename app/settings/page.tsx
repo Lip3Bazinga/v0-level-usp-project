@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { createClient } from "@/lib/supabase/client"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { swalConfirm } from "@/lib/swal"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { LevelButton } from "@/components/design-system/level-button"
 import {
   Rocket,
@@ -34,9 +35,13 @@ export default function SettingsPage() {
   const [fullName, setFullName] = useState("")
   const [username, setUsername] = useState("")
   const [bio, setBio] = useState("")
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState("")
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [deletingAccount, setDeletingAccount] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Hydrate fields from profile
   useEffect(() => {
@@ -44,8 +49,70 @@ export default function SettingsPage() {
       setFullName(profile.full_name ?? "")
       setUsername(profile.username ?? "")
       setBio(profile.bio ?? "")
+      setAvatarUrl(profile.avatar_url ?? null)
     }
   }, [profile])
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !profile) return
+    if (file.size > 2 * 1024 * 1024) {
+      setError("A imagem deve ter no máximo 2MB.")
+      return
+    }
+    setUploadingAvatar(true)
+    setError("")
+    try {
+      const supabase = createClient()
+      const ext = file.name.split(".").pop()
+      const path = `${profile.id}/avatar.${ext}`
+      const { error: upErr } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true })
+      if (upErr) throw upErr
+      const { data } = supabase.storage.from("avatars").getPublicUrl(path)
+      // cache-bust para refletir a troca
+      const publicUrl = `${data.publicUrl}?t=${Date.now()}`
+      const { error: updErr } = await supabase
+        .from("profiles")
+        .update({ avatar_url: publicUrl } as never)
+        .eq("id", profile.id)
+      if (updErr) throw updErr
+      setAvatarUrl(publicUrl)
+      await refreshProfile()
+    } catch {
+      setError("Erro ao enviar a foto. Tente novamente.")
+    } finally {
+      setUploadingAvatar(false)
+      if (fileInputRef.current) fileInputRef.current.value = ""
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    if (!profile) return
+    const confirmed = await swalConfirm({
+      title: "Excluir sua conta?",
+      text: "Todos os seus dados serão removidos permanentemente. Esta ação não pode ser desfeita.",
+      confirmText: "Sim, excluir",
+      danger: true,
+    })
+    if (!confirmed) return
+    setDeletingAccount(true)
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+      })
+      if (!res.ok) throw new Error()
+      await supabase.auth.signOut()
+      window.location.href = "/"
+    } catch {
+      setError("Erro ao excluir a conta. Tente novamente.")
+      setDeletingAccount(false)
+    }
+  }
 
   // Redirect if not logged in
   useEffect(() => {
@@ -171,12 +238,25 @@ export default function SettingsPage() {
                   <div className="mb-6 flex items-center gap-4">
                     <div className="relative">
                       <Avatar className="h-20 w-20 border-4 border-level-purple-light">
+                        {avatarUrl && <AvatarImage src={avatarUrl} alt={fullName} />}
                         <AvatarFallback className="bg-level-purple-light text-xl font-bold text-level-purple-dark">
                           {initials}
                         </AvatarFallback>
                       </Avatar>
-                      <button className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-level-purple text-white shadow-md hover:bg-level-purple-dark transition-colors">
-                        <Camera className="h-4 w-4" />
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        onChange={handleAvatarChange}
+                      />
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingAvatar}
+                        className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-level-purple text-white shadow-md hover:bg-level-purple-dark transition-colors disabled:opacity-60"
+                        title="Alterar foto"
+                      >
+                        {uploadingAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
                       </button>
                     </div>
                     <div>
@@ -297,7 +377,12 @@ export default function SettingsPage() {
                   <p className="mb-4 text-sm text-muted-foreground">
                     Ao excluir sua conta, todos os seus dados serao permanentemente removidos.
                   </p>
-                  <button className="rounded-xl border-2 border-destructive px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive hover:text-white transition-colors">
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={deletingAccount}
+                    className="flex items-center gap-2 rounded-xl border-2 border-destructive px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive hover:text-white transition-colors disabled:opacity-60"
+                  >
+                    {deletingAccount && <Loader2 className="h-4 w-4 animate-spin" />}
                     Excluir minha conta
                   </button>
                 </div>

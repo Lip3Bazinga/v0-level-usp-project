@@ -37,9 +37,9 @@ export default function LandingPage() {
             <a href="#features" className="text-sm font-medium text-gray-600 hover:text-[#7C3AED] transition-colors">
               Recursos
             </a>
-            <a href="#courses" className="text-sm font-medium text-gray-600 hover:text-[#7C3AED] transition-colors">
+            <Link href="/cursos" className="text-sm font-medium text-gray-600 hover:text-[#7C3AED] transition-colors">
               Cursos
-            </a>
+            </Link>
             <a href="#ide" className="text-sm font-medium text-gray-600 hover:text-[#7C3AED] transition-colors">
               IDE
             </a>
@@ -96,10 +96,12 @@ export default function LandingPage() {
                   <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </button>
               </Link>
-              <button className="inline-flex items-center gap-2 rounded-2xl border-2 border-[#E9D5FF] px-8 py-4 text-lg font-semibold text-[#7C3AED] transition-all hover:bg-[#F3E8FF] hover:border-[#7C3AED]">
-                <BookOpen className="h-5 w-5" />
-                Ver Cursos
-              </button>
+              <Link href="/cursos">
+                <button className="inline-flex items-center gap-2 rounded-2xl border-2 border-[#E9D5FF] px-8 py-4 text-lg font-semibold text-[#7C3AED] transition-all hover:bg-[#F3E8FF] hover:border-[#7C3AED]">
+                  <BookOpen className="h-5 w-5" />
+                  Ver Cursos
+                </button>
+              </Link>
             </div>
 
             {/* Social proof */}
@@ -165,9 +167,9 @@ export default function LandingPage() {
                 ))}
               </ul>
               <div className="mt-8">
-                <button className="inline-flex items-center gap-1 text-sm font-semibold text-[#7C3AED] transition-all group-hover:gap-2">
+                <Link href="/cursos" className="inline-flex items-center gap-1 text-sm font-semibold text-[#7C3AED] transition-all group-hover:gap-2">
                   Explorar curso <ChevronRight className="h-4 w-4" />
-                </button>
+                </Link>
               </div>
             </div>
 
@@ -192,9 +194,9 @@ export default function LandingPage() {
                 ))}
               </ul>
               <div className="mt-8">
-                <button className="inline-flex items-center gap-1 text-sm font-semibold text-[#7C3AED] transition-all group-hover:gap-2">
+                <Link href="/cursos" className="inline-flex items-center gap-1 text-sm font-semibold text-[#7C3AED] transition-all group-hover:gap-2">
                   Explorar curso <ChevronRight className="h-4 w-4" />
-                </button>
+                </Link>
               </div>
             </div>
 
@@ -219,9 +221,9 @@ export default function LandingPage() {
                 ))}
               </ul>
               <div className="mt-8">
-                <button className="inline-flex items-center gap-1 text-sm font-semibold text-[#7C3AED] transition-all group-hover:gap-2">
+                <Link href="/signup" className="inline-flex items-center gap-1 text-sm font-semibold text-[#7C3AED] transition-all group-hover:gap-2">
                   Saiba mais <ChevronRight className="h-4 w-4" />
-                </button>
+                </Link>
               </div>
             </div>
           </div>

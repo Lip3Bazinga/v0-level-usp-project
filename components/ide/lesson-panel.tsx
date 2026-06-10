@@ -17,10 +17,10 @@ import {
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
-export interface Checkpoint {
-  id: number
-  instruction: string
-  hint?: string
+import type { Checkpoint as LessonCheckpoint } from "@/lib/supabase/types"
+
+/** Checkpoint da lição + flag de UI para marcar conclusão visual. */
+export interface Checkpoint extends LessonCheckpoint {
   completed?: boolean
 }
 
@@ -31,6 +31,7 @@ interface LessonPanelProps {
   content: string
   checkpoints: Checkpoint[]
   cheatsheetUrl?: string
+  communityUrl?: string
   /** true quando o aluno já clicou em Executar pelo menos uma vez */
   hasRun?: boolean
   /** true quando a execução produziu saída sem erro */
@@ -104,6 +105,7 @@ export function LessonPanel({
   content,
   checkpoints,
   cheatsheetUrl,
+  communityUrl,
   hasRun = false,
   hasOutput = false,
   onVerify,
@@ -267,15 +269,19 @@ export function LessonPanel({
             <div className="flex items-center gap-2 text-xs text-gray-500">
               <MessageCircle className="h-3.5 w-3.5 shrink-0 text-level-purple" />
               <span>Apoio comunitário: </span>
-              <a
-                href="https://discord.gg/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 font-medium text-level-purple hover:underline"
-              >
-                Fórum
-                <ExternalLink className="h-3 w-3" />
-              </a>
+              {communityUrl ? (
+                <a
+                  href={communityUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 font-medium text-level-purple hover:underline"
+                >
+                  Fórum
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              ) : (
+                <span className="italic text-gray-400">Em breve</span>
+              )}
             </div>
           </div>
         </div>

@@ -9,7 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
-interface ActivityDay {
+export interface ActivityDay {
   date: Date
   xp: number
   activities: number
@@ -18,38 +18,6 @@ interface ActivityDay {
 interface ActivityMapProps {
   data: ActivityDay[]
   className?: string
-}
-
-// Generate activity data for the last 365 days
-export function generateMockActivityData(): ActivityDay[] {
-  const data: ActivityDay[] = []
-  const today = new Date()
-  
-  for (let i = 364; i >= 0; i--) {
-    const date = new Date(today)
-    date.setDate(date.getDate() - i)
-    
-    // Random activity generation with some patterns
-    const isWeekend = date.getDay() === 0 || date.getDay() === 6
-    const random = Math.random()
-    
-    let xp = 0
-    let activities = 0
-    
-    if (random > 0.3) { // 70% chance of activity
-      if (isWeekend) {
-        xp = Math.floor(Math.random() * 300) + 50
-        activities = Math.floor(Math.random() * 5) + 1
-      } else {
-        xp = Math.floor(Math.random() * 500) + 100
-        activities = Math.floor(Math.random() * 8) + 2
-      }
-    }
-    
-    data.push({ date, xp, activities })
-  }
-  
-  return data
 }
 
 // Get color based on XP level (purple gradient)
@@ -93,7 +61,10 @@ function getDayLabels() {
 function organizeIntoWeeks(data: ActivityDay[]): ActivityDay[][] {
   const weeks: ActivityDay[][] = []
   let currentWeek: ActivityDay[] = []
-  
+
+  // Sem dados: nada a organizar
+  if (data.length === 0) return weeks
+
   // Find the first Sunday
   const firstDate = data[0].date
   const firstDayOfWeek = firstDate.getDay()

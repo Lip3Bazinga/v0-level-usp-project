@@ -1,5 +1,18 @@
 export type UserRole = "student" | "teacher" | "admin"
 
+/** Passo pedagógico de uma lição (instrução + dica opcional). */
+export interface Checkpoint {
+  id: number
+  instruction: string
+  hint?: string
+}
+
+/** Arquivo de um projeto multi-arquivo. Pastas são implícitas pelo path. */
+export interface ProjectFile {
+  path: string      // ex: "main.py", "utils/helpers.py"
+  content: string
+}
+
 export interface Profile {
   id: string
   email: string
@@ -14,8 +27,20 @@ export interface Profile {
   max_streak: number
   courses_completed: number
   lessons_completed: number
+  last_login_date: string | null
+  suspended: boolean
   created_at: string
   updated_at: string
+}
+
+export interface Module {
+  id: string
+  title: string
+  description: string
+  icon: string
+  color: string
+  sort_order: number
+  created_at: string
 }
 
 export interface Lesson {
@@ -28,12 +53,14 @@ export interface Lesson {
   difficulty: "iniciante" | "intermediario" | "avancado"
   content_markdown: string
   starter_code: string
-  solution_code?: string | null
-  hidden_tests: string
+  starter_files: ProjectFile[]
+  hidden_tests?: string
+  checkpoints: Checkpoint[]
   libraries: string[] | null
   xp_reward: number
   time_limit: number
   course_id: string | null
+  module_id: string | null
   created_by: string | null
   published: boolean
   created_at: string
@@ -110,6 +137,47 @@ export interface AuditLog {
   created_at: string
 }
 
+export type BadgeRarity = "common" | "rare" | "epic" | "legendary"
+export type BadgeCriteriaType =
+  | "total_xp"
+  | "current_streak"
+  | "max_streak"
+  | "lessons_completed"
+  | "courses_completed"
+  | "manual"
+
+export interface Badge {
+  id: string
+  name: string
+  description: string
+  icon: string            // nome do ícone lucide (ex: "Flame")
+  rarity: BadgeRarity
+  criteria_type: BadgeCriteriaType
+  criteria_value: number
+  sort_order: number
+  active: boolean
+  created_at: string
+}
+
+export interface UserBadge {
+  user_id: string
+  badge_id: string
+  earned_at: string
+}
+
+export type NotificationKind = "info" | "success" | "warning" | "danger"
+
+export interface Notification {
+  id: string
+  user_id: string
+  title: string
+  body: string
+  kind: NotificationKind
+  read: boolean
+  href: string | null
+  created_at: string
+}
+
 // Legacy types kept for backward compatibility
 export interface UserProgress {
   id: string
@@ -158,6 +226,26 @@ export type Database = {
         Insert: Omit<AuditLog, "id" | "created_at">
         Update: never
       }
+      notifications: {
+        Row: Notification
+        Insert: Omit<Notification, "id" | "created_at">
+        Update: Partial<Omit<Notification, "id" | "user_id" | "created_at">>
+      }
+      badges: {
+        Row: Badge
+        Insert: Omit<Badge, "created_at">
+        Update: Partial<Omit<Badge, "id" | "created_at">>
+      }
+      user_badges: {
+        Row: UserBadge
+        Insert: Omit<UserBadge, "earned_at">
+        Update: never
+      }
+      modules: {
+        Row: Module
+        Insert: Omit<Module, "id" | "created_at">
+        Update: Partial<Omit<Module, "id" | "created_at">>
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -175,6 +263,10 @@ export type Database = {
           p_severity?: string
         }
         Returns: void
+      }
+      grant_badges: {
+        Args: { p_user_id: string }
+        Returns: Array<Pick<Badge, "id" | "name" | "description" | "icon" | "rarity">>
       }
     }
     Enums: {

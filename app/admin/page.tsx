@@ -15,8 +15,17 @@ import {
   type RecentActivity,
 } from "@/lib/supabase/admin"
 import type { Profile, Lesson } from "@/lib/supabase/types"
-import { AnalyticsPage, ModulesPage, ApprovalsPage, AuditPage, SettingsPage, CoursesAdminPage } from "./admin-pages"
-import { UsersPageEnhanced, LessonsPageEnhanced } from "./admin-crud"
+import { AnalyticsPage } from "@/components/admin/analytics-page"
+import { ModulesPage } from "@/components/admin/modules-page"
+import { ApprovalsPage } from "@/components/admin/approvals-page"
+import { AuditPage } from "@/components/admin/audit-page"
+import { SettingsPage } from "@/components/admin/settings-page"
+import { CoursesAdminPage } from "@/components/admin/courses-admin-page"
+import { UsersPageEnhanced } from "@/components/admin/users/users-page"
+import { LessonsPageEnhanced } from "@/components/admin/lessons/lessons-page"
+import { NotificationBell } from "@/components/notification-bell"
+import { BadgesAdminPage } from "@/components/admin/badges-page"
+import { CommandPalette } from "@/components/admin/command-palette"
 import {
   Users,
   BookOpen,
@@ -34,12 +43,9 @@ import {
   ShieldCheck,
   History,
   Settings as SettingsIcon,
-  Bell,
   Sparkles,
   LogOut,
   ChevronRight,
-  Trophy,
-  Flag,
   GraduationCap as Cap,
 } from "lucide-react"
 
@@ -51,6 +57,7 @@ type PageId =
   | "courses"
   | "lessons"
   | "modules"
+  | "badges"
   | "users"
   | "approvals"
   | "audit"
@@ -130,6 +137,7 @@ function Sidebar({ current, onChange, counts, profileName, profileEmail }: {
       { id: "courses", label: "Cursos",  icon: <Cap className="h-4 w-4" />,     count: counts.courses },
       { id: "lessons", label: "Lições",  icon: <BookOpen className="h-4 w-4" />, count: counts.lessons },
       { id: "modules", label: "Módulos", icon: <Layers className="h-4 w-4" /> },
+      { id: "badges",  label: "Badges",  icon: <Sparkles className="h-4 w-4" /> },
     ]},
     { header: "PESSOAS", items: [
       { id: "users",     label: "Usuários",   icon: <Users className="h-4 w-4" />, count: counts.users },
@@ -225,66 +233,8 @@ function Sidebar({ current, onChange, counts, profileName, profileEmail }: {
   )
 }
 
-// ── TopBar + NotificationBell ─────────────────────────────────────────────────
-
-const MOCK_NOTIFICATIONS = [
-  { id: "n1", icon: Cap,           title: "3 professores aguardando aprovação",         ago: "há 2h",    color: "bg-warning/10 text-warning" },
-  { id: "n2", icon: AlertTriangle, title: "Pico de erros no sandbox Python (2.3×)",     ago: "há 12min", color: "bg-destructive/10 text-destructive" },
-  { id: "n3", icon: Flag,          title: 'Conteúdo reportado: "Recursão — princípios"', ago: "há 4h",   color: "bg-warning/10 text-warning" },
-  { id: "n4", icon: Trophy,        title: "🎉 1.000 conclusões no mês · recorde",        ago: "há 1d",   color: "bg-success/10 text-success" },
-  { id: "n5", icon: Activity,      title: "Uptime 99.8% · últimos 30 dias",             ago: "há 2d",    color: "bg-info/10 text-info" },
-]
-
-function NotificationBell() {
-  const [open, setOpen] = useState(false)
-  const unread = 3
-  return (
-    <div className="relative">
-      <button onClick={() => setOpen((v) => !v)}
-        className="relative flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-level-purple-light hover:text-level-purple">
-        <Bell className="h-4 w-4" />
-        {unread > 0 && (
-          <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-white">
-            {unread}
-          </span>
-        )}
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 z-50 mt-2 w-96 overflow-hidden rounded-2xl border border-border bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-border bg-linear-to-r from-level-purple-subtle/50 to-white px-4 py-3">
-              <div>
-                <p className="text-sm font-extrabold text-level-purple-dark">Central de notificações</p>
-                <p className="text-[11px] text-muted-foreground">{unread} não lidas</p>
-              </div>
-              <button className="text-[11px] font-bold text-level-purple hover:underline">Marcar todas</button>
-            </div>
-            <div className="max-h-96 divide-y divide-border overflow-y-auto">
-              {MOCK_NOTIFICATIONS.map((n) => {
-                const Icon = n.icon
-                return (
-                  <button key={n.id} className="flex w-full items-start gap-3 p-3 text-left hover:bg-level-purple-subtle/40">
-                    <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", n.color)}>
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold leading-snug text-level-purple-dark">{n.title}</p>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">{n.ago}</p>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-            <div className="border-t border-border bg-muted/50 p-2 text-center">
-              <button className="text-xs font-bold text-level-purple hover:underline">Ver todas as notificações</button>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
+// ── TopBar ────────────────────────────────────────────────────────────────────
+// NotificationBell agora vem de components/notification-bell.tsx (dados reais via contexto).
 
 function TopBar({ title, breadcrumb, primaryHref, primaryLabel }: {
   title: string; breadcrumb?: string; primaryHref?: string; primaryLabel?: string
@@ -302,12 +252,16 @@ function TopBar({ title, breadcrumb, primaryHref, primaryLabel }: {
           <h1 className="truncate text-xl font-extrabold leading-tight text-level-purple-dark">{title}</h1>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <div className="relative hidden items-center lg:flex">
+          <button
+            onClick={() => (window as unknown as { __openAdminSearch?: () => void }).__openAdminSearch?.()}
+            className="relative hidden items-center lg:flex"
+          >
             <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
-            <input placeholder="Buscar usuário, lição, módulo..."
-              className="w-72 rounded-xl border border-border bg-white py-2 pl-9 pr-12 text-sm focus:border-level-purple focus:outline-none" />
+            <span className="w-72 cursor-text rounded-xl border border-border bg-white py-2 pl-9 pr-12 text-left text-sm text-muted-foreground hover:border-level-purple">
+              Buscar usuário, lição, curso...
+            </span>
             <kbd className="absolute right-3 rounded border border-border bg-muted px-1.5 font-mono text-[10px] text-muted-foreground">⌘K</kbd>
-          </div>
+          </button>
           <NotificationBell />
           <Link
             href="/dashboard"
@@ -555,6 +509,7 @@ export default function AdminPage() {
     courses:   "Cursos",
     lessons:   "Lições",
     modules:   "Módulos & trilhas",
+    badges:    "Badges",
     users:     "Usuários",
     approvals: "Aprovações pendentes",
     audit:     "Logs · auditoria",
@@ -573,6 +528,7 @@ export default function AdminPage() {
   else if (page === "lessons")   main = <LessonsPageEnhanced lessons={lessons} setLessons={setLessons} onToast={onToast} />
   else if (page === "analytics") main = <AnalyticsPage />
   else if (page === "modules")   main = <ModulesPage lessons={lessons} onToast={onToast} />
+  else if (page === "badges")    main = <BadgesAdminPage onToast={onToast} />
   else if (page === "approvals") main = <ApprovalsPage onToast={onToast} />
   else if (page === "audit")     main = <AuditPage />
   else                           main = <SettingsPage onToast={onToast} />
@@ -602,6 +558,8 @@ export default function AdminPage() {
         <TopBar title={titles[page]} primaryHref={primaryAction?.href} primaryLabel={primaryAction?.label} />
         <div className="flex-1 overflow-y-auto">{main}</div>
       </div>
+
+      <CommandPalette users={users} lessons={lessons} courses={[]} onNavigate={(p) => setPage(p as PageId)} />
 
       {toast && (
         <div className="fixed bottom-6 right-6 z-80">

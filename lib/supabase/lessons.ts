@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client"
-import type { Lesson, LessonProgress } from "@/lib/supabase/types"
+import type { Lesson, LessonProgress, Checkpoint, ProjectFile } from "@/lib/supabase/types"
 
 // ── Slug ──────────────────────────────────────────────────────────────────────
 
@@ -16,12 +16,21 @@ export function generateSlug(title: string): string {
 
 // ── Leitura ───────────────────────────────────────────────────────────────────
 
+// Campos públicos — hidden_tests é bloqueado também no banco (column-level grant).
+// select("*") em lessons FALHA com permission denied para anon/authenticated; use sempre esta lista.
+export const PUBLIC_LESSON_FIELDS = [
+  "id", "title", "slug", "module", "module_id", "order", "difficulty", "description",
+  "content_markdown", "starter_code", "starter_files", "checkpoints", "libraries",
+  "xp_reward", "time_limit", "course_id", "created_by", "published",
+  "created_at", "updated_at",
+].join(", ")
+
 /** Retorna todas as lições publicadas, ordenadas por course_id e ordem. */
 export async function fetchPublishedLessons(): Promise<Lesson[]> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from("lessons")
-    .select("*")
+    .select(PUBLIC_LESSON_FIELDS)
     .eq("published", true)
     .order("course_id", { ascending: true, nullsFirst: false })
     .order("order", { ascending: true })
@@ -29,16 +38,28 @@ export async function fetchPublishedLessons(): Promise<Lesson[]> {
   return (data ?? []) as Lesson[]
 }
 
-/** Retorna uma lição pelo id (UUID). */
+/** Retorna uma lição pelo id (UUID) sem hidden_tests — para uso em páginas do aluno. */
 export async function fetchLessonById(id: string): Promise<Lesson | null> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from("lessons")
-    .select("*")
+    .select(PUBLIC_LESSON_FIELDS)
     .eq("id", id)
     .single()
   if (error) return null
   return data as Lesson
+}
+
+/** Retorna a lição completa incluindo hidden_tests — exclusivo do painel do professor.
+ *  hidden_tests vem via RPC (SECURITY DEFINER) pois a coluna não é mais legível por clientes. */
+export async function fetchLessonByIdFull(id: string): Promise<Lesson | null> {
+  const supabase = createClient()
+  const [{ data, error }, { data: tests }] = await Promise.all([
+    supabase.from("lessons").select(PUBLIC_LESSON_FIELDS).eq("id", id).single(),
+    supabase.rpc("get_lesson_hidden_tests" as never, { p_lesson_id: id } as never),
+  ])
+  if (error) return null
+  return { ...(data as object), hidden_tests: (tests as string | null) ?? "" } as Lesson
 }
 
 /** Retorna todas as lições criadas por um professor (publicadas ou não). */
@@ -46,7 +67,7 @@ export async function fetchTeacherLessons(userId: string): Promise<Lesson[]> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from("lessons")
-    .select("*")
+    .select(PUBLIC_LESSON_FIELDS)
     .eq("created_by", userId)
     .order("order", { ascending: true })
   if (error) throw error
@@ -62,6 +83,87 @@ export async function fetchUserProgress(userId: string): Promise<LessonProgress[
     .eq("user_id", userId)
   if (error) throw error
   return (data ?? []) as LessonProgress[]
+}
+
+// ── Arquivos de projeto (multi-arquivo) ────────────────────────────────────────
+
+/**
+ * Interpreta um snapshot/seed de arquivos de forma tolerante:
+ * - ProjectFile[] válido → retornado como está
+ * - string JSON de ProjectFile[] → parseado
+ * - string simples (código legado) → [{ path: "main.py", content }]
+ * - vazio/nulo → fallback fornecido
+ */
+export function parseProjectFiles(
+  raw: unknown,
+  fallback: ProjectFile[] = [],
+): ProjectFile[] {
+  if (Array.isArray(raw)) {
+    const valid = raw.filter(
+      (f): f is ProjectFile =>
+        !!f && typeof f.path === "string" && typeof f.content === "string",
+    )
+    return valid.length ? valid : fallback
+  }
+  if (typeof raw === "string" && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw)
+      return parseProjectFiles(parsed, fallback)
+    } catch {
+      // Código legado salvo como string simples
+      return [{ path: "main.py", content: raw }]
+    }
+  }
+  return fallback
+}
+
+/**
+ * Resolve os arquivos iniciais de uma lição para o aluno:
+ * usa starter_files (seed do professor); se vazio, cai para starter_code.
+ */
+export function resolveStarterFiles(lesson: Lesson): ProjectFile[] {
+  const seeded = parseProjectFiles(lesson.starter_files)
+  if (seeded.length) return seeded
+  return [{ path: "main.py", content: lesson.starter_code ?? "" }]
+}
+
+/** Carrega o snapshot de arquivos salvos pelo aluno para uma lição (ou null). */
+export async function fetchProgressSnapshot(
+  userId: string,
+  lessonId: string,
+): Promise<ProjectFile[] | null> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from("lesson_progress")
+    .select("code_snapshot")
+    .eq("user_id", userId)
+    .eq("lesson_id", lessonId)
+    .maybeSingle()
+  const snap = (data as { code_snapshot: string | null } | null)?.code_snapshot
+  if (!snap) return null
+  const files = parseProjectFiles(snap)
+  return files.length ? files : null
+}
+
+/** Salva (upsert) o snapshot de arquivos do aluno para uma lição. */
+export async function saveProgressSnapshot(
+  userId: string,
+  lessonId: string,
+  files: ProjectFile[],
+): Promise<void> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from("lesson_progress")
+    .upsert(
+      {
+        user_id: userId,
+        lesson_id: lessonId,
+        code_snapshot: JSON.stringify(files),
+        status: "in_progress",
+      } as never,
+      { onConflict: "user_id,lesson_id" },
+    )
+  if (error) throw error
 }
 
 /** Conta quantos alunos completaram lições de um professor. */
@@ -86,7 +188,9 @@ export type LessonFormData = {
   difficulty: "iniciante" | "intermediario" | "avancado"
   content_markdown: string
   starter_code: string
+  starter_files: ProjectFile[]
   hidden_tests: string
+  checkpoints: Checkpoint[]
   libraries: string[]
   xp_reward: number
   time_limit: number
@@ -104,7 +208,7 @@ export async function createLesson(
   const { data: created, error } = await supabase
     .from("lessons")
     .insert({ ...data, slug, created_by: userId } as never)
-    .select()
+    .select(PUBLIC_LESSON_FIELDS)
     .single()
   if (error) throw error
   return created as Lesson
@@ -120,7 +224,7 @@ export async function updateLesson(
     .from("lessons")
     .update(data as never)
     .eq("id", id)
-    .select()
+    .select(PUBLIC_LESSON_FIELDS)
     .single()
   if (error) throw error
   return updated as Lesson
@@ -193,6 +297,54 @@ export function computeModuleStatuses(
   }
 
   return statuses
+}
+
+// ── Activity map ─────────────────────────────────────────────────────────────
+
+export interface ActivityDay {
+  date: Date
+  xp: number
+  activities: number
+}
+
+/**
+ * Agrega lesson_progress.completed_at do usuário por dia nos últimos 365 dias.
+ * Retorna um array de 365 entradas (um por dia), sem gaps.
+ */
+export async function fetchUserActivity(userId: string): Promise<ActivityDay[]> {
+  const supabase = createClient()
+
+  const since = new Date()
+  since.setDate(since.getDate() - 364)
+  since.setHours(0, 0, 0, 0)
+
+  const { data } = await supabase
+    .from("lesson_progress")
+    .select("xp_earned, completed_at")
+    .eq("user_id", userId)
+    .eq("status", "completed")
+    .gte("completed_at", since.toISOString())
+
+  // Agrupa por data local (YYYY-MM-DD)
+  const byDate = new Map<string, { xp: number; activities: number }>()
+  for (const row of (data ?? []) as any[]) {
+    if (!row.completed_at) continue
+    const key = new Date(row.completed_at).toLocaleDateString("sv-SE") // YYYY-MM-DD
+    const cur = byDate.get(key) ?? { xp: 0, activities: 0 }
+    byDate.set(key, { xp: cur.xp + (row.xp_earned ?? 0), activities: cur.activities + 1 })
+  }
+
+  // Gera array de 365 dias (do mais antigo ao mais recente)
+  const result: ActivityDay[] = []
+  for (let i = 364; i >= 0; i--) {
+    const d = new Date()
+    d.setDate(d.getDate() - i)
+    d.setHours(0, 0, 0, 0)
+    const key = d.toLocaleDateString("sv-SE")
+    const entry = byDate.get(key) ?? { xp: 0, activities: 0 }
+    result.push({ date: d, xp: entry.xp, activities: entry.activities })
+  }
+  return result
 }
 
 // ── Streak diário ─────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import { X, Play, RotateCcw, Copy, Check, Lightbulb } from "lucide-react"
+import { X, Play, Square, RotateCcw, Copy, Check, Lightbulb } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -13,23 +13,30 @@ import CodeMirror from "@uiw/react-codemirror"
 import { python } from "@codemirror/lang-python"
 import { oneDark } from "@codemirror/theme-one-dark"
 
-interface FileTab {
-  id: string
-  name: string
-  language: string
+interface OpenTab {
+  path: string
   content: string
 }
 
 interface CodeEditorProps {
-  files: FileTab[]
-  activeFileId: string
-  onFileChange: (fileId: string) => void
-  onContentChange: (fileId: string, content: string) => void
+  /** Abas abertas (path + conteúdo). */
+  tabs: OpenTab[]
+  activePath: string
+  onTabSelect: (path: string) => void
+  onTabClose: (path: string) => void
+  onContentChange: (path: string, content: string) => void
   onRun: () => void
   onReset: () => void
+  onStop?: () => void
   isRunning?: boolean
+  isInstalling?: boolean
   pyodideStatus?: "idle" | "loading" | "ready" | "error"
   solutionCode?: string
+}
+
+/** Nome curto do arquivo (último segmento do path). */
+function fileName(path: string): string {
+  return path.split("/").pop() ?? path
 }
 
 const extensions = [python()]
@@ -110,19 +117,22 @@ function SolutionModal({
 }
 
 export function CodeEditor({
-  files,
-  activeFileId,
-  onFileChange,
+  tabs,
+  activePath,
+  onTabSelect,
+  onTabClose,
   onContentChange,
   onRun,
   onReset,
+  onStop,
   isRunning = false,
+  isInstalling = false,
   pyodideStatus = "idle",
   solutionCode,
 }: CodeEditorProps) {
   const [copied, setCopied] = useState(false)
   const [showSolution, setShowSolution] = useState(false)
-  const activeFile = files.find((f) => f.id === activeFileId)
+  const activeFile = tabs.find((f) => f.path === activePath)
 
   const handleCopy = useCallback(async () => {
     if (activeFile) {
@@ -134,40 +144,46 @@ export function CodeEditor({
 
   const handleChange = useCallback(
     (value: string) => {
-      onContentChange(activeFileId, value)
+      onContentChange(activePath, value)
     },
-    [activeFileId, onContentChange]
+    [activePath, onContentChange]
   )
 
   const handleReplaceSolution = useCallback(() => {
     if (solutionCode) {
-      onContentChange(activeFileId, solutionCode)
+      onContentChange(activePath, solutionCode)
     }
     setShowSolution(false)
-  }, [solutionCode, activeFileId, onContentChange])
+  }, [solutionCode, activePath, onContentChange])
 
   return (
     <div className="flex h-full flex-col bg-[#282c34]">
       {/* Toolbar */}
       <div className="flex items-center justify-between border-b border-border bg-white px-2 py-1">
         {/* Tabs */}
-        <div className="flex items-center">
-          {files.map((file) => (
-            <button
-              key={file.id}
-              onClick={() => onFileChange(file.id)}
-              className={`group flex items-center gap-2 border-r border-border px-3 py-2 text-sm transition-colors ${
-                file.id === activeFileId
+        <div className="flex items-center overflow-x-auto">
+          {tabs.map((file) => (
+            <div
+              key={file.path}
+              onClick={() => onTabSelect(file.path)}
+              className={`group flex cursor-pointer items-center gap-2 border-r border-border px-3 py-2 text-sm transition-colors ${
+                file.path === activePath
                   ? "bg-[#282c34] text-white"
                   : "bg-level-purple-subtle text-muted-foreground hover:bg-level-purple-light"
               }`}
             >
               <span className="text-xs">🐍</span>
-              <span className={file.id === activeFileId ? "text-white" : "text-level-purple"}>
-                {file.name}
+              <span className={file.path === activePath ? "text-white" : "text-level-purple"}>
+                {fileName(file.path)}
               </span>
-              <X className="h-3 w-3 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100" />
-            </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onTabClose(file.path) }}
+                className="rounded p-0.5 opacity-0 transition-opacity hover:bg-white/10 hover:text-destructive group-hover:opacity-100"
+                title="Fechar aba"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
           ))}
         </div>
 
@@ -231,6 +247,26 @@ export function CodeEditor({
               </Tooltip>
             )}
 
+            {/* Parar (visível só durante execução) */}
+            {isRunning && onStop && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="ml-2 gap-2 rounded-lg"
+                    onClick={onStop}
+                  >
+                    <Square className="h-4 w-4" />
+                    Parar
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Interromper execução</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+
             {/* Executar */}
             <Tooltip>
               <TooltipTrigger asChild>
@@ -238,9 +274,14 @@ export function CodeEditor({
                   size="sm"
                   className="ml-2 gap-2 bg-level-purple hover:bg-level-purple-medium text-white rounded-lg disabled:opacity-50"
                   onClick={onRun}
-                  disabled={isRunning || pyodideStatus === "loading"}
+                  disabled={isRunning || isInstalling || pyodideStatus === "loading"}
                 >
-                  {isRunning ? (
+                  {isInstalling ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      Instalando...
+                    </>
+                  ) : isRunning ? (
                     <>
                       <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                       Executando...
@@ -259,7 +300,13 @@ export function CodeEditor({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>{pyodideStatus === "ready" ? "Ctrl+Enter" : "Aguarde o Python carregar"}</p>
+                <p>
+                  {isInstalling
+                    ? "Aguarde a instalação dos pacotes"
+                    : pyodideStatus === "ready"
+                    ? "Ctrl+Enter"
+                    : "Aguarde o Python carregar"}
+                </p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
