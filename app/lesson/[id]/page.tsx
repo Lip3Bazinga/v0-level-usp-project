@@ -2,11 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
-import {
-  ResizablePanelGroup,
-  ResizablePanel,
-  ResizableHandle,
-} from "@/components/ui/resizable"
+import { ResponsiveWorkspace } from "@/components/ide/responsive-workspace"
 import { Header } from "@/components/ide/header"
 import { LessonPanel } from "@/components/ide/lesson-panel"
 import { LessonFooter } from "@/components/ide/lesson-footer"
@@ -68,9 +64,8 @@ function LessonWorkspace({
       />
 
       <div className="flex-1 overflow-hidden">
-        <ResizablePanelGroup direction="horizontal" className="h-full">
-          {/* Painel esquerdo: teoria + instruções */}
-          <ResizablePanel defaultSize={28} minSize={22} maxSize={42}>
+        <ResponsiveWorkspace
+          lessonPanel={
             <LessonPanel
               moduleName={lesson.module}
               title={lesson.title}
@@ -82,45 +77,32 @@ function LessonWorkspace({
               onVerify={verify}
               isVerifying={isVerifying}
             />
-          </ResizablePanel>
-
-          <ResizableHandle withHandle />
-
-          {/* Editor + Console */}
-          <ResizablePanel defaultSize={52} minSize={38}>
-            <ResizablePanelGroup direction="vertical">
-              <ResizablePanel defaultSize={65} minSize={30}>
-                <CodeEditor
-                  tabs={tabs}
-                  activePath={activePath}
-                  onTabSelect={setActivePath}
-                  onTabClose={closeTab}
-                  onContentChange={onContentChange}
-                  onRun={run}
-                  onReset={reset}
-                  onStop={stop}
-                  isRunning={isExecuting}
-                  isInstalling={isInstalling}
-                  pyodideStatus={pythonStatus}
-                  solutionCode={undefined}
-                />
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-              <ResizablePanel defaultSize={35} minSize={20} maxSize={55}>
-                <ConsolePanel
-                  outputs={consoleOutputs}
-                  onClear={clearConsole}
-                  isRunning={isExecuting}
-                  onRunCommand={runConsoleCommand}
-                />
-              </ResizablePanel>
-            </ResizablePanelGroup>
-          </ResizablePanel>
-
-          <ResizableHandle withHandle />
-
-          {/* Explorador de arquivos */}
-          <ResizablePanel defaultSize={20} minSize={15} maxSize={28}>
+          }
+          editor={
+            <CodeEditor
+              tabs={tabs}
+              activePath={activePath}
+              onTabSelect={setActivePath}
+              onTabClose={closeTab}
+              onContentChange={onContentChange}
+              onRun={run}
+              onReset={reset}
+              onStop={stop}
+              isRunning={isExecuting}
+              isInstalling={isInstalling}
+              pyodideStatus={pythonStatus}
+              solutionCode={undefined}
+            />
+          }
+          console={
+            <ConsolePanel
+              outputs={consoleOutputs}
+              onClear={clearConsole}
+              isRunning={isExecuting}
+              onRunCommand={runConsoleCommand}
+            />
+          }
+          fileExplorer={
             <FileExplorer
               files={files}
               activePath={activePath}
@@ -129,8 +111,8 @@ function LessonWorkspace({
               onRename={renameFile}
               onDelete={deleteFile}
             />
-          </ResizablePanel>
-        </ResizablePanelGroup>
+          }
+        />
       </div>
 
       <LessonFooter

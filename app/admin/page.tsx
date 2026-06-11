@@ -26,6 +26,7 @@ import { LessonsPageEnhanced } from "@/components/admin/lessons/lessons-page"
 import { NotificationBell } from "@/components/notification-bell"
 import { BadgesAdminPage } from "@/components/admin/badges-page"
 import { CommandPalette } from "@/components/admin/command-palette"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import {
   Users,
   BookOpen,
@@ -47,6 +48,7 @@ import {
   LogOut,
   ChevronRight,
   GraduationCap as Cap,
+  Menu,
 } from "lucide-react"
 
 // ── Types & helpers ───────────────────────────────────────────────────────────
@@ -150,7 +152,7 @@ function Sidebar({ current, onChange, counts, profileName, profileEmail }: {
   ]
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-border bg-white">
+    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-border bg-white">
       <div className="flex h-16 items-center gap-2.5 border-b border-border px-5">
         <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br from-level-purple to-level-purple-medium shadow-sm">
           <span className="text-sm font-extrabold text-white">L</span>
@@ -236,20 +238,29 @@ function Sidebar({ current, onChange, counts, profileName, profileEmail }: {
 // ── TopBar ────────────────────────────────────────────────────────────────────
 // NotificationBell agora vem de components/notification-bell.tsx (dados reais via contexto).
 
-function TopBar({ title, breadcrumb, primaryHref, primaryLabel }: {
-  title: string; breadcrumb?: string; primaryHref?: string; primaryLabel?: string
+function TopBar({ title, breadcrumb, primaryHref, primaryLabel, onMenuClick }: {
+  title: string; breadcrumb?: string; primaryHref?: string; primaryLabel?: string; onMenuClick?: () => void
 }) {
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-white/85 backdrop-blur">
-      <div className="flex h-16 items-center justify-between gap-4 px-6">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>LevelUSP</span>
-            <ChevronRight className="h-3 w-3" />
-            <span>Admin</span>
-            {breadcrumb && (<><ChevronRight className="h-3 w-3" /><span className="font-semibold text-level-purple-dark">{breadcrumb}</span></>)}
+      <div className="flex h-16 items-center justify-between gap-3 px-4 sm:gap-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <button
+            onClick={onMenuClick}
+            aria-label="Abrir menu"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-level-purple-light hover:text-level-purple lg:hidden"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="min-w-0">
+            <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
+              <span>LevelUSP</span>
+              <ChevronRight className="h-3 w-3" />
+              <span>Admin</span>
+              {breadcrumb && (<><ChevronRight className="h-3 w-3" /><span className="font-semibold text-level-purple-dark">{breadcrumb}</span></>)}
+            </div>
+            <h1 className="truncate text-lg font-extrabold leading-tight text-level-purple-dark sm:text-xl">{title}</h1>
           </div>
-          <h1 className="truncate text-xl font-extrabold leading-tight text-level-purple-dark">{title}</h1>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <button
@@ -322,15 +333,15 @@ function Overview({
   const peakDay = Math.max(...dailyBars, 1)
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-3xl bg-linear-to-br from-level-purple-dark via-level-purple to-level-purple-medium p-8 text-white shadow-xl">
+      <section className="relative overflow-hidden rounded-3xl bg-linear-to-br from-level-purple-dark via-level-purple to-level-purple-medium p-6 text-white shadow-xl sm:p-8">
         <div className="absolute inset-0 opacity-30"
           style={{ backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.3) 1px, transparent 1px)", backgroundSize: "18px 18px" }} />
         <div className="relative flex flex-wrap items-start justify-between gap-6">
           <div className="max-w-2xl">
             <p className="text-xs font-bold uppercase tracking-widest text-white/70">Painel do administrador</p>
-            <h2 className="mt-2 text-3xl font-extrabold leading-tight">
+            <h2 className="mt-2 text-2xl font-extrabold leading-tight sm:text-3xl">
               Olá, Admin 👋 A plataforma tem {metrics.totalUsers} usuários ativos.
             </h2>
             <p className="mt-2 text-sm text-white/80">
@@ -462,6 +473,7 @@ export default function AdminPage() {
   const [dailyBars,  setDailyBars]  = useState<number[]>(new Array(14).fill(0))
   const [loading,    setLoading]    = useState(true)
   const [toast,      setToast]      = useState<{ msg: string; kind: string } | null>(null)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   useEffect(() => {
     if (typeof window !== "undefined") localStorage.setItem("adminPage", page)
@@ -547,15 +559,33 @@ export default function AdminPage() {
 
   return (
     <div className="flex min-h-screen bg-muted/30">
-      <Sidebar
-        current={page}
-        onChange={setPage}
-        counts={{ courses: metrics.totalCourses, lessons: metrics.totalLessons, users: metrics.totalUsers, approvals: metrics.pendingApprovals }}
-        profileName={profile?.full_name ?? "Admin"}
-        profileEmail={profile?.email ?? ""}
-      />
+      {/* Sidebar desktop */}
+      <div className="hidden lg:flex">
+        <Sidebar
+          current={page}
+          onChange={setPage}
+          counts={{ courses: metrics.totalCourses, lessons: metrics.totalLessons, users: metrics.totalUsers, approvals: metrics.pendingApprovals }}
+          profileName={profile?.full_name ?? "Admin"}
+          profileEmail={profile?.email ?? ""}
+        />
+      </div>
+
+      {/* Sidebar mobile (drawer) */}
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <SheetContent side="left" className="w-64 p-0">
+          <SheetTitle className="sr-only">Menu de navegação do admin</SheetTitle>
+          <Sidebar
+            current={page}
+            onChange={(p) => { setPage(p); setMobileNavOpen(false) }}
+            counts={{ courses: metrics.totalCourses, lessons: metrics.totalLessons, users: metrics.totalUsers, approvals: metrics.pendingApprovals }}
+            profileName={profile?.full_name ?? "Admin"}
+            profileEmail={profile?.email ?? ""}
+          />
+        </SheetContent>
+      </Sheet>
+
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar title={titles[page]} primaryHref={primaryAction?.href} primaryLabel={primaryAction?.label} />
+        <TopBar title={titles[page]} primaryHref={primaryAction?.href} primaryLabel={primaryAction?.label} onMenuClick={() => setMobileNavOpen(true)} />
         <div className="flex-1 overflow-y-auto">{main}</div>
       </div>
 

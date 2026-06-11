@@ -33,7 +33,7 @@ export function Hero() {
           initial={{ opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: EASE, delay: 0.1 }}
-          className="mx-auto max-w-4xl text-balance text-5xl font-bold leading-tight tracking-tight text-[#4C1D95] sm:text-6xl lg:text-7xl"
+          className="mx-auto max-w-4xl text-balance text-4xl font-bold leading-tight tracking-tight text-[#4C1D95] sm:text-6xl lg:text-7xl"
         >
           Democratizando a <span className="gradient-text">computação</span> para todo o Brasil
         </motion.h1>
