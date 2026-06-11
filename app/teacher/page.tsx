@@ -181,32 +181,32 @@ export default function TeacherPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-border bg-white/80 backdrop-blur-sm">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <div className="flex items-center gap-4">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-2 px-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-4">
             <Link href="/dashboard" className="flex items-center gap-2 text-muted-foreground hover:text-level-purple transition-colors">
               <ChevronLeft className="h-4 w-4" />
-              <span className="text-sm">Dashboard</span>
+              <span className="hidden text-sm sm:inline">Dashboard</span>
             </Link>
-            <div className="h-6 w-px bg-border" />
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-level-purple">
+            <div className="hidden h-6 w-px bg-border sm:block" />
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-level-purple">
                 <BookOpen className="h-4 w-4 text-white" />
               </div>
-              <div>
-                <h1 className="text-sm font-semibold text-level-purple-dark">Painel do Professor</h1>
-                <p className="text-xs text-muted-foreground">
+              <div className="min-w-0">
+                <h1 className="truncate text-sm font-semibold text-level-purple-dark">Painel do Professor</h1>
+                <p className="truncate text-xs text-muted-foreground">
                   {profile?.full_name ?? "Carregando..."}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <Link href="/teacher/curso/new">
               <LevelButton variant="secondary" size="md">
                 <span className="flex items-center gap-2">
                   <GraduationCap className="h-4 w-4" />
-                  Novo Curso
+                  <span className="hidden sm:inline">Novo Curso</span>
                 </span>
               </LevelButton>
             </Link>
@@ -214,7 +214,7 @@ export default function TeacherPage() {
               <LevelButton variant="primary" size="md">
                 <span className="flex items-center gap-2">
                   <Plus className="h-4 w-4" />
-                  Nova Lição
+                  <span className="hidden sm:inline">Nova Lição</span>
                 </span>
               </LevelButton>
             </Link>
@@ -222,7 +222,7 @@ export default function TeacherPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-6 py-8">
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         {/* Metrics */}
         <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-2xl border border-border bg-white p-5">

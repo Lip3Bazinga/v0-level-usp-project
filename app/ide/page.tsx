@@ -2,11 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import {
-  ResizablePanelGroup,
-  ResizablePanel,
-  ResizableHandle,
-} from "@/components/ui/resizable"
+import { ResponsiveWorkspace } from "@/components/ide/responsive-workspace"
 import { Header } from "@/components/ide/header"
 import { LessonPanel, type Checkpoint } from "@/components/ide/lesson-panel"
 import { LessonFooter } from "@/components/ide/lesson-footer"
@@ -396,9 +392,8 @@ export default function LevelUSPIDE() {
       />
 
       <div className="flex-1 overflow-hidden">
-        <ResizablePanelGroup direction="horizontal" className="h-full">
-          {/* Painel de conteúdo (esquerda) */}
-          <ResizablePanel defaultSize={28} minSize={22} maxSize={42}>
+        <ResponsiveWorkspace
+          lessonPanel={
             <LessonPanel
               moduleName={lesson.module}
               title={lesson.title}
@@ -410,63 +405,48 @@ export default function LevelUSPIDE() {
               onVerify={handleVerify}
               isVerifying={isVerifyingServer}
             />
-          </ResizablePanel>
-
-          <ResizableHandle withHandle />
-
-          {/* Editor + Console (centro) */}
-          <ResizablePanel defaultSize={52} minSize={38}>
-            <ResizablePanelGroup direction="vertical">
-              <ResizablePanel defaultSize={70} minSize={30}>
-                <CodeEditor
-                  tabs={files.map((f) => ({ path: f.name, content: f.content }))}
-                  activePath={files.find((f) => f.id === activeFileId)?.name ?? "main.py"}
-                  onTabSelect={(path) => {
-                    const f = files.find((ff) => ff.name === path)
-                    if (f) setActiveFileId(f.id)
-                  }}
-                  onTabClose={() => { /* playground mono-arquivo: sem fechar */ }}
-                  onContentChange={(path, content) =>
-                    setFiles((prev) => prev.map((f) => (f.name === path ? { ...f, content } : f)))
-                  }
-                  onRun={handleRun}
-                  onReset={handleReset}
-                  isRunning={isExecuting}
-                  pyodideStatus={pyStatus}
-                  solutionCode={undefined}
-                />
-              </ResizablePanel>
-
-              <ResizableHandle withHandle />
-
-              <ResizablePanel defaultSize={30} minSize={15} maxSize={50}>
-                <ConsolePanel
-                  outputs={consoleOutputs}
-                  onClear={() => setConsoleOutputs([])}
-                  isRunning={isExecuting}
-                  onRunCommand={(cmd) => {
-                    if (pyStatus !== "ready") {
-                      addOutput("warning", "Python ainda não está pronto.")
-                      return
-                    }
-                    addOutput("info", `>>> ${cmd}`)
-                    execute(cmd, {
-                      onResult: (r) => {
-                        if (r.stdout) r.stdout.split("\n").filter(Boolean).forEach((l) => addOutput("output", l))
-                        if (r.stderr) addOutput("error", r.stderr.trim())
-                      },
-                      onError: (e) => addOutput("error", e),
-                    })
-                  }}
-                />
-              </ResizablePanel>
-            </ResizablePanelGroup>
-          </ResizablePanel>
-
-          <ResizableHandle withHandle />
-
-          {/* Explorador de arquivos (direita) */}
-          <ResizablePanel defaultSize={20} minSize={15} maxSize={28}>
+          }
+          editor={
+            <CodeEditor
+              tabs={files.map((f) => ({ path: f.name, content: f.content }))}
+              activePath={files.find((f) => f.id === activeFileId)?.name ?? "main.py"}
+              onTabSelect={(path) => {
+                const f = files.find((ff) => ff.name === path)
+                if (f) setActiveFileId(f.id)
+              }}
+              onTabClose={() => { /* playground mono-arquivo: sem fechar */ }}
+              onContentChange={(path, content) =>
+                setFiles((prev) => prev.map((f) => (f.name === path ? { ...f, content } : f)))
+              }
+              onRun={handleRun}
+              onReset={handleReset}
+              isRunning={isExecuting}
+              pyodideStatus={pyStatus}
+              solutionCode={undefined}
+            />
+          }
+          console={
+            <ConsolePanel
+              outputs={consoleOutputs}
+              onClear={() => setConsoleOutputs([])}
+              isRunning={isExecuting}
+              onRunCommand={(cmd) => {
+                if (pyStatus !== "ready") {
+                  addOutput("warning", "Python ainda não está pronto.")
+                  return
+                }
+                addOutput("info", `>>> ${cmd}`)
+                execute(cmd, {
+                  onResult: (r) => {
+                    if (r.stdout) r.stdout.split("\n").filter(Boolean).forEach((l) => addOutput("output", l))
+                    if (r.stderr) addOutput("error", r.stderr.trim())
+                  },
+                  onError: (e) => addOutput("error", e),
+                })
+              }}
+            />
+          }
+          fileExplorer={
             <FileExplorer
               files={files.map((f) => ({ path: f.name, content: f.content }))}
               activePath={files.find((f) => f.id === activeFileId)?.name ?? "main.py"}
@@ -476,8 +456,8 @@ export default function LevelUSPIDE() {
               }}
               readOnly
             />
-          </ResizablePanel>
-        </ResizablePanelGroup>
+          }
+        />
       </div>
 
       <LessonFooter

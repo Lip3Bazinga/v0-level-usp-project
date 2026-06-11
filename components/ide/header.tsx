@@ -77,14 +77,14 @@ export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps)
   const dashOffset = circumference - (xpPct / 100) * circumference
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-border bg-white px-4">
+    <header className="flex h-14 items-center justify-between border-b border-border bg-white px-3 sm:px-4">
       {/* Logo e Título */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-level-purple">
             <span className="text-sm font-bold text-white">L</span>
           </div>
-          <div className="flex flex-col">
+          <div className="hidden flex-col sm:flex">
             <span className="text-sm font-bold text-level-purple-dark">LevelUSP</span>
             <span className="text-[10px] text-muted-foreground">100% Gratuito</span>
           </div>
@@ -115,7 +115,7 @@ export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps)
       </div>
 
       {/* Gamificação e Perfil */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* XP Badge with animated circular border */}
         <motion.div
           ref={resolvedRef as React.RefObject<HTMLDivElement>}
