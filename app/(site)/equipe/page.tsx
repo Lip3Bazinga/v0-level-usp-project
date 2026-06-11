@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { Users, Github, Linkedin, GraduationCap, Code2, Palette, BookOpen, HeartHandshake } from "lucide-react"
 import { PageHero } from "@/components/marketing/page-hero"
 import { FinalCta } from "@/components/marketing/final-cta"
-import { Reveal, Stagger, staggerItem, motion } from "@/components/marketing/motion-primitives"
+import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion-primitives"
 
 export const metadata: Metadata = {
   title: "Equipe — Quem constrói o LevelUSP",
@@ -53,9 +53,8 @@ export default function EquipePage() {
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <Stagger className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {SQUADS.map((s) => (
-              <motion.div
+              <StaggerItem
                 key={s.title}
-                variants={staggerItem}
                 className="rounded-2xl border border-gray-100 bg-white p-7 shadow-sm"
               >
                 <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#F3E8FF]">
@@ -63,7 +62,7 @@ export default function EquipePage() {
                 </div>
                 <h3 className="text-lg font-semibold text-[#4C1D95]">{s.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-gray-600">{s.text}</p>
-              </motion.div>
+              </StaggerItem>
             ))}
           </Stagger>
         </div>
@@ -79,9 +78,8 @@ export default function EquipePage() {
 
           <Stagger className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {LEADERSHIP.map((p) => (
-              <motion.div
+              <StaggerItem
                 key={p.name}
-                variants={staggerItem}
                 className="rounded-3xl border border-[#E9D5FF] bg-white p-8 text-center shadow-sm"
               >
                 <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#7C3AED] text-2xl font-bold text-white">
@@ -93,7 +91,7 @@ export default function EquipePage() {
                   <GraduationCap className="h-3.5 w-3.5" />
                   {p.area}
                 </p>
-              </motion.div>
+              </StaggerItem>
             ))}
           </Stagger>
         </div>
@@ -109,9 +107,8 @@ export default function EquipePage() {
 
           <Stagger className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {TEAM.map((p) => (
-              <motion.div
+              <StaggerItem
                 key={p.name}
-                variants={staggerItem}
                 className="group flex flex-col items-center rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm transition-shadow hover:shadow-md"
               >
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#F3E8FF] text-lg font-bold text-[#7C3AED]">
@@ -127,7 +124,7 @@ export default function EquipePage() {
                     <Linkedin className="h-3.5 w-3.5" />
                   </span>
                 </div>
-              </motion.div>
+              </StaggerItem>
             ))}
           </Stagger>
 

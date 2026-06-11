@@ -5,7 +5,7 @@ import { MethodSection } from "@/components/marketing/method-section"
 import { ScienceSection } from "@/components/marketing/science-section"
 import { IdeShowcase } from "@/components/marketing/ide-showcase"
 import { FinalCta } from "@/components/marketing/final-cta"
-import { Reveal, Stagger, staggerItem, motion } from "@/components/marketing/motion-primitives"
+import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion-primitives"
 
 export const metadata: Metadata = {
   title: "Metodologia — Como ensinamos no LevelUSP",
@@ -80,9 +80,8 @@ export default function MetodologiaPage() {
 
           <Stagger className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {PILLARS.map((p) => (
-              <motion.div
+              <StaggerItem
                 key={p.title}
-                variants={staggerItem}
                 className="rounded-2xl border border-gray-100 bg-white p-7 shadow-sm transition-shadow hover:shadow-md"
               >
                 <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F3E8FF]">
@@ -90,7 +89,7 @@ export default function MetodologiaPage() {
                 </div>
                 <h3 className="text-lg font-semibold text-[#4C1D95]">{p.title}</h3>
                 <p className="mt-2 leading-relaxed text-gray-600">{p.text}</p>
-              </motion.div>
+              </StaggerItem>
             ))}
           </Stagger>
         </div>

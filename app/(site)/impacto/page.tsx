@@ -3,7 +3,7 @@ import { Quote, TrendingUp, GraduationCap, Briefcase, HeartHandshake, Star } fro
 import { PageHero } from "@/components/marketing/page-hero"
 import { ImpactSection } from "@/components/marketing/impact-section"
 import { FinalCta } from "@/components/marketing/final-cta"
-import { Reveal, Stagger, staggerItem, motion } from "@/components/marketing/motion-primitives"
+import { Reveal, Stagger, StaggerItem, GrowBar } from "@/components/marketing/motion-primitives"
 
 export const metadata: Metadata = {
   title: "Impacto — Resultados e histórias do LevelUSP",
@@ -82,9 +82,8 @@ export default function ImpactoPage() {
 
           <Stagger className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {OUTCOMES.map((o) => (
-              <motion.div
+              <StaggerItem
                 key={o.label}
-                variants={staggerItem}
                 className="rounded-2xl border border-gray-100 bg-white p-7 text-center shadow-sm"
               >
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F3E8FF]">
@@ -92,7 +91,7 @@ export default function ImpactoPage() {
                 </div>
                 <p className="text-3xl font-bold text-[#4C1D95]">{o.stat}</p>
                 <p className="mt-2 text-sm leading-relaxed text-gray-600">{o.label}</p>
-              </motion.div>
+              </StaggerItem>
             ))}
           </Stagger>
         </div>
@@ -117,13 +116,7 @@ export default function ImpactoPage() {
                     <span className="text-gray-500">{r.pct}%</span>
                   </div>
                   <div className="h-3 overflow-hidden rounded-full bg-[#F3E8FF]">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      whileInView={{ width: `${r.pct}%` }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 1, delay: i * 0.1, ease: [0.22, 1, 0.36, 1] }}
-                      className="h-full rounded-full bg-[#7C3AED]"
-                    />
+                    <GrowBar pct={r.pct} delay={i * 0.1} className="h-full rounded-full bg-[#7C3AED]" />
                   </div>
                 </div>
               ))}
@@ -142,9 +135,8 @@ export default function ImpactoPage() {
 
           <Stagger className="grid gap-6 lg:grid-cols-3">
             {TESTIMONIALS.map((t) => (
-              <motion.div
+              <StaggerItem
                 key={t.name}
-                variants={staggerItem}
                 className="flex flex-col rounded-3xl border border-gray-100 bg-white p-8 shadow-sm"
               >
                 <Quote className="mb-4 h-8 w-8 text-[#A78BFA]" />
@@ -158,7 +150,7 @@ export default function ImpactoPage() {
                   <p className="font-semibold text-[#4C1D95]">{t.name}</p>
                   <p className="text-sm text-gray-500">{t.role}</p>
                 </div>
-              </motion.div>
+              </StaggerItem>
             ))}
           </Stagger>
         </div>
@@ -176,9 +168,8 @@ export default function ImpactoPage() {
 
           <Stagger className="grid gap-6 sm:grid-cols-3">
             {SDGS.map((s) => (
-              <motion.div
+              <StaggerItem
                 key={s.num}
-                variants={staggerItem}
                 className="rounded-3xl border border-[#E9D5FF] bg-white p-8 shadow-sm"
               >
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#7C3AED] text-lg font-bold text-white">
@@ -186,7 +177,7 @@ export default function ImpactoPage() {
                 </div>
                 <h3 className="text-lg font-semibold text-[#4C1D95]">{s.title}</h3>
                 <p className="mt-2 leading-relaxed text-gray-600">{s.text}</p>
-              </motion.div>
+              </StaggerItem>
             ))}
           </Stagger>
         </div>

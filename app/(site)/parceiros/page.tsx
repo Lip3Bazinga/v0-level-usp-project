@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { Handshake, Building2, School, Code2, Heart, ArrowRight, CheckCircle2 } from "lucide-react"
 import { PageHero } from "@/components/marketing/page-hero"
 import { FinalCta } from "@/components/marketing/final-cta"
-import { Reveal, Stagger, staggerItem, motion } from "@/components/marketing/motion-primitives"
+import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion-primitives"
 
 export const metadata: Metadata = {
   title: "Parceiros — Quem apoia o LevelUSP",
@@ -71,9 +71,8 @@ export default function ParceirosPage() {
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <Stagger className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {CATEGORIES.map((c) => (
-              <motion.div
+              <StaggerItem
                 key={c.title}
-                variants={staggerItem}
                 className="rounded-2xl border border-gray-100 bg-white p-7 shadow-sm"
               >
                 <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#F3E8FF]">
@@ -81,7 +80,7 @@ export default function ParceirosPage() {
                 </div>
                 <h3 className="text-lg font-semibold text-[#4C1D95]">{c.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-gray-600">{c.text}</p>
-              </motion.div>
+              </StaggerItem>
             ))}
           </Stagger>
         </div>
@@ -99,13 +98,12 @@ export default function ParceirosPage() {
 
           <Stagger className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {PARTNERS.map((p) => (
-              <motion.div
+              <StaggerItem
                 key={p}
-                variants={staggerItem}
                 className="flex h-28 items-center justify-center rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm transition-shadow hover:shadow-md"
               >
                 <span className="text-sm font-semibold text-[#4C1D95]">{p}</span>
-              </motion.div>
+              </StaggerItem>
             ))}
           </Stagger>
           <Reveal className="mt-6 text-center">

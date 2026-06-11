@@ -62,12 +62,12 @@ export function Hero() {
               <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
             </button>
           </Link>
-          <a href="#metodo">
+          <Link href="/metodologia">
             <button className="inline-flex items-center gap-2 rounded-2xl border-2 border-[#E9D5FF] bg-white/60 px-8 py-4 text-lg font-semibold text-[#7C3AED] backdrop-blur transition-all hover:border-[#7C3AED] hover:bg-[#F3E8FF]">
               <Sparkles className="h-5 w-5" />
               Conhecer o método
             </button>
-          </a>
+          </Link>
         </motion.div>
 
         {/* Floating glass stat chips */}

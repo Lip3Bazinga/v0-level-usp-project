@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { Target, Eye, Heart, Sparkles, Users, BookOpen, Globe, Award } from "lucide-react"
 import { PageHero } from "@/components/marketing/page-hero"
 import { FinalCta } from "@/components/marketing/final-cta"
-import { Reveal, Stagger, staggerItem, motion } from "@/components/marketing/motion-primitives"
+import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion-primitives"
 
 export const metadata: Metadata = {
   title: "Sobre o LevelUSP — Nossa missão e história",
@@ -97,15 +97,14 @@ export default function SobrePage() {
 
           <Stagger className="mt-10 grid gap-4 sm:grid-cols-3">
             {PRINCIPLES.map((p) => (
-              <motion.div
+              <StaggerItem
                 key={p.label}
-                variants={staggerItem}
                 className="glass-purple rounded-2xl p-6 text-center"
               >
                 <p.icon className="mx-auto mb-3 h-7 w-7 text-[#7C3AED]" />
                 <p className="text-xl font-bold text-[#4C1D95]">{p.stat}</p>
                 <p className="mt-1 text-sm text-gray-600">{p.label}</p>
-              </motion.div>
+              </StaggerItem>
             ))}
           </Stagger>
         </div>
@@ -158,9 +157,8 @@ export default function SobrePage() {
 
           <Stagger className="grid gap-6 sm:grid-cols-2">
             {VALUES.map((v) => (
-              <motion.div
+              <StaggerItem
                 key={v.title}
-                variants={staggerItem}
                 className="flex gap-5 rounded-2xl border border-gray-100 bg-white p-7 shadow-sm transition-shadow hover:shadow-md"
               >
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#F3E8FF]">
@@ -170,7 +168,7 @@ export default function SobrePage() {
                   <h3 className="text-lg font-semibold text-[#4C1D95]">{v.title}</h3>
                   <p className="mt-2 leading-relaxed text-gray-600">{v.text}</p>
                 </div>
-              </motion.div>
+              </StaggerItem>
             ))}
           </Stagger>
         </div>

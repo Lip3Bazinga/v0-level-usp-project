@@ -3,7 +3,7 @@ import Link from "next/link"
 import { Code2, BarChart3, Database, Globe2, Cpu, Clock, BookOpen, Trophy, CheckCircle2, ArrowRight } from "lucide-react"
 import { PageHero } from "@/components/marketing/page-hero"
 import { FinalCta } from "@/components/marketing/final-cta"
-import { Reveal, Stagger, staggerItem, motion } from "@/components/marketing/motion-primitives"
+import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion-primitives"
 
 export const metadata: Metadata = {
   title: "Trilhas de aprendizado — Currículo do LevelUSP",
@@ -105,9 +105,8 @@ export default function TrilhasPage() {
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
           <Stagger className="grid gap-4 sm:grid-cols-3">
             {FEATURES.map((f) => (
-              <motion.div
+              <StaggerItem
                 key={f.title}
-                variants={staggerItem}
                 className="flex items-start gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm"
               >
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#F3E8FF]">
@@ -117,7 +116,7 @@ export default function TrilhasPage() {
                   <h3 className="text-sm font-semibold text-[#4C1D95]">{f.title}</h3>
                   <p className="mt-1 text-sm text-gray-600">{f.text}</p>
                 </div>
-              </motion.div>
+              </StaggerItem>
             ))}
           </Stagger>
         </div>
@@ -128,9 +127,8 @@ export default function TrilhasPage() {
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <Stagger className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {TRACKS.map((t) => (
-              <motion.div
+              <StaggerItem
                 key={t.title}
-                variants={staggerItem}
                 whileHover={{ y: -6 }}
                 className="flex flex-col overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-xl hover:shadow-purple-100"
               >
@@ -167,7 +165,7 @@ export default function TrilhasPage() {
                     <Clock className="h-4 w-4" /> {t.hours}h
                   </span>
                 </div>
-              </motion.div>
+              </StaggerItem>
             ))}
           </Stagger>
 

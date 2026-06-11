@@ -1,6 +1,6 @@
 "use client"
 
-import { motion, useInView, type Variants } from "framer-motion"
+import { motion, useInView, type Variants, type MotionProps } from "framer-motion"
 import { useRef, type ReactNode } from "react"
 
 /* Shared easing curve for a smooth, premium feel */
@@ -63,6 +63,36 @@ export function Stagger({ children, className, amount = 0.2 }: StaggerProps) {
     >
       {children}
     </motion.div>
+  )
+}
+
+/** A single staggered item — use as a direct child of <Stagger>. */
+export function StaggerItem({
+  children,
+  className,
+  whileHover,
+}: {
+  children: ReactNode
+  className?: string
+  whileHover?: MotionProps["whileHover"]
+}) {
+  return (
+    <motion.div variants={staggerItem} whileHover={whileHover} className={className}>
+      {children}
+    </motion.div>
+  )
+}
+
+/** Animated horizontal bar that grows to `pct`% when scrolled into view. */
+export function GrowBar({ pct, delay = 0, className }: { pct: number; delay?: number; className?: string }) {
+  return (
+    <motion.div
+      initial={{ width: 0 }}
+      whileInView={{ width: `${pct}%` }}
+      viewport={{ once: true }}
+      transition={{ duration: 1, delay, ease: EASE }}
+      className={className}
+    />
   )
 }
 
