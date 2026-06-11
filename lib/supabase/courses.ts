@@ -26,14 +26,14 @@ export async function fetchPublishedCourses(): Promise<Course[]> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from("courses" as never)
-    .select("*, lessons(count)")
+    .select("*, lessons(id)")
     .eq("published", true)
     .order("title")
   if (error) throw error
 
   return (data ?? []).map((row: any) => ({
     ...row,
-    lesson_count: row.lessons?.[0]?.count ?? 0,
+    lesson_count: row.lessons?.length ?? 0,
   })) as Course[]
 }
 
@@ -42,12 +42,12 @@ export async function fetchCourseByIdRaw(courseId: string): Promise<Course | nul
   const supabase = createClient()
   const { data, error } = await supabase
     .from("courses" as never)
-    .select("*, lessons(count)")
+    .select("*, lessons(id)")
     .eq("id", courseId)
     .single()
   if (error || !data) return null
   const row = data as any
-  return { ...row, lesson_count: row.lessons?.[0]?.count ?? 0 } as Course
+  return { ...row, lesson_count: row.lessons?.length ?? 0 } as Course
 }
 
 /** Retorna um curso publicado pelo id, com lições e dados de matrícula do usuário. */
@@ -59,7 +59,7 @@ export async function fetchCourseById(
 
   const { data: course, error: courseErr } = await supabase
     .from("courses" as never)
-    .select("*, lessons(count)")
+    .select("*, lessons(id)")
     .eq("id", courseId)
     .eq("published", true)
     .single()
@@ -88,7 +88,7 @@ export async function fetchCourseById(
   return {
     course: {
       ...courseAny,
-      lesson_count: courseAny.lessons?.[0]?.count ?? 0,
+      lesson_count: courseAny.lessons?.length ?? 0,
       enrolled,
     } as Course,
     lessons: (lessons ?? []) as Lesson[],
@@ -101,13 +101,13 @@ export async function fetchTeacherCourses(userId: string): Promise<Course[]> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from("courses" as never)
-    .select("*, lessons(count)")
+    .select("*, lessons(id)")
     .eq("created_by", userId)
     .order("created_at", { ascending: false })
   if (error) throw error
   return (data ?? []).map((row: any) => ({
     ...row,
-    lesson_count: row.lessons?.[0]?.count ?? 0,
+    lesson_count: row.lessons?.length ?? 0,
   })) as Course[]
 }
 

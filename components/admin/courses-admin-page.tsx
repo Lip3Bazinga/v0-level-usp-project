@@ -38,10 +38,10 @@ export function CoursesAdminPage({ onToast }: CoursesAdminPageProps) {
         const sb = createClient()
         const { data } = await sb
           .from("courses" as never)
-          .select("*, lessons(count)")
+          .select("*, lessons(id)")
           .order("created_at", { ascending: false })
         setCourses(
-          (data ?? []).map((r: any) => ({ ...r, lesson_count: r.lessons?.[0]?.count ?? 0 })) as Course[]
+          (data ?? []).map((r: any) => ({ ...r, lesson_count: r.lessons?.length ?? 0 })) as Course[]
         )
       } finally {
         setLoading(false)
