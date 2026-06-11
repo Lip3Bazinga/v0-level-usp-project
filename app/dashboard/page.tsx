@@ -3,18 +3,18 @@
 import { useMemo } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { motion } from "framer-motion"
 import { useAuth } from "@/contexts/auth-context"
 import { useProgress } from "@/contexts/progress-context"
-import { LevelProgress } from "@/components/design-system/level-progress"
-import {
-  computeModuleStatuses,
-  type LessonStatus,
-} from "@/lib/supabase/lessons"
+import { computeModuleStatuses } from "@/lib/supabase/lessons"
 import type { Lesson } from "@/lib/supabase/types"
+import { ModuleTrail } from "@/components/dashboard/lesson-trail"
 import {
-  Rocket, Lock, CheckCircle2, Play, Star, Trophy, Zap, User,
-  Settings, BookOpen, Code2, Database, Brain, ChevronRight,
-  Flame, LogOut, Loader2, Shield, GraduationCap,
+  StatCards, DailyGoalRing, WeeklyActivity, NextBadge, useStudyDays,
+} from "@/components/dashboard/widgets"
+import {
+  Rocket, Trophy, Zap, User, Settings, BookOpen, Code2, Database, Brain,
+  Flame, LogOut, Shield, GraduationCap,
 } from "lucide-react"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -29,36 +29,19 @@ function getInitials(fullName: string) {
 }
 
 const MODULE_META: Record<string, { icon: typeof Code2; color: string; order: number }> = {
-  "Python Básico":        { icon: Code2,     color: "bg-level-purple", order: 0 },
-  "Python Intermediário": { icon: Brain,     color: "bg-warning",      order: 1 },
-  "Ciência de Dados":     { icon: Database,  color: "bg-success",      order: 2 },
+  "Python Básico":        { icon: Code2,    color: "bg-level-purple",      order: 0 },
+  "Python Intermediário": { icon: Brain,    color: "bg-warning",           order: 1 },
+  "Ciência de Dados":     { icon: Database, color: "bg-success",           order: 2 },
 }
 const DEFAULT_MODULE_META = { icon: BookOpen, color: "bg-muted-foreground", order: 99 }
-
-// ── Skeleton ──────────────────────────────────────────────────────────────────
-
-function SkeletonCard() {
-  return (
-    <div className="flex w-full max-w-sm items-center gap-4 rounded-2xl border-2 border-border p-4">
-      <div className="h-12 w-12 shrink-0 rounded-xl bg-muted animate-pulse" />
-      <div className="flex-1 space-y-2">
-        <div className="h-4 w-3/4 rounded bg-muted animate-pulse" />
-        <div className="h-3 w-1/3 rounded bg-muted animate-pulse" />
-      </div>
-    </div>
-  )
-}
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const router = useRouter()
   const { profile, isLoading: authLoading, signOut } = useAuth()
-
-  // Lições + progresso + gamificação vêm da fonte única (ProgressContext)
   const { lessons, progressMap, isLoading: dataLoading, error, gamification } = useProgress()
 
-  // Agrupa lições por módulo, ordenadas por order
   const modules = useMemo(() => {
     const grouped = new Map<string, Lesson[]>()
     for (const lesson of lessons) {
@@ -75,8 +58,14 @@ export default function DashboardPage() {
       .sort((a, b) => a.meta.order - b.meta.order)
   }, [lessons])
 
-  // Gamificação — derivada no ProgressContext (fonte única)
   const { level, totalXp, streak, xpInLevel, xpCeil, xpProgress } = gamification
+  const studyDays = useStudyDays(progressMap)
+  const lessonsCompleted = useMemo(() => {
+    let n = 0
+    progressMap.forEach((p) => { if (p.status === "completed") n++ })
+    return n
+  }, [progressMap])
+
   const firstName = profile?.full_name?.split(" ")[0] ?? "Estudante"
   const initials = profile?.full_name ? getInitials(profile.full_name) : "?"
 
@@ -85,8 +74,12 @@ export default function DashboardPage() {
     window.location.href = "/login"
   }
 
+  // Anel de nível do hero
+  const RING_R = 34
+  const RING_C = 2 * Math.PI * RING_R
+
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-8">
+    <div className="min-h-screen bg-background pb-24 md:pb-12">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
@@ -115,15 +108,11 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-level-purple px-3 py-1.5 text-white">
               <Zap className="h-4 w-4 text-yellow-300" />
-              <span className="text-xs font-bold">{xpInLevel.toLocaleString("pt-BR")} XP</span>
+              <span className="text-xs font-bold">{totalXp.toLocaleString("pt-BR")} XP</span>
             </div>
             <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-linear-to-r from-orange-500 to-red-500 px-3 py-1.5 text-white">
               <Flame className="h-4 w-4 text-yellow-300" />
               <span className="text-xs font-bold">{streak}</span>
-            </div>
-            <div className="flex items-center gap-1.5 rounded-full bg-level-purple-light px-3 py-1.5">
-              <Trophy className="h-4 w-4 text-level-purple" />
-              <span className="text-xs font-semibold text-level-purple-dark">Nível {level}</span>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -162,160 +151,109 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-4 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8 rounded-2xl bg-linear-to-r from-level-purple to-level-purple-dark p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div className="flex-1 min-w-0">
-              <h1 className="text-2xl font-bold truncate">
-                {authLoading ? "Carregando..." : `Olá, ${firstName}! Continue aprendendo`}
-              </h1>
-              <p className="mt-1 text-purple-200">
-                {authLoading ? "Buscando seu progresso..." : `Você está no nível ${level}. Continue assim!`}
+      <main className="mx-auto max-w-6xl px-4 py-8">
+        {/* Hero */}
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: "easeOut" }}
+          className="relative mb-8 overflow-hidden rounded-3xl bg-gradient-to-br from-level-purple via-level-purple to-level-purple-dark p-6 text-white shadow-xl shadow-purple-200 sm:p-8"
+        >
+          {/* brilho decorativo */}
+          <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
+          <div className="pointer-events-none absolute -bottom-20 left-1/3 h-44 w-44 rounded-full bg-fuchsia-400/20 blur-3xl" />
+
+          <div className="relative flex items-center justify-between gap-6">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold uppercase tracking-wider text-purple-200">
+                {authLoading ? " " : "Bem-vindo de volta"}
               </p>
-              <div className="mt-4">
-                <LevelProgress value={xpProgress} size="md" />
-                <p className="mt-2 text-sm text-purple-200">
-                  {xpInLevel.toLocaleString("pt-BR")} / {xpCeil.toLocaleString("pt-BR")} XP para o Nível {level + 1}
-                </p>
+              <h1 className="mt-1 truncate text-2xl font-extrabold sm:text-3xl">
+                {authLoading ? "Carregando..." : `Olá, ${firstName}!`}
+              </h1>
+              <p className="mt-1 text-sm text-purple-200">
+                {xpInLevel.toLocaleString("pt-BR")} / {xpCeil.toLocaleString("pt-BR")} XP para o Nível {level + 1}
+              </p>
+              <div className="mt-4 h-3 max-w-md overflow-hidden rounded-full bg-white/20">
+                <motion.div
+                  className="relative h-full rounded-full bg-gradient-to-r from-amber-300 to-yellow-400"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.max(2, xpProgress)}%` }}
+                  transition={{ duration: 1, ease: "easeOut", delay: 0.3 }}
+                >
+                  <span className="absolute inset-0 animate-pulse rounded-full bg-white/20" />
+                </motion.div>
               </div>
             </div>
-            <div className="hidden sm:flex flex-col items-center gap-2 ml-6 shrink-0">
-              <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 backdrop-blur">
-                <Flame className="h-10 w-10 text-orange-300" />
+
+            {/* Anel de nível */}
+            <div className="relative hidden h-[92px] w-[92px] shrink-0 sm:block">
+              <svg viewBox="0 0 92 92" className="h-full w-full -rotate-90">
+                <circle cx="46" cy="46" r={RING_R} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="8" />
+                <motion.circle
+                  cx="46" cy="46" r={RING_R} fill="none"
+                  stroke="#FCD34D" strokeWidth="8" strokeLinecap="round"
+                  strokeDasharray={RING_C}
+                  initial={{ strokeDashoffset: RING_C }}
+                  animate={{ strokeDashoffset: RING_C * (1 - xpProgress / 100) }}
+                  transition={{ duration: 1.1, ease: "easeOut", delay: 0.4 }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-[10px] font-bold uppercase tracking-wide text-purple-200">Nível</span>
+                <span className="text-2xl font-extrabold leading-none">{level}</span>
               </div>
-              <span className="text-sm font-bold">{streak} dias</span>
             </div>
+          </div>
+        </motion.div>
+
+        {error && (
+          <div className="mb-6 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>
+        )}
+
+        {/* Grade: trilha + sidebar */}
+        <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+          {/* Widgets primeiro no mobile */}
+          <aside className="order-1 space-y-4 lg:order-2">
+            <StatCards streak={streak} totalXp={totalXp} lessonsCompleted={lessonsCompleted} level={level} />
+            <DailyGoalRing studyDays={studyDays} />
+            <WeeklyActivity studyDays={studyDays} />
+            <NextBadge profile={profile} />
+          </aside>
+
+          {/* Trilha */}
+          <div className="order-2 lg:order-1">
+            {dataLoading ? (
+              <div className="flex flex-col items-center gap-9 py-4">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="flex flex-col items-center gap-2" style={{ transform: `translateX(${[0, 52, 84, 52][i % 4]}px)` }}>
+                    <div className="h-[68px] w-[68px] animate-pulse rounded-full bg-muted" />
+                    <div className="h-3 w-24 animate-pulse rounded bg-muted" />
+                  </div>
+                ))}
+              </div>
+            ) : modules.length === 0 ? (
+              <div className="py-16 text-center">
+                <BookOpen className="mx-auto h-16 w-16 text-muted-foreground/30" />
+                <h2 className="mt-4 text-lg font-semibold text-level-purple-dark">Nenhuma lição disponível</h2>
+                <p className="mt-2 text-sm text-muted-foreground">As lições aparecerão aqui quando forem publicadas.</p>
+              </div>
+            ) : (
+              <div className="space-y-14">
+                {modules.map((module) => (
+                  <ModuleTrail
+                    key={module.name}
+                    name={module.name}
+                    icon={module.meta.icon}
+                    accentClass={module.meta.color}
+                    lessons={module.lessons}
+                    statuses={computeModuleStatuses(module.lessons, progressMap)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Error state */}
-        {error && (
-          <div className="mb-6 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {error}
-          </div>
-        )}
-
-        {/* Lesson Map */}
-        {dataLoading ? (
-          <div className="space-y-12">
-            {[1, 2].map((i) => (
-              <div key={i}>
-                <div className="mb-6 flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-2xl bg-muted animate-pulse" />
-                  <div className="space-y-2">
-                    <div className="h-4 w-40 rounded bg-muted animate-pulse" />
-                    <div className="h-3 w-24 rounded bg-muted animate-pulse" />
-                  </div>
-                </div>
-                <div className="flex flex-col items-center gap-4">
-                  {[1, 2, 3].map((j) => (
-                    <div key={j} className={`w-full max-w-sm ${j % 2 === 0 ? "self-end mr-4 md:mr-16" : "self-start ml-4 md:ml-16"}`}>
-                      <SkeletonCard />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : modules.length === 0 ? (
-          <div className="py-16 text-center">
-            <BookOpen className="mx-auto h-16 w-16 text-muted-foreground/30" />
-            <h2 className="mt-4 text-lg font-semibold text-level-purple-dark">Nenhuma lição disponível</h2>
-            <p className="mt-2 text-sm text-muted-foreground">As lições aparecerão aqui quando forem publicadas.</p>
-          </div>
-        ) : (
-          <div className="space-y-12">
-            {modules.map((module) => {
-              const statuses = computeModuleStatuses(module.lessons, progressMap)
-              const completedCount = statuses.filter((s) => s === "completed").length
-              const Icon = module.meta.icon
-
-              return (
-                <div key={module.name}>
-                  {/* Module Header */}
-                  <div className="mb-6 flex items-center gap-4">
-                    <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${module.meta.color}`}>
-                      <Icon className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-bold text-level-purple-dark">{module.name}</h2>
-                      <p className="text-sm text-muted-foreground">
-                        {completedCount}/{module.lessons.length} lições completas
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Lesson Path - Zigzag */}
-                  <div className="relative flex flex-col items-center gap-4">
-                    {module.lessons.map((lesson, index) => {
-                      const status: LessonStatus = statuses[index]
-                      const isLeft = index % 2 === 0
-
-                      return (
-                        <div
-                          key={lesson.id}
-                          className={`flex w-full max-w-sm items-center gap-4 ${
-                            isLeft ? "self-start ml-4 md:ml-16" : "self-end mr-4 md:mr-16"
-                          }`}
-                        >
-                          {index > 0 && (
-                            <div className="absolute left-1/2 -translate-x-1/2" style={{ top: `${index * 76 - 16}px` }}>
-                              <div className={`h-4 w-0.5 ${status !== "locked" ? "bg-level-purple" : "bg-border"}`} />
-                            </div>
-                          )}
-
-                          <Link
-                            href={status === "locked" ? "#" : `/lesson/${lesson.id}`}
-                            className={`group flex w-full items-center gap-4 rounded-2xl border-2 p-4 transition-all ${
-                              status === "completed"
-                                ? "border-success bg-success/5 hover:bg-success/10"
-                                : status === "in-progress"
-                                ? "border-level-purple bg-level-purple-light hover:bg-level-purple-subtle"
-                                : "border-border bg-muted/30 cursor-not-allowed opacity-60"
-                            }`}
-                          >
-                            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${
-                              status === "completed" ? "bg-success" : status === "in-progress" ? "bg-level-purple" : "bg-muted"
-                            }`}>
-                              {status === "completed" ? (
-                                <CheckCircle2 className="h-6 w-6 text-white" />
-                              ) : status === "in-progress" ? (
-                                <Play className="h-6 w-6 text-white" />
-                              ) : (
-                                <Lock className="h-6 w-6 text-muted-foreground" />
-                              )}
-                            </div>
-
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-sm font-semibold truncate ${
-                                status === "locked" ? "text-muted-foreground" : "text-level-purple-dark"
-                              }`}>
-                                {lesson.title}
-                              </p>
-                              <p className="text-xs text-muted-foreground">+{lesson.xp_reward} XP</p>
-                            </div>
-
-                            {status === "in-progress" && (
-                              <ChevronRight className="h-5 w-5 text-level-purple transition-transform group-hover:translate-x-1 shrink-0" />
-                            )}
-                            {status === "completed" && (
-                              <div className="flex items-center gap-0.5 shrink-0">
-                                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                              </div>
-                            )}
-                          </Link>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
       </main>
 
       {/* Mobile nav */}
