@@ -25,6 +25,7 @@ import { UsersPageEnhanced } from "@/components/admin/users/users-page"
 import { LessonsPageEnhanced } from "@/components/admin/lessons/lessons-page"
 import { NotificationBell } from "@/components/notification-bell"
 import { BadgesAdminPage } from "@/components/admin/badges-page"
+import { LibrariesAdminPage } from "@/components/admin/libraries-page"
 import { CommandPalette } from "@/components/admin/command-palette"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import {
@@ -38,6 +39,7 @@ import {
   Loader2,
   CheckCircle2,
   Plus,
+  Package,
   BarChart3,
   LayoutDashboard,
   Layers,
@@ -63,6 +65,7 @@ type PageId =
   | "users"
   | "approvals"
   | "audit"
+  | "libraries"
   | "settings"
 
 function getInitials(name: string) {
@@ -139,6 +142,7 @@ function Sidebar({ current, onChange, counts, profileName, profileEmail }: {
       { id: "courses", label: "Cursos",  icon: <Cap className="h-4 w-4" />,     count: counts.courses },
       { id: "lessons", label: "Lições",  icon: <BookOpen className="h-4 w-4" />, count: counts.lessons },
       { id: "modules", label: "Módulos", icon: <Layers className="h-4 w-4" /> },
+      { id: "libraries", label: "Bibliotecas", icon: <Package className="h-4 w-4" /> },
       { id: "badges",  label: "Badges",  icon: <Sparkles className="h-4 w-4" /> },
     ]},
     { header: "PESSOAS", items: [
@@ -525,6 +529,7 @@ export default function AdminPage() {
     users:     "Usuários",
     approvals: "Aprovações pendentes",
     audit:     "Logs · auditoria",
+    libraries: "Bibliotecas Python",
     settings:  "Configurações",
   }
 
@@ -543,6 +548,7 @@ export default function AdminPage() {
   else if (page === "badges")    main = <BadgesAdminPage onToast={onToast} />
   else if (page === "approvals") main = <ApprovalsPage onToast={onToast} />
   else if (page === "audit")     main = <AuditPage />
+  else if (page === "libraries") main = <LibrariesAdminPage onToast={onToast} />
   else                           main = <SettingsPage onToast={onToast} />
 
   const primaryAction =

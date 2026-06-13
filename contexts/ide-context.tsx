@@ -437,4 +437,19 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
     }),
     [
       files, activePath, openPaths, setActivePath, openFile, closeTab, onContentChange,
-      createFile, renameFile, deleteFile,
+      createFile, renameFile, deleteFile,      consoleOutputs, clearConsole, addOutput,
+      pythonStatus, isExecuting, isInstalling, stop,
+      run, reset, verify, runConsoleCommand,
+      hasRun, hasOutput, lessonProgress, allPassed,
+      isVerifying, showSuccess, setShowSuccess,
+    ]
+  )
+
+  return <IDEContext.Provider value={value}>{children}</IDEContext.Provider>
+}
+
+export function useIDE() {
+  const ctx = useContext(IDEContext)
+  if (!ctx) throw new Error("useIDE must be used within IDEProvider")
+  return ctx
+}

@@ -220,4 +220,16 @@ export default function LessonPage() {
       <TheoryLessonLayout
         key={lesson.id}
         lesson={lesson}
-        allLe
+        allLessons={allLessons}
+        currentIndex={currentIndex}
+        onComplete={() => {}}
+      />
+    )
+  }
+
+  return (
+    <IDEProvider lesson={lesson} allLessons={allLessons}>
+      <LessonWorkspace lesson={lesson} allLessons={allLessons} currentIndex={currentIndex} />
+    </IDEProvider>
+  )
+}

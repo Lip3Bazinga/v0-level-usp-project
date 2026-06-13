@@ -88,7 +88,7 @@ export function TheoryLessonLayout({ lesson, allLessons, currentIndex, onComplet
 
       {/* Content */}
       <div className="flex flex-1 min-h-0 justify-center">
-        <ScrollArea className="w-full max-w-3xl">
+        <ScrollArea className="h-full w-full max-w-3xl">
           <article className="px-6 py-8 md:px-12">
             {/* Breadcrumb */}
             <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-level-purple">

@@ -138,6 +138,36 @@ export interface AuditLog {
   created_at: string
 }
 
+export type LibraryCategory = "data-science" | "ml" | "deep-learning" | "visualization" | "math" | "general"
+
+export interface LibraryCatalog {
+  id: string
+  name: string           // pip/pyodide package name
+  display_name: string
+  description: string | null
+  category: LibraryCategory
+  pyodide_native: boolean
+  active: boolean
+  added_by: string | null
+  created_at: string
+}
+
+export interface LibraryRequest {
+  id: string
+  requested_by: string
+  library_name: string
+  display_name: string | null
+  description: string | null
+  use_case: string | null
+  status: "pending" | "approved" | "rejected"
+  reviewed_by: string | null
+  review_notes: string | null
+  created_at: string
+  reviewed_at: string | null
+  // joins
+  requester_name?: string
+}
+
 export type BadgeRarity = "common" | "rare" | "epic" | "legendary"
 export type BadgeCriteriaType =
   | "total_xp"
@@ -240,12 +270,20 @@ export type Database = {
       user_badges: {
         Row: UserBadge
         Insert: Omit<UserBadge, "earned_at">
-        Update: never
-      }
       modules: {
         Row: Module
         Insert: Omit<Module, "id" | "created_at">
         Update: Partial<Omit<Module, "id" | "created_at">>
+      }
+      library_catalog: {
+        Row: LibraryCatalog
+        Insert: Omit<LibraryCatalog, "id" | "created_at">
+        Update: Partial<Omit<LibraryCatalog, "id" | "created_at">>
+      }
+      library_requests: {
+        Row: LibraryRequest
+        Insert: Omit<LibraryRequest, "id" | "created_at">
+        Update: Partial<Omit<LibraryRequest, "id" | "created_at">>
       }
     }
     Views: Record<string, never>
@@ -270,5 +308,35 @@ export type Database = {
         Returns: Array<Pick<Badge, "id" | "name" | "description" | "icon" | "rarity">>
       }
     }
-    Enums: {
-   
+    Enums: Record<string, never>
+  }
+}
+
+export type LibraryCategory = "data-science" | "ml" | "deep-learning" | "visualization" | "math" | "general"
+
+export interface LibraryCatalog {
+  id: string
+  name: string
+  display_name: string
+  description: string | null
+  category: LibraryCategory
+  pyodide_native: boolean
+  active: boolean
+  added_by: string | null
+  created_at: string
+}
+
+export interface LibraryRequest {
+  id: string
+  requested_by: string
+  library_name: string
+  display_name: string | null
+  description: string | null
+  use_case: string | null
+  status: "pending" | "approved" | "rejected"
+  reviewed_by: string | null
+  review_notes: string | null
+  created_at: string
+  reviewed_at: string | null
+  requester_name?: string
+}

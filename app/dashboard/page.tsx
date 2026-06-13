@@ -1,19 +1,20 @@
 "use client"
 
-import { useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { useAuth } from "@/contexts/auth-context"
 import { useProgress } from "@/contexts/progress-context"
-import { computeModuleStatuses } from "@/lib/supabase/lessons"
 import type { Lesson } from "@/lib/supabase/types"
-import { ModuleTrail } from "@/components/dashboard/lesson-trail"
+import type { Course } from "@/lib/supabase/types"
+import { fetchPublishedCourses } from "@/lib/supabase/courses"
+import { CourseCard } from "@/components/dashboard/course-trail"
 import {
   StatCards, DailyGoalRing, WeeklyActivity, NextBadge, useStudyDays,
 } from "@/components/dashboard/widgets"
 import {
-  Rocket, Trophy, Zap, User, Settings, BookOpen, Code2, Database, Brain,
+  Rocket, Trophy, Zap, User, Settings, BookOpen,
   Flame, LogOut, Shield, GraduationCap,
 } from "lucide-react"
 import {
@@ -28,13 +29,6 @@ function getInitials(fullName: string) {
   return fullName.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("")
 }
 
-const MODULE_META: Record<string, { icon: typeof Code2; color: string; order: number }> = {
-  "Python Básico":        { icon: Code2,    color: "bg-level-purple",      order: 0 },
-  "Python Intermediário": { icon: Brain,    color: "bg-warning",           order: 1 },
-  "Ciência de Dados":     { icon: Database, color: "bg-success",           order: 2 },
-}
-const DEFAULT_MODULE_META = { icon: BookOpen, color: "bg-muted-foreground", order: 99 }
-
 // ── Componente principal ──────────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -42,21 +36,40 @@ export default function DashboardPage() {
   const { profile, isLoading: authLoading, signOut } = useAuth()
   const { lessons, progressMap, isLoading: dataLoading, error, gamification } = useProgress()
 
-  const modules = useMemo(() => {
-    const grouped = new Map<string, Lesson[]>()
-    for (const lesson of lessons) {
-      const arr = grouped.get(lesson.module) ?? []
-      arr.push(lesson)
-      grouped.set(lesson.module, arr)
+  const [courses, setCourses] = useState<Course[]>([])
+  const [coursesLoading, setCoursesLoading] = useState(true)
+
+  useEffect(() => {
+    fetchPublishedCourses()
+      .then(setCourses)
+      .catch(() => {})
+      .finally(() => setCoursesLoading(false))
+  }, [])
+
+  // Agrupar lições por curso
+  const courseGroups = useMemo(() => {
+    const lessonsByCourse = new Map<string, Lesson[]>()
+    const standalone: Lesson[] = []
+
+    for (const l of lessons) {
+      if (l.course_id) {
+        const arr = lessonsByCourse.get(l.course_id) ?? []
+        arr.push(l)
+        lessonsByCourse.set(l.course_id, arr)
+      } else {
+        standalone.push(l)
+      }
     }
-    return Array.from(grouped.entries())
-      .map(([name, moduleLessons]) => ({
-        name,
-        lessons: moduleLessons.sort((a, b) => a.order - b.order),
-        meta: MODULE_META[name] ?? DEFAULT_MODULE_META,
+
+    const groups = courses
+      .filter((c) => lessonsByCourse.has(c.id))
+      .map((c) => ({
+        course: c,
+        lessons: (lessonsByCourse.get(c.id) ?? []).sort((a, b) => a.order - b.order),
       }))
-      .sort((a, b) => a.meta.order - b.meta.order)
-  }, [lessons])
+
+    return groups
+  }, [courses, lessons])
 
   const { level, totalXp, streak, xpInLevel, xpCeil, xpProgress } = gamification
   const studyDays = useStudyDays(progressMap)
@@ -74,9 +87,10 @@ export default function DashboardPage() {
     window.location.href = "/login"
   }
 
-  // Anel de nível do hero
   const RING_R = 34
   const RING_C = 2 * Math.PI * RING_R
+
+  const isLoading = dataLoading || coursesLoading
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
@@ -159,14 +173,13 @@ export default function DashboardPage() {
           transition={{ duration: 0.45, ease: "easeOut" }}
           className="relative mb-8 overflow-hidden rounded-3xl bg-gradient-to-br from-level-purple via-level-purple to-level-purple-dark p-6 text-white shadow-xl shadow-purple-200 sm:p-8"
         >
-          {/* brilho decorativo */}
           <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
           <div className="pointer-events-none absolute -bottom-20 left-1/3 h-44 w-44 rounded-full bg-fuchsia-400/20 blur-3xl" />
 
           <div className="relative flex items-center justify-between gap-6">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold uppercase tracking-wider text-purple-200">
-                {authLoading ? " " : "Bem-vindo de volta"}
+                {authLoading ? " " : "Bem-vindo de volta"}
               </p>
               <h1 className="mt-1 truncate text-2xl font-extrabold sm:text-3xl">
                 {authLoading ? "Carregando..." : `Olá, ${firstName}!`}
@@ -211,9 +224,9 @@ export default function DashboardPage() {
           <div className="mb-6 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>
         )}
 
-        {/* Grade: trilha + sidebar */}
+        {/* Grade: cursos + sidebar */}
         <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
-          {/* Widgets primeiro no mobile */}
+          {/* Sidebar — widgets primeiro no mobile */}
           <aside className="order-1 space-y-4 lg:order-2">
             <StatCards streak={streak} totalXp={totalXp} lessonsCompleted={lessonsCompleted} level={level} />
             <DailyGoalRing studyDays={studyDays} />
@@ -221,36 +234,45 @@ export default function DashboardPage() {
             <NextBadge profile={profile} />
           </aside>
 
-          {/* Trilha */}
-          <div className="order-2 lg:order-1">
-            {dataLoading ? (
-              <div className="flex flex-col items-center gap-9 py-4">
-                {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="flex flex-col items-center gap-2" style={{ transform: `translateX(${[0, 52, 84, 52][i % 4]}px)` }}>
-                    <div className="h-[68px] w-[68px] animate-pulse rounded-full bg-muted" />
-                    <div className="h-3 w-24 animate-pulse rounded bg-muted" />
-                  </div>
+          {/* Trilha de cursos */}
+          <div className="order-2 space-y-4 lg:order-1">
+            {isLoading ? (
+              /* Skeleton */
+              <div className="space-y-4">
+                {[0, 1].map((i) => (
+                  <div key={i} className="h-32 animate-pulse rounded-3xl bg-muted/60" />
                 ))}
               </div>
-            ) : modules.length === 0 ? (
+            ) : courseGroups.length === 0 ? (
               <div className="py-16 text-center">
-                <BookOpen className="mx-auto h-16 w-16 text-muted-foreground/30" />
-                <h2 className="mt-4 text-lg font-semibold text-level-purple-dark">Nenhuma lição disponível</h2>
-                <p className="mt-2 text-sm text-muted-foreground">As lições aparecerão aqui quando forem publicadas.</p>
+                <GraduationCap className="mx-auto h-16 w-16 text-muted-foreground/30" />
+                <h2 className="mt-4 text-lg font-semibold text-level-purple-dark">Nenhum curso disponível</h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Os cursos aparecerão aqui quando forem publicados.
+                </p>
+                <Link
+                  href="/cursos"
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-level-purple px-5 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-medium transition-colors"
+                >
+                  <BookOpen className="h-4 w-4" /> Explorar cursos
+                </Link>
               </div>
             ) : (
-              <div className="space-y-14">
-                {modules.map((module) => (
-                  <ModuleTrail
-                    key={module.name}
-                    name={module.name}
-                    icon={module.meta.icon}
-                    accentClass={module.meta.color}
-                    lessons={module.lessons}
-                    statuses={computeModuleStatuses(module.lessons, progressMap)}
+              courseGroups.map((group, i) => (
+                <motion.div
+                  key={group.course.id}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: "easeOut", delay: 0.08 * i }}
+                >
+                  <CourseCard
+                    course={group.course}
+                    lessons={group.lessons}
+                    progressMap={progressMap}
+                    defaultOpen={i === 0}
                   />
-                ))}
-              </div>
+                </motion.div>
+              ))
             )}
           </div>
         </div>
@@ -273,6 +295,3 @@ export default function DashboardPage() {
           </Link>
         </div>
       </nav>
-    </div>
-  )
-}

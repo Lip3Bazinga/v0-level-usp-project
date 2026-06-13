@@ -385,4 +385,7 @@ export async function checkAndUpdateDailyStreak(
       last_login_date: today,
       max_streak: Math.max((profile as any).current_streak ?? 0, newStreak),
     } as never)
-    .eq("id", userI
+    .eq("id", userId)
+
+  return { streakUpdated: true, newStreak }
+}

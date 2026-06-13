@@ -21,23 +21,25 @@ import {
   type LessonFormData,
 } from "@/lib/supabase/lessons"
 import { fetchTeacherCourses } from "@/lib/supabase/courses"
-import type { Course, Checkpoint, ProjectFile } from "@/lib/supabase/types"
+import type { Course, Checkpoint, ProjectFile, LibraryCatalog } from "@/lib/supabase/types"
 import { parseProjectFiles } from "@/lib/supabase/lessons"
+import { fetchLibraryCatalog, createLibraryRequest, fetchMyLibraryRequests } from "@/lib/supabase/libraries"
+import type { LibraryRequest } from "@/lib/supabase/types"
 import { TeacherSuccessModal } from "@/components/gamification/teacher-success-modal"
 import { swalConfirm, swalError } from "@/lib/swal"
 
-// ── Constantes ────────────────────────────────────────────────────────────────
+// ── Labels de categoria ────────────────────────────────────────────────────────
 
-const AVAILABLE_LIBRARIES = [
-  { id: "pandas",         name: "Pandas",        description: "Manipulação de dados" },
-  { id: "numpy",          name: "NumPy",         description: "Computação numérica" },
-  { id: "matplotlib",     name: "Matplotlib",    description: "Visualização de dados" },
-  { id: "seaborn",        name: "Seaborn",       description: "Visualização estatística" },
-  { id: "scikit-learn",   name: "Scikit-learn",  description: "Machine Learning" },
-  { id: "scipy",          name: "SciPy",         description: "Computação científica" },
-  { id: "requests",       name: "Requests",      description: "HTTP requests" },
-  { id: "beautifulsoup4", name: "BeautifulSoup", description: "Web scraping" },
-]
+const CATEGORY_LABELS: Record<string, string> = {
+  "data-science":  "Ciência de Dados",
+  "ml":            "Machine Learning",
+  "deep-learning": "Deep Learning",
+  "visualization": "Visualização",
+  "math":          "Matemática",
+  "general":       "Geral",
+}
+
+const CATEGORY_ORDER = ["data-science", "ml", "deep-learning", "visualization", "math", "general"]
 
 const DEFAULT_STARTER = `# Escreva sua solução aqui
 
@@ -99,6 +101,19 @@ export default function TeacherEditPage() {
   // Cursos do professor para o seletor
   const [teacherCourses, setTeacherCourses] = useState<Course[]>([])
 
+  // Catálogo de bibliotecas
+  const [catalogLibraries, setCatalogLibraries] = useState<LibraryCatalog[]>([])
+  const [catalogLoading, setCatalogLoading] = useState(true)
+
+  // Modal de requisição de nova biblioteca
+  const [showRequestModal, setShowRequestModal] = useState(false)
+  const [reqName, setReqName] = useState("")
+  const [reqDisplayName, setReqDisplayName] = useState("")
+  const [reqDescription, setReqDescription] = useState("")
+  const [reqUseCase, setReqUseCase] = useState("")
+  const [reqSending, setReqSending] = useState(false)
+  const [myRequests, setMyRequests] = useState<LibraryRequest[]>([])
+
   // Estado da UI
   const [loading,        setLoading]       = useState(!isNew)
   const [saving,         setSaving]        = useState(false)
@@ -107,10 +122,14 @@ export default function TeacherEditPage() {
   const [showSuccessAnim, setShowSuccessAnim] = useState(false)
   const [lessonIdForView, setLessonIdForView] = useState<string | null>(isNew ? null : params.id as string)
 
-  // Carrega cursos do professor (sempre, para popular o seletor)
+  // Carrega cursos do professor + catálogo de bibliotecas + minhas requisições
   useEffect(() => {
     if (!profile?.id) return
     fetchTeacherCourses(profile.id).then(setTeacherCourses)
+    fetchLibraryCatalog()
+      .then(setCatalogLibraries)
+      .finally(() => setCatalogLoading(false))
+    fetchMyLibraryRequests(profile.id).then(setMyRequests).catch(() => {})
   }, [profile?.id])
 
   // Carrega a lição existente
@@ -149,6 +168,33 @@ export default function TeacherEditPage() {
       prev.includes(libId) ? prev.filter((id) => id !== libId) : [...prev, libId]
     )
   }
+
+  const sendLibraryRequest = async () => {
+    if (!reqName.trim() || !profile?.id) return
+    setReqSending(true)
+    try {
+      const created = await createLibraryRequest(profile.id, {
+        library_name: reqName.trim(),
+        display_name: reqDisplayName.trim() || undefined,
+        description: reqDescription.trim() || undefined,
+        use_case: reqUseCase.trim() || undefined,
+      })
+      setMyRequests((prev) => [created, ...prev])
+      setReqName(""); setReqDisplayName(""); setReqDescription(""); setReqUseCase("")
+      setShowRequestModal(false)
+    } catch {
+      swalError("Erro ao enviar requisição. Tente novamente.")
+    } finally {
+      setReqSending(false)
+    }
+  }
+
+  // Bibliotecas agrupadas por categoria (mantendo ordem pedagógica)
+  const libsByCategory = CATEGORY_ORDER.reduce<Record<string, LibraryCatalog[]>>((acc, cat) => {
+    const libs = catalogLibraries.filter((l) => l.category === cat)
+    if (libs.length) acc[cat] = libs
+    return acc
+  }, {})
 
   // ── Arquivos-semente (starter_files) ────────────────────────────────────────
   const [activeStarterPath, setActiveStarterPath] = useState("main.py")
@@ -742,53 +788,190 @@ export default function TeacherEditPage() {
 
             {/* Bibliotecas */}
             <div className="rounded-2xl border-2 border-border bg-white p-6">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple-light">
-                  <Plus className="h-5 w-5 text-level-purple" />
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple-light">
+                    <Plus className="h-5 w-5 text-level-purple" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-level-purple-dark">Bibliotecas Python</h2>
+                    <p className="text-sm text-muted-foreground">
+                      {catalogLoading ? "Carregando catálogo..." : `${catalogLibraries.length} disponíveis`}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-level-purple-dark">Bibliotecas</h2>
-                  <p className="text-sm text-muted-foreground">Pré-instaladas via micropip</p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowRequestModal(true)}
+                  className="flex items-center gap-1.5 rounded-xl border-2 border-dashed border-level-purple bg-level-purple-subtle px-3 py-2 text-xs font-semibold text-level-purple transition-colors hover:bg-level-purple-light"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Solicitar nova
+                </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                {AVAILABLE_LIBRARIES.map((lib) => {
-                  const selected = libraries.includes(lib.id)
-                  return (
-                    <button
-                      key={lib.id}
-                      onClick={() => toggleLibrary(lib.id)}
-                      className={`flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-all ${
-                        selected
-                          ? "border-level-purple bg-level-purple-light"
-                          : "border-border bg-white hover:border-level-purple-medium hover:bg-level-purple-subtle"
-                      }`}
-                    >
-                      <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${selected ? "bg-level-purple" : "bg-level-purple-subtle"}`}>
-                        {selected
-                          ? <CheckCircle2 className="h-4 w-4 text-white" />
-                          : <Plus className="h-4 w-4 text-level-purple" />
-                        }
+              {catalogLoading ? (
+                <div className="space-y-2">
+                  {[0,1,2].map((i) => (
+                    <div key={i} className="h-12 animate-pulse rounded-xl bg-muted/50" />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(libsByCategory).map(([cat, libs]) => (
+                    <div key={cat}>
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        {CATEGORY_LABELS[cat] ?? cat}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {libs.map((lib) => {
+                          const selected = libraries.includes(lib.name)
+                          return (
+                            <button
+                              key={lib.id}
+                              type="button"
+                              onClick={() => toggleLibrary(lib.name)}
+                              className={`flex items-center gap-2.5 rounded-xl border-2 p-2.5 text-left transition-all ${
+                                selected
+                                  ? "border-level-purple bg-level-purple-light"
+                                  : "border-border bg-white hover:border-level-purple-medium hover:bg-level-purple-subtle"
+                              }`}
+                            >
+                              <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${selected ? "bg-level-purple" : "bg-level-purple-subtle"}`}>
+                                {selected
+                                  ? <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                                  : <Plus className="h-3.5 w-3.5 text-level-purple" />
+                                }
+                              </div>
+                              <div className="min-w-0">
+                                <p className={`text-xs font-semibold truncate ${selected ? "text-level-purple-dark" : "text-foreground"}`}>
+                                  {lib.display_name}
+                                </p>
+                                {lib.pyodide_native && (
+                                  <p className="text-[10px] text-emerald-600 font-medium">nativo</p>
+                                )}
+                              </div>
+                            </button>
+                          )
+                        })}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-medium truncate ${selected ? "text-level-purple-dark" : "text-foreground"}`}>
-                          {lib.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">{lib.description}</p>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {libraries.length > 0 && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {libraries.map((libId) => {
-                    const lib = AVAILABLE_LIBRARIES.find((l) => l.id === libId)
+                <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
+                  {libraries.map((libName) => {
+                    const lib = catalogLibraries.find((l) => l.name === libName)
                     return (
-                      <Badge key={libId} className="bg-level-purple text-white border-0 px-3 py-1 flex items-center gap-1">
-                        {lib?.name}
-                        <button onClick={() => toggleLibrary(libId)} className="ml-1 hover:bg-white/20 rounded-full p-0.5 transition-colors">
+                      <Badge key={libName} className="bg-level-purple text-white border-0 px-3 py-1 flex items-center gap-1">
+                        {lib?.display_name ?? libName}
+                        <button type="button" onClick={() => toggleLibrary(libName)} className="ml-1 hover:bg-white/20 rounded-full p-0.5 transition-colors">
                           <X className="h-3 w-3" />
-                    
+                        </button>
+                      </Badge>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Minhas requisições pendentes */}
+              {myRequests.filter((r) => r.status === "pending").length > 0 && (
+                <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                  <p className="mb-1.5 text-xs font-bold text-amber-700">Requisições pendentes</p>
+                  {myRequests.filter((r) => r.status === "pending").map((r) => (
+                    <div key={r.id} className="flex items-center gap-2 text-xs text-amber-700">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                      <span className="font-medium">{r.library_name}</span>
+                      <span className="text-amber-500">· aguardando aprovação</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </div>
+        </div>
+      </main>
+
+      {/* Modal de requisição de nova biblioteca */}
+      {showRequestModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-border bg-white p-6 shadow-2xl">
+            <div className="mb-5 flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-level-purple-dark">Solicitar nova biblioteca</h3>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  O admin receberá sua solicitação e avaliará a inclusão no catálogo.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRequestModal(false)}
+                className="rounded-lg p-1 text-muted-foreground hover:bg-muted"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Nome do pacote pip <span className="text-destructive">*</span>
+                </label>
+                <input
+                  value={reqName}
+                  onChange={(e) => setReqName(e.target.value)}
+                  placeholder="Ex: xgboost, torchvision, cv2"
+                  className="w-full rounded-xl border-2 border-border px-3 py-2.5 text-sm focus:border-level-purple focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Nome amigável
+                </label>
+                <input
+                  value={reqDisplayName}
+                  onChange={(e) => setReqDisplayName(e.target.value)}
+                  placeholder="Ex: XGBoost, TorchVision, OpenCV"
+                  className="w-full rounded-xl border-2 border-border px-3 py-2.5 text-sm focus:border-level-purple focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Justificativa pedagógica
+                </label>
+                <textarea
+                  value={reqUseCase}
+                  onChange={(e) => setReqUseCase(e.target.value)}
+                  rows={3}
+                  placeholder="Para qual tópico/módulo precisa desta biblioteca? O que os alunos farão com ela?"
+                  className="w-full rounded-xl border-2 border-border px-3 py-2.5 text-sm focus:border-level-purple focus:outline-none resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowRequestModal(false)}
+                className="flex-1 rounded-xl border-2 border-border py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={sendLibraryRequest}
+                disabled={reqSending || !reqName.trim()}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-level-purple py-2.5 text-sm font-semibold text-white hover:bg-level-purple-medium transition-colors disabled:opacity-50"
+              >
+                {reqSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Enviar solicitação
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
