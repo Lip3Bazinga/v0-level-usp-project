@@ -218,4 +218,24 @@ export function SuccessFeedback({
                     </motion.button>
                   )}
                   <motion.button
-        
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.7 }}
+                    onClick={handleClose}
+                    className={`w-full rounded-xl py-3 text-sm font-semibold transition-colors ${
+                      hasNextLesson || isCourseEnd
+                        ? "border border-level-purple text-level-purple hover:bg-level-purple-light"
+                        : "btn-3d bg-level-purple text-white hover:bg-level-purple-medium"
+                    }`}
+                  >
+                    Continuar Aqui
+                  </motion.button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  )
+}

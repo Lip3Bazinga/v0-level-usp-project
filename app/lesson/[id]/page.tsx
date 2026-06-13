@@ -56,7 +56,6 @@ function LessonWorkspace({
     if (next && next.course_id === lesson.course_id) {
       router.push(`/lesson/${next.id}`)
     } else if (lesson.course_id) {
-      // Última lição do curso → volta para a página do curso (dispara modal de conclusão)
       router.push(`/cursos/${lesson.course_id}`)
     } else {
       router.push("/dashboard")
@@ -201,4 +200,23 @@ export default function LessonPage() {
   if (lessonError || !lesson) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-white">
-        <BookOpen className="h-16 w-16 text-muted
+        <BookOpen className="h-16 w-16 text-muted-foreground/30" />
+        <h2 className="text-lg font-semibold text-level-purple-dark">Lição não encontrada</h2>
+        <p className="text-sm text-muted-foreground">{lessonError ?? "Esta lição não existe ou não está disponível."}</p>
+        <button
+          onClick={() => router.push("/dashboard")}
+          className="rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors"
+        >
+          Voltar ao Dashboard
+        </button>
+      </div>
+    )
+  }
+
+  // key={lesson.id} garante reset do estado da IDE ao navegar entre lições
+  return (
+    <IDEProvider key={lesson.id} lesson={lesson}>
+      <LessonWorkspace lesson={lesson} allLessons={allLessons} currentIndex={currentIndex} />
+    </IDEProvider>
+  )
+}
