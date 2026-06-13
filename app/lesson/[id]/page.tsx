@@ -37,7 +37,11 @@ function LessonWorkspace({
     showSuccess, setShowSuccess,
   } = useIDE()
 
-  // nextLesson só conta se for do mesmo curso (fetchPublishedLessons retorna todos os cursos)
+  // Filtra apenas lições do mesmo curso para progresso e navegação corretos
+  const courseLessons = allLessons.filter((l) => l.course_id === lesson.course_id)
+  const courseIndex = courseLessons.findIndex((l) => l.id === lesson.id)
+  const courseTotal = courseLessons.length || 1
+
   const nextLesson = allLessons[currentIndex + 1]
   const hasNextLesson = !!nextLesson && nextLesson.course_id === lesson.course_id
   const isCourseEnd = !hasNextLesson && !!lesson.course_id
@@ -125,8 +129,8 @@ function LessonWorkspace({
       </div>
 
       <LessonFooter
-        currentIndex={currentIndex}
-        total={allLessons.length || 1}
+        currentIndex={courseIndex >= 0 ? courseIndex : currentIndex}
+        total={courseTotal}
         onPrev={handlePrev}
         onNext={handleNext}
       />
@@ -197,6 +201,4 @@ export default function LessonPage() {
   if (lessonError || !lesson) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-white">
-        <BookOpen className="h-16 w-16 text-muted-foreground/30" />
-        <h2 className="text-lg font-semibold text-level-purple-dark">Lição não encontrada</h2>
-        <p className="text-sm text-muted-foreground">{lessonError ?? "Esta lição não existe 
+        <BookOpen className="h-16 w-16 text-muted
