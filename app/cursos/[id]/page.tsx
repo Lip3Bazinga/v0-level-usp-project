@@ -474,7 +474,9 @@ export default function CourseDetailPage() {
                       {allDone && enrolled && (
                         <button
                           onClick={() => {
-                            router.push(`/ide?final_project=${courseId}`)
+                            // Rota para a última lição do curso (projeto final)
+                            const lastLesson = lessons[lessons.length - 1]
+                            if (lastLesson) router.push(`/lesson/${lastLesson.id}`)
                           }}
                           className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-level-purple py-3 text-sm font-bold text-white transition-colors hover:bg-level-purple-dark"
                         >
@@ -543,14 +545,4 @@ export default function CourseDetailPage() {
                     className="w-full rounded-xl bg-level-purple py-3.5 text-sm font-bold text-white transition-colors hover:bg-level-purple-dark disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {enrolling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className="h-4 w-4" />}
-                    {enrolling ? "Matriculando..." : "Matricular-se — Grátis"}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </main>
-      </div>
-    </>
-  )
-}
+                    {enrolling ? "Matriculando..." : "Matric

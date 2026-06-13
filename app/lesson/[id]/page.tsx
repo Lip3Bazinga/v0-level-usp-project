@@ -46,9 +46,15 @@ function LessonWorkspace({
 
   const handleNext = useCallback(() => {
     const next = allLessons[currentIndex + 1]
-    if (next) router.push(`/lesson/${next.id}`)
-    else router.push("/dashboard")
-  }, [allLessons, currentIndex, router])
+    if (next) {
+      router.push(`/lesson/${next.id}`)
+    } else if (lesson.course_id) {
+      // Última lição do curso → volta para a página do curso (dispara modal de conclusão)
+      router.push(`/cursos/${lesson.course_id}`)
+    } else {
+      router.push("/dashboard")
+    }
+  }, [allLessons, currentIndex, lesson.course_id, router])
 
   // Abas abertas = paths abertos resolvidos para { path, content }
   const tabs = openPaths
@@ -200,10 +206,4 @@ export default function LessonPage() {
     )
   }
 
-  // key={lesson.id} garante reset do estado da IDE ao navegar entre lições
-  return (
-    <IDEProvider key={lesson.id} lesson={lesson}>
-      <LessonWorkspace lesson={lesson} allLessons={allLessons} currentIndex={currentIndex} />
-    </IDEProvider>
-  )
-}
+  // key={lesson.id} garante reset
