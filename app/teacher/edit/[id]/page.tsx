@@ -93,6 +93,7 @@ export default function TeacherEditPage() {
   const [libraries, setLibraries]   = useState<string[]>([])
   const [xpReward, setXpReward]     = useState(50)
   const [timeLimit, setTimeLimit]   = useState(0)
+  const [lessonType, setLessonType] = useState<"coding" | "theory">("coding")
   const [courseId, setCourseId]     = useState<string | null>(null)
 
   // Cursos do professor para o seletor
@@ -136,6 +137,7 @@ export default function TeacherEditPage() {
       setLibraries(lesson.libraries ?? [])
       setXpReward(lesson.xp_reward)
       setTimeLimit(lesson.time_limit)
+      setLessonType(lesson.lesson_type ?? "coding")
       setCourseId((lesson as any).course_id ?? null)
       setLoading(false)
     }
@@ -224,6 +226,7 @@ export default function TeacherEditPage() {
     module,
     order,
     difficulty,
+    lesson_type: lessonType,
     content_markdown: content,
     starter_code: starterCode,
     starter_files: starterFiles.length ? starterFiles : [{ path: "main.py", content: starterCode }],
@@ -487,11 +490,35 @@ export default function TeacherEditPage() {
                   </div>
                 </div>
 
+                {/* Tipo de aula */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-level-purple-dark">Tipo de aula</label>
+                  <div className="flex gap-2">
+                    {([
+                      { value: "coding", label: "💻 Com IDE", desc: "Aluno escreve código" },
+                      { value: "theory", label: "📖 Teórica", desc: "Só leitura, sem IDE" },
+                    ] as const).map((t) => (
+                      <button
+                        key={t.value}
+                        onClick={() => setLessonType(t.value)}
+                        className={`flex-1 rounded-xl border-2 px-4 py-2.5 text-left text-sm transition-all ${
+                          lessonType === t.value
+                            ? "border-level-purple bg-level-purple text-white"
+                            : "border-border bg-white text-level-purple-dark hover:border-level-purple"
+                        }`}
+                      >
+                        <span className="font-medium">{t.label}</span>
+                        <p className={`text-xs mt-0.5 ${lessonType === t.value ? "text-white/80" : "text-muted-foreground"}`}>{t.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Conteúdo HTML */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-level-purple-dark">Conteúdo (HTML)</label>
-                    <Badge className="bg-level-purple-light text-level-purple-dark border-0 text-xs">HTML</Badge>
+                    <label className="text-sm font-medium text-level-purple-dark">Conteúdo (HTML ou Markdown)</label>
+                    <Badge className="bg-level-purple-light text-level-purple-dark border-0 text-xs">HTML / MD</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Use tags como{" "}
@@ -512,8 +539,8 @@ export default function TeacherEditPage() {
             </div>
           </div>
 
-          {/* Coluna direita — Desafio */}
-          <div className="space-y-6">
+          {/* Coluna direita — Desafio (oculta para aulas teóricas) */}
+          <div className={`space-y-6 ${lessonType === "theory" ? "hidden" : ""}`}>
             {/* Starter Code */}
             <div className="rounded-2xl border-2 border-border bg-white p-6">
               <div className="mb-6 flex items-center gap-3">
@@ -764,43 +791,4 @@ export default function TeacherEditPage() {
                         {lib?.name}
                         <button onClick={() => toggleLibrary(libId)} className="ml-1 hover:bg-white/20 rounded-full p-0.5 transition-colors">
                           <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Actions */}
-        <div className="mt-8 flex items-center justify-between rounded-2xl border-2 border-level-purple-light bg-level-purple-subtle/50 p-6">
-          <div className="flex items-center gap-3">
-            <CheckCircle2 className="h-5 w-5 text-success" />
-            <div>
-              <p className="text-sm font-medium text-level-purple-dark">
-                {title ? `"${title}"` : "Adicione um título"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {libraries.length} biblioteca(s) · {xpReward} XP · {difficulty}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => handleSave(false)}
-              disabled={saving || !title}
-              className="flex items-center gap-2 rounded-xl border-2 border-border px-4 py-2.5 text-sm font-medium text-foreground hover:border-level-purple hover:text-level-purple transition-colors disabled:opacity-50"
-            >
-              <Save className="h-4 w-4" /> Salvar Rascunho
-            </button>
-            <LevelButton variant="primary" size="sm" onClick={() => handleSave(true)} disabled={saving || !title}>
-              <Eye className="h-4 w-4" /> Publicar
-            </LevelButton>
-          </div>
-        </div>
-      </main>
-    </div>
-  )
-}
+                    

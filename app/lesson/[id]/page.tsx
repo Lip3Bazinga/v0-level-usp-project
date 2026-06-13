@@ -14,6 +14,7 @@ import { IDEProvider, useIDE } from "@/contexts/ide-context"
 import { fetchPublishedLessons, fetchLessonById } from "@/lib/supabase/lessons"
 import type { Lesson } from "@/lib/supabase/types"
 import { Loader2, BookOpen } from "lucide-react"
+import { TheoryLessonLayout } from "@/components/ide/theory-lesson-layout"
 
 // ── Layout interno (consome o IDEContext) ──────────────────────────────────────
 
@@ -213,10 +214,10 @@ export default function LessonPage() {
     )
   }
 
-  // key={lesson.id} garante reset do estado da IDE ao navegar entre lições
-  return (
-    <IDEProvider key={lesson.id} lesson={lesson}>
-      <LessonWorkspace lesson={lesson} allLessons={allLessons} currentIndex={currentIndex} />
-    </IDEProvider>
-  )
-}
+  // Aulas teóricas: layout leve sem IDE
+  if (lesson.lesson_type === "theory") {
+    return (
+      <TheoryLessonLayout
+        key={lesson.id}
+        lesson={lesson}
+        allLe

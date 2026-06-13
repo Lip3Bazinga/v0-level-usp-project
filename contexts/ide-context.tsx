@@ -74,8 +74,8 @@ function normalizePath(path: string): string {
 function isValidPath(path: string): boolean {
   const p = normalizePath(path)
   if (!p || p.endsWith("/")) return false
-  // Apenas .py por enquanto; segmentos sem caracteres inválidos
-  if (!/^[\w\-./]+\.py$/.test(p)) return false
+  // Aceita arquivos .py, .txt, .json, .csv, .md e .gitkeep (marcador de pasta vazia)
+  if (!/^[\w\-./]+(\.py|\.txt|\.json|\.csv|\.md|\.gitkeep)$/.test(p)) return false
   if (p.includes("..")) return false
   return true
 }
@@ -201,7 +201,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
   // ── Operações de arquivo ────────────────────────────────────────────────────
   const createFile = useCallback((rawPath: string): { ok: boolean; error?: string } => {
     const path = normalizePath(rawPath)
-    if (!isValidPath(path)) return { ok: false, error: "Nome inválido. Use apenas letras, números e termine com .py" }
+    if (!isValidPath(path)) return { ok: false, error: "Nome inválido. Use apenas letras, números, e extensões .py .txt .json .csv .md" }
     let result: { ok: boolean; error?: string } = { ok: true }
     setFiles((prev) => {
       if (prev.some((f) => f.path === path)) {
@@ -219,20 +219,34 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
   const renameFile = useCallback((oldPath: string, rawNew: string): { ok: boolean; error?: string } => {
     if (oldPath === MAIN_FILE) return { ok: false, error: "main.py não pode ser renomeado." }
     const newPath = normalizePath(rawNew)
-    if (!isValidPath(newPath)) return { ok: false, error: "Nome inválido." }
+
+    // Verifica se é uma pasta (sem extensão) ou arquivo
+    const isFolder = !oldPath.includes(".")
+    if (!isFolder && !isValidPath(newPath)) return { ok: false, error: "Nome inválido." }
+
     let result: { ok: boolean; error?: string } = { ok: true }
     setFiles((prev) => {
-      if (prev.some((f) => f.path === newPath)) {
+      if (!isFolder && prev.some((f) => f.path === newPath)) {
         result = { ok: false, error: "Já existe um arquivo com esse nome." }
         return prev
       }
-      const next = prev.map((f) => (f.path === oldPath ? { ...f, path: newPath } : f))
+      // Para pastas: substitui prefixo em todos os filhos
+      const next = isFolder
+        ? prev.map((f) => f.path.startsWith(oldPath + "/")
+            ? { ...f, path: newPath + f.path.slice(oldPath.length) }
+            : f)
+        : prev.map((f) => (f.path === oldPath ? { ...f, path: newPath } : f))
       scheduleSave(next)
       return next
     })
     if (result.ok) {
-      setOpenPaths((prev) => prev.map((p) => (p === oldPath ? newPath : p)))
-      setActivePath((cur) => (cur === oldPath ? newPath : cur))
+      if (isFolder) {
+        setOpenPaths((prev) => prev.map((p) => p.startsWith(oldPath + "/") ? newPath + p.slice(oldPath.length) : p))
+        setActivePath((cur) => cur.startsWith(oldPath + "/") ? newPath + cur.slice(oldPath.length) : cur)
+      } else {
+        setOpenPaths((prev) => prev.map((p) => (p === oldPath ? newPath : p)))
+        setActivePath((cur) => (cur === oldPath ? newPath : cur))
+      }
     }
     return result
   }, [scheduleSave])
@@ -423,19 +437,4 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
     }),
     [
       files, activePath, openPaths, setActivePath, openFile, closeTab, onContentChange,
-      createFile, renameFile, deleteFile, consoleOutputs, clearConsole, addOutput,
-      pythonStatus, isExecuting, isInstalling, stop, run, reset, verify, runConsoleCommand,
-      hasRun, hasOutput, lessonProgress, allPassed, isVerifying, showSuccess,
-    ],
-  )
-
-  return <IDEContext.Provider value={value}>{children}</IDEContext.Provider>
-}
-
-// ── Hook ──────────────────────────────────────────────────────────────────────
-
-export function useIDE(): IDEContextValue {
-  const ctx = useContext(IDEContext)
-  if (!ctx) throw new Error("useIDE deve ser usado dentro de IDEProvider")
-  return ctx
-}
+      createFile, renameFile, deleteFile,

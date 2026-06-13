@@ -19,7 +19,6 @@ import remarkGfm from "remark-gfm"
 
 import type { Checkpoint as LessonCheckpoint } from "@/lib/supabase/types"
 
-/** Checkpoint da lição + flag de UI para marcar conclusão visual. */
 export interface Checkpoint extends LessonCheckpoint {
   completed?: boolean
 }
@@ -32,12 +31,15 @@ interface LessonPanelProps {
   checkpoints: Checkpoint[]
   cheatsheetUrl?: string
   communityUrl?: string
-  /** true quando o aluno já clicou em Executar pelo menos uma vez */
   hasRun?: boolean
-  /** true quando a execução produziu saída sem erro */
   hasOutput?: boolean
   onVerify?: () => void
   isVerifying?: boolean
+}
+
+/** Detecta se o conteúdo é HTML (começa com tag) para usar dangerouslySetInnerHTML */
+function isHtmlContent(text: string): boolean {
+  return /^\s*<[a-zA-Z]/.test(text.trim())
 }
 
 function HintAccordion({ hint }: { hint: string }) {
@@ -66,15 +68,7 @@ function HintAccordion({ hint }: { hint: string }) {
   )
 }
 
-function StepItem({
-  done,
-  label,
-  sublabel,
-}: {
-  done: boolean
-  label: string
-  sublabel?: string
-}) {
+function StepItem({ done, label, sublabel }: { done: boolean; label: string; sublabel?: string }) {
   return (
     <div
       className={`flex items-start gap-3 rounded-xl border-2 p-3 transition-all duration-300 ${
@@ -87,12 +81,8 @@ function StepItem({
         <Circle className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
       )}
       <div className="min-w-0">
-        <p className={`text-sm font-medium ${done ? "text-green-700" : "text-gray-600"}`}>
-          {label}
-        </p>
-        {sublabel && (
-          <p className="mt-0.5 text-xs text-gray-400">{sublabel}</p>
-        )}
+        <p className={`text-sm font-medium ${done ? "text-green-700" : "text-gray-600"}`}>{label}</p>
+        {sublabel && <p className="mt-0.5 text-xs text-gray-400">{sublabel}</p>}
       </div>
     </div>
   )
@@ -112,75 +102,74 @@ export function LessonPanel({
   isVerifying,
 }: LessonPanelProps) {
   const allCheckpointsDone = checkpoints.every((c) => c.completed)
+  const htmlContent = isHtmlContent(content)
 
   return (
     <div className="flex h-full flex-col bg-white">
-      {/* Label "Aprender" */}
+      {/* Cabeçalho fixo */}
       <div className="flex items-center gap-2 border-b border-border px-4 py-3 shrink-0">
         <BookOpen className="h-4 w-4 text-level-purple" />
         <span className="text-sm font-semibold text-level-purple-dark">Aprender</span>
       </div>
 
-      <ScrollArea className="flex-1">
+      {/* Conteúdo rolável */}
+      <ScrollArea className="flex-1 min-h-0">
         <div className="p-5">
-          {/* Breadcrumb/tag do módulo */}
           <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-level-purple">
             {moduleName}
           </p>
-
-          {/* Título do exercício */}
           <h2 className="mb-1 text-xl font-bold text-level-purple-dark leading-tight">{title}</h2>
+          {estimatedTime && <p className="mb-5 text-xs text-gray-400">{estimatedTime}</p>}
 
-          {/* Tempo estimado */}
-          {estimatedTime && (
-            <p className="mb-5 text-xs text-gray-400">{estimatedTime}</p>
+          {/* Teoria — HTML ou Markdown */}
+          {htmlContent ? (
+            <div
+              className="prose-lesson text-sm"
+              dangerouslySetInnerHTML={{ __html: content }}
+            />
+          ) : (
+            <div className="prose-lesson text-sm">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  code({ children, className }) {
+                    const isBlock = className?.startsWith("language-")
+                    if (isBlock) {
+                      return (
+                        <div className="relative my-3 overflow-hidden rounded-lg">
+                          <pre className="overflow-x-auto bg-[#1e1e1e] p-4 text-xs text-gray-200 leading-relaxed">
+                            <code>{children}</code>
+                          </pre>
+                        </div>
+                      )
+                    }
+                    return (
+                      <code className="rounded bg-level-purple-subtle px-1.5 py-0.5 font-mono text-[11px] text-level-purple-dark">
+                        {children}
+                      </code>
+                    )
+                  },
+                }}
+              >
+                {content}
+              </ReactMarkdown>
+            </div>
           )}
 
-          {/* Corpo da teoria (Markdown) */}
-          <div className="prose-lesson text-sm">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                code({ children, className }) {
-                  const isBlock = className?.startsWith("language-")
-                  if (isBlock) {
-                    return (
-                      <div className="relative my-3 overflow-hidden rounded-lg">
-                        <pre className="overflow-x-auto bg-[#1e1e1e] p-4 text-xs text-gray-200 leading-relaxed">
-                          <code>{children}</code>
-                        </pre>
-                      </div>
-                    )
-                  }
-                  return (
-                    <code className="rounded bg-level-purple-subtle px-1.5 py-0.5 font-mono text-[11px] text-level-purple-dark">
-                      {children}
-                    </code>
-                  )
-                },
-              }}
-            >
-              {content}
-            </ReactMarkdown>
-          </div>
-
-          {/* ── Seção de Instruções ──────────────────────────────── */}
+          {/* Instruções / checkpoints */}
           <div className="mt-8">
             <div className="mb-4 flex items-center gap-2">
               <CheckSquare className="h-4 w-4 text-level-purple" />
               <h3 className="text-sm font-bold text-level-purple-dark">Instruções</h3>
             </div>
 
-            {/* Checkpoints pedagógicos da lição */}
             {checkpoints.length > 0 && (
               <div className="mb-4 space-y-3">
                 {checkpoints.map((cp) => (
                   <div
                     key={cp.id}
                     className={`rounded-xl border-2 p-3 transition-all duration-300 ${
-                      cp.completed
-                        ? "border-green-200 bg-green-50"
-                        : "border-gray-200 bg-gray-50"
+                      cp.completed ? "border-green-200 bg-green-50" : "border-gray-200 bg-gray-50"
                     }`}
                   >
                     <div className="flex items-start gap-3">
@@ -192,9 +181,7 @@ export function LessonPanel({
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-gray-500 mb-0.5">{cp.id}.</p>
                         <div className="prose-lesson text-sm">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {cp.instruction}
-                          </ReactMarkdown>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{cp.instruction}</ReactMarkdown>
                         </div>
                         {cp.hint && <HintAccordion hint={cp.hint} />}
                       </div>
@@ -204,7 +191,6 @@ export function LessonPanel({
               </div>
             )}
 
-            {/* Checkpoints de execução — sempre presentes, ficam dinâmicos */}
             <div className="space-y-2">
               <StepItem
                 done={hasRun}
@@ -217,50 +203,17 @@ export function LessonPanel({
                 sublabel="Verifique a saída no terminal"
               />
             </div>
-
-            {/* Botão Verificar — sempre visível quando onVerify existe */}
-            {onVerify && (
-              <div className="mt-5">
-                <button
-                  onClick={onVerify}
-                  disabled={isVerifying}
-                  className="w-full rounded-xl bg-green-500 py-3 text-sm font-semibold text-white btn-3d flex items-center justify-center gap-2 hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isVerifying ? (
-                    <>
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      Verificando...
-                    </>
-                  ) : allCheckpointsDone ? (
-                    <>
-                      <CheckCircle2 className="h-4 w-4" />
-                      Resposta Verificada!
-                    </>
-                  ) : (
-                    <>
-                      <ShieldCheck className="h-4 w-4" />
-                      Verificar Resposta
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
           </div>
 
-          {/* Seção de Revisão */}
+          {/* Revisão de conceito */}
           <div className="mt-8 space-y-2 border-t border-gray-100 pt-6">
             <div className="flex items-center gap-2 text-xs text-gray-500">
               <FileText className="h-3.5 w-3.5 shrink-0 text-level-purple" />
               <span>Revisão do conceito: </span>
               {cheatsheetUrl ? (
-                <a
-                  href={cheatsheetUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 font-medium text-level-purple hover:underline"
-                >
-                  Ver cheatsheet
-                  <ExternalLink className="h-3 w-3" />
+                <a href={cheatsheetUrl} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 font-medium text-level-purple hover:underline">
+                  Ver cheatsheet <ExternalLink className="h-3 w-3" />
                 </a>
               ) : (
                 <span className="italic text-gray-400">Não disponível</span>
@@ -270,22 +223,49 @@ export function LessonPanel({
               <MessageCircle className="h-3.5 w-3.5 shrink-0 text-level-purple" />
               <span>Apoio comunitário: </span>
               {communityUrl ? (
-                <a
-                  href={communityUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 font-medium text-level-purple hover:underline"
-                >
-                  Fórum
-                  <ExternalLink className="h-3 w-3" />
+                <a href={communityUrl} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 font-medium text-level-purple hover:underline">
+                  Fórum <ExternalLink className="h-3 w-3" />
                 </a>
               ) : (
                 <span className="italic text-gray-400">Em breve</span>
               )}
             </div>
           </div>
+
+          {/* Espaço extra para não ficar colado no botão sticky */}
+          {onVerify && <div className="h-4" />}
         </div>
       </ScrollArea>
+
+      {/* Botão Verificar — sempre visível, fora do scroll */}
+      {onVerify && (
+        <div className="shrink-0 border-t border-gray-100 bg-white p-4">
+          <button
+            onClick={onVerify}
+            disabled={isVerifying}
+            className="w-full rounded-xl bg-green-500 py-3 text-sm font-semibold text-white btn-3d flex items-center justify-center gap-2 hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isVerifying ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Verificando...
+              </>
+            ) : allCheckpointsDone ? (
+              <>
+                <CheckCircle2 className="h-4 w-4" />
+                Resposta Verificada!
+              </>
+            ) : (
+              <>
+                <ShieldCheck className="h-4 w-4" />
+                Verificar Resposta
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
+                                                                                                                                                                                                                                                                                                                                                                                                                             

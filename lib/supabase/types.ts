@@ -59,6 +59,7 @@ export interface Lesson {
   libraries: string[] | null
   xp_reward: number
   time_limit: number
+  lesson_type: "coding" | "theory"
   course_id: string | null
   module_id: string | null
   created_by: string | null
@@ -270,7 +271,4 @@ export type Database = {
       }
     }
     Enums: {
-      user_role: UserRole
-    }
-  }
-}
+   

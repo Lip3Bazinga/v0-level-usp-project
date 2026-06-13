@@ -21,7 +21,7 @@ export function generateSlug(title: string): string {
 export const PUBLIC_LESSON_FIELDS = [
   "id", "title", "slug", "module", "module_id", "order", "difficulty", "description",
   "content_markdown", "starter_code", "starter_files", "checkpoints", "libraries",
-  "xp_reward", "time_limit", "course_id", "created_by", "published",
+  "xp_reward", "time_limit", "lesson_type", "course_id", "created_by", "published",
   "created_at", "updated_at",
 ].join(", ")
 
@@ -194,6 +194,7 @@ export type LessonFormData = {
   libraries: string[]
   xp_reward: number
   time_limit: number
+  lesson_type: "coding" | "theory"
   published: boolean
   course_id?: string | null
 }
@@ -384,7 +385,4 @@ export async function checkAndUpdateDailyStreak(
       last_login_date: today,
       max_streak: Math.max((profile as any).current_streak ?? 0, newStreak),
     } as never)
-    .eq("id", userId)
-
-  return { streakUpdated: true, newStreak }
-}
+    .eq("id", userI
