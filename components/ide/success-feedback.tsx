@@ -3,7 +3,7 @@
 import { useEffect, useCallback, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import confetti from "canvas-confetti"
-import { CheckCircle2, Zap, Star, ArrowRight } from "lucide-react"
+import { CheckCircle2, Zap, Star, ArrowRight, Award } from "lucide-react"
 import { XpParticles } from "@/components/gamification/xp-particles"
 import { LevelUpModal } from "@/components/gamification/level-up-modal"
 
@@ -11,6 +11,7 @@ interface SuccessFeedbackProps {
   show: boolean
   xpEarned: number
   hasNextLesson?: boolean
+  isCourseEnd?: boolean
   prevLevel?: number
   newLevel?: number
   xpBadgeRef?: React.RefObject<HTMLElement | null>
@@ -42,6 +43,7 @@ export function SuccessFeedback({
   show,
   xpEarned,
   hasNextLesson = false,
+  isCourseEnd = false,
   prevLevel,
   newLevel,
   xpBadgeRef,
@@ -191,7 +193,19 @@ export function SuccessFeedback({
                 </motion.p>
 
                 <div className="flex flex-col gap-3">
-                  {hasNextLesson && onNext && (
+                  {isCourseEnd && onNext && (
+                    <motion.button
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.65 }}
+                      onClick={handleNext}
+                      className="btn-3d w-full rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 py-3 text-sm font-semibold text-white transition-all hover:scale-[1.02] shadow-lg shadow-yellow-400/30 flex items-center justify-center gap-2"
+                    >
+                      <Award className="h-4 w-4" />
+                      Ver Certificado
+                    </motion.button>
+                  )}
+                  {hasNextLesson && onNext && !isCourseEnd && (
                     <motion.button
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -204,24 +218,4 @@ export function SuccessFeedback({
                     </motion.button>
                   )}
                   <motion.button
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.7 }}
-                    onClick={handleClose}
-                    className={`w-full rounded-xl py-3 text-sm font-semibold transition-colors ${
-                      hasNextLesson
-                        ? "border border-level-purple text-level-purple hover:bg-level-purple-light"
-                        : "btn-3d bg-level-purple text-white hover:bg-level-purple-medium"
-                    }`}
-                  >
-                    Continuar Aqui
-                  </motion.button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </>
-  )
-}
+        

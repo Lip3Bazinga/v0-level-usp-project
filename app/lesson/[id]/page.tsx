@@ -38,6 +38,7 @@ function LessonWorkspace({
   } = useIDE()
 
   const hasNextLesson = currentIndex < allLessons.length - 1
+  const isCourseEnd = !hasNextLesson && !!lesson.course_id
 
   const handlePrev = useCallback(() => {
     const prev = allLessons[currentIndex - 1]
@@ -132,6 +133,7 @@ function LessonWorkspace({
         show={showSuccess}
         xpEarned={lesson.xp_reward}
         hasNextLesson={hasNextLesson}
+        isCourseEnd={isCourseEnd}
         onClose={() => setShowSuccess(false)}
         onNext={handleNext}
       />
@@ -200,10 +202,4 @@ export default function LessonPage() {
           onClick={() => router.push("/dashboard")}
           className="rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors"
         >
-          Voltar ao Dashboard
-        </button>
-      </div>
-    )
-  }
-
-  // key={lesson.id} garante reset
+          Vol
