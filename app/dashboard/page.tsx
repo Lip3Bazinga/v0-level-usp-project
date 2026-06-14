@@ -15,7 +15,7 @@ import {
 } from "@/components/dashboard/widgets"
 import {
   Rocket, Trophy, Zap, User, Settings, BookOpen,
-  Flame, LogOut, Shield, GraduationCap,
+  Flame, LogOut, Shield, GraduationCap, NotebookPen,
 } from "lucide-react"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -113,6 +113,9 @@ export default function DashboardPage() {
             </Link>
             <Link href="/leaderboard" className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
               <Trophy className="h-4 w-4" /> Ranking
+            </Link>
+            <Link href="/notas" className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
+              <NotebookPen className="h-4 w-4" /> Notas
             </Link>
             <Link href={`/perfil/${profile?.username || "me"}`} className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
               <User className="h-4 w-4" /> Perfil
@@ -290,8 +293,14 @@ export default function DashboardPage() {
           <Link href="/leaderboard" className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground">
             <Trophy className="h-5 w-5" /><span className="text-xs">Ranking</span>
           </Link>
+          <Link href="/notas" className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground">
+            <NotebookPen className="h-5 w-5" /><span className="text-xs">Notas</span>
+          </Link>
           <Link href={`/perfil/${profile?.username || "me"}`} className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground">
             <User className="h-5 w-5" /><span className="text-xs">Perfil</span>
           </Link>
         </div>
       </nav>
+    </div>
+  )
+}

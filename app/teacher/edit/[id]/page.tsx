@@ -27,6 +27,7 @@ import { fetchLibraryCatalog, createLibraryRequest, fetchMyLibraryRequests } fro
 import type { LibraryRequest } from "@/lib/supabase/types"
 import { TeacherSuccessModal } from "@/components/gamification/teacher-success-modal"
 import { swalConfirm, swalError } from "@/lib/swal"
+import { RichTextEditor } from "@/components/editor/rich-text-editor"
 
 // ── Labels de categoria ────────────────────────────────────────────────────────
 
@@ -560,25 +561,17 @@ export default function TeacherEditPage() {
                   </div>
                 </div>
 
-                {/* Conteúdo HTML */}
+                {/* Editor rico de conteúdo */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-level-purple-dark">Conteúdo (HTML ou Markdown)</label>
-                    <Badge className="bg-level-purple-light text-level-purple-dark border-0 text-xs">HTML / MD</Badge>
+                    <label className="text-sm font-medium text-level-purple-dark">Conteúdo da aula</label>
+                    <Badge className="bg-level-purple-light text-level-purple-dark border-0 text-xs">Editor Rico</Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Use tags como{" "}
-                    <code className="bg-muted px-1 rounded text-xs">&lt;h3&gt;</code>,{" "}
-                    <code className="bg-muted px-1 rounded text-xs">&lt;p&gt;</code>,{" "}
-                    <code className="bg-muted px-1 rounded text-xs">&lt;ul&gt;&lt;li&gt;</code>,{" "}
-                    <code className="bg-muted px-1 rounded text-xs">&lt;strong&gt;</code>
-                    {" "}com as classes do design system.
-                  </p>
-                  <textarea
+                  <RichTextEditor
                     value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    rows={14}
-                    className="w-full rounded-xl border-2 border-border bg-level-purple-subtle/30 px-4 py-3 font-mono text-sm text-foreground focus:border-level-purple focus:outline-none transition-colors resize-none"
+                    onChange={setContent}
+                    placeholder="Escreva o conteúdo da aula aqui. Use a barra de ferramentas para formatar texto, inserir imagens, emojis e blocos de código…"
+                    minHeight={320}
                   />
                 </div>
               </div>

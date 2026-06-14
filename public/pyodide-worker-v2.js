@@ -549,30 +549,80 @@ json.dumps(_payload)
 
 // ── Instalação de pacotes ─────────────────────────────────────────────────────
 
+// Pacotes compilados disponíveis nativamente no Pyodide 0.25.1
+// (carregados via py.loadPackage, muito mais rápido que micropip)
 const PYODIDE_NATIVE_PACKAGES = new Set([
-  "pandas", "numpy", "matplotlib", "scipy", "scikit-learn",
-  "pillow", "lxml", "sqlalchemy", "pyodide-http",
+  // Núcleo científico
+  "numpy", "scipy", "pandas", "sympy", "statsmodels",
+  // Visualização
+  "matplotlib", "pillow", "imageio",
+  // Machine Learning
+  "scikit-learn", "xgboost",
+  // Redes / grafos
+  "networkx",
+  // Utilitários
+  "lxml", "sqlalchemy", "pyodide-http",
 ]);
+
+// Pacotes pure-Python (via micropip) com alias se o nome de instalação difere
+const MICROPIP_ALIASES = {
+  "seaborn": "seaborn",
+  "plotly": "plotly",
+  "requests": "requests",
+  "beautifulsoup4": "beautifulsoup4",
+  "lightgbm": "lightgbm",
+  "kaleido": "kaleido",
+};
+
+// Configurações pós-instalação para pacotes que precisam de setup extra
+const POST_INSTALL_HOOKS = {
+  "matplotlib": () => {
+    try {
+      pyodide.runPython(`
+import matplotlib
+matplotlib.use('agg')
+matplotlib.rcParams['figure.dpi'] = 100
+matplotlib.rcParams['savefig.dpi'] = 100
+`);
+    } catch (_) {}
+  },
+  "plotly": () => {
+    try {
+      pyodide.runPython(`
+import plotly.io as _pio
+_pio.renderers.default = 'json'
+`);
+    } catch (_) {}
+  },
+};
+
+// Cache dos pacotes já instalados nesta sessão do worker
+const installedPackages = new Set();
 
 async function installPackages(packages) {
   const py = await loadPyodideRuntime();
   if (!py) return;
 
-  const native = packages.filter((p) => PYODIDE_NATIVE_PACKAGES.has(p.toLowerCase()));
-  const pure   = packages.filter((p) => !PYODIDE_NATIVE_PACKAGES.has(p.toLowerCase()));
+  // Filtra os já instalados
+  const toInstall = packages.filter((p) => !installedPackages.has(p.toLowerCase()));
+  if (!toInstall.length) {
+    packages.forEach((pkg) => self.postMessage({ type: "package-installed", package: pkg }));
+    return;
+  }
 
+  const native = toInstall.filter((p) => PYODIDE_NATIVE_PACKAGES.has(p.toLowerCase()));
+  const pure   = toInstall.filter((p) => !PYODIDE_NATIVE_PACKAGES.has(p.toLowerCase()));
+
+  // Instala nativos em lote (mais eficiente)
   if (native.length > 0) {
+    self.postMessage({ type: "packages-loading", packages: native });
     try {
       await py.loadPackage(native);
-      native.forEach((pkg) => self.postMessage({ type: "package-installed", package: pkg }));
-
-      if (native.some(p => p.toLowerCase() === "matplotlib")) {
-        try {
-          py.runPython(`
-import matplotlib
-matplotlib.rcParams['backend'] = 'agg'
-`);
-        } catch (_) {}
+      for (const pkg of native) {
+        installedPackages.add(pkg.toLowerCase());
+        const hook = POST_INSTALL_HOOKS[pkg.toLowerCase()];
+        if (hook) hook();
+        self.postMessage({ type: "package-installed", package: pkg });
       }
     } catch (error) {
       native.forEach((pkg) =>
@@ -581,13 +631,19 @@ matplotlib.rcParams['backend'] = 'agg'
     }
   }
 
+  // Instala via micropip (um a um para melhor feedback)
   if (pure.length > 0) {
     try {
       await py.loadPackage("micropip");
       const micropip = py.pyimport("micropip");
       for (const pkg of pure) {
+        const installName = MICROPIP_ALIASES[pkg.toLowerCase()] || pkg;
+        self.postMessage({ type: "packages-loading", packages: [pkg] });
         try {
-          await micropip.install(pkg);
+          await micropip.install(installName);
+          installedPackages.add(pkg.toLowerCase());
+          const hook = POST_INSTALL_HOOKS[pkg.toLowerCase()];
+          if (hook) hook();
           self.postMessage({ type: "package-installed", package: pkg });
         } catch {
           self.postMessage({ type: "package-error", package: pkg, error: `Não foi possível instalar ${pkg}` });
@@ -597,6 +653,10 @@ matplotlib.rcParams['backend'] = 'agg'
       self.postMessage({ type: "error", error: "Erro ao configurar micropip: " + error.message });
     }
   }
+
+  // Confirma pacotes que já estavam instalados
+  const alreadyDone = packages.filter((p) => !toInstall.includes(p));
+  alreadyDone.forEach((pkg) => self.postMessage({ type: "package-installed", package: pkg }));
 }
 
 // ── Message handler ───────────────────────────────────────────────────────────

@@ -1,23 +1,10 @@
 import { createClient } from "@/lib/supabase/client"
-import { createServerClient } from "@/lib/supabase/server"
 import type { LibraryCatalog, LibraryRequest } from "@/lib/supabase/types"
 
 // ── Catálogo (leitura pública) ────────────────────────────────────────────────
 
 export async function fetchLibraryCatalog(): Promise<LibraryCatalog[]> {
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from("library_catalog" as never)
-    .select("*")
-    .eq("active", true)
-    .order("category")
-    .order("display_name")
-  if (error) throw error
-  return (data ?? []) as LibraryCatalog[]
-}
-
-export async function fetchLibraryCatalogServer(): Promise<LibraryCatalog[]> {
-  const supabase = await createServerClient()
   const { data, error } = await supabase
     .from("library_catalog" as never)
     .select("*")

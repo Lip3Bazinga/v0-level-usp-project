@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Analytics } from '@vercel/analytics/next'
 import { Providers } from '@/components/providers'
+import { NotesFloatingWidget } from '@/components/notes/notes-floating-widget'
 import './globals.css'
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://levelusp.com.br'
@@ -56,6 +57,7 @@ export default function RootLayout({
       <body className="font-sans antialiased" suppressHydrationWarning>
         <Providers>
           {children}
+          <NotesFloatingWidget />
         </Providers>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
