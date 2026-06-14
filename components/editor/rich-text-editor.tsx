@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { useEditor, EditorContent } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
 import Underline from "@tiptap/extension-underline"
-import TextStyle from "@tiptap/extension-text-style"
 import Color from "@tiptap/extension-color"
 import Image from "@tiptap/extension-image"
 import Link from "@tiptap/extension-link"
@@ -220,7 +219,6 @@ export function RichTextEditor({
         },
       }),
       Underline,
-      TextStyle,
       Color,
       Highlight.configure({ multicolor: true }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
@@ -479,3 +477,4 @@ export function RichTextEditor({
     </div>
   )
 }
+                                                                      
