@@ -29,6 +29,12 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
+  // Rotas de API cuidam da própria autenticação (Bearer JWT) e devem
+  // responder 401 em JSON — nunca redirecionar para /login.
+  if (request.nextUrl.pathname.startsWith("/api/")) {
+    return supabaseResponse
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -91,12 +97,4 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    if (request.nextUrl.pathname.startsWith("/teacher") && role !== "teacher" && role !== "admin") {
-      const url = request.nextUrl.clone()
-      url.pathname = "/dashboard"
-      return NextResponse.redirect(url)
-    }
-  }
-
-  return supabaseResponse
-}
+    if (request.nextUrl.pathname.
