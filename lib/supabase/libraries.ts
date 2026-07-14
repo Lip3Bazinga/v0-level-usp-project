@@ -15,6 +15,18 @@ export async function fetchLibraryCatalog(): Promise<LibraryCatalog[]> {
   return (data ?? []) as LibraryCatalog[]
 }
 
+/** Catálogo completo (inclui inativas) — para a tela de admin. */
+export async function fetchFullLibraryCatalog(): Promise<LibraryCatalog[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("library_catalog" as never)
+    .select("*")
+    .order("category")
+    .order("display_name")
+  if (error) throw error
+  return (data ?? []) as LibraryCatalog[]
+}
+
 // ── Requisições (professor → admin) ──────────────────────────────────────────
 
 export async function createLibraryRequest(
@@ -74,6 +86,16 @@ export async function reviewLibraryRequest(
       reviewed_at: new Date().toISOString(),
     } as never)
     .eq("id", requestId)
+  if (error) throw error
+}
+
+/** Ativa/desativa uma biblioteca do catálogo (admin, via RLS lib_catalog_admin_write). */
+export async function toggleLibraryCatalog(id: string, active: boolean): Promise<void> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from("library_catalog" as never)
+    .update({ active } as never)
+    .eq("id", id)
   if (error) throw error
 }
 

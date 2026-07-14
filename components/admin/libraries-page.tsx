@@ -9,7 +9,8 @@ import {
   fetchAllLibraryRequests,
   reviewLibraryRequest,
   approveAndAddToLibrary,
-  fetchLibraryCatalog,
+  fetchFullLibraryCatalog,
+  toggleLibraryCatalog,
 } from "@/lib/supabase/libraries"
 import type { LibraryCatalog, LibraryRequest } from "@/lib/supabase/types"
 import { useAuth } from "@/contexts/auth-context"
@@ -264,7 +265,7 @@ export function LibrariesAdminPage({ onToast }: { onToast: (msg: string, kind?: 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [reqs, cat] = await Promise.all([fetchAllLibraryRequests(), fetchLibraryCatalog()])
+      const [reqs, cat] = await Promise.all([fetchAllLibraryRequests(), fetchFullLibraryCatalog()])
       setRequests(reqs)
       setCatalog(cat)
     } catch {
@@ -309,10 +310,15 @@ export function LibrariesAdminPage({ onToast }: { onToast: (msg: string, kind?: 
   }
 
   const handleToggleCatalog = async (id: string, active: boolean) => {
-    // Optimistic update
+    // Optimistic update com rollback em caso de erro
     setCatalog((prev) => prev.map((l) => l.id === id ? { ...l, active } : l))
-    // TODO: implement toggleLibraryCatalog in lib (admin-only update)
-    onToast(active ? "Biblioteca ativada" : "Biblioteca desativada")
+    try {
+      await toggleLibraryCatalog(id, active)
+      onToast(active ? "Biblioteca ativada" : "Biblioteca desativada")
+    } catch {
+      setCatalog((prev) => prev.map((l) => l.id === id ? { ...l, active: !active } : l))
+      onToast("Erro ao atualizar biblioteca", "danger")
+    }
   }
 
   const pending = requests.filter((r) => r.status === "pending")

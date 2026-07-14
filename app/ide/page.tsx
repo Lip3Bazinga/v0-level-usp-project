@@ -288,6 +288,11 @@ export default function LevelUSPIDE() {
       return
     }
 
+    if (!hasOutput) {
+      addOutput("warning", "Execute seu código sem erros antes de verificar a resposta (Ctrl+Enter).")
+      return
+    }
+
     addOutput("info", "Verificando sua resposta...")
     setIsVerifyingServer(true)
 
@@ -337,7 +342,7 @@ export default function LevelUSPIDE() {
       addOutput("info", "Revise seu código e tente novamente. Leia as dicas no painel de conteúdo!")
       setLessonProgress((p) => Math.max(p, 60))
     }
-  }, [files, activeFileId, lesson, addOutput, user, profile, refreshProfile, router]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [files, activeFileId, hasOutput, lesson, addOutput, user, profile, refreshProfile, router]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Reset ─────────────────────────────────────────────────────────────────
 
@@ -404,6 +409,7 @@ export default function LevelUSPIDE() {
               hasOutput={hasOutput}
               onVerify={handleVerify}
               isVerifying={isVerifyingServer}
+              canVerify={hasOutput || lessonProgress === 100}
             />
           }
           editor={
@@ -415,9 +421,10 @@ export default function LevelUSPIDE() {
                 if (f) setActiveFileId(f.id)
               }}
               onTabClose={() => { /* playground mono-arquivo: sem fechar */ }}
-              onContentChange={(path, content) =>
+              onContentChange={(path, content) => {
+                setHasOutput(false)
                 setFiles((prev) => prev.map((f) => (f.name === path ? { ...f, content } : f)))
-              }
+              }}
               onRun={handleRun}
               onReset={handleReset}
               isRunning={isExecuting}

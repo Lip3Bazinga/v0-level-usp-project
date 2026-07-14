@@ -35,6 +35,8 @@ interface LessonPanelProps {
   hasOutput?: boolean
   onVerify?: () => void
   isVerifying?: boolean
+  /** Habilita o Verificar somente após uma execução sem erros */
+  canVerify?: boolean
 }
 
 /** Detecta se o conteúdo é HTML (começa com tag) para usar dangerouslySetInnerHTML */
@@ -100,6 +102,7 @@ export function LessonPanel({
   hasOutput = false,
   onVerify,
   isVerifying,
+  canVerify = true,
 }: LessonPanelProps) {
   const allCheckpointsDone = checkpoints.every((c) => c.completed)
   const htmlContent = isHtmlContent(content)
@@ -241,9 +244,14 @@ export function LessonPanel({
       {/* Botão Verificar — sempre visível, fora do scroll */}
       {onVerify && (
         <div className="shrink-0 border-t border-gray-100 bg-white p-4">
+          {!canVerify && !allCheckpointsDone && (
+            <p className="mb-2 text-center text-xs text-gray-400">
+              Execute seu código sem erros para liberar a verificação.
+            </p>
+          )}
           <button
             onClick={onVerify}
-            disabled={isVerifying}
+            disabled={isVerifying || (!canVerify && !allCheckpointsDone)}
             className="w-full rounded-xl bg-green-500 py-3 text-sm font-semibold text-white btn-3d flex items-center justify-center gap-2 hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isVerifying ? (

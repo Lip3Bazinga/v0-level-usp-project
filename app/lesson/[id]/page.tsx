@@ -34,7 +34,7 @@ function LessonWorkspace({
     consoleOutputs, clearConsole, runConsoleCommand,
     pythonStatus, isExecuting, isInstalling, stop,
     run, reset, verify,
-    hasRun, hasOutput, lessonProgress, allPassed, isVerifying,
+    hasRun, hasOutput, canVerify, lessonProgress, allPassed, isVerifying,
     showSuccess, setShowSuccess,
   } = useIDE()
 
@@ -89,6 +89,7 @@ function LessonWorkspace({
               hasOutput={hasOutput}
               onVerify={verify}
               isVerifying={isVerifying}
+              canVerify={canVerify || allPassed}
             />
           }
           editor={

@@ -58,6 +58,8 @@ export interface IDEContextValue {
   // Estado de progresso da lição
   hasRun: boolean
   hasOutput: boolean
+  /** true quando a última execução terminou sem erros e o código não foi alterado desde então */
+  canVerify: boolean
   lessonProgress: number
   allPassed: boolean
   isVerifying: boolean
@@ -149,6 +151,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
   // ── Progresso dinâmico ──────────────────────────────────────────────────────
   const [hasRun, setHasRun] = useState(false)
   const [hasOutput, setHasOutput] = useState(false)
+  const [runSucceeded, setRunSucceeded] = useState(false)
   const [lessonProgress, setLessonProgress] = useState(0)
   const [allPassed, setAllPassed] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
@@ -191,6 +194,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
 
   // ── Edição de conteúdo ──────────────────────────────────────────────────────
   const onContentChange = useCallback((path: string, content: string) => {
+    setRunSucceeded(false)
     setFiles((prev) => {
       const next = prev.map((f) => (f.path === path ? { ...f, content } : f))
       scheduleSave(next)
@@ -212,7 +216,10 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
       scheduleSave(next)
       return next
     })
-    if (result.ok) openFile(path)
+    if (result.ok) {
+      setRunSucceeded(false)
+      openFile(path)
+    }
     return result
   }, [openFile, scheduleSave])
 
@@ -240,6 +247,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
       return next
     })
     if (result.ok) {
+      setRunSucceeded(false)
       if (isFolder) {
         setOpenPaths((prev) => prev.map((p) => p.startsWith(oldPath + "/") ? newPath + p.slice(oldPath.length) : p))
         setActivePath((cur) => cur.startsWith(oldPath + "/") ? newPath + cur.slice(oldPath.length) : cur)
@@ -253,6 +261,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
 
   const deleteFile = useCallback((path: string): { ok: boolean; error?: string } => {
     if (path === MAIN_FILE) return { ok: false, error: "main.py não pode ser excluído." }
+    setRunSucceeded(false)
     setFiles((prev) => {
       const next = prev.filter((f) => f.path !== path)
       scheduleSave(next)
@@ -275,6 +284,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
     setConsoleOutputs([{ id: crypto.randomUUID(), type: "info", message: "Projeto resetado para o estado inicial.", timestamp: new Date() }])
     setHasRun(false)
     setHasOutput(false)
+    setRunSucceeded(false)
     lessonCompletedRef.current = false
     scheduleSave(starter)
   }, [lesson, scheduleSave])
@@ -329,7 +339,9 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
           addOutput("warning", `Erro original: ${parsed.original}`)
           addOutput("warning", `💡 Dica: ${parsed.hint}`)
           setHasOutput(false)
+          setRunSucceeded(false)
         } else {
+          setRunSucceeded(true)
           if (producedOutput) {
             addOutput("success", "✓ Código executado com sucesso!")
             setHasOutput(true)
@@ -347,6 +359,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
         addOutput("warning", `Erro original: ${parsed.original}`)
         addOutput("warning", `💡 Dica: ${parsed.hint}`)
         setHasOutput(false)
+        setRunSucceeded(false)
       },
     })
   }, [files, activePath, pythonStatus, isInstalling, execute, addOutput])
@@ -359,6 +372,10 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
     }
     if (isInstalling) {
       addOutput("warning", "Aguarde a instalação dos pacotes terminar antes de verificar.")
+      return
+    }
+    if (!runSucceeded) {
+      addOutput("warning", "Execute seu código sem erros antes de verificar a resposta (Ctrl+Enter).")
       return
     }
 
@@ -396,7 +413,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
       addOutput("info", "Continue tentando! Leia o feedback acima e ajuste seu código.")
       setLessonProgress((p) => Math.max(p, 70))
     }
-  }, [files, isInstalling, lesson.id, lesson.xp_reward, addOutput, markCompleted, router])
+  }, [files, isInstalling, runSucceeded, lesson.id, lesson.xp_reward, addOutput, markCompleted, router])
 
   // ── Comando avulso no console ───────────────────────────────────────────────
   const runConsoleCommand = useCallback((cmd: string) => {
@@ -431,16 +448,16 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
       consoleOutputs, clearConsole, addOutput,
       pythonStatus, isExecuting, isInstalling, stop,
       run, reset, verify, runConsoleCommand,
-      hasRun, hasOutput, lessonProgress, allPassed,
+      hasRun, hasOutput, canVerify: runSucceeded, lessonProgress, allPassed,
       isVerifying: isVerifying || isInstalling,
       showSuccess, setShowSuccess,
     }),
     [
       files, activePath, openPaths, setActivePath, openFile, closeTab, onContentChange,
-      createFile, renameFile, deleteFile,      consoleOutputs, clearConsole, addOutput,
+      createFile, renameFile, deleteFile, consoleOutputs, clearConsole, addOutput,
       pythonStatus, isExecuting, isInstalling, stop,
       run, reset, verify, runConsoleCommand,
-      hasRun, hasOutput, lessonProgress, allPassed,
+      hasRun, hasOutput, runSucceeded, lessonProgress, allPassed,
       isVerifying, showSuccess, setShowSuccess,
     ]
   )
