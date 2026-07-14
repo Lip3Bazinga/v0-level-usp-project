@@ -2,7 +2,7 @@
 
 O LevelUSP usa **PostgreSQL 17** gerenciado pelo Supabase, com **Row-Level Security (RLS)** habilitado em todas as tabelas de domínio. Esta seção documenta o modelo de dados **conforme o banco em produção** (verificado via inspeção do schema ao vivo).
 
-> ⚠️ **Nota de sincronização (dívida técnica).** O arquivo versionado [`supabase/schema.sql`](../supabase/schema.sql) descreve apenas 3 tabelas (`profiles`, `lessons`, `lesson_progress`). As tabelas `courses`, `enrollments`, `teacher_approvals` e `audit_log`, além de colunas extras de `lessons` (`description`, `course_id`) e da função `reorder_lessons`, existem **apenas no banco em produção** e ainda não foram refletidas no DDL versionado. Sincronizar esse arquivo é um item do [roadmap](./08-roadmap-tecnico.md).
+> ✅ **Sincronização (2026-07-14).** O arquivo versionado [`supabase/schema.sql`](../supabase/schema.sql) foi regenerado a partir do banco ao vivo e é a **fonte de verdade** do DDL: 19 tabelas (as 7 originais + `platform_settings`, `notifications`, `badges`, `user_badges`, `modules`, `library_catalog`, `library_requests`, `notes`, `exams`, `exam_questions`, `exam_attempts`, `certificates`), funções, triggers, policies, grants por coluna e policies de storage. O ERD abaixo cobre o núcleo original; para as tabelas de prova/certificação ver [09-prova-certificacao.md](./09-prova-certificacao.md).
 
 ## Modelo entidade-relacionamento (ERD)
 

@@ -1,129 +1,97 @@
-# 05 — Avaliador Python (Pyodide)
+# 05 — Avaliador Python
 
-Este é o **núcleo do produto**: o subsistema que executa o código do aluno e decide se a solução está correta. Tudo roda **no navegador**, dentro de um Web Worker, usando **Pyodide** (CPython compilado em WebAssembly).
+O avaliador tem **duas metades** com papéis distintos:
 
-Arquivos:
-- [`public/pyodide-worker-v2.js`](../public/pyodide-worker-v2.js) — o Web Worker **ativo**.
-- [`hooks/use-python.ts`](../hooks/use-python.ts) — hook React que orquestra o worker via mensagens.
-- [`lib/parse-python-error.ts`](../lib/parse-python-error.ts) — traduz erros do Python para pt-BR.
-- `public/pyodide-worker.js` — versão **legada** (não utilizada).
+| Onde | O quê | Arquivo |
+|------|-------|---------|
+| **Navegador** (Pyodide em Web Worker) | Execução livre: botão "Executar", console interativo, figuras matplotlib | `public/pyodide-worker-v2.js` |
+| **Servidor** (Vercel Python Function, CPython real) | Verificação oficial: botão "Verificar Resposta" roda os `hidden_tests` | `api/evaluate.py` (config em `vercel.json`) |
 
-## Visão geral da comunicação
+**Regra de ouro:** `hidden_tests` NUNCA chega ao navegador. O grant de SELECT em `lessons` é por coluna e exclui `hidden_tests`; a verificação acontece exclusivamente em `POST /api/evaluate`.
+
+## Fluxo de verificação (server-side)
 
 ```mermaid
 sequenceDiagram
-    participant C as Componente React
-    participant H as use-python (hook)
-    participant W as Worker (pyodide-worker-v2.js)
-    participant Py as Pyodide (WASM)
+    participant B as Browser (lição)
+    participant E as POST /api/evaluate (Python Function)
+    participant DB as Supabase (service role)
 
-    C->>H: usePython() monta
-    H->>W: new Worker(...) + postMessage("init")
-    W->>Py: importScripts + loadPyodide()
-    W-->>H: status: "loading" → "ready"
-
-    C->>H: execute(code, { testCode })
-    H->>W: postMessage("execute", code, testCode)
-    W->>Py: runPython(código do aluno, namespace _ns)
-    Py-->>W: stdout / stderr / figuras (base64)
-    W-->>H: execution-result, figure
-    alt há testCode
-        W->>Py: runPython(testes sobre _ns)
-        Py-->>W: resultado dos testes
-        W-->>H: test-result { allPassed, ... }
-    end
-    H-->>C: callbacks (onResult, onTestResult, onError)
+    B->>E: { lessonId, files } + Bearer JWT
+    E->>E: valida JWT (GET /auth/v1/user)
+    E->>DB: lessons.hidden_tests + time_limit (service role, REST)
+    E->>E: exec main.py em ns isolado (tempdir, env vars esvaziadas)
+    E->>E: roda hidden_tests sobre ns (_stdout/_source injetados)
+    E-->>B: { testsRun, passed, failures, allPassed, failureDetails }
 ```
 
-## Ciclo de execução interno (worker)
+O cliente (`lib/evaluate.ts`) só recebe o veredito. Em caso de aprovação, o
+cliente chama `award_xp` (RPC endurecida: só o próprio usuário, XP real da lição).
 
-```mermaid
-flowchart TD
-    Init["loadPyodideRuntime()<br/>importScripts CDN + loadPyodide"] --> Exec["executePython(code, testCode)"]
-    Exec --> Run1["Executa código do aluno<br/>em namespace _ns<br/>captura stdout/stderr"]
-    Run1 --> Fig["Captura figuras matplotlib<br/>→ base64 PNG"]
-    Fig --> ErrCheck{"Erro de<br/>execução?"}
-    ErrCheck -- "Sim" --> EmitErr["execution-error<br/>(traduzido p/ pt-BR)"]
-    ErrCheck -- "Não" --> HasTest{"Existe<br/>testCode?"}
-    HasTest -- "Não" --> Done["Fim (só execução)"]
-    HasTest -- "Sim" --> Detect{"detectUnittest()<br/>regex por class … unittest.TestCase"}
-    Detect -- "unittest" --> UT["runUnittestTests()<br/>TextTestRunner"]
-    Detect -- "assert" --> AT["runAssertTests()<br/>exec dos asserts"]
-    UT --> Emit["test-result"]
-    AT --> Emit
-```
+## Regras de fluxo no IDE
+
+- O botão **Verificar** só habilita depois de uma execução **sem erros** do
+  projeto (estado `canVerify` em `contexts/ide-context.tsx`). Editar o código,
+  criar/renomear/excluir arquivo ou resetar o projeto exige rodar de novo.
+- A execução livre continua 100% no cliente (não consome servidor).
 
 ## Os dois modos de teste
 
-O professor escreve os **testes ocultos** (`hidden_tests`) em um de dois formatos, detectados automaticamente:
+Detectados automaticamente pelo conteúdo de `hidden_tests`:
 
 ### Modo `unittest`
-Detectado quando o código contém `class ... (unittest.TestCase)`. O worker:
-1. Executa o código do aluno num namespace `_ns`, injetando `_stdout` (saída do aluno) e `_source` (código-fonte) como auxiliares.
-2. Executa os testes no **mesmo** namespace.
-3. Descobre as `TestCase`, roda com `unittest.TextTestRunner` e reporta `testsRun`, `failures`, `errors`, `allPassed` e `failureDetails`.
+Quando há `class ... (unittest.TestCase)`. O runner descobre as TestCase,
+executa com `TextTestRunner` e reporta `testsRun/failures/errors/failureDetails`
+com o nome do teste + mensagem da asserção.
 
 ### Modo `assert`
-Usado quando não há classe `unittest`. O worker executa o bloco de `assert`s no namespace do aluno; se nenhuma exceção for lançada, considera aprovado.
+Blocos de `assert` simples. O total esperado é contado por **AST**
+(`ast.Assert`), não por regex; um gabarito sem asserts reprova com aviso.
+
+Em ambos os modos os testes rodam **no mesmo namespace** da execução do aluno
+(sem re-executar o código), com sentinelas injetadas **depois** do exec:
+
+- `_stdout` — saída capturada do aluno
+- `_source` — código-fonte do aluno (para asserts de estilo, ex.: "use lambda")
+- `__builtins__`, `AssertionError`, `unittest` — protegidos contra sobrescrita
+
+## Timeout
+
+- **Cliente:** watchdog de 10s no hook (`use-python.ts`) — `replaceWorker()`
+  mata o worker e reinicializa.
+- **Servidor:** a avaliação roda numa thread daemon com `join(timeout)`
+  (5–25s conforme `time_limit` da lição) + `maxDuration: 30` no `vercel.json`
+  como backstop. Timeout responde HTTP 408. Durante a execução do código do
+  aluno, as variáveis de ambiente são esvaziadas (anti-exfiltração de segredos).
 
 ## Pacotes Python
 
-```mermaid
-flowchart LR
-    Req["lesson.libraries"] --> Split{"Pacote é<br/>nativo do Pyodide?"}
-    Split -- "Sim (pandas, numpy,<br/>matplotlib, scipy, sklearn…)" --> Native["loadPackage()<br/>(rápido, pré-compilado)"]
-    Split -- "Não (Python puro)" --> Micropip["micropip.install()"]
-    Native --> Ready["pacote pronto"]
-    Micropip --> Ready
-```
+Igual nas duas metades: pacotes nativos do Pyodide 0.25.1 (numpy, pandas,
+matplotlib, sklearn…) via `loadPackage`; pure-Python via `micropip`. O worker
+do navegador é **singleton** (`lib/pyodide-worker-singleton.ts`) — navegar
+entre lições não recarrega o runtime, e os pacotes instalados persistem na
+sessão. No servidor, a instância Pyodide e o cache de pacotes persistem
+enquanto a lambda estiver quente.
 
-Após carregar `matplotlib`, o backend é fixado em `agg` para permitir capturar figuras como PNG.
+## Prova teórica e projeto final
+
+- A prova final usa o mesmo princípio: `exam_questions.correct_index` é
+  **deny-all** para clientes (RLS sem policy); correção em
+  `POST /api/exam/[courseId]/submit`. Ver [09-prova-certificacao.md](./09-prova-certificacao.md).
+- O projeto final de cada curso é uma lição `coding` com `hidden_tests`
+  em formato unittest — mesma engrenagem, mesma segurança.
 
 ## Tratamento de erros
 
-`lib/parse-python-error.ts` mapeia ~14 padrões de exceção (SyntaxError, NameError, TypeError, IndentationError, etc.) para `{ título, explicação, dica }` em português, com *fallback* genérico. Isso transforma stacktraces crípticos em feedback didático.
-
----
+`lib/parse-python-error.ts` mapeia ~14 padrões de exceção para
+`{ título, explicação, dica }` em português (usado na execução livre do
+cliente). No servidor, erros do código do aluno viram `failureDetails`
+legíveis, nunca stacktraces crus.
 
 ## Limitações conhecidas
 
-> Esta subseção documenta **dívida técnica real** do avaliador, identificada em auditoria. São itens priorizados no [roadmap](./08-roadmap-tecnico.md). Estão aqui para que qualquer mantenedor entenda os riscos antes de confiar 100% no veredito automático.
-
-### 🔴 Correção / integridade da avaliação
-
-| ID | Problema | Efeito |
-|----|----------|--------|
-| **A1** | No **modo `assert`**, a quantidade de testes é contada por *regex* de texto (`/^\s*assert\s/gm`) e o resultado é "aprovado" desde que **nenhuma exceção** seja lançada. Um `testCode` sem asserção efetiva no nível superior (ou com asserts dentro de função nunca chamada) é marcado como aprovado. | **Falsos positivos** — aluno "passa" sem resolver. |
-| **A2** | Código do aluno e testes rodam no **mesmo namespace** `_ns`, e o do aluno roda **primeiro**. O aluno pode redefinir `AssertionError`/`unittest` ou pré-setar variáveis que os testes checam. | **Burla** da validação. |
-| **A3** | O código do aluno é executado **duas vezes** (execução principal + de novo dentro dos testes). | Efeitos colaterais (contadores, `input()`, I/O) divergem → veredito inconsistente; CPU desperdiçada. |
-| **A4** | No modo unittest, `failureDetails` extrai só a **última linha** do traceback. | Feedback de falha pobre. |
-
-### 🟡 Performance / uso de recursos
-
-| ID | Problema | Efeito |
-|----|----------|--------|
-| **P1** | **Não há timeout** de execução nem botão "Parar". Pyodide é síncrono no worker. | `while True:` trava o worker indefinidamente; aba consome CPU sem recuperação. |
-| **P2** | Runtime Pyodide (~10–30 MB) é baixado da **CDN jsDelivr a cada sessão**, sem cache controlado pela app (o `next.config.mjs` só faz cache do worker de ~3 KB). | Lento e caro em dados — crítico para o público nacional em redes variadas. |
-| **P3** | O worker é **recriado e `terminate()`** a cada montagem do hook, recarregando o Pyodide inteiro a cada navegação entre lições. | Tempo e memória desperdiçados. |
-| **P4** | `installPackages` é assíncrono e o `execute` **não espera** terminar. | `ModuleNotFoundError` espúrio se o aluno rodar antes do pacote carregar. |
-| **P5** | Versão do Pyodide (`v0.25.1`) é fixa e dependente da CDN externa. | Quebra se a CDN ficar indisponível; sem *self-host*. |
-
-### Estratégias de mitigação propostas
-
-```mermaid
-flowchart TD
-    subgraph Integridade
-        A1m["A1 → não contar por regex;<br/>exigir formato verificável (unittest)"]
-        A2m["A2 → isolar gabarito do aluno;<br/>capturar símbolos do aluno por referência"]
-        A3m["A3 → executar o aluno 1x e<br/>reusar o namespace nos testes"]
-        A4m["A4 → extrair mensagem do<br/>AssertionError + nome do teste"]
-    end
-    subgraph Performance
-        P1m["P1 → watchdog no main thread:<br/>terminate() por timeout + botão Parar"]
-        P2m["P2 → self-host do runtime<br/>com Cache-Control immutable"]
-        P3m["P3 → worker singleton<br/>reusado entre lições"]
-        P4m["P4 → estado 'installing'<br/>bloqueia Executar"]
-    end
-```
-
-> **Limite arquitetural inerente:** como o Pyodide roda **no cliente**, um aluno determinado sempre pode inspecionar e forjar resultados pelas ferramentas do navegador. As mitigações de A1/A2 visam impedir **burla trivial/acidental** e tornar o veredito **correto** — não criar antifraude à prova de adversário. Validação à prova de adversário exigiria **execução server-side** (sandbox de Python isolado), o que está fora do escopo atual e é registrado como evolução futura no [roadmap](./08-roadmap-tecnico.md).
+- A função Python roda CPython puro (stdlib): lições que exigem numpy/pandas
+  nos **hidden_tests** ainda não são suportadas no servidor (nenhuma lição
+  atual exige — bibliotecas são usadas na execução livre do cliente).
+- `runConsoleCommand` (console interativo) executa comandos avulsos num projeto
+  temporário de arquivo único — comandos não enxergam os ar

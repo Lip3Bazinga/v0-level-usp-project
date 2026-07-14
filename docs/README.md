@@ -13,10 +13,13 @@ Esta pasta reúne a documentação técnica completa do projeto, escrita para de
 | 02 | [Arquitetura](./02-arquitetura.md) | Visão C4 (contexto → contêineres → componentes), estrutura de pastas |
 | 03 | [Banco de dados](./03-banco-de-dados.md) | Modelo entidade-relacionamento, dicionário de dados, RLS, funções |
 | 04 | [Fluxos principais](./04-fluxos.md) | Diagramas de sequência e estado: autenticação, lição, XP, streak |
-| 05 | [Avaliador Python (Pyodide)](./05-avaliador-python.md) | Execução no browser, validação de testes, limitações conhecidas |
+| 05 | [Avaliador Python](./05-avaliador-python.md) | Execução no browser (Pyodide) + verificação server-side em /api/evaluate |
 | 06 | [Segurança e RBAC](./06-seguranca-rbac.md) | Middleware, controle de acesso por papel, RLS, gestão de segredos |
 | 07 | [Setup e deploy](./07-setup-e-deploy.md) | Ambiente local, variáveis, build, deploy na Vercel |
 | 08 | [Roadmap técnico](./08-roadmap-tecnico.md) | Dívidas técnicas conhecidas e evolução planejada |
+| 09 | [Prova final e certificação](./09-prova-certificacao.md) | Exames, tentativas, emissão de certificado, verificação pública |
+
+> Guia **não-técnico** para professores/criadores de conteúdo: [`GUIA-DO-PROFESSOR.md`](../GUIA-DO-PROFESSOR.md) na raiz do projeto.
 
 ## Como visualizar os diagramas
 
@@ -40,4 +43,4 @@ Esta pasta reúne a documentação técnica completa do projeto, escrita para de
 | Runtime React | 19 |
 | Backend / BaaS | Supabase (PostgreSQL 17 + Auth + Storage) |
 | Execução de código | Pyodide (CPython compilado em WebAssembly) |
-| Última revisão da doc | 2026-06-09 |
+| Última revisão da doc | 2026-07-14 |
