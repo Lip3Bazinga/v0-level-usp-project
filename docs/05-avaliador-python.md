@@ -94,4 +94,4 @@ legíveis, nunca stacktraces crus.
   nos **hidden_tests** ainda não são suportadas no servidor (nenhuma lição
   atual exige — bibliotecas são usadas na execução livre do cliente).
 - `runConsoleCommand` (console interativo) executa comandos avulsos num projeto
-  temporário de arquivo único — comandos não enxergam os ar
+  temporário de arquivo único — comandos não enxergam os arquivos do projeto.
