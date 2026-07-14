@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { fetchCourseById, enrollInCourse, unenrollFromCourse } from "@/lib/supabase/courses"
 import { fetchUserProgress, computeModuleStatuses } from "@/lib/supabase/lessons"
+import { fetchExamStatus, issueCertificate, fetchMyCertificate, type ExamStatus } from "@/lib/exam-client"
 import type { Course, Lesson, LessonProgress } from "@/lib/supabase/types"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -73,6 +74,26 @@ export default function CourseDetailPage() {
   const [showEnrollAnim,   setShowEnrollAnim]   = useState(false)
   const [showCompleteModal, setShowCompleteModal] = useState(false)
   const prevAllDone = useState(false)
+
+  // Prova final + certificado (cursos com certificação)
+  const [examStatus, setExamStatus] = useState<ExamStatus | null>(null)
+  const [certCode, setCertCode] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!profile?.id || !enrolled) return
+    let cancelled = false
+    async function loadExam() {
+      const [res, cert] = await Promise.all([
+        fetchExamStatus(courseId),
+        fetchMyCertificate(courseId, profile!.id),
+      ])
+      if (cancelled) return
+      if (res.ok) setExamStatus(res.data)
+      if (cert) setCertCode(cert.verification_code)
+    }
+    loadExam()
+    return () => { cancelled = true }
+  }, [profile, courseId, enrolled])
 
   useEffect(() => {
     if (authLoading) return
@@ -145,11 +166,29 @@ export default function CourseDetailPage() {
     if (target) router.push(`/lesson/${target.id}`)
   }, [lessons, statuses, router])
 
-  const handleDownloadCertificate = useCallback(() => {
-    swalToast({ title: "Preparando certificado...", icon: "info" })
-    // Certificate download logic handled via PDF generation endpoint
-    window.open(`/api/certificate/${courseId}?name=${encodeURIComponent(profile?.full_name ?? "")}`, "_blank")
-  }, [courseId, profile?.full_name])
+  const handleDownloadCertificate = useCallback(async () => {
+    // Cursos com prova: certificado oficial com código de verificação
+    if (examStatus) {
+      if (certCode) {
+        window.open(`/api/certificate/pdf/${encodeURIComponent(certCode)}`, "_blank")
+        return
+      }
+      swalToast({ title: "Emitindo certificado...", icon: "info" })
+      const res = await issueCertificate(courseId)
+      if (res.ok) {
+        setCertCode(res.data.verificationCode)
+        window.open(`/api/certificate/pdf/${encodeURIComponent(res.data.verificationCode)}`, "_blank")
+      } else {
+        await swalError({ title: "Certificado indisponível", text: res.error })
+      }
+      return
+    }
+    // Cursos sem prova final ainda não emitem certificado oficial
+    await swalError({
+      title: "Certificado indisponível",
+      text: "Este curso ainda não possui certificação oficial com prova final.",
+    })
+  }, [courseId, examStatus, certCode])
 
   // ── Loading / erro ────────────────────────────────────────────────────────
 
@@ -414,6 +453,57 @@ export default function CourseDetailPage() {
                   </div>
                 )}
               </section>
+
+              {/* Prova Final + Certificação */}
+              {enrolled && examStatus && (
+                <section>
+                  <h2 className="mb-4 text-xl font-bold text-level-purple-dark">Prova Final e Certificação</h2>
+                  <div className={`rounded-2xl border-2 p-5 ${
+                    examStatus.passed ? "border-green-300 bg-green-50" :
+                    examStatus.eligible ? "border-level-purple bg-level-purple-subtle" : "border-border bg-muted/30"
+                  }`}>
+                    <div className="flex items-center gap-4">
+                      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
+                        examStatus.passed ? "bg-green-100" : "bg-white"
+                      }`}>
+                        {examStatus.passed
+                          ? <CheckCircle2 className="h-6 w-6 text-green-600" />
+                          : examStatus.eligible
+                            ? <Trophy className="h-6 w-6 text-level-purple" />
+                            : <Lock className="h-6 w-6 text-muted-foreground" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-level-purple-dark">{examStatus.exam.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {examStatus.passed
+                            ? `Aprovado com ${examStatus.passedScore?.toFixed(0)}% — conclua o projeto final para emitir o certificado`
+                            : examStatus.eligible
+                              ? `${examStatus.exam.questionCount} questões · nota mínima ${examStatus.exam.passingScore}% · ${examStatus.exam.timeLimitMinutes} min`
+                              : `Conclua as ${examStatus.lessonsRemaining} lições restantes para desbloquear a prova`}
+                        </p>
+                      </div>
+                      {(examStatus.eligible || examStatus.passed) && (
+                        <Link
+                          href={`/cursos/${courseId}/prova`}
+                          className="shrink-0 rounded-xl bg-level-purple px-4 py-2.5 text-xs font-bold text-white hover:bg-level-purple-dark transition-colors"
+                        >
+                          {examStatus.passed ? "Ver resultado" : "Fazer a prova"}
+                        </Link>
+                      )}
+                    </div>
+                    {certCode && (
+                      <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-white p-3 ring-1 ring-green-200">
+                        <p className="text-xs text-muted-foreground">
+                          🎓 Certificado emitido — código <span className="font-mono font-semibold">{certCode}</span>
+                        </p>
+                        <Link href={`/certificado/${certCode}`} className="shrink-0 text-xs font-bold text-level-purple hover:underline">
+                          Ver / baixar PDF →
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
 
               {/* Projeto Final */}
               {hasFinalProject && (

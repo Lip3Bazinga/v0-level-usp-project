@@ -47,7 +47,7 @@ export async function updateSession(request: NextRequest) {
     "/faq",
     "/contato",
   ]
-  const publicPrefixes = ["/lesson/", "/cursos/"]
+  const publicPrefixes = ["/lesson/", "/cursos/", "/certificado/"]
   const isPublicRoute =
     publicRoutes.some((route) => request.nextUrl.pathname === route) ||
     publicPrefixes.some((prefix) => request.nextUrl.pathname.startsWith(prefix))
