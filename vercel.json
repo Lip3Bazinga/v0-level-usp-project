@@ -1,0 +1,8 @@
+{
+  "installCommand": "pnpm install --no-frozen-lockfile",
+  "functions": {
+    "api/evaluate.py": {
+      "maxDuration": 30
+    }
+  }
+}

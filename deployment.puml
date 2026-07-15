@@ -1,0 +1,44 @@
+@startuml deployment
+' Diagrama de implantação do LevelUSP
+title LevelUSP — Implantação
+
+skinparam shadowing false
+
+node "Dispositivo do usuário" {
+  artifact "Navegador" {
+    component "Next.js App (estáticos + RSC)" as App
+    component "Web Worker\npyodide-worker-v2.js" as Worker
+  }
+}
+
+node "Vercel (Edge Network)" {
+  artifact "Middleware (Edge Functions)" as MW
+  artifact "Server Components / Route Handlers" as SSR
+  artifact "Assets estáticos / CDN" as Static
+}
+
+node "Supabase (sa-east-1)" {
+  database "PostgreSQL 17\n(RLS + RPC + triggers)" as DB
+  artifact "Auth (GoTrue)" as Auth
+  artifact "Storage (course-covers)" as Storage
+}
+
+cloud "jsDelivr" {
+  artifact "pyodide.js + .wasm + .data" as Pyodide
+}
+
+App --> MW : HTTPS (navegação)
+App --> Auth : HTTPS (sessão)
+App --> DB : HTTPS (queries/RPC)
+App --> Storage : HTTPS (upload/download)
+App --> Static : HTTPS
+Worker --> Pyodide : HTTPS (download do runtime)
+MW --> DB : checa role
+
+note right of Pyodide
+  ~10-30 MB por sessão.
+  Recomendado: self-host
+  com cache immutable.
+end note
+
+@enduml

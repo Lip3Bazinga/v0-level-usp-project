@@ -1,0 +1,19 @@
+-- Conteúdo do curso "Python Completo: do Básico ao Intermediário":
+-- 24 lições em 6 módulos, aplicadas no banco ao vivo em 2026-07-14 como:
+--   python_completo_modulo1_fundamentos   (lições 1–9:  fundamentos)
+--   python_completo_modulos2_3            (lições 10–16: POO + exceções/arquivos)
+--   python_completo_modulos4_5_6          (lições 17–24: funcional, qualidade, projeto final)
+--
+-- Módulos:
+--   Módulo 1 · Fundamentos                     (1 teoria + 8 código)
+--   Módulo 2 · Programação Orientada a Objetos (4 código)
+--   Módulo 3 · Exceções e Arquivos             (3 código)
+--   Módulo 4 · Python Funcional                (4 código)
+--   Módulo 5 · Qualidade de Código             (2 código + 1 teoria)
+--   Módulo 6 · Certificação                    (projeto final, unittest oculto, 300 XP)
+--
+-- DECISÃO DE SEGURANÇA: os hidden_tests das lições e o gabarito da prova NÃO
+-- são versionados neste repositório (histórico de vazamento de segredos no
+-- repo). A fonte de verdade do conteúdo é o banco de produção; para exportar
+-- num ambiente limpo use o service role:
+--   select * from lessons where course_id = 'c0113a00-2026-4714-9000-000000000001' order by "order";
