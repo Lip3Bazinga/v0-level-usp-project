@@ -9,6 +9,7 @@ import {
   attemptExpiresAt,
   type AttemptRow,
 } from "@/lib/server/exam"
+import { checkRateLimit } from "@/lib/server/rate-limit"
 
 // POST /api/exam/[courseId]/start — inicia (ou retoma) uma tentativa.
 // Retorna as questões SEM o gabarito (id, prompt, options apenas).
@@ -49,6 +50,13 @@ export async function POST(
   if (authError || !user?.id) return json({ error: "Token inválido" }, 401)
 
   const admin = serviceClient()
+
+  // Rate limit: no máximo 10 inícios de prova por usuário a cada hora.
+  const rate = await checkRateLimit(admin, user.id, "exam_start", 10, 3600)
+  if (!rate.allowed) {
+    return json({ error: "Muitas tentativas de iniciar a prova. Aguarde alguns minutos." }, 429)
+  }
+
   const exam = await getExamByCourse(admin, courseId)
   if (!exam) return json({ error: "Este curso não possui prova final" }, 404)
 

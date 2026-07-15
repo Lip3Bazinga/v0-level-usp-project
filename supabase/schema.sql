@@ -690,6 +690,24 @@ $$;
 GRANT EXECUTE ON FUNCTION public.verify_certificate(TEXT) TO anon, authenticated;
 
 -- ══════════════════════════════════════════════════════════════════════════════
+-- 20. RATE_LIMITS (janela deslizante por usuário/ação — service role apenas)
+-- ══════════════════════════════════════════════════════════════════════════════
+-- Deny-all: RLS ligado e nenhuma policy de propósito. Usada por
+-- /api/exam/[courseId]/start (Next) e api/evaluate.py (Python Function).
+
+CREATE TABLE IF NOT EXISTS public.rate_limits (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID        NOT NULL,
+  action     TEXT        NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS rate_limits_user_action_created_idx
+  ON public.rate_limits (user_id, action, created_at DESC);
+
+ALTER TABLE public.rate_limits ENABLE ROW LEVEL SECURITY;
+
+-- ══════════════════════════════════════════════════════════════════════════════
 -- FUNÇÕES DE NEGÓCIO
 -- ══════════════════════════════════════════════════════════════════════════════
 

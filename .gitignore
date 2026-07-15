@@ -16,3 +16,5 @@ next.user-config.*
 node_modules
 .next/
 .DS_Store
+# Vercel Python Function
+api/__pycache__/

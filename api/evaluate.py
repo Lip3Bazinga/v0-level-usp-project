@@ -39,6 +39,53 @@ def _supabase_get(path, token):
         return json.loads(resp.read().decode())
 
 
+def _supabase_post(path, token, payload):
+    req = urllib.request.Request(
+        f"{SUPABASE_URL}/rest/v1/{path}",
+        data=json.dumps(payload).encode(),
+        method="POST",
+        headers={
+            "apikey": token,
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return resp.status
+
+
+RATE_LIMIT_MAX = 12        # avaliações permitidas...
+RATE_LIMIT_WINDOW_S = 60   # ...por janela de 60s, por usuário
+
+
+def check_rate_limit(user_id):
+    """Janela deslizante sobre public.rate_limits (service role ignora RLS).
+    Retorna True se a avaliação pode prosseguir. Fail-open: qualquer erro
+    no rate limit (rede, tabela ausente etc.) NUNCA bloqueia a avaliação —
+    o custo de deixar passar é menor que o de travar todos os alunos."""
+    try:
+        import datetime
+        since = (
+            datetime.datetime.now(datetime.timezone.utc)
+            - datetime.timedelta(seconds=RATE_LIMIT_WINDOW_S)
+        ).strftime("%Y-%m-%dT%H:%M:%S.%f+00:00")
+        path = (
+            f"rate_limits?user_id=eq.{user_id}&action=eq.evaluate"
+            f"&created_at=gte.{since}&select=id&limit={RATE_LIMIT_MAX + 1}"
+        )
+        rows = _supabase_get(path, SERVICE_ROLE_KEY)
+        if len(rows) >= RATE_LIMIT_MAX:
+            return False
+        _supabase_post(
+            "rate_limits", SERVICE_ROLE_KEY,
+            {"user_id": user_id, "action": "evaluate"},
+        )
+        return True
+    except Exception:
+        return True  # fail-open (ver docstring)
+
+
 def get_user_from_token(jwt):
     req = urllib.request.Request(
         f"{SUPABASE_URL}/auth/v1/user",
@@ -248,6 +295,10 @@ class handler(BaseHTTPRequestHandler):
                 raise ValueError()
         except Exception:
             return self._json(400, {"error": "Parâmetros obrigatórios: lessonId, files"})
+
+        # Rate limit por usuário ANTES de tocar na lição/execução (parte cara).
+        if not check_rate_limit(user["id"]):
+            return self._json(429, {"error": "Muitas verificações seguidas. Aguarde um instante."})
 
         lesson = fetch_lesson(lesson_id)
         if not lesson or not lesson.get("published"):
