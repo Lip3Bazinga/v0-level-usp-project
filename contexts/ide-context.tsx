@@ -422,14 +422,17 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
       return
     }
     addOutput("info", `>>> ${cmd}`)
-    execute(cmd, {
+    // Inclui os arquivos do projeto para que o comando possa importá-los
+    execute("", {
+      files: [...files, { path: "__console__.py", content: cmd }],
+      entryPath: "__console__.py",
       onResult: (r) => {
         if (r.stdout) r.stdout.split("\n").filter(Boolean).forEach((l) => addOutput("output", l))
         if (r.stderr) addOutput("error", r.stderr.trim())
       },
       onError: (e) => addOutput("error", e),
     })
-  }, [pythonStatus, execute, addOutput])
+  }, [pythonStatus, files, execute, addOutput])
 
   // ── Atalhos de teclado ──────────────────────────────────────────────────────
   useEffect(() => {
