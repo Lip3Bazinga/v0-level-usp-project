@@ -444,3 +444,39 @@ export async function logAudit(
     p_severity:   severity,
   } as never)
 }
+
+// ── Questões da prova (admin — gabarito só trafega em rota requireAdmin) ────────
+
+export interface AdminExamQuestion {
+  id: string
+  prompt: string
+  options: string[]
+  correct_index: number
+  explanation: string
+  topic: string
+  sort_order: number
+  active: boolean
+}
+
+export interface AdminExamQuestionInput {
+  prompt: string
+  options: string[]
+  correct_index: number
+  explanation?: string
+  topic?: string
+  sort_order?: number
+  active?: boolean
+}
+
+export async function fetchExamQuestionsAdmin(examId: string): Promise<AdminExamQuestion[]> {
+  const res = await adminFetch("/api/admin/exam-questions", { action: "list", examId })
+  return (res as { questions: AdminExamQuestion[] }).questions
+}
+
+export async function createExamQuestion(examId: string, question: AdminExamQuestionInput): Promise<void> {
+  await adminFetch("/api/admin/exam-questions", { action: "create", examId, question })
+}
+
+export async function updateExamQuestion(id: string, question: Partial<AdminExamQuestionInput>): Promise<void> {
+  await adminFetch("/api/admin/exam-questions", { action: "update", id, question })
+}

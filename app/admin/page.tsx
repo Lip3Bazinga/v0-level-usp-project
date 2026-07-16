@@ -26,6 +26,7 @@ import { LessonsPageEnhanced } from "@/components/admin/lessons/lessons-page"
 import { NotificationBell } from "@/components/notification-bell"
 import { BadgesAdminPage } from "@/components/admin/badges-page"
 import { LibrariesAdminPage } from "@/components/admin/libraries-page"
+import { ExamQuestionsAdminPage } from "@/components/admin/exam-questions-page"
 import { CommandPalette } from "@/components/admin/command-palette"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import {
@@ -66,6 +67,7 @@ type PageId =
   | "approvals"
   | "audit"
   | "libraries"
+  | "exams"
   | "settings"
 
 function getInitials(name: string) {
@@ -143,6 +145,7 @@ function Sidebar({ current, onChange, counts, profileName, profileEmail }: {
       { id: "lessons", label: "Lições",  icon: <BookOpen className="h-4 w-4" />, count: counts.lessons },
       { id: "modules", label: "Módulos", icon: <Layers className="h-4 w-4" /> },
       { id: "libraries", label: "Bibliotecas", icon: <Package className="h-4 w-4" /> },
+      { id: "exams", label: "Prova Final", icon: <Cap className="h-4 w-4" /> },
       { id: "badges",  label: "Badges",  icon: <Sparkles className="h-4 w-4" /> },
     ]},
     { header: "PESSOAS", items: [
@@ -549,6 +552,7 @@ export default function AdminPage() {
   else if (page === "approvals") main = <ApprovalsPage onToast={onToast} />
   else if (page === "audit")     main = <AuditPage />
   else if (page === "libraries") main = <LibrariesAdminPage onToast={onToast} />
+  else if (page === "exams") main = <ExamQuestionsAdminPage onToast={onToast} />
   else                           main = <SettingsPage onToast={onToast} />
 
   const primaryAction =
