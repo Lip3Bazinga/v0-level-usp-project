@@ -18,3 +18,7 @@ node_modules
 .DS_Store
 # Vercel Python Function
 api/__pycache__/
+
+# Artefatos de build/typecheck
+tsconfig.tsbuildinfo
+.pnpm-store/
