@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import { json, serviceClient } from "@/lib/admin-auth"
+import { json, serviceClient, requireUser } from "@/lib/admin-auth"
 import { getRemainingLessons, getExamByCourse, getLatestAttempts } from "@/lib/server/exam"
 
 // POST /api/certificate/issue — emite o certificado quando (e somente quando)
@@ -9,24 +8,15 @@ import { getRemainingLessons, getExamByCourse, getLatestAttempts } from "@/lib/s
 // coberto por "todas as lições"). Idempotente: retorna o existente.
 export const runtime = "nodejs"
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const ANON_KEY = (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!
-
 function generateCode(): string {
   const hex = crypto.randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase()
   return `LU-${hex.slice(0, 5)}-${hex.slice(5)}`
 }
 
 export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get("authorization") ?? ""
-  if (!authHeader.startsWith("Bearer ")) return json({ error: "Não autenticado" }, 401)
-  const jwt = authHeader.slice(7)
-  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
-    auth: { persistSession: false },
-    global: { headers: { Authorization: `Bearer ${jwt}` } },
-  })
-  const { data: { user }, error: authError } = await userClient.auth.getUser(jwt)
-  if (authError || !user?.id) return json({ error: "Token inválido" }, 401)
+  const auth = await requireUser(req)
+  if (!auth.ok) return auth.res
+  const user = auth.user
 
   let body: { courseId?: string }
   try {

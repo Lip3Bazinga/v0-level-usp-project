@@ -16,6 +16,31 @@ export function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status })
 }
 
+/**
+ * Valida o JWT do header Authorization e retorna o usuário autenticado.
+ * Para rotas de ALUNO (sem exigência de role). Em falha, retorna a
+ * NextResponse de erro que a rota deve repassar.
+ */
+export async function requireUser(
+  req: NextRequest,
+): Promise<{ ok: true; user: { id: string } } | { ok: false; res: NextResponse }> {
+  const authHeader = req.headers.get("authorization") ?? ""
+  if (!authHeader.startsWith("Bearer ")) {
+    return { ok: false, res: json({ error: "Não autenticado" }, 401) }
+  }
+  const jwt = authHeader.slice(7)
+
+  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+    auth: { persistSession: false },
+    global: { headers: { Authorization: `Bearer ${jwt}` } },
+  })
+  const { data: { user }, error } = await userClient.auth.getUser(jwt)
+  if (error || !user?.id) {
+    return { ok: false, res: json({ error: "Token inválido" }, 401) }
+  }
+  return { ok: true, user: { id: user.id } }
+}
+
 export interface AdminContext {
   admin: SupabaseClient   // service role
   actorId: string

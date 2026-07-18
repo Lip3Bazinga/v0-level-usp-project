@@ -1,15 +1,11 @@
 import { NextRequest } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import { json, serviceClient } from "@/lib/admin-auth"
+import { json, serviceClient, requireUser } from "@/lib/admin-auth"
 import { getExamByCourse, attemptExpiresAt, type AttemptRow } from "@/lib/server/exam"
 
 // POST /api/exam/[courseId]/submit — corrige a tentativa NO SERVIDOR.
 // O cliente envia { attemptId, answers: { [questionId]: indiceEscolhido } }
 // e recebe score, aprovação e correção por questão — nunca o gabarito bruto.
 export const runtime = "nodejs"
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const ANON_KEY = (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!
 
 // Tolerância além do time limit para latência de rede
 const GRACE_MS = 2 * 60_000
@@ -20,15 +16,9 @@ export async function POST(
 ) {
   const { courseId } = await params
 
-  const authHeader = req.headers.get("authorization") ?? ""
-  if (!authHeader.startsWith("Bearer ")) return json({ error: "Não autenticado" }, 401)
-  const jwt = authHeader.slice(7)
-  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
-    auth: { persistSession: false },
-    global: { headers: { Authorization: `Bearer ${jwt}` } },
-  })
-  const { data: { user }, error: authError } = await userClient.auth.getUser(jwt)
-  if (authError || !user?.id) return json({ error: "Token inválido" }, 401)
+  const auth = await requireUser(req)
+  if (!auth.ok) return auth.res
+  const user = auth.user
 
   let body: { attemptId?: string; answers?: Record<string, number> }
   try {
