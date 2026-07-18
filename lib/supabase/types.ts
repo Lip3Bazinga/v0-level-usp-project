@@ -270,6 +270,8 @@ export type Database = {
       user_badges: {
         Row: UserBadge
         Insert: Omit<UserBadge, "earned_at">
+        Update: never
+      }
       modules: {
         Row: Module
         Insert: Omit<Module, "id" | "created_at">

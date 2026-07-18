@@ -1,0 +1,39 @@
+name: Lockfile
+
+# Regenera o pnpm-lock.yaml na infra do GitHub quando o package.json muda
+# (a rede do sandbox de desenvolvimento não resolve árvores grandes).
+# O commit volta pela conta github-actions[bot]; o guard de actor evita loop.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [package.json]
+
+permissions:
+  contents: write
+
+jobs:
+  lockfile:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: pnpm install --lockfile-only
+      - name: Commita o lockfile se mudou
+        run: |
+          if ! git diff --quiet pnpm-lock.yaml; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add pnpm-lock.yaml
+            git commit -m "chore: pnpm-lock.yaml regenerado a partir do package.json [bot]"
+            git push
+          else
+            echo "Lockfile já está em dia."
+          fi

@@ -70,3 +70,19 @@ jobs:
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: dummy
           SUPABASE_SERVICE_ROLE_KEY: dummy
           SUPABASE_SECRET_KEY: dummy
+
+  # Informativo até zerarmos os avisos do codebase — depois vira bloqueante.
+  lint:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm lint
