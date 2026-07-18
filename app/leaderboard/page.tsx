@@ -197,7 +197,7 @@ export default function LeaderboardPage() {
                           {entry.full_name}
                           {isCurrentUser && <span className="ml-2 text-xs text-level-purple">(voce)</span>}
                         </p>
-                        <p className="text-xs text-muted-foreground">Nivel {entry.level}</p>
+                        <p className="text-xs text-muted-foreground">Nível {entry.level}</p>
                       </div>
                     </div>
 

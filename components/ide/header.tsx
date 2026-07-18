@@ -71,11 +71,6 @@ export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps)
     window.location.href = "/login"
   }
 
-  // SVG circle arc for XP border fill
-  const radius = 22
-  const circumference = 2 * Math.PI * radius
-  const dashOffset = circumference - (xpPct / 100) * circumference
-
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-white px-3 sm:px-4">
       {/* Logo e Título */}
@@ -124,46 +119,22 @@ export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps)
           className="relative flex items-center"
           title={`${xpInLevel} / ${xpCeil - xpFloor} XP neste nível`}
         >
-          {/* SVG circular border */}
-          <svg
-            width="52"
-            height="52"
-            viewBox="0 0 52 52"
-            className="absolute -left-0.5 -top-0.5"
-            style={{ transform: "rotate(-90deg)" }}
-          >
-            {/* Background track */}
-            <circle
-              cx="26"
-              cy="26"
-              r={radius}
-              fill="none"
-              stroke="rgba(250, 204, 21, 0.2)"
-              strokeWidth="3"
-            />
-            {/* Progress arc */}
-            <motion.circle
-              cx="26"
-              cy="26"
-              r={radius}
-              fill="none"
-              stroke="#FACC15"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              initial={{ strokeDashoffset: circumference }}
-              animate={{ strokeDashoffset: dashOffset }}
-              transition={{ duration: 1.2, ease: "easeOut" }}
-              style={{ filter: "drop-shadow(0 0 4px #FACC15)" }}
-            />
-          </svg>
-
-          {/* Badge content */}
-          <div className="flex items-center gap-1.5 rounded-full bg-level-purple px-3 py-1.5 text-white">
-            <Zap className="h-4 w-4 text-yellow-300" />
-            <div className="flex flex-col">
-              <span className="text-xs font-bold">{xpInLevel.toLocaleString("pt-BR")}</span>
-              <span className="text-[9px] opacity-80">/{(xpCeil - xpFloor).toLocaleString("pt-BR")} XP</span>
+          {/* Pill de XP: linha única + barra fina de progresso do nível */}
+          <div className="flex flex-col gap-1 rounded-full bg-level-purple px-3 py-1.5 text-white">
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <Zap className="h-3.5 w-3.5 shrink-0 text-yellow-300" />
+              <span className="text-xs font-bold leading-none">
+                {xpInLevel.toLocaleString("pt-BR")}
+                <span className="font-normal opacity-80">/{(xpCeil - xpFloor).toLocaleString("pt-BR")} XP</span>
+              </span>
+            </div>
+            <div className="h-1 w-full overflow-hidden rounded-full bg-white/25">
+              <motion.div
+                className="h-full rounded-full bg-yellow-300"
+                initial={{ width: 0 }}
+                animate={{ width: `${xpPct}%` }}
+                transition={{ duration: 1, ease: "easeOut" }}
+              />
             </div>
           </div>
 
@@ -191,10 +162,9 @@ export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps)
           >
             <Flame className="h-4 w-4 text-yellow-300" />
           </motion.div>
-          <div className="flex flex-col">
-            <span className="text-xs font-bold">{streak}</span>
-            <span className="text-[9px] opacity-80">dias</span>
-          </div>
+          <span className="whitespace-nowrap text-xs font-bold leading-none">
+            {streak} <span className="font-normal opacity-80">{streak === 1 ? "dia" : "dias"}</span>
+          </span>
         </div>
 
         {/* Avatar/Menu */}

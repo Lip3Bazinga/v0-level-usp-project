@@ -70,7 +70,7 @@ export function StreakAnimation({ show, streakDays, isNewStreak = true, onClose 
               className="relative z-10 mt-2 flex items-center justify-center gap-2"
             >
               <span className="text-6xl font-black text-white drop-shadow-xl">{streakDays}</span>
-              <span className="text-2xl font-bold text-white/80">dias</span>
+              <span className="text-2xl font-bold text-white/80">{streakDays === 1 ? "dia" : "dias"}</span>
             </motion.div>
 
             <motion.p

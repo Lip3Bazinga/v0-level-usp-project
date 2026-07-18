@@ -132,7 +132,7 @@ export function ActivityMap({ data, className }: ActivityMapProps) {
         <div>
           <h3 className="text-lg font-bold text-level-purple-dark">Mapa de Atividade</h3>
           <p className="text-sm text-muted-foreground">
-            {activeDays} dias ativos no último ano
+            {activeDays} {activeDays === 1 ? "dia ativo" : "dias ativos"} no último ano
           </p>
         </div>
         <div className="flex items-center gap-4 text-sm">
@@ -233,7 +233,7 @@ export function ActivityMap({ data, className }: ActivityMapProps) {
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-success" />
           <span className="text-sm text-muted-foreground">
-            <strong className="text-level-purple-dark">{currentStreak}</strong> dias de streak atual
+            <strong className="text-level-purple-dark">{currentStreak}</strong> {currentStreak === 1 ? "dia" : "dias"} de streak atual
           </span>
         </div>
       </div>

@@ -201,7 +201,7 @@ export default function ProfilePage() {
               </Avatar>
 
               <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-level-purple px-4 py-1 shadow-lg">
-                <span className="text-sm font-bold text-white">Nivel {level}</span>
+                <span className="text-sm font-bold text-white">Nível {level}</span>
               </div>
 
               {isOwnProfile && (
@@ -229,14 +229,14 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-2 rounded-full bg-success/10 px-4 py-2">
                   <Flame className="h-4 w-4 text-success" />
                   <span className="text-sm text-success">
-                    {user.current_streak} dias de streak
+                    {user.current_streak} {user.current_streak === 1 ? "dia" : "dias"} de streak
                   </span>
                 </div>
               </div>
 
               <div className="mt-6 max-w-md">
                 <div className="mb-2 flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Progresso para o Nivel {level + 1}</span>
+                  <span className="text-muted-foreground">Progresso para o Nível {level + 1}</span>
                   <span className="font-medium text-level-purple">
                     {xpInLevel.toLocaleString("pt-BR")}/{xpCeil.toLocaleString("pt-BR")} XP
                   </span>
@@ -254,7 +254,7 @@ export default function ProfilePage() {
 
         {/* Stats Cards */}
         <section className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Nivel Atual" value={level} icon={Trophy} iconColor="text-level-purple" />
+          <StatCard label="Nível Atual" value={level} icon={Trophy} iconColor="text-level-purple" />
           <StatCard label="Total XP" value={totalXp.toLocaleString("pt-BR")} icon={Zap} iconColor="text-yellow-500" />
           <StatCard label="Maior Streak" value={`${user.max_streak} dias`} icon={Flame} iconColor="text-orange-500" />
           <StatCard label="Licoes Completas" value={user.lessons_completed} icon={BookOpen} iconColor="text-success" />
