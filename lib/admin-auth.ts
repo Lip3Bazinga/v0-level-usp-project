@@ -5,11 +5,17 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const ANON_KEY = (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!
 const SERVICE_ROLE_KEY = (process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY)!
 
-/** Cliente com service role — ignora RLS. Uso exclusivo server-side. */
+/** Cliente com service role — ignora RLS. Uso exclusivo server-side.
+ * Memoizado no escopo do módulo: lambdas quentes reusam a mesma instância
+ * (o pool de sockets keep-alive do undici já é compartilhado por origem). */
+let _serviceClient: SupabaseClient | null = null
 export function serviceClient(): SupabaseClient {
-  return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-    auth: { persistSession: false },
-  })
+  if (!_serviceClient) {
+    _serviceClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+      auth: { persistSession: false },
+    })
+  }
+  return _serviceClient
 }
 
 export function json(data: unknown, status = 200) {

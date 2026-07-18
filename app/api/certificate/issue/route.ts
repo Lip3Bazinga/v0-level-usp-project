@@ -47,8 +47,11 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  // Condição 1: todas as lições publicadas concluídas (inclui o projeto final)
-  const lessons = await getRemainingLessons(admin, courseId, user.id)
+  // Condições 1 e 2 não dependem entre si — verificação em paralelo.
+  const [lessons, exam] = await Promise.all([
+    getRemainingLessons(admin, courseId, user.id),
+    getExamByCourse(admin, courseId),
+  ])
   if (lessons.total === 0) return json({ error: "Curso sem lições publicadas" }, 422)
   if (lessons.remaining > 0) {
     return json(
@@ -56,9 +59,6 @@ export async function POST(req: NextRequest) {
       403,
     )
   }
-
-  // Condição 2: prova final aprovada
-  const exam = await getExamByCourse(admin, courseId)
   if (!exam) return json({ error: "Este curso não possui prova final" }, 422)
   const attempts = await getLatestAttempts(admin, exam.id, user.id)
   const passedAttempt = attempts.find((a) => a.submitted_at !== null && a.passed)

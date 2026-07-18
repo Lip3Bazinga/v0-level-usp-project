@@ -41,16 +41,17 @@ export async function POST(
 
   const admin = serviceClient()
 
-  // Rate limit: no máximo 10 inícios de prova por usuário a cada hora.
-  const rate = await checkRateLimit(admin, user.id, "exam_start", 10, 3600)
+  // Rate limit, prova e elegibilidade não dependem entre si — em paralelo.
+  const [rate, exam, eligibility] = await Promise.all([
+    checkRateLimit(admin, user.id, "exam_start", 10, 3600),
+    getExamByCourse(admin, courseId),
+    getExamEligibility(admin, courseId, user.id),
+  ])
   if (!rate.allowed) {
     return json({ error: "Muitas tentativas de iniciar a prova. Aguarde alguns minutos." }, 429)
   }
-
-  const exam = await getExamByCourse(admin, courseId)
   if (!exam) return json({ error: "Este curso não possui prova final" }, 404)
 
-  const eligibility = await getExamEligibility(admin, courseId, user.id)
   if (!eligibility.eligible) {
     return json(
       { error: `Conclua todas as lições antes da prova (faltam ${eligibility.remaining}).` },
