@@ -35,9 +35,14 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse
   }
 
+  // getSession lê o cookie SEM ida à rede (getUser custava ~100-300ms por
+  // navegação). Para DECIDIR REDIRECT isso basta: um cookie forjado no máximo
+  // vê o shell da página — todo dado real continua protegido por RLS no banco
+  // e pelo Bearer JWT validado nas rotas /api.
   const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    data: { session },
+  } = await supabase.auth.getSession()
+  const user = session?.user ?? null
 
   // Public routes that don't require authentication
   const publicRoutes = [

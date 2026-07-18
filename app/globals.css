@@ -179,6 +179,20 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Tailwind v4 não aplica mais cursor:pointer em botões por padrão —
+     restauramos o comportamento esperado em tudo que é clicável. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  input[type="submit"]:not(:disabled),
+  input[type="button"]:not(:disabled),
+  select:not(:disabled),
+  label[for],
+  summary {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
 }
 
 /* Custom scrollbar */

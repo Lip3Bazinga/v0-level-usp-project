@@ -45,6 +45,21 @@ function NotesModal({ onClose }: { onClose: () => void }) {
 
   const activeNote = notes.find((n) => n.id === activeId) ?? null
 
+  // Rascunho LOCAL da nota aberta: digitar só re-renderiza o editor.
+  // A lista (snippets, busca, datas) sincroniza apenas no debounce do save —
+  // antes, cada tecla refazia regex/filtro de todas as notas (travava).
+  const [draft, setDraft] = useState({ title: "", content: "" })
+  const draftDirty = useRef(false)
+
+  // Troca de nota aberta: o save pendente da anterior COMPLETA (o timer
+  // capturou id e conteúdo antigos); só carregamos o rascunho da nova.
+  useEffect(() => {
+    draftDirty.current = false
+    const note = notes.find((n) => n.id === activeId)
+    setDraft({ title: note?.title ?? "", content: note?.content ?? "" })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId, loading])
+
   useEffect(() => {
     if (!profile) return
     fetchNotes()
@@ -87,19 +102,28 @@ function NotesModal({ onClose }: { onClose: () => void }) {
   const handleChange = useCallback(
     (field: "title" | "content", value: string) => {
       if (!activeId) return
-      setNotes((prev) =>
-        prev.map((n) =>
-          n.id === activeId
-            ? { ...n, [field]: value, updated_at: new Date().toISOString() }
-            : n
-        )
-      )
-      if (saveTimer.current) clearTimeout(saveTimer.current)
-      setSaving(true)
-      saveTimer.current = setTimeout(async () => {
-        try { await updateNote(activeId, { [field]: value }) }
-        finally { setSaving(false) }
-      }, 700)
+      const id = activeId
+      draftDirty.current = true
+      setDraft((prev) => {
+        const next = { ...prev, [field]: value }
+        if (saveTimer.current) clearTimeout(saveTimer.current)
+        setSaving(true)
+        saveTimer.current = setTimeout(async () => {
+          try {
+            await updateNote(id, { title: next.title, content: next.content })
+            draftDirty.current = false
+            // Sincroniza a lista UMA vez por ciclo de save, não por tecla
+            setNotes((prevNotes) =>
+              prevNotes.map((n) =>
+                n.id === id
+                  ? { ...n, ...next, updated_at: new Date().toISOString() }
+                  : n
+              )
+            )
+          } finally { setSaving(false) }
+        }, 700)
+        return next
+      })
     },
     [activeId]
   )
@@ -220,7 +244,7 @@ function NotesModal({ onClose }: { onClose: () => void }) {
           <div className="flex items-center justify-between border-b border-border px-5 py-3">
             {activeNote ? (
               <input
-                value={activeNote.title ?? ""}
+                value={draft.title}
                 onChange={(e) => handleChange("title", e.target.value)}
                 placeholder="Título…"
                 className="flex-1 text-base font-bold text-level-purple-dark placeholder:text-muted-foreground/40 focus:outline-none bg-transparent"
@@ -253,7 +277,7 @@ function NotesModal({ onClose }: { onClose: () => void }) {
           {activeNote ? (
             <textarea
               ref={contentRef}
-              value={activeNote.content}
+              value={draft.content}
               onChange={(e) => handleChange("content", e.target.value)}
               placeholder="Escreva suas anotações aqui…&#10;&#10;Dica: este caderno é salvo automaticamente na nuvem ☁️"
               className="flex-1 resize-none px-5 py-4 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/40 focus:outline-none bg-transparent"
