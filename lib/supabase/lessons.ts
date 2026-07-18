@@ -25,6 +25,33 @@ export const PUBLIC_LESSON_FIELDS = [
   "created_at", "updated_at",
 ].join(", ")
 
+// Campos de LISTAGEM (sem conteúdo pesado) — para navegação, dashboards e
+// redirecionadores. Com o catálogo crescendo, baixar content_markdown e
+// starter_files de todas as lições em cada tela não escala.
+export const PUBLIC_LESSON_LIST_FIELDS = [
+  "id", "title", "slug", "module", "module_id", "order", "difficulty",
+  "lesson_type", "xp_reward", "course_id", "published",
+].join(", ")
+
+export type LessonSummary = Pick<
+  Lesson,
+  "id" | "title" | "slug" | "module" | "module_id" | "order" | "difficulty" |
+  "lesson_type" | "xp_reward" | "course_id" | "published"
+>
+
+/** Todas as lições publicadas SÓ com campos de listagem (payload leve). */
+export async function fetchPublishedLessonSummaries(): Promise<LessonSummary[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("lessons")
+    .select(PUBLIC_LESSON_LIST_FIELDS)
+    .eq("published", true)
+    .order("course_id", { ascending: true, nullsFirst: false })
+    .order("order", { ascending: true })
+  if (error) throw error
+  return (data ?? []) as unknown as LessonSummary[]
+}
+
 /** Retorna todas as lições publicadas, ordenadas por course_id e ordem. */
 export async function fetchPublishedLessons(): Promise<Lesson[]> {
   const supabase = createClient()

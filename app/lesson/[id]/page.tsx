@@ -11,7 +11,7 @@ import { ConsolePanel } from "@/components/ide/console-panel"
 import { FileExplorer } from "@/components/ide/file-explorer"
 import { SuccessFeedback } from "@/components/ide/success-feedback"
 import { IDEProvider, useIDE } from "@/contexts/ide-context"
-import { fetchPublishedLessons, fetchLessonById } from "@/lib/supabase/lessons"
+import { fetchPublishedLessonSummaries, fetchLessonById, type LessonSummary } from "@/lib/supabase/lessons"
 import type { Lesson } from "@/lib/supabase/types"
 import { Loader2, BookOpen } from "lucide-react"
 import { TheoryLessonLayout } from "@/components/ide/theory-lesson-layout"
@@ -24,7 +24,7 @@ function LessonWorkspace({
   currentIndex,
 }: {
   lesson: Lesson
-  allLessons: Lesson[]
+  allLessons: LessonSummary[]
   currentIndex: number
 }) {
   const router = useRouter()
@@ -155,7 +155,7 @@ export default function LessonPage() {
   const router = useRouter()
   const lessonId = params.id as string
 
-  const [allLessons, setAllLessons] = useState<Lesson[]>([])
+  const [allLessons, setAllLessons] = useState<LessonSummary[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [lesson, setLesson] = useState<Lesson | null>(null)
   const [lessonLoading, setLessonLoading] = useState(true)
@@ -166,18 +166,16 @@ export default function LessonPage() {
       setLessonLoading(true)
       setLessonError(null)
       try {
-        const [lessons, direct] = await Promise.all([
-          fetchPublishedLessons(),
+        // Sumários leves para navegação + conteúdo completo só da lição atual
+        const [summaries, direct] = await Promise.all([
+          fetchPublishedLessonSummaries(),
           fetchLessonById(lessonId),
         ])
-        setAllLessons(lessons)
-        const idx = lessons.findIndex((l) => l.id === lessonId)
-        if (idx >= 0) {
-          setCurrentIndex(idx)
-          setLesson(lessons[idx])
-        } else if (direct) {
+        setAllLessons(summaries)
+        if (direct) {
           setLesson(direct)
-          setCurrentIndex(0)
+          const idx = summaries.findIndex((l) => l.id === lessonId)
+          setCurrentIndex(idx >= 0 ? idx : 0)
         } else {
           setLessonError("Lição não encontrada.")
         }

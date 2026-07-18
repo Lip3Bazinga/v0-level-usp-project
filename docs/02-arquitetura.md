@@ -173,3 +173,38 @@ v0-level-usp-project/
 | Componentes de gamificação **desacoplados** | Reúso e testabilidade visual | Vários modais ainda não conectados a gatilhos (ver roadmap) |
 
 > Para o modelo de dados detalhado, ver [03 — Banco de dados](./03-banco-de-dados.md). Para os fluxos de execução, ver [04 — Fluxos](./04-fluxos.md) e [05 — Avaliador Python](./05-avaliador-python.md).
+
+## Arquitetura em camadas e padrões adotados
+
+O código segue camadas explícitas — contribuições novas devem respeitá-las:
+
+| Camada | Onde | Regra |
+|--------|------|-------|
+| **Apresentação** | `app/*/page.tsx`, `components/` | Componentes finos: layout + estado de UI. Nunca falam SQL nem segredos. |
+| **Acesso a dados (cliente)** | `lib/supabase/*` | Todas as queries do browser, sob RLS. Um módulo por agregado (courses, lessons, libraries…). `select` sempre com listas de campos explícitas (`PUBLIC_LESSON_FIELDS` / `PUBLIC_LESSON_LIST_FIELDS`). |
+| **Serviços de domínio (servidor)** | `lib/server/*`, `lib/admin-auth.ts` | Regras que exigem service role: elegibilidade de prova, rate limit, auditoria. Reutilizados pelas rotas. |
+| **Controllers** | `app/api/*/route.ts`, `api/evaluate.py` | Finos: autenticam (`requireUser`/`requireAdmin`), validam entrada, chamam serviços, respondem JSON. |
+| **Banco** | `supabase/schema.sql` + migrações | RLS + grants por coluna são a última linha de defesa; RPCs `SECURITY DEFINER` com guarda interna. |
+
+Padrões em uso: **Repository** informal em `lib/supabase/*`; **Facade** em
+`lib/exam-client.ts` (uma interface para o subsistema de prova/certificado);
+**Singleton** no worker Pyodide; **Strategy** na detecção unittest/assert do
+avaliador; **fail-open** deliberado em rate limit/notificações/auditoria
+(anexos nunca derrubam a ação principal).
+
+## Modelo de escala (múltiplos usuários simultâneos)
+
+- **Stateless por requisição**: Next.js e a função Python são serverless — a
+  Vercel escala horizontalmente por invocação, sem estado compartilhado.
+- **Banco é o ponto de contenção**: por isso índices cobrem os caminhos
+  quentes (progresso por usuário E por lição, lições por curso, notificações
+  não lidas, tentativas por usuário/prova, janela de rate limit).
+- **Payloads limitados**: telas de navegação usam `LessonSummary` (sem
+  conteúdo); o conteúdo integral só desce para a lição aberta.
+- **Abuso contido**: rate limit por usuário no avaliador (12/min) e na prova
+  (10/h), com higiene automática da tabela.
+- **Pyodide no cliente**: a execução livre de código consome CPU do aluno,
+  não do servidor — o servidor só corrige (submissões pontuais).
+- Próximo degrau quando necessário: cache HTTP (`s-maxage`) nos catálogos
+  públicos e réplicas de leitura no Supabase — nada disso exige mudar a
+  arquitetura acima.

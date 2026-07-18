@@ -38,6 +38,12 @@ export async function checkRateLimit(
 
   if ((count ?? 0) < max) {
     await admin.from("rate_limits").insert({ user_id: userId, action })
+    // Higiene oportunista (~2% das chamadas): apaga registros com mais de 24h
+    // para a tabela não crescer sem limite. Falha aqui é irrelevante.
+    if (Math.random() < 0.02) {
+      const cutoff = new Date(Date.now() - 24 * 3600 * 1000).toISOString()
+      admin.from("rate_limits").delete().lt("created_at", cutoff).then(() => {}, () => {})
+    }
     return { allowed: true, retryAfterSeconds: 0 }
   }
 

@@ -299,6 +299,9 @@ BEGIN
 END;
 $$;
 
+CREATE INDEX IF NOT EXISTS lessons_course_published_order_idx
+  ON public.lessons (course_id, published, "order");
+
 CREATE TRIGGER trg_lessons_course_sync
   AFTER INSERT OR UPDATE OR DELETE ON public.lessons
   FOR EACH ROW EXECUTE FUNCTION public.trg_sync_course_on_lesson_change();
@@ -322,6 +325,9 @@ CREATE TABLE IF NOT EXISTS public.lesson_progress (
 );
 
 ALTER TABLE public.lesson_progress ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS lesson_progress_lesson_idx
+  ON public.lesson_progress (lesson_id, status);
 
 CREATE POLICY "Users can view their own progress"
   ON public.lesson_progress FOR SELECT USING (user_id = auth.uid());

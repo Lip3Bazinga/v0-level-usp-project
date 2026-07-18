@@ -9,7 +9,7 @@ import { useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { fetchPublishedLessons } from "@/lib/supabase/lessons"
+import { fetchPublishedLessonSummaries } from "@/lib/supabase/lessons"
 import { Loader2 } from "lucide-react"
 
 function IdeRedirect() {
@@ -21,7 +21,7 @@ function IdeRedirect() {
 
     async function resolve() {
       try {
-        const lessons = await fetchPublishedLessons()
+        const lessons = await fetchPublishedLessonSummaries()
         if (cancelled) return
         if (!lessons.length) {
           router.replace("/dashboard")
