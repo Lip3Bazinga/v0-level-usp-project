@@ -55,7 +55,7 @@ export function LevelUpModal({ show, newLevel, onClose }: LevelUpModalProps) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
-          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-md"
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70"
           onClick={handleClose}
         >
           <motion.div
@@ -124,9 +124,9 @@ export function LevelUpModal({ show, newLevel, onClose }: LevelUpModalProps) {
               transition={{ delay: 0.4, type: "spring", stiffness: 250, damping: 14 }}
               className="relative z-10 mt-3 flex items-center justify-center gap-3"
             >
-              <Trophy className="h-8 w-8 text-white drop-shadow-lg" />
-              <span className="text-7xl font-black text-white drop-shadow-xl">{newLevel}</span>
-              <Trophy className="h-8 w-8 text-white drop-shadow-lg" />
+              <Trophy className="h-8 w-8 text-white" />
+              <span className="text-7xl font-black text-white">{newLevel}</span>
+              <Trophy className="h-8 w-8 text-white" />
             </motion.div>
 
             {/* Subtitle */}
@@ -156,7 +156,7 @@ export function LevelUpModal({ show, newLevel, onClose }: LevelUpModalProps) {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.8 }}
               onClick={handleClose}
-              className="relative z-10 mt-6 rounded-full bg-white/30 px-8 py-2.5 text-sm font-bold text-white backdrop-blur transition-all hover:bg-white/50 hover:scale-105"
+              className="relative z-10 mt-6 rounded-full bg-white/30 px-8 py-2.5 text-sm font-bold text-white transition-all hover:bg-white/50 hover:scale-105"
             >
               Continuar
             </motion.button>

@@ -58,7 +58,7 @@ export function CourseCompleteModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-md"
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70"
           onClick={handleClose}
         >
           <motion.div
@@ -96,7 +96,7 @@ export function CourseCompleteModal({
                   animate={{ rotateY: [0, 360] }}
                   transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", repeatDelay: 2 }}
                 >
-                  <Trophy className="h-12 w-12 text-white drop-shadow-lg" />
+                  <Trophy className="h-12 w-12 text-white" />
                 </motion.div>
               </motion.div>
 
@@ -104,7 +104,7 @@ export function CourseCompleteModal({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="text-2xl font-black text-white drop-shadow"
+                className="text-2xl font-black text-white"
               >
                 Curso Concluído!
               </motion.h2>

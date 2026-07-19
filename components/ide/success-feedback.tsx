@@ -106,7 +106,7 @@ export function SuccessFeedback({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
             onClick={handleClose}
           >
             <motion.div
@@ -141,7 +141,7 @@ export function SuccessFeedback({
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-                  className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-white/20 backdrop-blur"
+                  className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-white/25"
                 >
                   <CheckCircle2 className="h-12 w-12 text-white" />
                 </motion.div>
@@ -171,14 +171,18 @@ export function SuccessFeedback({
                 transition={{ delay: 0.4, type: "spring", stiffness: 250 }}
                 className="relative -mt-6 flex justify-center"
               >
-                <motion.div
-                  animate={{ boxShadow: ["0 0 0px #FACC15", "0 0 20px #FACC15", "0 0 0px #FACC15"] }}
-                  transition={{ duration: 1.5, repeat: Infinity, delay: 0.6 }}
-                  className="flex items-center gap-2 rounded-full bg-white px-6 py-3 shadow-lg ring-4 ring-level-purple/20"
-                >
-                  <Zap className="h-6 w-6 text-yellow-500" />
-                  <span className="text-2xl font-bold text-level-purple-dark">+{xpEarned} XP</span>
-                </motion.div>
+                <div className="relative flex items-center gap-2 rounded-full bg-white px-6 py-3 shadow-lg ring-4 ring-level-purple/20">
+                  {/* Halo pulsante via opacidade+scale (GPU), sem animar box-shadow */}
+                  <motion.span
+                    aria-hidden
+                    animate={{ opacity: [0.5, 0, 0.5], scale: [1, 1.15, 1] }}
+                    transition={{ duration: 1.6, repeat: Infinity, delay: 0.6, ease: "easeInOut" }}
+                    className="pointer-events-none absolute inset-0 rounded-full ring-4 ring-yellow-400"
+                    style={{ willChange: "transform, opacity" }}
+                  />
+                  <Zap className="relative h-6 w-6 text-yellow-500" />
+                  <span className="relative text-2xl font-bold text-level-purple-dark">+{xpEarned} XP</span>
+                </div>
               </motion.div>
 
               {/* Ações */}

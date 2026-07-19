@@ -21,7 +21,7 @@ export function StreakAnimation({ show, streakDays, isNewStreak = true, onClose 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60"
           onClick={handleClose}
         >
           <motion.div
@@ -34,8 +34,8 @@ export function StreakAnimation({ show, streakDays, isNewStreak = true, onClose 
           >
             {/* Glow effect */}
             <motion.div
-              animate={{ opacity: [0.2, 0.5, 0.2], scale: [1, 1.2, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
+              animate={{ opacity: [0.2, 0.5, 0.2] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
               className="absolute inset-0 rounded-3xl bg-yellow-400/20"
             />
 
@@ -47,10 +47,11 @@ export function StreakAnimation({ show, streakDays, isNewStreak = true, onClose 
               className="relative z-10 mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-white/20"
             >
               <motion.div
-                animate={{ scale: [1, 1.15, 1], rotate: [-5, 5, -5] }}
-                transition={{ duration: 0.8, repeat: Infinity, ease: "easeInOut" }}
+                animate={{ scale: [1, 1.12, 1], rotate: [-4, 4, -4] }}
+                transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
+                style={{ willChange: "transform" }}
               >
-                <Flame className="h-12 w-12 text-yellow-300 drop-shadow-lg" />
+                <Flame className="h-12 w-12 text-yellow-300" />
               </motion.div>
             </motion.div>
 
@@ -97,7 +98,7 @@ export function StreakAnimation({ show, streakDays, isNewStreak = true, onClose 
               animate={{ opacity: 1 }}
               transition={{ delay: 0.75 }}
               onClick={handleClose}
-              className="relative z-10 mt-5 rounded-full bg-white/30 px-7 py-2 text-sm font-bold text-white backdrop-blur transition-all hover:bg-white/50 hover:scale-105"
+              className="relative z-10 mt-5 rounded-full bg-white/30 px-7 py-2 text-sm font-bold text-white transition-all hover:bg-white/50 hover:scale-105"
             >
               Continuar
             </motion.button>
