@@ -1,14 +1,8 @@
 import { createClient } from "@/lib/supabase/client"
-import type { ProjectFile } from "@/lib/supabase/types"
+import type { ProjectFile, TestResult } from "@/lib/types"
 
-export interface EvaluateResult {
-  testsRun: number
-  passed: number
-  failures: number
-  errors: number
-  allPassed: boolean
-  failureDetails: string[]
-}
+// Mesmo shape do resultado de testes (unittest). Alias do tipo único TestResult.
+export type EvaluateResult = TestResult
 
 export type EvaluateError =
   | { type: "unauthenticated" }

@@ -4,14 +4,10 @@ import { useRef, useEffect, useState, useCallback } from "react"
 import { Terminal, Trash2, Download, CheckCircle2, XCircle, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import type { ConsoleOutput } from "@/lib/types"
 
-export type ConsoleOutput = {
-  id: string
-  type: "info" | "success" | "error" | "warning" | "output" | "figure"
-  message: string
-  timestamp: Date
-  figureB64?: string  // base64 PNG para type === "figure"
-}
+// Fonte única em @/lib/types; re-exportado por compatibilidade.
+export type { ConsoleOutput }
 
 interface ConsolePanelProps {
   outputs: ConsoleOutput[]

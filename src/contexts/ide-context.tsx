@@ -21,7 +21,7 @@ import {
   fetchProgressSnapshot,
   saveProgressSnapshot,
 } from "@/lib/supabase/lessons"
-import type { ConsoleOutput } from "@/components/ide/console-panel"
+import type { ConsoleOutput } from "@/lib/types"
 import type { Lesson, ProjectFile } from "@/lib/supabase/types"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────

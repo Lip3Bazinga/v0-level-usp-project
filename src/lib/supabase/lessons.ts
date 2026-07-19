@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client"
-import type { Lesson, LessonProgress, Checkpoint, ProjectFile } from "@/lib/supabase/types"
+import type { Lesson, LessonProgress, Checkpoint, ProjectFile, ActivityDay } from "@/lib/types"
 
 // ── Slug ──────────────────────────────────────────────────────────────────────
 
@@ -329,11 +329,8 @@ export function computeModuleStatuses(
 
 // ── Activity map ─────────────────────────────────────────────────────────────
 
-export interface ActivityDay {
-  date: Date
-  xp: number
-  activities: number
-}
+// ActivityDay: fonte única em @/lib/types (importado acima), re-exportado por compat.
+export type { ActivityDay }
 
 /**
  * Agrega lesson_progress.completed_at do usuário por dia nos últimos 365 dias.

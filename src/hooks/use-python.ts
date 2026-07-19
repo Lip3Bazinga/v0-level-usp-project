@@ -9,6 +9,7 @@ import {
   removeListener,
   type WorkerListener,
 } from "@/lib/pyodide-worker-singleton"
+import type { TestResult } from "@/lib/types"
 
 export type PyodideStatus = "idle" | "loading" | "ready" | "error"
 
@@ -18,14 +19,8 @@ export interface ExecutionResult {
   figures: string[]
 }
 
-export interface TestResult {
-  testsRun: number
-  passed: number
-  failures: number
-  errors: number
-  allPassed: boolean
-  failureDetails: string[]
-}
+// Fonte única em @/lib/types; re-exportado aqui por compatibilidade.
+export type { TestResult }
 
 // Tempo máximo de execução em ms antes de matar o worker
 const EXECUTION_TIMEOUT_MS = 10_000

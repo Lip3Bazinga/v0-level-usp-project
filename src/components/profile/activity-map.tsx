@@ -8,12 +8,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import type { ActivityDay } from "@/lib/types"
 
-export interface ActivityDay {
-  date: Date
-  xp: number
-  activities: number
-}
+// Fonte única em @/lib/types; re-exportado por compatibilidade.
+export type { ActivityDay }
 
 interface ActivityMapProps {
   data: ActivityDay[]
