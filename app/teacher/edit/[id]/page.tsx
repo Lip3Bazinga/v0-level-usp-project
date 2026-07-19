@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import {
-  ArrowLeft, Save, Eye, Plus, BookOpen, Code2, FlaskConical,
+  ArrowLeft, Save, Eye, EyeOff, Plus, BookOpen, Code2, FlaskConical,
   CheckCircle2, AlertCircle, X, FileText, Loader2, GraduationCap,
-  ListChecks, Trash2, ChevronUp, ChevronDown,
+  ListChecks, Trash2, ChevronUp, ChevronDown, Settings, Package,
 } from "lucide-react"
 import { LevelButton } from "@/components/design-system/level-button"
 import { Badge } from "@/components/ui/badge"
@@ -28,6 +28,7 @@ import type { LibraryRequest } from "@/lib/supabase/types"
 import { TeacherSuccessModal } from "@/components/gamification/teacher-success-modal"
 import { swalConfirm, swalError } from "@/lib/swal"
 import { RichTextEditor } from "@/components/editor/rich-text-editor"
+import { LessonContentPreview } from "@/components/editor/lesson-content-preview"
 
 // ── Labels de categoria ────────────────────────────────────────────────────────
 
@@ -74,6 +75,19 @@ const DEFAULT_CONTENT = `<h3 class="text-base font-semibold text-foreground mb-3
   Explique o que o aluno deve implementar.
 </p>`
 
+// ── Abas de navegação do editor ────────────────────────────────────────────────
+
+const EDITOR_TABS = [
+  { id: "config",      label: "Configurações", icon: Settings,     codingOnly: false },
+  { id: "conteudo",    label: "Conteúdo",      icon: FileText,     codingOnly: false },
+  { id: "exercicio",   label: "Exercício",     icon: Code2,        codingOnly: true },
+  { id: "testes",      label: "Testes",        icon: FlaskConical, codingOnly: true },
+  { id: "checkpoints", label: "Checkpoints",   icon: ListChecks,   codingOnly: true },
+  { id: "libs",        label: "Bibliotecas",   icon: Package,      codingOnly: true },
+] as const
+
+type EditorTab = (typeof EDITOR_TABS)[number]["id"]
+
 // ── Componente principal ──────────────────────────────────────────────────────
 
 export default function TeacherEditPage() {
@@ -98,6 +112,15 @@ export default function TeacherEditPage() {
   const [timeLimit, setTimeLimit]   = useState(0)
   const [lessonType, setLessonType] = useState<"coding" | "theory">("coding")
   const [courseId, setCourseId]     = useState<string | null>(null)
+  const [editorTab, setEditorTab]   = useState<EditorTab>("config")
+  const [showPreview, setShowPreview] = useState(true)
+
+  // Se a lição virar teórica numa aba só de código, volta para uma aba válida
+  useEffect(() => {
+    if (lessonType === "theory" && editorTab !== "config" && editorTab !== "conteudo") {
+      setEditorTab("conteudo")
+    }
+  }, [lessonType, editorTab])
 
   // Cursos do professor para o seletor
   const [teacherCourses, setTeacherCourses] = useState<Course[]>([])
@@ -404,23 +427,33 @@ export default function TeacherEditPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-          {/* Coluna esquerda — Conteúdo */}
-          <div className="space-y-6">
-            <div className="rounded-2xl border-2 border-border bg-white p-6">
-              <div className="mb-6 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple-light">
-                  <FileText className="h-5 w-5 text-level-purple" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-level-purple-dark">
-                    {isNew ? "Nova Lição" : "Editar Lição"}
-                  </h2>
-                  <p className="text-sm text-muted-foreground">Conteúdo educativo</p>
-                </div>
-              </div>
+        {/* Navegação horizontal por abas */}
+        <div className="sticky top-16 z-40 -mx-6 mb-8 border-b border-border bg-white/95 px-6 backdrop-blur">
+          <div className="flex items-center gap-1 overflow-x-auto">
+            {EDITOR_TABS.filter((t) => !t.codingOnly || lessonType === "coding").map((tab) => {
+              const active = editorTab === tab.id
+              const Icon = tab.icon
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setEditorTab(tab.id)}
+                  className={`relative flex items-center gap-2 whitespace-nowrap px-4 py-3 text-sm font-medium transition-colors ${
+                    active ? "text-level-purple" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {tab.label}
+                  {active && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-level-purple" />}
+                </button>
+              )
+            })}
+          </div>
+        </div>
 
-              <div className="space-y-5">
+        {/* ── Aba: Configurações ── */}
+        {editorTab === "config" && (
+          <div className="mx-auto max-w-3xl space-y-5 rounded-2xl border-2 border-border bg-white p-6">
                 {/* Título */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-level-purple-dark">
@@ -435,6 +468,19 @@ export default function TeacherEditPage() {
                   />
                 </div>
 
+                {/* Descrição */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-level-purple-dark">
+                    Descrição curta <span className="text-xs font-normal text-muted-foreground">(resumo da lição)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Ex: Aprenda a declarar variáveis e os tipos básicos do Python"
+                    className="w-full rounded-xl border-2 border-border bg-white px-4 py-3 text-foreground placeholder:text-muted-foreground focus:border-level-purple focus:outline-none transition-colors"
+                  />
+                </div>
                 {/* Curso */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-level-purple-dark flex items-center gap-2">
@@ -561,25 +607,91 @@ export default function TeacherEditPage() {
                   </div>
                 </div>
 
-                {/* Editor rico de conteúdo */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-level-purple-dark">Conteúdo da aula</label>
-                    <Badge className="bg-level-purple-light text-level-purple-dark border-0 text-xs">Editor Rico</Badge>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-level-purple-dark">Recompensa XP</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={xpReward}
+                        onChange={(e) => setXpReward(parseInt(e.target.value) || 0)}
+                        min={0} step={10}
+                        className="w-full rounded-xl border-2 border-border bg-white px-4 py-3 pr-12 text-foreground focus:border-level-purple focus:outline-none transition-colors"
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-level-purple">XP</span>
+                    </div>
                   </div>
-                  <RichTextEditor
-                    value={content}
-                    onChange={setContent}
-                    placeholder="Escreva o conteúdo da aula aqui. Use a barra de ferramentas para formatar texto, inserir imagens, emojis e blocos de código…"
-                    minHeight={320}
-                  />
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-level-purple-dark">Tempo Limite</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={timeLimit}
+                        onChange={(e) => setTimeLimit(parseInt(e.target.value) || 0)}
+                        min={0} step={30}
+                        className="w-full rounded-xl border-2 border-border bg-white px-4 py-3 pr-12 text-foreground focus:border-level-purple focus:outline-none transition-colors"
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">seg</span>
+                    </div>
+                  </div>
                 </div>
+          </div>
+        )}
+
+        {/* ── Aba: Conteúdo (editor + pré-visualização ao vivo) ── */}
+        {editorTab === "conteudo" && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-level-purple-dark">Conteúdo da aula</h2>
+                <p className="text-sm text-muted-foreground">
+                  Escreva à esquerda; a pré-visualização mostra exatamente como o aluno verá.
+                </p>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowPreview((v) => !v)}
+                className="flex items-center gap-2 rounded-xl border-2 border-border px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-level-purple hover:text-level-purple"
+              >
+                {showPreview ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPreview ? "Ocultar pré-visualização" : "Mostrar pré-visualização"}
+              </button>
+            </div>
+
+            <div className={showPreview ? "grid gap-6 lg:grid-cols-2" : ""}>
+              <div className="min-w-0">
+                <RichTextEditor
+                  value={content}
+                  onChange={setContent}
+                  placeholder="Escreva o conteúdo da aula aqui. Use a barra de ferramentas para formatar texto, inserir imagens, emojis e blocos de código…"
+                  minHeight={420}
+                />
+              </div>
+
+              {showPreview && (
+                <div className="min-w-0">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <Eye className="h-3.5 w-3.5 text-level-purple" />
+                    Pré-visualização — como o aluno vê
+                  </div>
+                  <div className="min-h-[420px] rounded-2xl border-2 border-dashed border-level-purple/30 bg-[#FCFBFF] p-5">
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-level-purple">
+                      {module}
+                    </p>
+                    <h2 className="mb-4 text-xl font-bold leading-tight text-level-purple-dark">
+                      {title || "Título da lição"}
+                    </h2>
+                    <LessonContentPreview content={content} />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
+        )}
 
-          {/* Coluna direita — Desafio (oculta para aulas teóricas) */}
-          <div className={`space-y-6 ${lessonType === "theory" ? "hidden" : ""}`}>
+        {/* ── Aba: Exercício (arquivos-semente) ── */}
+        {editorTab === "exercicio" && lessonType === "coding" && (
+          <div className="mx-auto max-w-3xl">
             {/* Starter Code */}
             <div className="rounded-2xl border-2 border-border bg-white p-6">
               <div className="mb-6 flex items-center gap-3">
@@ -636,37 +748,14 @@ export default function TeacherEditPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-level-purple-dark">Recompensa XP</label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={xpReward}
-                        onChange={(e) => setXpReward(parseInt(e.target.value) || 0)}
-                        min={0} step={10}
-                        className="w-full rounded-xl border-2 border-border bg-white px-4 py-3 pr-12 text-foreground focus:border-level-purple focus:outline-none transition-colors"
-                      />
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-level-purple">XP</span>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-level-purple-dark">Tempo Limite</label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={timeLimit}
-                        onChange={(e) => setTimeLimit(parseInt(e.target.value) || 0)}
-                        min={0} step={30}
-                        className="w-full rounded-xl border-2 border-border bg-white px-4 py-3 pr-12 text-foreground focus:border-level-purple focus:outline-none transition-colors"
-                      />
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">seg</span>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
+          </div>
+        )}
 
+        {/* ── Aba: Testes ── */}
+        {editorTab === "testes" && lessonType === "coding" && (
+          <div className="mx-auto max-w-3xl">
             {/* Testes Ocultos */}
             <div className="rounded-2xl border-2 border-border bg-white p-6">
               <div className="mb-4 flex items-center gap-3">
@@ -705,6 +794,12 @@ export default function TeacherEditPage() {
               </div>
             </div>
 
+          </div>
+        )}
+
+        {/* ── Aba: Checkpoints ── */}
+        {editorTab === "checkpoints" && lessonType === "coding" && (
+          <div className="mx-auto max-w-3xl">
             {/* Checkpoints / Instruções */}
             <div className="rounded-2xl border-2 border-border bg-white p-6">
               <div className="mb-4 flex items-center justify-between">
@@ -779,6 +874,12 @@ export default function TeacherEditPage() {
               )}
             </div>
 
+          </div>
+        )}
+
+        {/* ── Aba: Bibliotecas ── */}
+        {editorTab === "libs" && lessonType === "coding" && (
+          <div className="mx-auto max-w-3xl">
             {/* Bibliotecas */}
             <div className="rounded-2xl border-2 border-border bg-white p-6">
               <div className="mb-4 flex items-center justify-between">
@@ -882,9 +983,8 @@ export default function TeacherEditPage() {
                 </div>
               )}
             </div>
-
           </div>
-        </div>
+        )}
       </main>
 
       {/* Modal de requisição de nova biblioteca */}

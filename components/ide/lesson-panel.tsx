@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { LessonContentPreview } from "@/components/editor/lesson-content-preview"
 
 import type { Checkpoint as LessonCheckpoint } from "@/lib/supabase/types"
 
@@ -37,11 +38,6 @@ interface LessonPanelProps {
   isVerifying?: boolean
   /** Habilita o Verificar somente após uma execução sem erros */
   canVerify?: boolean
-}
-
-/** Detecta se o conteúdo é HTML (começa com tag) para usar dangerouslySetInnerHTML */
-function isHtmlContent(text: string): boolean {
-  return /^\s*<[a-zA-Z]/.test(text.trim())
 }
 
 function HintAccordion({ hint }: { hint: string }) {
@@ -105,7 +101,6 @@ export function LessonPanel({
   canVerify = true,
 }: LessonPanelProps) {
   const allCheckpointsDone = checkpoints.every((c) => c.completed)
-  const htmlContent = isHtmlContent(content)
 
   return (
     <div className="flex h-full flex-col bg-white">
@@ -124,40 +119,8 @@ export function LessonPanel({
           <h2 className="mb-1 text-xl font-bold text-level-purple-dark leading-tight">{title}</h2>
           {estimatedTime && <p className="mb-5 text-xs text-gray-400">{estimatedTime}</p>}
 
-          {/* Teoria — HTML ou Markdown */}
-          {htmlContent ? (
-            <div
-              className="prose-lesson text-sm"
-              dangerouslySetInnerHTML={{ __html: content }}
-            />
-          ) : (
-            <div className="prose-lesson text-sm">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  code({ children, className }) {
-                    const isBlock = className?.startsWith("language-")
-                    if (isBlock) {
-                      return (
-                        <div className="relative my-3 overflow-hidden rounded-lg">
-                          <pre className="overflow-x-auto bg-[#1e1e1e] p-4 text-xs text-gray-200 leading-relaxed">
-                            <code>{children}</code>
-                          </pre>
-                        </div>
-                      )
-                    }
-                    return (
-                      <code className="rounded bg-level-purple-subtle px-1.5 py-0.5 font-mono text-[11px] text-level-purple-dark">
-                        {children}
-                      </code>
-                    )
-                  },
-                }}
-              >
-                {content}
-              </ReactMarkdown>
-            </div>
-          )}
+          {/* Teoria — HTML ou Markdown (mesma renderização da pré-visualização do professor) */}
+          <LessonContentPreview content={content} />
 
           {/* Instruções / checkpoints */}
           <div className="mt-8">
