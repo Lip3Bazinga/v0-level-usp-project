@@ -21,8 +21,8 @@ interface CommandPaletteProps {
 }
 
 const KIND_META = {
-  user:   { Icon: Users,         label: "Usuário" },
-  lesson: { Icon: BookOpen,      label: "Lição" },
+  user: { Icon: Users, label: "Usuário" },
+  lesson: { Icon: BookOpen, label: "Lição" },
   course: { Icon: GraduationCap, label: "Curso" },
 }
 
@@ -46,7 +46,7 @@ export function CommandPalette({ users, lessons, courses, onNavigate }: CommandP
 
   // Expõe um abridor global simples para o input do TopBar
   useEffect(() => {
-    ;(window as unknown as { __openAdminSearch?: () => void }).__openAdminSearch = () => setOpen(true)
+    ; (window as unknown as { __openAdminSearch?: () => void }).__openAdminSearch = () => setOpen(true)
     return () => { delete (window as unknown as { __openAdminSearch?: () => void }).__openAdminSearch }
   }, [])
 
@@ -59,6 +59,7 @@ export function CommandPalette({ users, lessons, courses, onNavigate }: CommandP
         out.push({ id: u.id, label: u.full_name, sublabel: u.email, kind: "user", page: "users" })
       }
     }
+
     for (const l of lessons) {
       if (l.title.toLowerCase().includes(term) || l.module.toLowerCase().includes(term)) {
         out.push({ id: l.id, label: l.title, sublabel: l.module, kind: "lesson", page: "lessons", href: `/teacher/edit/${l.id}` })
