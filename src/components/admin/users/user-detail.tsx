@@ -5,7 +5,6 @@ import {
   ChevronLeft, ChevronRight, Trophy, Zap, Flame, BookOpen, Activity,
   Star, Shield, Key, Ban, RefreshCw, Download, Trash2, AlertTriangle, Mail,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
 import { RoleBadge } from "@/components/ui/badges"
 import { X, Loader2 } from "lucide-react"
 import {
@@ -13,10 +12,9 @@ import {
   exportUserDataLGPD, deleteUser,
 } from "@/lib/supabase/admin"
 import type { Profile } from "@/lib/supabase/types"
+import { getInitials } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 
-function getInitials(name: string) {
-  return name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("")
-}
 
 function AvatarInitials({ name, role, size = 36 }: { name: string; role: string; size?: number }) {
   const bg =

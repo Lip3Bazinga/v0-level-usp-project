@@ -9,22 +9,9 @@ import {
   ArrowLeft, Plus, Trash2, BookOpen, GraduationCap,
   NotebookPen, Search, Loader2, FileText, Clock,
 } from "lucide-react"
+import { formatDate, snippet } from "@/lib/utils"
 
-function formatDate(iso: string) {
-  const d = new Date(iso)
-  const now = new Date()
-  const diffMs = now.getTime() - d.getTime()
-  const diffDays = Math.floor(diffMs / 86_400_000)
-  if (diffDays === 0) return `Hoje, ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
-  if (diffDays === 1) return "Ontem"
-  if (diffDays < 7) return `${diffDays} dias atrás`
-  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })
-}
 
-function snippet(text: string, max = 80) {
-  const clean = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
-  return clean.length > max ? clean.slice(0, max) + "…" : clean
-}
 
 export default function NotasPage() {
   const router = useRouter()

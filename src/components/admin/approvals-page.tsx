@@ -2,23 +2,13 @@
 
 import { useState, useEffect } from "react"
 import { Clock, Shield, Check, X, Loader2 } from "lucide-react"
-import { cn } from "@/lib/utils"
 import { fetchPendingApprovals, approveTeacher, rejectTeacher } from "@/lib/supabase/admin"
 import { useAuth } from "@/contexts/auth-context"
 import type { TeacherApproval } from "@/lib/supabase/types"
+import { getInitials, timeAgo } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 
-function timeAgo(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 60) return `há ${mins}min`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `há ${hrs}h`
-  return `há ${Math.floor(hrs / 24)}d`
-}
 
-function getInitials(name: string) {
-  return name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("")
-}
 
 interface ApprovalsPageProps {
   onToast: (msg: string, kind?: "success" | "danger" | "info" | "warning") => void

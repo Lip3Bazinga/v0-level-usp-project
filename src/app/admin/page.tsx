@@ -53,6 +53,7 @@ import {
   GraduationCap as Cap,
   Menu,
 } from "lucide-react"
+import { cn, getInitials } from "@/lib/utils"
 
 // ── Types & helpers ───────────────────────────────────────────────────────────
 
@@ -70,13 +71,7 @@ type PageId =
   | "exams"
   | "settings"
 
-function getInitials(name: string) {
-  return name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("")
-}
 
-function cn(...classes: (string | false | null | undefined)[]) {
-  return classes.filter(Boolean).join(" ")
-}
 
 // ── Atoms ─────────────────────────────────────────────────────────────────────
 

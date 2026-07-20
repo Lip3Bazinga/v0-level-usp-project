@@ -22,12 +22,10 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { getInitials } from "@/lib/utils"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function getInitials(fullName: string) {
-  return fullName.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("")
-}
 
 // ── Componente principal ──────────────────────────────────────────────────────
 

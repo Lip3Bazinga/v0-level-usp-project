@@ -5,7 +5,6 @@ import {
   Search, Download, Plus, Eye, Edit3, Shield,
   Zap, Flame, Trophy, Users, BookOpen, Ban, X, ChevronRight, Loader2,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
 import { RoleBadge } from "@/components/ui/badges"
 import { UserEditModal } from "./user-edit-modal"
 import { UserDetail } from "./user-detail"
@@ -14,10 +13,9 @@ import {
   inviteUser, exportToCsv,
 } from "@/lib/supabase/admin"
 import type { Profile } from "@/lib/supabase/types"
+import { getInitials } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 
-function getInitials(name: string) {
-  return name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("")
-}
 
 function AvatarInitials({ name, role, size = 36 }: { name: string; role: string; size?: number }) {
   const bg =

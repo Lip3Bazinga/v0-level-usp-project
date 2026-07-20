@@ -2,13 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { Edit3, X, Trash2, AlertTriangle, Loader2 } from "lucide-react"
-import { cn } from "@/lib/utils"
 import { RoleBadge } from "@/components/ui/badges"
 import type { Profile } from "@/lib/supabase/types"
+import { getInitials } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 
-function getInitials(name: string) {
-  return name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("")
-}
 
 function AvatarInitials({ name, role, size = 36 }: { name: string; role: string; size?: number }) {
   const bg =

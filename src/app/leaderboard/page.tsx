@@ -18,10 +18,8 @@ import {
   Settings,
   Loader2,
 } from "lucide-react"
+import { getInitials } from "@/lib/utils"
 
-function getInitials(name: string) {
-  return name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("")
-}
 
 function getRankIcon(rank: number) {
   if (rank === 1) return <Crown className="h-6 w-6 text-yellow-500" />

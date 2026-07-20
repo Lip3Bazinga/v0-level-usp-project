@@ -3,9 +3,10 @@
 import { useState } from "react"
 import { Bell, Info, CheckCircle2, AlertTriangle, AlertCircle } from "lucide-react"
 import Link from "next/link"
-import { cn } from "@/lib/utils"
 import { useNotifications } from "@/contexts/notification-context"
 import type { NotificationKind } from "@/lib/supabase/types"
+import { timeAgo } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 
 const KIND_STYLE: Record<NotificationKind, { Icon: typeof Info; color: string }> = {
   info:    { Icon: Info,          color: "bg-info/10 text-info" },
@@ -14,16 +15,6 @@ const KIND_STYLE: Record<NotificationKind, { Icon: typeof Info; color: string }>
   danger:  { Icon: AlertCircle,   color: "bg-destructive/10 text-destructive" },
 }
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const min = Math.floor(diff / 60000)
-  if (min < 1) return "agora"
-  if (min < 60) return `há ${min}min`
-  const h = Math.floor(min / 60)
-  if (h < 24) return `há ${h}h`
-  const d = Math.floor(h / 24)
-  return `há ${d}d`
-}
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false)
@@ -82,7 +73,7 @@ export function NotificationBell() {
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold leading-snug text-level-purple-dark">{n.title}</p>
                         {n.body && <p className="mt-0.5 text-[11px] text-muted-foreground">{n.body}</p>}
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">{timeAgo(n.created_at)}</p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">{timeAgo(n.created_at, { withNow: true })}</p>
                       </div>
                       {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-level-purple" />}
                     </>

@@ -11,23 +11,11 @@ import {
 } from "@/lib/supabase/notes"
 import { RichTextEditor } from "@/components/editor/rich-text-editor"
 import { useAuth } from "@/contexts/auth-context"
+import { formatDate, snippet } from "@/lib/utils"
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
-function formatDate(iso: string) {
-  const d = new Date(iso)
-  const now = new Date()
-  const diff = Math.floor((now.getTime() - d.getTime()) / 86_400_000)
-  if (diff === 0) return `Hoje, ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
-  if (diff === 1) return "Ontem"
-  if (diff < 7) return `${diff} dias atrás`
-  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })
-}
 
-function snippet(text: string, max = 72) {
-  const clean = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
-  return clean.length > max ? clean.slice(0, max) + "…" : clean
-}
 
 // ── Editor de uma nota (NÃO controlado) ────────────────────────────────────────
 // Recebe a nota como estado inicial e é remontado (key={note.id}) ao trocar de
@@ -273,7 +261,7 @@ function NotesModal({ onClose }: { onClose: () => void }) {
                     </button>
                   </div>
                   <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground">
-                    {snippet(note.content) || "Sem conteúdo"}
+                    {snippet(note.content, 72) || "Sem conteúdo"}
                   </p>
                   <div className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
                     {note.lesson_title && (

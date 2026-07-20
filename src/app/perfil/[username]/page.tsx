@@ -32,12 +32,7 @@ import { BadgesSection, type DisplayBadge } from "@/components/profile/badges-se
 import { fetchUserActivity } from "@/lib/supabase/lessons"
 import { fetchAllBadges, fetchUserBadges } from "@/lib/supabase/badges"
 import { fetchMyCertificates, type MyCertificate } from "@/lib/exam-client"
-
-function getInitials(name: string) {
-  return name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("")
-}
-
-function xpForLevel(level: number) { return level * 1000 }
+import { getInitials, xpForLevel } from "@/lib/utils"
 
 export default function ProfilePage() {
   const params = useParams()

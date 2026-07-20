@@ -21,10 +21,8 @@ import {
   Loader2,
   CheckCircle2,
 } from "lucide-react"
+import { getInitials } from "@/lib/utils"
 
-function getInitials(name: string) {
-  return name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("")
-}
 
 export default function SettingsPage() {
   const router = useRouter()

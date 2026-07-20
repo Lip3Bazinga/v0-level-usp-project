@@ -15,6 +15,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { motion, AnimatePresence } from "framer-motion"
+import { getInitials, xpForLevel } from "@/lib/utils"
 
 interface HeaderProps {
   lessonTitle: string
@@ -22,20 +23,7 @@ interface HeaderProps {
   xpBadgeRef?: React.RefObject<HTMLDivElement | null>
 }
 
-/** XP necessário para completar o nível atual (régua simples: 1000 XP por nível). */
-function xpForLevel(level: number) {
-  return level * 1000
-}
 
-/** Retorna as iniciais do nome completo (ex: "João Silva" → "JS"). */
-function getInitials(fullName: string) {
-  return fullName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join("")
-}
 
 export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps) {
   const router = useRouter()

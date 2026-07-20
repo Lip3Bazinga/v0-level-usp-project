@@ -2,18 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { Search, Download, Activity, AlertTriangle, X, History, Loader2 } from "lucide-react"
-import { cn } from "@/lib/utils"
 import { fetchAuditLog, exportToCsv } from "@/lib/supabase/admin"
 import type { AuditLog } from "@/lib/supabase/types"
+import { timeAgo } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 
-function timeAgo(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 60) return `há ${mins}min`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `há ${hrs}h`
-  return `há ${Math.floor(hrs / 24)}d`
-}
 
 const TONE_CLASSES: Record<string, string> = {
   info:    "bg-info/10 text-info",

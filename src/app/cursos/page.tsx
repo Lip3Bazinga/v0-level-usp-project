@@ -16,14 +16,9 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { getInitials, xpForLevel } from "@/lib/utils"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function xpForLevel(level: number) { return level * 1000 }
-
-function getInitials(name: string) {
-  return name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("")
-}
 
 const LEVEL_LABEL: Record<string, string> = {
   iniciante:     "Iniciante",
