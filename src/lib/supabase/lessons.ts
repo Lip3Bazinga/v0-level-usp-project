@@ -112,6 +112,20 @@ export async function fetchUserProgress(userId: string): Promise<LessonProgress[
   return (data ?? []) as LessonProgress[]
 }
 
+/**
+ * Ids das lições já concluídas pelo usuário. Antes era uma query inline em
+ * app/ide/page.tsx (usada para achar a próxima lição pendente).
+ */
+export async function fetchCompletedLessonIds(userId: string): Promise<Set<string>> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from("lesson_progress")
+    .select("lesson_id, status")
+    .eq("user_id", userId)
+    .eq("status", "completed")
+  return new Set((data ?? []).map((row) => row.lesson_id))
+}
+
 // ── Arquivos de projeto (multi-arquivo) ────────────────────────────────────────
 
 /**

@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useAuth } from "@/contexts/auth-context"
-import { createClient } from "@/lib/supabase/client"
-import type { Profile } from "@/lib/supabase/types"
+import { fetchLeaderboard } from "@/lib/supabase/profiles"
+import type { Profile } from "@/lib/types"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   Rocket,
@@ -35,13 +35,7 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     async function load() {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("total_xp", { ascending: false })
-        .limit(50)
-      setUsers(data ?? [])
+      setUsers(await fetchLeaderboard())
       setLoading(false)
     }
     load()

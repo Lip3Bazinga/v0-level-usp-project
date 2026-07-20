@@ -9,7 +9,7 @@ import { useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { fetchPublishedLessonSummaries } from "@/lib/supabase/lessons"
+import { fetchPublishedLessonSummaries, fetchCompletedLessonIds } from "@/lib/supabase/lessons"
 import { Loader2 } from "lucide-react"
 
 function IdeRedirect() {
@@ -38,14 +38,9 @@ function IdeRedirect() {
         const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
-          const { data: progress } = await supabase
-            .from("lesson_progress")
-            .select("lesson_id, status")
-            .eq("user_id", user.id)
-            .eq("status", "completed")
-          const done = new Set((progress ?? []).map((p: { lesson_id: string }) => p.lesson_id))
-          const next = lessons.find((l) => !done.has(l.id))
-          if (!cancelled) router.replace(`/lesson/${(next ?? lessons[0]).id}`)
+          const completedLessonIds = await fetchCompletedLessonIds(user.id)
+          const nextLesson = lessons.find((lesson) => !completedLessonIds.has(lesson.id))
+          if (!cancelled) router.replace(`/lesson/${(nextLesson ?? lessons[0]).id}`)
           return
         }
 

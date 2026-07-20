@@ -4,8 +4,8 @@ import * as React from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
-import { createClient } from "@/lib/supabase/client"
-import type { Profile } from "@/lib/supabase/types"
+import { fetchProfileByUsername } from "@/lib/supabase/profiles"
+import type { Profile } from "@/lib/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -78,13 +78,7 @@ export default function ProfilePage() {
       } else if (currentUsername && username === currentUsername) {
         resolvedUser = currentUser
       } else {
-        const supabase = createClient()
-        const { data } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("username", username)
-          .maybeSingle()
-        resolvedUser = data ? (data as Profile) : null
+        resolvedUser = await fetchProfileByUsername(username)
       }
 
       setUser(resolvedUser)
