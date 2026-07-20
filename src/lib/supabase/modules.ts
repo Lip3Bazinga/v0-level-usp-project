@@ -29,7 +29,7 @@ export async function createModule(data: ModuleFormData): Promise<Module> {
   const supabase = createClient()
   const { data: created, error } = await supabase
     .from("modules")
-    .insert(data as never)
+    .insert(data)
     .select()
     .single()
   if (error) throw error
@@ -40,7 +40,7 @@ export async function updateModule(id: string, data: Partial<ModuleFormData>): P
   const supabase = createClient()
   const { data: updated, error } = await supabase
     .from("modules")
-    .update(data as never)
+    .update(data)
     .eq("id", id)
     .select()
     .single()

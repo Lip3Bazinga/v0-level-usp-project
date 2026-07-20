@@ -19,7 +19,7 @@ export async function markRead(id: string): Promise<void> {
   const supabase = createClient()
   const { error } = await supabase
     .from("notifications")
-    .update({ read: true } as never)
+    .update({ read: true })
     .eq("id", id)
   if (error) throw error
 }
@@ -29,7 +29,7 @@ export async function markAllRead(userId: string): Promise<void> {
   const supabase = createClient()
   const { error } = await supabase
     .from("notifications")
-    .update({ read: true } as never)
+    .update({ read: true })
     .eq("user_id", userId)
     .eq("read", false)
   if (error) throw error

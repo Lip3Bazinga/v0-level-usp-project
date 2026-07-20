@@ -6,7 +6,7 @@ import type { LibraryCatalog, LibraryRequest } from "@/lib/supabase/types"
 export async function fetchLibraryCatalog(): Promise<LibraryCatalog[]> {
   const supabase = createClient()
   const { data, error } = await supabase
-    .from("library_catalog" as never)
+    .from("library_catalog")
     .select("*")
     .eq("active", true)
     .order("category")
@@ -19,7 +19,7 @@ export async function fetchLibraryCatalog(): Promise<LibraryCatalog[]> {
 export async function fetchFullLibraryCatalog(): Promise<LibraryCatalog[]> {
   const supabase = createClient()
   const { data, error } = await supabase
-    .from("library_catalog" as never)
+    .from("library_catalog")
     .select("*")
     .order("category")
     .order("display_name")
@@ -35,8 +35,8 @@ export async function createLibraryRequest(
 ): Promise<LibraryRequest> {
   const supabase = createClient()
   const { data: created, error } = await supabase
-    .from("library_requests" as never)
-    .insert({ requested_by: requestedBy, ...data } as never)
+    .from("library_requests")
+    .insert({ requested_by: requestedBy, ...data })
     .select()
     .single()
   if (error) throw error
@@ -46,7 +46,7 @@ export async function createLibraryRequest(
 export async function fetchMyLibraryRequests(userId: string): Promise<LibraryRequest[]> {
   const supabase = createClient()
   const { data, error } = await supabase
-    .from("library_requests" as never)
+    .from("library_requests")
     .select("*")
     .eq("requested_by", userId)
     .order("created_at", { ascending: false })
@@ -59,7 +59,7 @@ export async function fetchMyLibraryRequests(userId: string): Promise<LibraryReq
 export async function fetchAllLibraryRequests(): Promise<LibraryRequest[]> {
   const supabase = createClient()
   const { data, error } = await supabase
-    .from("library_requests" as never)
+    .from("library_requests")
     .select("*, profiles!requested_by(full_name)")
     .order("created_at", { ascending: false })
   if (error) throw error
@@ -78,13 +78,13 @@ export async function reviewLibraryRequest(
 ): Promise<void> {
   const supabase = createClient()
   const { error } = await supabase
-    .from("library_requests" as never)
+    .from("library_requests")
     .update({
       status,
       reviewed_by: reviewerId,
       review_notes: review_notes ?? null,
       reviewed_at: new Date().toISOString(),
-    } as never)
+    })
     .eq("id", requestId)
   if (error) throw error
 }
@@ -93,8 +93,8 @@ export async function reviewLibraryRequest(
 export async function toggleLibraryCatalog(id: string, active: boolean): Promise<void> {
   const supabase = createClient()
   const { error } = await supabase
-    .from("library_catalog" as never)
-    .update({ active } as never)
+    .from("library_catalog")
+    .update({ active })
     .eq("id", id)
   if (error) throw error
 }
@@ -116,12 +116,12 @@ export async function approveAndAddToLibrary(
 
   // Insere no catálogo
   const { error: catalogErr } = await supabase
-    .from("library_catalog" as never)
+    .from("library_catalog")
     .upsert({
       ...catalogEntry,
       added_by: reviewerId,
       active: true,
-    } as never, { onConflict: "name" })
+    }, { onConflict: "name" })
   if (catalogErr) throw catalogErr
 
   // Marca a requisição como aprovada

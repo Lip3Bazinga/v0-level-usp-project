@@ -117,7 +117,7 @@ export async function fetchMyCertificate(courseId: string, userId: string): Prom
 } | null> {
   const supabase = createClient()
   const { data } = await supabase
-    .from("certificates" as never)
+    .from("certificates")
     .select("verification_code, issued_at, exam_score")
     .eq("course_id", courseId)
     .eq("user_id", userId)
@@ -138,7 +138,7 @@ export interface MyCertificate {
 export async function fetchMyCertificates(userId: string): Promise<MyCertificate[]> {
   const supabase = createClient()
   const { data } = await supabase
-    .from("certificates" as never)
+    .from("certificates")
     .select("verification_code, issued_at, exam_score, course_id")
     .eq("user_id", userId)
     .order("issued_at", { ascending: false })

@@ -27,8 +27,8 @@ export async function fetchPlatformMetrics(): Promise<PlatformMetrics> {
     supabase.from("lessons").select("published"),
     supabase.from("lesson_progress").select("*", { count: "exact", head: true }).eq("status", "completed"),
     supabase.from("teacher_approvals").select("*", { count: "exact", head: true }).eq("status", "pending"),
-    supabase.from("courses" as never).select("published"),
-    supabase.from("enrollments" as never).select("*", { count: "exact", head: true }),
+    supabase.from("courses").select("published"),
+    supabase.from("enrollments").select("*", { count: "exact", head: true }),
     supabase.from("profiles").select("total_xp"),
   ])
 
@@ -140,7 +140,7 @@ export async function updateUserRole(
   const supabase = createClient()
   const { error } = await supabase
     .from("profiles")
-    .update({ role } as never)
+    .update({ role })
     .eq("id", userId)
   if (error) throw error
 }
@@ -259,7 +259,7 @@ export async function fetchAllLessons(): Promise<Lesson[]> {
     .order("module")
     .order("order", { ascending: true })
   if (error) throw error
-  return (data ?? []) as Lesson[]
+  return (data ?? []) as unknown as Lesson[]
 }
 
 // ── Aprovações de professor ───────────────────────────────────────────────────
@@ -284,11 +284,11 @@ export async function approveTeacher(
   await Promise.all([
     supabase
       .from("teacher_approvals")
-      .update({ status: "approved", reviewed_by: reviewerId, reviewed_at: new Date().toISOString() } as never)
+      .update({ status: "approved", reviewed_by: reviewerId, reviewed_at: new Date().toISOString() })
       .eq("id", approvalId),
     supabase
       .from("profiles")
-      .update({ role: "teacher" } as never)
+      .update({ role: "teacher" })
       .eq("id", userId),
   ])
 }
@@ -306,7 +306,7 @@ export async function rejectTeacher(
       reviewed_by: reviewerId,
       review_note: reviewNote,
       reviewed_at: new Date().toISOString(),
-    } as never)
+    })
     .eq("id", approvalId)
   if (error) throw error
 }
@@ -395,7 +395,7 @@ export type PlatformSettings = Record<string, unknown>
 export async function fetchPlatformSettings(): Promise<PlatformSettings> {
   const supabase = createClient()
   const { data } = await supabase
-    .from("platform_settings" as never)
+    .from("platform_settings")
     .select("key, value")
   const result: PlatformSettings = {}
   for (const row of (data ?? []) as Array<{ key: string; value: unknown }>) {
@@ -408,8 +408,8 @@ export async function savePlatformSettings(settings: PlatformSettings): Promise<
   const supabase = createClient()
   const rows = Object.entries(settings).map(([key, value]) => ({ key, value }))
   const { error } = await supabase
-    .from("platform_settings" as never)
-    .upsert(rows as never, { onConflict: "key" })
+    .from("platform_settings")
+    .upsert(rows, { onConflict: "key" })
   if (error) throw error
 }
 
@@ -435,14 +435,14 @@ export async function logAudit(
   severity: "info" | "warning" | "danger" = "info",
 ): Promise<void> {
   const supabase = createClient()
-  await supabase.rpc("log_audit" as never, {
+  await supabase.rpc("log_audit", {
     p_actor_id:   actorId,
     p_actor_name: actorName,
     p_action:     action,
     p_target:     target,
     p_meta:       meta,
     p_severity:   severity,
-  } as never)
+  })
 }
 
 // ── Questões da prova (admin — gabarito só trafega em rota requireAdmin) ────────

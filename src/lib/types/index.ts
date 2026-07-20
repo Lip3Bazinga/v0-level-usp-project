@@ -17,4 +17,17 @@ export type {
   Notification,
 } from "./platform"
 export type { ConsoleOutput, TestResult } from "./ide"
+export type { Note } from "./note"
+export type {
+  ExamRow,
+  ExamQuestionRow,
+  ExamAttemptRow,
+  CertificateRow,
+  ExamStatus,
+  ExamQuestion,
+  ExamStart,
+  ExamResult,
+  CertificateIssue,
+  MyCertificate,
+} from "./exam"
 export type { Database } from "./database"

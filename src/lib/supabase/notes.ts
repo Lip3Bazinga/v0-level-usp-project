@@ -16,7 +16,7 @@ export interface Note {
 export async function fetchNotes(): Promise<Note[]> {
   const supabase = createClient()
   const { data, error } = await supabase
-    .from("notes" as never)
+    .from("notes")
     .select(`
       *,
       lessons!lesson_id(title),
@@ -40,8 +40,8 @@ export async function createNote(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Não autenticado")
   const { data, error } = await supabase
-    .from("notes" as never)
-    .insert({ user_id: user.id, content: "", ...patch } as never)
+    .from("notes")
+    .insert({ user_id: user.id, content: "", ...patch })
     .select()
     .single()
   if (error) throw error
@@ -54,8 +54,8 @@ export async function updateNote(
 ): Promise<void> {
   const supabase = createClient()
   const { error } = await supabase
-    .from("notes" as never)
-    .update({ ...patch, updated_at: new Date().toISOString() } as never)
+    .from("notes")
+    .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("id", id)
   if (error) throw error
 }
@@ -63,7 +63,7 @@ export async function updateNote(
 export async function deleteNote(id: string): Promise<void> {
   const supabase = createClient()
   const { error } = await supabase
-    .from("notes" as never)
+    .from("notes")
     .delete()
     .eq("id", id)
   if (error) throw error

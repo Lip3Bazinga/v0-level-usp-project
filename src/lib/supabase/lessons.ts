@@ -62,7 +62,7 @@ export async function fetchPublishedLessons(): Promise<Lesson[]> {
     .order("course_id", { ascending: true, nullsFirst: false })
     .order("order", { ascending: true })
   if (error) throw error
-  return (data ?? []) as Lesson[]
+  return (data ?? []) as unknown as Lesson[]
 }
 
 /** Retorna uma lição pelo id (UUID) sem hidden_tests — para uso em páginas do aluno. */
@@ -74,7 +74,7 @@ export async function fetchLessonById(id: string): Promise<Lesson | null> {
     .eq("id", id)
     .single()
   if (error) return null
-  return data as Lesson
+  return data as unknown as Lesson
 }
 
 /** Retorna a lição completa incluindo hidden_tests — exclusivo do painel do professor.
@@ -83,10 +83,10 @@ export async function fetchLessonByIdFull(id: string): Promise<Lesson | null> {
   const supabase = createClient()
   const [{ data, error }, { data: tests }] = await Promise.all([
     supabase.from("lessons").select(PUBLIC_LESSON_FIELDS).eq("id", id).single(),
-    supabase.rpc("get_lesson_hidden_tests" as never, { p_lesson_id: id } as never),
+    supabase.rpc("get_lesson_hidden_tests", { p_lesson_id: id }),
   ])
   if (error) return null
-  return { ...(data as object), hidden_tests: (tests as string | null) ?? "" } as Lesson
+  return { ...(data as object), hidden_tests: (tests as string | null) ?? "" } as unknown as Lesson
 }
 
 /** Retorna todas as lições criadas por um professor (publicadas ou não). */
@@ -98,7 +98,7 @@ export async function fetchTeacherLessons(userId: string): Promise<Lesson[]> {
     .eq("created_by", userId)
     .order("order", { ascending: true })
   if (error) throw error
-  return (data ?? []) as Lesson[]
+  return (data ?? []) as unknown as Lesson[]
 }
 
 /** Retorna o progresso do usuário em todas as lições. */
@@ -187,7 +187,7 @@ export async function saveProgressSnapshot(
         lesson_id: lessonId,
         code_snapshot: JSON.stringify(files),
         status: "in_progress",
-      } as never,
+      },
       { onConflict: "user_id,lesson_id" },
     )
   if (error) throw error
@@ -235,11 +235,11 @@ export async function createLesson(
   const slug = generateSlug(data.title) + "-" + Date.now().toString(36)
   const { data: created, error } = await supabase
     .from("lessons")
-    .insert({ ...data, slug, created_by: userId } as never)
+    .insert({ ...data, slug, created_by: userId })
     .select(PUBLIC_LESSON_FIELDS)
     .single()
   if (error) throw error
-  return created as Lesson
+  return created as unknown as Lesson
 }
 
 /** Atualiza uma lição existente. */
@@ -250,12 +250,12 @@ export async function updateLesson(
   const supabase = createClient()
   const { data: updated, error } = await supabase
     .from("lessons")
-    .update(data as never)
+    .update(data)
     .eq("id", id)
     .select(PUBLIC_LESSON_FIELDS)
     .single()
   if (error) throw error
-  return updated as Lesson
+  return updated as unknown as Lesson
 }
 
 /** Exclui permanentemente uma lição. */
@@ -273,7 +273,7 @@ export async function toggleLessonPublished(
   const supabase = createClient()
   const { error } = await supabase
     .from("lessons")
-    .update({ published } as never)
+    .update({ published })
     .eq("id", id)
   if (error) throw error
 }
@@ -287,11 +287,11 @@ export async function awardXp(
   xp: number
 ): Promise<void> {
   const supabase = createClient()
-  const { error } = await supabase.rpc("award_xp" as never, {
+  const { error } = await supabase.rpc("award_xp", {
     p_user_id: userId,
     p_lesson_id: lessonId,
     p_xp: xp,
-  } as never)
+  })
   if (error) throw error
 }
 
@@ -392,23 +392,23 @@ export async function checkAndUpdateDailyStreak(
   if (!profile) return { streakUpdated: false, newStreak: 0 }
 
   const today = new Date().toISOString().split("T")[0]
-  const lastLogin = (profile as any).last_login_date as string | null
+  const lastLogin = profile.last_login_date
 
   if (lastLogin === today) {
-    return { streakUpdated: false, newStreak: (profile as any).current_streak ?? 0 }
+    return { streakUpdated: false, newStreak: profile.current_streak ?? 0 }
   }
 
   const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0]
   const isConsecutive = lastLogin === yesterday
-  const newStreak = isConsecutive ? ((profile as any).current_streak ?? 0) + 1 : 1
+  const newStreak = isConsecutive ? (profile.current_streak ?? 0) + 1 : 1
 
   await supabase
     .from("profiles")
     .update({
       current_streak: newStreak,
       last_login_date: today,
-      max_streak: Math.max((profile as any).current_streak ?? 0, newStreak),
-    } as never)
+      max_streak: Math.max(profile.current_streak ?? 0, newStreak),
+    })
     .eq("id", userId)
 
   return { streakUpdated: true, newStreak }

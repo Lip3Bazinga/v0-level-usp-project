@@ -32,7 +32,7 @@ export async function fetchUserBadges(userId: string): Promise<UserBadge[]> {
 /** Avalia critérios e concede badges novas. Retorna as recém-conquistadas. */
 export async function grantBadges(userId: string): Promise<GrantedBadge[]> {
   const supabase = createClient()
-  const { data, error } = await supabase.rpc("grant_badges" as never, { p_user_id: userId } as never)
+  const { data, error } = await supabase.rpc("grant_badges", { p_user_id: userId })
   if (error) throw error
   return (data ?? []) as GrantedBadge[]
 }
@@ -45,7 +45,7 @@ export async function createBadge(data: BadgeFormData): Promise<Badge> {
   const supabase = createClient()
   const { data: created, error } = await supabase
     .from("badges")
-    .insert(data as never)
+    .insert(data)
     .select()
     .single()
   if (error) throw error
@@ -56,7 +56,7 @@ export async function updateBadge(id: string, data: Partial<BadgeFormData>): Pro
   const supabase = createClient()
   const { data: updated, error } = await supabase
     .from("badges")
-    .update(data as never)
+    .update(data)
     .eq("id", id)
     .select()
     .single()

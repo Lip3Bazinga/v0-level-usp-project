@@ -25,7 +25,7 @@ export type CourseFormData = {
 export async function fetchPublishedCourses(): Promise<Course[]> {
   const supabase = createClient()
   const { data, error } = await supabase
-    .from("courses" as never)
+    .from("courses")
     .select("*, lessons(id)")
     .eq("published", true)
     .order("title")
@@ -41,7 +41,7 @@ export async function fetchPublishedCourses(): Promise<Course[]> {
 export async function fetchCourseByIdRaw(courseId: string): Promise<Course | null> {
   const supabase = createClient()
   const { data, error } = await supabase
-    .from("courses" as never)
+    .from("courses")
     .select("*, lessons(id)")
     .eq("id", courseId)
     .single()
@@ -58,7 +58,7 @@ export async function fetchCourseById(
   const supabase = createClient()
 
   const { data: course, error: courseErr } = await supabase
-    .from("courses" as never)
+    .from("courses")
     .select("*, lessons(id)")
     .eq("id", courseId)
     .eq("published", true)
@@ -76,7 +76,7 @@ export async function fetchCourseById(
   let enrolled = false
   if (userId) {
     const { data: enrollment } = await supabase
-      .from("enrollments" as never)
+      .from("enrollments")
       .select("id")
       .eq("user_id", userId)
       .eq("course_id", courseId)
@@ -91,7 +91,7 @@ export async function fetchCourseById(
       lesson_count: courseAny.lessons?.length ?? 0,
       enrolled,
     } as Course,
-    lessons: (lessons ?? []) as Lesson[],
+    lessons: (lessons ?? []) as unknown as Lesson[],
     enrolled,
   }
 }
@@ -100,7 +100,7 @@ export async function fetchCourseById(
 export async function fetchTeacherCourses(userId: string): Promise<Course[]> {
   const supabase = createClient()
   const { data, error } = await supabase
-    .from("courses" as never)
+    .from("courses")
     .select("*, lessons(id)")
     .eq("created_by", userId)
     .order("created_at", { ascending: false })
@@ -115,7 +115,7 @@ export async function fetchTeacherCourses(userId: string): Promise<Course[]> {
 export async function fetchUserEnrollments(userId: string): Promise<string[]> {
   const supabase = createClient()
   const { data } = await supabase
-    .from("enrollments" as never)
+    .from("enrollments")
     .select("course_id")
     .eq("user_id", userId)
   return (data ?? []).map((e: any) => e.course_id)
@@ -130,8 +130,8 @@ export async function createCourse(
 ): Promise<Course> {
   const supabase = createClient()
   const { data: created, error } = await supabase
-    .from("courses" as never)
-    .insert({ ...data, created_by: userId } as never)
+    .from("courses")
+    .insert({ ...data, created_by: userId })
     .select()
     .single()
   if (error) throw error
@@ -145,8 +145,8 @@ export async function updateCourse(
 ): Promise<void> {
   const supabase = createClient()
   const { error } = await supabase
-    .from("courses" as never)
-    .update({ ...data, updated_at: new Date().toISOString() } as never)
+    .from("courses")
+    .update({ ...data, updated_at: new Date().toISOString() })
     .eq("id", courseId)
   if (error) throw error
 }
@@ -173,7 +173,7 @@ export async function uploadCourseCover(
 export async function deleteCourse(courseId: string): Promise<void> {
   const supabase = createClient()
   const { error } = await supabase
-    .from("courses" as never)
+    .from("courses")
     .delete()
     .eq("id", courseId)
   if (error) throw error
@@ -186,8 +186,8 @@ export async function toggleCoursePublished(
 ): Promise<void> {
   const supabase = createClient()
   const { error } = await supabase
-    .from("courses" as never)
-    .update({ published } as never)
+    .from("courses")
+    .update({ published })
     .eq("id", courseId)
   if (error) throw error
 }
@@ -197,15 +197,15 @@ export async function toggleCoursePublished(
 export async function enrollInCourse(userId: string, courseId: string): Promise<void> {
   const supabase = createClient()
   const { error } = await supabase
-    .from("enrollments" as never)
-    .insert({ user_id: userId, course_id: courseId } as never)
+    .from("enrollments")
+    .insert({ user_id: userId, course_id: courseId })
   if (error && !(error as any).message?.includes("duplicate")) throw error
 }
 
 export async function unenrollFromCourse(userId: string, courseId: string): Promise<void> {
   const supabase = createClient()
   const { error } = await supabase
-    .from("enrollments" as never)
+    .from("enrollments")
     .delete()
     .eq("user_id", userId)
     .eq("course_id", courseId)
@@ -223,16 +223,16 @@ export async function fetchCourseLessons(courseId: string): Promise<Lesson[]> {
     .eq("course_id", courseId)
     .order("order")
   if (error) throw error
-  return (data ?? []) as Lesson[]
+  return (data ?? []) as unknown as Lesson[]
 }
 
 /** Reordena as lições de um curso via RPC. */
 export async function reorderLessons(courseId: string, lessonIds: string[]): Promise<void> {
   const supabase = createClient()
-  const { error } = await supabase.rpc("reorder_lessons" as never, {
+  const { error } = await supabase.rpc("reorder_lessons", {
     p_course_id: courseId,
     p_lesson_ids: lessonIds,
-  } as never)
+  })
   if (error) throw error
 }
 
@@ -241,7 +241,7 @@ export async function removeLessonFromCourse(lessonId: string): Promise<void> {
   const supabase = createClient()
   const { error } = await supabase
     .from("lessons")
-    .update({ course_id: null } as never)
+    .update({ course_id: null })
     .eq("id", lessonId)
   if (error) throw error
 }
@@ -251,7 +251,7 @@ export async function addLessonToCourse(lessonId: string, courseId: string, orde
   const supabase = createClient()
   const { error } = await supabase
     .from("lessons")
-    .update({ course_id: courseId, order } as never)
+    .update({ course_id: courseId, order })
     .eq("id", lessonId)
   if (error) throw error
 }
