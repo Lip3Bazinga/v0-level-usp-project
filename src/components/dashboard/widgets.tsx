@@ -6,18 +6,9 @@ import { Flame, Zap, Trophy, CheckCircle2, Sparkles, Lock } from "lucide-react"
 import { fetchAllBadges, fetchUserBadges } from "@/lib/supabase/badges"
 import { badgeIcon } from "@/lib/badge-icons"
 import type { Badge, LessonProgress, Profile } from "@/lib/supabase/types"
+import { localDateKey, todayKey, PLATFORM_TIMEZONE } from "@/lib/utils/date"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-const TZ = "America/Sao_Paulo"
-
-function localDateKey(iso: string): string {
-  return new Date(iso).toLocaleDateString("sv-SE", { timeZone: TZ })
-}
-
-function todayKey(): string {
-  return new Date().toLocaleDateString("sv-SE", { timeZone: TZ })
-}
 
 /** Conjunto de dias (YYYY-MM-DD) com pelo menos uma lição concluída. */
 export function useStudyDays(progressMap: Map<string, LessonProgress>): Set<string> {
@@ -150,8 +141,8 @@ export function WeeklyActivity({ studyDays }: { studyDays: Set<string> }) {
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now)
       d.setDate(now.getDate() - i)
-      const key = d.toLocaleDateString("sv-SE", { timeZone: TZ })
-      const label = d.toLocaleDateString("pt-BR", { weekday: "narrow", timeZone: TZ }).toUpperCase()
+      const key = d.toLocaleDateString("sv-SE", { timeZone: PLATFORM_TIMEZONE })
+      const label = d.toLocaleDateString("pt-BR", { weekday: "narrow", timeZone: PLATFORM_TIMEZONE }).toUpperCase()
       out.push({ key, label, isToday: i === 0 })
     }
     return out

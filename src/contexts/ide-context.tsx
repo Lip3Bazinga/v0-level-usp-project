@@ -23,6 +23,7 @@ import {
 } from "@/lib/supabase/lessons"
 import type { ConsoleOutput } from "@/lib/types"
 import type { Lesson, ProjectFile } from "@/lib/supabase/types"
+import { normalizePath, isValidPath } from "@/lib/utils/path"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -65,21 +66,6 @@ export interface IDEContextValue {
   isVerifying: boolean
   showSuccess: boolean
   setShowSuccess: (v: boolean) => void
-}
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-function normalizePath(path: string): string {
-  return path.trim().replace(/^\/+/, "").replace(/\/+/g, "/")
-}
-
-function isValidPath(path: string): boolean {
-  const p = normalizePath(path)
-  if (!p || p.endsWith("/")) return false
-  // Aceita arquivos .py, .txt, .json, .csv, .md e .gitkeep (marcador de pasta vazia)
-  if (!/^[\w\-./]+(\.py|\.txt|\.json|\.csv|\.md|\.gitkeep)$/.test(p)) return false
-  if (p.includes("..")) return false
-  return true
 }
 
 // ── Context ───────────────────────────────────────────────────────────────────
