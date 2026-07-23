@@ -10,6 +10,7 @@ import {
   type ModuleFormData,
 } from "@/lib/supabase/modules"
 import type { Lesson, Module } from "@/lib/supabase/types"
+import type { OnToast } from "@/lib/types"
 
 const GRADIENTS = [
   "from-level-purple to-level-purple-medium",
@@ -26,7 +27,7 @@ const EMPTY: ModuleFormData = {
 
 interface ModulesPageProps {
   lessons: Lesson[]
-  onToast: (msg: string, kind?: "success" | "danger" | "info" | "warning") => void
+  onToast: OnToast
 }
 
 export function ModulesPage({ lessons, onToast }: ModulesPageProps) {

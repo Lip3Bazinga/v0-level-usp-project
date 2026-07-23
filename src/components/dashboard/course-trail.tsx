@@ -186,9 +186,9 @@ export function CourseCard({ course, lessons, progressMap, defaultOpen = false }
     const map = new Map<string, Lesson[]>()
     for (const l of lessons) {
       const key = l.module || "Módulo 1"
-      const arr = map.get(key) ?? []
-      arr.push(l)
-      map.set(key, arr)
+      const moduleLessons = map.get(key) ?? []
+      moduleLessons.push(l)
+      map.set(key, moduleLessons)
     }
     return Array.from(map.entries()).map(([name, mLessons]) => ({
       name,

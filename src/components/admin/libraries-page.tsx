@@ -14,6 +14,7 @@ import {
 } from "@/lib/supabase/libraries"
 import type { LibraryCatalog, LibraryRequest } from "@/lib/supabase/types"
 import { useAuth } from "@/contexts/auth-context"
+import type { OnToast } from "@/lib/types"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -255,7 +256,7 @@ function CatalogView({ catalog, onToggle }: { catalog: LibraryCatalog[]; onToggl
 
 // ── Página principal ──────────────────────────────────────────────────────────
 
-export function LibrariesAdminPage({ onToast }: { onToast: (msg: string, kind?: string) => void }) {
+export function LibrariesAdminPage({ onToast }: { onToast: OnToast }) {
   const { profile } = useAuth()
   const [tab, setTab] = useState<"requests" | "catalog">("requests")
   const [requests, setRequests] = useState<LibraryRequest[]>([])

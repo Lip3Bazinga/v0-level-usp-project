@@ -6,6 +6,7 @@ import { Search, Eye, Edit3, Trash2, Globe, EyeOff, Star, BookOpen, Zap, Clock, 
 import { cn } from "@/lib/utils"
 import { toggleCoursePublished, deleteCourse } from "@/lib/supabase/courses"
 import type { Course } from "@/lib/supabase/types"
+import type { OnToast } from "@/lib/types"
 
 const LEVEL_LABEL: Record<string, string> = {
   iniciante:     "Iniciante",
@@ -20,7 +21,7 @@ const LEVEL_COLOR: Record<string, string> = {
 }
 
 interface CoursesAdminPageProps {
-  onToast: (msg: string, kind?: string) => void
+  onToast: OnToast
 }
 
 export function CoursesAdminPage({ onToast }: CoursesAdminPageProps) {

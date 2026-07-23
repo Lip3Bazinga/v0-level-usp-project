@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Trophy, Globe, Flag, Lock, Settings, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { fetchPlatformSettings, savePlatformSettings, invalidateSessions, type PlatformSettings } from "@/lib/supabase/admin"
+import type { OnToast } from "@/lib/types"
 
 const FLAG_DEFS = [
   { key: "new_ide",            label: "Novo editor IDE",         desc: "Editor Monaco com auto-complete Python",     defaultOn: true  },
@@ -47,7 +48,7 @@ function SettingRow({ label, hint, children, danger }: { label: string; hint: st
 }
 
 interface SettingsPageProps {
-  onToast: (msg: string, kind?: "success" | "danger" | "info") => void
+  onToast: OnToast
 }
 
 export function SettingsPage({ onToast }: SettingsPageProps) {

@@ -12,11 +12,12 @@ import { IconBtn } from "@/components/ui/icon-btn"
 import { toggleLessonPublished, deleteLesson } from "@/lib/supabase/lessons"
 import { swalConfirm, swalError, swalToast } from "@/lib/swal"
 import type { Lesson } from "@/lib/supabase/types"
+import type { OnToast } from "@/lib/types"
 
 interface LessonsPageProps {
   lessons: Lesson[]
   setLessons: (l: Lesson[] | ((p: Lesson[]) => Lesson[])) => void
-  onToast: (msg: string, kind?: "success" | "danger" | "info" | "warning") => void
+  onToast: OnToast
 }
 
 export function LessonsPageEnhanced({ lessons, setLessons, onToast }: LessonsPageProps) {

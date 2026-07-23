@@ -16,10 +16,10 @@ import {
 type Phase = "status" | "running" | "result"
 
 function formatCountdown(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000))
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}:${s.toString().padStart(2, "0")}`
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`
 }
 
 export default function ProvaPage() {
@@ -43,10 +43,10 @@ export default function ProvaPage() {
   const loadStatus = useCallback(async () => {
     setLoading(true)
     setError(null)
-    const res = await fetchExamStatus(courseId)
-    if (res.ok) setStatus(res.data)
-    else if (res.status === 401) router.push("/login")
-    else setError(res.error)
+    const statusResult = await fetchExamStatus(courseId)
+    if (statusResult.ok) setStatus(statusResult.data)
+    else if (statusResult.status === 401) router.push("/login")
+    else setError(statusResult.error)
     setLoading(false)
   }, [courseId, router])
 
@@ -74,14 +74,14 @@ export default function ProvaPage() {
   const handleStart = useCallback(async () => {
     setLoading(true)
     setError(null)
-    const res = await startExam(courseId)
-    if (res.ok) {
+    const startResult = await startExam(courseId)
+    if (startResult.ok) {
       submittedRef.current = false
-      setExam(res.data)
+      setExam(startResult.data)
       setAnswers({})
       setPhase("running")
     } else {
-      setError(res.error)
+      setError(startResult.error)
     }
     setLoading(false)
   }, [courseId])
@@ -90,15 +90,15 @@ export default function ProvaPage() {
     if (!exam || submittedRef.current) return
     submittedRef.current = true
     setSubmitting(true)
-    const res = await submitExam(courseId, exam.attemptId, answers)
+    const submitResult = await submitExam(courseId, exam.attemptId, answers)
     setSubmitting(false)
-    if (res.ok) {
-      setResult(res.data)
+    if (submitResult.ok) {
+      setResult(submitResult.data)
       setPhase("result")
     } else {
-      setError(res.error)
+      setError(submitResult.error)
       submittedRef.current = false
-      if (res.status === 408 || res.status === 409) {
+      if (submitResult.status === 408 || submitResult.status === 409) {
         setPhase("status")
         loadStatus()
       }
@@ -108,10 +108,10 @@ export default function ProvaPage() {
 
   const handleIssueCertificate = useCallback(async () => {
     setLoading(true)
-    const res = await issueCertificate(courseId)
+    const certResult = await issueCertificate(courseId)
     setLoading(false)
-    if (res.ok) setCertCode(res.data.verificationCode)
-    else setError(res.error)
+    if (certResult.ok) setCertCode(certResult.data.verificationCode)
+    else setError(certResult.error)
   }, [courseId])
 
   if (authLoading || (loading && phase === "status" && !status)) {

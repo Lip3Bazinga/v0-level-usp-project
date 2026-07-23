@@ -464,9 +464,9 @@ export default function TeacherCourseEditPage() {
         setShowSuccessAnim(true)
         setTimeout(() => setSaved(false), 2500)
       }
-    } catch (e: any) {
-      await swalError({ title: "Erro ao salvar", text: e?.message ?? "Tente novamente." })
-      setError(e?.message ?? "Erro ao salvar.")
+    } catch (error) {
+      await swalError({ title: "Erro ao salvar", text: (error as Error)?.message ?? "Tente novamente." })
+      setError((error as Error)?.message ?? "Erro ao salvar.")
     } finally {
       setSaving(false)
     }
@@ -488,8 +488,8 @@ export default function TeacherCourseEditPage() {
         cid = created.id
         setCourseId(cid)
         router.replace(`/teacher/curso/${cid}`)
-      } catch (e: any) {
-        setError(e?.message ?? "Erro ao salvar."); setSaving(false); return
+      } catch (error) {
+        setError((error as Error)?.message ?? "Erro ao salvar."); setSaving(false); return
       } finally { setSaving(false) }
     }
 
@@ -498,8 +498,8 @@ export default function TeacherCourseEditPage() {
       const url = await uploadCourseCover(cid!, file)
       setCoverUrl(url)
       await updateCourse(cid!, { cover_image_url: url })
-    } catch (e: any) {
-      setError(e?.message ?? "Erro no upload.")
+    } catch (error) {
+      setError((error as Error)?.message ?? "Erro no upload.")
     } finally { setUploading(false) }
   }, [courseId, title, profile, buildForm, router])
 

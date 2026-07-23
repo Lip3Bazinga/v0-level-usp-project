@@ -7,11 +7,12 @@ import { useAuth } from "@/contexts/auth-context"
 import type { TeacherApproval } from "@/lib/supabase/types"
 import { getInitials, timeAgo } from "@/lib/utils"
 import { cn } from "@/lib/utils"
+import type { OnToast } from "@/lib/types"
 
 
 
 interface ApprovalsPageProps {
-  onToast: (msg: string, kind?: "success" | "danger" | "info" | "warning") => void
+  onToast: OnToast
 }
 
 export function ApprovalsPage({ onToast }: ApprovalsPageProps) {

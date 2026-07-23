@@ -10,6 +10,7 @@ import {
   type AdminExamQuestionInput,
 } from "@/lib/supabase/admin"
 import { CheckCircle2, ChevronDown, GraduationCap, Loader2, Pencil, Plus, X } from "lucide-react"
+import type { OnToast } from "@/lib/types"
 
 // Gestão do banco de questões da prova final. O gabarito só aparece aqui
 // (rota admin) — alunos nunca têm acesso à tabela exam_questions.
@@ -30,7 +31,7 @@ const EMPTY_FORM: AdminExamQuestionInput = {
   active: true,
 }
 
-export function ExamQuestionsAdminPage({ onToast }: { onToast: (msg: string, kind?: string) => void }) {
+export function ExamQuestionsAdminPage({ onToast }: { onToast: OnToast }) {
   const [exams, setExams] = useState<ExamOption[]>([])
   const [examId, setExamId] = useState<string>("")
   const [questions, setQuestions] = useState<AdminExamQuestion[]>([])

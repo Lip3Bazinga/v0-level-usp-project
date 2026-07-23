@@ -17,6 +17,7 @@ export type {
   Notification,
 } from "./platform"
 export type { ConsoleOutput, TestResult } from "./ide"
+export type { ToastKind, OnToast } from "./ui"
 export type { Note } from "./note"
 export type {
   ExamRow,

@@ -9,6 +9,7 @@ import {
 } from "@/lib/supabase/badges"
 import { badgeIcon, BADGE_ICON_NAMES } from "@/lib/badge-icons"
 import type { Badge, BadgeRarity, BadgeCriteriaType } from "@/lib/supabase/types"
+import type { OnToast } from "@/lib/types"
 
 const RARITY_LABEL: Record<BadgeRarity, string> = {
   common: "Comum", rare: "Raro", epic: "Épico", legendary: "Lendário",
@@ -35,7 +36,7 @@ const EMPTY: BadgeFormData = {
 }
 
 interface BadgesAdminPageProps {
-  onToast: (msg: string, kind?: string) => void
+  onToast: OnToast
 }
 
 export function BadgesAdminPage({ onToast }: BadgesAdminPageProps) {

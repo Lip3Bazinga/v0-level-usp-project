@@ -51,9 +51,9 @@ export default function DashboardPage() {
 
     for (const l of lessons) {
       if (l.course_id) {
-        const arr = lessonsByCourse.get(l.course_id) ?? []
-        arr.push(l)
-        lessonsByCourse.set(l.course_id, arr)
+        const courseLessons = lessonsByCourse.get(l.course_id) ?? []
+        courseLessons.push(l)
+        lessonsByCourse.set(l.course_id, courseLessons)
       } else {
         standalone.push(l)
       }

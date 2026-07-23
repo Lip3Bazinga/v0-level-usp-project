@@ -15,6 +15,7 @@ import {
 import type { Profile } from "@/lib/supabase/types"
 import { getInitials } from "@/lib/utils"
 import { cn } from "@/lib/utils"
+import type { OnToast } from "@/lib/types"
 
 
 function AvatarInitials({ name, role, size = 36 }: { name: string; role: string; size?: number }) {
@@ -37,7 +38,7 @@ function AvatarInitials({ name, role, size = 36 }: { name: string; role: string;
 interface UsersPageProps {
   users: Profile[]
   setUsers: (u: Profile[] | ((p: Profile[]) => Profile[])) => void
-  onToast: (msg: string, kind?: "success" | "danger" | "info" | "warning") => void
+  onToast: OnToast
   currentUserId?: string
 }
 
