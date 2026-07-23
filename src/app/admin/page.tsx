@@ -54,6 +54,7 @@ import {
   Menu,
 } from "lucide-react"
 import { cn, getInitials } from "@/lib/utils"
+import { SparkBar, Donut } from "@/components/admin/charts"
 
 // ── Types & helpers ───────────────────────────────────────────────────────────
 
@@ -74,52 +75,6 @@ type PageId =
 
 
 // ── Atoms ─────────────────────────────────────────────────────────────────────
-
-function SparkBar({
-  data, color = "#7C3AED", height = 32, width = 5, gap = 2,
-}: { data: number[]; color?: string; height?: number; width?: number; gap?: number }) {
-  const max = Math.max(...data, 1)
-  return (
-    <div className="flex items-end" style={{ height, gap }}>
-      {data.map((v, i) => (
-        <div key={i} className="rounded-t-sm"
-          style={{ height: `${(v / max) * 100}%`, width, background: `linear-gradient(to top, ${color}, ${color}77)`, minHeight: 2 }}
-          title={String(v)} />
-      ))}
-    </div>
-  )
-}
-
-function Donut({ data, size = 140, thickness = 16, label }: {
-  data: { value: number; color: string; name: string }[]
-  size?: number; thickness?: number; label?: string
-}) {
-  const total = data.reduce((s, d) => s + d.value, 0) || 1
-  const r = size / 2 - thickness / 2 - 4
-  const c = size / 2
-  const circ = 2 * Math.PI * r
-  let offset = 0
-  return (
-    <div className="relative inline-block" style={{ width: size, height: size }}>
-      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-        <circle cx={c} cy={c} r={r} fill="none" stroke="#F3E8FF" strokeWidth={thickness} />
-        {data.map((d, i) => {
-          const len = (d.value / total) * circ
-          const seg = (
-            <circle key={i} cx={c} cy={c} r={r} fill="none" stroke={d.color}
-              strokeWidth={thickness} strokeDasharray={`${len} ${circ}`} strokeDashoffset={-offset} />
-          )
-          offset += len
-          return seg
-        })}
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label ?? "Total"}</span>
-        <span className="text-2xl font-extrabold text-level-purple-dark">{total}</span>
-      </div>
-    </div>
-  )
-}
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 

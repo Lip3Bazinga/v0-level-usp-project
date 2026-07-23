@@ -11,47 +11,9 @@ import { Input } from "@/components/ui/input"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import type { ProjectFile } from "@/lib/supabase/types"
+import type { ProjectFile } from "@/lib/types"
 import { MAIN_FILE } from "@/contexts/ide-context"
-
-// ── Árvore derivada dos paths ─────────────────────────────────────────────────
-
-interface TreeNode {
-  name: string
-  path: string
-  type: "file" | "folder"
-  children: TreeNode[]
-}
-
-function buildTree(files: ProjectFile[]): TreeNode[] {
-  const root: TreeNode = { name: "", path: "", type: "folder", children: [] }
-
-  for (const file of files) {
-    const segments = file.path.split("/").filter(Boolean)
-    let node = root
-    let acc = ""
-    segments.forEach((seg, i) => {
-      acc = acc ? `${acc}/${seg}` : seg
-      const isFile = i === segments.length - 1
-      let child = node.children.find((c) => c.name === seg && c.type === (isFile ? "file" : "folder"))
-      if (!child) {
-        child = { name: seg, path: acc, type: isFile ? "file" : "folder", children: [] }
-        node.children.push(child)
-      }
-      node = child
-    })
-  }
-
-  const sort = (nodes: TreeNode[]): TreeNode[] => {
-    nodes.sort((a, b) => {
-      if (a.type !== b.type) return a.type === "folder" ? -1 : 1
-      return a.name.localeCompare(b.name)
-    })
-    nodes.forEach((n) => sort(n.children))
-    return nodes
-  }
-  return sort(root.children)
-}
+import { buildTree, type TreeNode } from "@/lib/utils/file-tree"
 
 const getFileIcon = (name: string) => {
   const ext = name.split(".").pop()?.toLowerCase()
