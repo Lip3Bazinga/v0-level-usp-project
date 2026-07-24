@@ -227,7 +227,7 @@ export default function LessonPage() {
   }
 
   return (
-    <IDEProvider lesson={lesson} allLessons={allLessons}>
+    <IDEProvider lesson={lesson}>
       <LessonWorkspace lesson={lesson} allLessons={allLessons} currentIndex={currentIndex} />
     </IDEProvider>
   )

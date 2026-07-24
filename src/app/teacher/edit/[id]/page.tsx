@@ -207,7 +207,7 @@ export default function TeacherEditPage() {
       setReqName(""); setReqDisplayName(""); setReqDescription(""); setReqUseCase("")
       setShowRequestModal(false)
     } catch {
-      swalError("Erro ao enviar requisição. Tente novamente.")
+      swalError({ title: "Erro ao enviar requisição", text: "Tente novamente." })
     } finally {
       setReqSending(false)
     }

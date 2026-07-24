@@ -9,7 +9,8 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import type { Lesson } from "@/lib/supabase/types"
+import type { Lesson } from "@/lib/types"
+import type { LessonSummary } from "@/lib/supabase/lessons"
 import { SuccessFeedback } from "@/components/ide/success-feedback"
 
 function isHtmlContent(text: string): boolean {
@@ -18,7 +19,7 @@ function isHtmlContent(text: string): boolean {
 
 interface TheoryLessonLayoutProps {
   lesson: Lesson
-  allLessons: Lesson[]
+  allLessons: LessonSummary[]
   currentIndex: number
   onComplete?: () => void
 }

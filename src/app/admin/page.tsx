@@ -477,6 +477,7 @@ export default function AdminPage() {
     analytics: "Analytics",
     courses:   "Cursos",
     lessons:   "Lições",
+    exams:     "Prova Final",
     modules:   "Módulos & trilhas",
     badges:    "Badges",
     users:     "Usuários",

@@ -247,7 +247,8 @@ export function RichTextEditor({
     if (!editor) return
     const current = editor.getHTML()
     if (current !== value) {
-      editor.commands.setContent(value, false)
+      // TipTap v3: o 2º arg virou objeto de opções (antes era emitUpdate booleano).
+      editor.commands.setContent(value, { emitUpdate: false })
     }
   }, [value, editor])
 
