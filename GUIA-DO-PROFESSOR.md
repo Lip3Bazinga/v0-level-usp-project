@@ -36,6 +36,25 @@ Só leitura, sem código. Escreva o conteúdo no **editor de texto rico** (títu
 negrito, listas, imagens, blocos de código ilustrativos). Use para conceitos,
 introduções de módulo e boas práticas.
 
+### Lição de questionário
+Múltipla escolha, sem IDE. No editor, escolha **❓ Questionário** em *Tipo de
+aula* — surge a aba **Questões**. Para cada pergunta você define:
+
+- **Enunciado** da questão.
+- **Alternativas** (mínimo 2) — clique no círculo à esquerda para marcar a
+  correta.
+- **Explicação** (opcional) — aparece para o aluno depois da correção,
+  independentemente de ele ter acertado.
+
+Em *Configurações* você define a **nota mínima** (padrão 70%). O aluno pode
+refazer quantas vezes quiser; o XP é creditado uma única vez, quando ele atinge
+a nota. O campo **Conteúdo** continua disponível: use para um texto curto de
+contexto antes das perguntas.
+
+> **Segurança:** o gabarito e as explicações ficam numa tabela protegida do
+> banco e **nunca são enviados ao navegador do aluno**. A correção acontece
+> apenas no servidor — mesmo modelo dos testes ocultos e da prova final.
+
 ### Lição de código
 O aluno programa num IDE com Python de verdade no navegador. Você define:
 

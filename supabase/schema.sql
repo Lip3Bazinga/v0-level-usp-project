@@ -236,7 +236,10 @@ CREATE TABLE IF NOT EXISTS public.lessons (
   hidden_tests     TEXT        NOT NULL DEFAULT '',
   libraries        TEXT[]      DEFAULT '{}',
   lesson_type      TEXT        NOT NULL DEFAULT 'coding'
-                               CHECK (lesson_type IN ('coding', 'theory')),
+                               CHECK (lesson_type IN ('coding', 'theory', 'quiz')),
+  -- Nota mínima (%) para concluir uma lição do tipo 'quiz'
+  quiz_passing_score INTEGER   NOT NULL DEFAULT 70
+                               CHECK (quiz_passing_score BETWEEN 1 AND 100),
   xp_reward        INTEGER     NOT NULL DEFAULT 50,
   time_limit       INTEGER     NOT NULL DEFAULT 300,
   published        BOOLEAN     NOT NULL DEFAULT false,
@@ -606,6 +609,33 @@ CREATE TRIGGER notes_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.update_notes_updated_at();
 
 -- ══════════════════════════════════════════════════════════════════════════════
+-- 15b. LESSON_QUIZ_QUESTIONS (lições do tipo 'quiz')
+-- ══════════════════════════════════════════════════════════════════════════════
+-- Mesmo modelo de segurança de exam_questions: RLS deny-all + REVOKE, o gabarito
+-- (correct_index) só é lido pelo service role na rota de correção, ou pelo
+-- professor dono da lição via RPC get_lesson_quiz_questions.
+
+CREATE TABLE IF NOT EXISTS public.lesson_quiz_questions (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  lesson_id     UUID        NOT NULL REFERENCES public.lessons(id) ON DELETE CASCADE,
+  prompt        TEXT        NOT NULL,
+  options       JSONB       NOT NULL DEFAULT '[]',
+  correct_index INTEGER     NOT NULL CHECK (correct_index >= 0),
+  explanation   TEXT        NOT NULL DEFAULT '',
+  sort_order    INTEGER     NOT NULL DEFAULT 0,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS lesson_quiz_questions_lesson_idx
+  ON public.lesson_quiz_questions (lesson_id, sort_order);
+
+ALTER TABLE public.lesson_quiz_questions ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.lesson_quiz_questions FROM anon, authenticated;
+
+-- RPCs: get_lesson_quiz_questions(uuid) e replace_lesson_quiz_questions(uuid, jsonb)
+-- definidas em supabase/migrations/20260724_add_quiz_lesson_type.sql
+
+-- ══════════════════════════════════════════════════════════════════════════════
 -- 16. EXAMS + 17. EXAM_QUESTIONS + 18. EXAM_ATTEMPTS + 19. CERTIFICATES
 -- ══════════════════════════════════════════════════════════════════════════════
 -- exam_questions: RLS deny-all para clientes — gabarito só via service role.
@@ -908,8 +938,8 @@ REVOKE SELECT ON public.lessons FROM anon, authenticated;
 GRANT SELECT (
   id, title, slug, module, module_id, "order", difficulty, description,
   content_markdown, starter_code, starter_files, checkpoints, libraries,
-  lesson_type, xp_reward, time_limit, published, course_id, created_by,
-  created_at, updated_at
+  lesson_type, quiz_passing_score, xp_reward, time_limit, published, course_id,
+  created_by, created_at, updated_at
 ) ON public.lessons TO anon, authenticated;
 
 -- ══════════════════════════════════════════════════════════════════════════════

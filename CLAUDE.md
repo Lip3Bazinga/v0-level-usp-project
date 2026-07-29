@@ -7,10 +7,12 @@ avaliador server-side em Vercel Python Function. UI, commits e comentários em
 
 ## Invariantes de segurança (NUNCA violar)
 
-1. `lessons.hidden_tests` e `exam_questions.correct_index` **nunca** chegam ao
-   cliente. Grants por coluna + RLS deny-all garantem isso no banco.
+1. `lessons.hidden_tests`, `exam_questions.correct_index` e
+   `lesson_quiz_questions.correct_index` **nunca** chegam ao cliente. Grants por
+   coluna + RLS deny-all garantem isso no banco.
 2. Correção oficial só no servidor: código em `api/evaluate.py` (Python
-   Function na raiz `api/`, NÃO em `app/api/`); prova em `app/api/exam/*`.
+   Function na raiz `api/`, NÃO em `app/api/`); prova em `app/api/exam/*`;
+   questionário de lição em `app/api/lesson-quiz/[lessonId]/submit`.
 3. `select("*")` em `lessons` FALHA por design — use `PUBLIC_LESSON_FIELDS`
    (`lib/supabase/lessons.ts`).
 4. Schema: apenas DDL aditivo (nunca DROP com dados); aplicar via MCP Supabase

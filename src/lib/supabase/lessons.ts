@@ -21,8 +21,8 @@ export function generateSlug(title: string): string {
 export const PUBLIC_LESSON_FIELDS = [
   "id", "title", "slug", "module", "module_id", "order", "difficulty", "description",
   "content_markdown", "starter_code", "starter_files", "checkpoints", "libraries",
-  "xp_reward", "time_limit", "lesson_type", "course_id", "created_by", "published",
-  "created_at", "updated_at",
+  "xp_reward", "time_limit", "lesson_type", "quiz_passing_score", "course_id",
+  "created_by", "published", "created_at", "updated_at",
 ].join(", ")
 
 // Campos de LISTAGEM (sem conteúdo pesado) — para navegação, dashboards e
@@ -235,7 +235,8 @@ export type LessonFormData = {
   libraries: string[]
   xp_reward: number
   time_limit: number
-  lesson_type: "coding" | "theory"
+  lesson_type: "coding" | "theory" | "quiz"
+  quiz_passing_score: number
   published: boolean
   course_id?: string | null
 }

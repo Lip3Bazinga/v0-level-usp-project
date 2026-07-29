@@ -15,6 +15,7 @@ import { fetchPublishedLessonSummaries, fetchLessonById, type LessonSummary } fr
 import type { Lesson } from "@/lib/supabase/types"
 import { Loader2, BookOpen } from "lucide-react"
 import { TheoryLessonLayout } from "@/components/ide/theory-lesson-layout"
+import { QuizLessonLayout } from "@/components/ide/quiz-lesson-layout"
 
 // ── Layout interno (consome o IDEContext) ──────────────────────────────────────
 
@@ -210,6 +211,18 @@ export default function LessonPage() {
           Voltar ao Dashboard
         </button>
       </div>
+    )
+  }
+
+  // Questionário: múltipla escolha, correção server-side, sem IDE
+  if (lesson.lesson_type === "quiz") {
+    return (
+      <QuizLessonLayout
+        key={lesson.id}
+        lesson={lesson}
+        allLessons={allLessons}
+        currentIndex={currentIndex}
+      />
     )
   }
 

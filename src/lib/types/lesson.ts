@@ -27,7 +27,9 @@ export interface Lesson {
   libraries: string[] | null
   xp_reward: number
   time_limit: number
-  lesson_type: "coding" | "theory"
+  lesson_type: "coding" | "theory" | "quiz"
+  /** Nota mínima (%) para concluir uma lição do tipo quiz. */
+  quiz_passing_score: number
   course_id: string | null
   module_id: string | null
   created_by: string | null

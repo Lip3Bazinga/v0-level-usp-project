@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation"
 import {
   ArrowLeft, Save, Eye, EyeOff, Plus, BookOpen, Code2, FlaskConical,
   CheckCircle2, AlertCircle, X, FileText, Loader2, GraduationCap,
-  ListChecks, Trash2, ChevronUp, ChevronDown, Settings, Package,
+  ListChecks, Trash2, ChevronUp, ChevronDown, Settings, Package, HelpCircle,
 } from "lucide-react"
 import { LevelButton } from "@/components/design-system/level-button"
 import { Badge } from "@/components/ui/badge"
@@ -29,6 +29,11 @@ import { TeacherSuccessModal } from "@/components/gamification/teacher-success-m
 import { swalConfirm, swalError } from "@/lib/swal"
 import { RichTextEditor } from "@/components/editor/rich-text-editor"
 import { LessonContentPreview } from "@/components/editor/lesson-content-preview"
+import {
+  fetchQuizQuestionsForTeacher,
+  replaceQuizQuestions,
+  type QuizQuestionFull,
+} from "@/lib/supabase/lesson-quiz"
 
 // ── Labels de categoria ────────────────────────────────────────────────────────
 
@@ -77,16 +82,25 @@ const DEFAULT_CONTENT = `<h3 class="text-base font-semibold text-foreground mb-3
 
 // ── Abas de navegação do editor ────────────────────────────────────────────────
 
+type LessonType = "coding" | "theory" | "quiz"
+
+const ALL_TYPES = ["coding", "theory", "quiz"] as const
+const CODING_ONLY = ["coding"] as const
+
 const EDITOR_TABS = [
-  { id: "config",      label: "Configurações", icon: Settings,     codingOnly: false },
-  { id: "conteudo",    label: "Conteúdo",      icon: FileText,     codingOnly: false },
-  { id: "exercicio",   label: "Exercício",     icon: Code2,        codingOnly: true },
-  { id: "testes",      label: "Testes",        icon: FlaskConical, codingOnly: true },
-  { id: "checkpoints", label: "Checkpoints",   icon: ListChecks,   codingOnly: true },
-  { id: "libs",        label: "Bibliotecas",   icon: Package,      codingOnly: true },
+  { id: "config",      label: "Configurações", icon: Settings,     types: ALL_TYPES },
+  { id: "conteudo",    label: "Conteúdo",      icon: FileText,     types: ALL_TYPES },
+  { id: "questoes",    label: "Questões",      icon: HelpCircle,   types: ["quiz"] as const },
+  { id: "exercicio",   label: "Exercício",     icon: Code2,        types: CODING_ONLY },
+  { id: "testes",      label: "Testes",        icon: FlaskConical, types: CODING_ONLY },
+  { id: "checkpoints", label: "Checkpoints",   icon: ListChecks,   types: CODING_ONLY },
+  { id: "libs",        label: "Bibliotecas",   icon: Package,      types: CODING_ONLY },
 ] as const
 
 type EditorTab = (typeof EDITOR_TABS)[number]["id"]
+
+const isTabVisible = (tab: (typeof EDITOR_TABS)[number], type: LessonType) =>
+  (tab.types as readonly string[]).includes(type)
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
@@ -110,16 +124,20 @@ export default function TeacherEditPage() {
   const [libraries, setLibraries]   = useState<string[]>([])
   const [xpReward, setXpReward]     = useState(50)
   const [timeLimit, setTimeLimit]   = useState(0)
-  const [lessonType, setLessonType] = useState<"coding" | "theory">("coding")
+  const [lessonType, setLessonType] = useState<LessonType>("coding")
   const [courseId, setCourseId]     = useState<string | null>(null)
   const [editorTab, setEditorTab]   = useState<EditorTab>("config")
   const [showPreview, setShowPreview] = useState(true)
 
-  // Se a lição virar teórica numa aba só de código, volta para uma aba válida
+  // Questionário (só para lessonType === "quiz")
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestionFull[]>([])
+  const [quizPassingScore, setQuizPassingScore] = useState(70)
+  const [quizLoading, setQuizLoading] = useState(false)
+
+  // Se o tipo mudar e a aba atual não existir mais, volta para uma aba válida
   useEffect(() => {
-    if (lessonType === "theory" && editorTab !== "config" && editorTab !== "conteudo") {
-      setEditorTab("conteudo")
-    }
+    const current = EDITOR_TABS.find((t) => t.id === editorTab)
+    if (current && !isTabVisible(current, lessonType)) setEditorTab("conteudo")
   }, [lessonType, editorTab])
 
   // Cursos do professor para o seletor
@@ -181,8 +199,20 @@ export default function TeacherEditPage() {
       setXpReward(lesson.xp_reward)
       setTimeLimit(lesson.time_limit)
       setLessonType(lesson.lesson_type ?? "coding")
+      setQuizPassingScore(lesson.quiz_passing_score ?? 70)
       setCourseId((lesson as any).course_id ?? null)
       setLoading(false)
+
+      if (lesson.lesson_type === "quiz") {
+        setQuizLoading(true)
+        try {
+          setQuizQuestions(await fetchQuizQuestionsForTeacher(lesson.id))
+        } catch {
+          setError("Não foi possível carregar as questões do questionário.")
+        } finally {
+          setQuizLoading(false)
+        }
+      }
     }
     load()
   }, [isNew, params.id])
@@ -290,6 +320,77 @@ export default function TeacherEditPage() {
       return copy
     })
 
+  // ── Questões do questionário ────────────────────────────────────────────────
+  const addQuizQuestion = () =>
+    setQuizQuestions((prev) => [
+      ...prev,
+      {
+        id: `novo-${Date.now()}-${prev.length}`,
+        prompt: "",
+        options: ["", ""],
+        correct_index: 0,
+        explanation: "",
+        sort_order: prev.length,
+      },
+    ])
+
+  const updateQuizQuestion = (id: string, patch: Partial<QuizQuestionFull>) =>
+    setQuizQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q)))
+
+  const removeQuizQuestion = (id: string) =>
+    setQuizQuestions((prev) => prev.filter((q) => q.id !== id))
+
+  const moveQuizQuestion = (id: string, dir: -1 | 1) =>
+    setQuizQuestions((prev) => {
+      const idx = prev.findIndex((q) => q.id === id)
+      const next = idx + dir
+      if (idx < 0 || next < 0 || next >= prev.length) return prev
+      const copy = [...prev]
+      ;[copy[idx], copy[next]] = [copy[next], copy[idx]]
+      return copy
+    })
+
+  const updateQuizOption = (id: string, optIdx: number, value: string) =>
+    setQuizQuestions((prev) =>
+      prev.map((q) =>
+        q.id === id
+          ? { ...q, options: q.options.map((o, i) => (i === optIdx ? value : o)) }
+          : q
+      )
+    )
+
+  const addQuizOption = (id: string) =>
+    setQuizQuestions((prev) =>
+      prev.map((q) => (q.id === id ? { ...q, options: [...q.options, ""] } : q))
+    )
+
+  const removeQuizOption = (id: string, optIdx: number) =>
+    setQuizQuestions((prev) =>
+      prev.map((q) => {
+        if (q.id !== id || q.options.length <= 2) return q
+        const options = q.options.filter((_, i) => i !== optIdx)
+        const correct_index =
+          q.correct_index === optIdx ? 0
+          : q.correct_index > optIdx ? q.correct_index - 1
+          : q.correct_index
+        return { ...q, options, correct_index }
+      })
+    )
+
+  /** Valida o questionário antes de salvar; retorna a mensagem de erro ou null. */
+  const validateQuiz = (): string | null => {
+    if (lessonType !== "quiz") return null
+    if (quizQuestions.length === 0) return "Adicione pelo menos uma questão ao questionário."
+    for (const [i, q] of quizQuestions.entries()) {
+      if (!q.prompt.trim()) return `Questão ${i + 1}: o enunciado é obrigatório.`
+      if (q.options.length < 2) return `Questão ${i + 1}: são necessárias ao menos 2 alternativas.`
+      if (q.options.some((o) => !o.trim())) return `Questão ${i + 1}: há alternativas vazias.`
+      if (q.correct_index < 0 || q.correct_index >= q.options.length)
+        return `Questão ${i + 1}: marque a alternativa correta.`
+    }
+    return null
+  }
+
   const buildFormData = (published: boolean): LessonFormData => ({
     title,
     description,
@@ -305,6 +406,7 @@ export default function TeacherEditPage() {
     libraries,
     xp_reward: xpReward,
     time_limit: timeLimit,
+    quiz_passing_score: quizPassingScore,
     published,
     course_id: courseId || null,
   })
@@ -315,6 +417,12 @@ export default function TeacherEditPage() {
       return
     }
     if (!profile) return
+
+    const quizError = validateQuiz()
+    if (quizError) {
+      await swalError({ title: "Questionário incompleto", text: quizError })
+      return
+    }
 
     if (published && !isNew) {
       const confirmed = await swalConfirm({
@@ -329,14 +437,31 @@ export default function TeacherEditPage() {
     setSaving(true)
     setError(null)
     try {
+      // As questões vivem em tabela própria (gabarito nunca vai ao cliente aluno);
+      // gravamos após persistir a lição, via RPC transacional.
+      const saveQuiz = async (lessonId: string) => {
+        if (lessonType !== "quiz") return
+        await replaceQuizQuestions(
+          lessonId,
+          quizQuestions.map((q) => ({
+            prompt: q.prompt,
+            options: q.options,
+            correct_index: q.correct_index,
+            explanation: q.explanation,
+          }))
+        )
+      }
+
       if (isNew) {
         const created = await createLesson(buildFormData(published), profile.id)
+        await saveQuiz(created.id)
         setSaved(true)
         setLessonIdForView(created.id)
         setShowSuccessAnim(true)
         router.replace(`/teacher/edit/${created.id}`)
       } else {
         await updateLesson(params.id as string, buildFormData(published))
+        await saveQuiz(params.id as string)
         setSaved(true)
         setShowSuccessAnim(true)
         setTimeout(() => setSaved(false), 2500)
@@ -348,7 +473,7 @@ export default function TeacherEditPage() {
       setSaving(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, description, module, order, difficulty, content, starterCode, starterFiles, hiddenTests, checkpoints, libraries, xpReward, timeLimit, profile, isNew, params.id])
+  }, [title, description, module, order, difficulty, content, starterCode, starterFiles, hiddenTests, checkpoints, libraries, xpReward, timeLimit, lessonType, quizQuestions, quizPassingScore, courseId, profile, isNew, params.id])
 
   if (loading) {
     return (
@@ -430,7 +555,7 @@ export default function TeacherEditPage() {
         {/* Navegação horizontal por abas */}
         <div className="sticky top-16 z-40 -mx-6 mb-8 border-b border-border bg-white/95 px-6 backdrop-blur">
           <div className="flex items-center gap-1 overflow-x-auto">
-            {EDITOR_TABS.filter((t) => !t.codingOnly || lessonType === "coding").map((tab) => {
+            {EDITOR_TABS.filter((t) => isTabVisible(t, lessonType)).map((tab) => {
               const active = editorTab === tab.id
               const Icon = tab.icon
               return (
@@ -590,6 +715,7 @@ export default function TeacherEditPage() {
                     {([
                       { value: "coding", label: "💻 Com IDE", desc: "Aluno escreve código" },
                       { value: "theory", label: "📖 Teórica", desc: "Só leitura, sem IDE" },
+                      { value: "quiz",   label: "❓ Questionário", desc: "Múltipla escolha" },
                     ] as const).map((t) => (
                       <button
                         key={t.value}
@@ -606,6 +732,30 @@ export default function TeacherEditPage() {
                     ))}
                   </div>
                 </div>
+
+                {/* Nota mínima — só para questionário */}
+                {lessonType === "quiz" && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-level-purple-dark">
+                      Nota mínima para concluir
+                    </label>
+                    <div className="relative max-w-[200px]">
+                      <input
+                        type="number"
+                        value={quizPassingScore}
+                        onChange={(e) =>
+                          setQuizPassingScore(Math.min(100, Math.max(1, parseInt(e.target.value) || 1)))
+                        }
+                        min={1} max={100} step={5}
+                        className="w-full rounded-xl border-2 border-border bg-white px-4 py-3 pr-10 text-foreground focus:border-level-purple focus:outline-none transition-colors"
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-level-purple">%</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      O aluno pode refazer quantas vezes quiser; o XP é creditado uma única vez ao atingir a nota.
+                    </p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -683,6 +833,163 @@ export default function TeacherEditPage() {
                     </h2>
                     <LessonContentPreview content={content} />
                   </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Aba: Questões (questionário de múltipla escolha) ── */}
+        {editorTab === "questoes" && lessonType === "quiz" && (
+          <div className="mx-auto max-w-3xl">
+            <div className="rounded-2xl border-2 border-border bg-white p-6">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple-light">
+                    <HelpCircle className="h-5 w-5 text-level-purple" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-level-purple-dark">Questões</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Múltipla escolha · correção no servidor · nota mínima {quizPassingScore}%
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={addQuizQuestion}
+                  className="flex shrink-0 items-center gap-1.5 rounded-xl border-2 border-level-purple bg-level-purple-subtle px-3 py-2 text-sm font-semibold text-level-purple transition-colors hover:bg-level-purple-light"
+                >
+                  <Plus className="h-4 w-4" /> Adicionar questão
+                </button>
+              </div>
+
+              <div className="mb-4 flex items-start gap-2 rounded-xl bg-level-purple-subtle px-4 py-3">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-level-purple" />
+                <p className="text-xs text-level-purple-dark">
+                  O gabarito e as explicações ficam em uma tabela protegida no banco e{" "}
+                  <strong>nunca são enviados ao navegador do aluno</strong> — a correção acontece
+                  apenas no servidor.
+                </p>
+              </div>
+
+              {quizLoading ? (
+                <div className="space-y-2">
+                  {[0, 1].map((i) => <div key={i} className="h-28 animate-pulse rounded-xl bg-muted/50" />)}
+                </div>
+              ) : quizQuestions.length === 0 ? (
+                <div className="rounded-xl border-2 border-dashed border-border py-8 text-center">
+                  <HelpCircle className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">
+                    Nenhuma questão ainda. Adicione a primeira pergunta do questionário.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {quizQuestions.map((q, idx) => (
+                    <div key={q.id} className="rounded-xl border-2 border-border p-4">
+                      <div className="mb-3 flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-level-purple">
+                          Questão {idx + 1}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button type="button" onClick={() => moveQuizQuestion(q.id, -1)} disabled={idx === 0}
+                            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-30">
+                            <ChevronUp className="h-4 w-4" />
+                          </button>
+                          <button type="button" onClick={() => moveQuizQuestion(q.id, 1)} disabled={idx === quizQuestions.length - 1}
+                            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-30">
+                            <ChevronDown className="h-4 w-4" />
+                          </button>
+                          <button type="button" onClick={() => removeQuizQuestion(q.id)}
+                            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-destructive hover:bg-destructive/10">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Enunciado
+                          </label>
+                          <textarea
+                            value={q.prompt}
+                            onChange={(e) => updateQuizQuestion(q.id, { prompt: e.target.value })}
+                            rows={2}
+                            placeholder="Ex: Qual é o resultado de len('Python')?"
+                            className="w-full resize-none rounded-xl border-2 border-border px-3 py-2 text-sm focus:border-level-purple focus:outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="mb-1 flex items-center justify-between">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                              Alternativas — clique no círculo para marcar a correta
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => addQuizOption(q.id)}
+                              className="cursor-pointer text-xs font-semibold text-level-purple hover:underline"
+                            >
+                              + alternativa
+                            </button>
+                          </div>
+                          <div className="space-y-2">
+                            {q.options.map((opt, oi) => {
+                              const correct = q.correct_index === oi
+                              return (
+                                <div key={oi} className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => updateQuizQuestion(q.id, { correct_index: oi })}
+                                    title="Marcar como correta"
+                                    className={`flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors ${
+                                      correct
+                                        ? "border-success bg-success text-white"
+                                        : "border-border text-transparent hover:border-success"
+                                    }`}
+                                  >
+                                    <CheckCircle2 className="h-4 w-4" />
+                                  </button>
+                                  <input
+                                    value={opt}
+                                    onChange={(e) => updateQuizOption(q.id, oi, e.target.value)}
+                                    placeholder={`Alternativa ${String.fromCharCode(65 + oi)}`}
+                                    className={`w-full rounded-xl border-2 px-3 py-2 text-sm focus:outline-none ${
+                                      correct
+                                        ? "border-success/50 bg-success/5 focus:border-success"
+                                        : "border-border focus:border-level-purple"
+                                    }`}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeQuizOption(q.id, oi)}
+                                    disabled={q.options.length <= 2}
+                                    className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-30"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Explicação (mostrada após a correção)
+                          </label>
+                          <input
+                            value={q.explanation}
+                            onChange={(e) => updateQuizQuestion(q.id, { explanation: e.target.value })}
+                            placeholder="Ex: len() conta os caracteres da string, e 'Python' tem 6."
+                            className="w-full rounded-xl border-2 border-border px-3 py-2 text-sm focus:border-level-purple focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

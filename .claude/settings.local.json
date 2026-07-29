@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "Bash",
       "Read(//c/Users/Filip/OneDrive/Área de Trabalho/matheus_projeto/v0-level-usp-project/components/design-system/**)",
       "Bash(grep -n \"TODO\\\\|FIXME\\\\|stub\\\\|XXX\\\\|placeholder\\\\|mock\\\\|hardcoded\" \"c:\\\\Users\\\\Filip\\\\OneDrive\\\\Área de Trabalho\\\\matheus_projeto\\\\v0-level-usp-project\\\\app\\\\teacher\\\\curso\\\\[id]\\\\page.tsx\" 2>/dev/null)",
       "Read(//c/Users/Filip/OneDrive/Área de Trabalho/matheus_projeto/v0-level-usp-project/app/teacher/curso/[id]/**)",
@@ -12,6 +13,18 @@
       "Bash(python3)",
       "Bash(awk '/Preview ao vivo/,/^    \\\\\\)/' app/teacher/curso/[id]/page.tsx)",
       "Bash(awk '/^function CoursePreview/,/^  return \\\\\\(/' app/teacher/curso/[id]/page.tsx)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(rm -fr:*)",
+      "Bash(sudo:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean:*)",
+      "Bash(dd:*)",
+      "Bash(mkfs:*)",
+      "Bash(chmod -R:*)"
     ]
   }
 }

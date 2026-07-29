@@ -11,7 +11,10 @@
       "Bash(Remove-Item \"c:\\\\Users\\\\filip\\\\OneDrive\\\\Área de Trabalho\\\\matheus_projeto\\\\v0-level-usp-project\\\\app\\\\admin\\\\admin-crud.tsx\" -Force)",
       "Bash(Write-Output \"OK\")",
       "mcp__claude_ai_Supabase__list_tables",
-      "mcp__claude_ai_Supabase__apply_migration"
+      "mcp__claude_ai_Supabase__apply_migration",
+      "Bash(python3 -)",
+      "Bash(grep -vE \"as never|as any|as unknown|as Lesson|as Course|as Badge|^\\\\+\\\\s*$|^-\\\\s*$\")",
+      "Bash(git checkout *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\filip\\OneDrive\\�rea de Trabalho\\matheus_projeto\\v0-level-usp-project\\public\\pyodide\\v0.25.1",
