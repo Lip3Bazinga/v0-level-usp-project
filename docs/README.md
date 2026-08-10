@@ -18,6 +18,7 @@ Esta pasta reúne a documentação técnica completa do projeto, escrita para de
 | 07 | [Setup e deploy](./07-setup-e-deploy.md) | Ambiente local, variáveis, build, deploy na Vercel |
 | 08 | [Roadmap técnico](./08-roadmap-tecnico.md) | Dívidas técnicas conhecidas e evolução planejada |
 | 09 | [Prova final e certificação](./09-prova-certificacao.md) | Exames, tentativas, emissão de certificado, verificação pública |
+| 10 | [Auditoria 2026-08-03](./10-auditoria-2026-08-03.md) | Achados de segurança e funcionais, correções aplicadas e pendências |
 
 > Guia **não-técnico** para professores/criadores de conteúdo: [`GUIA-DO-PROFESSOR.md`](../GUIA-DO-PROFESSOR.md) na raiz do projeto.
 

@@ -123,6 +123,20 @@ export async function fetchUserEnrollments(userId: string): Promise<string[]> {
 
 // ── CRUD de cursos ────────────────────────────────────────────────────────────
 
+/**
+ * Traduz erros do PostgREST em mensagens acionáveis. Sem isto, uma violação de
+ * RLS chega à interface como "new row violates row-level security policy",
+ * que não diz ao professor o que fazer.
+ */
+function describeCourseError(error: { code?: string; message?: string }): string {
+  const code = error.code ?? ""
+  if (code === "42501" || /row-level security/i.test(error.message ?? "")) {
+    return "Sem permissão para criar cursos. Apenas contas de professor ou administrador podem criar cursos — confirme seu papel na plataforma."
+  }
+  if (code === "23505") return "Já existe um curso com esses dados."
+  return error.message ?? "Erro ao salvar o curso."
+}
+
 /** Cria um novo curso e retorna o registro. */
 export async function createCourse(
   data: CourseFormData,
@@ -134,7 +148,7 @@ export async function createCourse(
     .insert({ ...data, created_by: userId })
     .select()
     .single()
-  if (error) throw error
+  if (error) throw new Error(describeCourseError(error))
   return created as Course
 }
 

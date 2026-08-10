@@ -1,21 +1,34 @@
 """
 POST /api/evaluate — Vercel Python Function.
 Autentica o aluno via Supabase JWT, busca hidden_tests via service role,
-executa código + testes no servidor (env limpo, timeout) e retorna só o resultado.
-O gabarito nunca sai do backend.
+executa código + testes num SUBPROCESSO ISOLADO e retorna só o resultado.
+
+Modelo de isolamento (importante):
+  O código do aluno NUNCA roda no processo do handler. Ele roda num
+  interpretador novo, iniciado com um env mínimo que não contém nenhuma
+  chave do Supabase. Assim, mesmo que o aluno execute código arbitrário,
+  não há service role key alcançável na memória daquele processo — nem via
+  os.environ, nem via globais de módulo, nem via sys.modules.
+
+  Antes desta versão o exec() acontecia no mesmo processo do handler, e as
+  chaves — lidas para globais de módulo no import — continuavam alcançáveis
+  mesmo com os.environ limpo. Ver docs/10-auditoria-2026-08-03.md, item 1.
+
+Defesa em profundidade:
+  1. Subprocesso com env sem segredos (barreira principal).
+  2. Timeout com kill real do processo (o modelo antigo com thread daemon
+     devolvia 408 mas deixava o loop infinito queimando CPU).
+  3. Redação de segredos em tudo que volta ao cliente, por valor e por
+     formato (JWT), caso algum caminho inesperado inclua um segredo.
 """
 
 import json
 import os
 import re
 import sys
-import io
-import ast
-import unittest
-import builtins
-import threading
+import subprocess
 import tempfile
-import contextlib
+import shutil
 import urllib.request
 from http.server import BaseHTTPRequestHandler
 
@@ -25,6 +38,40 @@ ANON_KEY = os.environ.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY") or os.environ.
 
 MAX_BODY_BYTES = 200_000
 
+RATE_LIMIT_MAX = 12        # avaliações permitidas...
+RATE_LIMIT_WINDOW_S = 60   # ...por janela de 60s, por usuário
+
+
+# ── Redação de segredos ───────────────────────────────────────────────────────
+
+_JWT_RE = re.compile(r"eyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}")
+_SBKEY_RE = re.compile(r"sb_(secret|publishable)_[A-Za-z0-9_\-]{8,}")
+
+
+def redact(text):
+    """Remove segredos conhecidos (por valor) e credenciais por formato.
+    Última linha de defesa: nada que volte ao cliente deve conter chave."""
+    if not text:
+        return text
+    out = str(text)
+    for secret in (SERVICE_ROLE_KEY, ANON_KEY):
+        if secret and len(secret) > 8:
+            out = out.replace(secret, "[REDACTED]")
+    if SUPABASE_URL:
+        out = out.replace(SUPABASE_URL, "[REDACTED]")
+    out = _JWT_RE.sub("[REDACTED]", out)
+    out = _SBKEY_RE.sub("[REDACTED]", out)
+    return out
+
+
+def redact_result(result):
+    result["failureDetails"] = [
+        redact(d)[:2000] for d in (result.get("failureDetails") or [])
+    ]
+    return result
+
+
+# ── Supabase (só no processo pai — nunca no subprocesso do aluno) ─────────────
 
 def _supabase_get(path, token):
     req = urllib.request.Request(
@@ -55,15 +102,10 @@ def _supabase_post(path, token, payload):
         return resp.status
 
 
-RATE_LIMIT_MAX = 12        # avaliações permitidas...
-RATE_LIMIT_WINDOW_S = 60   # ...por janela de 60s, por usuário
-
-
 def check_rate_limit(user_id):
     """Janela deslizante sobre public.rate_limits (service role ignora RLS).
-    Retorna True se a avaliação pode prosseguir. Fail-open: qualquer erro
-    no rate limit (rede, tabela ausente etc.) NUNCA bloqueia a avaliação —
-    o custo de deixar passar é menor que o de travar todos os alunos."""
+    Fail-open: qualquer erro no rate limit NUNCA bloqueia a avaliação — o custo
+    de deixar passar é menor que o de travar todos os alunos."""
     try:
         import datetime
         since = (
@@ -109,29 +151,42 @@ def fetch_lesson(lesson_id):
         return None
 
 
-@contextlib.contextmanager
-def scrubbed_env():
-    """Esvazia os env vars durante a execução do código do aluno para impedir
-    exfiltração de segredos (service role key etc.)."""
-    saved = dict(os.environ)
-    try:
-        os.environ.clear()
-        yield
-    finally:
-        os.environ.update(saved)
+def _err_result(msg):
+    return {"testsRun": 0, "passed": 0, "failures": 0, "errors": 1,
+            "allPassed": False, "failureDetails": [msg]}
 
 
-def _exec_student(files):
-    """Escreve os arquivos num tempdir, executa main.py e retorna o namespace."""
+# ── Runner executado no subprocesso ───────────────────────────────────────────
+# Mantido como string e escrito em disco na hora: evita que a Vercel trate o
+# arquivo como uma function adicional em api/, e garante que ele acompanhe o
+# bundle sem configuração extra.
+
+RUNNER_SOURCE = r'''
+import sys, os, io, ast, json, unittest, builtins, contextlib
+
+payload = json.loads(sys.stdin.read())
+files = payload["files"]
+test_code = payload["test_code"]
+result_path = payload["result_path"]
+work_dir = payload["work_dir"]
+
+
+def err_result(msg):
+    return {"testsRun": 0, "passed": 0, "failures": 0, "errors": 1,
+            "allPassed": False, "failureDetails": [str(msg)]}
+
+
+def exec_student():
     ns = {"__name__": "__main__"}
-    tmp = tempfile.mkdtemp(prefix="lvlusp_")
     entry_src = None
     for f in files:
         path = f.get("path", "")
         if not path or ".." in path or path.startswith("/"):
             continue
-        full = os.path.join(tmp, path)
-        os.makedirs(os.path.dirname(full), exist_ok=True)
+        full = os.path.join(work_dir, path)
+        parent = os.path.dirname(full)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
         with open(full, "w", encoding="utf-8") as fh:
             fh.write(f.get("content", ""))
         if path == "main.py" or entry_src is None:
@@ -139,38 +194,27 @@ def _exec_student(files):
     if entry_src is None:
         return None, "Nenhum arquivo para executar."
 
-    sys.path.insert(0, tmp)
+    sys.path.insert(0, work_dir)
     cap = io.StringIO()
     try:
         with contextlib.redirect_stdout(cap), contextlib.redirect_stderr(io.StringIO()):
             exec(compile(entry_src, "main.py", "exec"), ns)
     except Exception as e:
-        return None, f"{type(e).__name__}: {e}"
-    finally:
-        try:
-            sys.path.remove(tmp)
-        except ValueError:
-            pass
+        return None, "%s: %s" % (type(e).__name__, e)
     # Sentinelas disponíveis para os hidden_tests (mesmo contrato do worker Pyodide)
     ns["_stdout"] = cap.getvalue()
     ns["_source"] = entry_src
     return ns, None
 
 
-def _err_result(msg):
-    return {"testsRun": 0, "passed": 0, "failures": 0, "errors": 1,
-            "allPassed": False, "failureDetails": [msg]}
-
-
-def run_unittest(ns, test_code):
+def run_unittest(ns):
     ns["AssertionError"] = builtins.AssertionError
     ns["unittest"] = unittest
     ns["__builtins__"] = builtins
-
     try:
         exec(compile(test_code, "<tests>", "exec"), ns)
     except Exception as e:
-        return _err_result(str(e))
+        return err_result(e)
 
     suite = unittest.TestSuite()
     loader = unittest.TestLoader()
@@ -182,7 +226,8 @@ def run_unittest(ns, test_code):
             pass
 
     buf = io.StringIO()
-    res = unittest.TextTestRunner(stream=buf, verbosity=2).run(suite)
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        res = unittest.TextTestRunner(stream=buf, verbosity=2).run(suite)
 
     failures = []
     for t, tb in res.failures + res.errors:
@@ -191,7 +236,7 @@ def run_unittest(ns, test_code):
         msg = (assert_line or (lines[-1] if lines else str(t)))
         msg = msg.replace("AssertionError: ", "").strip() or "Resposta incorreta."
         test_name = t.id().split(".")[-1] if hasattr(t, "id") else str(t)
-        failures.append(f"{test_name}: {msg}")
+        failures.append("%s: %s" % (test_name, msg))
 
     return {
         "testsRun": res.testsRun,
@@ -203,10 +248,9 @@ def run_unittest(ns, test_code):
     }
 
 
-def run_assert(ns, test_code):
+def run_assert(ns):
     ns["AssertionError"] = builtins.AssertionError
     ns["__builtins__"] = builtins
-
     try:
         expected = sum(1 for n in ast.walk(ast.parse(test_code)) if isinstance(n, ast.Assert))
     except Exception:
@@ -215,7 +259,6 @@ def run_assert(ns, test_code):
         return {"testsRun": 0, "passed": 0, "failures": 1, "errors": 0,
                 "allPassed": False,
                 "failureDetails": ["Gabarito sem asserções — contate o professor."]}
-
     try:
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             exec(compile(test_code, "<tests>", "exec"), ns)
@@ -226,35 +269,88 @@ def run_assert(ns, test_code):
     except Exception as ge:
         return {"testsRun": expected, "passed": 0, "failures": 0, "errors": 1,
                 "allPassed": False, "failureDetails": [str(ge)]}
-
     return {"testsRun": expected, "passed": expected, "failures": 0,
             "errors": 0, "allPassed": True, "failureDetails": []}
 
 
-def evaluate(files, test_code):
-    with scrubbed_env():
-        ns, err = _exec_student(files)
-        if err is not None:
-            return _err_result(err)
-        is_unittest = bool(re.search(r"class\s+\w+\s*\(\s*unittest\.TestCase\s*\)", test_code))
-        return run_unittest(ns, test_code) if is_unittest else run_assert(ns, test_code)
+try:
+    import re as _re
+    ns, err = exec_student()
+    if err is not None:
+        out = err_result(err)
+    elif _re.search(r"class\s+\w+\s*\(\s*unittest\.TestCase\s*\)", test_code):
+        out = run_unittest(ns)
+    else:
+        out = run_assert(ns)
+except Exception as e:
+    out = err_result("Erro interno do avaliador: %s" % type(e).__name__)
+
+# Escrito por último: mesmo que o código do aluno tenha mexido em stdout/stderr
+# ou escrito neste caminho, o valor final é sempre o do avaliador.
+with open(result_path, "w", encoding="utf-8") as fh:
+    json.dump(out, fh)
+'''
 
 
-def evaluate_with_timeout(files, test_code, timeout_s):
-    result = []
+def evaluate_isolated(files, test_code, timeout_s):
+    """Executa num interpretador novo, sem segredos no ambiente.
+    Retorna None em caso de timeout (processo é morto de fato)."""
+    tmp = tempfile.mkdtemp(prefix="lvlusp_")
+    try:
+        work_dir = os.path.join(tmp, "project")
+        os.makedirs(work_dir, exist_ok=True)
+        runner_path = os.path.join(tmp, "runner.py")
+        result_path = os.path.join(tmp, "result.json")
+        with open(runner_path, "w", encoding="utf-8") as fh:
+            fh.write(RUNNER_SOURCE)
 
-    def _run():
+        payload = json.dumps({
+            "files": files,
+            "test_code": test_code,
+            "result_path": result_path,
+            "work_dir": work_dir,
+        })
+
+        # Env mínimo e explícito: nenhuma variável do Supabase é herdada.
+        child_env = {
+            "PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
+            "HOME": tmp,
+            "TMPDIR": tmp,
+            "LANG": "C.UTF-8",
+            "PYTHONIOENCODING": "utf-8",
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "PYTHONNOUSERSITE": "1",
+        }
+
+        # -I (isolated): ignora PYTHON*, user site-packages e o cwd em sys.path.
+        # Não usamos -S: removeria site-packages e quebraria lições que usam
+        # bibliotecas instaladas via requirements.txt.
+        proc = subprocess.Popen(
+            [sys.executable, "-I", runner_path],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=child_env,
+            cwd=work_dir,
+        )
         try:
-            result.append(evaluate(files, test_code))
-        except Exception as e:
-            result.append(_err_result(f"Erro interno do avaliador: {type(e).__name__}"))
+            proc.communicate(input=payload.encode(), timeout=timeout_s)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.communicate()
+            return None
 
-    t = threading.Thread(target=_run, daemon=True)
-    t.start()
-    t.join(timeout=timeout_s)
-    if t.is_alive():
-        return None
-    return result[0] if result else None
+        try:
+            with open(result_path, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+        except Exception:
+            return _err_result("Não foi possível avaliar seu código. Tente novamente.")
+
+        if not isinstance(data, dict) or "allPassed" not in data:
+            return _err_result("Resposta inválida do avaliador.")
+        return data
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 class handler(BaseHTTPRequestHandler):
@@ -310,10 +406,10 @@ class handler(BaseHTTPRequestHandler):
         time_limit = lesson.get("time_limit") or 10
         timeout_s = min(max(float(time_limit), 5.0), 25.0)
 
-        result = evaluate_with_timeout(files, hidden_tests, timeout_s)
+        result = evaluate_isolated(files, hidden_tests, timeout_s)
         if result is None:
             return self._json(408, {
                 "error": "Tempo limite excedido. Verifique se há loops infinitos no seu código."
             })
 
-        return self._json(200, result)
+        return self._json(200, redact_result(result))
