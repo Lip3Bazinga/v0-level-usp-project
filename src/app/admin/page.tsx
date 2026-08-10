@@ -308,7 +308,7 @@ function Overview({
               {metrics.pendingApprovals > 0 && (
                 <button onClick={() => onNavigate("approvals")}
                   className="rounded-xl bg-white px-4 py-2 text-sm font-bold text-level-purple-dark shadow-sm transition-transform hover:-translate-y-0.5">
-                  {metrics.pendingApprovals} aprovação{metrics.pendingApprovals !== 1 ? "ões" : ""} pendente{metrics.pendingApprovals !== 1 ? "s" : ""}
+                  {metrics.pendingApprovals} aprovaç{metrics.pendingApprovals !== 1 ? "ões" : "ão"} pendente{metrics.pendingApprovals !== 1 ? "s" : ""}
                 </button>
               )}
               <button onClick={() => onNavigate("analytics")}
@@ -429,6 +429,8 @@ export default function AdminPage() {
   const [activity,   setActivity]   = useState<RecentActivity[]>([])
   const [dailyBars,  setDailyBars]  = useState<number[]>(new Array(14).fill(0))
   const [loading,    setLoading]    = useState(true)
+  const [loadError,  setLoadError]  = useState<string | null>(null)
+  const [reloadKey,  setReloadKey]  = useState(0)
   const [toast,      setToast]      = useState<{ msg: string; kind: string } | null>(null)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
@@ -444,24 +446,48 @@ export default function AdminPage() {
       router.push("/dashboard")
       return
     }
+    // Sem try/catch, uma única query com falha deixava o painel preso em
+    // "Carregando..." para sempre, sem dizer o que houve.
     async function load() {
       setLoading(true)
-      const [m, u, l, act, bars] = await Promise.all([
-        fetchPlatformMetrics(),
-        fetchAllUsers(),
-        fetchAllLessons(),
-        fetchRecentActivity(),
-        fetchDailyActivity(),
-      ])
-      setMetrics(m)
-      setUsers(u)
-      setLessons(l)
-      setActivity(act)
-      setDailyBars(bars)
-      setLoading(false)
+      setLoadError(null)
+      try {
+        const [m, u, l, act, bars] = await Promise.all([
+          fetchPlatformMetrics(),
+          fetchAllUsers(),
+          fetchAllLessons(),
+          fetchRecentActivity(),
+          fetchDailyActivity(),
+        ])
+        setMetrics(m)
+        setUsers(u)
+        setLessons(l)
+        setActivity(act)
+        setDailyBars(bars)
+      } catch (e) {
+        setLoadError(e instanceof Error ? e.message : "Erro ao carregar os dados do painel.")
+      } finally {
+        setLoading(false)
+      }
     }
     load()
-  }, [authLoading, profileId, profileRole, router])
+  }, [authLoading, profileId, profileRole, router, reloadKey])
+
+  if (!authLoading && !loading && loadError) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+        <AlertTriangle className="h-10 w-10 text-amber-500" />
+        <p className="text-sm font-semibold text-level-purple-dark">Não foi possível carregar o painel</p>
+        <p className="max-w-md text-sm text-muted-foreground">{loadError}</p>
+        <button
+          onClick={() => setReloadKey((k) => k + 1)}
+          className="rounded-xl bg-level-purple px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-level-purple-dark"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    )
+  }
 
   if (authLoading || loading || !metrics) {
     return (

@@ -108,10 +108,13 @@ def check_rate_limit(user_id):
     de deixar passar é menor que o de travar todos os alunos."""
     try:
         import datetime
+        # Sufixo Z, não "+00:00": em query string o "+" é decodificado como
+        # espaço, o PostgREST recusava o timestamp e o fail-open engolia o erro
+        # — na prática o limite nunca era aplicado e nada era gravado.
         since = (
             datetime.datetime.now(datetime.timezone.utc)
             - datetime.timedelta(seconds=RATE_LIMIT_WINDOW_S)
-        ).strftime("%Y-%m-%dT%H:%M:%S.%f+00:00")
+        ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         path = (
             f"rate_limits?user_id=eq.{user_id}&action=eq.evaluate"
             f"&created_at=gte.{since}&select=id&limit={RATE_LIMIT_MAX + 1}"

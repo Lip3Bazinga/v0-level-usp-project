@@ -71,6 +71,15 @@ export default function TeacherPage() {
   }, [authLoading, profileId])
 
   const handleToggleCoursePublished = async (course: Course) => {
+    // Curso publicado sem lição aparece na vitrine e aceita matrícula, mas não
+    // tem o que entregar ao aluno. Despublicar segue sempre permitido.
+    if (!course.published && (course.lesson_count ?? 0) === 0) {
+      await swalError({
+        text: "Este curso ainda não tem lições. Adicione ao menos uma lição antes de publicar.",
+      })
+      return
+    }
+
     const action = course.published ? "despublicar" : "publicar"
     const confirmed = await swalConfirm({
       title: `Deseja ${action} este curso?`,
