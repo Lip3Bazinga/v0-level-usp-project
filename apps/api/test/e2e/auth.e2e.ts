@@ -100,14 +100,21 @@ describe("Autenticação (e2e)", () => {
     expect(ctx.mail.sent).toHaveLength(0)
   })
 
-  it("bloqueia a conta após 10 senhas erradas", async () => {
+  it("bloqueia a conta após 10 senhas erradas, sem revelar o bloqueio", async () => {
     const { email, password } = await signUp(ctx.app)
-    for (let i = 0; i < 10; i++) {
-      const r = await agent(ctx.app).post("/api/auth/sign-in", { email, password: "errada123456" })
-      if (r.status === 429) break
-    }
-    const res = await agent(ctx.app).post("/api/auth/sign-in", { email, password })
-    expect(res.status).toBe(429)
+    for (let i = 0; i < 10; i++) await agent(ctx.app).post("/api/auth/sign-in", { email, password: "errada123456" })
+    const blocked = await agent(ctx.app).post("/api/auth/sign-in", { email, password })
+    expect(blocked.status).toBe(401)
+    const missing = await agent(ctx.app).post("/api/auth/sign-in", { email: "ninguem@usp.br", password })
+    expect(blocked.body.message).toBe(missing.body.message)
+  })
+
+  it("bloqueio vencido zera a contagem (um erro não bloqueia de novo)", async () => {
+    const { email, password } = await signUp(ctx.app)
+    for (let i = 0; i < 10; i++) await agent(ctx.app).post("/api/auth/sign-in", { email, password: "errada123456" })
+    await ctx.db.execute(sql`update users set locked_until = now() - interval '1 minute' where lower(email) = ${email}`)
+    await agent(ctx.app).post("/api/auth/sign-in", { email, password: "errada123456" })
+    expect((await agent(ctx.app).post("/api/auth/sign-in", { email, password })).status).toBe(200)
   })
 
   it("limita tentativas de login por IP", async () => {

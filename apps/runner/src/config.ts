@@ -16,7 +16,8 @@ const schema = z.object({
   HARNESS_PATH: z.string().default(path.resolve(here, "../python/harness.py")),
   WORK_DIR: z.string().default(os.tmpdir()),
   CONCURRENCY: z.coerce.number().int().min(1).max(64).default(Math.max(1, os.availableParallelism() - 1)),
-  MAX_QUEUE: z.coerce.number().int().min(1).default(200),
+  /** Fila curta: com 2 execuções simultâneas e 10 s cada, 20 jobs ≈ 100 s de espera no pior caso. */
+  MAX_QUEUE: z.coerce.number().int().min(1).default(20),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
 })
 

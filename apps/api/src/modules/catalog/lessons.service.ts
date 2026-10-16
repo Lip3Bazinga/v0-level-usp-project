@@ -1,3 +1,4 @@
+import { sanitizeRichContent } from "@/common/sanitize/rich-content"
 import { Injectable } from "@nestjs/common"
 import type { Lesson, LessonInput, LessonMetrics, LessonSummary, LessonUpdateInput, LessonWithTests } from "@levelusp/contracts"
 import { Forbidden, NotFound, Unprocessable } from "@/common/errors/app-error"
@@ -21,7 +22,7 @@ function lessonValues(input: LessonUpdateInput): Partial<LessonInsert> {
   if (input.course_id !== undefined) v.courseId = input.course_id
   if (input.order !== undefined) v.order = input.order
   if (input.difficulty !== undefined) v.difficulty = input.difficulty
-  if (input.content_markdown !== undefined) v.contentMarkdown = input.content_markdown
+  if (input.content_markdown !== undefined) v.contentMarkdown = sanitizeRichContent(input.content_markdown)
   if (input.starter_code !== undefined) v.starterCode = input.starter_code
   if (input.starter_files !== undefined) v.starterFiles = input.starter_files
   if (input.checkpoints !== undefined) v.checkpoints = input.checkpoints

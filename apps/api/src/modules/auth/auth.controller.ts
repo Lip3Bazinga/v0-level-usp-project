@@ -17,10 +17,11 @@ import { clearSessionCookie, setSessionCookie } from "./session.cookie"
 
 const client = (req: Request): ClientInfo => ({ ip: req.ip ?? null, userAgent: req.headers["user-agent"] ?? null })
 /**
- * Limite apertado nas rotas de credencial: 10 por minuto por IP.
+ * Limite nas rotas de credencial: 60 por minuto por IP (turmas inteiras saem
+ * pelo mesmo IP da universidade); a proteção por conta é o bloqueio após 10 erros.
  * AUTH_THROTTLE_LIMIT permite afrouxar nos testes automatizados.
  */
-const authLimit = () => Number(process.env.AUTH_THROTTLE_LIMIT ?? 10)
+const authLimit = () => Number(process.env.AUTH_THROTTLE_LIMIT ?? 60)
 const AUTH_LIMIT = { default: { limit: authLimit, ttl: 60_000 } }
 
 @ApiTags("auth")

@@ -17,6 +17,7 @@ esac
 # Hashes conferidos em 2026-10-15. Atualize junto com as versões.
 PYTHON_ZIP_SHA256="54aa3e33ebb45e03b5c13b86ce8742b45bb94e394925622fa66c4700f6782979"
 WASMTIME_X86_SHA256="a956c279ac6e80109369a285db30fc46f68239fa1bbeb03ccfa8e913bbca85fc"
+WASMTIME_ARM_SHA256="211255e48fcf3107e6ea357b6214938c4f45e29ea1b295398e7ab6b269d51294"
 
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$DEST"
@@ -24,7 +25,8 @@ mkdir -p "$DEST"
 if ! command -v wasmtime >/dev/null 2>&1 || ! wasmtime --version | grep -q "$WASMTIME_VERSION"; then
   url="https://github.com/bytecodealliance/wasmtime/releases/download/v${WASMTIME_VERSION}/wasmtime-v${WASMTIME_VERSION}-${WT_ARCH}-linux.tar.xz"
   curl -fsSL "$url" -o "$tmp/wt.tar.xz"
-  if [ "$WT_ARCH" = "x86_64" ]; then echo "$WASMTIME_X86_SHA256  $tmp/wt.tar.xz" | sha256sum -c -; fi
+  if [ "$WT_ARCH" = "x86_64" ]; then expected="$WASMTIME_X86_SHA256"; else expected="$WASMTIME_ARM_SHA256"; fi
+  echo "$expected  $tmp/wt.tar.xz" | sha256sum -c -
   tar -xf "$tmp/wt.tar.xz" -C "$tmp"
   install -m 0755 "$tmp/wasmtime-v${WASMTIME_VERSION}-${WT_ARCH}-linux/wasmtime" "${WASMTIME_INSTALL_DIR:-/usr/local/bin}/wasmtime"
 fi

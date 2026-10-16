@@ -12,7 +12,7 @@ sequenceDiagram
   API->>API: buildProbes(cases) — sondas SEM valores esperados
   API->>R: POST /v1/run {files, probes, limites}
   R->>R: 1 instância WASI por lote (AST isolada; legado isolado)
-  R-->>API: observações (valores serializados, stdout, erros)
+  R-->>API: observações (linhas com nonce aleatório na saída padrão)
   API->>API: grade(cases, observações) — comparação local
   API->>API: se aprovado: GamificationService.completeLesson (transação)
   API-->>A: SubmissionResult (casos, XP, badges, nível)
@@ -36,7 +36,9 @@ sequenceDiagram
 | CPU | 1,5×10¹⁰ unidades de fuel por segundo de orçamento | `-W fuel` |
 | Memória | 128 MB de memória linear | `-W max-memory-size` (→ `MemoryError`) |
 | Rede, ambiente, processos | inexistentes | WASI só recebe `/lib`, `/job`, `/out`; `inherit-env=n`; sem sockets |
-| Concorrência | `CONCURRENCY` (padrão: CPUs − 1) e fila máx. 200 | semáforo no executor (503 quando cheio) |
+| Concorrência | `CONCURRENCY` (padrão: CPUs − 1) e fila máx. 20 | semáforo no executor (503 quando cheio; job abandonado pela API é cancelado) |
+| Saída | 8 MB por execução | o host mata o processo ao exceder |
+| Arquivos | harness e sondas somente leitura; projeto em `/work` | permissões do sistema de arquivos (executor sem root) |
 
 ## Medições (máquina de 2 vCPUs)
 

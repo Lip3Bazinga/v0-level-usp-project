@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm"
-import { boolean, check, index, jsonb, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core"
+import { boolean, check, index, integer, jsonb, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core"
 import { profiles } from "./profiles"
 import { createdAt, id, tstz, updatedAt } from "./_helpers"
 
@@ -100,4 +100,16 @@ export const libraryRequests = pgTable(
     reviewedAt: tstz("reviewed_at"),
   },
   (t) => [index("idx_library_requests_status").on(t.status), index("idx_library_requests_user").on(t.requestedBy)],
+)
+
+/** Imagens enviadas (capas, avatares): dono de cada arquivo em /data/uploads. */
+export const uploads = pgTable(
+  "uploads",
+  {
+    name: text("name").primaryKey(),
+    ownerId: uuid("owner_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    bytes: integer("bytes").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("uploads_owner_idx").on(t.ownerId, t.createdAt)],
 )

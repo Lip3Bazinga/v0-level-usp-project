@@ -39,7 +39,8 @@ export const updateMyProfileSchema = z
     full_name: z.string().trim().min(1).max(120),
     username: usernameSchema,
     bio: z.string().trim().max(500).nullable(),
-    avatar_url: z.url().max(2048).nullable(),
+    /** /api/files/... (enviada pelo próprio usuário) ou https externo — validado na API. */
+    avatar_url: z.string().max(2048).nullable(),
   })
   .partial()
 export type UpdateMyProfileInput = z.infer<typeof updateMyProfileSchema>

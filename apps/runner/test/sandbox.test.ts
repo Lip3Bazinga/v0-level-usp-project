@@ -85,4 +85,26 @@ describe.skipIf(!available)("WasmtimeSandbox (integração)", () => {
     const sandboxObs = await sandbox.runBatch(main(code), "main.py", [{ id: "a", kind: "ast" }], limits)
     expect(sandboxObs[0]?.features?.constructs).not.toContain("lambda")
   })
+
+  it("caso legado não é aprovado por linha forjada na saída (sem o nonce)", async () => {
+    const code = "import json, sys\nsys.__stdout__.write(json.dumps({'id': 'l', 'ok': True, 'legacy': {'testsRun': 1, 'failures': 0, 'errors': 0, 'details': []}}) + '\\n')\n"
+    const [obs] = await run(main(code), [{ id: "l", kind: "legacy", code: "assert soma(2, 3) == 5" }])
+    expect(obs?.legacy?.failures ?? 0).toBe(0)
+    expect(obs?.legacy?.errors).toBe(1)
+  })
+
+  it("o harness e as sondas são somente leitura; o projeto aceita arquivos", async () => {
+    const code = "try:\n    open('/harness/probes.json', 'w').write('x')\n    h = 'gravou'\nexcept Exception as e:\n    h = type(e).__name__\nopen('dados.txt', 'w').write('ok')\nd = open('dados.txt').read()\n"
+    const [obs] = await run(main(code), [{ id: "g", kind: "globals", names: ["h", "d"] }])
+    // Como root (ex.: sandbox de desenvolvimento) as permissões não se aplicam;
+    // no container o executor roda como usuário sem privilégios.
+    if (process.getuid?.() !== 0) expect(obs?.values?.h).not.toBe("gravou")
+    expect(obs?.values?.d).toBe("ok")
+  })
+
+  it("inundação de saída é cortada sem derrubar o executor", async () => {
+    const code = "import sys\nwhile True:\n    sys.__stdout__.write('x' * 100000)\n"
+    const [obs] = await run(main(code), [{ id: "r", kind: "run", stdin: "" }])
+    expect(obs?.ok).toBe(false)
+  })
 })

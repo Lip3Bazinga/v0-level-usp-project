@@ -2,6 +2,7 @@
 
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { sanitizeLessonHtml } from "@/lib/sanitize"
 
 /** Detecta se o conteúdo é HTML (começa com tag) para usar dangerouslySetInnerHTML. */
 function isHtmlContent(text: string): boolean {
@@ -29,7 +30,7 @@ export function LessonContentPreview({
   }
 
   if (isHtmlContent(content)) {
-    return <div className={className} dangerouslySetInnerHTML={{ __html: content }} />
+    return <div className={className} dangerouslySetInnerHTML={{ __html: sanitizeLessonHtml(content) }} />
   }
 
   return (

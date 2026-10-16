@@ -66,7 +66,8 @@ export class QuizzesService {
       passingScore: lesson.quizPassingScore,
       correctCount: grade.correctCount,
       total: grade.total,
-      review: grade.review,
+      // Correção por questão só após aprovar (evita descobrir o gabarito por tentativa e erro).
+      review: grade.passed ? grade.review : [],
       xp_awarded: outcome?.xpAwarded ?? 0,
       lesson_completed: counts,
     }

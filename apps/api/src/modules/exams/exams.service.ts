@@ -151,7 +151,9 @@ export class ExamsService {
       passingScore: exam.passingScore,
       correctCount: graded.correctCount,
       total: graded.total,
-      review: graded.review,
+      // Correção por questão só após aprovar: antes disso, revelar quais
+      // questões estão certas vaza o gabarito entre tentativas.
+      review: graded.passed ? graded.review : [],
     }
   }
 

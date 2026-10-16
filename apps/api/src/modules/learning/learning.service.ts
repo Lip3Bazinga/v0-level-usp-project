@@ -84,6 +84,7 @@ export class LearningService {
 
   /** Lições teóricas não têm avaliação: concluir = ter lido. */
   async completeTheory(user: AuthUser, lessonId: string) {
+    this.rateLimit.consume(`theory:${user.id}`, 30, 60_000)
     const lesson = await this.accessibleLesson(user, lessonId)
     if (lesson.lessonType !== "theory") throw BadRequest("Só lições teóricas podem ser concluídas sem avaliação.")
     if (!lesson.published) return { lesson_completed: false, xp_awarded: 0, new_badges: [], level_up: false, new_level: 0 }

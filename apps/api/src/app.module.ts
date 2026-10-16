@@ -35,7 +35,8 @@ import { FEATURE_MODULES } from "./modules"
         },
       }),
     }),
-    ThrottlerModule.forRoot({ throttlers: [{ name: "default", ttl: 60_000, limit: 300 }] }),
+    // Por IP: generoso porque laboratórios inteiros compartilham um IP (NAT).
+    ThrottlerModule.forRoot({ throttlers: [{ name: "default", ttl: 60_000, limit: 1200 }] }),
     DatabaseModule,
     MailModule,
     RunnerModule,

@@ -1,16 +1,21 @@
 """
 Harness do executor LevelUSP — roda DENTRO do sandbox WASI (CPython 3.14).
 
-Lê /job/probes.json, executa as sondas em sequência (cada uma com namespace
-novo) e grava uma observação por linha em /out/obs.jsonl, à medida que
-termina: se o tempo estourar no meio, as sondas já concluídas não se perdem.
+Lê /harness/probes.json (somente leitura), executa as sondas em sequência
+(cada uma com namespace novo) e escreve uma observação por linha na saída
+padrão, prefixada por um nonce aleatório recebido em argv. O host só aceita
+linhas com o nonce; prints do aluno são capturados ou descartados. Se o tempo
+estourar no meio, as sondas já concluídas não se perdem.
 
-Modelo de confiança: este arquivo divide o interpretador com o código do aluno,
-portanto o aluno PODE alterar o que é gravado aqui. Isso é aceitável porque:
-  * nenhum valor esperado chega ao sandbox (a comparação é feita na API);
-  * o sandbox não tem rede, variáveis de ambiente, processos nem arquivos além
-    de /job (somente o projeto) e /out.
-Forjar uma observação, portanto, não ajuda a passar sem saber a resposta.
+Modelo de confiança: este arquivo divide o interpretador com o código do aluno.
+  * Casos declarativos: nenhum valor esperado chega ao sandbox (a comparação é
+    feita na API); forjar uma observação não ajuda a passar sem saber a resposta.
+  * Casos legados (asserts antigos): o resultado nasce aqui dentro. O nonce
+    impede a forja trivial, mas um aluno determinado que inspecione a memória
+    do interpretador ainda pode forjá-lo — por isso essa correção é marcada como
+    "fraca" e os gabaritos devem ser convertidos.
+  * O sandbox não tem rede, variáveis de ambiente nem processos; só enxerga
+    /lib (stdlib), /harness (somente leitura) e /work (o projeto).
 """
 import ast
 import builtins
@@ -21,12 +26,12 @@ import math
 import os
 import sys
 
-JOB = "/job"
-PROJECT = "/job/project"
-OUT = "/out/obs.jsonl"
+PROJECT = "/work"
 MAX_TEXT = 64_000
 
-with open(os.path.join(JOB, "probes.json"), encoding="utf-8") as fh:
+# O nonce sai de sys.argv antes de qualquer código do aluno rodar.
+_NONCE = sys.argv.pop(1) if len(sys.argv) > 1 else ""
+with open("/harness/probes.json", encoding="utf-8") as fh:
     _job = json.load(fh)
 _probes = _job["probes"]
 _entry = _job.get("entry", "main.py")
@@ -84,12 +89,14 @@ def _error_text(exc):
     return "%s: %s" % (type(exc).__name__, msg) if msg else type(exc).__name__
 
 
-_out = open(OUT, "a", encoding="utf-8")
+# Referência própria à saída real (o aluno pode trocar sys.stdout).
+_out = sys.__stdout__.buffer
 
 
 def _write(obs):
     obs["id"] = _probe["id"]
-    _out.write(json.dumps(obs, ensure_ascii=False) + "\n")
+    data = (_NONCE + " " + json.dumps(obs, ensure_ascii=False) + "\n").encode("utf-8")
+    _out.write(data)
     _out.flush()
 
 
@@ -297,4 +304,4 @@ for _probe in _probes:
             _write({"ok": False, "error": "Erro interno do executor: %s" % type(_exc).__name__})
         except Exception:
             pass
-_out.close()
+

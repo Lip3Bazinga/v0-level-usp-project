@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common"
 import type { ActivityDay, Badge, Profile, PublicProfile, UpdateMyProfileInput, UserBadge } from "@levelusp/contracts"
 import { Conflict, NotFound } from "@/common/errors/app-error"
+import { StorageService } from "@/infra/storage/storage.service"
 import { saoPauloDate } from "../gamification/gamification.domain"
 import { toProfile, toPublicProfile } from "./profile.mapper"
 import { UsersRepository } from "./users.repository"
@@ -16,12 +17,17 @@ export function toBadge(b: BadgeRow): Badge {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly repo: UsersRepository) {}
+  constructor(
+    private readonly repo: UsersRepository,
+    private readonly storage: StorageService,
+  ) {}
 
   async updateMe(userId: string, input: UpdateMyProfileInput): Promise<Profile> {
     if (input.username && (await this.repo.usernameTakenByOther(input.username, userId))) {
       throw Conflict("Este nome de usuário já está em uso.", "USERNAME_TAKEN")
     }
+    const previous = input.avatar_url !== undefined ? await this.repo.findById(userId) : undefined
+    if (input.avatar_url !== undefined) await this.storage.assertUsableUrl(input.avatar_url, userId)
     const row = await this.repo.update(userId, {
       ...(input.full_name !== undefined ? { fullName: input.full_name } : {}),
       ...(input.username !== undefined ? { username: input.username } : {}),
@@ -29,6 +35,8 @@ export class UsersService {
       ...(input.avatar_url !== undefined ? { avatarUrl: input.avatar_url } : {}),
     })
     if (!row) throw NotFound("Perfil")
+    // Avatar trocado: remove o arquivo antigo (só se foi enviado por este usuário).
+    if (previous?.avatarUrl && previous.avatarUrl !== row.avatarUrl) await this.storage.remove(previous.avatarUrl, userId)
     return toProfile(row)
   }
 

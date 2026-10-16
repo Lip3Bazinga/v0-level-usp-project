@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process"
-import { mkdir, mkdtemp, readFile, rm, writeFile, copyFile } from "node:fs/promises"
+import { randomBytes } from "node:crypto"
+import { chmod, copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import path from "node:path"
 import type { Probe, ProbeObservation, ProjectFile } from "@levelusp/contracts"
 
@@ -18,12 +19,15 @@ export interface SandboxOptions {
 /** Unidades de fuel por segundo de orçamento (calibrado: laço de 10⁶ ≈ 2–5×10⁹). */
 const FUEL_PER_SECOND = 15_000_000_000
 const MAX_CAPTURE = 256 * 1024
+/** Teto da saída padrão do convidado (observações + prints diretos no fd 1). */
+const MAX_STDOUT = 8 * 1024 * 1024
 
 /**
  * Executa um lote de sondas numa instância CPython WASI nova.
  *
- * Capacidades concedidas ao convidado: só /lib (stdlib, leitura), /job (projeto
- * do aluno + harness) e /out (observações). Sem variáveis de ambiente, sem rede,
+ * Capacidades concedidas ao convidado: só /lib (stdlib), /harness (harness e
+ * sondas, somente leitura) e /work (projeto do aluno). As observações voltam pela
+ * saída padrão, prefixadas por um nonce aleatório por execução. Sem variáveis de ambiente, sem rede,
  * sem processos. Tempo de parede, fuel (CPU) e memória linear são limitados.
  */
 export class WasmtimeSandbox {
@@ -32,33 +36,44 @@ export class WasmtimeSandbox {
   async runBatch(files: ProjectFile[], entry: string, probes: Probe[], limits: SandboxLimits): Promise<ProbeObservation[]> {
     const root = await mkdtemp(path.join(this.opts.workDir, "lvl-job-"))
     try {
-      const jobDir = path.join(root, "job")
-      const projectDir = path.join(jobDir, "project")
-      const outDir = path.join(root, "out")
-      await mkdir(projectDir, { recursive: true })
-      await mkdir(outDir)
+      const harnessDir = path.join(root, "harness")
+      const workDir = path.join(root, "work")
+      await mkdir(harnessDir)
+      await mkdir(workDir)
       for (const f of files) {
-        const target = safeJoin(projectDir, f.path)
+        const target = safeJoin(workDir, f.path)
         await mkdir(path.dirname(target), { recursive: true })
         await writeFile(target, f.content, "utf8")
       }
-      await copyFile(this.opts.harnessPath, path.join(jobDir, "harness.py"))
-      await writeFile(path.join(jobDir, "probes.json"), JSON.stringify({ entry, probes }), "utf8")
+      await copyFile(this.opts.harnessPath, path.join(harnessDir, "harness.py"))
+      await writeFile(path.join(harnessDir, "probes.json"), JSON.stringify({ entry, probes }), "utf8")
+      // Harness e sondas somente leitura para o convidado (o executor roda sem root).
+      await chmod(path.join(harnessDir, "harness.py"), 0o444)
+      await chmod(path.join(harnessDir, "probes.json"), 0o444)
+      await chmod(harnessDir, 0o555)
 
-      const { timedOut, stderr } = await this.spawnWasmtime(jobDir, outDir, limits)
-      const observed = await readObservations(path.join(outDir, "obs.jsonl"))
+      const nonce = randomBytes(16).toString("hex")
+      const { timedOut, stderr, stdout, overflow } = await this.spawnWasmtime(harnessDir, workDir, nonce, limits)
+      const observed = parseObservations(stdout, nonce)
       return probes.map((p) => {
         const obs = observed.get(p.id)
         if (obs) return obs
+        if (overflow) return { id: p.id, ok: false, error: "Saída grande demais: o programa imprimiu dados demais." }
         if (timedOut) return { id: p.id, ok: false, timedOut: true, error: "Tempo limite excedido (verifique laços infinitos)." }
         return { id: p.id, ok: false, error: describeCrash(stderr) }
       })
     } finally {
+      await chmod(path.join(root, "harness"), 0o755).catch(() => undefined)
       await rm(root, { recursive: true, force: true })
     }
   }
 
-  private spawnWasmtime(jobDir: string, outDir: string, limits: SandboxLimits): Promise<{ timedOut: boolean; stderr: string }> {
+  private spawnWasmtime(
+    harnessDir: string,
+    workDir: string,
+    nonce: string,
+    limits: SandboxLimits,
+  ): Promise<{ timedOut: boolean; stderr: string; stdout: string; overflow: boolean }> {
     const seconds = limits.timeoutMs / 1000
     const args = [
       "run",
@@ -70,17 +85,29 @@ export class WasmtimeSandbox {
       ].join(","),
       "-S", "inherit-env=n,inherit-network=n,tcp=n,udp=n",
       "--dir", `${path.join(this.opts.pythonDir, "lib")}::/lib`,
-      "--dir", `${jobDir}::/job`,
-      "--dir", `${outDir}::/out`,
+      "--dir", `${harnessDir}::/harness`,
+      "--dir", `${workDir}::/work`,
       path.join(this.opts.pythonDir, "python.cwasm"),
-      "-I", "-S", "/job/harness.py",
+      "-I", "-S", "/harness/harness.py", nonce,
     ]
     return new Promise((resolve, reject) => {
       // Ambiente vazio: nada do processo do executor chega ao convidado.
       const child = spawn(this.opts.wasmtimeBin, args, { env: {}, stdio: ["ignore", "pipe", "pipe"] })
+      const out: Buffer[] = []
+      let outBytes = 0
       let stderr = ""
       let killedByHost = false
-      child.stdout.on("data", () => undefined) // descarta prints fora do controle do harness
+      let overflow = false
+      child.stdout.on("data", (chunk: Buffer) => {
+        outBytes += chunk.length
+        if (outBytes > MAX_STDOUT) {
+          // Proteção contra inundação de saída: corta e mata o processo.
+          overflow = true
+          child.kill("SIGKILL")
+          return
+        }
+        out.push(chunk)
+      })
       child.stderr.on("data", (chunk: Buffer) => {
         if (stderr.length < MAX_CAPTURE) stderr += chunk.toString("utf8")
       })
@@ -96,7 +123,7 @@ export class WasmtimeSandbox {
       child.on("close", () => {
         clearTimeout(guard)
         const timedOut = killedByHost || /fuel|interrupt|timed out|deadline/i.test(stderr)
-        resolve({ timedOut, stderr })
+        resolve({ timedOut, stderr, stdout: Buffer.concat(out).toString("utf8"), overflow })
       })
     })
   }
@@ -109,18 +136,14 @@ export function safeJoin(base: string, rel: string): string {
   return target
 }
 
-async function readObservations(file: string): Promise<Map<string, ProbeObservation>> {
+/** Aceita só linhas com o nonce desta execução; a primeira observação de cada sonda vale. */
+export function parseObservations(stdout: string, nonce: string): Map<string, ProbeObservation> {
   const map = new Map<string, ProbeObservation>()
-  let raw = ""
-  try {
-    raw = await readFile(file, "utf8")
-  } catch {
-    return map
-  }
-  for (const line of raw.slice(0, 8 * 1024 * 1024).split("\n")) {
-    if (!line.trim()) continue
+  const prefix = `${nonce} `
+  for (const line of stdout.split("\n")) {
+    if (!line.startsWith(prefix)) continue
     try {
-      const obs = JSON.parse(line) as ProbeObservation
+      const obs = JSON.parse(line.slice(prefix.length)) as ProbeObservation
       if (obs && typeof obs.id === "string" && !map.has(obs.id)) map.set(obs.id, obs)
     } catch {
       // linha corrompida (ex.: escrita interrompida pelo timeout) — ignorada

@@ -58,16 +58,20 @@ export class AuthService {
 
   async signIn(input: SignInInput, client: ClientInfo): Promise<IssuedSession> {
     const user = await this.repo.findUserByEmail(input.email)
-    const invalid = new AppError(401, "INVALID_CREDENTIALS", "E-mail ou senha incorretos.")
+    // Mesma resposta para senha errada, conta inexistente e conta bloqueada:
+    // não revela quais e-mails existem.
+    const invalid = new AppError(401, "INVALID_CREDENTIALS", "E-mail ou senha incorretos (ou muitas tentativas: aguarde alguns minutos).")
 
-    if (user?.lockedUntil && new Date(user.lockedUntil) > new Date()) {
-      throw new AppError(429, "ACCOUNT_LOCKED", "Muitas tentativas. Tente novamente em alguns minutos.")
-    }
-    const ok = await this.passwords.verify(user?.passwordHash, input.password)
-    if (!user || !ok) {
-      if (user) {
-        const lock = user.failedLoginCount + 1 >= MAX_FAILED_LOGINS ? new Date(Date.now() + LOCK_MINUTES * 60_000).toISOString() : null
-        await this.repo.recordFailedLogin(user.id, lock)
+    const now = Date.now()
+    const locked = Boolean(user?.lockedUntil && new Date(user.lockedUntil).getTime() > now)
+    // Bloqueio vencido zera a contagem (antes, 1 erro a cada 15 min bloqueava para sempre).
+    const priorFailures = user && user.lockedUntil && !locked ? 0 : (user?.failedLoginCount ?? 0)
+    const ok = await this.passwords.verify(user?.passwordHash, input.password) // custo constante
+    if (!user || !ok || locked) {
+      if (user && !locked) {
+        const failures = priorFailures + 1
+        const lock = failures >= MAX_FAILED_LOGINS ? new Date(now + LOCK_MINUTES * 60_000).toISOString() : null
+        await this.repo.recordFailedLogin(user.id, failures, lock)
       }
       throw invalid
     }
@@ -114,11 +118,15 @@ export class AuthService {
     const token = newToken()
     await this.repo.createResetToken(hashToken(token), user.id, new Date(Date.now() + RESET_TTL_MINUTES * 60_000).toISOString())
     const link = `${this.env.APP_ORIGIN}/redefinir-senha?token=${encodeURIComponent(token)}`
-    await this.mail.send({
-      to: user.email,
-      subject: "LevelUSP — redefinição de senha",
-      text: `Recebemos um pedido para redefinir sua senha.\n\nUse este link em até ${RESET_TTL_MINUTES} minutos:\n${link}\n\nSe não foi você, ignore este e-mail.`,
-    })
+    // Envio fora da requisição: o tempo de resposta não revela se a conta existe
+    // e uma falha de SMTP não vira erro 500 para quem pediu.
+    void this.mail
+      .send({
+        to: user.email,
+        subject: "LevelUSP — redefinição de senha",
+        text: `Recebemos um pedido para redefinir sua senha.\n\nUse este link em até ${RESET_TTL_MINUTES} minutos:\n${link}\n\nSe não foi você, ignore este e-mail.`,
+      })
+      .catch((err: unknown) => this.logger.error({ err, userId: user.id }, "falha ao enviar e-mail de redefinição"))
   }
 
   async resetPassword(token: string, password: string): Promise<void> {

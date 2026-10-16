@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { timingSafeEqual } from "node:crypto"
 import { runnerJobSchema } from "@levelusp/contracts"
 import type { Executor } from "./executor.js"
-import { QueueFullError } from "./semaphore.js"
+import { CancelledError, QueueFullError } from "./semaphore.js"
 
 const MAX_BODY = 1_000_000
 
@@ -28,11 +28,17 @@ export function buildServer({ executor, token, log }: ServerDeps): Server {
       const parsed = runnerJobSchema.safeParse(body)
       if (!parsed.success) return send(res, 400, { error: "invalid_job", issues: parsed.error.issues.slice(0, 5) })
 
-      const result = await executor.execute(parsed.data)
+      // Cliente (API) desistiu, ex.: por timeout: não executa lotes ainda na fila.
+      const abort = new AbortController()
+      res.on("close", () => {
+        if (!res.writableFinished) abort.abort()
+      })
+      const result = await executor.execute(parsed.data, abort.signal)
       log("info", "job executado", { probes: parsed.data.probes.length, ms: result.durationMs })
       return send(res, 200, result)
     } catch (err) {
       if (err instanceof QueueFullError) return send(res, 503, { error: "busy" })
+      if (err instanceof CancelledError) return void res.destroy()
       if (err instanceof BodyTooLargeError) return send(res, 413, { error: "too_large" })
       if (err instanceof SyntaxError) return send(res, 400, { error: "invalid_json" })
       log("error", "falha no executor", { error: String(err) })

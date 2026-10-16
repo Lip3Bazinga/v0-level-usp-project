@@ -116,4 +116,14 @@ describe("Correção e progresso (e2e)", () => {
     const coding = await createLesson(ctx.db, { testCases: cases })
     expect((await agent.post(`/api/lessons/${coding.id}/complete`)).status).toBe(400)
   })
+
+  it("conclusões simultâneas creditam XP uma única vez (sem corrida)", async () => {
+    const lesson = await createLesson(ctx.db, { lessonType: "theory", xpReward: 100 })
+    const { agent } = await signUp(ctx.app)
+    const results = await Promise.all(Array.from({ length: 10 }, () => agent.post(`/api/lessons/${lesson.id}/complete`)))
+    expect(results.every((r) => r.status === 200)).toBe(true)
+    expect(results.filter((r) => r.body.xp_awarded === 100)).toHaveLength(1)
+    const me = await agent.get("/api/auth/me")
+    expect(me.body.user).toMatchObject({ total_xp: 100, lessons_completed: 1 })
+  })
 })

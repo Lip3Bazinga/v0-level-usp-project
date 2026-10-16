@@ -55,13 +55,15 @@ export class GamificationService {
       })
       if (!lesson) throw new Error(`lição ${lessonId} inexistente`)
 
+      // Trava o perfil ANTES de ler o progresso: todas as conclusões do mesmo
+      // aluno ficam serializadas, mesmo quando a linha de progresso ainda não
+      // existe (FOR UPDATE numa linha inexistente não trava nada).
+      const [before] = await tx.select({ xp: profiles.totalXp, level: profiles.level }).from(profiles).where(eq(profiles.id, userId)).for("update")
+      if (!before) throw new Error(`perfil ${userId} inexistente`)
       const [prev] = await tx
         .select({ status: lessonProgress.status })
         .from(lessonProgress)
         .where(and(eq(lessonProgress.userId, userId), eq(lessonProgress.lessonId, lessonId)))
-        .for("update")
-      const [before] = await tx.select({ xp: profiles.totalXp, level: profiles.level }).from(profiles).where(eq(profiles.id, userId)).for("update")
-      if (!before) throw new Error(`perfil ${userId} inexistente`)
 
       if (prev?.status === "completed") {
         return { newlyCompleted: false, xpAwarded: 0, levelUp: false, newLevel: before.level, newBadges: [], courseCompleted: false }

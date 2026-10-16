@@ -1,5 +1,20 @@
 import path from "node:path"
 
+const PYODIDE_ORIGIN = "https://cdn.jsdelivr.net"
+const CSP = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' ${PYODIDE_ORIGIN}`,
+  "worker-src 'self' blob:",
+  `connect-src 'self' ${PYODIDE_ORIGIN}`,
+  "img-src 'self' data: blob: https:",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self' data:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join("; ")
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Imagem Docker enxuta (server.js + dependências mínimas em .next/standalone).
@@ -20,13 +35,17 @@ const nextConfig = {
   async headers() {
     return [
       {
-        source: "/(.*)",
+        // /api/* já recebe cabeçalhos próprios da API (ex.: CSP do PDF do certificado).
+        source: "/((?!api/).*)",
         headers: [
           { key: "X-Content-Type-Options",   value: "nosniff" },
           { key: "X-Frame-Options",           value: "DENY" },
           { key: "X-XSS-Protection",          value: "1; mode=block" },
           { key: "Referrer-Policy",           value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy",        value: "camera=(), microphone=(), geolocation=()" },
+          // CSP: impede exfiltração para domínios externos e plugins. 'unsafe-eval' e
+          // 'wasm-unsafe-eval' são exigidos pelo Pyodide (WebAssembly no navegador).
+          { key: "Content-Security-Policy",   value: CSP },
         ],
       },
       {

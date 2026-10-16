@@ -1,3 +1,4 @@
+import { sanitizeRichContent } from "@/common/sanitize/rich-content"
 import { Injectable } from "@nestjs/common"
 import type { AttachLessonInput, Course, CourseInput, CourseUpdateInput, Lesson } from "@levelusp/contracts"
 import { BadRequest, Forbidden, NotFound } from "@/common/errors/app-error"
@@ -19,7 +20,7 @@ function courseValues(input: CourseUpdateInput): Partial<CourseInsert> {
   const v: Partial<CourseInsert> = {}
   if (input.title !== undefined) v.title = input.title
   if (input.description !== undefined) v.description = input.description
-  if (input.long_description !== undefined) v.longDescription = input.long_description
+  if (input.long_description !== undefined) v.longDescription = sanitizeRichContent(input.long_description)
   if (input.cover_image_url !== undefined) v.coverImageUrl = input.cover_image_url
   if (input.level !== undefined) v.level = input.level
   if (input.tags !== undefined) v.tags = input.tags
@@ -61,17 +62,19 @@ export class CoursesService {
   }
 
   async create(user: AuthUser, input: CourseInput): Promise<Course> {
+    await this.storage.assertUsableUrl(input.cover_image_url, user.id)
     const row = await this.repo.insert({ ...courseValues(input), title: input.title, createdBy: user.id, published: false })
     return toCourse(row, { lessonCount: 0 })
   }
 
   async update(user: AuthUser, id: string, input: CourseUpdateInput): Promise<Course> {
     const course = await this.manageable(user, id)
+    if (input.cover_image_url !== undefined) await this.storage.assertUsableUrl(input.cover_image_url, user.id)
     const patch = courseValues(input)
     if (Object.keys(patch).length) await this.repo.update(id, patch)
     // Capa trocada ou removida: apaga a imagem antiga do disco.
     if (input.cover_image_url !== undefined && course.coverImageUrl && course.coverImageUrl !== input.cover_image_url) {
-      await this.storage.remove(course.coverImageUrl)
+      await this.storage.remove(course.coverImageUrl, course.createdBy)
     }
     return this.get(user, id)
   }
@@ -79,7 +82,7 @@ export class CoursesService {
   async remove(user: AuthUser, id: string): Promise<void> {
     const course = await this.manageable(user, id)
     await this.repo.delete(id)
-    await this.storage.remove(course.coverImageUrl)
+    await this.storage.remove(course.coverImageUrl, course.createdBy)
     if (course.createdBy !== user.id) {
       await this.audit.log(user, "course.delete", `course:${id}`, { title: course.title, owner: course.createdBy }, "warning")
     }

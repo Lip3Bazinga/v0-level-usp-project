@@ -12,10 +12,15 @@ export class Semaphore {
     return this.waiters.length
   }
 
-  async run<T>(fn: () => Promise<T>): Promise<T> {
+  /** `signal`: se o cliente desistir enquanto espera na fila, o trabalho nem começa. */
+  async run<T>(fn: () => Promise<T>, signal?: AbortSignal): Promise<T> {
     if (this.active >= this.capacity) {
       if (this.waiters.length >= this.maxQueue) throw new QueueFullError()
       await new Promise<void>((resolve) => this.waiters.push(resolve))
+    }
+    if (signal?.aborted) {
+      this.waiters.shift()?.()
+      throw new CancelledError()
     }
     this.active++
     try {
@@ -30,5 +35,11 @@ export class Semaphore {
 export class QueueFullError extends Error {
   constructor() {
     super("Fila do executor cheia")
+  }
+}
+
+export class CancelledError extends Error {
+  constructor() {
+    super("Execução cancelada: o cliente desconectou")
   }
 }

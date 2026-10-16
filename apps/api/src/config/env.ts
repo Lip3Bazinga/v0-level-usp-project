@@ -35,7 +35,7 @@ export const envSchema = z
   .transform((env) => ({
     ...env,
     COOKIE_SECURE: env.COOKIE_SECURE ?? (env.APP_ENV === "homolog" || env.APP_ENV === "prod"),
-    SWAGGER_ENABLED: env.SWAGGER_ENABLED ?? env.APP_ENV !== "prod",
+    SWAGGER_ENABLED: env.SWAGGER_ENABLED ?? env.APP_ENV === "dev",
   }))
 
 export type Env = z.infer<typeof envSchema>

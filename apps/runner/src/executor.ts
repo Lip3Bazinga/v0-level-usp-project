@@ -13,11 +13,11 @@ export class Executor {
     private readonly semaphore: Semaphore,
   ) {}
 
-  async execute(job: RunnerJob): Promise<RunnerResult> {
+  async execute(job: RunnerJob, signal?: AbortSignal): Promise<RunnerResult> {
     const started = performance.now()
     const batches = planBatches(job.probes)
     const results = await Promise.all(
-      batches.map((batch) => this.semaphore.run(() => this.sandbox.runBatch(job.files, job.entry, batch, job.limits))),
+      batches.map((batch) => this.semaphore.run(() => this.sandbox.runBatch(job.files, job.entry, batch, job.limits), signal)),
     )
     const byId = new Map(results.flat().map((o) => [o.id, o]))
     return {

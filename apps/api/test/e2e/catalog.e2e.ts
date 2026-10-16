@@ -4,7 +4,7 @@ import { existsSync } from "node:fs"
 import { mkdir, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { eq, sql } from "drizzle-orm"
-import { courses, lessonProgress, submissions } from "@levelusp/db"
+import { courses, lessonProgress, submissions, uploads } from "@levelusp/db"
 import type { TestCase } from "@levelusp/contracts"
 import { agent, createLesson, createTestApp, signUp, type Agent, type TestContext } from "./harness"
 
@@ -103,6 +103,7 @@ describe("Catálogo (e2e)", () => {
       await mkdir(dir, { recursive: true })
       const name = `${randomUUID()}.png`
       await writeFile(path.join(dir, name), "png")
+      await ctx.db.insert(uploads).values({ name, ownerId: prof.id, bytes: 3 })
       const course = await newCourse(prof.agent, { cover_image_url: `/api/files/${name}` })
       const lesson = await createLesson(ctx.db, { courseId: course.id, createdBy: prof.id })
 

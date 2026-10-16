@@ -83,7 +83,7 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
         truncate users, sessions, password_reset_tokens, oauth_accounts, profiles, modules, courses, lessons,
           lesson_quiz_questions, enrollments, lesson_progress, submissions, notes, badges, user_badges, exams,
           exam_questions, exam_attempts, certificates, notifications, audit_log, platform_settings,
-          teacher_approvals, library_catalog, library_requests cascade`)
+          teacher_approvals, library_catalog, library_requests, uploads cascade`)
       runner.jobs = []
       mail.sent = []
     },

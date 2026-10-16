@@ -359,6 +359,11 @@ export default function ProvaPage() {
 
             <div className="rounded-2xl border border-border bg-white p-6">
               <h3 className="mb-4 text-sm font-bold text-level-purple-dark">Correção por questão</h3>
+              {result.review.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  A correção detalhada fica disponível depois da aprovação. Revise as lições do curso e tente de novo quando o prazo de espera acabar.
+                </p>
+              )}
               <div className="space-y-3">
                 {result.review.map((r, i) => (
                   <div key={r.questionId} className={`flex items-start gap-3 rounded-xl p-3 text-sm ${

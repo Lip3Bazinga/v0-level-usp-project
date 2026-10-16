@@ -39,10 +39,10 @@ export class AuthRepository {
     })
   }
 
-  recordFailedLogin(userId: string, lockUntil: string | null) {
+  recordFailedLogin(userId: string, failures: number, lockUntil: string | null) {
     return this.db
       .update(users)
-      .set({ failedLoginCount: sql`${users.failedLoginCount} + 1`, lockedUntil: lockUntil })
+      .set({ failedLoginCount: failures, lockedUntil: lockUntil })
       .where(eq(users.id, userId))
   }
 

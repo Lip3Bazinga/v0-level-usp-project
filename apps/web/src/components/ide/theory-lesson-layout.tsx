@@ -1,5 +1,6 @@
 "use client"
 
+import { sanitizeLessonHtml } from "@/lib/sanitize"
 import { useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import {
@@ -131,7 +132,7 @@ export function TheoryLessonLayout({ lesson, allLessons, currentIndex, onComplet
             {htmlContent ? (
               <div
                 className="prose-lesson"
-                dangerouslySetInnerHTML={{ __html: lesson.content_markdown }}
+                dangerouslySetInnerHTML={{ __html: sanitizeLessonHtml(lesson.content_markdown) }}
               />
             ) : (
               <div className="prose-lesson">
