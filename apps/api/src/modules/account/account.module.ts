@@ -1,5 +1,7 @@
 import { Module } from "@nestjs/common"
+import { AccountController } from "./account.controller"
+import { AccountRepository } from "./account.repository"
+import { AccountService } from "./account.service"
 
-/** Esqueleto — implementar controllers/services/repositories conforme docs/v2/api-rotas.md. */
-@Module({})
+@Module({ controllers: [AccountController], providers: [AccountRepository, AccountService], exports: [AccountService, AccountRepository] })
 export class AccountModule {}

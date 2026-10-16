@@ -1,5 +1,12 @@
 import { Module } from "@nestjs/common"
+import { NotificationsModule } from "../notifications/notifications.module"
+import { TeacherRequestsController } from "./teacher-requests.controller"
+import { TeacherRequestsRepository } from "./teacher-requests.repository"
+import { TeacherRequestsService } from "./teacher-requests.service"
 
-/** Esqueleto — implementar controllers/services/repositories conforme docs/v2/api-rotas.md. */
-@Module({})
+@Module({
+  imports: [NotificationsModule],
+  controllers: [TeacherRequestsController],
+  providers: [TeacherRequestsRepository, TeacherRequestsService],
+})
 export class TeacherRequestsModule {}

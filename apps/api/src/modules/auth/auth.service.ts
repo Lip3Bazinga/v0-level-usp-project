@@ -14,6 +14,8 @@ import { hashToken, newToken } from "./tokens"
 const MAX_FAILED_LOGINS = 10
 const LOCK_MINUTES = 15
 const RESET_TTL_MINUTES = 60
+/** Convites valem mais que um pedido de redefinição comum: 72 h. */
+const INVITE_TTL_MINUTES = 72 * 60
 /** Renova a validade da sessão no máximo a cada 5 min (evita escrita por requisição). */
 const TOUCH_INTERVAL_MS = 5 * 60_000
 
@@ -133,6 +135,31 @@ export class AuthService {
     }
     await this.repo.updatePassword(user.id, await this.passwords.hash(next))
     await this.repo.revokeAllSessions(user.id, user.sessionId)
+  }
+
+  /**
+   * Convite administrativo: cria a conta SEM senha e envia um link para a
+   * pessoa definir a senha (mesmo fluxo/tokens da redefinição).
+   */
+  async inviteUser(email: string, fullName?: string) {
+    if (await this.repo.findUserByEmail(email)) throw Conflict("Já existe uma conta com este e-mail.", "EMAIL_TAKEN")
+    const username = await this.uniqueUsername(email)
+    const { user, profile } = await this.repo.createUserWithProfile({
+      email,
+      passwordHash: null,
+      fullName: fullName?.trim() || (email.split("@")[0] ?? ""),
+      username,
+    })
+    const token = newToken()
+    await this.repo.createResetToken(hashToken(token), user.id, new Date(Date.now() + INVITE_TTL_MINUTES * 60_000).toISOString())
+    const link = `${this.env.APP_ORIGIN}/redefinir-senha?token=${encodeURIComponent(token)}`
+    await this.mail.send({
+      to: user.email,
+      subject: "LevelUSP — você foi convidado(a)",
+      text: `Você foi convidado(a) para o LevelUSP.\n\nDefina sua senha em até ${INVITE_TTL_MINUTES / 60} horas:\n${link}\n\nSe não esperava este convite, ignore este e-mail.`,
+    })
+    this.logger.log({ userId: user.id }, "conta criada por convite")
+    return profile
   }
 
   revokeAllSessions(userId: string) {

@@ -1,5 +1,11 @@
 import { Module } from "@nestjs/common"
+import { NotificationsController } from "./notifications.controller"
+import { NotificationsRepository } from "./notifications.repository"
+import { NotificationsService } from "./notifications.service"
 
-/** Esqueleto — implementar controllers/services/repositories conforme docs/v2/api-rotas.md. */
-@Module({})
+@Module({
+  controllers: [NotificationsController],
+  providers: [NotificationsRepository, NotificationsService],
+  exports: [NotificationsService],
+})
 export class NotificationsModule {}

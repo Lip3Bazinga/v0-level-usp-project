@@ -71,12 +71,25 @@ export interface RecentActivity {
 }
 
 export interface AnalyticsMetrics {
+  /** Usuários distintos com lição concluída por dia (30 dias, do mais antigo a hoje — fuso de São Paulo). */
   dailyActiveUsers: number[]
+  /** Conclusões de lição por dia (30 dias, do mais antigo a hoje). */
   completionsByDay: number[]
   topLessons: { lesson_id: string; title: string; completions: number }[]
   roleDistribution: { role: string; count: number }[]
+  /** XP médio dos alunos (inteiro). */
   averageXp: number
+  /** % de contas com 7+ dias que tiveram atividade nos últimos 7 dias (0–100). */
   retention7d: number
+  /** Usuários distintos com conclusão nas últimas 24 h / 7 dias / 30 dias (semântica do painel antigo). */
+  dau: number
+  wau: number
+  mau: number
+  totalUsers: number
+  /** Funil: concluíram ≥1 lição, ≥5 lições, têm sequência ≥7 dias. */
+  funnelStarted: number
+  funnelCompleted5: number
+  funnelStreak7: number
 }
 
 export type PlatformSettings = Record<string, unknown>
@@ -84,3 +97,7 @@ export const platformSettingsSchema = z.record(z.string().regex(/^[a-z0-9_.]{1,6
 
 export const inviteUserSchema = z.object({ email: z.email().trim().toLowerCase(), full_name: z.string().trim().max(120).optional() })
 export const invalidateSessionsSchema = z.object({ user_id: z.uuid().optional() })
+
+export const teacherApprovalStatusQuerySchema = z.object({
+  status: z.enum(["pending", "approved", "rejected", "superseded", "all"]).default("pending"),
+})

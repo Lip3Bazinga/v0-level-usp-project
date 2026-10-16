@@ -1,5 +1,11 @@
 import { Module } from "@nestjs/common"
+import { QuizzesController } from "./quizzes.controller"
+import { QuizzesRepository } from "./quizzes.repository"
+import { QuizzesService } from "./quizzes.service"
 
-/** Esqueleto — implementar controllers/services/repositories conforme docs/v2/api-rotas.md. */
-@Module({})
+/** Quiz de lição: aluno responde sem ver o gabarito; correção e XP no servidor. */
+@Module({
+  controllers: [QuizzesController],
+  providers: [QuizzesRepository, QuizzesService],
+})
 export class QuizzesModule {}

@@ -55,3 +55,15 @@ export const adminUpdateUserSchema = z
   })
   .partial()
 export type AdminUpdateUserInput = z.infer<typeof adminUpdateUserSchema>
+
+/** Exclusão da própria conta (LGPD): exige a senha atual. */
+export const deleteAccountSchema = z.object({ password: z.string().min(1, "Informe sua senha").max(128) })
+export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>
+
+/** Exportação dos dados pessoais (LGPD). Nunca inclui hashes de senha ou tokens. */
+export interface UserDataExport {
+  exported_at: string
+  profile: Profile
+  account: { email: string; email_verified_at: string | null; last_sign_in_at: string | null; created_at: string }
+  [section: string]: unknown
+}

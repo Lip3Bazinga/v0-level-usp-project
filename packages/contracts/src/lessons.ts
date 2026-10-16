@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { difficultySchema, type Difficulty } from "./common"
 import { testCasesSchema, type TestCase } from "./grading"
+import { patchSchemaOf } from "./courses"
 
 export interface Checkpoint {
   id: number
@@ -95,7 +96,7 @@ export const lessonInputSchema = z.object({
   test_cases: testCasesSchema.default([]),
 })
 export type LessonInput = z.infer<typeof lessonInputSchema>
-export const lessonUpdateSchema = lessonInputSchema.partial()
+export const lessonUpdateSchema = patchSchemaOf(lessonInputSchema)
 export type LessonUpdateInput = z.infer<typeof lessonUpdateSchema>
 
 export type LessonStatus = "not_started" | "in_progress" | "completed"

@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { patchSchemaOf } from "./courses"
 
 export type BadgeRarity = "common" | "rare" | "epic" | "legendary"
 export type BadgeCriteriaType =
@@ -42,7 +43,8 @@ export const badgeInputSchema = z.object({
   active: z.boolean().default(true),
 })
 export type BadgeInput = z.infer<typeof badgeInputSchema>
-export const badgeUpdateSchema = badgeInputSchema.omit({ id: true }).partial()
+/** PATCH sem defaults (senão um PATCH só com `name` zeraria os demais campos). */
+export const badgeUpdateSchema = patchSchemaOf(badgeInputSchema.omit({ id: true }))
 export type BadgeUpdateInput = z.infer<typeof badgeUpdateSchema>
 
 /** XP necessário por nível (regra herdada: 1000 XP por nível). */

@@ -20,6 +20,25 @@ export const moduleInputSchema = z.object({
 })
 export type ModuleInput = z.infer<typeof moduleInputSchema>
 
+type WithoutDefault<T> = T extends z.ZodDefault<infer Inner> ? Inner : T
+
+/**
+ * Versão "PATCH" de um schema de criação: todos os campos opcionais e SEM os
+ * valores padrão. (`.partial()` do Zod 4 ainda aplica `.default()`, o que
+ * faria um PATCH com só `title` sobrescrever os demais campos com o padrão.)
+ */
+export function patchSchemaOf<S extends z.ZodRawShape>(schema: z.ZodObject<S>) {
+  const shape: Record<string, z.ZodType> = {}
+  for (const [key, field] of Object.entries(schema.shape)) {
+    const inner = field instanceof z.ZodDefault ? (field.removeDefault() as z.ZodType) : (field as z.ZodType)
+    shape[key] = inner.optional()
+  }
+  return z.object(shape) as unknown as z.ZodObject<{ [K in keyof S]: z.ZodOptional<WithoutDefault<S[K]>> }>
+}
+
+export const moduleUpdateSchema = patchSchemaOf(moduleInputSchema)
+export type ModuleUpdateInput = z.infer<typeof moduleUpdateSchema>
+
 export interface Course {
   id: string
   title: string
@@ -55,7 +74,7 @@ export const courseInputSchema = z.object({
   final_project_starter_code: z.string().max(100_000).nullable().optional(),
 })
 export type CourseInput = z.infer<typeof courseInputSchema>
-export const courseUpdateSchema = courseInputSchema.partial()
+export const courseUpdateSchema = patchSchemaOf(courseInputSchema)
 export type CourseUpdateInput = z.infer<typeof courseUpdateSchema>
 
 export const publishSchema = z.object({ published: z.boolean() })

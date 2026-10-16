@@ -1,5 +1,7 @@
 import { Module } from "@nestjs/common"
+import { NotesController } from "./notes.controller"
+import { NotesRepository } from "./notes.repository"
+import { NotesService } from "./notes.service"
 
-/** Esqueleto — implementar controllers/services/repositories conforme docs/v2/api-rotas.md. */
-@Module({})
+@Module({ controllers: [NotesController], providers: [NotesRepository, NotesService] })
 export class NotesModule {}
