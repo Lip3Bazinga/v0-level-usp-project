@@ -1,0 +1,28 @@
+{
+  "name": "@levelusp/runner",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Executor isolado: roda código Python dos alunos em CPython 3.14 WASI (Wasmtime). Sem segredos, sem banco, sem rede.",
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsup src/main.ts --format esm --clean --target node22",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "setup:python": "bash scripts/fetch-python-wasi.sh"
+  },
+  "dependencies": {
+    "@levelusp/contracts": "workspace:*",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsup": "^9.0.0",
+    "tsx": "^4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "^5.0.5"
+  }
+}
