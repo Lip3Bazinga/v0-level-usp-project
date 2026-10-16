@@ -1,0 +1,1488 @@
+{
+  "course": "Python Completo",
+  "generated_from": "legacy/scripts/verify_lessons.py",
+  "lessons": [
+    {
+      "order": 2,
+      "title": "Variáveis, Tipos e print()",
+      "description": "Exercício do curso Python Completo: Variáveis, Tipos e print().",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Escreva sua solução aqui\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "linguagem = \"Python\"\nversao = 3.12\npopular = True\nprint(f\"Aprendendo {linguagem} {versao}\")\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "saida1",
+          "kind": "io",
+          "stdin": "",
+          "expected_stdout": "Aprendendo Python 3.12",
+          "match": "contains",
+          "name": "Saída contém 'Aprendendo Python 3.12'",
+          "hint": "a saída deve conter 'Aprendendo Python 3.12'"
+        },
+        {
+          "id": "fonte2",
+          "kind": "source",
+          "rule": {
+            "type": "uses",
+            "construct": "f_string"
+          },
+          "name": "Usa f-string",
+          "hint": "use uma f-string para formatar a mensagem"
+        },
+        {
+          "id": "v3",
+          "kind": "variable",
+          "variable": "linguagem",
+          "expected": "Python",
+          "name": "Variável linguagem",
+          "type": "str",
+          "hint": "linguagem deve ser a string 'Python'"
+        },
+        {
+          "id": "v4",
+          "kind": "variable",
+          "variable": "versao",
+          "expected": 3.12,
+          "name": "Variável versao",
+          "type": "float",
+          "hint": "versao deve ser 3.12"
+        },
+        {
+          "id": "v5",
+          "kind": "variable",
+          "variable": "popular",
+          "expected": true,
+          "name": "Variável popular",
+          "type": "bool",
+          "hint": "popular deve ser True (bool)"
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "title": "Operadores e Expressões",
+      "description": "Exercício do curso Python Completo: Operadores e Expressões.",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Complete o código abaixo.\n\ndef dobro_mais_um(n):\n    # TODO: implemente\n    pass\n\n\ndef eh_par(n):\n    # TODO: implemente\n    pass\n\n\ndef esta_no_intervalo(x, minimo, maximo):\n    # TODO: implemente\n    pass\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "def dobro_mais_um(n):\n    return 2 * n + 1\n\ndef eh_par(n):\n    return n % 2 == 0\n\ndef esta_no_intervalo(x, minimo, maximo):\n    return minimo <= x <= maximo\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "chamada1",
+          "kind": "call",
+          "function": "dobro_mais_um",
+          "args": [
+            3
+          ],
+          "kwargs": {},
+          "expected": 7,
+          "name": "dobro_mais_um(3)",
+          "hint": "dobro_mais_um(3) deve ser 7"
+        },
+        {
+          "id": "chamada2",
+          "kind": "call",
+          "function": "dobro_mais_um",
+          "args": [
+            0
+          ],
+          "kwargs": {},
+          "expected": 1,
+          "name": "dobro_mais_um(0)",
+          "hint": "dobro_mais_um(0) deve ser 1"
+        },
+        {
+          "id": "chamada3",
+          "kind": "call",
+          "function": "dobro_mais_um",
+          "args": [
+            -2
+          ],
+          "kwargs": {},
+          "expected": -3,
+          "name": "dobro_mais_um(-2)",
+          "hint": "dobro_mais_um(-2) deve ser -3"
+        },
+        {
+          "id": "chamada4",
+          "kind": "call",
+          "function": "eh_par",
+          "args": [
+            4
+          ],
+          "kwargs": {},
+          "expected": true,
+          "name": "eh_par(4)",
+          "type": "bool",
+          "hint": "4 é par"
+        },
+        {
+          "id": "chamada5",
+          "kind": "call",
+          "function": "eh_par",
+          "args": [
+            7
+          ],
+          "kwargs": {},
+          "expected": false,
+          "name": "eh_par(7)",
+          "type": "bool",
+          "hint": "7 é ímpar"
+        },
+        {
+          "id": "chamada6",
+          "kind": "call",
+          "function": "eh_par",
+          "args": [
+            0
+          ],
+          "kwargs": {},
+          "expected": true,
+          "name": "eh_par(0)",
+          "type": "bool",
+          "hint": "0 é par"
+        },
+        {
+          "id": "chamada7",
+          "kind": "call",
+          "function": "esta_no_intervalo",
+          "args": [
+            5,
+            1,
+            10
+          ],
+          "kwargs": {},
+          "expected": true,
+          "name": "esta_no_intervalo(5, 1, 10)",
+          "type": "bool"
+        },
+        {
+          "id": "chamada8",
+          "kind": "call",
+          "function": "esta_no_intervalo",
+          "args": [
+            1,
+            1,
+            10
+          ],
+          "kwargs": {},
+          "expected": true,
+          "name": "esta_no_intervalo(1, 1, 10)",
+          "type": "bool",
+          "hint": "extremos contam: 1 está em [1,10]"
+        },
+        {
+          "id": "chamada9",
+          "kind": "call",
+          "function": "esta_no_intervalo",
+          "args": [
+            10,
+            1,
+            10
+          ],
+          "kwargs": {},
+          "expected": true,
+          "name": "esta_no_intervalo(10, 1, 10)",
+          "type": "bool",
+          "hint": "extremos contam: 10 está em [1,10]"
+        },
+        {
+          "id": "chamada10",
+          "kind": "call",
+          "function": "esta_no_intervalo",
+          "args": [
+            11,
+            1,
+            10
+          ],
+          "kwargs": {},
+          "expected": false,
+          "name": "esta_no_intervalo(11, 1, 10)",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "order": 4,
+      "title": "Condicionais",
+      "description": "Exercício do curso Python Completo: Condicionais.",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Complete o código abaixo.\n\ndef classificar_idade(idade):\n    # TODO: implemente\n    pass\n\n\ndef maior_de_tres(a, b, c):\n    # TODO: implemente\n    pass\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "def classificar_idade(idade):\n    if idade < 12:\n        return \"crianca\"\n    elif idade < 18:\n        return \"adolescente\"\n    elif idade < 60:\n        return \"adulto\"\n    else:\n        return \"idoso\"\n\ndef maior_de_tres(a, b, c):\n    if a >= b and a >= c:\n        return a\n    elif b >= a and b >= c:\n        return b\n    else:\n        return c\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "chamada1",
+          "kind": "call",
+          "function": "classificar_idade",
+          "args": [
+            8
+          ],
+          "kwargs": {},
+          "expected": "crianca",
+          "name": "classificar_idade(8)"
+        },
+        {
+          "id": "chamada2",
+          "kind": "call",
+          "function": "classificar_idade",
+          "args": [
+            12
+          ],
+          "kwargs": {},
+          "expected": "adolescente",
+          "name": "classificar_idade(12)",
+          "hint": "12 já é adolescente"
+        },
+        {
+          "id": "chamada3",
+          "kind": "call",
+          "function": "classificar_idade",
+          "args": [
+            17
+          ],
+          "kwargs": {},
+          "expected": "adolescente",
+          "name": "classificar_idade(17)"
+        },
+        {
+          "id": "chamada4",
+          "kind": "call",
+          "function": "classificar_idade",
+          "args": [
+            18
+          ],
+          "kwargs": {},
+          "expected": "adulto",
+          "name": "classificar_idade(18)",
+          "hint": "18 já é adulto"
+        },
+        {
+          "id": "chamada5",
+          "kind": "call",
+          "function": "classificar_idade",
+          "args": [
+            59
+          ],
+          "kwargs": {},
+          "expected": "adulto",
+          "name": "classificar_idade(59)"
+        },
+        {
+          "id": "chamada6",
+          "kind": "call",
+          "function": "classificar_idade",
+          "args": [
+            60
+          ],
+          "kwargs": {},
+          "expected": "idoso",
+          "name": "classificar_idade(60)",
+          "hint": "60 já é idoso"
+        },
+        {
+          "id": "chamada7",
+          "kind": "call",
+          "function": "maior_de_tres",
+          "args": [
+            1,
+            2,
+            3
+          ],
+          "kwargs": {},
+          "expected": 3,
+          "name": "maior_de_tres(1, 2, 3)"
+        },
+        {
+          "id": "chamada8",
+          "kind": "call",
+          "function": "maior_de_tres",
+          "args": [
+            9,
+            2,
+            3
+          ],
+          "kwargs": {},
+          "expected": 9,
+          "name": "maior_de_tres(9, 2, 3)"
+        },
+        {
+          "id": "chamada9",
+          "kind": "call",
+          "function": "maior_de_tres",
+          "args": [
+            1,
+            7,
+            3
+          ],
+          "kwargs": {},
+          "expected": 7,
+          "name": "maior_de_tres(1, 7, 3)"
+        },
+        {
+          "id": "chamada10",
+          "kind": "call",
+          "function": "maior_de_tres",
+          "args": [
+            5,
+            5,
+            5
+          ],
+          "kwargs": {},
+          "expected": 5,
+          "name": "maior_de_tres(5, 5, 5)",
+          "hint": "empate: retorne o valor"
+        },
+        {
+          "id": "legado11",
+          "kind": "legacy",
+          "name": "Testes adicionais",
+          "code": "assert classificar_idade(8) == \"crianca\"\nassert classificar_idade(12) == \"adolescente\", \"12 já é adolescente\"\nassert classificar_idade(17) == \"adolescente\"\nassert classificar_idade(18) == \"adulto\", \"18 já é adulto\"\nassert classificar_idade(59) == \"adulto\"\nassert classificar_idade(60) == \"idoso\", \"60 já é idoso\"\nassert maior_de_tres(1, 2, 3) == 3\nassert maior_de_tres(9, 2, 3) == 9\nassert maior_de_tres(1, 7, 3) == 7\nassert maior_de_tres(5, 5, 5) == 5, \"empate: retorne o valor\"\nassert \"max(\" not in _source.replace(\"maior_de_tres\", \"\"), \"não use a função max()\""
+        }
+      ]
+    },
+    {
+      "order": 5,
+      "title": "Laços",
+      "description": "Exercício do curso Python Completo: Laços.",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Complete o código abaixo.\n\ndef somar_pares(limite):\n    # TODO: implemente\n    pass\n\n\ndef contagem_regressiva(n):\n    # TODO: implemente\n    pass\n\n\ndef tabuada(n):\n    # TODO: implemente\n    pass\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "def somar_pares(limite):\n    total = 0\n    for i in range(0, limite + 1, 2):\n        total += i\n    return total\n\ndef contagem_regressiva(n):\n    resultado = []\n    while n > 0:\n        resultado.append(n)\n        n -= 1\n    return resultado\n\ndef tabuada(n):\n    resultado = []\n    for i in range(1, 11):\n        resultado.append(n * i)\n    return resultado\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "chamada1",
+          "kind": "call",
+          "function": "somar_pares",
+          "args": [
+            10
+          ],
+          "kwargs": {},
+          "expected": 30,
+          "name": "somar_pares(10)",
+          "hint": "0+2+4+6+8+10 = 30"
+        },
+        {
+          "id": "chamada2",
+          "kind": "call",
+          "function": "somar_pares",
+          "args": [
+            0
+          ],
+          "kwargs": {},
+          "expected": 0,
+          "name": "somar_pares(0)"
+        },
+        {
+          "id": "chamada3",
+          "kind": "call",
+          "function": "somar_pares",
+          "args": [
+            7
+          ],
+          "kwargs": {},
+          "expected": 12,
+          "name": "somar_pares(7)",
+          "hint": "0+2+4+6 = 12"
+        },
+        {
+          "id": "chamada4",
+          "kind": "call",
+          "function": "contagem_regressiva",
+          "args": [
+            3
+          ],
+          "kwargs": {},
+          "expected": [
+            3,
+            2,
+            1
+          ],
+          "name": "contagem_regressiva(3)"
+        },
+        {
+          "id": "chamada5",
+          "kind": "call",
+          "function": "contagem_regressiva",
+          "args": [
+            1
+          ],
+          "kwargs": {},
+          "expected": [
+            1
+          ],
+          "name": "contagem_regressiva(1)"
+        },
+        {
+          "id": "chamada6",
+          "kind": "call",
+          "function": "contagem_regressiva",
+          "args": [
+            0
+          ],
+          "kwargs": {},
+          "expected": [],
+          "name": "contagem_regressiva(0)",
+          "hint": "contagem de 0 é lista vazia"
+        },
+        {
+          "id": "chamada7",
+          "kind": "call",
+          "function": "tabuada",
+          "args": [
+            5
+          ],
+          "kwargs": {},
+          "expected": [
+            5,
+            10,
+            15,
+            20,
+            25,
+            30,
+            35,
+            40,
+            45,
+            50
+          ],
+          "name": "tabuada(5)"
+        },
+        {
+          "id": "chamada8",
+          "kind": "call",
+          "function": "tabuada",
+          "args": [
+            1
+          ],
+          "kwargs": {},
+          "expected": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "name": "tabuada(1)"
+        },
+        {
+          "id": "legado9",
+          "kind": "legacy",
+          "name": "Testes adicionais",
+          "code": "assert somar_pares(10) == 30, \"0+2+4+6+8+10 = 30\"\nassert somar_pares(0) == 0\nassert somar_pares(7) == 12, \"0+2+4+6 = 12\"\nassert contagem_regressiva(3) == [3, 2, 1]\nassert contagem_regressiva(1) == [1]\nassert contagem_regressiva(0) == [], \"contagem de 0 é lista vazia\"\nassert tabuada(5) == [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]\nassert tabuada(1) == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]\nassert len(tabuada(7)) == 10"
+        }
+      ]
+    },
+    {
+      "order": 6,
+      "title": "Funções",
+      "description": "Exercício do curso Python Completo: Funções.",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Complete o código abaixo.\n\ndef apresentar(nome, idade=None):\n    # TODO: implemente\n    pass\n\n\ndef minimo_e_maximo(numeros):\n    # TODO: implemente\n    pass\n\n\ndef aplicar_desconto(preco, percentual=10):\n    # TODO: implemente\n    pass\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "def apresentar(nome, idade=None):\n    if idade is None:\n        return f\"Meu nome é {nome}\"\n    return f\"Meu nome é {nome} e tenho {idade} anos\"\n\ndef minimo_e_maximo(numeros):\n    menor = numeros[0]\n    maior = numeros[0]\n    for n in numeros:\n        if n < menor:\n            menor = n\n        if n > maior:\n            maior = n\n    return (menor, maior)\n\ndef aplicar_desconto(preco, percentual=10):\n    return preco * (1 - percentual / 100)\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "chamada1",
+          "kind": "call",
+          "function": "apresentar",
+          "args": [
+            "Ana",
+            20
+          ],
+          "kwargs": {},
+          "expected": "Meu nome é Ana e tenho 20 anos",
+          "name": "apresentar(\"Ana\", 20)"
+        },
+        {
+          "id": "chamada2",
+          "kind": "call",
+          "function": "apresentar",
+          "args": [
+            "Bia"
+          ],
+          "kwargs": {},
+          "expected": "Meu nome é Bia",
+          "name": "apresentar(\"Bia\")"
+        },
+        {
+          "id": "chamada3",
+          "kind": "call",
+          "function": "minimo_e_maximo",
+          "args": [
+            [
+              3,
+              1,
+              4,
+              1,
+              5
+            ]
+          ],
+          "kwargs": {},
+          "expected": [
+            1,
+            5
+          ],
+          "name": "minimo_e_maximo([3, 1, 4, 1, 5])"
+        },
+        {
+          "id": "chamada4",
+          "kind": "call",
+          "function": "minimo_e_maximo",
+          "args": [
+            [
+              7
+            ]
+          ],
+          "kwargs": {},
+          "expected": [
+            7,
+            7
+          ],
+          "name": "minimo_e_maximo([7])"
+        },
+        {
+          "id": "chamada5",
+          "kind": "call",
+          "function": "minimo_e_maximo",
+          "args": [
+            [
+              -2,
+              -8,
+              0
+            ]
+          ],
+          "kwargs": {},
+          "expected": [
+            -8,
+            0
+          ],
+          "name": "minimo_e_maximo([-2, -8, 0])"
+        },
+        {
+          "id": "legado6",
+          "kind": "legacy",
+          "name": "Testes adicionais",
+          "code": "assert apresentar(\"Ana\", 20) == \"Meu nome é Ana e tenho 20 anos\"\nassert apresentar(\"Bia\") == \"Meu nome é Bia\"\nassert minimo_e_maximo([3, 1, 4, 1, 5]) == (1, 5)\nassert minimo_e_maximo([7]) == (7, 7)\nassert minimo_e_maximo([-2, -8, 0]) == (-8, 0)\n_clean = _source.replace(\"minimo_e_maximo\", \"\")\nassert \"min(\" not in _clean and \"max(\" not in _clean, \"não use min() nem max()\"\nassert aplicar_desconto(100) == 90.0, \"desconto padrão é 10%\"\nassert aplicar_desconto(200, 50) == 100.0\nassert aplicar_desconto(80, 0) == 80.0"
+        }
+      ]
+    },
+    {
+      "order": 7,
+      "title": "Listas e Strings",
+      "description": "Exercício do curso Python Completo: Listas e Strings.",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Complete o código abaixo.\n\ndef apenas_positivos(numeros):\n    # TODO: implemente\n    pass\n\n\ndef inverter_palavras(frase):\n    # TODO: implemente\n    pass\n\n\ndef contar_vogais(texto):\n    # TODO: implemente\n    pass\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "def apenas_positivos(numeros):\n    resultado = []\n    for n in numeros:\n        if n > 0:\n            resultado.append(n)\n    return resultado\n\ndef inverter_palavras(frase):\n    return \" \".join(frase.split()[::-1])\n\ndef contar_vogais(texto):\n    total = 0\n    for ch in texto.lower():\n        if ch in \"aeiou\":\n            total += 1\n    return total\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "chamada1",
+          "kind": "call",
+          "function": "apenas_positivos",
+          "args": [
+            [
+              1,
+              -2,
+              3,
+              0,
+              -5
+            ]
+          ],
+          "kwargs": {},
+          "expected": [
+            1,
+            3
+          ],
+          "name": "apenas_positivos([1, -2, 3, 0, -5])"
+        },
+        {
+          "id": "chamada2",
+          "kind": "call",
+          "function": "apenas_positivos",
+          "args": [
+            [
+              -1,
+              -2
+            ]
+          ],
+          "kwargs": {},
+          "expected": [],
+          "name": "apenas_positivos([-1, -2])"
+        },
+        {
+          "id": "chamada3",
+          "kind": "call",
+          "function": "apenas_positivos",
+          "args": [
+            []
+          ],
+          "kwargs": {},
+          "expected": [],
+          "name": "apenas_positivos([])"
+        },
+        {
+          "id": "chamada4",
+          "kind": "call",
+          "function": "inverter_palavras",
+          "args": [
+            "olá mundo cruel"
+          ],
+          "kwargs": {},
+          "expected": "cruel mundo olá",
+          "name": "inverter_palavras(\"olá mundo cruel\")"
+        },
+        {
+          "id": "chamada5",
+          "kind": "call",
+          "function": "inverter_palavras",
+          "args": [
+            "python"
+          ],
+          "kwargs": {},
+          "expected": "python",
+          "name": "inverter_palavras(\"python\")"
+        },
+        {
+          "id": "chamada6",
+          "kind": "call",
+          "function": "contar_vogais",
+          "args": [
+            "Python"
+          ],
+          "kwargs": {},
+          "expected": 1,
+          "name": "contar_vogais(\"Python\")"
+        },
+        {
+          "id": "chamada7",
+          "kind": "call",
+          "function": "contar_vogais",
+          "args": [
+            "AEIOU aeiou"
+          ],
+          "kwargs": {},
+          "expected": 10,
+          "name": "contar_vogais(\"AEIOU aeiou\")"
+        },
+        {
+          "id": "chamada8",
+          "kind": "call",
+          "function": "contar_vogais",
+          "args": [
+            "xyz"
+          ],
+          "kwargs": {},
+          "expected": 0,
+          "name": "contar_vogais(\"xyz\")"
+        }
+      ]
+    },
+    {
+      "order": 8,
+      "title": "Dicionários, Tuplas e Conjuntos",
+      "description": "Exercício do curso Python Completo: Dicionários, Tuplas e Conjuntos.",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Complete o código abaixo.\n\ndef contar_palavras(frase):\n    # TODO: implemente\n    pass\n\n\ndef em_comum(lista_a, lista_b):\n    # TODO: implemente\n    pass\n\n\ndef notas_altas(alunos, corte):\n    # TODO: implemente\n    pass\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "def contar_palavras(frase):\n    contagem = {}\n    for p in frase.split():\n        contagem[p] = contagem.get(p, 0) + 1\n    return contagem\n\ndef em_comum(lista_a, lista_b):\n    return set(lista_a) & set(lista_b)\n\ndef notas_altas(alunos, corte):\n    return sorted([nome for nome, nota in alunos.items() if nota >= corte])\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "chamada1",
+          "kind": "call",
+          "function": "contar_palavras",
+          "args": [
+            "a b a"
+          ],
+          "kwargs": {},
+          "expected": {
+            "a": 2,
+            "b": 1
+          },
+          "name": "contar_palavras(\"a b a\")"
+        },
+        {
+          "id": "chamada2",
+          "kind": "call",
+          "function": "contar_palavras",
+          "args": [
+            "python"
+          ],
+          "kwargs": {},
+          "expected": {
+            "python": 1
+          },
+          "name": "contar_palavras(\"python\")"
+        },
+        {
+          "id": "chamada3",
+          "kind": "call",
+          "function": "contar_palavras",
+          "args": [
+            ""
+          ],
+          "kwargs": {},
+          "expected": {},
+          "name": "contar_palavras(\"\")"
+        },
+        {
+          "id": "chamada4",
+          "kind": "call",
+          "function": "notas_altas",
+          "args": [
+            {
+              "Ana": 9,
+              "Bia": 5,
+              "Caio": 8
+            },
+            7
+          ],
+          "kwargs": {},
+          "expected": [
+            "Ana",
+            "Caio"
+          ],
+          "name": "notas_altas({\"Ana\": 9, \"Bia\": 5, \"Caio\": 8}, 7)"
+        },
+        {
+          "id": "chamada5",
+          "kind": "call",
+          "function": "notas_altas",
+          "args": [
+            {
+              "Zé": 10,
+              "Ana": 10
+            },
+            10
+          ],
+          "kwargs": {},
+          "expected": [
+            "Ana",
+            "Zé"
+          ],
+          "name": "notas_altas({\"Zé\": 10, \"Ana\": 10}, 10)",
+          "hint": "ordem alfabética"
+        },
+        {
+          "id": "chamada6",
+          "kind": "call",
+          "function": "notas_altas",
+          "args": [
+            {},
+            5
+          ],
+          "kwargs": {},
+          "expected": [],
+          "name": "notas_altas({}, 5)"
+        },
+        {
+          "id": "legado7",
+          "kind": "legacy",
+          "name": "Testes adicionais",
+          "code": "assert contar_palavras(\"a b a\") == {\"a\": 2, \"b\": 1}\nassert contar_palavras(\"python\") == {\"python\": 1}\nassert contar_palavras(\"\") == {}\nassert em_comum([1, 2, 3], [2, 3, 4]) == {2, 3}\nassert em_comum([1], [2]) == set()\nassert notas_altas({\"Ana\": 9, \"Bia\": 5, \"Caio\": 8}, 7) == [\"Ana\", \"Caio\"]\nassert notas_altas({\"Zé\": 10, \"Ana\": 10}, 10) == [\"Ana\", \"Zé\"], \"ordem alfabética\"\nassert notas_altas({}, 5) == []"
+        }
+      ]
+    },
+    {
+      "order": 9,
+      "title": "Arquivos",
+      "description": "Exercício do curso Python Completo: Arquivos.",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Complete o código abaixo.\n\ndef salvar_lista(nome_arquivo, itens):\n    # TODO: implemente\n    pass\n\n\ndef ler_linhas(nome_arquivo):\n    # TODO: implemente\n    pass\n\n\ndef contar_linhas_nao_vazias(nome_arquivo):\n    # TODO: implemente\n    pass\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "def salvar_lista(nome_arquivo, itens):\n    with open(nome_arquivo, \"w\") as f:\n        for item in itens:\n            f.write(f\"{item}\\n\")\n\ndef ler_linhas(nome_arquivo):\n    with open(nome_arquivo) as f:\n        return [l.rstrip(\"\\n\") for l in f]\n\ndef contar_linhas_nao_vazias(nome_arquivo):\n    total = 0\n    with open(nome_arquivo) as f:\n        for linha in f:\n            if linha.strip():\n                total += 1\n    return total\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "legado1",
+          "kind": "legacy",
+          "name": "Testes adicionais",
+          "code": "salvar_lista(\"teste_a.txt\", [\"um\", \"dois\", \"três\"])\nassert ler_linhas(\"teste_a.txt\") == [\"um\", \"dois\", \"três\"]\nsalvar_lista(\"teste_b.txt\", [])\nassert ler_linhas(\"teste_b.txt\") == []\nwith open(\"teste_c.txt\", \"w\") as _f:\n    _f.write(\"a\\n\\n  \\nb\\n\")\nassert contar_linhas_nao_vazias(\"teste_c.txt\") == 2, \"linhas em branco não contam\"\nassert \"with\" in _source, \"use o bloco with para abrir arquivos\""
+        }
+      ]
+    },
+    {
+      "order": 10,
+      "title": "Classes e Objetos",
+      "description": "Exercício do curso Python Completo: Classes e Objetos.",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Complete o código abaixo.\n\nclass Retangulo:\n    def __init__(self, largura, altura):\n        # TODO: implemente\n        pass\n\n    def area(self):\n        # TODO: implemente\n        pass\n\n    def perimetro(self):\n        # TODO: implemente\n        pass\n\n    def eh_quadrado(self):\n        # TODO: implemente\n        pass\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "class Retangulo:\n    def __init__(self, largura, altura):\n        self.largura = largura\n        self.altura = altura\n\n    def area(self):\n        return self.largura * self.altura\n\n    def perimetro(self):\n        return 2 * (self.largura + self.altura)\n\n    def eh_quadrado(self):\n        return self.largura == self.altura\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "legado1",
+          "kind": "legacy",
+          "name": "Testes adicionais",
+          "code": "r = Retangulo(3, 4)\nassert r.largura == 3 and r.altura == 4, \"guarde os atributos no __init__\"\nassert r.area() == 12\nassert r.perimetro() == 14\nassert r.eh_quadrado() is False\nq = Retangulo(5, 5)\nassert q.area() == 25\nassert q.eh_quadrado() is True"
+        }
+      ]
+    },
+    {
+      "order": 11,
+      "title": "Herança e Polimorfismo",
+      "description": "Exercício do curso Python Completo: Herança e Polimorfismo.",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Complete o código abaixo.\n\nclass Funcionario:\n    def __init__(self, nome, salario):\n        # TODO: implemente\n        pass\n\n    def salario_anual(self):\n        # TODO: implemente\n        pass\n\n    def descricao(self):\n        # TODO: implemente\n        pass\n\n\n\nclass Gerente(Funcionario):\n    def __init__(self, nome, salario, bonus):\n        # TODO: implemente\n        pass\n\n    def salario_anual(self):\n        # TODO: implemente\n        pass\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "class Funcionario:\n    def __init__(self, nome, salario):\n        self.nome = nome\n        self.salario = salario\n\n    def salario_anual(self):\n        return self.salario * 12\n\n    def descricao(self):\n        return f\"{self.nome} ganha R${self.salario} por mês\"\n\n\nclass Gerente(Funcionario):\n    def __init__(self, nome, salario, bonus):\n        super().__init__(nome, salario)\n        self.bonus = bonus\n\n    def salario_anual(self):\n        return super().salario_anual() + self.bonus\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "legado1",
+          "kind": "legacy",
+          "name": "Testes adicionais",
+          "code": "f = Funcionario(\"Ana\", 3000)\nassert f.salario_anual() == 36000\nassert f.descricao() == \"Ana ganha R$3000 por mês\"\ng = Gerente(\"Bia\", 5000, 10000)\nassert g.salario_anual() == 70000, \"12 * 5000 + 10000\"\nassert g.nome == \"Bia\", \"Gerente deve herdar os atributos via super()\"\nassert g.descricao() == \"Bia ganha R$5000 por mês\", \"descricao é herdada, não reescreva\"\nassert issubclass(Gerente, Funcionario), \"Gerente deve herdar de Funcionario\"\nassert isinstance(g, Funcionario), \"um Gerente também é Funcionario (polimorfismo)\"\nassert \"super()\" in _source, \"use super() no __init__ do Gerente\""
+        }
+      ]
+    },
+    {
+      "order": 12,
+      "title": "Encapsulamento e Properties",
+      "description": "Exercício do curso Python Completo: Encapsulamento e Properties.",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Complete o código abaixo.\n\nclass ContaBancaria:\n    def __init__(self, titular, saldo_inicial=0):\n        # TODO: implemente\n        pass\n\n    @property\n    def saldo(self):\n        # TODO: implemente\n        pass\n\n    def depositar(self, valor):\n        # TODO: implemente\n        pass\n\n    def sacar(self, valor):\n        # TODO: implemente\n        pass\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "class ContaBancaria:\n    def __init__(self, titular, saldo_inicial=0):\n        self.titular = titular\n        self._saldo = saldo_inicial\n\n    @property\n    def saldo(self):\n        return self._saldo\n\n    def depositar(self, valor):\n        if valor <= 0:\n            raise ValueError(\"valor inválido\")\n        self._saldo += valor\n\n    def sacar(self, valor):\n        if valor <= 0:\n            raise ValueError(\"valor inválido\")\n        if valor > self._saldo:\n            raise ValueError(\"saldo insuficiente\")\n        self._saldo -= valor\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "legado1",
+          "kind": "legacy",
+          "name": "Testes adicionais",
+          "code": "c = ContaBancaria(\"Ana\", 100)\nassert c.saldo == 100\nc.depositar(50)\nassert c.saldo == 150\nc.sacar(30)\nassert c.saldo == 120\ntry:\n    c.depositar(-10)\n    assert False, \"depositar valor negativo deve levantar ValueError\"\nexcept ValueError:\n    pass\ntry:\n    c.sacar(999)\n    assert False, \"sacar mais que o saldo deve levantar ValueError\"\nexcept ValueError as e:\n    assert \"insuficiente\" in str(e), \"mensagem deve ser 'saldo insuficiente'\"\nassert \"@property\" in _source, \"use o decorator @property\"\ntry:\n    c.saldo = 99999\n    assert False, \"saldo deve ser somente leitura (property sem setter)\"\nexcept AttributeError:\n    pass"
+        }
+      ]
+    },
+    {
+      "order": 13,
+      "title": "Métodos Dunder",
+      "description": "Exercício do curso Python Completo: Métodos Dunder.",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Complete o código abaixo.\n\nclass Carrinho:\n    def __init__(self):\n        # TODO: implemente\n        pass\n\n    def adicionar(self, nome, preco):\n        # TODO: implemente\n        pass\n\n    def total(self):\n        # TODO: implemente\n        pass\n\n    def __len__(self):\n        # TODO: implemente\n        pass\n\n    def __str__(self):\n        # TODO: implemente\n        pass\n\n    def __eq__(self, outro):\n        # TODO: implemente\n        pass\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "class Carrinho:\n    def __init__(self):\n        self.itens = []\n\n    def adicionar(self, nome, preco):\n        self.itens.append((nome, preco))\n\n    def total(self):\n        return sum(p for _, p in self.itens)\n\n    def __len__(self):\n        return len(self.itens)\n\n    def __str__(self):\n        return f\"Carrinho: {len(self)} itens, total R${self.total():.2f}\"\n\n    def __eq__(self, outro):\n        return self.itens == outro.itens\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "legado1",
+          "kind": "legacy",
+          "name": "Testes adicionais",
+          "code": "c = Carrinho()\nc.adicionar(\"caneta\", 2.5)\nc.adicionar(\"caderno\", 10.0)\nassert len(c) == 2, \"len(carrinho) deve funcionar via __len__\"\nassert c.total() == 12.5\nassert str(c) == \"Carrinho: 2 itens, total R$12.50\"\nc2 = Carrinho()\nc2.adicionar(\"caneta\", 2.5)\nc2.adicionar(\"caderno\", 10.0)\nassert c == c2, \"carrinhos com mesmos itens devem ser iguais via __eq__\"\nc2.adicionar(\"borracha\", 1.0)\nassert c != c2\nv = Carrinho()\nassert len(v) == 0 and v.total() == 0"
+        }
+      ]
+    },
+    {
+      "order": 14,
+      "title": "Exceções: try/except",
+      "description": "Exercício do curso Python Completo: Exceções: try/except.",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Complete o código abaixo.\n\ndef para_inteiro(texto, padrao=0):\n    # TODO: implemente\n    pass\n\n\ndef dividir(a, b):\n    # TODO: implemente\n    pass\n\n\ndef buscar(dicionario, chave):\n    # TODO: implemente\n    pass\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "def para_inteiro(texto, padrao=0):\n    try:\n        return int(texto)\n    except ValueError:\n        return padrao\n\ndef dividir(a, b):\n    try:\n        return a / b\n    except ZeroDivisionError:\n        return None\n\ndef buscar(dicionario, chave):\n    try:\n        return dicionario[chave]\n    except KeyError:\n        return \"não encontrado\"\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "chamada1",
+          "kind": "call",
+          "function": "para_inteiro",
+          "args": [
+            "42"
+          ],
+          "kwargs": {},
+          "expected": 42,
+          "name": "para_inteiro(\"42\")"
+        },
+        {
+          "id": "chamada2",
+          "kind": "call",
+          "function": "para_inteiro",
+          "args": [
+            "abc"
+          ],
+          "kwargs": {},
+          "expected": 0,
+          "name": "para_inteiro(\"abc\")"
+        },
+        {
+          "id": "chamada3",
+          "kind": "call",
+          "function": "para_inteiro",
+          "args": [
+            "abc",
+            -1
+          ],
+          "kwargs": {},
+          "expected": -1,
+          "name": "para_inteiro(\"abc\", -1)"
+        },
+        {
+          "id": "chamada4",
+          "kind": "call",
+          "function": "para_inteiro",
+          "args": [
+            "3.14",
+            9
+          ],
+          "kwargs": {},
+          "expected": 9,
+          "name": "para_inteiro(\"3.14\", 9)",
+          "hint": "'3.14' não é int válido"
+        },
+        {
+          "id": "chamada5",
+          "kind": "call",
+          "function": "dividir",
+          "args": [
+            10,
+            2
+          ],
+          "kwargs": {},
+          "expected": 5.0,
+          "name": "dividir(10, 2)",
+          "tolerance": 1e-06
+        },
+        {
+          "id": "chamada6",
+          "kind": "call",
+          "function": "dividir",
+          "args": [
+            1,
+            0
+          ],
+          "kwargs": {},
+          "expected": null,
+          "name": "dividir(1, 0)",
+          "type": "NoneType"
+        },
+        {
+          "id": "chamada7",
+          "kind": "call",
+          "function": "buscar",
+          "args": [
+            {
+              "a": 1
+            },
+            "a"
+          ],
+          "kwargs": {},
+          "expected": 1,
+          "name": "buscar({\"a\": 1}, \"a\")"
+        },
+        {
+          "id": "chamada8",
+          "kind": "call",
+          "function": "buscar",
+          "args": [
+            {
+              "a": 1
+            },
+            "z"
+          ],
+          "kwargs": {},
+          "expected": "não encontrado",
+          "name": "buscar({\"a\": 1}, \"z\")"
+        },
+        {
+          "id": "legado9",
+          "kind": "legacy",
+          "name": "Testes adicionais",
+          "code": "assert para_inteiro(\"42\") == 42\nassert para_inteiro(\"abc\") == 0\nassert para_inteiro(\"abc\", -1) == -1\nassert para_inteiro(\"3.14\", 9) == 9, \"'3.14' não é int válido\"\nassert dividir(10, 2) == 5.0\nassert dividir(1, 0) is None\nassert buscar({\"a\": 1}, \"a\") == 1\nassert buscar({\"a\": 1}, \"z\") == \"não encontrado\"\nassert \"except ValueError\" in _source, \"capture ValueError especificamente\"\nassert \"except ZeroDivisionError\" in _source, \"capture ZeroDivisionError especificamente\"\nassert \"except KeyError\" in _source, \"capture KeyError especificamente\""
+        }
+      ]
+    },
+    {
+      "order": 15,
+      "title": "Exceções Customizadas",
+      "description": "Exercício do curso Python Completo: Exceções Customizadas.",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Complete o código abaixo.\n\nclass NomeCurtoError(Exception):\n    pass\n\n\nclass IdadeInvalidaError(Exception):\n    pass\n\n\ndef registrar_usuario(nome, idade):\n    # TODO: implemente\n    pass\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "class NomeCurtoError(Exception):\n    pass\n\n\nclass IdadeInvalidaError(Exception):\n    pass\n\n\ndef registrar_usuario(nome, idade):\n    if len(nome) < 3:\n        raise NomeCurtoError(\"nome muito curto\")\n    if idade < 0 or idade > 130:\n        raise IdadeInvalidaError(\"idade fora do intervalo\")\n    return {\"nome\": nome, \"idade\": idade}\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "legado1",
+          "kind": "legacy",
+          "name": "Testes adicionais",
+          "code": "assert issubclass(NomeCurtoError, Exception)\nassert issubclass(IdadeInvalidaError, Exception)\nu = registrar_usuario(\"Ana\", 20)\nassert u == {\"nome\": \"Ana\", \"idade\": 20}\ntry:\n    registrar_usuario(\"Al\", 20)\n    assert False, \"nome com 2 letras deve levantar NomeCurtoError\"\nexcept NomeCurtoError:\n    pass\ntry:\n    registrar_usuario(\"Carlos\", -1)\n    assert False, \"idade negativa deve levantar IdadeInvalidaError\"\nexcept IdadeInvalidaError:\n    pass\ntry:\n    registrar_usuario(\"Carlos\", 131)\n    assert False, \"idade 131 deve levantar IdadeInvalidaError\"\nexcept IdadeInvalidaError:\n    pass\nassert registrar_usuario(\"Bia\", 0)[\"idade\"] == 0, \"0 é idade válida\"\nassert registrar_usuario(\"Zoe\", 130)[\"idade\"] == 130, \"130 é idade válida\""
+        }
+      ]
+    },
+    {
+      "order": 16,
+      "title": "Context Managers",
+      "description": "Exercício do curso Python Completo: Context Managers.",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Complete o código abaixo.\n\nclass Sessao:\n    def __init__(self, nome):\n        # TODO: implemente\n        pass\n\n    def __enter__(self):\n        # TODO: implemente\n        pass\n\n    def __exit__(self, exc_type, exc_value, traceback):\n        # TODO: implemente\n        pass\n\n    def registrar(self, msg):\n        # TODO: implemente\n        pass\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "class Sessao:\n    def __init__(self, nome):\n        self.nome = nome\n        self.eventos = []\n\n    def __enter__(self):\n        self.eventos.append(f\"abriu: {self.nome}\")\n        return self\n\n    def __exit__(self, exc_type, exc_value, traceback):\n        self.eventos.append(f\"fechou: {self.nome}\")\n        return False\n\n    def registrar(self, msg):\n        self.eventos.append(msg)\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "legado1",
+          "kind": "legacy",
+          "name": "Testes adicionais",
+          "code": "with Sessao(\"db\") as s:\n    s.registrar(\"consulta executada\")\nassert s.eventos == [\"abriu: db\", \"consulta executada\", \"fechou: db\"]\ns2 = Sessao(\"api\")\ntry:\n    with s2:\n        raise ValueError(\"boom\")\n    assert False, \"a exceção deve continuar subindo (não retorne True no __exit__)\"\nexcept ValueError:\n    pass\nassert s2.eventos == [\"abriu: api\", \"fechou: api\"], \"__exit__ deve rodar mesmo com exceção\"\nassert \"__enter__\" in _source and \"__exit__\" in _source"
+        }
+      ]
+    },
+    {
+      "order": 17,
+      "title": "Comprehensions",
+      "description": "Exercício do curso Python Completo: Comprehensions.",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Complete o código abaixo.\n\ndef quadrados_dos_impares(numeros):\n    # TODO: implemente\n    pass\n\n\ndef mapa_de_tamanhos(palavras):\n    # TODO: implemente\n    pass\n\n\ndef achatar(matriz):\n    # TODO: implemente\n    pass\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "def quadrados_dos_impares(numeros):\n    return [x**2 for x in numeros if x % 2 != 0]\n\ndef mapa_de_tamanhos(palavras):\n    return {p: len(p) for p in palavras if len(p) >= 3}\n\ndef achatar(matriz):\n    return [x for linha in matriz for x in linha]\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "chamada1",
+          "kind": "call",
+          "function": "quadrados_dos_impares",
+          "args": [
+            [
+              1,
+              2,
+              3,
+              4,
+              5
+            ]
+          ],
+          "kwargs": {},
+          "expected": [
+            1,
+            9,
+            25
+          ],
+          "name": "quadrados_dos_impares([1, 2, 3, 4, 5])"
+        },
+        {
+          "id": "chamada2",
+          "kind": "call",
+          "function": "quadrados_dos_impares",
+          "args": [
+            [
+              2,
+              4
+            ]
+          ],
+          "kwargs": {},
+          "expected": [],
+          "name": "quadrados_dos_impares([2, 4])"
+        },
+        {
+          "id": "chamada3",
+          "kind": "call",
+          "function": "mapa_de_tamanhos",
+          "args": [
+            [
+              "oi",
+              "sol",
+              "python"
+            ]
+          ],
+          "kwargs": {},
+          "expected": {
+            "sol": 3,
+            "python": 6
+          },
+          "name": "mapa_de_tamanhos([\"oi\", \"sol\", \"python\"])"
+        },
+        {
+          "id": "chamada4",
+          "kind": "call",
+          "function": "mapa_de_tamanhos",
+          "args": [
+            []
+          ],
+          "kwargs": {},
+          "expected": {},
+          "name": "mapa_de_tamanhos([])"
+        },
+        {
+          "id": "chamada5",
+          "kind": "call",
+          "function": "achatar",
+          "args": [
+            [
+              [
+                1,
+                2
+              ],
+              [
+                3
+              ],
+              []
+            ]
+          ],
+          "kwargs": {},
+          "expected": [
+            1,
+            2,
+            3
+          ],
+          "name": "achatar([[1, 2], [3], []])"
+        },
+        {
+          "id": "chamada6",
+          "kind": "call",
+          "function": "achatar",
+          "args": [
+            []
+          ],
+          "kwargs": {},
+          "expected": [],
+          "name": "achatar([])"
+        },
+        {
+          "id": "legado7",
+          "kind": "legacy",
+          "name": "Testes adicionais",
+          "code": "assert quadrados_dos_impares([1, 2, 3, 4, 5]) == [1, 9, 25]\nassert quadrados_dos_impares([2, 4]) == []\nassert mapa_de_tamanhos([\"oi\", \"sol\", \"python\"]) == {\"sol\": 3, \"python\": 6}\nassert mapa_de_tamanhos([]) == {}\nassert achatar([[1, 2], [3], []]) == [1, 2, 3]\nassert achatar([]) == []\nassert _source.count(\"for\") >= 4, \"use comprehensions (com for) nas três funções\"\nassert \"append\" not in _source, \"sem append — use comprehensions\""
+        }
+      ]
+    },
+    {
+      "order": 18,
+      "title": "Lambda, map, filter",
+      "description": "Exercício do curso Python Completo: Lambda, map, filter.",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Complete o código abaixo.\n\ndef celsius_para_fahrenheit(temperaturas):\n    # TODO: implemente\n    pass\n\n\ndef apenas_aprovados(alunos):\n    # TODO: implemente\n    pass\n\n\ndef ordenar_por_nota(alunos):\n    # TODO: implemente\n    pass\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "def celsius_para_fahrenheit(temperaturas):\n    return list(map(lambda c: c * 9/5 + 32, temperaturas))\n\ndef apenas_aprovados(alunos):\n    return list(filter(lambda a: a[\"nota\"] >= 7, alunos))\n\ndef ordenar_por_nota(alunos):\n    return sorted(alunos, key=lambda a: a[\"nota\"], reverse=True)\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "chamada1",
+          "kind": "call",
+          "function": "celsius_para_fahrenheit",
+          "args": [
+            [
+              0,
+              100
+            ]
+          ],
+          "kwargs": {},
+          "expected": [
+            32.0,
+            212.0
+          ],
+          "name": "celsius_para_fahrenheit([0, 100])"
+        },
+        {
+          "id": "chamada2",
+          "kind": "call",
+          "function": "celsius_para_fahrenheit",
+          "args": [
+            []
+          ],
+          "kwargs": {},
+          "expected": [],
+          "name": "celsius_para_fahrenheit([])"
+        },
+        {
+          "id": "legado3",
+          "kind": "legacy",
+          "name": "Testes adicionais",
+          "code": "assert celsius_para_fahrenheit([0, 100]) == [32.0, 212.0]\nassert celsius_para_fahrenheit([]) == []\n_alunos = [{\"nome\": \"Ana\", \"nota\": 9}, {\"nome\": \"Bia\", \"nota\": 5}, {\"nome\": \"Caio\", \"nota\": 7}]\n_ap = apenas_aprovados(_alunos)\nassert [a[\"nome\"] for a in _ap] == [\"Ana\", \"Caio\"]\n_ord = ordenar_por_nota(_alunos)\nassert [a[\"nome\"] for a in _ord] == [\"Ana\", \"Caio\", \"Bia\"]\nassert \"lambda\" in _source, \"use lambda\"\nassert \"map(\" in _source, \"use map() na conversão\"\nassert \"filter(\" in _source, \"use filter() nos aprovados\""
+        }
+      ]
+    },
+    {
+      "order": 19,
+      "title": "Decorators",
+      "description": "Exercício do curso Python Completo: Decorators.",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Complete o código abaixo.\n\ndef contar_chamadas(func):\n    # TODO: implemente\n    pass\n\n\ndef validar_positivos(func):\n    # TODO: implemente\n    pass\n\n\ndef somar(a, b):\n    # TODO: implemente\n    pass\n\n\ndef raiz_aproximada(x):\n    # TODO: implemente\n    pass\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "def contar_chamadas(func):\n    def wrapper(*args, **kwargs):\n        wrapper.chamadas += 1\n        return func(*args, **kwargs)\n    wrapper.chamadas = 0\n    return wrapper\n\n\ndef validar_positivos(func):\n    def wrapper(*args, **kwargs):\n        if any(isinstance(a, (int, float)) and a < 0 for a in args):\n            raise ValueError(\"argumento negativo\")\n        return func(*args, **kwargs)\n    return wrapper\n\n\n@contar_chamadas\ndef somar(a, b):\n    return a + b\n\n\n@validar_positivos\ndef raiz_aproximada(x):\n    return x ** 0.5\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "chamada1",
+          "kind": "call",
+          "function": "somar",
+          "args": [
+            2,
+            3
+          ],
+          "kwargs": {},
+          "expected": 5,
+          "name": "somar(2, 3)",
+          "hint": "o decorator não pode mudar o resultado"
+        },
+        {
+          "id": "legado2",
+          "kind": "legacy",
+          "name": "Testes adicionais",
+          "code": "assert somar(2, 3) == 5, \"o decorator não pode mudar o resultado\"\nsomar(1, 1)\nsomar(0, 0)\nassert somar.chamadas == 3, \"wrapper.chamadas deve contar as chamadas\"\nassert raiz_aproximada(9) == 3.0\ntry:\n    raiz_aproximada(-4)\n    assert False, \"argumento negativo deve levantar ValueError\"\nexcept ValueError:\n    pass\n@contar_chamadas\ndef _nula():\n    return None\n_nula()\nassert _nula.chamadas == 1, \"o decorator deve funcionar em qualquer função\""
+        }
+      ]
+    },
+    {
+      "order": 20,
+      "title": "Generators",
+      "description": "Exercício do curso Python Completo: Generators.",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Complete o código abaixo.\n\ndef pares_ate(limite):\n    # TODO: implemente\n    pass\n\n\ndef fibonacci(quantidade):\n    # TODO: implemente\n    pass\n\n\ndef numerar(itens):\n    # TODO: implemente\n    pass\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "def pares_ate(limite):\n    for i in range(0, limite + 1, 2):\n        yield i\n\ndef fibonacci(quantidade):\n    a, b = 0, 1\n    for _ in range(quantidade):\n        yield a\n        a, b = b, a + b\n\ndef numerar(itens):\n    for i, item in enumerate(itens, start=1):\n        yield (i, item)\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "legado1",
+          "kind": "legacy",
+          "name": "Testes adicionais",
+          "code": "import types\nassert isinstance(pares_ate(4), types.GeneratorType), \"use yield — a função deve ser um generator\"\nassert list(pares_ate(8)) == [0, 2, 4, 6, 8]\nassert list(pares_ate(0)) == [0]\nassert list(fibonacci(6)) == [0, 1, 1, 2, 3, 5]\nassert list(fibonacci(1)) == [0]\nassert list(fibonacci(0)) == []\nassert list(numerar([\"a\", \"b\", \"c\"])) == [(1, \"a\"), (2, \"b\"), (3, \"c\")]\nassert list(numerar([])) == []\ng = pares_ate(100)\nassert next(g) == 0 and next(g) == 2, \"next() deve funcionar\"\nassert \"yield\" in _source, \"use yield\""
+        }
+      ]
+    },
+    {
+      "order": 21,
+      "title": "Módulos e Pacotes",
+      "description": "Exercício do curso Python Completo: Módulos e Pacotes.",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Complete o código abaixo.\n\nfrom utils.texto import gritar, eh_titulo\nfrom utils.numeros import dobro, media\n\n\ndef relatorio(nome, valores):\n    # TODO: implemente\n    pass\n"
+        },
+        {
+          "path": "utils/__init__.py",
+          "content": ""
+        },
+        {
+          "path": "utils/texto.py",
+          "content": "# Complete o código abaixo.\n\ndef gritar(texto):\n    # TODO: implemente\n    pass\n\n\ndef eh_titulo(texto):\n    # TODO: implemente\n    pass\n"
+        },
+        {
+          "path": "utils/numeros.py",
+          "content": "# Complete o código abaixo.\n\ndef dobro(n):\n    # TODO: implemente\n    pass\n\n\ndef media(valores):\n    # TODO: implemente\n    pass\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "from utils.texto import gritar, eh_titulo\nfrom utils.numeros import dobro, media\n\n\ndef relatorio(nome, valores):\n    return {\n        \"titulo\": gritar(nome),\n        \"valido\": eh_titulo(nome),\n        \"dobros\": [dobro(v) for v in valores],\n        \"media\": media(valores),\n    }\n"
+        },
+        {
+          "path": "utils/__init__.py",
+          "content": ""
+        },
+        {
+          "path": "utils/texto.py",
+          "content": "def gritar(texto):\n    return texto.upper() + \"!\"\n\n\ndef eh_titulo(texto):\n    return texto[:1].isupper()\n"
+        },
+        {
+          "path": "utils/numeros.py",
+          "content": "def dobro(n):\n    return 2 * n\n\n\ndef media(valores):\n    if not valores:\n        return 0.0\n    return sum(valores) / len(valores)\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "legado1",
+          "kind": "legacy",
+          "name": "Testes adicionais",
+          "code": "from utils.texto import gritar, eh_titulo\nfrom utils.numeros import dobro, media\nassert gritar(\"oi\") == \"OI!\"\nassert eh_titulo(\"Python\") is True\nassert eh_titulo(\"python\") is False\nassert dobro(21) == 42\nassert media([2, 4]) == 3.0\nassert media([]) == 0.0\nr = relatorio(\"Ana\", [1, 2, 3])\nassert r == {\"titulo\": \"ANA!\", \"valido\": True, \"dobros\": [2, 4, 6], \"media\": 2.0}"
+        }
+      ]
+    },
+    {
+      "order": 22,
+      "title": "unittest",
+      "description": "Exercício do curso Python Completo: unittest.",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Complete o código abaixo.\n\nimport unittest\n\n\ndef validar_senha(senha):\n    # TODO: implemente\n    pass\n\n\nclass TestValidarSenha(unittest.TestCase):\n    def test_senha_valida(self):\n        # TODO: implemente\n        pass\n\n    def test_senha_curta(self):\n        # TODO: implemente\n        pass\n\n    def test_senha_sem_digito(self):\n        # TODO: implemente\n        pass\n\n    def test_tipo_errado(self):\n        # TODO: implemente\n        pass\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "import unittest\n\n\ndef validar_senha(senha):\n    if not isinstance(senha, str):\n        raise TypeError(\"senha deve ser str\")\n    return (\n        len(senha) >= 8\n        and any(c.isdigit() for c in senha)\n        and any(c.isupper() for c in senha)\n    )\n\n\nclass TestValidarSenha(unittest.TestCase):\n    def test_senha_valida(self):\n        self.assertTrue(validar_senha(\"Python123\"))\n\n    def test_senha_curta(self):\n        self.assertFalse(validar_senha(\"Py1\"))\n\n    def test_senha_sem_digito(self):\n        self.assertFalse(validar_senha(\"PythonPython\"))\n\n    def test_tipo_errado(self):\n        with self.assertRaises(TypeError):\n            validar_senha(123)\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "legado1",
+          "kind": "legacy",
+          "name": "Testes adicionais",
+          "code": "import unittest as _ut\n_suite = _ut.TestLoader().loadTestsFromTestCase(TestValidarSenha)\nassert _suite.countTestCases() >= 4, \"implemente os 4 métodos de teste\"\nimport io as _io\n_res = _ut.TextTestRunner(stream=_io.StringIO()).run(_suite)\nassert _res.wasSuccessful(), \"seus testes devem passar contra a implementação correta\"\nassert \"assertRaises\" in _source, \"use assertRaises no teste de tipo\"\nassert \"assertTrue\" in _source or \"assertEqual\" in _source\n_bad_calls = 0\ndef _quebrada(senha):\n    return True\nimport types as _types\n_g = dict(globals())\n_g[\"validar_senha\"] = _quebrada\n_src_tests = _source.split(\"class TestValidarSenha\")[1]\n_ns2 = {\"unittest\": _ut, \"validar_senha\": _quebrada}\nexec(\"import unittest\\nclass TestValidarSenha(unittest.TestCase):\" + _src_tests.split(\":\", 1)[1], _ns2)\n_suite2 = _ut.TestLoader().loadTestsFromTestCase(_ns2[\"TestValidarSenha\"])\n_res2 = _ut.TextTestRunner(stream=_io.StringIO()).run(_suite2)\nassert not _res2.wasSuccessful(), \"seus testes devem REPROVAR uma implementação quebrada (que aceita tudo)\""
+        }
+      ]
+    },
+    {
+      "order": 24,
+      "title": "Projeto Final",
+      "description": "Exercício do curso Python Completo: Projeto Final.",
+      "starter_files": [
+        {
+          "path": "main.py",
+          "content": "# Complete o código abaixo.\n\nclass TarefaInvalidaError(Exception):\n    pass\n\n\nclass Tarefa:\n    def __init__(self, titulo, prioridade=1):\n        # TODO: implemente\n        pass\n\n    def concluir(self):\n        # TODO: implemente\n        pass\n\n    def __str__(self):\n        # TODO: implemente\n        pass\n\n\n\nclass Gerenciador:\n    def __init__(self):\n        # TODO: implemente\n        pass\n\n    def adicionar(self, tarefa):\n        # TODO: implemente\n        pass\n\n    def __len__(self):\n        # TODO: implemente\n        pass\n\n    @property\n    def pendentes(self):\n        # TODO: implemente\n        pass\n\n    @property\n    def progresso(self):\n        # TODO: implemente\n        pass\n\n    def por_prioridade(self, minima):\n        # TODO: implemente\n        pass\n\n    def concluir_todas(self):\n        # TODO: implemente\n        pass\n"
+        }
+      ],
+      "reference_solution": [
+        {
+          "path": "main.py",
+          "content": "class TarefaInvalidaError(Exception):\n    pass\n\n\nclass Tarefa:\n    def __init__(self, titulo, prioridade=1):\n        if not isinstance(titulo, str) or not titulo.strip():\n            raise TarefaInvalidaError(\"título inválido\")\n        if not isinstance(prioridade, int) or prioridade < 1 or prioridade > 5:\n            raise TarefaInvalidaError(\"prioridade inválida\")\n        self.titulo = titulo\n        self.prioridade = prioridade\n        self.concluida = False\n\n    def concluir(self):\n        self.concluida = True\n\n    def __str__(self):\n        marca = \"X\" if self.concluida else \" \"\n        return f\"[{marca}] {self.titulo}\"\n\n\nclass Gerenciador:\n    def __init__(self):\n        self._tarefas = []\n\n    def adicionar(self, tarefa):\n        self._tarefas.append(tarefa)\n\n    def __len__(self):\n        return len(self._tarefas)\n\n    @property\n    def pendentes(self):\n        return [t for t in self._tarefas if not t.concluida]\n\n    @property\n    def progresso(self):\n        if not self._tarefas:\n            return 0.0\n        concluidas = sum(1 for t in self._tarefas if t.concluida)\n        return 100 * concluidas / len(self._tarefas)\n\n    def por_prioridade(self, minima):\n        for t in self._tarefas:\n            if t.prioridade >= minima:\n                yield t\n\n    def concluir_todas(self):\n        for t in self._tarefas:\n            t.concluir()\n"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "legado1",
+          "kind": "legacy",
+          "name": "Testes adicionais",
+          "code": "import unittest\nimport types\n\n\nclass TestTarefa(unittest.TestCase):\n    def test_criacao_valida(self):\n        t = Tarefa(\"Estudar\", 3)\n        self.assertEqual(t.titulo, \"Estudar\")\n        self.assertEqual(t.prioridade, 3)\n        self.assertFalse(t.concluida)\n\n    def test_prioridade_padrao(self):\n        self.assertEqual(Tarefa(\"X\").prioridade, 1)\n\n    def test_titulo_invalido(self):\n        with self.assertRaises(TarefaInvalidaError):\n            Tarefa(\"\")\n        with self.assertRaises(TarefaInvalidaError):\n            Tarefa(123)\n\n    def test_prioridade_invalida(self):\n        with self.assertRaises(TarefaInvalidaError):\n            Tarefa(\"X\", 0)\n        with self.assertRaises(TarefaInvalidaError):\n            Tarefa(\"X\", 6)\n\n    def test_concluir_e_str(self):\n        t = Tarefa(\"Ler\")\n        self.assertEqual(str(t), \"[ ] Ler\")\n        t.concluir()\n        self.assertTrue(t.concluida)\n        self.assertEqual(str(t), \"[X] Ler\")\n\n    def test_excecao_customizada(self):\n        self.assertTrue(issubclass(TarefaInvalidaError, Exception))\n\n\nclass TestGerenciador(unittest.TestCase):\n    def setUp(self):\n        self.g = Gerenciador()\n        self.t1 = Tarefa(\"A\", 1)\n        self.t2 = Tarefa(\"B\", 3)\n        self.t3 = Tarefa(\"C\", 5)\n        for t in (self.t1, self.t2, self.t3):\n            self.g.adicionar(t)\n\n    def test_len(self):\n        self.assertEqual(len(self.g), 3)\n        self.assertEqual(len(Gerenciador()), 0)\n\n    def test_pendentes(self):\n        self.t1.concluir()\n        pend = self.g.pendentes\n        self.assertEqual(len(pend), 2)\n        self.assertNotIn(self.t1, pend)\n\n    def test_progresso(self):\n        self.assertEqual(self.g.progresso, 0.0)\n        self.t1.concluir()\n        self.assertAlmostEqual(self.g.progresso, 100 / 3, places=1)\n        self.assertEqual(Gerenciador().progresso, 0.0)\n\n    def test_por_prioridade_generator(self):\n        gen = self.g.por_prioridade(3)\n        self.assertIsInstance(gen, types.GeneratorType)\n        result = list(gen)\n        self.assertEqual(result, [self.t2, self.t3])\n\n    def test_concluir_todas(self):\n        self.g.concluir_todas()\n        self.assertEqual(self.g.progresso, 100.0)\n        self.assertEqual(self.g.pendentes, [])"
+        }
+      ]
+    }
+  ]
+}

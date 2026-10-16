@@ -11,7 +11,8 @@
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
     "test": "vitest run --project unit",
     "test:e2e": "vitest run --project e2e",
-    "test:cov": "vitest run --project unit --coverage"
+    "test:cov": "vitest run --project unit --coverage",
+    "verify:seed": "tsx scripts/verify-seed.mts"
   },
   "dependencies": {
     "@levelusp/contracts": "workspace:*",
@@ -56,6 +57,7 @@
     "typescript": "5.9.3",
     "typescript-eslint": "^8.46.0",
     "unplugin-swc": "^2.0.0",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "tsx": "^4.23.15"
   }
 }

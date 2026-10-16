@@ -14,9 +14,13 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist", "migrations"],
+  "files": [
+    "dist",
+    "migrations",
+    "seed"
+  ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean && tsup src/scripts/migrate.ts src/scripts/seed.ts src/scripts/import-supabase.ts --format esm --out-dir dist/scripts --no-dts",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "generate": "drizzle-kit generate",
