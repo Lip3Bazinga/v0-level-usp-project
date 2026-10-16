@@ -90,7 +90,7 @@ export function StreakAnimation({ show, streakDays, isNewStreak = true, onClose 
               className="relative z-10 mt-4 flex items-center justify-center gap-2 rounded-full bg-white/20 px-4 py-1.5"
             >
               <Zap className="h-3.5 w-3.5 text-yellow-300" />
-              <span className="text-xs font-semibold text-white">+{streakDays * 5} XP bônus de streak!</span>
+              <span className="text-xs font-semibold text-white">Estude hoje para manter sua sequência!</span>
             </motion.div>
 
             <motion.button

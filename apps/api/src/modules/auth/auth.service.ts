@@ -77,7 +77,7 @@ export class AuthService {
 
     const rehash = this.passwords.needsRehash(user.passwordHash!) ? await this.passwords.hash(input.password) : undefined
     await this.repo.recordSuccessfulLogin(user.id, rehash)
-    return this.issueSession(user.id, client, true)
+    return this.issueSession(user.id, client)
   }
 
   async signOut(sessionId: string): Promise<void> {
@@ -184,7 +184,7 @@ export class AuthService {
     return new Date(Date.now() + this.env.SESSION_TTL_DAYS * 86_400_000)
   }
 
-  private async issueSession(userId: string, client: ClientInfo, countLogin = false): Promise<IssuedSession> {
+  private async issueSession(userId: string, client: ClientInfo): Promise<IssuedSession> {
     const token = newToken()
     const expiresAt = this.expiry()
     await this.repo.createSession({
@@ -196,6 +196,7 @@ export class AuthService {
     })
     const streak = await this.gamification.touchStreak(userId)
     const response = await this.me(userId)
-    return { token, expiresAt, response: { ...response, ...(countLogin || streak.increased ? { streak } : {}) } }
+    // A animação de sequência só aparece quando a sequência mudou (primeiro acesso do dia).
+    return { token, expiresAt, response: { ...response, ...(streak.increased ? { streak } : {}) } }
   }
 }

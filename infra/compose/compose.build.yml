@@ -1,0 +1,11 @@
+# Sobreposição para construir as imagens localmente (sem GHCR):
+#   docker compose -f compose.yml -f compose.build.yml --env-file ../env/homolog.env build
+services:
+  migrate:
+    build: { context: ../.., dockerfile: infra/docker/api.Dockerfile }
+  api:
+    build: { context: ../.., dockerfile: infra/docker/api.Dockerfile }
+  runner:
+    build: { context: ../.., dockerfile: infra/docker/runner.Dockerfile }
+  web:
+    build: { context: ../.., dockerfile: infra/docker/web.Dockerfile }

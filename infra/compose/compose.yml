@@ -1,0 +1,143 @@
+# LevelUSP — pilha completa (homolog/prod). Um projeto compose por ambiente:
+#   docker compose -p levelusp-homolog --env-file ../env/homolog.env -f compose.yml up -d
+# As imagens vêm do GHCR (publicadas pelo CD). Nenhuma porta é exposta além do
+# front em 127.0.0.1; o acesso público é feito pelo Cloudflare Tunnel.
+name: levelusp
+
+x-restart: &restart
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "5" }
+
+services:
+  postgres:
+    <<: *restart
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: levelusp
+      POSTGRES_USER: levelusp
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ${BACKUP_DIR:-./backups}:/backups
+    networks: [data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U levelusp -d levelusp"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    image: ${REGISTRY:-ghcr.io/lip3bazinga/levelusp}/api:${IMAGE_TAG:?defina IMAGE_TAG}
+    command: ["node", "node_modules/@levelusp/db/dist/scripts/migrate.js"]
+    environment:
+      DATABASE_URL: postgres://levelusp:${POSTGRES_PASSWORD}@postgres:5432/levelusp
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [data]
+    restart: "no"
+
+  # Jobs sob demanda (perfil "tools"): docker compose --profile tools run --rm seed
+  seed:
+    image: ${REGISTRY:-ghcr.io/lip3bazinga/levelusp}/api:${IMAGE_TAG}
+    command: ["node", "node_modules/@levelusp/db/dist/scripts/seed.js"]
+    environment:
+      DATABASE_URL: postgres://levelusp:${POSTGRES_PASSWORD}@postgres:5432/levelusp
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_DEMO_USERS: ${SEED_DEMO_USERS:-false}
+      SEED_CONTENT: ${SEED_CONTENT:-true}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    networks: [data]
+    profiles: ["tools"]
+    restart: "no"
+
+  import-supabase:
+    image: ${REGISTRY:-ghcr.io/lip3bazinga/levelusp}/api:${IMAGE_TAG}
+    command: ["node", "node_modules/@levelusp/db/dist/scripts/import-supabase.js"]
+    environment:
+      DATABASE_URL: postgres://levelusp:${POSTGRES_PASSWORD}@postgres:5432/levelusp
+      SOURCE_DATABASE_URL: ${SOURCE_DATABASE_URL:-}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    # Precisa de internet para ler o Supabase: rede "app" além da "data".
+    networks: [data, app]
+    profiles: ["tools"]
+    restart: "no"
+
+  runner:
+    <<: *restart
+    image: ${REGISTRY:-ghcr.io/lip3bazinga/levelusp}/runner:${IMAGE_TAG}
+    environment:
+      RUNNER_TOKEN: ${RUNNER_TOKEN:?defina RUNNER_TOKEN}
+      CONCURRENCY: ${RUNNER_CONCURRENCY:-2}
+    # Defesa em profundidade (além do sandbox WASI): sem rede externa, sistema de
+    # arquivos somente leitura, sem privilégios, limites de CPU/memória/processos.
+    networks: [runner]
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 128
+    mem_limit: ${RUNNER_MEMORY:-1g}
+    cpus: ${RUNNER_CPUS:-2}
+
+  api:
+    <<: *restart
+    image: ${REGISTRY:-ghcr.io/lip3bazinga/levelusp}/api:${IMAGE_TAG}
+    environment:
+      APP_ENV: ${APP_ENV:?defina APP_ENV}
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
+      DATABASE_URL: postgres://levelusp:${POSTGRES_PASSWORD}@postgres:5432/levelusp
+      RUNNER_URL: http://runner:8081
+      RUNNER_TOKEN: ${RUNNER_TOKEN}
+      SIGNUP_ENABLED: ${SIGNUP_ENABLED:-true}
+      SMTP_URL: ${SMTP_URL:-}
+      MAIL_FROM: ${MAIL_FROM:-LevelUSP <nao-responda@levelusp.local>}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      runner: { condition: service_healthy }
+    networks: [data, runner, app]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  web:
+    <<: *restart
+    image: ${REGISTRY:-ghcr.io/lip3bazinga/levelusp}/web:${IMAGE_TAG}
+    depends_on:
+      api: { condition: service_healthy }
+    networks: [app]
+    ports:
+      # Só na máquina local (acesso direto para depuração); público via túnel.
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+    read_only: true
+    tmpfs: [/tmp, /app/apps/web/.next/cache]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  tunnel:
+    <<: *restart
+    image: cloudflare/cloudflared:2025.9.1
+    # Quick Tunnel: sem conta Cloudflare; o endereço muda a cada reinício.
+    # Para endereço fixo, troque por: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    command: ["tunnel", "--no-autoupdate", "--url", "http://web:3000"]
+    networks: [app]
+    profiles: ["tunnel"]
+
+networks:
+  # internal: true = sem rota para a internet.
+  data: { internal: true }
+  runner: { internal: true }
+  app: {}
+
+volumes:
+  pgdata:
+  uploads:

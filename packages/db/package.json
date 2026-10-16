@@ -20,7 +20,7 @@
     "seed"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --clean && tsup src/scripts/migrate.ts src/scripts/seed.ts src/scripts/import-supabase.ts --format esm --out-dir dist/scripts --no-dts",
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean && tsup src/scripts/migrate.ts src/scripts/seed.ts src/scripts/import-supabase.ts --format esm --out-dir dist/scripts --no-dts --external @node-rs/argon2 --external pg --external drizzle-orm",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "generate": "drizzle-kit generate",
@@ -31,10 +31,10 @@
   "dependencies": {
     "@levelusp/contracts": "workspace:*",
     "drizzle-orm": "^0.45.4",
-    "pg": "^8.23.1"
+    "pg": "^8.23.1",
+    "@node-rs/argon2": "^2.2.2"
   },
   "devDependencies": {
-    "@node-rs/argon2": "^2.2.2",
     "@types/node": "^22.15.0",
     "@types/pg": "^8.23.1",
     "drizzle-kit": "^0.31.11",
