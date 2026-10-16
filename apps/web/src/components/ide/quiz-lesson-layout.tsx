@@ -7,17 +7,11 @@ import {
   Loader2, HelpCircle, RotateCcw, AlertCircle,
 } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import type { Lesson } from "@/lib/types"
-import type { LessonSummary } from "@/lib/supabase/lessons"
+import type { Lesson, LessonSummary, QuizQuestionPublic, QuizResult } from "@levelusp/contracts"
 import { SuccessFeedback } from "@/components/ide/success-feedback"
 import { LessonContentPreview } from "@/components/editor/lesson-content-preview"
 import { useProgress } from "@/contexts/progress-context"
-import {
-  fetchQuizForStudent,
-  submitQuiz,
-  type QuizQuestionPublic,
-  type QuizResult,
-} from "@/lib/supabase/lesson-quiz"
+import { ApiError, errorMessage, fetchQuizForStudent, submitQuiz } from "@/lib/api"
 
 interface QuizLessonLayoutProps {
   lesson: Lesson
@@ -29,10 +23,10 @@ const LETTERS = "ABCDEFGHIJ"
 
 export function QuizLessonLayout({ lesson, allLessons, currentIndex }: QuizLessonLayoutProps) {
   const router = useRouter()
-  const { markCompleted, isCompleted } = useProgress()
+  const { applyCompletion, isCompleted } = useProgress()
 
   const [questions, setQuestions] = useState<QuizQuestionPublic[]>([])
-  const [passingScore, setPassingScore] = useState(lesson.quiz_passing_score ?? 70)
+  const passingScore = lesson.quiz_passing_score ?? 70
   const [answers, setAnswers] = useState<Record<string, number>>({})
   const [result, setResult] = useState<QuizResult | null>(null)
   const [loading, setLoading] = useState(true)
@@ -55,20 +49,24 @@ export function QuizLessonLayout({ lesson, allLessons, currentIndex }: QuizLesso
     let cancelled = false
     async function load() {
       setLoading(true)
-      const res = await fetchQuizForStudent(lesson.id)
-      if (cancelled) return
-      if (res.ok) {
-        setQuestions(res.questions)
-        setPassingScore(res.passingScore)
+      try {
+        const qs = await fetchQuizForStudent(lesson.id)
+        if (cancelled) return
+        setQuestions(qs)
         setError(null)
-      } else {
-        setError(res.error)
+      } catch (err) {
+        if (cancelled) return
+        if (err instanceof ApiError && err.status === 401) {
+          router.push(`/login?next=${encodeURIComponent(`/lesson/${lesson.id}`)}`)
+          return
+        }
+        setError(errorMessage(err, "Erro ao carregar o quiz."))
       }
       setLoading(false)
     }
     load()
     return () => { cancelled = true }
-  }, [lesson.id])
+  }, [lesson.id, router])
 
   const handleNext = useCallback(() => {
     setShowSuccess(false)
@@ -93,20 +91,23 @@ export function QuizLessonLayout({ lesson, allLessons, currentIndex }: QuizLesso
     if (!allAnswered || submitting) return
     setSubmitting(true)
     setError(null)
-    // A correção é feita no servidor: o gabarito nunca chega ao navegador.
-    const res = await submitQuiz(lesson.id, answers)
-    if (!res.ok) {
-      setError(res.error)
+    // A correção (e o crédito de XP) é feita no servidor: o gabarito nunca
+    // chega ao navegador.
+    let res: QuizResult
+    try {
+      res = await submitQuiz(lesson.id, answers)
+    } catch (err) {
+      setError(errorMessage(err, "Erro ao corrigir o quiz."))
       setSubmitting(false)
       return
     }
-    setResult(res.result)
+    setResult(res)
     setSubmitting(false)
-    if (res.result.passed && !alreadyDone) {
+    if (res.passed && !alreadyDone) setShowSuccess(true)
+    if (res.lesson_completed || res.xp_awarded > 0) {
       try {
-        await markCompleted(lesson.id, res.result.xpEarned)
-      } catch { /* crédito de XP não deve quebrar o resultado exibido */ }
-      setShowSuccess(true)
+        await applyCompletion(lesson.id, res)
+      } catch { /* atualização da UI não deve quebrar o resultado exibido */ }
     }
   }
 
@@ -319,7 +320,7 @@ export function QuizLessonLayout({ lesson, allLessons, currentIndex }: QuizLesso
 
       <SuccessFeedback
         show={showSuccess}
-        xpEarned={lesson.xp_reward}
+        xpEarned={result?.xp_awarded ?? 0}
         hasNextLesson={hasNextLesson}
         isCourseEnd={isCourseEnd}
         onClose={() => setShowSuccess(false)}

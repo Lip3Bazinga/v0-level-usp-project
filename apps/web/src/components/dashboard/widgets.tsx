@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { motion } from "framer-motion"
 import { Flame, Zap, Trophy, CheckCircle2, Sparkles, Lock } from "lucide-react"
-import { fetchAllBadges, fetchUserBadges } from "@/lib/supabase/badges"
+import type { Badge, LessonProgress, Profile } from "@levelusp/contracts"
+import { fetchAllBadges, fetchUserBadges } from "@/lib/api"
 import { badgeIcon } from "@/lib/badge-icons"
-import type { Badge, LessonProgress, Profile } from "@/lib/supabase/types"
 import { localDateKey, todayKey, PLATFORM_TIMEZONE } from "@/lib/utils/date"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

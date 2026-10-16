@@ -3,8 +3,8 @@
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { Check, Lock, Play, Star, type LucideIcon } from "lucide-react"
-import type { Lesson } from "@/lib/supabase/types"
-import type { LessonStatus } from "@/lib/supabase/lessons"
+import type { Lesson } from "@levelusp/contracts"
+import type { TrailStatus } from "@/lib/api"
 
 // Serpentina: deslocamento horizontal cíclico dos nós (estilo Duolingo)
 const WAVE = [0, 52, 84, 52, 0, -52, -84, -52]
@@ -14,7 +14,7 @@ interface ModuleTrailProps {
   icon: LucideIcon
   accentClass: string // ex: "bg-level-purple"
   lessons: Lesson[]
-  statuses: LessonStatus[]
+  statuses: TrailStatus[]
 }
 
 export function ModuleTrail({ name, icon: Icon, accentClass, lessons, statuses }: ModuleTrailProps) {

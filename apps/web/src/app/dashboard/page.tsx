@@ -6,9 +6,8 @@ import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { useAuth } from "@/contexts/auth-context"
 import { useProgress } from "@/contexts/progress-context"
-import type { Lesson } from "@/lib/supabase/types"
-import type { Course } from "@/lib/supabase/types"
-import { fetchPublishedCourses } from "@/lib/supabase/courses"
+import type { Course, Lesson } from "@levelusp/contracts"
+import { fetchPublishedCourses } from "@/lib/api"
 import { CourseCard } from "@/components/dashboard/course-trail"
 import {
   StatCards, DailyGoalRing, WeeklyActivity, NextBadge, useStudyDays,

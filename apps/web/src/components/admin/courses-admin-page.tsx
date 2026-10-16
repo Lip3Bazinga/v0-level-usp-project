@@ -4,9 +4,9 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Search, Eye, Edit3, Trash2, Globe, EyeOff, Star, BookOpen, Zap, Clock, Loader2, GraduationCap } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { toggleCoursePublished, deleteCourse } from "@/lib/supabase/courses"
-import type { Course } from "@/lib/supabase/types"
-import type { OnToast } from "@/lib/types"
+import type { Course } from "@levelusp/contracts"
+import { deleteCourse, errorMessage, fetchTeacherCourses, toggleCoursePublished } from "@/lib/api"
+import type { OnToast } from "@/lib/types/ui"
 
 const LEVEL_LABEL: Record<string, string> = {
   iniciante:     "Iniciante",
@@ -31,39 +31,29 @@ export function CoursesAdminPage({ onToast }: CoursesAdminPageProps) {
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
+  const [loadError, setLoadError] = useState<string | null>(null)
+
   useEffect(() => {
-    async function load() {
-      setLoading(true)
-      try {
-        const { createClient } = await import("@/lib/supabase/client")
-        const sb = createClient()
-        const { data } = await sb
-          .from("courses" as never)
-          .select("*, lessons(id)")
-          .order("created_at", { ascending: false })
-        setCourses(
-          (data ?? []).map((r: any) => ({ ...r, lesson_count: r.lessons?.length ?? 0 })) as Course[]
-        )
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
+    // Para admin, /teacher/courses devolve todos os cursos (com lesson_count).
+    fetchTeacherCourses()
+      .then((list) => setCourses([...list].sort((a, b) => b.created_at.localeCompare(a.created_at))))
+      .catch((err) => setLoadError(errorMessage(err, "Não foi possível carregar os cursos.")))
+      .finally(() => setLoading(false))
   }, [])
 
   const filtered = courses.filter((c) =>
     c.title.toLowerCase().includes(search.toLowerCase()) ||
-    c.description.toLowerCase().includes(search.toLowerCase())
+    (c.description ?? "").toLowerCase().includes(search.toLowerCase())
   )
 
   const handleToggle = async (course: Course) => {
     setTogglingId(course.id)
     try {
-      await toggleCoursePublished(course.id, !course.published)
-      setCourses((prev) => prev.map((c) => c.id === course.id ? { ...c, published: !course.published } : c))
+      const updated = await toggleCoursePublished(course.id, !course.published)
+      setCourses((prev) => prev.map((c) => c.id === course.id ? { ...c, published: updated.published } : c))
       onToast(course.published ? "Curso despublicado" : "Curso publicado", "success")
-    } catch {
-      onToast("Erro ao alterar status", "danger")
+    } catch (err) {
+      onToast(errorMessage(err, "Erro ao alterar status"), "danger")
     } finally {
       setTogglingId(null)
     }
@@ -76,8 +66,8 @@ export function CoursesAdminPage({ onToast }: CoursesAdminPageProps) {
       await deleteCourse(course.id)
       setCourses((prev) => prev.filter((c) => c.id !== course.id))
       onToast("Curso excluído", "success")
-    } catch {
-      onToast("Erro ao excluir", "danger")
+    } catch (err) {
+      onToast(errorMessage(err, "Erro ao excluir"), "danger")
     } finally {
       setDeletingId(null)
     }
@@ -105,7 +95,9 @@ export function CoursesAdminPage({ onToast }: CoursesAdminPageProps) {
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-border bg-white">
-        {loading ? (
+        {loadError ? (
+          <p role="alert" className="px-4 py-6 text-center text-sm text-destructive">{loadError}</p>
+        ) : loading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-level-purple" />
           </div>

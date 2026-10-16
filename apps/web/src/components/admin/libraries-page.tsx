@@ -5,16 +5,11 @@ import {
   Package, CheckCircle2, X, Clock, ChevronDown, ChevronUp,
   Plus, AlertCircle, Search, Loader2, ExternalLink,
 } from "lucide-react"
+import type { LibraryCatalog, LibraryRequest } from "@levelusp/contracts"
 import {
-  fetchAllLibraryRequests,
-  reviewLibraryRequest,
-  approveAndAddToLibrary,
-  fetchFullLibraryCatalog,
-  toggleLibraryCatalog,
-} from "@/lib/supabase/libraries"
-import type { LibraryCatalog, LibraryRequest } from "@/lib/supabase/types"
-import { useAuth } from "@/contexts/auth-context"
-import type { OnToast } from "@/lib/types"
+  errorMessage, fetchAllLibraryRequests, fetchFullLibraryCatalog, reviewLibraryRequest, toggleLibraryCatalog,
+} from "@/lib/api"
+import type { OnToast } from "@/lib/types/ui"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -81,7 +76,7 @@ function RequestRow({ req, onApprove, onReject }: RequestRowProps) {
             </span>
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Por {req.requester_name} · {new Date(req.created_at).toLocaleDateString("pt-BR")}
+            Por {req.requester_name ?? "professor"} · {new Date(req.created_at).toLocaleDateString("pt-BR")}
           </p>
           {req.use_case && (
             <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{req.use_case}</p>
@@ -257,7 +252,6 @@ function CatalogView({ catalog, onToggle }: { catalog: LibraryCatalog[]; onToggl
 // ── Página principal ──────────────────────────────────────────────────────────
 
 export function LibrariesAdminPage({ onToast }: { onToast: OnToast }) {
-  const { profile } = useAuth()
   const [tab, setTab] = useState<"requests" | "catalog">("requests")
   const [requests, setRequests] = useState<LibraryRequest[]>([])
   const [catalog, setCatalog] = useState<LibraryCatalog[]>([])
@@ -269,8 +263,8 @@ export function LibrariesAdminPage({ onToast }: { onToast: OnToast }) {
       const [reqs, cat] = await Promise.all([fetchAllLibraryRequests(), fetchFullLibraryCatalog()])
       setRequests(reqs)
       setCatalog(cat)
-    } catch {
-      onToast("Erro ao carregar dados", "danger")
+    } catch (err) {
+      onToast(errorMessage(err, "Erro ao carregar dados"), "danger")
     } finally {
       setLoading(false)
     }
@@ -282,31 +276,33 @@ export function LibrariesAdminPage({ onToast }: { onToast: OnToast }) {
     req: LibraryRequest,
     opts: { category: LibraryCatalog["category"]; pyodide_native: boolean; notes: string }
   ) => {
-    if (!profile?.id) return
     try {
-      await approveAndAddToLibrary(req.id, profile.id, opts.notes || undefined, {
-        name: req.library_name,
-        display_name: req.display_name || req.library_name,
-        description: req.description || undefined,
-        category: opts.category,
-        pyodide_native: opts.pyodide_native,
+      // A API aprova e inclui no catálogo na mesma operação.
+      const reviewed = await reviewLibraryRequest(req.id, {
+        status: "approved",
+        review_notes: opts.notes.trim() || undefined,
+        catalog: {
+          display_name: req.display_name || req.library_name,
+          description: req.description || null,
+          category: opts.category,
+          pyodide_native: opts.pyodide_native,
+        },
       })
-      setRequests((prev) => prev.map((r) => r.id === req.id ? { ...r, status: "approved" as const } : r))
+      setRequests((prev) => prev.map((r) => (r.id === req.id ? { ...r, ...reviewed, requester_name: r.requester_name } : r)))
       onToast(`✓ ${req.library_name} aprovada e adicionada ao catálogo`)
-      load()
-    } catch {
-      onToast("Erro ao aprovar requisição", "danger")
+      fetchFullLibraryCatalog().then(setCatalog).catch(() => {})
+    } catch (err) {
+      onToast(errorMessage(err, "Erro ao aprovar requisição"), "danger")
     }
   }
 
   const handleReject = async (req: LibraryRequest, notes: string) => {
-    if (!profile?.id) return
     try {
-      await reviewLibraryRequest(req.id, profile.id, "rejected", notes || undefined)
-      setRequests((prev) => prev.map((r) => r.id === req.id ? { ...r, status: "rejected" as const } : r))
+      const reviewed = await reviewLibraryRequest(req.id, { status: "rejected", review_notes: notes.trim() || undefined })
+      setRequests((prev) => prev.map((r) => (r.id === req.id ? { ...r, ...reviewed, requester_name: r.requester_name } : r)))
       onToast(`Requisição de ${req.library_name} rejeitada`, "warning")
-    } catch {
-      onToast("Erro ao rejeitar requisição", "danger")
+    } catch (err) {
+      onToast(errorMessage(err, "Erro ao rejeitar requisição"), "danger")
     }
   }
 
@@ -316,9 +312,9 @@ export function LibrariesAdminPage({ onToast }: { onToast: OnToast }) {
     try {
       await toggleLibraryCatalog(id, active)
       onToast(active ? "Biblioteca ativada" : "Biblioteca desativada")
-    } catch {
+    } catch (err) {
       setCatalog((prev) => prev.map((l) => l.id === id ? { ...l, active: !active } : l))
-      onToast("Erro ao atualizar biblioteca", "danger")
+      onToast(errorMessage(err, "Erro ao atualizar biblioteca"), "danger")
     }
   }
 

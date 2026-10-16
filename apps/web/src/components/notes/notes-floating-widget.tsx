@@ -6,9 +6,8 @@ import {
   BookOpen, Clock, FileText, Check, Save,
 } from "lucide-react"
 import { createPortal } from "react-dom"
-import {
-  fetchNotes, createNote, updateNote, deleteNote, type Note,
-} from "@/lib/supabase/notes"
+import type { Note } from "@levelusp/contracts"
+import { fetchNotes, createNote, updateNote, deleteNote } from "@/lib/api"
 import { RichTextEditor } from "@/components/editor/rich-text-editor"
 import { useAuth } from "@/contexts/auth-context"
 import { formatDate, snippet } from "@/lib/utils"

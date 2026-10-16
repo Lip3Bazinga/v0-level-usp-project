@@ -1,29 +1,28 @@
 import Link from "next/link"
-import { createClient } from "@supabase/supabase-js"
 import { CheckCircle2, XCircle, Download, GraduationCap } from "lucide-react"
+import type { CertificateVerification } from "@levelusp/contracts"
+import { certificatePdfUrl, verifyCertificate } from "@/lib/api"
 
 // Página PÚBLICA de verificação de certificado — não exige login.
-// Usa a RPC verify_certificate (security definer) com a chave anônima:
-// expõe apenas nome, curso, data e nota, e somente para quem tem o código.
+// Renderizada no servidor: consulta a API (rota pública GET /certificates/:code),
+// que expõe apenas nome, curso, data e nota, e somente para quem tem o código.
 
 export const dynamic = "force-dynamic"
 
-interface VerifiedCertificate {
+type VerifiedCertificate = CertificateVerification & {
   student_name: string
   course_title: string
   issued_at: string
-  exam_score: number
 }
 
 async function verifyCode(code: string): Promise<VerifiedCertificate | null> {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!,
-    { auth: { persistSession: false } },
-  )
-  const { data } = await supabase.rpc("verify_certificate" as never, { p_code: code } as never)
-  const rows = (data ?? []) as unknown as VerifiedCertificate[]
-  return rows[0] ?? null
+  try {
+    const res = await verifyCertificate(code)
+    if (!res.valid || !res.student_name || !res.course_title || !res.issued_at) return null
+    return res as VerifiedCertificate
+  } catch {
+    return null
+  }
 }
 
 export default async function CertificadoPage({
@@ -77,7 +76,7 @@ export default async function CertificadoPage({
                 </div>
                 <div>
                   <dt className="text-xs uppercase tracking-wide text-gray-400">Prova final</dt>
-                  <dd className="font-medium text-gray-700">{Number(cert.exam_score).toFixed(0)}%</dd>
+                  <dd className="font-medium text-gray-700">{Number(cert.exam_score ?? 0).toFixed(0)}%</dd>
                 </div>
               </div>
               <div>
@@ -87,7 +86,7 @@ export default async function CertificadoPage({
             </dl>
 
             <a
-              href={`/api/certificate/pdf/${encodeURIComponent(code)}`}
+              href={certificatePdfUrl(decodeURIComponent(code))}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl bg-purple-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-purple-700"

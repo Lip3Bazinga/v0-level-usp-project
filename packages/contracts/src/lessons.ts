@@ -92,6 +92,7 @@ export const lessonInputSchema = z.object({
   lesson_type: z.enum(["coding", "theory", "quiz"]).default("coding"),
   quiz_passing_score: z.number().int().min(1).max(100).default(70),
   xp_reward: z.number().int().min(0).max(5000).default(50),
+  /** Tempo estimado de estudo, em minutos (informativo). */
   time_limit: z.number().int().min(1).max(300).default(10),
   test_cases: testCasesSchema.default([]),
 })

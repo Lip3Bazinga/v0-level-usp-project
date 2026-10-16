@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { Search, Users, BookOpen, GraduationCap, X } from "lucide-react"
-import type { Profile, Lesson } from "@/lib/supabase/types"
+import type { Lesson, Profile } from "@levelusp/contracts"
 
 export interface CommandTarget {
   id: string
@@ -61,8 +61,8 @@ export function CommandPalette({ users, lessons, courses, onNavigate }: CommandP
     }
 
     for (const l of lessons) {
-      if (l.title.toLowerCase().includes(term) || l.module.toLowerCase().includes(term)) {
-        out.push({ id: l.id, label: l.title, sublabel: l.module, kind: "lesson", page: "lessons", href: `/teacher/edit/${l.id}` })
+      if (l.title.toLowerCase().includes(term) || (l.module ?? "").toLowerCase().includes(term)) {
+        out.push({ id: l.id, label: l.title, sublabel: l.module || "Lição", kind: "lesson", page: "lessons", href: `/teacher/edit/${l.id}` })
       }
     }
     for (const c of courses) {

@@ -30,8 +30,14 @@ export type WorkerListener = {
   onError:   (ev: ErrorEvent) => void
 }
 
+/** URL base do Pyodide (configurável por ambiente; padrão: v0.25.1 no jsDelivr). */
+export const DEFAULT_PYODIDE_INDEX_URL = "https://cdn.jsdelivr.net/pyodide/v0.25.1/full/"
+export function pyodideIndexUrl(): string {
+  return process.env.NEXT_PUBLIC_PYODIDE_INDEX_URL || DEFAULT_PYODIDE_INDEX_URL
+}
+
 let worker:    Worker | null         = null
-let listeners: Set<WorkerListener>   = new Set()
+const listeners: Set<WorkerListener>   = new Set()
 let workerStatus: PyodideStatus      = "idle"
 
 function getOrCreateWorker(): Worker {
@@ -50,7 +56,7 @@ function getOrCreateWorker(): Worker {
     listeners.forEach((l) => l.onError(ev))
   }
 
-  worker.postMessage({ type: "init" })
+  worker.postMessage({ type: "init", indexURL: pyodideIndexUrl() })
   return worker
 }
 

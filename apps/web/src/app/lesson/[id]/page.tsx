@@ -11,8 +11,8 @@ import { ConsolePanel } from "@/components/ide/console-panel"
 import { FileExplorer } from "@/components/ide/file-explorer"
 import { SuccessFeedback } from "@/components/ide/success-feedback"
 import { IDEProvider, useIDE } from "@/contexts/ide-context"
-import { fetchPublishedLessonSummaries, fetchLessonById, type LessonSummary } from "@/lib/supabase/lessons"
-import type { Lesson } from "@/lib/supabase/types"
+import type { Lesson, LessonSummary } from "@levelusp/contracts"
+import { fetchPublishedLessonSummaries, fetchLessonById } from "@/lib/api"
 import { Loader2, BookOpen } from "lucide-react"
 import { TheoryLessonLayout } from "@/components/ide/theory-lesson-layout"
 import { QuizLessonLayout } from "@/components/ide/quiz-lesson-layout"
@@ -36,7 +36,7 @@ function LessonWorkspace({
     pythonStatus, isExecuting, isInstalling, stop,
     run, reset, verify,
     hasRun, hasOutput, canVerify, lessonProgress, allPassed, isVerifying,
-    showSuccess, setShowSuccess,
+    lastResult, levelBefore, showSuccess, setShowSuccess,
   } = useIDE()
 
   // Filtra apenas lições do mesmo curso para progresso e navegação corretos
@@ -139,9 +139,11 @@ function LessonWorkspace({
 
       <SuccessFeedback
         show={showSuccess}
-        xpEarned={lesson.xp_reward}
+        xpEarned={lastResult?.xp_awarded ?? 0}
         hasNextLesson={hasNextLesson}
         isCourseEnd={isCourseEnd}
+        prevLevel={lastResult?.level_up ? (levelBefore ?? lastResult.new_level - 1) : undefined}
+        newLevel={lastResult?.level_up ? lastResult.new_level : undefined}
         onClose={() => setShowSuccess(false)}
         onNext={handleNext}
       />

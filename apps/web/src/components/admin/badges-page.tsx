@@ -3,13 +3,12 @@
 import { useState, useEffect } from "react"
 import { Plus, Edit3, Trash2, Loader2, X, Award } from "lucide-react"
 import { cn } from "@/lib/utils"
-import {
-  fetchAllBadges, createBadge, updateBadge, deleteBadge,
-  type BadgeFormData,
-} from "@/lib/supabase/badges"
+import type { Badge, BadgeCriteriaType, BadgeInput, BadgeRarity } from "@levelusp/contracts"
+import { createBadge, deleteBadge, errorMessage, fetchAllBadgesAdmin, updateBadge } from "@/lib/api"
 import { badgeIcon, BADGE_ICON_NAMES } from "@/lib/badge-icons"
-import type { Badge, BadgeRarity, BadgeCriteriaType } from "@/lib/supabase/types"
-import type { OnToast } from "@/lib/types"
+import type { OnToast } from "@/lib/types/ui"
+
+type BadgeFormData = BadgeInput
 
 const RARITY_LABEL: Record<BadgeRarity, string> = {
   common: "Comum", rare: "Raro", epic: "Épico", legendary: "Lendário",
@@ -50,9 +49,9 @@ export function BadgesAdminPage({ onToast }: BadgesAdminPageProps) {
   const load = async () => {
     setLoading(true)
     try {
-      setBadges(await fetchAllBadges(true))
-    } catch {
-      onToast("Erro ao carregar badges", "danger")
+      setBadges(await fetchAllBadgesAdmin())
+    } catch (err) {
+      onToast(errorMessage(err, "Erro ao carregar badges"), "danger")
     } finally {
       setLoading(false)
     }
@@ -72,10 +71,14 @@ export function BadgesAdminPage({ onToast }: BadgesAdminPageProps) {
       onToast("ID e nome são obrigatórios", "warning")
       return
     }
+    if (isNew && !/^[a-z0-9_-]{2,40}$/.test(editing.id.trim())) {
+      onToast("ID: use 2 a 40 letras minúsculas, números, _ ou -", "warning")
+      return
+    }
     setSaving(true)
     try {
       if (isNew) {
-        await createBadge(editing)
+        await createBadge({ ...editing, id: editing.id.trim() })
         onToast("Badge criada", "success")
       } else {
         const { id, ...patch } = editing
@@ -84,21 +87,22 @@ export function BadgesAdminPage({ onToast }: BadgesAdminPageProps) {
       }
       setEditing(null)
       await load()
-    } catch {
-      onToast("Erro ao salvar badge", "danger")
+    } catch (err) {
+      onToast(errorMessage(err, "Erro ao salvar badge"), "danger")
     } finally {
       setSaving(false)
     }
   }
 
   const handleDelete = async (id: string) => {
+    if (!window.confirm("Excluir esta badge? Quem já a conquistou deixará de exibi-la.")) return
     setDeletingId(id)
     try {
       await deleteBadge(id)
       onToast("Badge excluída", "danger")
       await load()
-    } catch {
-      onToast("Erro ao excluir badge", "danger")
+    } catch (err) {
+      onToast(errorMessage(err, "Erro ao excluir badge"), "danger")
     } finally {
       setDeletingId(null)
     }

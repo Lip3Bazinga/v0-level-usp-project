@@ -73,7 +73,11 @@ export function SuccessFeedback({
     }
   }, [didLevelUp])
 
-  const handleClose = useCallback(() => onClose(), [onClose])
+  // Sem alvo para as partículas, a subida de nível aparece ao fechar o card.
+  const handleClose = useCallback(() => {
+    onClose()
+    if (didLevelUp && !xpBadgeRef) setTimeout(() => setShowLevelUp(true), 300)
+  }, [onClose, didLevelUp, xpBadgeRef])
   const handleNext = useCallback(() => {
     onClose()
     onNext?.()
@@ -181,7 +185,9 @@ export function SuccessFeedback({
                     style={{ willChange: "transform, opacity" }}
                   />
                   <Zap className="relative h-6 w-6 text-yellow-500" />
-                  <span className="relative text-2xl font-bold text-level-purple-dark">+{xpEarned} XP</span>
+                  <span className="relative text-2xl font-bold text-level-purple-dark">
+                    {xpEarned > 0 ? `+${xpEarned} XP` : "XP já conquistado"}
+                  </span>
                 </div>
               </motion.div>
 

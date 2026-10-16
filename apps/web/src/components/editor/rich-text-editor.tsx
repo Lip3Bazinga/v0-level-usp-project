@@ -183,6 +183,13 @@ interface RichTextEditorProps {
   onChange: (html: string) => void
   placeholder?: string
   minHeight?: number
+  /**
+   * Envia um arquivo de imagem e devolve a URL pública (ex.: `uploadImage` de
+   * `@/lib/api`). Sem ele, só é possível inserir imagem por URL.
+   */
+  onUploadImage?: (file: File) => Promise<string>
+  /** Chamado quando o upload falha (mensagem pronta para exibir). */
+  onUploadError?: (message: string) => void
 }
 
 export function RichTextEditor({
@@ -190,12 +197,16 @@ export function RichTextEditor({
   onChange,
   placeholder = "Escreva o conteúdo da aula aqui…",
   minHeight = 320,
+  onUploadImage,
+  onUploadError,
 }: RichTextEditorProps) {
   const [fontSize, setFontSize] = useState("16px")
   const [textColor, setTextColor] = useState("#000000")
   const [highlightColor, setHighlightColor] = useState("#FEF08A")
   const [imageUrl, setImageUrl] = useState("")
   const [showImageInput, setShowImageInput] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [linkUrl, setLinkUrl] = useState("")
   const [showLinkInput, setShowLinkInput] = useState(false)
 
@@ -283,6 +294,24 @@ export function RichTextEditor({
     setImageUrl("")
     setShowImageInput(false)
   }, [editor, imageUrl])
+
+  const uploadAndInsertImage = useCallback(
+    async (file: File | undefined) => {
+      if (!file || !onUploadImage) return
+      setUploadingImage(true)
+      try {
+        const url = await onUploadImage(file)
+        editor?.chain().focus().setImage({ src: url }).run()
+        setShowImageInput(false)
+      } catch (err) {
+        onUploadError?.(err instanceof Error ? err.message : "Não foi possível enviar a imagem.")
+      } finally {
+        setUploadingImage(false)
+        if (fileInputRef.current) fileInputRef.current.value = ""
+      }
+    },
+    [editor, onUploadImage, onUploadError]
+  )
 
   const insertLink = useCallback(() => {
     const url = linkUrl.trim()
@@ -446,6 +475,25 @@ export function RichTextEditor({
                 className="w-52 rounded-lg border border-border px-2 py-1 text-xs focus:border-level-purple focus:outline-none"
               />
               <button type="button" onClick={insertImage} className="rounded-lg bg-level-purple px-2 py-1 text-xs text-white hover:bg-level-purple-dark">OK</button>
+              {onUploadImage && (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    className="hidden"
+                    onChange={(e) => uploadAndInsertImage(e.target.files?.[0])}
+                  />
+                  <button
+                    type="button"
+                    disabled={uploadingImage}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="whitespace-nowrap rounded-lg border border-level-purple px-2 py-1 text-xs text-level-purple hover:bg-level-purple-subtle disabled:opacity-50"
+                  >
+                    {uploadingImage ? "Enviando…" : "Enviar arquivo"}
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>

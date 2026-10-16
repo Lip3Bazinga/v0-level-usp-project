@@ -4,8 +4,8 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
-import { fetchPublishedCourses, fetchUserEnrollments } from "@/lib/supabase/courses"
-import type { Course } from "@/lib/supabase/types"
+import type { Course } from "@levelusp/contracts"
+import { fetchPublishedCourses, fetchUserEnrollments } from "@/lib/api"
 import {
   BookOpen, Code2, Database, Brain, Trophy, Zap, Flame, User,
   Settings, LogOut, Shield, Lock, CheckCircle2, ChevronRight,
@@ -148,10 +148,12 @@ export default function CoursesPage() {
       try {
         const [fetchedCourses, ids] = await Promise.all([
           fetchPublishedCourses(),
-          profile?.id ? fetchUserEnrollments(profile.id) : Promise.resolve([]),
+          profile?.id ? fetchUserEnrollments().catch(() => [] as string[]) : Promise.resolve([] as string[]),
         ])
         setCourses(fetchedCourses)
         setEnrolledIds(new Set(ids))
+      } catch {
+        setCourses([])
       } finally {
         setLoading(false)
       }

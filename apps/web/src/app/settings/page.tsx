@@ -3,8 +3,16 @@
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { passwordSchema, usernameSchema, type UpdateMyProfileInput } from "@levelusp/contracts"
 import { useAuth } from "@/contexts/auth-context"
-import { createClient } from "@/lib/supabase/client"
+import {
+  changePassword,
+  deleteMyAccount,
+  errorMessage,
+  exportMyData,
+  updateMyProfile,
+  uploadImage,
+} from "@/lib/api"
 import { swalConfirm } from "@/lib/swal"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { LevelButton } from "@/components/design-system/level-button"
@@ -20,13 +28,16 @@ import {
   Save,
   Loader2,
   CheckCircle2,
+  Download,
 } from "lucide-react"
 import { getInitials } from "@/lib/utils"
 
+const inputClass =
+  "w-full rounded-xl border-2 border-border bg-white px-4 py-3 text-foreground focus:border-level-purple focus:outline-none transition-colors"
 
 export default function SettingsPage() {
   const router = useRouter()
-  const { profile, isLoading: authLoading, signOut, refreshProfile } = useAuth()
+  const { profile, isLoading: authLoading, signOut, setProfile } = useAuth()
   const [activeTab, setActiveTab] = useState("profile")
 
   // Profile fields
@@ -38,8 +49,18 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState("")
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
-  const [deletingAccount, setDeletingAccount] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Segurança
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [changingPassword, setChangingPassword] = useState(false)
+  const [securityError, setSecurityError] = useState("")
+  const [securityMessage, setSecurityMessage] = useState("")
+  const [deletePassword, setDeletePassword] = useState("")
+  const [deletingAccount, setDeletingAccount] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   // Hydrate fields from profile
   useEffect(() => {
@@ -61,33 +82,74 @@ export default function SettingsPage() {
     setUploadingAvatar(true)
     setError("")
     try {
-      const supabase = createClient()
-      const ext = file.name.split(".").pop()
-      const path = `${profile.id}/avatar.${ext}`
-      const { error: upErr } = await supabase.storage
-        .from("avatars")
-        .upload(path, file, { upsert: true })
-      if (upErr) throw upErr
-      const { data } = supabase.storage.from("avatars").getPublicUrl(path)
-      // cache-bust para refletir a troca
-      const publicUrl = `${data.publicUrl}?t=${Date.now()}`
-      const { error: updErr } = await supabase
-        .from("profiles")
-        .update({ avatar_url: publicUrl } as never)
-        .eq("id", profile.id)
-      if (updErr) throw updErr
-      setAvatarUrl(publicUrl)
-      await refreshProfile()
-    } catch {
-      setError("Erro ao enviar a foto. Tente novamente.")
+      const url = await uploadImage(file)
+      const updated = await updateMyProfile({ avatar_url: url })
+      setAvatarUrl(updated.avatar_url)
+      setProfile(updated)
+    } catch (err) {
+      setError(errorMessage(err, "Erro ao enviar a foto. Tente novamente."))
     } finally {
       setUploadingAvatar(false)
       if (fileInputRef.current) fileInputRef.current.value = ""
     }
   }
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSecurityError("")
+    setSecurityMessage("")
+    const check = passwordSchema.safeParse(newPassword)
+    if (!check.success) {
+      setSecurityError(check.error.issues[0]?.message ?? "Senha inválida.")
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setSecurityError("As senhas não coincidem.")
+      return
+    }
+    setChangingPassword(true)
+    try {
+      await changePassword(currentPassword, newPassword)
+      setCurrentPassword("")
+      setNewPassword("")
+      setConfirmPassword("")
+      setSecurityMessage("Senha alterada com sucesso!")
+    } catch (err) {
+      setSecurityError(errorMessage(err, "Não foi possível alterar a senha."))
+    } finally {
+      setChangingPassword(false)
+    }
+  }
+
+  const handleExportData = async () => {
+    setSecurityError("")
+    setExporting(true)
+    try {
+      const data = await exportMyData()
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
+      const url = URL.createObjectURL(blob)
+      const a = Object.assign(document.createElement("a"), {
+        href: url,
+        download: `levelusp-meus-dados-${new Date().toISOString().slice(0, 10)}.json`,
+      })
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setSecurityError(errorMessage(err, "Não foi possível exportar seus dados."))
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const handleDeleteAccount = async () => {
     if (!profile) return
+    setSecurityError("")
+    if (!deletePassword) {
+      setSecurityError("Informe sua senha para confirmar a exclusão da conta.")
+      return
+    }
     const confirmed = await swalConfirm({
       title: "Excluir sua conta?",
       text: "Todos os seus dados serão removidos permanentemente. Esta ação não pode ser desfeita.",
@@ -97,17 +159,11 @@ export default function SettingsPage() {
     if (!confirmed) return
     setDeletingAccount(true)
     try {
-      const supabase = createClient()
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch("/api/account/delete", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
-      })
-      if (!res.ok) throw new Error()
-      await supabase.auth.signOut()
+      await deleteMyAccount(deletePassword)
+      setProfile(null)
       window.location.href = "/"
-    } catch {
-      setError("Erro ao excluir a conta. Tente novamente.")
+    } catch (err) {
+      setSecurityError(errorMessage(err, "Erro ao excluir a conta. Tente novamente."))
       setDeletingAccount(false)
     }
   }
@@ -115,40 +171,44 @@ export default function SettingsPage() {
   // Redirect if not logged in
   useEffect(() => {
     if (!authLoading && !profile) {
-      router.push("/login?redirect=/settings")
+      router.push("/login?next=/settings")
     }
   }, [authLoading, profile, router])
 
   const handleSave = async () => {
     if (!profile) return
-    setSaving(true)
     setError("")
     setSaved(false)
 
-    const supabase = createClient()
-    const updates: Record<string, unknown> = {
+    const updates: UpdateMyProfileInput = {
       full_name: fullName.trim(),
-      username: username.trim().toLowerCase(),
       bio: bio.trim() || null,
     }
-    const { error: updateError } = await supabase
-      .from("profiles")
-      .update(updates as never)
-      .eq("id", profile.id)
-
-    if (updateError) {
-      if (updateError.message.includes("duplicate") || updateError.message.includes("unique")) {
-        setError("Este username ja esta em uso. Escolha outro.")
-      } else {
-        setError("Erro ao salvar. Tente novamente.")
+    const normalizedUsername = username.trim().toLowerCase()
+    if (normalizedUsername !== (profile.username ?? "")) {
+      const check = usernameSchema.safeParse(normalizedUsername)
+      if (!check.success) {
+        setError(check.error.issues[0]?.message ?? "Username inválido.")
+        return
       }
-    } else {
-      await refreshProfile()
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
+      updates.username = check.data
+    }
+    if (!updates.full_name) {
+      setError("Informe seu nome.")
+      return
     }
 
-    setSaving(false)
+    setSaving(true)
+    try {
+      const updated = await updateMyProfile(updates)
+      setProfile(updated)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      setError(errorMessage(err, "Erro ao salvar. Tente novamente."))
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleSignOut = async () => {
@@ -158,7 +218,7 @@ export default function SettingsPage() {
 
   const tabs = [
     { id: "profile", label: "Perfil", icon: User },
-    { id: "security", label: "Seguranca", icon: Shield },
+    { id: "security", label: "Segurança", icon: Shield },
   ]
 
   if (authLoading || !profile) {
@@ -186,7 +246,7 @@ export default function SettingsPage() {
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-level-purple">
                 <Rocket className="h-4 w-4 text-white" />
               </div>
-              <h1 className="text-lg font-bold text-level-purple-dark">Configuracoes</h1>
+              <h1 className="text-lg font-bold text-level-purple-dark">Configurações</h1>
             </div>
           </div>
         </div>
@@ -272,7 +332,7 @@ export default function SettingsPage() {
                   {saved && (
                     <div className="mb-4 flex items-center gap-2 rounded-xl bg-success/10 px-4 py-3 text-sm text-success">
                       <CheckCircle2 className="h-4 w-4" />
-                      Alteracoes salvas com sucesso!
+                      Alterações salvas com sucesso!
                     </div>
                   )}
 
@@ -321,7 +381,7 @@ export default function SettingsPage() {
                           className="w-full rounded-xl border-2 border-border bg-muted pl-11 pr-4 py-3 text-muted-foreground cursor-not-allowed"
                         />
                       </div>
-                      <p className="text-xs text-muted-foreground">O email nao pode ser alterado.</p>
+                      <p className="text-xs text-muted-foreground">O e-mail não pode ser alterado.</p>
                     </div>
                   </div>
 
@@ -335,7 +395,7 @@ export default function SettingsPage() {
                       ) : (
                         <span className="flex items-center gap-2">
                           <Save className="h-4 w-4" />
-                          Salvar alteracoes
+                          Salvar alterações
                         </span>
                       )}
                     </LevelButton>
@@ -347,25 +407,76 @@ export default function SettingsPage() {
             {/* Security Tab */}
             {activeTab === "security" && (
               <div className="space-y-6">
-                <div className="rounded-2xl border border-border bg-white p-6">
-                  <h2 className="mb-6 text-lg font-bold text-level-purple-dark">Alterar Senha</h2>
-                  <p className="mb-4 text-sm text-muted-foreground">
-                    Para alterar sua senha, clique no botao abaixo. Um email sera enviado para <strong>{profile.email}</strong> com as instrucoes.
-                  </p>
-                  <LevelButton
-                    variant="primary"
-                    size="md"
-                    onClick={async () => {
-                      const supabase = createClient()
-                      await supabase.auth.resetPasswordForEmail(profile.email, {
-                        redirectTo: `${window.location.origin}/auth/callback?redirect=/settings`,
-                      })
-                      alert("Email enviado! Verifique sua caixa de entrada.")
-                    }}
+                {(securityError || securityMessage) && (
+                  <div
+                    role={securityError ? "alert" : "status"}
+                    className={`rounded-xl px-4 py-3 text-sm ${securityError ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success"}`}
                   >
+                    {securityError || securityMessage}
+                  </div>
+                )}
+
+                <form onSubmit={handleChangePassword} className="rounded-2xl border border-border bg-white p-6">
+                  <h2 className="mb-6 text-lg font-bold text-level-purple-dark">Alterar senha</h2>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label htmlFor="current-password" className="text-sm font-medium text-level-purple-dark">Senha atual</label>
+                      <input
+                        id="current-password"
+                        type="password"
+                        autoComplete="current-password"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        required
+                        className={inputClass}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label htmlFor="new-password" className="text-sm font-medium text-level-purple-dark">Nova senha</label>
+                      <input
+                        id="new-password"
+                        type="password"
+                        autoComplete="new-password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Mínimo 10 caracteres, com letra e número"
+                        required
+                        minLength={10}
+                        className={inputClass}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label htmlFor="confirm-new-password" className="text-sm font-medium text-level-purple-dark">Confirme a nova senha</label>
+                      <input
+                        id="confirm-new-password"
+                        type="password"
+                        autoComplete="new-password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-6">
+                    <LevelButton type="submit" variant="primary" size="md" disabled={changingPassword}>
+                      <span className="flex items-center gap-2">
+                        {changingPassword ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+                        Alterar senha
+                      </span>
+                    </LevelButton>
+                  </div>
+                </form>
+
+                <div className="rounded-2xl border border-border bg-white p-6">
+                  <h2 className="mb-2 text-lg font-bold text-level-purple-dark">Seus dados</h2>
+                  <p className="mb-4 text-sm text-muted-foreground">
+                    Baixe uma cópia de todos os seus dados na plataforma (LGPD), em formato JSON.
+                  </p>
+                  <LevelButton variant="outline" size="md" onClick={handleExportData} disabled={exporting}>
                     <span className="flex items-center gap-2">
-                      <Lock className="h-4 w-4" />
-                      Enviar email de redefinicao
+                      {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                      Exportar meus dados
                     </span>
                   </LevelButton>
                 </div>
@@ -373,8 +484,20 @@ export default function SettingsPage() {
                 <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6">
                   <h2 className="mb-2 text-lg font-bold text-destructive">Zona de perigo</h2>
                   <p className="mb-4 text-sm text-muted-foreground">
-                    Ao excluir sua conta, todos os seus dados serao permanentemente removidos.
+                    Ao excluir sua conta, todos os seus dados serão permanentemente removidos.
+                    Confirme com sua senha atual.
                   </p>
+                  <div className="mb-4 space-y-2">
+                    <label htmlFor="delete-password" className="text-sm font-medium text-destructive">Senha</label>
+                    <input
+                      id="delete-password"
+                      type="password"
+                      autoComplete="current-password"
+                      value={deletePassword}
+                      onChange={(e) => setDeletePassword(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
                   <button
                     onClick={handleDeleteAccount}
                     disabled={deletingAccount}

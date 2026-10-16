@@ -5,12 +5,11 @@ import Link from "next/link"
 import { Layers, Edit3, Eye, Plus, Trash2, X, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { PubBadge } from "@/components/ui/badges"
-import {
-  fetchModules, createModule, updateModule, deleteModule,
-  type ModuleFormData,
-} from "@/lib/supabase/modules"
-import type { Lesson, Module } from "@/lib/supabase/types"
-import type { OnToast } from "@/lib/types"
+import type { Lesson, Module, ModuleInput } from "@levelusp/contracts"
+import { createModule, deleteModule, errorMessage, fetchModules, updateModule } from "@/lib/api"
+import type { OnToast } from "@/lib/types/ui"
+
+type ModuleFormData = ModuleInput
 
 const GRADIENTS = [
   "from-level-purple to-level-purple-medium",
@@ -40,7 +39,7 @@ export function ModulesPage({ lessons, onToast }: ModulesPageProps) {
   const load = async () => {
     setLoading(true)
     try { setModules(await fetchModules()) }
-    catch { onToast("Erro ao carregar módulos", "danger") }
+    catch (err) { onToast(errorMessage(err, "Erro ao carregar módulos"), "danger") }
     finally { setLoading(false) }
   }
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -51,7 +50,7 @@ export function ModulesPage({ lessons, onToast }: ModulesPageProps) {
     const byName: Record<string, Lesson[]> = {}
     for (const l of lessons) {
       if (l.module_id) (byId[l.module_id] ||= []).push(l)
-      else (byName[l.module] ||= []).push(l)
+      else if (l.module) (byName[l.module] ||= []).push(l)
     }
     return { byId, byName }
   }, [lessons])
@@ -72,7 +71,7 @@ export function ModulesPage({ lessons, onToast }: ModulesPageProps) {
       setEditing(null)
       await load()
     } catch (e) {
-      onToast(e instanceof Error ? e.message : "Erro ao salvar", "danger")
+      onToast(errorMessage(e, "Erro ao salvar"), "danger")
     } finally {
       setSaving(false)
     }
@@ -86,7 +85,7 @@ export function ModulesPage({ lessons, onToast }: ModulesPageProps) {
       onToast("Módulo excluído", "danger")
       await load()
     } catch (e) {
-      onToast(e instanceof Error ? e.message : "Erro ao excluir", "danger")
+      onToast(errorMessage(e, "Erro ao excluir"), "danger")
     } finally {
       setDeletingId(null)
     }

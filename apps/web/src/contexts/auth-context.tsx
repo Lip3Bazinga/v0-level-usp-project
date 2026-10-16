@@ -6,151 +6,132 @@ import {
   useEffect,
   useState,
   useCallback,
+  useMemo,
   useRef,
   type ReactNode,
 } from "react"
-import type { User } from "@supabase/supabase-js"
-import { createClient } from "@/lib/supabase/client"
-import type { Profile } from "@/lib/supabase/types"
-import { checkAndUpdateDailyStreak } from "@/lib/supabase/lessons"
+import type { Profile, SessionResponse, SignUpInput } from "@levelusp/contracts"
+import {
+  fetchSession,
+  signIn as apiSignIn,
+  signUp as apiSignUp,
+  signOut as apiSignOut,
+  errorMessage,
+} from "@/lib/api"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Usuário autenticado. A sessão vive num cookie httpOnly emitido pela API —
+ * o navegador nunca vê token; aqui só guardamos o mínimo derivado do perfil.
+ */
+export interface AuthUser {
+  id: string
+  email: string
+}
+
+/** Resultado da sequência diária atualizada no login (dispara a animação). */
 export interface StreakResult {
   streakUpdated: boolean
   newStreak: number
 }
 
 export interface AuthContextValue {
-  user: User | null
+  user: AuthUser | null
   profile: Profile | null
   isLoading: boolean
   signIn: (email: string, password: string) => Promise<{ error: string | null; streakResult?: StreakResult }>
+  signUp: (input: SignUpInput) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
+  /** Atualiza o perfil local com o que a API devolveu (ex.: após PATCH /me/profile). */
+  setProfile: (profile: Profile | null) => void
 }
 
 // ── Context ───────────────────────────────────────────────────────────────────
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-// ── Singleton do client Supabase ──────────────────────────────────────────────
-// Criado uma vez fora do componente para que React Strict Mode (que desmonta e
-// remonta em dev) não instancie múltiplos listeners disputando o mesmo lock de
-// token do GoTrue.
-const supabase = createClient()
+function toStreakResult(session: SessionResponse): StreakResult | undefined {
+  if (!session.streak) return undefined
+  return { streakUpdated: session.streak.increased, newStreak: session.streak.streak }
+}
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  // Evita fetch de perfil após unmount (Strict Mode double-invoke)
+  // Evita setState após unmount (Strict Mode monta/desmonta em dev)
   const mounted = useRef(true)
 
-  const fetchProfile = useCallback(async (userId: string) => {
-    // Retry uma vez em caso de falha transitória (ex: RLS ainda propagando)
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single()
-
-      if (!mounted.current) return
-
-      if (!error && data) {
-        setProfile(data as Profile)
-        return
-      }
-
-      if (attempt === 0) {
-        // Pequena espera antes de tentar novamente
-        await new Promise((r) => setTimeout(r, 400))
-      }
+  const loadSession = useCallback(async () => {
+    try {
+      const session = await fetchSession()
+      if (mounted.current) setProfile(session?.user ?? null)
+    } catch {
+      // Falha de rede/servidor: trata como deslogado, sem quebrar a página.
+      if (mounted.current) setProfile(null)
     }
-    // Após 2 tentativas, mantém null — o usuário está autenticado mas sem perfil
-    setProfile(null)
   }, [])
 
   useEffect(() => {
     mounted.current = true
-
-    // onAuthStateChange dispara imediatamente com a sessão atual (INITIAL_SESSION),
-    // então NÃO precisamos de getSession() separado — isso evita a corrida de
-    // dois caminhos assíncronos tentando adquirir o lock do token ao mesmo tempo.
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!mounted.current) return
-
-      if (session?.user) {
-        setUser(session.user)
-        await fetchProfile(session.user.id)
-      } else {
-        setUser(null)
-        setProfile(null)
-      }
-
+    loadSession().finally(() => {
       if (mounted.current) setIsLoading(false)
     })
-
     return () => {
       mounted.current = false
-      subscription.unsubscribe()
     }
-  }, [fetchProfile])
+  }, [loadSession])
 
   const signIn = useCallback(
     async (email: string, password: string): Promise<{ error: string | null; streakResult?: StreakResult }> => {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) return { error: error.message }
-
-      // Bloqueia contas suspensas (camada extra além do ban do Auth)
-      if (data?.user) {
-        const { data: prof } = await supabase
-          .from("profiles")
-          .select("suspended")
-          .eq("id", data.user.id)
-          .single()
-        if (prof && (prof as { suspended?: boolean }).suspended) {
-          await supabase.auth.signOut()
-          return { error: "Esta conta está suspensa. Entre em contato com o suporte." }
-        }
+      try {
+        const session = await apiSignIn({ email: email.trim(), password })
+        if (mounted.current) setProfile(session.user)
+        return { error: null, streakResult: toStreakResult(session) }
+      } catch (err) {
+        return { error: errorMessage(err, "Não foi possível entrar. Tente novamente.") }
       }
-
-      // Check and update daily streak on login
-      let streakResult: StreakResult | undefined
-      if (data?.user) {
-        try {
-          streakResult = await checkAndUpdateDailyStreak(data.user.id)
-        } catch { /* streak is non-critical */ }
-      }
-      return { error: null, streakResult }
     },
     [],
   )
 
+  const signUp = useCallback(async (input: SignUpInput): Promise<{ error: string | null }> => {
+    try {
+      const session = await apiSignUp(input)
+      if (mounted.current) setProfile(session.user)
+      return { error: null }
+    } catch (err) {
+      return { error: errorMessage(err, "Não foi possível criar a conta. Tente novamente.") }
+    }
+  }, [])
+
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    setProfile(null)
+    try {
+      await apiSignOut()
+    } catch {
+      // Mesmo se a API falhar (sessão já expirada, rede), limpa o estado local.
+    }
+    if (mounted.current) setProfile(null)
   }, [])
 
   const refreshProfile = useCallback(async () => {
-    const { data: { user: currentUser } } = await supabase.auth.getUser()
-    if (currentUser) {
-      setUser(currentUser)
-      await fetchProfile(currentUser.id)
-    }
-  }, [fetchProfile])
+    await loadSession()
+  }, [loadSession])
 
-  return (
-    <AuthContext.Provider value={{ user, profile, isLoading, signIn, signOut, refreshProfile }}>
-      {children}
-    </AuthContext.Provider>
+  const user = useMemo<AuthUser | null>(
+    () => (profile ? { id: profile.id, email: profile.email } : null),
+    [profile],
   )
+
+  const value = useMemo<AuthContextValue>(
+    () => ({ user, profile, isLoading, signIn, signUp, signOut, refreshProfile, setProfile }),
+    [user, profile, isLoading, signIn, signUp, signOut, refreshProfile],
+  )
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────

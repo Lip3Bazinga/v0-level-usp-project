@@ -18,7 +18,7 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { LessonContentPreview } from "@/components/editor/lesson-content-preview"
 
-import type { Checkpoint as LessonCheckpoint } from "@/lib/supabase/types"
+import type { Checkpoint as LessonCheckpoint } from "@levelusp/contracts"
 
 export interface Checkpoint extends LessonCheckpoint {
   completed?: boolean

@@ -5,3 +5,4 @@ export { xpForLevel, xpFloorForLevel, xpCeilForLevel, xpInLevel } from "./gamifi
 export { timeAgo, formatDate, snippet } from "./format"
 export { localDateKey, todayKey, PLATFORM_TIMEZONE } from "./date"
 export { normalizePath, isValidPath } from "./path"
+export { safeRedirectPath } from "./redirect"

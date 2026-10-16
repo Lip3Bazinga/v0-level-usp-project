@@ -2,12 +2,10 @@
 
 import { useState, useEffect } from "react"
 import { Clock, Shield, Check, X, Loader2 } from "lucide-react"
-import { fetchPendingApprovals, approveTeacher, rejectTeacher } from "@/lib/supabase/admin"
-import { useAuth } from "@/contexts/auth-context"
-import type { TeacherApproval } from "@/lib/supabase/types"
+import type { TeacherApproval } from "@levelusp/contracts"
+import { approveTeacher, errorMessage, fetchPendingApprovals, rejectTeacher } from "@/lib/api"
 import { getInitials, timeAgo } from "@/lib/utils"
-import { cn } from "@/lib/utils"
-import type { OnToast } from "@/lib/types"
+import type { OnToast } from "@/lib/types/ui"
 
 
 
@@ -16,39 +14,47 @@ interface ApprovalsPageProps {
 }
 
 export function ApprovalsPage({ onToast }: ApprovalsPageProps) {
-  const { profile } = useAuth()
   const [approvals, setApprovals] = useState<TeacherApproval[]>([])
   const [loadingData, setLoadingData] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState("")
 
   useEffect(() => {
-    fetchPendingApprovals()
+    fetchPendingApprovals("pending")
       .then(setApprovals)
-      .catch(() => onToast("Erro ao carregar aprovações", "danger"))
+      .catch((err) => setLoadError(errorMessage(err, "Erro ao carregar aprovações")))
       .finally(() => setLoadingData(false))
   }, [])
 
   const approve = async (approval: TeacherApproval) => {
+    setBusyId(approval.id)
     try {
-      await approveTeacher(approval.id, profile!.id, approval.user_id)
+      await approveTeacher(approval.id)
       setApprovals((prev) => prev.filter((a) => a.id !== approval.id))
       onToast(`${approval.name} aprovado(a) como professor(a)`, "success")
-    } catch {
-      onToast("Erro ao aprovar", "danger")
+    } catch (err) {
+      onToast(errorMessage(err, "Erro ao aprovar"), "danger")
+    } finally {
+      setBusyId(null)
     }
   }
 
   const reject = async () => {
-    if (!rejectingId || !profile) return
+    if (!rejectingId) return
+    const id = rejectingId
+    setBusyId(id)
     try {
-      await rejectTeacher(rejectingId, profile.id, rejectReason)
-      setApprovals((prev) => prev.filter((a) => a.id !== rejectingId))
+      await rejectTeacher(id, rejectReason.trim() || undefined)
+      setApprovals((prev) => prev.filter((a) => a.id !== id))
       setRejectingId(null)
       setRejectReason("")
       onToast("Solicitação rejeitada", "danger")
-    } catch {
-      onToast("Erro ao rejeitar", "danger")
+    } catch (err) {
+      onToast(errorMessage(err, "Erro ao rejeitar"), "danger")
+    } finally {
+      setBusyId(null)
     }
   }
 
@@ -65,7 +71,11 @@ export function ApprovalsPage({ onToast }: ApprovalsPageProps) {
         </div>
       )}
 
-      {!loadingData && approvals.length === 0 && (
+      {loadError && (
+        <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{loadError}</p>
+      )}
+
+      {!loadingData && !loadError && approvals.length === 0 && (
         <div className="rounded-2xl border border-dashed border-level-purple-medium bg-level-purple-subtle/30 py-16 text-center">
           <Shield className="mx-auto h-12 w-12 text-muted-foreground/40" />
           <p className="mt-3 text-sm font-semibold text-muted-foreground">Nenhuma aprovação pendente</p>
@@ -100,26 +110,23 @@ export function ApprovalsPage({ onToast }: ApprovalsPageProps) {
                     {p.motivation || "—"}
                   </p>
                 </div>
-                <div className="flex items-center gap-4 text-[11px]">
-                  <span className="inline-flex items-center gap-1 text-muted-foreground">
-                    <Check className="h-3 w-3 text-success" /> Email institucional verificado
-                  </span>
-                </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setRejectingId(p.id)}
+                  disabled={busyId === p.id}
                   className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm font-bold text-muted-foreground hover:border-destructive hover:bg-destructive hover:text-white"
                 >
                   <X className="h-4 w-4" /> Rejeitar
                 </button>
                 <button
                   onClick={() => approve(p)}
+                  disabled={busyId === p.id}
                   className="btn-3d flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-success px-3 py-2 text-sm font-bold text-white"
                   style={{ ["--btn-3d-shadow" as string]: "#059669" }}
                 >
-                  <Check className="h-4 w-4" /> Aprovar
+                  {busyId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Aprovar
                 </button>
               </div>
             </div>
@@ -146,10 +153,11 @@ export function ApprovalsPage({ onToast }: ApprovalsPageProps) {
             </div>
             <div className="p-6">
               <p className="mb-3 text-sm text-foreground">
-                Explique brevemente o motivo (o usuário receberá por email):
+                Explique brevemente o motivo (opcional — fica registrado na solicitação):
               </p>
               <textarea
                 value={rejectReason}
+                maxLength={1000}
                 onChange={(e) => setRejectReason(e.target.value)}
                 className="h-24 w-full rounded-xl border border-border bg-white p-3 text-sm focus:border-level-purple focus:outline-none"
                 placeholder="Ex: Documento não corresponde à instituição informada..."
@@ -164,7 +172,8 @@ export function ApprovalsPage({ onToast }: ApprovalsPageProps) {
               </button>
               <button
                 onClick={reject}
-                className="rounded-xl bg-destructive px-4 py-2 text-sm font-bold text-white"
+                disabled={busyId === rejectingId}
+                className="rounded-xl bg-destructive px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
               >
                 Rejeitar
               </button>

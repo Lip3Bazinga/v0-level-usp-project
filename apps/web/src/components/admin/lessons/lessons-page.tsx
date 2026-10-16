@@ -9,10 +9,9 @@ import {
 import { cn } from "@/lib/utils"
 import { DiffBadge, PubBadge } from "@/components/ui/badges"
 import { IconBtn } from "@/components/ui/icon-btn"
-import { toggleLessonPublished, deleteLesson } from "@/lib/supabase/lessons"
-import { swalConfirm, swalError, swalToast } from "@/lib/swal"
-import type { Lesson } from "@/lib/supabase/types"
-import type { OnToast } from "@/lib/types"
+import type { Lesson, LessonInput } from "@levelusp/contracts"
+import { createLesson, deleteLesson, errorMessage, fetchLessonForAuthoring, toggleLessonPublished } from "@/lib/api"
+import type { OnToast } from "@/lib/types/ui"
 
 interface LessonsPageProps {
   lessons: Lesson[]
@@ -29,8 +28,9 @@ export function LessonsPageEnhanced({ lessons, setLessons, onToast }: LessonsPag
   const [toDelete, setToDelete] = useState<Lesson | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
 
-  const modules = useMemo(() => Array.from(new Set(lessons.map((l) => l.module))), [lessons])
+  const modules = useMemo(() => Array.from(new Set(lessons.map((l) => l.module).filter(Boolean))), [lessons])
 
   const filtered = useMemo(() => {
     return lessons
@@ -48,51 +48,71 @@ export function LessonsPageEnhanced({ lessons, setLessons, onToast }: LessonsPag
   const handleToggle = async (l: Lesson) => {
     setTogglingId(l.id)
     try {
-      await toggleLessonPublished(l.id, !l.published)
-      setLessons((prev) => prev.map((x) => (x.id === l.id ? { ...x, published: !l.published } : x)))
+      const updated = await toggleLessonPublished(l.id, !l.published)
+      setLessons((prev) => prev.map((x) => (x.id === l.id ? { ...x, published: updated.published } : x)))
       onToast(l.published ? "Lição despublicada" : "Lição publicada", "success")
+    } catch (err) {
+      // Ex.: lição de código sem casos de teste não pode ser publicada.
+      onToast(errorMessage(err, "Erro ao alterar status da lição"), "danger")
     } finally {
       setTogglingId(null)
     }
   }
 
-  const handleDelete = async (lesson?: Lesson) => {
-    const target = lesson ?? toDelete
+  const handleDelete = async () => {
+    const target = toDelete
     if (!target) return
-    const confirmed = await swalConfirm({
-      title: "Excluir lição?",
-      text: `A lição "${target.title}" será excluída permanentemente. O progresso dos alunos também será removido.`,
-      confirmText: "Excluir",
-      danger: true,
-    })
-    if (!confirmed) return
-    const id = target.id
-    setDeletingId(id)
+    setDeletingId(target.id)
     setToDelete(null)
     try {
-      await deleteLesson(id)
-      setLessons((prev) => prev.filter((x) => x.id !== id))
-      swalToast({ title: "Lição excluída.", icon: "success" })
-    } catch {
-      await swalError({ text: "Erro ao excluir lição." })
+      await deleteLesson(target.id)
+      setLessons((prev) => prev.filter((x) => x.id !== target.id))
+      onToast("Lição excluída", "success")
+    } catch (err) {
+      onToast(errorMessage(err, "Erro ao excluir lição"), "danger")
     } finally {
       setDeletingId(null)
     }
   }
 
-  const duplicate = (l: Lesson) => {
-    const copy: Lesson = {
-      ...l,
-      id:         "dup-" + Date.now(),
-      title:      l.title + " (cópia)",
-      published:  false,
-      order:      lessons.length + 1,
-      slug:       l.slug + "-copia",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+  /** Duplica de verdade (com gabarito e sem curso), sempre como rascunho. */
+  const duplicate = async (l: Lesson) => {
+    setDuplicatingId(l.id)
+    try {
+      const full = await fetchLessonForAuthoring(l.id)
+      if (!full) throw new Error("not found")
+      const input: LessonInput = {
+        title: `${full.title} (cópia)`.slice(0, 160),
+        description: full.description,
+        module: full.module,
+        module_id: full.module_id,
+        course_id: null,
+        order: full.order,
+        difficulty: full.difficulty,
+        content_markdown: full.content_markdown,
+        starter_code: full.starter_code,
+        starter_files: full.starter_files ?? [],
+        checkpoints: full.checkpoints ?? [],
+        libraries: full.libraries ?? [],
+        lesson_type: full.lesson_type,
+        quiz_passing_score: full.quiz_passing_score,
+        xp_reward: full.xp_reward,
+        time_limit: full.time_limit,
+        test_cases: full.test_cases ?? [],
+      }
+      const created = await createLesson(input)
+      setLessons((prev) => [...prev, created])
+      onToast(
+        full.lesson_type === "quiz"
+          ? "Lição duplicada como rascunho (as questões do questionário não são copiadas)"
+          : "Lição duplicada como rascunho",
+        "success",
+      )
+    } catch (err) {
+      onToast(errorMessage(err, "Erro ao duplicar lição"), "danger")
+    } finally {
+      setDuplicatingId(null)
     }
-    setLessons((prev) => [...prev, copy])
-    onToast("Lição duplicada como rascunho", "success")
   }
 
   return (
@@ -192,7 +212,7 @@ export function LessonsPageEnhanced({ lessons, setLessons, onToast }: LessonsPag
                       <div className="min-w-0">
                         <p className="truncate text-sm font-bold text-level-purple-dark">{l.title}</p>
                         <p className="truncate text-[11px] text-muted-foreground">
-                          {(l.libraries?.length ?? 0) > 0 ? (l.libraries ?? []).join(", ") : "Sem bibliotecas"} · ⏱ {Math.round(l.time_limit / 60)}min
+                          {(l.libraries?.length ?? 0) > 0 ? (l.libraries ?? []).join(", ") : "Sem bibliotecas"} · ⏱ {l.time_limit}min
                         </p>
                       </div>
                     </div>
@@ -214,7 +234,7 @@ export function LessonsPageEnhanced({ lessons, setLessons, onToast }: LessonsPag
                         <IconBtn title="Editar" size="sm"><Edit3 className="h-3.5 w-3.5" /></IconBtn>
                       </Link>
                       <IconBtn title="Duplicar" size="sm" onClick={() => duplicate(l)}>
-                        <Copy className="h-3.5 w-3.5" />
+                        {duplicatingId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
                       </IconBtn>
                       <IconBtn title="Excluir" size="sm" tone="danger" onClick={() => setToDelete(l)}>
                         {deletingId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
@@ -254,7 +274,7 @@ export function LessonsPageEnhanced({ lessons, setLessons, onToast }: LessonsPag
                   <Zap className="h-2.5 w-2.5" />{l.xp_reward} XP
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                  <Clock className="h-2.5 w-2.5" />{Math.round(l.time_limit / 60)}min
+                  <Clock className="h-2.5 w-2.5" />{l.time_limit}min
                 </span>
               </div>
               <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
@@ -325,7 +345,7 @@ export function LessonsPageEnhanced({ lessons, setLessons, onToast }: LessonsPag
               </button>
             </div>
             <div className="p-6">
-              <p className="text-sm text-foreground">A lição <b>"{toDelete.title}"</b> será excluída permanentemente.</p>
+              <p className="text-sm text-foreground">A lição <b>&ldquo;{toDelete.title}&rdquo;</b> será excluída permanentemente.</p>
               <p className="mt-2 text-xs text-muted-foreground">Esta ação não pode ser desfeita.</p>
             </div>
             <div className="flex justify-end gap-2 border-t border-border bg-muted/30 px-6 py-4">

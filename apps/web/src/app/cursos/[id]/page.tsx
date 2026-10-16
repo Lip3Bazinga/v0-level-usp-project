@@ -4,10 +4,19 @@ import { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
-import { fetchCourseById, enrollInCourse, unenrollFromCourse } from "@/lib/supabase/courses"
-import { fetchUserProgress, computeModuleStatuses } from "@/lib/supabase/lessons"
-import { fetchExamStatus, issueCertificate, fetchMyCertificate, type ExamStatus } from "@/lib/exam-client"
-import type { Course, Lesson, LessonProgress } from "@/lib/supabase/types"
+import type { Course, ExamStatus, Lesson, LessonProgress } from "@levelusp/contracts"
+import {
+  certificatePdfUrl,
+  computeModuleStatuses,
+  enrollInCourse,
+  errorMessage,
+  fetchCourseById,
+  fetchExamStatus,
+  fetchMyCertificate,
+  fetchUserProgress,
+  issueCertificate,
+  unenrollFromCourse,
+} from "@/lib/api"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import {
@@ -85,7 +94,7 @@ export default function CourseDetailPage() {
     async function loadExam() {
       const [res, cert] = await Promise.all([
         fetchExamStatus(courseId),
-        fetchMyCertificate(courseId, profile!.id),
+        fetchMyCertificate(courseId).catch(() => null),
       ])
       if (cancelled) return
       if (res.ok) setExamStatus(res.data)
@@ -102,8 +111,8 @@ export default function CourseDetailPage() {
       setError(null)
       try {
         const [result, prog] = await Promise.all([
-          fetchCourseById(courseId, profile?.id),
-          profile?.id ? fetchUserProgress(profile.id) : Promise.resolve([]),
+          fetchCourseById(courseId),
+          profile?.id ? fetchUserProgress().catch(() => [] as LessonProgress[]) : Promise.resolve([] as LessonProgress[]),
         ])
         if (!result) { setError("Curso não encontrado."); return }
         setCourse(result.course)
@@ -133,7 +142,7 @@ export default function CourseDetailPage() {
   }, [allDone, enrolled, loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleEnroll = useCallback(async () => {
-    if (!profile) { router.push("/login"); return }
+    if (!profile) { router.push(`/login?next=${encodeURIComponent(`/cursos/${courseId}`)}`); return }
     setEnrolling(true)
     try {
       if (enrolled) {
@@ -145,16 +154,16 @@ export default function CourseDetailPage() {
           danger: true,
         })
         if (!confirmed) return
-        await unenrollFromCourse(profile.id, courseId)
+        await unenrollFromCourse(courseId)
         setEnrolled(false)
         swalToast({ title: "Matrícula cancelada.", icon: "info" })
       } else {
-        await enrollInCourse(profile.id, courseId)
+        await enrollInCourse(courseId)
         setEnrolled(true)
         setShowEnrollAnim(true)
       }
-    } catch {
-      await swalError({ title: "Erro na matrícula", text: "Tente novamente em instantes." })
+    } catch (err) {
+      await swalError({ title: "Erro na matrícula", text: errorMessage(err, "Tente novamente em instantes.") })
     } finally {
       setEnrolling(false)
     }
@@ -170,14 +179,14 @@ export default function CourseDetailPage() {
     // Cursos com prova: certificado oficial com código de verificação
     if (examStatus) {
       if (certCode) {
-        window.open(`/api/certificate/pdf/${encodeURIComponent(certCode)}`, "_blank")
+        window.open(certificatePdfUrl(certCode), "_blank")
         return
       }
       swalToast({ title: "Emitindo certificado...", icon: "info" })
       const res = await issueCertificate(courseId)
       if (res.ok) {
         setCertCode(res.data.verificationCode)
-        window.open(`/api/certificate/pdf/${encodeURIComponent(res.data.verificationCode)}`, "_blank")
+        window.open(certificatePdfUrl(res.data.verificationCode), "_blank")
       } else {
         await swalError({ title: "Certificado indisponível", text: res.error })
       }

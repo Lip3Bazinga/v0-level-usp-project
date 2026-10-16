@@ -4,8 +4,15 @@ import * as React from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
-import { fetchProfileByUsername } from "@/lib/supabase/profiles"
-import type { Profile } from "@/lib/types"
+import type { ActivityDay, MyCertificate, PublicProfile } from "@levelusp/contracts"
+import {
+  certificatePdfUrl,
+  fetchAllBadges,
+  fetchMyCertificates,
+  fetchProfileByUsername,
+  fetchUserActivity,
+  fetchUserBadges,
+} from "@/lib/api"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -27,11 +34,7 @@ import {
 } from "lucide-react"
 import { StatCard } from "@/components/profile/stat-card"
 import { ActivityMap } from "@/components/profile/activity-map"
-import type { ActivityDay } from "@/components/profile/activity-map"
 import { BadgesSection, type DisplayBadge } from "@/components/profile/badges-section"
-import { fetchUserActivity } from "@/lib/supabase/lessons"
-import { fetchAllBadges, fetchUserBadges } from "@/lib/supabase/badges"
-import { fetchMyCertificates, type MyCertificate } from "@/lib/exam-client"
 import { getInitials, xpForLevel } from "@/lib/utils"
 
 export default function ProfilePage() {
@@ -40,7 +43,7 @@ export default function ProfilePage() {
   const username = params.username as string
   const { profile: currentUser, isLoading: authLoading } = useAuth()
 
-  const [user, setUser] = React.useState<Profile | null>(null)
+  const [user, setUser] = React.useState<PublicProfile | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [activityData, setActivityData] = React.useState<ActivityDay[]>([])
   const [badges, setBadges] = React.useState<DisplayBadge[]>([])
@@ -51,11 +54,11 @@ export default function ProfilePage() {
   const currentUsername = currentUser?.username
   const currentUserId = currentUser?.id
 
-  // Certificados só do próprio usuário (RLS own)
+  // Certificados só do próprio usuário (a API usa a sessão)
   React.useEffect(() => {
     if (!isOwnProfile || !currentUserId) return
     let cancelled = false
-    fetchMyCertificates(currentUserId)
+    fetchMyCertificates()
       .then((certs) => { if (!cancelled) setCertificates(certs) })
       .catch(() => {})
     return () => { cancelled = true }
@@ -67,18 +70,18 @@ export default function ProfilePage() {
     async function load() {
       setLoading(true)
 
-      let resolvedUser: Profile | null = null
+      let resolvedUser: PublicProfile | null = null
 
       if (username === "me") {
         if (!currentUser) {
-          router.replace("/login?redirect=/perfil/me")
+          router.replace("/login?next=/perfil/me")
           return
         }
         resolvedUser = currentUser
       } else if (currentUsername && username === currentUsername) {
         resolvedUser = currentUser
       } else {
-        resolvedUser = await fetchProfileByUsername(username)
+        resolvedUser = await fetchProfileByUsername(username).catch(() => null)
       }
 
       setUser(resolvedUser)
@@ -123,8 +126,8 @@ export default function ProfilePage() {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-white">
         <User className="h-16 w-16 text-muted-foreground/30" />
-        <h2 className="text-lg font-semibold text-level-purple-dark">Perfil nao encontrado</h2>
-        <p className="text-sm text-muted-foreground">O usuario @{username} nao existe.</p>
+        <h2 className="text-lg font-semibold text-level-purple-dark">Perfil não encontrado</h2>
+        <p className="text-sm text-muted-foreground">O usuário @{username} não existe.</p>
         <button
           onClick={() => router.push("/dashboard")}
           className="rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors"
@@ -289,7 +292,7 @@ export default function ProfilePage() {
                           Verificar
                         </Link>
                         <a
-                          href={`/api/certificate/pdf/${cert.verification_code}`}
+                          href={certificatePdfUrl(cert.verification_code)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-1 rounded-lg bg-level-purple px-3 py-1.5 text-xs font-semibold text-white hover:bg-level-purple-dark transition-colors"

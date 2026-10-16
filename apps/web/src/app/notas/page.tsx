@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
-import { fetchNotes, createNote, updateNote, deleteNote, type Note } from "@/lib/supabase/notes"
+import type { Note } from "@levelusp/contracts"
+import { fetchNotes, createNote, updateNote, deleteNote } from "@/lib/api"
 import {
   ArrowLeft, Plus, Trash2, BookOpen, GraduationCap,
   NotebookPen, Search, Loader2, FileText, Clock,
@@ -28,7 +29,7 @@ export default function NotasPage() {
 
   useEffect(() => {
     if (authLoading) return
-    if (!profile) { router.push("/login"); return }
+    if (!profile) { router.push("/login?next=/notas"); return }
     fetchNotes()
       .then((data) => {
         setNotes(data)

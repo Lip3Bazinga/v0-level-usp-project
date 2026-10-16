@@ -14,7 +14,7 @@ import { ProgressProvider } from "@/contexts/progress-context"
  *
  * Camadas (de fora para dentro):
  *   ThemeProvider        → dark/light mode via next-themes
- *   AuthProvider         → sessão Supabase + perfil do usuário
+ *   AuthProvider         → sessão (cookie httpOnly da API) + perfil do usuário
  *   ToastProvider        → feedback unificado (wrapper sobre lib/swal)
  *   NotificationProvider → notificações reais por usuário
  *   ProgressProvider     → lições + progresso + gamificação (fonte única)

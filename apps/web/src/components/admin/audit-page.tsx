@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { Search, Download, Activity, AlertTriangle, X, History, Loader2 } from "lucide-react"
-import { fetchAuditLog, exportToCsv } from "@/lib/supabase/admin"
-import type { AuditLog } from "@/lib/supabase/types"
+import type { AuditLog } from "@levelusp/contracts"
+import { errorMessage, exportToCsv, fetchAuditLog } from "@/lib/api"
 import { timeAgo } from "@/lib/utils"
 import { cn } from "@/lib/utils"
 
@@ -24,11 +24,12 @@ export function AuditPage() {
   const [q, setQ] = useState("")
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [loadingData, setLoadingData] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchAuditLog(100)
+    fetchAuditLog(200)
       .then(setLogs)
-      .catch(() => {})
+      .catch((err) => setLoadError(errorMessage(err, "Não foi possível carregar o log de auditoria.")))
       .finally(() => setLoadingData(false))
   }, [])
 
@@ -76,6 +77,10 @@ export function AuditPage() {
           </button>
         </div>
 
+        {loadError && (
+          <p role="alert" className="border-b border-border bg-destructive/5 px-4 py-3 text-sm text-destructive">{loadError}</p>
+        )}
+
         {loadingData && (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-level-purple" />
@@ -95,12 +100,14 @@ export function AuditPage() {
                     <b className="text-level-purple-dark">{a.actor_name}</b> {a.action}{" "}
                     <b>{a.target}</b>
                   </p>
-                  <p className="font-mono text-[11px] text-muted-foreground">{timeAgo(a.created_at)}</p>
+                  <p className="font-mono text-[11px] text-muted-foreground" title={new Date(a.created_at).toLocaleString("pt-BR")}>
+                    {timeAgo(a.created_at)}
+                  </p>
                 </div>
               </div>
             )
           })}
-          {filtered.length === 0 && (
+          {!loadingData && filtered.length === 0 && (
             <div className="py-12 text-center">
               <History className="mx-auto h-10 w-10 text-muted-foreground/30" />
               <p className="mt-3 text-sm font-semibold text-muted-foreground">Nenhum evento encontrado</p>

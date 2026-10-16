@@ -10,12 +10,12 @@ import {
   type ReactNode,
 } from "react"
 import { useAuth } from "@/contexts/auth-context"
+import type { Notification } from "@levelusp/contracts"
 import {
   fetchNotifications,
   markRead as apiMarkRead,
   markAllRead as apiMarkAllRead,
-} from "@/lib/supabase/notifications"
-import type { Notification } from "@/lib/supabase/types"
+} from "@/lib/api"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
     setIsLoading(true)
     try {
-      const data = await fetchNotifications(userId)
+      const data = await fetchNotifications()
       setNotifications(data)
     } catch {
       setNotifications([])
@@ -74,7 +74,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (!userId) return
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
     try {
-      await apiMarkAllRead(userId)
+      await apiMarkAllRead()
     } catch {
       refresh()
     }

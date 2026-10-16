@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/tooltip"
 import { Crown, Star } from "lucide-react"
 import { badgeIcon } from "@/lib/badge-icons"
-import type { Badge as CatalogBadge } from "@/lib/supabase/types"
+import type { Badge as CatalogBadge } from "@levelusp/contracts"
 
 /** Badge do catálogo + estado de conquista do usuário sendo exibido. */
 export interface DisplayBadge extends CatalogBadge {

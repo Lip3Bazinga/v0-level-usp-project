@@ -4,6 +4,16 @@
 
 let pyodide = null;
 let isLoading = false;
+// URL base do Pyodide. Enviada pela página na mensagem "init"
+// (NEXT_PUBLIC_PYODIDE_INDEX_URL); este valor é só o padrão de segurança.
+const DEFAULT_INDEX_URL = "https://cdn.jsdelivr.net/pyodide/v0.25.1/full/";
+let indexURL = DEFAULT_INDEX_URL;
+
+function normalizeIndexURL(url) {
+  if (typeof url !== "string" || !url.trim()) return DEFAULT_INDEX_URL;
+  const trimmed = url.trim();
+  return trimmed.endsWith("/") ? trimmed : trimmed + "/";
+}
 
 // ── Inicialização ─────────────────────────────────────────────────────────────
 
@@ -15,10 +25,8 @@ async function loadPyodideRuntime() {
   self.postMessage({ type: "status", status: "loading" });
 
   try {
-    importScripts("https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js");
-    pyodide = await loadPyodide({
-      indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.1/full/",
-    });
+    importScripts(indexURL + "pyodide.js");
+    pyodide = await loadPyodide({ indexURL });
 
     // Garante que sys.__stdout__ seja sempre um objeto válido no Pyodide
     pyodide.runPython(`
@@ -666,6 +674,7 @@ self.onmessage = async function (event) {
 
   switch (type) {
     case "init":
+      if (!pyodide && !isLoading) indexURL = normalizeIndexURL(event.data.indexURL);
       await loadPyodideRuntime();
       break;
     case "execute":

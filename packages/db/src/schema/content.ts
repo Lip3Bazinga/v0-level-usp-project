@@ -63,7 +63,7 @@ export const lessons = pgTable(
     lessonType: text("lesson_type", { enum: ["coding", "theory", "quiz"] }).notNull().default("coding"),
     quizPassingScore: integer("quiz_passing_score").notNull().default(70),
     xpReward: integer("xp_reward").notNull().default(50),
-    /** Tempo máximo de execução na correção, em segundos. */
+    /** Tempo estimado de estudo, em minutos (informativo; não limita a correção). */
     timeLimit: integer("time_limit").notNull().default(10),
     published: boolean("published").notNull().default(false),
     courseId: uuid("course_id").references(() => courses.id, { onDelete: "set null" }),

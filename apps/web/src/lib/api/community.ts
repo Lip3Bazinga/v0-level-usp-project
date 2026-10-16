@@ -10,6 +10,8 @@ export const fetchProfileByUsername = (username: string) => getOrNull<PublicProf
 
 // ── Badges ───────────────────────────────────────────────────────────────────
 export const fetchAllBadges = () => api.get<Badge[]>("/badges")
+/** Inclui badges inativas (só admin). */
+export const fetchAllBadgesAdmin = () => api.get<Badge[]>("/admin/badges")
 export const fetchUserBadges = (userId: string) => api.get<UserBadge[]>(`/users/${userId}/badges`)
 export const createBadge = (data: BadgeInput) => api.post<Badge>("/admin/badges", data)
 export const updateBadge = (id: string, data: BadgeUpdateInput) => api.patch<Badge>(`/admin/badges/${id}`, data)

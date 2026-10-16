@@ -8,14 +8,27 @@ import {
 import { RoleBadge } from "@/components/ui/badges"
 import { UserEditModal } from "./user-edit-modal"
 import { UserDetail } from "./user-detail"
+import type { AdminUpdateUserInput, Profile, UserRole } from "@levelusp/contracts"
 import {
-  updateUserRole, updateUserProfile, deleteUser, setUserSuspended,
-  inviteUser, exportToCsv,
-} from "@/lib/supabase/admin"
-import type { Profile } from "@/lib/supabase/types"
+  deleteUser, errorMessage, exportToCsv, inviteUser, setUserSuspended, updateUserProfile, updateUserRole,
+} from "@/lib/api"
 import { getInitials } from "@/lib/utils"
 import { cn } from "@/lib/utils"
-import type { OnToast } from "@/lib/types"
+import type { OnToast } from "@/lib/types/ui"
+
+const ROLE_LABEL: Record<UserRole, string> = { student: "aluno", teacher: "professor", admin: "administrador" }
+
+/** Executa a ação para cada id e separa sucessos de falhas (mensagem da 1ª falha). */
+async function forEachUser(ids: string[], action: (id: string) => Promise<Profile>) {
+  const results = await Promise.allSettled(ids.map(action))
+  const updated: Profile[] = []
+  let firstError: unknown = null
+  for (const r of results) {
+    if (r.status === "fulfilled") updated.push(r.value)
+    else firstError ??= r.reason
+  }
+  return { updated, failed: results.length - updated.length, firstError }
+}
 
 
 function AvatarInitials({ name, role, size = 36 }: { name: string; role: string; size?: number }) {
@@ -79,23 +92,38 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
     setSelected(n)
   }
 
-  const applyBulkRole = async (r: "student" | "teacher" | "admin") => {
-    for (const id of [...selected]) {
-      try { await updateUserRole(id, r) } catch { /* ignore */ }
-    }
-    setUsers((prev) => prev.map((u) => (selected.has(u.id) ? { ...u, role: r } : u)))
-    onToast(`${selected.size} usuário(s) promovido(s) para ${r}`, "success")
+  const [bulkBusy, setBulkBusy] = useState(false)
+
+  /** O próprio admin fica fora das ações em massa (evita se rebaixar/suspender sem querer). */
+  const bulkIds = () => {
+    const ids = [...selected].filter((id) => id !== currentUserId)
+    if (ids.length < selected.size) onToast("Sua própria conta foi ignorada na ação em massa", "info")
+    return ids
+  }
+
+  const mergeUpdated = (updated: Profile[]) => {
+    const byId = new Map(updated.map((u) => [u.id, u]))
+    setUsers((prev) => prev.map((u) => byId.get(u.id) ?? u))
+  }
+
+  const applyBulkRole = async (r: UserRole) => {
+    setBulkBusy(true)
+    const { updated, failed, firstError } = await forEachUser(bulkIds(), (id) => updateUserRole(id, r))
+    setBulkBusy(false)
+    mergeUpdated(updated)
+    if (updated.length) onToast(`${updated.length} usuário(s) agora com papel de ${ROLE_LABEL[r]}`, "success")
+    if (failed) onToast(`${failed} não alterado(s): ${errorMessage(firstError)}`, "danger")
     setSelected(new Set())
     setShowBulkRole(false)
   }
 
   const applyBulkSuspend = async () => {
-    const ids = [...selected]
-    for (const id of ids) {
-      try { await setUserSuspended(id, true) } catch { /* ignore */ }
-    }
-    setUsers((prev) => prev.map((u) => (selected.has(u.id) ? { ...u, suspended: true } : u)))
-    onToast(`${ids.length} usuário(s) suspenso(s)`, "warning")
+    setBulkBusy(true)
+    const { updated, failed, firstError } = await forEachUser(bulkIds(), (id) => setUserSuspended(id, true))
+    setBulkBusy(false)
+    mergeUpdated(updated)
+    if (updated.length) onToast(`${updated.length} usuário(s) suspenso(s)`, "warning")
+    if (failed) onToast(`${failed} não suspenso(s): ${errorMessage(firstError)}`, "danger")
     setSelected(new Set())
   }
 
@@ -119,13 +147,14 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
   }
 
   const handleInvite = async () => {
-    const email = window.prompt("Email do usuário a convidar:")
-    if (!email) return
+    const email = window.prompt("E-mail do usuário a convidar:")
+    if (!email?.trim()) return
     try {
-      await inviteUser(email.trim())
-      onToast("Convite enviado por email", "success")
+      const invited = await inviteUser(email.trim())
+      setUsers((prev) => (prev.some((u) => u.id === invited.id) ? prev : [invited, ...prev]))
+      onToast("Convite enviado por e-mail", "success")
     } catch (e) {
-      onToast(e instanceof Error ? e.message : "Erro ao convidar", "danger")
+      onToast(errorMessage(e, "Erro ao convidar"), "danger")
     }
   }
 
@@ -234,6 +263,7 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
               </button>
               <button
                 onClick={applyBulkSuspend}
+                disabled={bulkBusy}
                 className="flex items-center gap-1.5 rounded-lg border border-warning bg-white px-3 py-1.5 text-xs font-bold text-warning hover:bg-warning hover:text-white"
               >
                 <Ban className="h-3 w-3" /> Suspender
@@ -252,6 +282,7 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
                 <input
                   type="checkbox"
                   checked={allSelected}
+                  aria-label="Selecionar todos"
                   ref={(el) => { if (el) el.indeterminate = someSelected }}
                   onChange={toggleAll}
                   className="h-4 w-4 rounded border-border accent-level-purple"
@@ -272,14 +303,19 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
               return (
                 <tr key={u.id} className={cn("transition-colors hover:bg-level-purple-subtle/30", isSel && "bg-level-purple-subtle/20")}>
                   <td className="px-4 py-3">
-                    <input type="checkbox" checked={isSel} onChange={() => toggleOne(u.id)} className="h-4 w-4 rounded border-border accent-level-purple" />
+                    <input type="checkbox" aria-label={`Selecionar ${u.full_name}`} checked={isSel} onChange={() => toggleOne(u.id)} className="h-4 w-4 rounded border-border accent-level-purple" />
                   </td>
                   <td className="px-2 py-3">
                     <button onClick={() => setDetailUser(u)} className="flex items-center gap-3 text-left">
                       <AvatarInitials name={u.full_name} role={u.role} size={36} />
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-bold text-level-purple-dark">{u.full_name}</p>
-                        <p className="truncate text-[11px] text-muted-foreground">@{u.username} · {u.email}</p>
+                        <p className="flex items-center gap-1.5 truncate text-sm font-bold text-level-purple-dark">
+                          {u.full_name}
+                          {u.suspended && (
+                            <span className="rounded-full bg-warning/10 px-1.5 py-0.5 text-[10px] font-bold text-warning">suspenso</span>
+                          )}
+                        </p>
+                        <p className="truncate text-[11px] text-muted-foreground">{u.username ? `@${u.username} · ` : ""}{u.email}</p>
                       </div>
                     </button>
                   </td>
@@ -359,6 +395,7 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
               ).map((o) => (
                 <button
                   key={o.r}
+                  disabled={bulkBusy}
                   onClick={() => applyBulkRole(o.r)}
                   className={cn(
                     "flex w-full items-center gap-3 rounded-xl border-2 p-3 text-left transition-all",
@@ -383,23 +420,21 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
       {editUser && (
         <UserEditModal
           user={editUser}
+          isSelf={editUser.id === currentUserId}
           onClose={() => setEditUser(null)}
-          onSave={async (u) => {
+          onSave={async (changes: AdminUpdateUserInput) => {
+            const target = editUser
+            if (!Object.keys(changes).length) {
+              setEditUser(null)
+              return
+            }
             try {
-              await updateUserProfile(u.id, {
-                full_name: u.full_name,
-                username: u.username,
-                email: u.email,
-                role: u.role,
-                level: u.level,
-                total_xp: u.total_xp,
-                current_streak: u.current_streak,
-              })
-              setUsers((prev) => prev.map((x) => (x.id === u.id ? u : x)))
+              const updated = await updateUserProfile(target.id, changes)
+              setUsers((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
               setEditUser(null)
               onToast("Usuário atualizado", "success")
             } catch (e) {
-              onToast(e instanceof Error ? e.message : "Erro ao salvar", "danger")
+              onToast(errorMessage(e, "Erro ao salvar"), "danger")
             }
           }}
           onDelete={async (u) => {
@@ -409,7 +444,7 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
               setEditUser(null)
               onToast("Conta excluída", "danger")
             } catch (e) {
-              onToast(e instanceof Error ? e.message : "Erro ao excluir", "danger")
+              onToast(errorMessage(e, "Erro ao excluir"), "danger")
             }
           }}
         />

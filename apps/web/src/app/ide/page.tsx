@@ -8,8 +8,7 @@
 import { useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense } from "react"
-import { createClient } from "@/lib/supabase/client"
-import { fetchPublishedLessonSummaries, fetchCompletedLessonIds } from "@/lib/supabase/lessons"
+import { ApiError, fetchPublishedLessonSummaries, fetchCompletedLessonIds } from "@/lib/api"
 import { Loader2 } from "lucide-react"
 
 function IdeRedirect() {
@@ -34,17 +33,15 @@ function IdeRedirect() {
           return
         }
 
-        // Primeira lição ainda não concluída pelo usuário logado
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const completedLessonIds = await fetchCompletedLessonIds(user.id)
-          const nextLesson = lessons.find((lesson) => !completedLessonIds.has(lesson.id))
-          if (!cancelled) router.replace(`/lesson/${(nextLesson ?? lessons[0]).id}`)
-          return
+        // Primeira lição ainda não concluída pelo usuário logado (sessão via cookie)
+        let completedLessonIds = new Set<string>()
+        try {
+          completedLessonIds = await fetchCompletedLessonIds()
+        } catch (err) {
+          if (!(err instanceof ApiError && err.status === 401)) throw err
         }
-
-        router.replace(`/lesson/${lessons[0].id}`)
+        const nextLesson = lessons.find((lesson) => !completedLessonIds.has(lesson.id))
+        if (!cancelled) router.replace(`/lesson/${(nextLesson ?? lessons[0]).id}`)
       } catch {
         if (!cancelled) router.replace("/dashboard")
       }

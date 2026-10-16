@@ -1,21 +1,19 @@
+import path from "node:path"
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // O Next.js 16 gera um validator.ts em .next/dev/types/ com um comentário malformado
-  // que o tsc lê como divisão aritmética. O erro é 100% codegen do framework —
-  // ignorar aqui; o type-check real roda via tsc --noEmit (que exclui .next/).
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  // Imagem Docker enxuta (server.js + dependências mínimas em .next/standalone).
+  output: "standalone",
+  // Monorepo: o rastreamento de arquivos parte da raiz para incluir packages/*.
+  outputFileTracingRoot: path.join(import.meta.dirname, "../../"),
 
-  images: {
-    // Permite imagens do Supabase Storage e outras origens externas
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "*.supabase.co",
-        pathname: "/storage/v1/object/public/**",
-      },
-    ],
+  // O navegador fala só com a mesma origem (/api/*); o Next repassa para a API.
+  // Atenção: rewrites são resolvidos no BUILD — a imagem Docker usa http://api:4000.
+  // Assim o cookie de sessão (httpOnly) é de primeira parte e nenhum token
+  // fica exposto ao JavaScript.
+  async rewrites() {
+    const apiUrl = (process.env.API_INTERNAL_URL ?? "http://localhost:4000").replace(/\/+$/, "")
+    return [{ source: "/api/:path*", destination: `${apiUrl}/api/:path*` }]
   },
 
   // Headers de segurança para produção

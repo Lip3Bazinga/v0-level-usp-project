@@ -7,9 +7,10 @@ import { Loader2, ShieldAlert } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 
 // Protege todas as rotas /teacher/*. Sem isto, um aluno que navegue direto para
-// /teacher/curso/novo recebe o editor completo e só descobre a falta de permissão
-// como um 403 cru da RLS ao salvar. O banco continua sendo a fonte de verdade —
-// este guard existe para dar uma mensagem clara, não para substituir a RLS.
+// /teacher/curso/new recebe o editor completo e só descobre a falta de permissão
+// como um 403 da API ao salvar. A API continua sendo a fonte de verdade
+// (@Roles("teacher", "admin") + checagem de dono) — este guard só dá uma
+// mensagem clara antes.
 export default function TeacherLayout({ children }: { children: ReactNode }) {
   const router = useRouter()
   const { user, profile, isLoading } = useAuth()

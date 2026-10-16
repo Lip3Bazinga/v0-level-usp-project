@@ -1,20 +1,29 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   ChevronLeft, ChevronRight, Trophy, Zap, Flame, BookOpen, Activity,
-  Star, Shield, Key, Ban, RefreshCw, Download, Trash2, AlertTriangle, Mail,
+  Shield, Key, Ban, RefreshCw, Download, Trash2, AlertTriangle, LogOut, CheckCircle2, Award,
 } from "lucide-react"
 import { RoleBadge } from "@/components/ui/badges"
 import { X, Loader2 } from "lucide-react"
+import type { Badge, Profile, UserBadge } from "@levelusp/contracts"
 import {
-  sendPasswordReset, setUserSuspended, resetUserProgress,
-  exportUserDataLGPD, deleteUser,
-} from "@/lib/supabase/admin"
-import type { Profile } from "@/lib/supabase/types"
-import { getInitials } from "@/lib/utils"
+  deleteUser, errorMessage, exportUserDataLGPD, fetchAllBadges, fetchUserBadges, invalidateSessions, resetUserProgress,
+  sendPasswordReset, setUserSuspended,
+} from "@/lib/api"
+import { badgeIcon } from "@/lib/badge-icons"
+import { getInitials, timeAgo } from "@/lib/utils"
 import { cn } from "@/lib/utils"
-import type { OnToast } from "@/lib/types"
+import type { OnToast } from "@/lib/types/ui"
+
+/** Baixa um objeto como arquivo JSON. */
+function downloadJson(data: unknown, filename: string) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }))
+  const a = Object.assign(document.createElement("a"), { href: url, download: filename })
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 
 function AvatarInitials({ name, role, size = 36 }: { name: string; role: string; size?: number }) {
@@ -34,13 +43,18 @@ function AvatarInitials({ name, role, size = 36 }: { name: string; role: string;
   )
 }
 
-const ADMIN_ACTIONS = [
-  { id: "reset-pw", label: "Enviar reset de senha",        Icon: Key,       tone: "info",    desc: "Envia email com link de reset" },
-  { id: "suspend",  label: "Suspender conta",              Icon: Ban,       tone: "warning", desc: "Bloqueia login temporariamente" },
-  { id: "reset-xp", label: "Resetar progresso",            Icon: RefreshCw, tone: "warning", desc: "Zera XP, nível e lições" },
-  { id: "export",   label: "Exportar dados (LGPD)",        Icon: Download,  tone: "info",    desc: "Gera JSON com todos os dados" },
-  { id: "delete",   label: "Excluir conta permanentemente", Icon: Trash2,    tone: "danger",  desc: "Remove conta e progresso" },
-]
+function adminActions(suspended: boolean) {
+  return [
+    { id: "reset-pw", label: "Enviar reset de senha",         Icon: Key,       tone: "info",    desc: "Envia e-mail com link de redefinição" },
+    suspended
+      ? { id: "unsuspend", label: "Reativar conta",           Icon: CheckCircle2, tone: "info", desc: "Libera o login novamente" }
+      : { id: "suspend",   label: "Suspender conta",          Icon: Ban,       tone: "warning", desc: "Bloqueia o login e encerra as sessões" },
+    { id: "sessions", label: "Encerrar sessões",              Icon: LogOut,    tone: "info",    desc: "Desconecta o usuário de todos os dispositivos" },
+    { id: "reset-xp", label: "Resetar progresso",             Icon: RefreshCw, tone: "warning", desc: "Zera XP, nível e lições" },
+    { id: "export",   label: "Exportar dados (LGPD)",         Icon: Download,  tone: "info",    desc: "Baixa um JSON com todos os dados" },
+    { id: "delete",   label: "Excluir conta permanentemente", Icon: Trash2,    tone: "danger",  desc: "Remove conta e progresso" },
+  ]
+}
 
 interface UserDetailProps {
   user: Profile
@@ -55,19 +69,51 @@ export function UserDetail({ user, users, setUsers, onBack, onToast }: UserDetai
   const [confirmAction, setConfirmAction] = useState<{ id: string; label: string; tone: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const current = users.find((u) => u.id === user.id) || user
+  const actions = adminActions(current.suspended)
+  const dangerActions = actions.filter((a) => a.tone === "danger")
+  const regularActions = actions.filter((a) => a.tone !== "danger")
+
+  const [earned, setEarned] = useState<{ badge: Badge; earned_at: string }[] | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([fetchUserBadges(user.id), fetchAllBadges()])
+      .then(([mine, all]: [UserBadge[], Badge[]]) => {
+        if (cancelled) return
+        const byId = new Map(all.map((b) => [b.id, b]))
+        setEarned(
+          mine
+            .map((ub) => ({ badge: byId.get(ub.badge_id), earned_at: ub.earned_at }))
+            .filter((x): x is { badge: Badge; earned_at: string } => !!x.badge)
+            .sort((a, b) => b.earned_at.localeCompare(a.earned_at)),
+        )
+      })
+      .catch(() => !cancelled && setEarned([]))
+    return () => {
+      cancelled = true
+    }
+  }, [user.id])
+
+  const replaceUser = (updated: Profile) => setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)))
 
   const applyAction = async (id: string) => {
     setBusy(true)
     try {
       switch (id) {
         case "reset-pw":
-          await sendPasswordReset(current.email)
-          onToast("Email de redefinição enviado", "success")
+          await sendPasswordReset(current.id)
+          onToast("E-mail de redefinição enviado", "success")
           break
         case "suspend":
-          await setUserSuspended(current.id, true)
-          setUsers((prev) => prev.map((u) => (u.id === current.id ? { ...u, suspended: true } : u)))
+          replaceUser(await setUserSuspended(current.id, true))
           onToast("Conta suspensa", "warning")
+          break
+        case "unsuspend":
+          replaceUser(await setUserSuspended(current.id, false))
+          onToast("Conta reativada", "success")
+          break
+        case "sessions":
+          await invalidateSessions(current.id)
+          onToast("Sessões encerradas", "success")
           break
         case "reset-xp":
           await resetUserProgress(current.id)
@@ -80,10 +126,12 @@ export function UserDetail({ user, users, setUsers, onBack, onToast }: UserDetai
           )
           onToast("Progresso zerado", "success")
           break
-        case "export":
-          await exportUserDataLGPD(current.id)
+        case "export": {
+          const data = await exportUserDataLGPD(current.id)
+          downloadJson(data, `lgpd-${current.username ?? current.id}-${new Date().toISOString().slice(0, 10)}.json`)
           onToast("Arquivo LGPD gerado", "success")
           break
+        }
         case "delete":
           await deleteUser(current.id)
           setUsers((prev) => prev.filter((u) => u.id !== current.id))
@@ -93,7 +141,7 @@ export function UserDetail({ user, users, setUsers, onBack, onToast }: UserDetai
           return
       }
     } catch (e) {
-      onToast(e instanceof Error ? e.message : "Erro ao executar ação", "danger")
+      onToast(errorMessage(e, "Erro ao executar ação"), "danger")
     } finally {
       setBusy(false)
       setConfirmAction(null)
@@ -125,18 +173,19 @@ export function UserDetail({ user, users, setUsers, onBack, onToast }: UserDetai
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-2xl font-extrabold text-level-purple-dark">{current.full_name}</h2>
                 <RoleBadge role={current.role} />
+                {current.suspended && (
+                  <span className="rounded-full bg-warning/10 px-2 py-0.5 text-[11px] font-bold text-warning">Suspensa</span>
+                )}
               </div>
-              <p className="text-sm text-muted-foreground">@{current.username} · {current.email}</p>
+              <p className="text-sm text-muted-foreground">{current.username ? `@${current.username} · ` : ""}{current.email}</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 Ingressou em{" "}
                 {new Date(current.created_at).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" })}
               </p>
             </div>
-            <div className="flex items-center gap-2 pb-2">
-              <button className="flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted">
-                <Mail className="h-3.5 w-3.5" /> Enviar mensagem
-              </button>
-            </div>
+            {current.last_login_date && (
+              <p className="pb-2 text-xs text-muted-foreground">Último acesso {timeAgo(current.last_login_date)}</p>
+            )}
           </div>
 
           <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-5">
@@ -176,21 +225,32 @@ export function UserDetail({ user, users, setUsers, onBack, onToast }: UserDetai
 
       {tab === "overview" && (
         <div className="rounded-2xl border border-border bg-white p-5">
-          <p className="mb-3 text-sm font-extrabold text-level-purple-dark">Conquistas recentes</p>
-          <div className="space-y-2">
-            {[
-              { Icon: Flame,   label: `Streak de ${current.current_streak} dias`, color: "text-warning bg-warning/10" },
-              { Icon: Trophy,  label: `Nível ${current.level} atingido`,           color: "text-level-purple bg-level-purple-light" },
-              { Icon: Star,    label: "Primeira lição avançada",                    color: "text-success bg-success/10" },
-            ].map((a, i) => (
-              <div key={i} className="flex items-center gap-3 rounded-xl p-2 hover:bg-muted">
-                <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg", a.color)}>
-                  <a.Icon className="h-4 w-4" />
-                </div>
-                <p className="text-xs font-semibold text-foreground">{a.label}</p>
-              </div>
-            ))}
-          </div>
+          <p className="mb-3 text-sm font-extrabold text-level-purple-dark">Conquistas</p>
+          {earned === null ? (
+            <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-level-purple" /></div>
+          ) : earned.length === 0 ? (
+            <p className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Award className="h-4 w-4 text-muted-foreground/40" /> Nenhuma badge conquistada ainda.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {earned.slice(0, 8).map(({ badge, earned_at }) => {
+                const Icon = badgeIcon(badge.icon)
+                return (
+                  <div key={badge.id} className="flex items-center gap-3 rounded-xl p-2 hover:bg-muted">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-level-purple-light text-level-purple">
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-foreground">{badge.name}</p>
+                      <p className="truncate text-[11px] text-muted-foreground">{badge.description}</p>
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">{timeAgo(earned_at)}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -202,7 +262,7 @@ export function UserDetail({ user, users, setUsers, onBack, onToast }: UserDetai
               <p className="text-sm font-extrabold text-level-purple-dark">Ações administrativas</p>
             </div>
             <div className="space-y-2">
-              {ADMIN_ACTIONS.slice(0, 4).map((a) => {
+              {regularActions.map((a) => {
                 const toneBorder: Record<string, string> = { info: "border-info/20 hover:bg-info/5",    warning: "border-warning/20 hover:bg-warning/5" }
                 const toneIcon:   Record<string, string> = { info: "bg-info/10 text-info",              warning: "bg-warning/10 text-warning" }
                 return (
@@ -231,7 +291,7 @@ export function UserDetail({ user, users, setUsers, onBack, onToast }: UserDetai
               <p className="text-sm font-extrabold text-destructive">Zona de perigo</p>
             </div>
             <p className="mb-4 text-xs text-muted-foreground">Ações irreversíveis. Todas requerem confirmação.</p>
-            {ADMIN_ACTIONS.slice(4).map((a) => (
+            {dangerActions.map((a) => (
               <button
                 key={a.id}
                 onClick={() => setConfirmAction({ id: a.id, label: a.label, tone: a.tone })}

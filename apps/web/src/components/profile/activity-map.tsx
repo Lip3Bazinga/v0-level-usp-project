@@ -13,6 +13,30 @@ import type { ActivityDay } from "@/lib/types"
 // Fonte única em @/lib/types; re-exportado por compatibilidade.
 export type { ActivityDay }
 
+/** Célula do mapa (data já convertida para Date local). Tipo puramente de UI. */
+interface DayCell {
+  date: Date
+  xp: number
+  activities: number
+}
+
+/**
+ * Converte os dias da API (datas ISO yyyy-mm-dd, possivelmente esparsos) em
+ * 365 células contínuas terminando hoje. Datas são interpretadas no fuso
+ * local (new Date("yyyy-mm-dd") seria UTC e cairia no dia anterior no Brasil).
+ */
+export function toActivityCells(data: ActivityDay[], today = new Date()): DayCell[] {
+  const byKey = new Map(data.map((d) => [d.date.slice(0, 10), d]))
+  const cells: DayCell[] = []
+  for (let i = 364; i >= 0; i--) {
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i)
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+    const entry = byKey.get(key)
+    cells.push({ date, xp: entry?.xp ?? 0, activities: entry?.activities ?? 0 })
+  }
+  return cells
+}
+
 interface ActivityMapProps {
   data: ActivityDay[]
   className?: string
@@ -56,9 +80,9 @@ function getDayLabels() {
 }
 
 // Organize data into weeks
-function organizeIntoWeeks(data: ActivityDay[]): ActivityDay[][] {
-  const weeks: ActivityDay[][] = []
-  let currentWeek: ActivityDay[] = []
+function organizeIntoWeeks(data: DayCell[]): DayCell[][] {
+  const weeks: DayCell[][] = []
+  let currentWeek: DayCell[] = []
 
   // Sem dados: nada a organizar
   if (data.length === 0) return weeks
@@ -89,7 +113,8 @@ function organizeIntoWeeks(data: ActivityDay[]): ActivityDay[][] {
   return weeks
 }
 
-export function ActivityMap({ data, className }: ActivityMapProps) {
+export function ActivityMap({ data: rawData, className }: ActivityMapProps) {
+  const data = React.useMemo(() => toActivityCells(rawData), [rawData])
   const weeks = organizeIntoWeeks(data)
   const monthLabels = getMonthLabels()
   const dayLabels = getDayLabels()
@@ -99,7 +124,7 @@ export function ActivityMap({ data, className }: ActivityMapProps) {
   const activeDays = data.filter((day) => day.xp > 0).length
   const currentStreak = calculateStreak(data)
   
-  function calculateStreak(data: ActivityDay[]): number {
+  function calculateStreak(data: DayCell[]): number {
     let streak = 0
     const reversedData = [...data].reverse()
     

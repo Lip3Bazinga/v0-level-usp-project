@@ -1,25 +1,17 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase/client"
+import type { AdminExamQuestion, ExamQuestionInput } from "@levelusp/contracts"
 import {
-  fetchExamQuestionsAdmin,
-  createExamQuestion,
-  updateExamQuestion,
-  type AdminExamQuestion,
-  type AdminExamQuestionInput,
-} from "@/lib/supabase/admin"
-import { CheckCircle2, ChevronDown, GraduationCap, Loader2, Pencil, Plus, X } from "lucide-react"
-import type { OnToast } from "@/lib/types"
+  createExamQuestion, errorMessage, fetchAdminExams, fetchExamQuestionsAdmin, updateExamQuestion, type AdminExamSummary,
+} from "@/lib/api"
+import { CheckCircle2, ChevronDown, GraduationCap, Loader2, Pencil, Plus, Trash2, X } from "lucide-react"
+import type { OnToast } from "@/lib/types/ui"
 
 // Gestão do banco de questões da prova final. O gabarito só aparece aqui
-// (rota admin) — alunos nunca têm acesso à tabela exam_questions.
+// (rotas /admin) — a API nunca envia correct_index ao aluno.
 
-interface ExamOption {
-  id: string
-  title: string
-  course_title: string
-}
+type AdminExamQuestionInput = ExamQuestionInput
 
 const EMPTY_FORM: AdminExamQuestionInput = {
   prompt: "",
@@ -32,7 +24,7 @@ const EMPTY_FORM: AdminExamQuestionInput = {
 }
 
 export function ExamQuestionsAdminPage({ onToast }: { onToast: OnToast }) {
-  const [exams, setExams] = useState<ExamOption[]>([])
+  const [exams, setExams] = useState<AdminExamSummary[]>([])
   const [examId, setExamId] = useState<string>("")
   const [questions, setQuestions] = useState<AdminExamQuestion[]>([])
   const [loading, setLoading] = useState(true)
@@ -41,18 +33,16 @@ export function ExamQuestionsAdminPage({ onToast }: { onToast: OnToast }) {
   const [form, setForm] = useState<AdminExamQuestionInput>(EMPTY_FORM)
 
   useEffect(() => {
-    async function loadExams() {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from("exams" as never)
-        .select("id, title, courses(title)")
-      const rows = ((data ?? []) as unknown as { id: string; title: string; courses: { title: string } | null }[])
-        .map((e) => ({ id: e.id, title: e.title, course_title: e.courses?.title ?? "—" }))
-      setExams(rows)
-      if (rows.length && !examId) setExamId(rows[0].id)
-      if (!rows.length) setLoading(false)
-    }
-    loadExams()
+    fetchAdminExams()
+      .then((rows) => {
+        setExams(rows)
+        if (rows.length) setExamId((current) => current || rows[0]!.id)
+        else setLoading(false)
+      })
+      .catch((e) => {
+        onToast(errorMessage(e, "Erro ao carregar as provas"), "danger")
+        setLoading(false)
+      })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -62,7 +52,7 @@ export function ExamQuestionsAdminPage({ onToast }: { onToast: OnToast }) {
     try {
       setQuestions(await fetchExamQuestionsAdmin(examId))
     } catch (e) {
-      onToast(e instanceof Error ? e.message : "Erro ao carregar questões", "danger")
+      onToast(errorMessage(e, "Erro ao carregar questões"), "danger")
     } finally {
       setLoading(false)
     }
@@ -91,19 +81,21 @@ export function ExamQuestionsAdminPage({ onToast }: { onToast: OnToast }) {
   const handleSave = async () => {
     if (form.prompt.trim().length < 10) { onToast("Enunciado muito curto", "danger"); return }
     if (form.options.some((o) => !o.trim())) { onToast("Preencha todas as alternativas", "danger"); return }
+    if (form.correct_index >= form.options.length) { onToast("Marque a alternativa correta", "danger"); return }
     setSaving(true)
     try {
       if (editingId === "nova") {
-        await createExamQuestion(examId, form)
+        const created = await createExamQuestion(examId, form)
+        setQuestions((prev) => [...prev, created])
         onToast("Questão criada")
       } else if (editingId) {
-        await updateExamQuestion(editingId, form)
+        const updated = await updateExamQuestion(editingId, form)
+        setQuestions((prev) => prev.map((q) => (q.id === updated.id ? updated : q)))
         onToast("Questão atualizada")
       }
       setEditingId(null)
-      loadQuestions()
     } catch (e) {
-      onToast(e instanceof Error ? e.message : "Erro ao salvar", "danger")
+      onToast(errorMessage(e, "Erro ao salvar"), "danger")
     } finally {
       setSaving(false)
     }
@@ -116,7 +108,7 @@ export function ExamQuestionsAdminPage({ onToast }: { onToast: OnToast }) {
       onToast(!q.active ? "Questão ativada" : "Questão desativada")
     } catch (e) {
       setQuestions((prev) => prev.map((x) => (x.id === q.id ? { ...x, active: q.active } : x)))
-      onToast(e instanceof Error ? e.message : "Erro ao atualizar", "danger")
+      onToast(errorMessage(e, "Erro ao atualizar"), "danger")
     }
   }
 
@@ -181,9 +173,17 @@ export function ExamQuestionsAdminPage({ onToast }: { onToast: OnToast }) {
             placeholder="Ex.: Qual é o resultado de 7 // 2 em Python?"
           />
 
-          <label className="mb-1 block text-xs font-semibold text-muted-foreground">
-            Alternativas (marque a correta)
-          </label>
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-xs font-semibold text-muted-foreground">Alternativas (marque a correta)</span>
+            <button
+              type="button"
+              disabled={form.options.length >= 8}
+              onClick={() => setForm((f) => ({ ...f, options: [...f.options, ""] }))}
+              className="text-xs font-semibold text-level-purple hover:underline disabled:opacity-40"
+            >
+              + alternativa
+            </button>
+          </div>
           <div className="mb-4 space-y-2">
             {form.options.map((opt, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -204,6 +204,21 @@ export function ExamQuestionsAdminPage({ onToast }: { onToast: OnToast }) {
                   className="flex-1 rounded-lg border border-border px-3 py-2 font-mono text-xs focus:border-level-purple focus:outline-none"
                   placeholder={`Alternativa ${i + 1}`}
                 />
+                <button
+                  type="button"
+                  aria-label={`Remover alternativa ${i + 1}`}
+                  disabled={form.options.length <= 2}
+                  onClick={() =>
+                    setForm((f) => {
+                      const options = f.options.filter((_, j) => j !== i)
+                      const correct_index = f.correct_index === i ? 0 : f.correct_index > i ? f.correct_index - 1 : f.correct_index
+                      return { ...f, options, correct_index }
+                    })
+                  }
+                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted disabled:opacity-30"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
             ))}
           </div>

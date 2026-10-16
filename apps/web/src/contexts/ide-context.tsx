@@ -13,16 +13,16 @@ import {
 import { useRouter } from "next/navigation"
 import { usePython } from "@/hooks/use-python"
 import { parsePythonError } from "@/lib/parse-python-error"
-import { evaluateOnServer } from "@/lib/evaluate"
+import type { Lesson, ProjectFile, SubmissionResult } from "@levelusp/contracts"
 import { useProgress } from "@/contexts/progress-context"
 import { useAuth } from "@/contexts/auth-context"
 import {
+  evaluateOnServer,
   resolveStarterFiles,
   fetchProgressSnapshot,
   saveProgressSnapshot,
-} from "@/lib/supabase/lessons"
+} from "@/lib/api"
 import type { ConsoleOutput } from "@/lib/types"
-import type { Lesson, ProjectFile } from "@/lib/supabase/types"
 import { normalizePath, isValidPath } from "@/lib/utils/path"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -64,6 +64,10 @@ export interface IDEContextValue {
   lessonProgress: number
   allPassed: boolean
   isVerifying: boolean
+  /** Último veredito do servidor (XP, nível e badges já creditados pela API). */
+  lastResult: SubmissionResult | null
+  /** Nível antes da última conclusão (para a animação de subida de nível). */
+  levelBefore: number | null
   showSuccess: boolean
   setShowSuccess: (v: boolean) => void
 }
@@ -79,8 +83,8 @@ const IDEContext = createContext<IDEContextValue | null>(null)
  */
 export function IDEProvider({ lesson, children }: { lesson: Lesson; children: ReactNode }) {
   const router = useRouter()
-  const { markCompleted } = useProgress()
-  const { user } = useAuth()
+  const { applyCompletion } = useProgress()
+  const { user, profile } = useAuth()
   const { status: pythonStatus, isExecuting, isInstalling, execute, installPackages, stop } = usePython()
 
   // ── Arquivos ────────────────────────────────────────────────────────────────
@@ -94,7 +98,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
     async function loadSnapshot() {
       if (!user?.id) return
       try {
-        const snap = await fetchProgressSnapshot(user.id, lesson.id)
+        const snap = await fetchProgressSnapshot(lesson.id)
         if (!cancelled && snap && snap.length) {
           setFiles(snap)
           const hasMain = snap.some((f) => f.path === MAIN_FILE)
@@ -114,7 +118,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
     if (!user?.id) return
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
-      saveProgressSnapshot(user.id, lesson.id, nextFiles).catch(() => {})
+      saveProgressSnapshot(lesson.id, nextFiles).catch(() => {})
     }, 1500)
   }, [user?.id, lesson.id])
 
@@ -142,6 +146,8 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
   const [allPassed, setAllPassed] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
+  const [lastResult, setLastResult] = useState<SubmissionResult | null>(null)
+  const [levelBefore, setLevelBefore] = useState<number | null>(null)
   const lessonCompletedRef = useRef(false)
 
   // Instala pacotes quando o Pyodide fica pronto
@@ -367,15 +373,19 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
 
     addOutput("info", "🔬 Verificando sua solução com testes ocultos...")
     setIsVerifying(true)
+    const levelAtStart = profile?.level ?? null
 
     const res = await evaluateOnServer(lesson.id, files)
     setIsVerifying(false)
 
     if (!res.ok) {
       switch (res.error.type) {
-        case "unauthenticated": router.push("/login"); return
+        case "unauthenticated":
+          router.push(`/login?next=${encodeURIComponent(`/lesson/${lesson.id}`)}`)
+          return
         case "not_found": addOutput("error", "Lição não encontrada no servidor."); return
         case "timeout": addOutput("error", res.error.message); return
+        case "rate_limited": addOutput("warning", res.error.message); return
         case "server_error": addOutput("error", res.error.message); return
         case "network_error": addOutput("error", "Erro de conexão ao verificar. Verifique sua internet e tente novamente."); return
       }
@@ -383,23 +393,36 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
     }
 
     const result = res.result
+    setLastResult(result)
     if (result.allPassed) {
-      addOutput("success", `✓ Todos os testes passaram! +${lesson.xp_reward} XP conquistado!`)
+      addOutput(
+        "success",
+        result.xp_awarded > 0
+          ? `✓ Todos os testes passaram! +${result.xp_awarded} XP conquistado!`
+          : "✓ Todos os testes passaram! (Você já tinha concluído esta lição.)",
+      )
       lessonCompletedRef.current = true
+      setLevelBefore(levelAtStart)
       setAllPassed(true)
       setLessonProgress(100)
       setShowSuccess(true)
       try {
-        await markCompleted(lesson.id, lesson.xp_reward)
+        // A conclusão e o XP já foram gravados pela API; aqui só refletimos na UI.
+        await applyCompletion(lesson.id, result)
       } catch { /* silencioso */ }
     } else {
       const failCount = result.failures + result.errors
       addOutput("error", `${failCount} de ${result.testsRun} testes falharam.`)
-      result.failureDetails.forEach((msg) => addOutput("warning", msg))
+      const failedCases = (result.cases ?? []).filter((c) => !c.passed)
+      if (failedCases.length) {
+        failedCases.forEach((c) => addOutput("warning", c.message ? `${c.name}: ${c.message}` : c.name))
+      } else {
+        result.failureDetails.forEach((msg) => addOutput("warning", msg))
+      }
       addOutput("info", "Continue tentando! Leia o feedback acima e ajuste seu código.")
       setLessonProgress((p) => Math.max(p, 70))
     }
-  }, [files, isInstalling, runSucceeded, lesson.id, lesson.xp_reward, addOutput, markCompleted, router])
+  }, [files, isInstalling, runSucceeded, lesson.id, profile?.level, addOutput, applyCompletion, router])
 
   // ── Comando avulso no console ───────────────────────────────────────────────
   const runConsoleCommand = useCallback((cmd: string) => {
@@ -439,6 +462,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
       run, reset, verify, runConsoleCommand,
       hasRun, hasOutput, canVerify: runSucceeded, lessonProgress, allPassed,
       isVerifying: isVerifying || isInstalling,
+      lastResult, levelBefore,
       showSuccess, setShowSuccess,
     }),
     [
@@ -447,7 +471,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
       pythonStatus, isExecuting, isInstalling, stop,
       run, reset, verify, runConsoleCommand,
       hasRun, hasOutput, runSucceeded, lessonProgress, allPassed,
-      isVerifying, showSuccess, setShowSuccess,
+      isVerifying, lastResult, levelBefore, showSuccess, setShowSuccess,
     ]
   )
 

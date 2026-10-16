@@ -1,27 +1,26 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { LevelButton } from "@/components/design-system/level-button"
 import { useAuth } from "@/contexts/auth-context"
+import type { Course, Lesson, LessonMetrics } from "@levelusp/contracts"
 import {
+  deleteCourse,
+  deleteLesson,
+  errorMessage,
+  fetchTeacherCourses,
   fetchTeacherLessons,
   fetchTeacherMetrics,
-  deleteLesson,
-  toggleLessonPublished,
-} from "@/lib/supabase/lessons"
-import {
-  fetchTeacherCourses,
   toggleCoursePublished,
-  deleteCourse,
-} from "@/lib/supabase/courses"
-import type { Lesson, Course } from "@/lib/supabase/types"
+  toggleLessonPublished,
+} from "@/lib/api"
+import { LessonMetricsRow, formatPassRate, summarizeMetrics } from "@/components/teacher/lesson-metrics"
 import {
-  Rocket, Plus, BookOpen, Users, BarChart3, Search,
-  Eye, Edit3, Trash2, CheckCircle2, FileText, ChevronLeft,
+  Plus, BookOpen, BarChart3, Search,
+  Eye, Edit3, Trash2, FileText, ChevronLeft,
   TrendingUp, Loader2, Globe, EyeOff, AlertTriangle,
-  GraduationCap, Star,
+  GraduationCap, Star, Send,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { swalConfirm, swalError, swalToast } from "@/lib/swal"
@@ -38,13 +37,13 @@ function getDifficultyColor(difficulty: string) {
 // ── Componente principal ──────────────────────────────────────────────────────
 
 export default function TeacherPage() {
-  const router = useRouter()
   const { profile, isLoading: authLoading } = useAuth()
 
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [courses, setCourses] = useState<Course[]>([])
-  const [completions, setCompletions] = useState(0)
+  const [metricsList, setMetricsList] = useState<LessonMetrics[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [filter, setFilter] = useState<"all" | "published" | "draft">("all")
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -55,20 +54,33 @@ export default function TeacherPage() {
   const profileId = profile?.id
   useEffect(() => {
     if (authLoading || !profileId) return
+    let cancelled = false
     async function load() {
       setLoading(true)
-      const [fetched, fetchedCourses] = await Promise.all([
-        fetchTeacherLessons(profileId!),
-        fetchTeacherCourses(profileId!),
-      ])
-      setLessons(fetched)
-      setCourses(fetchedCourses)
-      const { completions: c } = await fetchTeacherMetrics(fetched.map((l) => l.id))
-      setCompletions(c)
-      setLoading(false)
+      setLoadError(null)
+      try {
+        const [fetched, fetchedCourses] = await Promise.all([fetchTeacherLessons(), fetchTeacherCourses()])
+        if (cancelled) return
+        setLessons(fetched)
+        setCourses(fetchedCourses)
+      } catch (err) {
+        if (!cancelled) setLoadError(errorMessage(err, "Não foi possível carregar suas lições e cursos."))
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+      // Métricas são complementares: falha aqui não bloqueia o painel.
+      fetchTeacherMetrics()
+        .then((m) => !cancelled && setMetricsList(m))
+        .catch(() => {})
     }
     load()
+    return () => {
+      cancelled = true
+    }
   }, [authLoading, profileId])
+
+  const metricsByLesson = useMemo(() => new Map(metricsList.map((m) => [m.lesson_id, m])), [metricsList])
+  const summary = useMemo(() => summarizeMetrics(metricsList), [metricsList])
 
   const handleToggleCoursePublished = async (course: Course) => {
     // Curso publicado sem lição aparece na vitrine e aceita matrícula, mas não
@@ -96,8 +108,8 @@ export default function TeacherPage() {
       await toggleCoursePublished(course.id, !course.published)
       setCourses((prev) => prev.map((c) => c.id === course.id ? { ...c, published: !course.published } : c))
       swalToast({ title: course.published ? "Curso despublicado." : "Curso publicado!", icon: "success" })
-    } catch {
-      await swalError({ text: "Erro ao alterar status do curso." })
+    } catch (err) {
+      await swalError({ title: "Não foi possível alterar o curso", text: errorMessage(err) })
     } finally {
       setTogglingCourseId(null)
     }
@@ -117,8 +129,8 @@ export default function TeacherPage() {
       await deleteCourse(course.id)
       setCourses((prev) => prev.filter((c) => c.id !== course.id))
       swalToast({ title: "Curso excluído.", icon: "success" })
-    } catch {
-      await swalError({ text: "Erro ao excluir curso." })
+    } catch (err) {
+      await swalError({ title: "Erro ao excluir curso", text: errorMessage(err) })
     } finally {
       setDeletingCourseId(null)
     }
@@ -147,8 +159,8 @@ export default function TeacherPage() {
       await deleteLesson(lesson.id)
       setLessons((prev) => prev.filter((l) => l.id !== lesson.id))
       swalToast({ title: "Lição excluída.", icon: "success" })
-    } catch {
-      await swalError({ text: "Erro ao excluir lição." })
+    } catch (err) {
+      await swalError({ title: "Erro ao excluir lição", text: errorMessage(err) })
     } finally {
       setDeletingId(null)
     }
@@ -168,13 +180,14 @@ export default function TeacherPage() {
 
     setTogglingId(lesson.id)
     try {
-      await toggleLessonPublished(lesson.id, !lesson.published)
+      const updated = await toggleLessonPublished(lesson.id, !lesson.published)
       setLessons((prev) =>
-        prev.map((l) => (l.id === lesson.id ? { ...l, published: !lesson.published } : l))
+        prev.map((l) => (l.id === lesson.id ? { ...l, published: updated.published } : l))
       )
       swalToast({ title: lesson.published ? "Lição despublicada." : "Lição publicada!", icon: "success" })
-    } catch {
-      await swalError({ text: "Erro ao alterar status da lição." })
+    } catch (err) {
+      // Ex.: a API recusa publicar lição de código sem casos de teste.
+      await swalError({ title: "Não foi possível alterar a lição", text: errorMessage(err) })
     } finally {
       setTogglingId(null)
     }
@@ -183,7 +196,6 @@ export default function TeacherPage() {
   const metrics = {
     total: lessons.length,
     published: lessons.filter((l) => l.published).length,
-    completions,
   }
 
   return (
@@ -233,7 +245,13 @@ export default function TeacherPage() {
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         {/* Metrics */}
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {loadError && (
+          <div role="alert" className="mb-6 flex items-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <AlertTriangle className="h-4 w-4 shrink-0" /> {loadError}
+          </div>
+        )}
+
+        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-2xl border border-border bg-white p-5">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple-light">
@@ -251,8 +269,21 @@ export default function TeacherPage() {
                 <TrendingUp className="h-5 w-5 text-success" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-level-purple-dark">{metrics.completions}</p>
-                <p className="text-xs text-muted-foreground">Conclusões de Alunos</p>
+                <p className="text-2xl font-bold text-level-purple-dark">{summary.completed.toLocaleString("pt-BR")}</p>
+                <p className="text-xs text-muted-foreground">
+                  Conclusões de alunos · {summary.started.toLocaleString("pt-BR")} iniciaram
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-border bg-white p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple-light">
+                <Send className="h-5 w-5 text-level-purple" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-level-purple-dark">{summary.submissions.toLocaleString("pt-BR")}</p>
+                <p className="text-xs text-muted-foreground">Envios para correção</p>
               </div>
             </div>
           </div>
@@ -262,10 +293,8 @@ export default function TeacherPage() {
                 <BarChart3 className="h-5 w-5 text-level-purple" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-level-purple-dark">
-                  {metrics.total > 0 ? Math.round((metrics.published / metrics.total) * 100) : 0}%
-                </p>
-                <p className="text-xs text-muted-foreground">Taxa de Publicação</p>
+                <p className="text-2xl font-bold text-level-purple-dark">{formatPassRate(summary.passRate)}</p>
+                <p className="text-xs text-muted-foreground">Aprovação média dos envios</p>
               </div>
             </div>
           </div>
@@ -423,11 +452,14 @@ export default function TeacherPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-3 mt-1">
-                      <span className="text-xs text-muted-foreground">{lesson.module}</span>
+                      {lesson.module && <span className="text-xs text-muted-foreground">{lesson.module}</span>}
                       <Badge className={`${getDifficultyColor(lesson.difficulty)} border-0 text-xs`}>
                         {lesson.difficulty}
                       </Badge>
                       <span className="text-xs text-muted-foreground">+{lesson.xp_reward} XP</span>
+                    </div>
+                    <div className="mt-1.5">
+                      <LessonMetricsRow metrics={metricsByLesson.get(lesson.id)} />
                     </div>
                   </div>
 

@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useAuth } from "@/contexts/auth-context"
-import { fetchLeaderboard } from "@/lib/supabase/profiles"
-import type { Profile } from "@/lib/types"
+import type { PublicProfile } from "@levelusp/contracts"
+import { fetchLeaderboard } from "@/lib/api"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   Rocket,
@@ -30,13 +30,18 @@ function getRankIcon(rank: number) {
 
 export default function LeaderboardPage() {
   const { profile } = useAuth()
-  const [users, setUsers] = useState<Profile[]>([])
+  const [users, setUsers] = useState<PublicProfile[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
-      setUsers(await fetchLeaderboard())
-      setLoading(false)
+      try {
+        setUsers(await fetchLeaderboard())
+      } catch {
+        setUsers([])
+      } finally {
+        setLoading(false)
+      }
     }
     load()
   }, [])

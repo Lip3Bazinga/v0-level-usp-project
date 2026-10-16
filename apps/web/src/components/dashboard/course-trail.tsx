@@ -7,11 +7,8 @@ import {
   ChevronDown, Check, Lock, Play, Star, BookOpen, Clock,
   Zap, GraduationCap, ChevronRight,
 } from "lucide-react"
-import type { Lesson } from "@/lib/supabase/types"
-import type { Course } from "@/lib/supabase/types"
-import type { LessonStatus } from "@/lib/supabase/lessons"
-import { computeModuleStatuses } from "@/lib/supabase/lessons"
-import type { LessonProgress } from "@/lib/supabase/types"
+import type { Course, Lesson, LessonProgress } from "@levelusp/contracts"
+import { computeModuleStatuses, type TrailStatus } from "@/lib/api"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -32,7 +29,7 @@ function getModuleColor(idx: number) {
 
 interface LessonNodeProps {
   lesson: Lesson
-  status: LessonStatus
+  status: TrailStatus
   index: number
   side: "left" | "right"
 }
@@ -118,7 +115,7 @@ function LessonNode({ lesson, status, index, side }: LessonNodeProps) {
 interface ModuleSectionProps {
   name: string
   lessons: Lesson[]
-  statuses: LessonStatus[]
+  statuses: TrailStatus[]
   colorIdx: number
 }
 

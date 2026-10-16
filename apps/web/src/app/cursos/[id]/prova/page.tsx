@@ -4,10 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
-import {
-  fetchExamStatus, startExam, submitExam, issueCertificate,
-  type ExamStatus, type ExamStart, type ExamResult,
-} from "@/lib/exam-client"
+import type { ExamResult, ExamStart, ExamStatus } from "@levelusp/contracts"
+import { fetchExamStatus, issueCertificate, startExam, submitExam } from "@/lib/api"
 import {
   ArrowLeft, Award, CheckCircle2, Clock, GraduationCap, Loader2,
   Lock, Rocket, ShieldCheck, XCircle, AlertTriangle,
@@ -45,17 +43,17 @@ export default function ProvaPage() {
     setError(null)
     const statusResult = await fetchExamStatus(courseId)
     if (statusResult.ok) setStatus(statusResult.data)
-    else if (statusResult.status === 401) router.push("/login")
+    else if (statusResult.status === 401) router.push(`/login?next=${encodeURIComponent(`/cursos/${courseId}/prova`)}`)
     else setError(statusResult.error)
     setLoading(false)
   }, [courseId, router])
 
   useEffect(() => {
     if (!authLoading) {
-      if (!profile) { router.push("/login"); return }
+      if (!profile) { router.push(`/login?next=${encodeURIComponent(`/cursos/${courseId}/prova`)}`); return }
       loadStatus()
     }
-  }, [authLoading, profile, loadStatus, router])
+  }, [authLoading, profile, loadStatus, router, courseId])
 
   // Cronômetro
   useEffect(() => {
@@ -103,7 +101,7 @@ export default function ProvaPage() {
         loadStatus()
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [exam, answers, courseId, loadStatus])
 
   const handleIssueCertificate = useCallback(async () => {

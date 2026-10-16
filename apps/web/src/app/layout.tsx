@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next'
-import { Analytics } from '@vercel/analytics/next'
 import { Providers } from '@/components/providers'
 import { NotesFloatingWidget } from '@/components/notes/notes-floating-widget'
 import './globals.css'
@@ -59,7 +58,6 @@ export default function RootLayout({
           {children}
           <NotesFloatingWidget />
         </Providers>
-        {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
   )

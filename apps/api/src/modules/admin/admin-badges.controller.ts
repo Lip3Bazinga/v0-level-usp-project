@@ -1,10 +1,11 @@
-import { Body, Controller, Delete, HttpCode, Param, Patch, Post, type PipeTransform } from "@nestjs/common"
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, type PipeTransform } from "@nestjs/common"
 import { ApiTags } from "@nestjs/swagger"
 import { badgeInputSchema, badgeUpdateSchema, type BadgeInput, type BadgeUpdateInput } from "@levelusp/contracts"
 import { CurrentUser, Roles } from "@/common/decorators/auth.decorators"
 import { NotFound } from "@/common/errors/app-error"
 import type { AuthUser } from "@/common/http/request"
 import { ZodPipe } from "@/common/pipes/zod.pipe"
+import { UsersService } from "../users/users.service"
 import { AdminService } from "./admin.service"
 
 /** Ids de badge são slugs (não UUID); formato inválido responde 404, como o UuidPipe. */
@@ -19,7 +20,16 @@ class BadgeIdPipe implements PipeTransform<string, string> {
 @Roles("admin")
 @Controller("admin/badges")
 export class AdminBadgesController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly users: UsersService,
+  ) {}
+
+  /** Todas as badges, inclusive inativas (a rota pública /badges mostra só as ativas). */
+  @Get()
+  list() {
+    return this.users.badges(true)
+  }
 
   @Post()
   create(@CurrentUser() actor: AuthUser, @Body(new ZodPipe(badgeInputSchema)) body: BadgeInput) {

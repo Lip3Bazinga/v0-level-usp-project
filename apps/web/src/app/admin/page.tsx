@@ -5,16 +5,17 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import type { Course, Lesson, PlatformMetrics, Profile, RecentActivity } from "@levelusp/contracts"
 import {
-  fetchAllUsers,
-  fetchPlatformMetrics,
+  ApiError,
+  errorMessage,
   fetchAllLessons,
-  fetchRecentActivity,
+  fetchAllUsers,
   fetchDailyActivity,
-  type PlatformMetrics,
-  type RecentActivity,
-} from "@/lib/supabase/admin"
-import type { Profile, Lesson } from "@/lib/supabase/types"
+  fetchPlatformMetrics,
+  fetchRecentActivity,
+  fetchTeacherCourses,
+} from "@/lib/api"
 import { AnalyticsPage } from "@/components/admin/analytics-page"
 import { ModulesPage } from "@/components/admin/modules-page"
 import { ApprovalsPage } from "@/components/admin/approvals-page"
@@ -52,8 +53,9 @@ import {
   ChevronRight,
   GraduationCap as Cap,
   Menu,
+  ShieldAlert,
 } from "lucide-react"
-import { cn, getInitials } from "@/lib/utils"
+import { cn, getInitials, timeAgo } from "@/lib/utils"
 import { SparkBar, Donut } from "@/components/admin/charts"
 
 // ── Types & helpers ───────────────────────────────────────────────────────────
@@ -280,13 +282,6 @@ function Overview({
     { name: "Admins",      value: metrics.totalAdmins,    color: "#EF4444" },
   ]
 
-  const tones: Record<string, string> = {
-    success: "bg-success/10 text-success",
-    purple:  "bg-level-purple-light text-level-purple",
-    info:    "bg-info/10 text-info",
-    warning: "bg-warning/10 text-warning",
-  }
-
   const peakDay = Math.max(...dailyBars, 1)
 
   return (
@@ -318,8 +313,8 @@ function Overview({
             </div>
           </div>
           <div className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-white/70">Conclusões · 14 dias</p>
-            <div className="mt-2"><SparkBar data={dailyBars} color="#FFFFFF" height={44} width={8} gap={3} /></div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-white/70">Conclusões · {dailyBars.length} dias</p>
+            <div className="mt-2"><SparkBar data={dailyBars} color="#FFFFFF" height={44} width={5} gap={2} /></div>
             <p className="mt-2 text-xs text-white/80">pico: {peakDay} conclusão{peakDay !== 1 ? "ões" : ""}/dia</p>
           </div>
         </div>
@@ -348,14 +343,14 @@ function Overview({
         <div className="rounded-2xl border border-border bg-white p-6 lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-extrabold text-level-purple-dark">Conclusões nos últimos 14 dias</h3>
+              <h3 className="text-sm font-extrabold text-level-purple-dark">Conclusões nos últimos {dailyBars.length} dias</h3>
               <p className="text-xs text-muted-foreground">Lições completadas por dia</p>
             </div>
             <button onClick={() => onNavigate("analytics")} className="text-xs font-bold text-level-purple hover:underline">
               Ver detalhes →
             </button>
           </div>
-          <SparkBar data={dailyBars} color="#7C3AED" height={120} width={18} gap={6} />
+          <SparkBar data={dailyBars} color="#7C3AED" height={120} width={12} gap={4} />
         </div>
         <div className="rounded-2xl border border-border bg-white p-6">
           <h3 className="mb-3 text-sm font-extrabold text-level-purple-dark">Distribuição de usuários</h3>
@@ -379,7 +374,7 @@ function Overview({
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div>
             <h3 className="text-sm font-extrabold text-level-purple-dark">Atividade recente</h3>
-            <p className="text-xs text-muted-foreground">Últimos eventos registrados</p>
+            <p className="text-xs text-muted-foreground">Últimas lições concluídas por alunos</p>
           </div>
           <button onClick={() => onNavigate("audit")}
             className="text-xs font-bold text-level-purple hover:underline">
@@ -387,23 +382,24 @@ function Overview({
           </button>
         </div>
         {activity.length === 0 ? (
-          <p className="px-6 py-8 text-center text-sm text-muted-foreground">Nenhum evento registrado ainda.</p>
+          <p className="px-6 py-8 text-center text-sm text-muted-foreground">Nenhuma conclusão registrada ainda.</p>
         ) : (
           <ul className="divide-y divide-border">
             {activity.map((a) => (
               <li key={a.id} className="flex items-center gap-3 px-6 py-3">
                 <Avatar className="h-8 w-8 shrink-0">
-                  <AvatarFallback className={cn("text-[11px] font-bold", tones[a.tone])}>
-                    {getInitials(a.user)}
+                  <AvatarFallback className="bg-success/10 text-[11px] font-bold text-success">
+                    {getInitials(a.user_name)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm">
-                    <span className="font-semibold text-level-purple-dark">{a.user}</span>{" "}
-                    <span className="text-muted-foreground">{a.text}</span>
+                    <span className="font-semibold text-level-purple-dark">{a.user_name}</span>{" "}
+                    <span className="text-muted-foreground">concluiu &ldquo;{a.lesson_title}&rdquo;</span>
+                    {a.xp_earned > 0 && <span className="ml-1 text-xs font-bold text-level-purple">+{a.xp_earned} XP</span>}
                   </p>
                 </div>
-                <span className="shrink-0 text-[11px] text-muted-foreground">{a.ago}</span>
+                <span className="shrink-0 text-[11px] text-muted-foreground">{timeAgo(a.completed_at)}</span>
               </li>
             ))}
           </ul>
@@ -426,10 +422,12 @@ export default function AdminPage() {
   const [metrics,    setMetrics]    = useState<PlatformMetrics | null>(null)
   const [users,      setUsers]      = useState<Profile[]>([])
   const [lessons,    setLessons]    = useState<Lesson[]>([])
+  const [courses,    setCourses]    = useState<Course[]>([])
   const [activity,   setActivity]   = useState<RecentActivity[]>([])
-  const [dailyBars,  setDailyBars]  = useState<number[]>(new Array(14).fill(0))
+  const [dailyBars,  setDailyBars]  = useState<number[]>(new Array(30).fill(0))
   const [loading,    setLoading]    = useState(true)
   const [loadError,  setLoadError]  = useState<string | null>(null)
+  const [forbidden,  setForbidden]  = useState(false)
   const [reloadKey,  setReloadKey]  = useState(0)
   const [toast,      setToast]      = useState<{ msg: string; kind: string } | null>(null)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
@@ -440,38 +438,70 @@ export default function AdminPage() {
 
   const profileId = profile?.id
   const profileRole = profile?.role
+  const isAdmin = profileRole === "admin"
   useEffect(() => {
     if (authLoading) return
-    if (!profileId || profileRole !== "admin") {
-      router.push("/dashboard")
+    if (!profileId) {
+      router.replace("/login")
       return
     }
-    // Sem try/catch, uma única query com falha deixava o painel preso em
-    // "Carregando..." para sempre, sem dizer o que houve.
+    // A guarda no front só evita uma tela quebrada; quem autoriza é a API (403).
+    if (!isAdmin) {
+      setLoading(false)
+      return
+    }
+    let cancelled = false
     async function load() {
       setLoading(true)
       setLoadError(null)
+      setForbidden(false)
       try {
         const [m, u, l, act, bars] = await Promise.all([
           fetchPlatformMetrics(),
           fetchAllUsers(),
           fetchAllLessons(),
-          fetchRecentActivity(),
+          fetchRecentActivity(10),
           fetchDailyActivity(),
         ])
+        if (cancelled) return
         setMetrics(m)
         setUsers(u)
         setLessons(l)
         setActivity(act)
         setDailyBars(bars)
+        // Só para a busca ⌘K; não bloqueia o painel.
+        fetchTeacherCourses().then((c) => !cancelled && setCourses(c)).catch(() => {})
       } catch (e) {
-        setLoadError(e instanceof Error ? e.message : "Erro ao carregar os dados do painel.")
+        if (cancelled) return
+        if (e instanceof ApiError && e.status === 403) setForbidden(true)
+        setLoadError(errorMessage(e, "Erro ao carregar os dados do painel."))
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
     load()
-  }, [authLoading, profileId, profileRole, router, reloadKey])
+    return () => {
+      cancelled = true
+    }
+  }, [authLoading, profileId, isAdmin, router, reloadKey])
+
+  if (!authLoading && profileId && (!isAdmin || forbidden)) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-white px-6 text-center">
+        <ShieldAlert className="h-16 w-16 text-muted-foreground/30" />
+        <h2 className="text-lg font-semibold text-level-purple-dark">Acesso restrito a administradores</h2>
+        <p className="max-w-md text-sm text-muted-foreground">
+          {forbidden && loadError ? loadError : "Sua conta não tem permissão para acessar o painel administrativo."}
+        </p>
+        <Link
+          href="/dashboard"
+          className="rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-level-purple-dark"
+        >
+          Voltar ao Dashboard
+        </Link>
+      </div>
+    )
+  }
 
   if (!authLoading && !loading && loadError) {
     return (
@@ -513,7 +543,7 @@ export default function AdminPage() {
     settings:  "Configurações",
   }
 
-  const onToast = (msg: string, kind = "success") => {
+  const onToast = (msg: string, kind: string = "success") => {
     setToast({ msg, kind })
     setTimeout(() => setToast(null), 3200)
   }
@@ -576,7 +606,7 @@ export default function AdminPage() {
         <div className="flex-1 overflow-y-auto">{main}</div>
       </div>
 
-      <CommandPalette users={users} lessons={lessons} courses={[]} onNavigate={(p) => setPage(p as PageId)} />
+      <CommandPalette users={users} lessons={lessons} courses={courses} onNavigate={(p) => setPage(p as PageId)} />
 
       {toast && (
         <div className="fixed bottom-6 right-6 z-80">

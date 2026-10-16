@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Bell, Info, CheckCircle2, AlertTriangle, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { useNotifications } from "@/contexts/notification-context"
-import type { NotificationKind } from "@/lib/supabase/types"
+import type { NotificationKind } from "@levelusp/contracts"
 import { timeAgo } from "@/lib/utils"
 import { cn } from "@/lib/utils"
 

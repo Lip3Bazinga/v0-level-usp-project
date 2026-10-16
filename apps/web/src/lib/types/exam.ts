@@ -1,6 +1,6 @@
-// ── Linhas de banco (tabelas exams/exam_questions/exam_attempts/certificates) ──
-// Nunca expor exam_questions.correct_index ao cliente — RLS + grants por coluna
-// garantem isso no banco; aqui é só o tipo da linha (usado no servidor).
+// ── Linhas de banco legadas (Supabase) ────────────────────────────────────────
+// Usadas apenas pela camada antiga (pastas supabase/ e server/ de src/lib) enquanto ela não
+// for removida. Código novo não deve depender delas.
 
 export interface ExamRow {
   id: string
@@ -49,66 +49,13 @@ export interface CertificateRow {
   issued_at: string
 }
 
-// ── DTOs das APIs de prova/certificação (contrato cliente↔servidor) ─────────────
-
-export interface ExamStatus {
-  exam: {
-    title: string
-    description: string
-    passingScore: number
-    timeLimitMinutes: number
-    cooldownMinutes: number
-    questionCount: number
-  }
-  eligible: boolean
-  lessonsRemaining: number
-  lessonsTotal: number
-  attemptsCount: number
-  bestScore: number | null
-  passed: boolean
-  passedScore: number | null
-  cooldownUntil: string | null
-  inProgressAttemptId: string | null
-  inProgressExpiresAt: string | null
-}
-
-/** Questão como enviada ao cliente (sem correct_index/explanation). */
-export interface ExamQuestion {
-  id: string
-  prompt: string
-  options: string[]
-}
-
-export interface ExamStart {
-  attemptId: string
-  expiresAt: string
-  timeLimitMinutes: number
-  questions: ExamQuestion[]
-  resumed: boolean
-}
-
-export interface ExamResult {
-  score: number
-  passed: boolean
-  passingScore: number
-  correctCount: number
-  total: number
-  review: { questionId: string; correct: boolean; explanation: string }[]
-}
-
-export interface CertificateIssue {
-  issued: boolean
-  alreadyIssued: boolean
-  verificationCode: string
-  issuedAt: string
-  examScore: number
-}
-
-/** Resumo de certificado do usuário (subset de CertificateRow + título do curso). */
-export interface MyCertificate {
-  verification_code: string
-  issued_at: string
-  exam_score: number
-  course_id: string
-  course_title: string
-}
+// ── DTOs da API de prova/certificação: fonte única em @levelusp/contracts ─────
+export type {
+  ExamStatus,
+  ExamQuestion,
+  ExamStart,
+  ExamResult,
+  CertificateIssue,
+  MyCertificate,
+  CertificateVerification,
+} from "@levelusp/contracts"

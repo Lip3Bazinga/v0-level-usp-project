@@ -3,15 +3,18 @@
 import { useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import {
-  BookOpen, CheckCircle2, Circle, ChevronDown, ChevronUp,
-  ArrowLeft, ArrowRight, Home,
+  BookOpen, CheckCircle2, Circle,
+  ArrowLeft, ArrowRight, Home, Loader2,
 } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import type { Lesson } from "@/lib/types"
-import type { LessonSummary } from "@/lib/supabase/lessons"
+import type { Lesson, LessonSummary } from "@levelusp/contracts"
 import { SuccessFeedback } from "@/components/ide/success-feedback"
+import { useAuth } from "@/contexts/auth-context"
+import { useProgress } from "@/contexts/progress-context"
+import { useToast } from "@/contexts/toast-context"
+import { ApiError, completeTheoryLesson, errorMessage, type CompletionResult } from "@/lib/api"
 
 function isHtmlContent(text: string): boolean {
   return /^\s*<[a-zA-Z]/.test(text.trim())
@@ -26,7 +29,13 @@ interface TheoryLessonLayoutProps {
 
 export function TheoryLessonLayout({ lesson, allLessons, currentIndex, onComplete }: TheoryLessonLayoutProps) {
   const router = useRouter()
-  const [read, setRead] = useState(false)
+  const { profile } = useAuth()
+  const { isCompleted, applyCompletion } = useProgress()
+  const toast = useToast()
+  const [read, setRead] = useState(() => isCompleted(lesson.id))
+  const [completing, setCompleting] = useState(false)
+  const [result, setResult] = useState<CompletionResult | null>(null)
+  const [levelBefore, setLevelBefore] = useState<number | null>(null)
   const [showSuccess, setShowSuccess] = useState(false)
 
   const courseLessons = allLessons.filter((l) => l.course_id === lesson.course_id)
@@ -54,10 +63,28 @@ export function TheoryLessonLayout({ lesson, allLessons, currentIndex, onComplet
     if (prev && prev.course_id === lesson.course_id) router.push(`/lesson/${prev.id}`)
   }, [allLessons, currentIndex, lesson.course_id, router])
 
-  const handleMarkDone = () => {
-    setRead(true)
-    onComplete?.()
-    setShowSuccess(true)
+  const handleMarkDone = async () => {
+    if (completing) return
+    setCompleting(true)
+    const levelAtStart = profile?.level ?? null
+    try {
+      // A API conclui a lição e credita o XP; o cliente só exibe o resultado.
+      const res = await completeTheoryLesson(lesson.id)
+      setResult(res)
+      setLevelBefore(levelAtStart)
+      setRead(true)
+      onComplete?.()
+      setShowSuccess(true)
+      await applyCompletion(lesson.id, res)
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        router.push(`/login?next=${encodeURIComponent(`/lesson/${lesson.id}`)}`)
+        return
+      }
+      toast.error(errorMessage(err, "Não foi possível concluir a lição. Tente novamente."))
+    } finally {
+      setCompleting(false)
+    }
   }
 
   const htmlContent = isHtmlContent(lesson.content_markdown)
@@ -157,9 +184,10 @@ export function TheoryLessonLayout({ lesson, allLessons, currentIndex, onComplet
               {!read ? (
                 <button
                   onClick={handleMarkDone}
-                  className="btn-3d w-full rounded-xl bg-level-purple py-3 text-sm font-semibold text-white hover:bg-level-purple-medium transition-colors flex items-center justify-center gap-2"
+                  disabled={completing}
+                  className="btn-3d w-full rounded-xl bg-level-purple py-3 text-sm font-semibold text-white hover:bg-level-purple-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
                 >
-                  <CheckCircle2 className="h-4 w-4" />
+                  {completing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                   Marcar como lida e continuar
                 </button>
               ) : (
@@ -195,9 +223,11 @@ export function TheoryLessonLayout({ lesson, allLessons, currentIndex, onComplet
 
       <SuccessFeedback
         show={showSuccess}
-        xpEarned={lesson.xp_reward}
+        xpEarned={result?.xp_awarded ?? 0}
         hasNextLesson={hasNextLesson}
         isCourseEnd={isCourseEnd}
+        prevLevel={result?.level_up ? (levelBefore ?? result.new_level - 1) : undefined}
+        newLevel={result?.level_up ? result.new_level : undefined}
         onClose={() => setShowSuccess(false)}
         onNext={handleNext}
       />

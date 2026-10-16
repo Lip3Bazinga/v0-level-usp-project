@@ -52,7 +52,7 @@ export class LearningService {
     if (!files.some((f) => f.path === "main.py")) throw BadRequest("O projeto precisa de um arquivo main.py.")
     this.rateLimit.consume(`submit:${user.id}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS, "Muitas verificações seguidas. Aguarde um instante.")
 
-    const result = await this.grading.grade(files, lesson.testCases, lesson.timeLimit)
+    const result = await this.grading.grade(files, lesson.testCases)
     const { engine, ...gradeResult } = result
     const submissionId = await this.repo.insertSubmission({
       userId: user.id,

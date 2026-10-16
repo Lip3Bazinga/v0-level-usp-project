@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react"
 import { Trophy, Globe, Flag, Lock, Settings, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { fetchPlatformSettings, savePlatformSettings, invalidateSessions, type PlatformSettings } from "@/lib/supabase/admin"
-import type { OnToast } from "@/lib/types"
+import type { PlatformSettings } from "@levelusp/contracts"
+import { errorMessage, fetchPlatformSettings, invalidateSessions, savePlatformSettings } from "@/lib/api"
+import type { OnToast } from "@/lib/types/ui"
 
 const FLAG_DEFS = [
   { key: "new_ide",            label: "Novo editor IDE",         desc: "Editor Monaco com auto-complete Python",     defaultOn: true  },
@@ -16,12 +17,12 @@ const FLAG_DEFS = [
 ]
 
 const INTEGRATIONS = [
-  { name: "Supabase",     desc: "Banco de dados e auth",       connected: true,  icon: "🗄️" },
-  { name: "Google OAuth", desc: "Login com Google",            connected: true,  icon: "🔐" },
-  { name: "GitHub OAuth", desc: "Login com GitHub",            connected: true,  icon: "⚡" },
-  { name: "SendGrid",     desc: "Envio de emails",             connected: false, icon: "📧" },
-  { name: "Discord",      desc: "Notificações",                connected: false, icon: "💬" },
-  { name: "Pyodide",      desc: "Runtime Python no navegador", connected: true,  icon: "🐍" },
+  { name: "API LevelUSP",     desc: "Regras de negócio, autenticação e correção", connected: true,  icon: "🛡️" },
+  { name: "PostgreSQL",       desc: "Banco de dados",                              connected: true,  icon: "🗄️" },
+  { name: "Executor Python",  desc: "CPython isolado (WASI) para correção",        connected: true,  icon: "🐍" },
+  { name: "Pyodide",          desc: "Runtime Python no navegador (IDE)",           connected: true,  icon: "🧪" },
+  { name: "E-mail (SMTP)",    desc: "Redefinição de senha e convites",             connected: false, icon: "📧" },
+  { name: "Discord",          desc: "Notificações",                                connected: false, icon: "💬" },
 ]
 
 function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
@@ -71,6 +72,7 @@ export function SettingsPage({ onToast }: SettingsPageProps) {
   const [sessionTimeout, setSessionTimeout]           = useState("60")
   const [rateLimit, setRateLimit]                     = useState("10")
   const [invalidating, setInvalidating]               = useState(false)
+  const [loadError, setLoadError]                     = useState<string | null>(null)
 
   useEffect(() => {
     fetchPlatformSettings()
@@ -92,7 +94,7 @@ export function SettingsPage({ onToast }: SettingsPageProps) {
         if (s.session_timeout)  setSessionTimeout(String(s.session_timeout))
         if (s.rate_limit)       setRateLimit(String(s.rate_limit))
       })
-      .catch(() => {})
+      .catch((err) => setLoadError(errorMessage(err, "Não foi possível carregar as configurações.")))
       .finally(() => setLoadingSettings(false))
   }, [])
 
@@ -115,8 +117,8 @@ export function SettingsPage({ onToast }: SettingsPageProps) {
         rate_limit:           Number(rateLimit),
       })
       onToast("Configurações salvas", "success")
-    } catch {
-      onToast("Erro ao salvar configurações", "danger")
+    } catch (err) {
+      onToast(errorMessage(err, "Erro ao salvar configurações"), "danger")
     } finally {
       setSaving(false)
     }
@@ -138,6 +140,10 @@ export function SettingsPage({ onToast }: SettingsPageProps) {
         <h2 className="text-xl font-extrabold text-level-purple-dark">Ajustes da plataforma</h2>
         <p className="text-sm text-muted-foreground">Configurações globais do LevelUSP</p>
       </div>
+
+      {loadError && (
+        <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{loadError}</p>
+      )}
 
       <div className="flex items-center gap-0 border-b border-border">
         {tabs.map((t) => {
@@ -269,7 +275,7 @@ export function SettingsPage({ onToast }: SettingsPageProps) {
                     await invalidateSessions()
                     onToast("Todas as sessões foram invalidadas", "success")
                   } catch (e) {
-                    onToast(e instanceof Error ? e.message : "Erro ao invalidar sessões", "danger")
+                    onToast(errorMessage(e, "Erro ao invalidar sessões"), "danger")
                   } finally {
                     setInvalidating(false)
                   }
@@ -289,7 +295,7 @@ export function SettingsPage({ onToast }: SettingsPageProps) {
         <p className="text-xs text-muted-foreground">Alterações são registradas no log de auditoria</p>
         <button
           onClick={handleSave}
-          disabled={saving || loadingSettings}
+          disabled={saving || loadingSettings || !!loadError}
           className="btn-3d flex items-center gap-2 rounded-xl bg-level-purple px-5 py-2 text-sm font-bold text-white disabled:opacity-60"
         >
           {saving && <Loader2 className="h-4 w-4 animate-spin" />}
