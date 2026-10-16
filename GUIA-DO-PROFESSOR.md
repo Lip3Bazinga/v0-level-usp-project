@@ -53,7 +53,7 @@ contexto antes das perguntas.
 
 > **Segurança:** o gabarito e as explicações ficam numa tabela protegida do
 > banco e **nunca são enviados ao navegador do aluno**. A correção acontece
-> apenas no servidor — mesmo modelo dos testes ocultos e da prova final.
+> apenas no servidor — mesmo modelo dos casos de teste e da prova final.
 
 ### Lição de código
 O aluno programa num IDE com Python de verdade no navegador. Você define:
@@ -68,55 +68,46 @@ O aluno programa num IDE com Python de verdade no navegador. Você define:
 
 ---
 
-## 4. Testes ocultos — como sua lição é corrigida
+## 4. Casos de teste — como sua lição é corrigida
 
-Os testes ocultos são código Python que roda **no servidor** contra a solução
-do aluno. O aluno **nunca vê** esses testes — nem abrindo as ferramentas do
-navegador.
+Na aba **Testes** do editor de lição você cadastra **casos de teste**. Quando o
+aluno clica em **Verificar Resposta**, o código dele roda num ambiente isolado
+(WebAssembly, sem internet nem acesso ao servidor) e a plataforma compara o
+resultado com o que você definiu. O aluno **nunca vê** o valor esperado — nem
+pelas ferramentas do navegador — a menos que você marque "mostrar o esperado".
 
-### Formato simples (asserts)
+| Tipo de caso | Use quando… | Exemplo |
+|---|---|---|
+| **Chamar função** | o aluno escreve uma função | `somar(2, 3)` deve retornar `5` |
+| **Entrada e saída** | o programa usa `input()`/`print()` | entrada `3\n4` → saída `7` |
+| **Valor de variável** | o aluno deve criar variáveis | `linguagem` deve ser `"Python"` (tipo `str`) |
+| **Estrutura do código** | você quer exigir/proibir uma construção | "use lambda", "não use `sum()`", "defina a classe `Conta`" |
+| **Legado** | gabaritos antigos em `assert`/`unittest` | só para conteúdo migrado — converta quando puder |
 
-```python
-assert somar(2, 3) == 5, "somar(2, 3) deveria ser 5"
-assert somar(-1, 1) == 0
-```
+Dicas:
 
-- A mensagem depois da vírgula é o que o aluno vê quando erra — capriche nela.
-- Cubra casos normais, casos-limite (lista vazia, zero, negativo) e erros
-  esperados.
+- Valores são escritos em JSON: `true`/`false`/`null` (não `True`/`None`),
+  aspas duplas em textos, listas `[1, 2]`.
+- Para números com casas decimais, informe uma **tolerância** (ex.: `0.001`).
+- Para diferenciar `3` de `3.0` ou lista de tupla, preencha o **tipo Python**.
+- O campo **dica** aparece para o aluno quando o caso falha — capriche nela.
+- A **prévia** ao lado de cada caso mostra exatamente a mensagem que o aluno verá.
+- Cubra casos normais, casos-limite (lista vazia, zero, negativo) e erros.
+- Uma lição de código só pode ser **publicada** se tiver ao menos um caso.
 
-### Formato unittest (recomendado para projetos)
+### Por que não usamos mais `assert` direto?
 
-```python
-import unittest
-
-class TestProjeto(unittest.TestCase):
-    def test_caso_normal(self):
-        self.assertEqual(calcular_media([10, 8]), 9.0)
-
-    def test_lista_vazia(self):
-        self.assertEqual(calcular_media([]), 0.0)
-
-    def test_erro_de_tipo(self):
-        with self.assertRaises(TypeError):
-            adicionar_aluno({}, "X", "não é lista")
-```
-
-O aluno recebe o nome do teste + mensagem de cada falha.
-
-### Variáveis especiais disponíveis nos testes
-
-- `_stdout` — tudo que o aluno imprimiu com `print()`.
-  Ex.: `assert "Olá" in _stdout, "imprima a saudação"`
-- `_source` — o código-fonte do aluno.
-  Ex.: `assert "lambda" in _source, "use lambda nesta lição"`
+No formato antigo, os testes rodavam junto com o código do aluno, e um aluno
+mal-intencionado conseguia ler o gabarito ou forjar a aprovação. Com casos
+declarativos, a comparação é feita fora do ambiente do aluno. Casos "legados"
+continuam funcionando, mas a correção é marcada como mais fraca.
 
 ### Boas práticas de correção
 
-- Teste **comportamento**, não formatação exata (evite exigir espaços exatos).
-- Sempre inclua mensagens de erro didáticas — elas são o feedback do aluno.
+- Teste **comportamento**, não formatação exata (o modo "trimmed" ignora
+  espaços no fim das linhas).
 - Antes de publicar, resolva a lição você mesmo no IDE e clique em
-  **Verificar Resposta** para conferir seus próprios testes.
+  **Verificar Resposta**.
 
 ---
 
@@ -144,11 +135,11 @@ Cursos com certificação têm três requisitos para o aluno:
 1. **Concluir todas as lições** (incluindo o projeto final);
 2. **Passar na prova teórica** — múltipla escolha, corrigida automaticamente
    (nota mínima 70%, 45 minutos, novas tentativas após 1h);
-3. **Passar no projeto final** — a última lição do curso, corrigida por testes
-   unittest ocultos.
+3. **Passar no projeto final** — a última lição do curso, corrigida pelos
+   casos de teste.
 
 Cumprido tudo, o certificado **emite sozinho**, com código de verificação
-público (ex.: `LU-3F9A7-C21D0`) que qualquer pessoa pode conferir em
+público (ex.: `LVL-7K2M-Q9XP`) que qualquer pessoa pode conferir em
 `/certificado/CÓDIGO` — é isso que dá validade ao certificado fora da
 plataforma.
 
@@ -157,10 +148,11 @@ plataforma.
 Cada questão tem: enunciado, 4 alternativas, a alternativa correta e uma
 **explicação** (mostrada ao aluno que erra, após entregar a prova). O gabarito
 fica guardado de forma inacessível ao navegador do aluno — assim como os
-testes ocultos.
+casos de teste.
 
-> Hoje o banco de questões é gerenciado pela equipe técnica. Envie suas
-> questões no formato: enunciado + 4 alternativas + correta + explicação.
+> O banco de questões é gerenciado no painel de administração
+> (**Admin → Questões da prova**): enunciado, de 2 a 8 alternativas, a correta
+> e a explicação.
 
 ---
 
@@ -169,7 +161,7 @@ testes ocultos.
 - [ ] Descrições do curso completas e capa enviada
 - [ ] Lições em ordem, com módulos nomeados de forma consistente
 - [ ] Toda lição de código tem: enunciado claro, código inicial, checkpoints
-      com dicas e testes ocultos com mensagens didáticas
+      com dicas e casos de teste com dicas didáticas
 - [ ] Você resolveu e verificou cada lição no próprio IDE
 - [ ] XP condizente com o esforço (teoria: 20 · exercício: 50–125 · projeto: 250+)
 - [ ] Publicou as lições **e** o curso

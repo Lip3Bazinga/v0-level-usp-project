@@ -1,43 +1,48 @@
-# LevelUSP 🚀
+# LevelUSP
 
-Plataforma **gratuita e gamificada de ensino de Python**, iniciativa da
-Universidade de São Paulo (USP). Os alunos aprendem programando numa IDE que
-roda Python de verdade no navegador, ganham XP, badges e — ao concluir um
-curso com prova final e projeto — um **certificado com verificação pública**.
+Plataforma **gratuita e gamificada de ensino de Python** da Universidade de São
+Paulo. O aluno programa numa IDE que roda Python no navegador, recebe correção
+automática no servidor, ganha XP e badges e, ao concluir um curso com prova
+final, um **certificado com verificação pública**.
 
-**Produção:** https://level-usp.vercel.app
+## Arquitetura (v2)
 
-## Stack
+| Peça | Tecnologia |
+|---|---|
+| Front | Next.js 16 · React 19 · Tailwind v4 · Pyodide (WebAssembly) no navegador |
+| API | NestJS 12 · TypeScript · Zod · Drizzle ORM · autenticação própria (argon2id + sessão httpOnly) |
+| Correção | Executor isolado: **CPython 3.14 WASI no Wasmtime**, sem rede, segredos ou banco |
+| Banco | PostgreSQL 17 |
+| Infra | Docker Compose · Cloudflare Tunnel · GitHub Actions (CI/CD) · GHCR |
 
-- **Frontend:** Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4
-- **Backend:** Supabase (Postgres 17, Auth, Storage, RLS) + Route Handlers
-- **Execução de Python no browser:** Pyodide (WebAssembly) em Web Worker
-- **Correção oficial de exercícios:** Vercel Python Function (`api/evaluate.py`)
-  — os testes ocultos nunca chegam ao cliente
-- **Deploy:** Vercel (auto-deploy na `main`)
+```
+apps/web  apps/api  apps/runner  packages/contracts  packages/db  infra/  docs/v2/
+```
 
-## Como rodar localmente
+## Começando
 
 ```bash
 pnpm install
-cp .env.local.example .env   # preencha com as chaves do seu projeto Supabase
-pnpm dev
+docker compose -f infra/compose/compose.dev.yml up -d   # PostgreSQL local
+pnpm --filter @levelusp/runner setup:python             # Wasmtime + CPython WASI
+pnpm build && pnpm db:migrate && SEED_DEMO_USERS=true pnpm db:seed
+pnpm dev                                                # http://localhost:3000
 ```
 
-O schema completo do banco está em [`supabase/schema.sql`](./supabase/schema.sql);
-as mudanças incrementais em [`supabase/migrations/`](./supabase/migrations/).
+Usuários de demonstração (seed): `aluna@levelusp.dev` e
+`professora@levelusp.dev`, senha `demonstracao123`.
+
+## Testes
+
+`pnpm test` (unitários) · `pnpm --filter @levelusp/api test:e2e` (API + Postgres)
+· `pnpm --filter @levelusp/runner test` (sandbox) · `pnpm --filter @levelusp/web test:e2e` (Playwright).
+Detalhes em [docs/v2/testes.md](docs/v2/testes.md).
 
 ## Documentação
 
 | Para quem | Onde |
-|-----------|------|
-| Desenvolvedores | [`docs/`](./docs/) — arquitetura, banco, avaliador, segurança, prova/certificação |
-| Professores e criadores de conteúdo | [`GUIA-DO-PROFESSOR.md`](./GUIA-DO-PROFESSOR.md) |
-| Roadmap até o lançamento | [`PLANO-DE-DESENVOLVIMENTO.md`](./PLANO-DE-DESENVOLVIMENTO.md) |
-| Contexto para agentes de IA | [`CLAUDE.md`](./CLAUDE.md) |
-
-## Validação
-
-- `python3 scripts/verify_lessons.py` — corrige os gabaritos das lições contra
-  soluções de referência (mesma semântica do avaliador de produção)
-- CI no GitHub Actions: gabaritos + typecheck + build informativo
+|---|---|
+| Desenvolvimento | [docs/v2/](docs/v2/) — arquitetura, motor de correção, segurança, ambientes e deploy |
+| Professores | [GUIA-DO-PROFESSOR.md](GUIA-DO-PROFESSOR.md) |
+| Agentes de IA | [CLAUDE.md](CLAUDE.md) |
+| Versão anterior (Supabase/Vercel) | [docs/legado/](docs/legado/) |
