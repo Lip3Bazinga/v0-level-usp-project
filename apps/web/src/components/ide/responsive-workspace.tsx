@@ -6,7 +6,7 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable"
-import { BookOpen, Code2, Terminal, FolderTree } from "lucide-react"
+import { BookOpen, Code2, Terminal, FolderTree, type LucideIcon } from "lucide-react"
 
 interface ResponsiveWorkspaceProps {
   lessonPanel: ReactNode
@@ -17,7 +17,7 @@ interface ResponsiveWorkspaceProps {
 
 type MobileTab = "lesson" | "editor" | "console" | "files"
 
-const TABS: { id: MobileTab; label: string; icon: typeof BookOpen }[] = [
+const TABS: readonly { id: MobileTab; label: string; icon: LucideIcon }[] = [
   { id: "lesson", label: "Aprender", icon: BookOpen },
   { id: "editor", label: "Código", icon: Code2 },
   { id: "console", label: "Console", icon: Terminal },
@@ -39,7 +39,6 @@ export function ResponsiveWorkspace({
 
   return (
     <>
-      {/* ── Desktop: painéis redimensionáveis ───────────────────────── */}
       <div className="hidden h-full lg:block">
         <ResizablePanelGroup direction="horizontal" className="h-full">
           <ResizablePanel defaultSize={28} minSize={22} maxSize={42}>
@@ -68,10 +67,9 @@ export function ResponsiveWorkspace({
         </ResizablePanelGroup>
       </div>
 
-      {/* ── Mobile/tablet: abas ─────────────────────────────────────── */}
       <div className="flex h-full flex-col lg:hidden">
+        {/* Os quatro painéis ficam montados (o editor não perde o estado); só a visibilidade muda. */}
         <div className="min-h-0 flex-1 overflow-hidden">
-          {/* Mantém os 4 painéis montados (preserva estado do editor) e alterna visibilidade */}
           <div className={activeTab === "lesson" ? "h-full" : "hidden"}>{lessonPanel}</div>
           <div className={activeTab === "editor" ? "h-full" : "hidden"}>{editor}</div>
           <div className={activeTab === "console" ? "h-full" : "hidden"}>{consolePanel}</div>
@@ -80,20 +78,19 @@ export function ResponsiveWorkspace({
 
         <nav className="grid shrink-0 grid-cols-4 border-t border-border bg-white">
           {TABS.map((tab) => {
-            const Icon = tab.icon
-            const active = activeTab === tab.id
+            const isActive = activeTab === tab.id
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                aria-current={active ? "page" : undefined}
+                aria-current={isActive ? "page" : undefined}
                 className={`flex flex-col items-center justify-center gap-1 py-2.5 text-[11px] font-medium transition-colors ${
-                  active
+                  isActive
                     ? "border-t-2 border-level-purple text-level-purple"
                     : "border-t-2 border-transparent text-muted-foreground hover:text-level-purple"
                 }`}
               >
-                <Icon className="h-5 w-5" />
+                <tab.icon className="h-5 w-5" />
                 {tab.label}
               </button>
             )

@@ -1,12 +1,35 @@
 "use client"
 
-import ReactMarkdown from "react-markdown"
+import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { sanitizeLessonHtml } from "@/lib/sanitize"
 
-/** Detecta se o conteúdo é HTML (começa com tag) para usar dangerouslySetInnerHTML. */
+/** Conteúdo salvo pelo editor rico é HTML (começa com tag); o antigo é Markdown. */
 function isHtmlContent(text: string): boolean {
   return /^\s*<[a-zA-Z]/.test(text.trim())
+}
+
+/** Blocos de código no tema escuro da IDE; código em linha com o destaque roxo. */
+const MARKDOWN_COMPONENTS: Components = {
+  code({ children, className }) {
+    if (className?.startsWith("language-")) {
+      return (
+        <div className="relative my-3 overflow-hidden rounded-lg">
+          <pre className="overflow-x-auto bg-[#1e1e1e] p-4 text-xs leading-relaxed text-gray-200">
+            <code>{children}</code>
+          </pre>
+        </div>
+      )
+    }
+    return (
+      <code className="rounded bg-level-purple-subtle px-1.5 py-0.5 font-mono text-[11px] text-level-purple-dark">{children}</code>
+    )
+  },
+}
+
+interface LessonContentPreviewProps {
+  content: string
+  className?: string
 }
 
 /**
@@ -14,14 +37,8 @@ function isHtmlContent(text: string): boolean {
  * lição (mesma classe prose-lesson, mesmo tratamento HTML/Markdown). É a fonte
  * única usada tanto pelo LessonPanel quanto pela pré-visualização do professor.
  */
-export function LessonContentPreview({
-  content,
-  className = "prose-lesson text-sm",
-}: {
-  content: string
-  className?: string
-}) {
-  if (!content?.trim()) {
+export function LessonContentPreview({ content, className = "prose-lesson text-sm" }: LessonContentPreviewProps) {
+  if (!content.trim()) {
     return (
       <p className="text-sm italic text-muted-foreground">
         Nada para pré-visualizar ainda. Comece a escrever no editor.
@@ -35,28 +52,7 @@ export function LessonContentPreview({
 
   return (
     <div className={className}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          code({ children, className: cls }) {
-            const isBlock = cls?.startsWith("language-")
-            if (isBlock) {
-              return (
-                <div className="relative my-3 overflow-hidden rounded-lg">
-                  <pre className="overflow-x-auto bg-[#1e1e1e] p-4 text-xs text-gray-200 leading-relaxed">
-                    <code>{children}</code>
-                  </pre>
-                </div>
-              )
-            }
-            return (
-              <code className="rounded bg-level-purple-subtle px-1.5 py-0.5 font-mono text-[11px] text-level-purple-dark">
-                {children}
-              </code>
-            )
-          },
-        }}
-      >
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
         {content}
       </ReactMarkdown>
     </div>

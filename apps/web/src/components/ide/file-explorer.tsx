@@ -1,94 +1,85 @@
 "use client"
 
-import { useState, useMemo, useRef, useEffect } from "react"
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react"
 import {
   FolderOpen, Folder, FileText, FileCode, ChevronRight, ChevronDown,
   MoreHorizontal, FilePlus, FolderPlus, Search, Pencil, Trash2, X,
 } from "lucide-react"
+import type { ProjectFile } from "@levelusp/contracts"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import type { ProjectFile } from "@levelusp/contracts"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { MAIN_FILE_PATH } from "@/lib/constants"
-import { buildTree, type TreeNode } from "@/lib/utils/file-tree"
+import { buildTree, type FileOperationResult, type TreeNode } from "@/lib/utils"
+import { toNewFilePath, toNewFolderPlaceholderPath, toRenamedPath } from "./file-explorer-paths"
 
-const getFileIcon = (name: string) => {
-  const ext = name.split(".").pop()?.toLowerCase()
-  switch (ext) {
-    case "py":   return <span className="text-xs">🐍</span>
-    case "csv":  return <span className="text-xs">📊</span>
-    case "json": return <span className="text-xs">📋</span>
-    case "md":   return <span className="text-xs">📝</span>
-    default:     return <FileText className="h-4 w-4 text-muted-foreground" />
-  }
+type FileDialogMode = "create-file" | "create-folder" | "rename"
+
+type FileOperation<TArgs extends unknown[]> = (...args: TArgs) => FileOperationResult
+
+const FILE_EMOJIS: Record<string, string> = { py: "🐍", csv: "📊", json: "📋", md: "📝" }
+const TREE_INDENT_PX = 12
+const TREE_BASE_PADDING_PX = 8
+
+const DIALOG_COPY: Record<FileDialogMode, { title: string; icon: ReactNode; placeholder: string }> = {
+  "create-file": {
+    title: "Novo Arquivo",
+    icon: <FilePlus className="h-5 w-5 text-level-purple" />,
+    placeholder: "ex: utils.py ou pasta/helpers.py",
+  },
+  "create-folder": {
+    title: "Nova Pasta",
+    icon: <FolderPlus className="h-5 w-5 text-level-purple" />,
+    placeholder: "ex: modelos",
+  },
+  rename: {
+    title: "Renomear",
+    icon: <Pencil className="h-5 w-5 text-level-purple" />,
+    placeholder: "Novo nome",
+  },
 }
 
-// ── Modal estilizado ──────────────────────────────────────────────────────────
+function FileIcon({ name }: { name: string }) {
+  const extension = name.split(".").pop()?.toLowerCase() ?? ""
+  const emoji = FILE_EMOJIS[extension]
+  return emoji ? <span className="text-xs">{emoji}</span> : <FileText className="h-4 w-4 text-muted-foreground" />
+}
 
-type ModalMode = "create-file" | "create-folder" | "rename" | null
-
-interface FileModalProps {
-  mode: ModalMode
-  initialValue?: string
+interface FileDialogProps {
+  mode: FileDialogMode
+  initialValue: string
   onConfirm: (value: string) => void
   onClose: () => void
 }
 
-function FileModal({ mode, initialValue = "", onConfirm, onClose }: FileModalProps) {
+function FileDialog({ mode, initialValue, onConfirm, onClose }: FileDialogProps) {
   const [value, setValue] = useState(initialValue)
   const inputRef = useRef<HTMLInputElement>(null)
+  const copy = DIALOG_COPY[mode]
 
   useEffect(() => {
     inputRef.current?.focus()
     inputRef.current?.select()
   }, [])
 
-  if (!mode) return null
-
-  const titles: Record<NonNullable<ModalMode>, string> = {
-    "create-file":   "Novo Arquivo",
-    "create-folder": "Nova Pasta",
-    "rename":        "Renomear",
-  }
-  const icons: Record<NonNullable<ModalMode>, React.ReactNode> = {
-    "create-file":   <FilePlus className="h-5 w-5 text-level-purple" />,
-    "create-folder": <FolderPlus className="h-5 w-5 text-level-purple" />,
-    "rename":        <Pencil className="h-5 w-5 text-level-purple" />,
-  }
-  const placeholders: Record<NonNullable<ModalMode>, string> = {
-    "create-file":   "ex: utils.py ou pasta/helpers.py",
-    "create-folder": "ex: modelos",
-    "rename":        "Novo nome",
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const v = value.trim()
-    if (v) onConfirm(v)
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault()
+    const trimmedValue = value.trim()
+    if (trimmedValue) onConfirm(trimmedValue)
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="mx-4 w-full max-w-sm rounded-2xl bg-white shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="mx-4 w-full max-w-sm rounded-2xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-level-purple-light">
-              {icons[mode]}
-            </div>
-            <h3 className="text-sm font-bold text-level-purple-dark">{titles[mode]}</h3>
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-level-purple-light">{copy.icon}</div>
+            <h3 className="text-sm font-bold text-level-purple-dark">{copy.title}</h3>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1 text-muted-foreground hover:bg-gray-100 hover:text-foreground transition-colors"
+            className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-gray-100 hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -99,9 +90,9 @@ function FileModal({ mode, initialValue = "", onConfirm, onClose }: FileModalPro
             ref={inputRef}
             type="text"
             value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder={placeholders[mode]}
-            className="w-full rounded-xl border-2 border-border bg-level-purple-subtle/30 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-level-purple focus:outline-none transition-colors"
+            onChange={(event) => setValue(event.target.value)}
+            placeholder={copy.placeholder}
+            className="w-full rounded-xl border-2 border-border bg-level-purple-subtle/30 px-4 py-3 text-sm text-foreground transition-colors placeholder:text-muted-foreground focus:border-level-purple focus:outline-none"
           />
           {mode === "create-file" && (
             <p className="mt-2 text-xs text-muted-foreground">
@@ -114,14 +105,14 @@ function FileModal({ mode, initialValue = "", onConfirm, onClose }: FileModalPro
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-xl border-2 border-border py-2.5 text-sm font-medium text-muted-foreground hover:border-level-purple hover:text-level-purple transition-colors"
+              className="flex-1 rounded-xl border-2 border-border py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-level-purple hover:text-level-purple"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={!value.trim()}
-              className="btn-3d flex-1 rounded-xl bg-level-purple py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors disabled:opacity-50"
+              className="btn-3d flex-1 rounded-xl bg-level-purple py-2.5 text-sm font-semibold text-white transition-colors hover:bg-level-purple-dark disabled:opacity-50"
             >
               Confirmar
             </button>
@@ -132,64 +123,63 @@ function FileModal({ mode, initialValue = "", onConfirm, onClose }: FileModalPro
   )
 }
 
-// ── Item da árvore ────────────────────────────────────────────────────────────
-
-interface ItemProps {
+interface TreeItemProps {
   node: TreeNode
-  level: number
+  depth: number
   activePath: string
-  readOnly: boolean
+  isReadOnly: boolean
   onSelect: (path: string) => void
   onRename: (node: TreeNode) => void
   onDelete: (path: string) => void
 }
 
-function TreeItem({ node, level, activePath, readOnly, onSelect, onRename, onDelete }: ItemProps) {
-  const [open, setOpen] = useState(true)
+function TreeItem({ node, depth, activePath, isReadOnly, onSelect, onRename, onDelete }: TreeItemProps) {
+  const [isOpen, setIsOpen] = useState(true)
   const isFolder = node.type === "folder"
   const isActive = node.path === activePath
-  const isMain = node.path === MAIN_FILE_PATH
+  const isMainFile = node.path === MAIN_FILE_PATH
 
   return (
     <div>
       <div
-        onClick={() => (isFolder ? setOpen((v) => !v) : onSelect(node.path))}
+        onClick={() => (isFolder ? setIsOpen((current) => !current) : onSelect(node.path))}
         className={`group flex w-full cursor-pointer items-center gap-1 px-2 py-1.5 text-sm transition-colors hover:bg-level-purple-light ${
           isActive ? "bg-level-purple-light text-level-purple-dark" : "text-foreground"
         }`}
-        style={{ paddingLeft: `${level * 12 + 8}px` }}
+        style={{ paddingLeft: `${depth * TREE_INDENT_PX + TREE_BASE_PADDING_PX}px` }}
       >
         {isFolder ? (
           <>
-            {open ? <ChevronDown className="h-4 w-4 text-level-purple" /> : <ChevronRight className="h-4 w-4 text-level-purple" />}
-            {open ? <FolderOpen className="h-4 w-4 text-level-purple" /> : <Folder className="h-4 w-4 text-level-purple" />}
+            {isOpen ? <ChevronDown className="h-4 w-4 text-level-purple" /> : <ChevronRight className="h-4 w-4 text-level-purple" />}
+            {isOpen ? <FolderOpen className="h-4 w-4 text-level-purple" /> : <Folder className="h-4 w-4 text-level-purple" />}
           </>
         ) : (
           <>
             <span className="w-4" />
-            {getFileIcon(node.name)}
+            <FileIcon name={node.name} />
           </>
         )}
         <span className="flex-1 truncate text-left">{node.name}</span>
 
-        {!readOnly && (
+        {!isReadOnly && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
-                variant="ghost" size="icon"
+                variant="ghost"
+                size="icon"
                 aria-label={`Ações de ${node.name}`}
-                className="h-5 w-5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
-                onClick={(e) => e.stopPropagation()}
+                className="h-5 w-5 opacity-0 focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100"
+                onClick={(event) => event.stopPropagation()}
               >
                 <MoreHorizontal className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
-              <DropdownMenuItem onClick={() => onRename(node)} disabled={isMain && !isFolder}>
+              <DropdownMenuItem onClick={() => onRename(node)} disabled={isMainFile && !isFolder}>
                 <Pencil className="mr-2 h-3.5 w-3.5" /> Renomear
               </DropdownMenuItem>
               {!isFolder && (
-                <DropdownMenuItem className="text-destructive" onClick={() => onDelete(node.path)} disabled={isMain}>
+                <DropdownMenuItem className="text-destructive" onClick={() => onDelete(node.path)} disabled={isMainFile}>
                   <Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir
                 </DropdownMenuItem>
               )}
@@ -198,146 +188,124 @@ function TreeItem({ node, level, activePath, readOnly, onSelect, onRename, onDel
         )}
       </div>
 
-      {isFolder && open && node.children.map((child) => (
-        <TreeItem
-          key={child.path}
-          node={child}
-          level={level + 1}
-          activePath={activePath}
-          readOnly={readOnly}
-          onSelect={onSelect}
-          onRename={onRename}
-          onDelete={onDelete}
-        />
-      ))}
+      {isFolder &&
+        isOpen &&
+        node.children.map((child) => (
+          <TreeItem
+            key={child.path}
+            node={child}
+            depth={depth + 1}
+            activePath={activePath}
+            isReadOnly={isReadOnly}
+            onSelect={onSelect}
+            onRename={onRename}
+            onDelete={onDelete}
+          />
+        ))}
     </div>
   )
 }
-
-// ── Componente principal ──────────────────────────────────────────────────────
 
 interface FileExplorerProps {
   files: ProjectFile[]
   activePath: string
   onSelect: (path: string) => void
-  onCreate?: (path: string) => { ok: boolean; error?: string }
-  onRename?: (oldPath: string, newPath: string) => { ok: boolean; error?: string }
-  onDelete?: (path: string) => { ok: boolean; error?: string }
-  readOnly?: boolean
+  onCreate?: FileOperation<[path: string]>
+  onRename?: FileOperation<[oldPath: string, newPath: string]>
+  onDelete?: FileOperation<[path: string]>
+  isReadOnly?: boolean
 }
 
-export function FileExplorer({
-  files, activePath, onSelect, onCreate, onRename, onDelete, readOnly = false,
-}: FileExplorerProps) {
-  const [query, setQuery] = useState("")
-  const [modal, setModal] = useState<{ mode: ModalMode; node?: TreeNode }>({ mode: null })
-  const [modalError, setModalError] = useState<string | null>(null)
+interface OpenDialog {
+  mode: FileDialogMode
+  /** Item sendo renomeado. */
+  node?: TreeNode
+}
 
-  const filtered = useMemo(() => {
-    if (!query.trim()) return files
-    const q = query.toLowerCase()
-    return files.filter((f) => f.path.toLowerCase().includes(q))
-  }, [files, query])
+export function FileExplorer({ files, activePath, onSelect, onCreate, onRename, onDelete, isReadOnly = false }: FileExplorerProps) {
+  const [searchText, setSearchText] = useState("")
+  const [dialog, setDialog] = useState<OpenDialog | null>(null)
+  const [operationError, setOperationError] = useState<string | null>(null)
 
-  const tree = useMemo(() => buildTree(filtered), [filtered])
+  const tree = useMemo(() => {
+    const query = searchText.trim().toLowerCase()
+    return buildTree(query ? files.filter((file) => file.path.toLowerCase().includes(query)) : files)
+  }, [files, searchText])
 
-  const openModal = (mode: ModalMode, node?: TreeNode) => {
-    setModalError(null)
-    setModal({ mode, node })
+  const openDialog = (mode: FileDialogMode, node?: TreeNode) => {
+    setOperationError(null)
+    setDialog({ mode, node })
   }
 
-  const handleModalConfirm = (value: string) => {
-    const { mode, node } = modal
+  /** Fecha o diálogo, ou mostra o motivo da recusa e o mantém aberto. */
+  const finishOperation = (result: FileOperationResult | undefined) => {
+    if (result && !result.ok) {
+      setOperationError(result.error)
+      return
+    }
+    setDialog(null)
+  }
 
+  const handleDialogConfirm = (value: string) => {
+    if (!dialog) return
+    const { mode, node } = dialog
     if (mode === "create-file") {
-      if (!onCreate) return
-      const path = value.trim().replace(/^\/+/, "")
-      const res = onCreate(path)
-      if (!res.ok) { setModalError(res.error ?? "Não foi possível criar o arquivo."); return }
+      finishOperation(onCreate?.(toNewFilePath(value)))
+    } else if (mode === "create-folder") {
+      finishOperation(onCreate?.(toNewFolderPlaceholderPath(value)))
+    } else if (node) {
+      const newPath = toRenamedPath(node, value)
+      finishOperation(newPath === node.path ? undefined : onRename?.(node.path, newPath))
     }
-
-    if (mode === "create-folder") {
-      if (!onCreate) return
-      const folderPath = value.trim().replace(/^\/+/, "").replace(/\/+$/, "")
-      const res = onCreate(`${folderPath}/.gitkeep`)
-      if (!res.ok) { setModalError(res.error ?? "Não foi possível criar a pasta."); return }
-    }
-
-    if (mode === "rename" && node) {
-      if (!onRename) return
-      const oldPath = node.path
-      let newPath: string
-
-      if (node.type === "folder") {
-        const newFolderName = value.trim().replace(/\/+/g, "")
-        const parts = oldPath.split("/")
-        parts[parts.length - 1] = newFolderName
-        newPath = parts.join("/")
-      } else {
-        const parent = oldPath.includes("/") ? oldPath.split("/").slice(0, -1).join("/") : ""
-        newPath = parent ? `${parent}/${value.trim()}` : value.trim()
-      }
-
-      if (newPath === oldPath) { setModal({ mode: null }); return }
-      const res = onRename(oldPath, newPath)
-      if (!res.ok) { setModalError(res.error ?? "Não foi possível renomear."); return }
-    }
-
-    setModal({ mode: null })
   }
 
   const handleDelete = (path: string) => {
     if (!onDelete) return
     if (!window.confirm(`Excluir "${path}"? Esta ação não pode ser desfeita.`)) return
-    const res = onDelete(path)
-    if (!res.ok) window.alert(res.error ?? "Não foi possível excluir.")
+    const result = onDelete(path)
+    if (!result.ok) window.alert(result.error)
   }
 
   return (
     <div className="relative flex h-full flex-col bg-white">
-      {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
         <span className="text-xs font-semibold uppercase tracking-wider text-level-purple-dark">Arquivos</span>
-        {!readOnly && (
+        {!isReadOnly && onCreate && (
           <div className="flex items-center gap-1">
-            {onCreate && (
-              <>
-                <Button
-                  variant="ghost" size="icon"
-                  className="h-6 w-6 hover:bg-level-purple-light hover:text-level-purple"
-                  onClick={() => openModal("create-file")}
-                  title="Novo arquivo"
-                >
-                  <FilePlus className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost" size="icon"
-                  className="h-6 w-6 hover:bg-level-purple-light hover:text-level-purple"
-                  onClick={() => openModal("create-folder")}
-                  title="Nova pasta"
-                >
-                  <FolderPlus className="h-3.5 w-3.5" />
-                </Button>
-              </>
-            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 hover:bg-level-purple-light hover:text-level-purple"
+              onClick={() => openDialog("create-file")}
+              title="Novo arquivo"
+            >
+              <FilePlus className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 hover:bg-level-purple-light hover:text-level-purple"
+              onClick={() => openDialog("create-folder")}
+              title="Nova pasta"
+            >
+              <FolderPlus className="h-3.5 w-3.5" />
+            </Button>
           </div>
         )}
       </div>
 
-      {/* Search */}
       <div className="border-b border-border p-2">
         <div className="relative">
           <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
             placeholder="Buscar..."
-            className="h-7 bg-level-purple-subtle pl-7 text-xs border-0 focus-visible:ring-level-purple"
+            className="h-7 border-0 bg-level-purple-subtle pl-7 text-xs focus-visible:ring-level-purple"
           />
         </div>
       </div>
 
-      {/* Tree */}
       <ScrollArea className="flex-1">
         <div className="py-1">
           {tree.length === 0 ? (
@@ -347,11 +315,11 @@ export function FileExplorer({
               <TreeItem
                 key={node.path}
                 node={node}
-                level={0}
+                depth={0}
                 activePath={activePath}
-                readOnly={readOnly}
+                isReadOnly={isReadOnly}
                 onSelect={onSelect}
-                onRename={(n) => openModal("rename", n)}
+                onRename={(renamedNode) => openDialog("rename", renamedNode)}
                 onDelete={handleDelete}
               />
             ))
@@ -359,29 +327,30 @@ export function FileExplorer({
         </div>
       </ScrollArea>
 
-      {/* Footer */}
-      <div className="border-t border-border px-3 py-2 bg-level-purple-subtle">
+      <div className="border-t border-border bg-level-purple-subtle px-3 py-2">
         <div className="flex items-center gap-2 text-xs text-level-purple-dark">
           <FileCode className="h-3.5 w-3.5 text-level-purple" />
-          <span>{files.length} {files.length === 1 ? "arquivo" : "arquivos"}</span>
+          <span>
+            {files.length} {files.length === 1 ? "arquivo" : "arquivos"}
+          </span>
         </div>
       </div>
 
-      {/* Modal */}
-      {modal.mode && (
-        <FileModal
-          mode={modal.mode}
-          initialValue={modal.node?.name ?? ""}
-          onConfirm={handleModalConfirm}
-          onClose={() => setModal({ mode: null })}
+      {dialog && (
+        <FileDialog
+          mode={dialog.mode}
+          initialValue={dialog.node?.name ?? ""}
+          onConfirm={handleDialogConfirm}
+          onClose={() => setDialog(null)}
         />
       )}
 
-      {/* Erro inline */}
-      {modalError && (
+      {operationError && (
         <div className="absolute bottom-14 left-2 right-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {modalError}
-          <button onClick={() => setModalError(null)} className="ml-2 underline">ok</button>
+          {operationError}
+          <button onClick={() => setOperationError(null)} className="ml-2 underline">
+            ok
+          </button>
         </div>
       )}
     </div>
