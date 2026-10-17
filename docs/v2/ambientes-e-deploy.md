@@ -24,7 +24,7 @@ flowchart LR
 API e2e com PostgreSQL; executor WASI (testes de segurança + verificação dos
 gabaritos); Playwright contra a pilha completa; build das imagens em PRs.
 
-**CD** (`.github/workflows/cd.yml`): após CI verde num push, publica as três
+**CD** (job `publicar` do mesmo `ci.yml`): após todos os jobs passarem num push, publica as três
 imagens no GHCR com as tags do ambiente e `sha-<commit>`. O notebook **puxa**
 as imagens (tarefa agendada a cada 5 min) — nenhuma porta fica aberta para o
 GitHub.
@@ -32,8 +32,13 @@ GitHub.
 ## Configuração única no GitHub
 
 1. *Settings → Environments*: crie `homolog` e `production`; em `production`,
-   marque *Required reviewers* (você e/ou o orientador).
-2. *Settings → Branches*: proteja `main` e `develop` exigindo os checks do CI.
+   marque *Required reviewers* (você e/ou o orientador) e restrinja a branch a `main`;
+   em `homolog`, restrinja a `develop`.
+2. *Settings → Branches*: proteja `main` e `develop` exigindo PR e os checks do CI
+   (`Lint, tipos, testes unitários e build`, `API e2e (PostgreSQL real)`,
+   `Executor WASI (segurança + gabaritos)`, `Ponta a ponta (Playwright)`).
+   Com uma só pessoa no projeto, deixe *Required approvals* desligado — o GitHub
+   não deixa aprovar o próprio PR.
 3. Depois do primeiro CD, em *Packages*, deixe os pacotes `levelusp/api`,
    `levelusp/runner` e `levelusp/web` como **públicos** (o código já é público)
    ou faça `docker login ghcr.io` no notebook com um token `read:packages`.

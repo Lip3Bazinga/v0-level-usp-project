@@ -48,7 +48,7 @@ infra/
   compose/     compose.yml (homolog/prod), compose.dev.yml, compose.build.yml
   env/         *.env.example (os .env reais não são versionados)
   scripts/     levelusp.ps1 / levelusp.sh (operação no notebook)
-.github/workflows/  ci.yml, cd.yml
+.github/workflows/  ci.yml (CI + publicação das imagens)
 legacy/        código da versão Supabase/Vercel (referência)
 ```
 
