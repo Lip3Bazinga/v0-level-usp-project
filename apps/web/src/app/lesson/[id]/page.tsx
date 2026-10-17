@@ -1,6 +1,5 @@
 "use client"
 
-import { useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ResponsiveWorkspace } from "@/components/ide/responsive-workspace"
 import { Header } from "@/components/ide/header"
@@ -9,28 +8,18 @@ import { LessonFooter } from "@/components/ide/lesson-footer"
 import { CodeEditor } from "@/components/ide/code-editor"
 import { ConsolePanel } from "@/components/ide/console-panel"
 import { FileExplorer } from "@/components/ide/file-explorer"
-import { SuccessFeedback } from "@/components/ide/success-feedback"
+import { getLevelUpTransition, SuccessFeedback } from "@/components/ide/success-feedback"
 import { IDEProvider, useIDE } from "@/contexts/ide-context"
 import type { Lesson, LessonSummary } from "@levelusp/contracts"
 import { fetchPublishedLessonSummaries, fetchLesson } from "@/lib/api"
 import { Loader2, BookOpen } from "lucide-react"
 import { useAsyncResource } from "@/hooks/use-async-resource"
+import { useLessonNavigation } from "@/hooks/use-lesson-navigation"
 import { TheoryLessonLayout } from "@/components/ide/theory-lesson-layout"
 import { QuizLessonLayout } from "@/components/ide/quiz-lesson-layout"
 import { ROUTES } from "@/lib/constants"
 
-// ── Layout interno (consome o IDEContext) ──────────────────────────────────────
-
-function LessonWorkspace({
-  lesson,
-  allLessons,
-  currentIndex,
-}: {
-  lesson: Lesson
-  allLessons: LessonSummary[]
-  currentIndex: number
-}) {
-  const router = useRouter()
+function LessonWorkspace({ lesson, allLessons, currentIndex }: LessonPageData) {
   const {
     files, activePath, openPaths, setActivePath, openFile, closeTab, updateFileContent,
     createFile, renameFile, deleteFile,
@@ -40,44 +29,13 @@ function LessonWorkspace({
     hasRun, hasOutput, canVerify, lessonProgress, allPassed, isVerifying,
     lastResult, levelBefore, showSuccess, setShowSuccess,
   } = useIDE()
-
-  // Filtra apenas lições do mesmo curso para progresso e navegação corretos
-  const courseLessons = allLessons.filter((l) => l.course_id === lesson.course_id)
-  const courseIndex = courseLessons.findIndex((l) => l.id === lesson.id)
-  const courseTotal = courseLessons.length || 1
-
-  const nextLesson = allLessons[currentIndex + 1]
-  const hasNextLesson = !!nextLesson && nextLesson.course_id === lesson.course_id
-  const isCourseEnd = !hasNextLesson && !!lesson.course_id
-
-  const handlePrev = useCallback(() => {
-    const prev = allLessons[currentIndex - 1]
-    if (prev && prev.course_id === lesson.course_id) router.push(ROUTES.lesson(prev.id))
-  }, [allLessons, currentIndex, lesson.course_id, router])
-
-  const handleNext = useCallback(() => {
-    const next = allLessons[currentIndex + 1]
-    if (next && next.course_id === lesson.course_id) {
-      router.push(ROUTES.lesson(next.id))
-    } else if (lesson.course_id) {
-      router.push(ROUTES.course(lesson.course_id))
-    } else {
-      router.push(ROUTES.dashboard)
-    }
-  }, [allLessons, currentIndex, lesson.course_id, router])
-
-  // Abas abertas = paths abertos resolvidos para { path, content }
-  const tabs = openPaths
-    .map((p) => files.find((f) => f.path === p))
-    .filter((f): f is NonNullable<typeof f> => !!f)
-    .map((f) => ({ path: f.path, content: f.content }))
+  const navigation = useLessonNavigation(allLessons, currentIndex, lesson)
+  const levelUp = getLevelUpTransition(lastResult, levelBefore)
+  const tabs = openPaths.map((path) => files.find((file) => file.path === path)).filter((file) => file !== undefined)
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-white">
-      <Header
-        lessonTitle={`Módulo: ${lesson.module} — ${lesson.title}`}
-        lessonProgress={lessonProgress}
-      />
+      <Header lessonTitle={`Módulo: ${lesson.module} — ${lesson.title}`} lessonProgress={lessonProgress} />
 
       <div className="flex-1 overflow-hidden">
         <ResponsiveWorkspace
@@ -87,13 +45,13 @@ function LessonWorkspace({
               title={lesson.title}
               estimatedTime={`Dificuldade: ${lesson.difficulty} · +${lesson.xp_reward} XP`}
               content={lesson.content_markdown}
-              checkpoints={(lesson.checkpoints ?? []).map((c) => ({ ...c, completed: allPassed }))}
+              checkpoints={lesson.checkpoints.map((checkpoint) => ({ ...checkpoint, isCompleted: allPassed }))}
               hasRun={hasRun}
               hasOutput={hasOutput}
               onVerify={verify}
               isVerifying={isVerifying}
               canVerify={canVerify || allPassed}
-              verified={allPassed}
+              isVerified={allPassed}
             />
           }
           editor={
@@ -108,8 +66,7 @@ function LessonWorkspace({
               onStop={stop}
               isRunning={isExecuting}
               isInstalling={isInstalling}
-              pyodideStatus={pythonStatus}
-              solutionCode={undefined}
+              pythonStatus={pythonStatus}
             />
           }
           console={
@@ -134,21 +91,21 @@ function LessonWorkspace({
       </div>
 
       <LessonFooter
-        currentIndex={courseIndex >= 0 ? courseIndex : currentIndex}
-        total={courseTotal}
-        onPrev={handlePrev}
-        onNext={handleNext}
+        currentIndex={navigation.positionInCourse}
+        total={navigation.courseLessonCount}
+        onPrev={navigation.goToPrevious}
+        onNext={navigation.goToNext}
       />
 
       <SuccessFeedback
         show={showSuccess}
         xpEarned={lastResult?.xp_awarded ?? 0}
-        hasNextLesson={hasNextLesson}
-        isCourseEnd={isCourseEnd}
-        prevLevel={lastResult?.level_up ? (levelBefore ?? lastResult.new_level - 1) : undefined}
-        newLevel={lastResult?.level_up ? lastResult.new_level : undefined}
+        hasNextLesson={navigation.hasNextLesson}
+        isCourseEnd={navigation.isCourseEnd}
+        prevLevel={levelUp?.prevLevel}
+        newLevel={levelUp?.newLevel}
         onClose={() => setShowSuccess(false)}
-        onNext={handleNext}
+        onNext={navigation.goToNext}
       />
     </div>
   )
@@ -223,29 +180,12 @@ export default function LessonPage() {
 
   const { lesson, allLessons, currentIndex } = page.data
 
-  // Questionário: múltipla escolha, correção server-side, sem IDE
+  // Questionário e teoria não usam a IDE; a correção do questionário é feita no servidor.
   if (lesson.lesson_type === "quiz") {
-    return (
-      <QuizLessonLayout
-        key={lesson.id}
-        lesson={lesson}
-        allLessons={allLessons}
-        currentIndex={currentIndex}
-      />
-    )
+    return <QuizLessonLayout key={lesson.id} lesson={lesson} allLessons={allLessons} currentIndex={currentIndex} />
   }
-
-  // Aulas teóricas: layout leve sem IDE
   if (lesson.lesson_type === "theory") {
-    return (
-      <TheoryLessonLayout
-        key={lesson.id}
-        lesson={lesson}
-        allLessons={allLessons}
-        currentIndex={currentIndex}
-        onComplete={() => {}}
-      />
-    )
+    return <TheoryLessonLayout key={lesson.id} lesson={lesson} allLessons={allLessons} currentIndex={currentIndex} />
   }
 
   return (

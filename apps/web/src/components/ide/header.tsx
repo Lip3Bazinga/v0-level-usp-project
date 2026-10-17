@@ -1,64 +1,36 @@
 "use client"
 
-import { useRef, useEffect, useState } from "react"
+import { useEffect, useRef, type RefObject } from "react"
 import Link from "next/link"
-import { Flame, Zap, Trophy, ChevronDown, User, Settings, LogOut, LayoutDashboard } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { useRouter } from "next/navigation"
-import { useAuth } from "@/contexts/auth-context"
 import { motion, AnimatePresence } from "framer-motion"
+import { Flame, Zap, Trophy, ChevronDown } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { AccountMenuContent } from "@/components/dashboard/student-shell"
+import { useAuth } from "@/contexts/auth-context"
+import { useTransientFlag } from "@/hooks/use-transient-value"
 import { computeLevelProgress, formatNumber, formatXp, getInitials } from "@/lib/utils"
 import { ROUTES } from "@/lib/constants"
 
 interface HeaderProps {
   lessonTitle: string
   lessonProgress: number
-  xpBadgeRef?: React.RefObject<HTMLDivElement | null>
+  /** Alvo das partículas de XP do feedback de sucesso. */
+  xpBadgeRef?: RefObject<HTMLDivElement | null>
 }
 
-
+const XP_PULSE_MS = 900
 
 export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps) {
-  const router = useRouter()
-  const { profile, signOut } = useAuth()
-  const internalBadgeRef = useRef<HTMLDivElement>(null)
-  const resolvedRef = xpBadgeRef ?? internalBadgeRef
-
+  const { profile } = useAuth()
   const level = profile?.level ?? 1
   const totalXp = profile?.total_xp ?? 0
   const streak = profile?.current_streak ?? 0
-  const { xpInLevel, xpLevelRange, levelPercent: xpPct } = computeLevelProgress(totalXp, level)
   const initials = profile?.full_name ? getInitials(profile.full_name) : "?"
-
-  // Pulse animation on xp change
-  const [xpPulse, setXpPulse] = useState(false)
-  const prevTotalXp = useRef(totalXp)
-  useEffect(() => {
-    if (totalXp !== prevTotalXp.current && prevTotalXp.current !== 0) {
-      setXpPulse(true)
-      const t = setTimeout(() => setXpPulse(false), 900)
-      prevTotalXp.current = totalXp
-      return () => clearTimeout(t)
-    }
-    prevTotalXp.current = totalXp
-  }, [totalXp])
-
-  const handleSignOut = async () => {
-    await signOut()
-    window.location.href = ROUTES.login
-  }
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-white px-3 sm:px-4">
-      {/* Logo e Título */}
       <div className="flex items-center gap-2 sm:gap-4">
         <Link href={ROUTES.dashboard} aria-label="LevelUSP Voltar ao painel" className="flex items-center gap-2 rounded-xl">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-level-purple">
@@ -75,7 +47,6 @@ export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps)
         </div>
       </div>
 
-      {/* Barra de progresso central */}
       <div className="hidden flex-1 items-center justify-center gap-3 px-8 md:flex">
         <div className="flex items-center gap-2 rounded-full bg-level-purple-light px-3 py-1">
           <Trophy className="h-4 w-4 text-level-purple" />
@@ -88,103 +59,115 @@ export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps)
               style={{ width: `${lessonProgress}%` }}
             />
           </div>
-          <span className="absolute right-0 top-4 text-[10px] font-medium text-level-purple">
-            {lessonProgress}% da lição
-          </span>
+          <span className="absolute right-0 top-4 text-[10px] font-medium text-level-purple">{lessonProgress}% da lição</span>
         </div>
       </div>
 
-      {/* Gamificação e Perfil */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* XP Badge with animated circular border */}
-        <motion.div
-          ref={resolvedRef as React.RefObject<HTMLDivElement>}
-          animate={xpPulse ? { scale: [1, 1.18, 1] } : {}}
-          transition={{ duration: 0.4, ease: "easeInOut" }}
-          className="relative flex items-center"
-          title={`${xpInLevel} / ${xpLevelRange} XP neste nível`}
-        >
-          {/* Pill de XP: linha única + barra fina de progresso do nível */}
-          <div className="flex flex-col gap-1 rounded-full bg-level-purple px-3 py-1.5 text-white">
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <Zap className="h-3.5 w-3.5 shrink-0 text-yellow-300" />
-              <span className="text-xs font-bold leading-none">
-                {formatNumber(xpInLevel)}
-                <span className="font-normal opacity-95">/{formatXp(xpLevelRange)}</span>
-              </span>
-            </div>
-            <div className="h-1 w-full overflow-hidden rounded-full bg-white/25">
-              <motion.div
-                className="h-full rounded-full bg-yellow-300"
-                initial={{ width: 0 }}
-                animate={{ width: `${xpPct}%` }}
-                transition={{ duration: 1, ease: "easeOut" }}
-              />
-            </div>
-          </div>
+        <XpPill totalXp={totalXp} level={level} badgeRef={xpBadgeRef} />
+        <StreakPill streak={streak} />
 
-          {/* XP gain pop */}
-          <AnimatePresence>
-            {xpPulse && (
-              <motion.div
-                initial={{ opacity: 0, y: 0, scale: 0.8 }}
-                animate={{ opacity: 1, y: -28, scale: 1 }}
-                exit={{ opacity: 0, y: -40, scale: 0.7 }}
-                transition={{ duration: 0.6 }}
-                className="pointer-events-none absolute left-1/2 -translate-x-1/2 rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-black text-yellow-900 shadow-lg"
-              >
-                +XP!
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-
-        {/* Streak */}
-        <div className="flex items-center gap-1.5 rounded-full bg-linear-to-r from-orange-500 to-red-500 px-3 py-1.5 text-white">
-          <motion.div
-            animate={streak > 0 ? { scale: [1, 1.2, 1], rotate: [-5, 5, 0] } : {}}
-            transition={{ duration: 0.6, repeat: streak > 0 ? Infinity : 0, repeatDelay: 3 }}
-          >
-            <Flame className="h-4 w-4 text-yellow-300" />
-          </motion.div>
-          <span className="whitespace-nowrap text-xs font-bold leading-none">
-            {streak} <span className="font-normal opacity-80">{streak === 1 ? "dia" : "dias"}</span>
-          </span>
-        </div>
-
-        {/* Avatar/Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" aria-label={`Menu da conta (${initials})`} className="flex items-center gap-2 rounded-full px-2 hover:bg-level-purple-light">
+            <Button
+              variant="ghost"
+              aria-label={`Menu da conta (${initials})`}
+              className="flex items-center gap-2 rounded-full px-2 hover:bg-level-purple-light"
+            >
               <Avatar className="h-8 w-8 border-2 border-level-purple">
-                <AvatarFallback className="bg-level-purple-light text-level-purple-dark text-xs font-bold">
-                  {initials}
-                </AvatarFallback>
+                <AvatarFallback className="bg-level-purple-light text-xs font-bold text-level-purple-dark">{initials}</AvatarFallback>
               </Avatar>
               <ChevronDown className="h-4 w-4 text-level-purple" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={() => router.push(ROUTES.dashboard)}>
-              <LayoutDashboard className="mr-2 h-4 w-4" />
-              Painel
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push(ROUTES.profile(profile?.username))}>
-              <User className="mr-2 h-4 w-4" />
-              Meu Perfil
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push(ROUTES.settings)}>
-              <Settings className="mr-2 h-4 w-4" />
-              Configurações
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive" onClick={handleSignOut}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Sair
-            </DropdownMenuItem>
-          </DropdownMenuContent>
+          <AccountMenuContent hasDashboardLink />
         </DropdownMenu>
       </div>
     </header>
+  )
+}
+
+/** Pulsa quando o XP muda durante a sessão (não na primeira carga do perfil). */
+function useXpPulse(totalXp: number): boolean {
+  const pulse = useTransientFlag(XP_PULSE_MS)
+  const { activate } = pulse
+  const previousXpRef = useRef(totalXp)
+
+  useEffect(() => {
+    const previousXp = previousXpRef.current
+    previousXpRef.current = totalXp
+    if (totalXp !== previousXp && previousXp !== 0) activate()
+  }, [totalXp, activate])
+
+  return pulse.isActive
+}
+
+interface XpPillProps {
+  totalXp: number
+  level: number
+  badgeRef?: RefObject<HTMLDivElement | null>
+}
+
+function XpPill({ totalXp, level, badgeRef }: XpPillProps) {
+  const isPulsing = useXpPulse(totalXp)
+  const { xpInLevel, xpLevelRange, levelPercent } = computeLevelProgress(totalXp, level)
+
+  return (
+    <motion.div
+      ref={badgeRef}
+      animate={isPulsing ? { scale: [1, 1.18, 1] } : {}}
+      transition={{ duration: 0.4, ease: "easeInOut" }}
+      className="relative flex items-center"
+      title={`${xpInLevel} / ${xpLevelRange} XP neste nível`}
+    >
+      <div className="flex flex-col gap-1 rounded-full bg-level-purple px-3 py-1.5 text-white">
+        <div className="flex items-center gap-1.5 whitespace-nowrap">
+          <Zap className="h-3.5 w-3.5 shrink-0 text-yellow-300" />
+          <span className="text-xs font-bold leading-none">
+            {formatNumber(xpInLevel)}
+            <span className="font-normal opacity-95">/{formatXp(xpLevelRange)}</span>
+          </span>
+        </div>
+        <div className="h-1 w-full overflow-hidden rounded-full bg-white/25">
+          <motion.div
+            className="h-full rounded-full bg-yellow-300"
+            initial={{ width: 0 }}
+            animate={{ width: `${levelPercent}%` }}
+            transition={{ duration: 1, ease: "easeOut" }}
+          />
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {isPulsing && (
+          <motion.div
+            initial={{ opacity: 0, y: 0, scale: 0.8 }}
+            animate={{ opacity: 1, y: -28, scale: 1 }}
+            exit={{ opacity: 0, y: -40, scale: 0.7 }}
+            transition={{ duration: 0.6 }}
+            className="pointer-events-none absolute left-1/2 -translate-x-1/2 rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-black text-yellow-900 shadow-lg"
+          >
+            +XP!
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  )
+}
+
+function StreakPill({ streak }: { streak: number }) {
+  const hasStreak = streak > 0
+  return (
+    <div className="flex items-center gap-1.5 rounded-full bg-linear-to-r from-orange-500 to-red-500 px-3 py-1.5 text-white">
+      <motion.div
+        animate={hasStreak ? { scale: [1, 1.2, 1], rotate: [-5, 5, 0] } : {}}
+        transition={{ duration: 0.6, repeat: hasStreak ? Infinity : 0, repeatDelay: 3 }}
+      >
+        <Flame className="h-4 w-4 text-yellow-300" />
+      </motion.div>
+      <span className="whitespace-nowrap text-xs font-bold leading-none">
+        {streak} <span className="font-normal opacity-80">{streak === 1 ? "dia" : "dias"}</span>
+      </span>
+    </div>
   )
 }

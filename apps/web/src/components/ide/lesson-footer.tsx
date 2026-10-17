@@ -4,29 +4,35 @@ import { useEffect } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 
 interface LessonFooterProps {
-  currentIndex: number   // 0-based
+  /** Posição da lição no curso, a partir de 0. */
+  currentIndex: number
   total: number
   onPrev: () => void
   onNext: () => void
 }
 
+/** Com Alt: "," volta e "." avança, como indicam os títulos dos botões. */
+const PREVIOUS_SHORTCUT_KEY = ","
+const NEXT_SHORTCUT_KEY = "."
+
 export function LessonFooter({ currentIndex, total, onPrev, onNext }: LessonFooterProps) {
   const isFirst = currentIndex <= 0
   const isLast = currentIndex >= total - 1
 
-  // Atalhos de teclado: Alt+, (voltar) e Alt+. (próximo)
   useEffect(() => {
-    function handler(e: KeyboardEvent) {
-      if (e.altKey && e.key === ",") { e.preventDefault(); onPrev() }
-      if (e.altKey && e.key === ".") { e.preventDefault(); onNext() }
+    const handleShortcut = (event: KeyboardEvent) => {
+      if (!event.altKey) return
+      const navigate = event.key === PREVIOUS_SHORTCUT_KEY ? onPrev : event.key === NEXT_SHORTCUT_KEY ? onNext : null
+      if (!navigate) return
+      event.preventDefault()
+      navigate()
     }
-    window.addEventListener("keydown", handler)
-    return () => window.removeEventListener("keydown", handler)
+    window.addEventListener("keydown", handleShortcut)
+    return () => window.removeEventListener("keydown", handleShortcut)
   }, [onPrev, onNext])
 
   return (
     <footer aria-label="Navegação entre lições" className="flex h-12 shrink-0 items-center justify-between border-t border-border bg-white px-4">
-      {/* Contador de progresso */}
       <div className="flex items-center gap-1.5">
         <span className="text-xs font-semibold text-level-purple-dark">
           {currentIndex + 1}
@@ -35,7 +41,6 @@ export function LessonFooter({ currentIndex, total, onPrev, onNext }: LessonFoot
         <span className="text-xs text-gray-500">{total}</span>
       </div>
 
-      {/* Barra de progresso mini */}
       <div className="hidden flex-1 items-center px-6 sm:flex">
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
           <div
@@ -45,7 +50,6 @@ export function LessonFooter({ currentIndex, total, onPrev, onNext }: LessonFoot
         </div>
       </div>
 
-      {/* Botões de navegação */}
       <div className="flex items-center gap-2">
         <button
           onClick={onPrev}
