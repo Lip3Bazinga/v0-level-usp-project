@@ -91,6 +91,7 @@ function LessonWorkspace({
               onVerify={verify}
               isVerifying={isVerifying}
               canVerify={canVerify || allPassed}
+              verified={allPassed}
             />
           }
           editor={

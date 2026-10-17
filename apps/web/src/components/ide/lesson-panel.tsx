@@ -38,6 +38,8 @@ interface LessonPanelProps {
   isVerifying?: boolean
   /** Habilita o Verificar somente após uma execução sem erros */
   canVerify?: boolean
+  /** A correção do servidor aprovou a resposta nesta sessão. */
+  verified?: boolean
 }
 
 function HintAccordion({ hint }: { hint: string }) {
@@ -99,8 +101,10 @@ export function LessonPanel({
   onVerify,
   isVerifying,
   canVerify = true,
+  verified,
 }: LessonPanelProps) {
-  const allCheckpointsDone = checkpoints.every((c) => c.completed)
+  // Sem checkpoints, `[].every` seria true e a lição apareceria como verificada de cara.
+  const allCheckpointsDone = verified ?? (checkpoints.length > 0 && checkpoints.every((c) => c.completed))
 
   return (
     <div className="flex h-full flex-col bg-white">

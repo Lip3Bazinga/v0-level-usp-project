@@ -10,10 +10,16 @@ export async function login(page: Page, user: { email: string; password: string 
   await page.getByLabel("Email").fill(user.email)
   await page.getByLabel("Senha", { exact: true }).fill(user.password)
   await page.getByRole("button", { name: "Entrar" }).click()
-  // Primeiro acesso do dia mostra a animação de sequência antes de redirecionar.
-  const continuar = page.getByRole("button", { name: "Continuar" })
-  await continuar.click({ timeout: 4_000 }).catch(() => undefined)
-  await expect(page).toHaveURL(new RegExp(next.replace(/[/]/g, "\\/")), { timeout: 20_000 })
+  // O primeiro acesso do dia mostra a animação de sequência e só redireciona
+  // depois de "Continuar". Espera o que vier primeiro: o redirecionamento ou o modal.
+  const target = new RegExp(next.replace(/[/]/g, "\\/"))
+  const continuar = page.getByRole("button", { name: "Continuar", exact: true })
+  const outcome = await Promise.race([
+    page.waitForURL(target, { timeout: 20_000 }).then(() => "redirect" as const),
+    continuar.waitFor({ state: "visible", timeout: 20_000 }).then(() => "streak" as const),
+  ])
+  if (outcome === "streak") await continuar.click()
+  await expect(page).toHaveURL(target, { timeout: 20_000 })
 }
 
 /** Chamadas diretas à API usando os cookies da página (mesma origem). */
