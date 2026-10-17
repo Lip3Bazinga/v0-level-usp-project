@@ -1,7 +1,8 @@
 import { z } from "zod"
 
-export type UserRole = "student" | "teacher" | "admin"
-export const userRoleSchema = z.enum(["student", "teacher", "admin"])
+export const USER_ROLES = ["student", "teacher", "admin"] as const
+export const userRoleSchema = z.enum(USER_ROLES)
+export type UserRole = z.infer<typeof userRoleSchema>
 
 /** Perfil público + gamificação. Mantém snake_case por compatibilidade com o front. */
 export interface Profile {
@@ -27,6 +28,8 @@ export interface Profile {
 /** Perfil exposto a terceiros (sem e-mail). */
 export type PublicProfile = Omit<Profile, "email" | "suspended">
 
+export const MAX_FULL_NAME_LENGTH = 120
+
 export const usernameSchema = z
   .string()
   .trim()
@@ -34,11 +37,14 @@ export const usernameSchema = z
   .max(32, "Use no máximo 32 caracteres")
   .regex(/^[a-z0-9_]+$/, "Use apenas letras minúsculas, números e _")
 
+const fullNameSchema = z.string().trim().min(1).max(MAX_FULL_NAME_LENGTH)
+const bioSchema = z.string().trim().max(500).nullable()
+
 export const updateMyProfileSchema = z
   .object({
-    full_name: z.string().trim().min(1).max(120),
+    full_name: fullNameSchema,
     username: usernameSchema,
-    bio: z.string().trim().max(500).nullable(),
+    bio: bioSchema,
     /** /api/files/... (enviada pelo próprio usuário) ou https externo — validado na API. */
     avatar_url: z.string().max(2048).nullable(),
   })
@@ -48,11 +54,11 @@ export type UpdateMyProfileInput = z.infer<typeof updateMyProfileSchema>
 /** Edição administrativa (papel, suspensão, dados básicos). */
 export const adminUpdateUserSchema = z
   .object({
-    full_name: z.string().trim().min(1).max(120),
+    full_name: fullNameSchema,
     username: usernameSchema,
     role: userRoleSchema,
     suspended: z.boolean(),
-    bio: z.string().trim().max(500).nullable(),
+    bio: bioSchema,
   })
   .partial()
 export type AdminUpdateUserInput = z.infer<typeof adminUpdateUserSchema>

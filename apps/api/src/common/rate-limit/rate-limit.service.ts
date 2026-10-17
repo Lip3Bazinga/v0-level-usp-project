@@ -1,5 +1,9 @@
 import { Injectable } from "@nestjs/common"
 import { TooManyRequests } from "../errors/app-error"
+import type { RateLimitPolicy } from "./rate-limit.policies"
+
+/** Acima disso, chaves sem acesso recente são descartadas (evita crescer sem limite). */
+const MAX_TRACKED_KEYS = 50_000
 
 /**
  * Limite por usuário e ação (janela deslizante em memória). Suficiente para
@@ -7,21 +11,25 @@ import { TooManyRequests } from "../errors/app-error"
  */
 @Injectable()
 export class RateLimitService {
-  private readonly hits = new Map<string, number[]>()
+  private readonly hitsByKey = new Map<string, number[]>()
 
-  consume(key: string, limit: number, windowMs: number, message?: string): void {
+  /** Registra uma ação de `subjectId` (usuário ou alvo) ou lança 429 se passou do limite. */
+  consume(policy: RateLimitPolicy, subjectId: string): void {
+    const key = `${policy.scope}:${subjectId}`
     const now = Date.now()
-    const recent = (this.hits.get(key) ?? []).filter((t) => now - t < windowMs)
-    if (recent.length >= limit) {
-      this.hits.set(key, recent)
-      throw TooManyRequests(message)
+    const recentHits = (this.hitsByKey.get(key) ?? []).filter((hitAt) => now - hitAt < policy.windowMs)
+    if (recentHits.length >= policy.limit) {
+      this.hitsByKey.set(key, recentHits)
+      throw TooManyRequests(policy.message)
     }
-    recent.push(now)
-    this.hits.set(key, recent)
-    if (this.hits.size > 50_000) this.sweep(now, windowMs)
+    recentHits.push(now)
+    this.hitsByKey.set(key, recentHits)
+    if (this.hitsByKey.size > MAX_TRACKED_KEYS) this.sweep(now, policy.windowMs)
   }
 
-  private sweep(now: number, windowMs: number) {
-    for (const [k, v] of this.hits) if (!v.some((t) => now - t < windowMs)) this.hits.delete(k)
+  private sweep(now: number, windowMs: number): void {
+    for (const [key, hits] of this.hitsByKey) {
+      if (!hits.some((hitAt) => now - hitAt < windowMs)) this.hitsByKey.delete(key)
+    }
   }
 }

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { projectFileSchema } from "./lessons"
+import { DEFAULT_ENTRY_FILE, projectFileSchema } from "./lessons"
 import { jsonSchema, type Json } from "./grading"
 
 /**
@@ -7,6 +7,9 @@ import { jsonSchema, type Json } from "./grading"
  * O executor não tem segredos nem acesso ao banco: recebe arquivos e sondas,
  * devolve observações. Nenhuma sonda carrega o valor esperado.
  */
+/** Orçamento padrão de uma execução no executor. */
+export const DEFAULT_RUNNER_LIMITS = { timeoutMs: 10_000, memoryMb: 128 } as const
+
 export const probeSchema = z.discriminatedUnion("kind", [
   z.object({ id: z.string(), kind: z.literal("run"), stdin: z.string().max(100_000).default("") }),
   z.object({
@@ -24,16 +27,17 @@ export type Probe = z.infer<typeof probeSchema>
 
 export const runnerJobSchema = z.object({
   files: z.array(projectFileSchema).min(1).max(30),
-  entry: z.string().default("main.py"),
+  entry: z.string().default(DEFAULT_ENTRY_FILE),
   probes: z.array(probeSchema).min(1).max(100),
   limits: z
     .object({
-      timeoutMs: z.number().int().min(500).max(30_000).default(10_000),
-      memoryMb: z.number().int().min(32).max(512).default(128),
+      timeoutMs: z.number().int().min(500).max(30_000).default(DEFAULT_RUNNER_LIMITS.timeoutMs),
+      memoryMb: z.number().int().min(32).max(512).default(DEFAULT_RUNNER_LIMITS.memoryMb),
     })
-    .default({ timeoutMs: 10_000, memoryMb: 128 }),
+    .default({ ...DEFAULT_RUNNER_LIMITS }),
 })
 export type RunnerJob = z.infer<typeof runnerJobSchema>
+export type RunnerLimits = RunnerJob["limits"]
 
 export interface AstFeatures {
   constructs: string[]
@@ -47,7 +51,7 @@ export interface AstFeatures {
 export interface ProbeObservation {
   id: string
   ok: boolean
-  /** Saída padrão do programa (run) */
+  /** Saída padrão do programa (run). */
   stdout?: string
   stderr?: string
   /** Valor retornado (call) ou valores lidos (globals), em JSON canônico. */

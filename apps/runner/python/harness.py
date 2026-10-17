@@ -28,11 +28,15 @@ import sys
 
 PROJECT = "/work"
 MAX_TEXT = 64_000
+MAX_CANON_DEPTH = 20
+# Inteiros acima disso perdem precisão no JSON (double) e viajam como texto.
+MAX_SAFE_INTEGER = 2**53
+MAX_REPR_CHARS = 2000
 
 # O nonce sai de sys.argv antes de qualquer código do aluno rodar.
 _NONCE = sys.argv.pop(1) if len(sys.argv) > 1 else ""
-with open("/harness/probes.json", encoding="utf-8") as fh:
-    _job = json.load(fh)
+with open("/harness/probes.json", encoding="utf-8") as _job_file:
+    _job = json.load(_job_file)
 _probes = _job["probes"]
 _entry = _job.get("entry", "main.py")
 del _job
@@ -49,12 +53,12 @@ def _clip(text):
 
 def _canon(value, depth=0):
     """Converte valores Python em JSON canônico + preserva o tipo raiz."""
-    if depth > 20:
+    if depth > MAX_CANON_DEPTH:
         return {"$repr": "<profundidade excedida>"}
     if value is None or isinstance(value, (bool, str)):
         return value
     if isinstance(value, int):
-        return value if abs(value) < 2**53 else {"$int": str(value)}
+        return value if abs(value) < MAX_SAFE_INTEGER else {"$int": str(value)}
     if isinstance(value, float):
         if math.isnan(value):
             return {"$float": "nan"}
@@ -62,20 +66,20 @@ def _canon(value, depth=0):
             return {"$float": "inf" if value > 0 else "-inf"}
         return value
     if isinstance(value, (list, tuple)):
-        return [_canon(v, depth + 1) for v in value]
+        return [_canon(item, depth + 1) for item in value]
     if isinstance(value, (set, frozenset)):
-        items = [_canon(v, depth + 1) for v in value]
+        items = [_canon(item, depth + 1) for item in value]
         try:
-            items.sort(key=lambda x: json.dumps(x, sort_keys=True))
+            items.sort(key=lambda item: json.dumps(item, sort_keys=True))
         except Exception:
             pass
         return items
     if isinstance(value, dict):
-        if all(isinstance(k, str) for k in value):
-            return {k: _canon(v, depth + 1) for k, v in value.items()}
-        return {"$dict": [[_canon(k, depth + 1), _canon(v, depth + 1)] for k, v in value.items()]}
+        if all(isinstance(key, str) for key in value):
+            return {key: _canon(item, depth + 1) for key, item in value.items()}
+        return {"$dict": [[_canon(key, depth + 1), _canon(item, depth + 1)] for key, item in value.items()]}
     try:
-        return {"$repr": repr(value)[:2000]}
+        return {"$repr": repr(value)[:MAX_REPR_CHARS]}
     except Exception:
         return {"$repr": "<repr falhou>"}
 
@@ -85,94 +89,97 @@ def _type_name(value):
 
 
 def _error_text(exc):
-    msg = str(exc)
-    return "%s: %s" % (type(exc).__name__, msg) if msg else type(exc).__name__
+    message = str(exc)
+    return "%s: %s" % (type(exc).__name__, message) if message else type(exc).__name__
 
 
 # Referência própria à saída real (o aluno pode trocar sys.stdout).
-_out = sys.__stdout__.buffer
+_host_stdout = sys.__stdout__.buffer
 
 
-def _write(obs):
-    obs["id"] = _probe["id"]
-    data = (_NONCE + " " + json.dumps(obs, ensure_ascii=False) + "\n").encode("utf-8")
-    _out.write(data)
-    _out.flush()
+def _write(observation):
+    observation["id"] = _probe["id"]
+    line = (_NONCE + " " + json.dumps(observation, ensure_ascii=False) + "\n").encode("utf-8")
+    _host_stdout.write(line)
+    _host_stdout.flush()
+
+
+def _read_entry_source():
+    with open(os.path.join(PROJECT, _entry), encoding="utf-8") as entry_file:
+        return entry_file.read()
 
 
 def _load_project_ns(stdin_text=""):
-    """Executa o arquivo de entrada como __main__ e devolve (ns, stdout, stderr, erro)."""
+    """Executa o arquivo de entrada como __main__ e devolve (namespace, stdout, stderr, erro)."""
     sys.path.insert(0, PROJECT)
-    path = os.path.join(PROJECT, _entry)
-    with open(path, encoding="utf-8") as fh:
-        source = fh.read()
-    ns = {"__name__": "__main__", "__file__": path, "__builtins__": builtins}
-    out, err = io.StringIO(), io.StringIO()
-    old_stdin = sys.stdin
+    source = _read_entry_source()
+    namespace = {"__name__": "__main__", "__file__": os.path.join(PROJECT, _entry), "__builtins__": builtins}
+    captured_stdout, captured_stderr = io.StringIO(), io.StringIO()
+    original_stdin = sys.stdin
     sys.stdin = io.StringIO(stdin_text)
     error = None
     try:
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        with contextlib.redirect_stdout(captured_stdout), contextlib.redirect_stderr(captured_stderr):
             os.chdir(PROJECT)
-            exec(compile(source, _entry, "exec"), ns)
+            exec(compile(source, _entry, "exec"), namespace)
     except SystemExit as exc:
         if exc.code not in (None, 0):
             error = "SystemExit: %s" % exc.code
     except BaseException as exc:  # noqa: BLE001 — qualquer erro do aluno vira observação
         error = _error_text(exc)
     finally:
-        sys.stdin = old_stdin
-    return ns, out.getvalue(), err.getvalue(), error
+        sys.stdin = original_stdin
+    return namespace, captured_stdout.getvalue(), captured_stderr.getvalue(), error
 
 
 def probe_run():
     _, stdout, stderr, error = _load_project_ns(_probe.get("stdin", ""))
-    stdout, t1 = _clip(stdout)
-    stderr, t2 = _clip(stderr)
-    _write({"ok": error is None, "stdout": stdout, "stderr": stderr, "error": error, "truncated": t1 or t2})
+    stdout, stdout_truncated = _clip(stdout)
+    stderr, stderr_truncated = _clip(stderr)
+    _write({"ok": error is None, "stdout": stdout, "stderr": stderr, "error": error, "truncated": stdout_truncated or stderr_truncated})
 
 
-def _resolve(ns, dotted):
+def _resolve(namespace, dotted):
     parts = dotted.split(".")
-    obj = ns[parts[0]]
-    for p in parts[1:]:
-        obj = getattr(obj, p)
-    return obj
+    target = namespace[parts[0]]
+    for attribute in parts[1:]:
+        target = getattr(target, attribute)
+    return target
 
 
 def probe_call():
-    ns, stdout, _, error = _load_project_ns("")
+    namespace, stdout, _, error = _load_project_ns("")
     if error is not None:
         _write({"ok": False, "error": error, "stdout": _clip(stdout)[0]})
         return
     try:
-        fn = _resolve(ns, _probe["function"])
+        function = _resolve(namespace, _probe["function"])
     except (KeyError, AttributeError):
         _write({"ok": False, "error": "NameError: '%s' não foi definida" % _probe["function"]})
         return
-    if not callable(fn):
+    if not callable(function):
         _write({"ok": False, "error": "TypeError: '%s' não é uma função" % _probe["function"]})
         return
-    out = io.StringIO()
+    call_stdout = io.StringIO()
     try:
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
-            value = fn(*_probe.get("args", []), **_probe.get("kwargs", {}))
+        with contextlib.redirect_stdout(call_stdout), contextlib.redirect_stderr(io.StringIO()):
+            value = function(*_probe.get("args", []), **_probe.get("kwargs", {}))
     except BaseException as exc:  # noqa: BLE001
-        _write({"ok": False, "error": _error_text(exc), "stdout": _clip(out.getvalue())[0]})
+        _write({"ok": False, "error": _error_text(exc), "stdout": _clip(call_stdout.getvalue())[0]})
         return
-    _write({"ok": True, "value": _canon(value), "type": _type_name(value), "stdout": _clip(out.getvalue())[0]})
+    _write({"ok": True, "value": _canon(value), "type": _type_name(value), "stdout": _clip(call_stdout.getvalue())[0]})
 
 
 def probe_globals():
-    ns, stdout, _, error = _load_project_ns("")
+    namespace, stdout, _, error = _load_project_ns("")
     if error is not None:
         _write({"ok": False, "error": error, "stdout": _clip(stdout)[0]})
         return
     values, types, missing = {}, {}, []
     for name in _probe.get("names", []):
-        if name in ns:
-            values[name] = _canon(ns[name])
-            types[name] = _type_name(ns[name])
+        if name in namespace:
+            values[name] = _canon(namespace[name])
+            types[name] = _type_name(namespace[name])
         else:
             missing.append(name)
     _write({"ok": True, "values": values, "types": types, "missing": missing, "stdout": _clip(stdout)[0]})
@@ -187,102 +194,122 @@ _CONSTRUCTS = {
 
 
 def _call_name(node):
-    f = node.func
-    if isinstance(f, ast.Name):
-        return f.id
-    if isinstance(f, ast.Attribute):
-        return f.attr
+    callee = node.func
+    if isinstance(callee, ast.Name):
+        return callee.id
+    if isinstance(callee, ast.Attribute):
+        return callee.attr
     return None
+
+
+def _project_sources():
+    for directory, _, file_names in os.walk(PROJECT):
+        for file_name in file_names:
+            if file_name.endswith(".py"):
+                yield os.path.join(directory, file_name)
+
+
+def _collect_features(tree, features):
+    for node in ast.walk(tree):
+        construct = _CONSTRUCTS.get(type(node))
+        if construct:
+            features["constructs"].add(construct)
+        if isinstance(node, ast.Call):
+            called = _call_name(node)
+            if called:
+                features["calls"].add(called)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            features["functions"].add(node.name)
+            if any(isinstance(inner, ast.Call) and _call_name(inner) == node.name for inner in ast.walk(node)):
+                features["recursive_functions"].add(node.name)
+        if isinstance(node, ast.ClassDef):
+            features["classes"].add(node.name)
+        if isinstance(node, ast.Import):
+            features["imports"].update(alias.name.split(".")[0] for alias in node.names)
+        if isinstance(node, ast.ImportFrom) and node.module:
+            features["imports"].add(node.module.split(".")[0])
 
 
 def probe_ast():
     """Analisa a estrutura de TODOS os .py do projeto. Não executa nada."""
-    constructs, calls, functions, classes, imports, recursive = set(), set(), set(), set(), set(), set()
-    for root, _, names in os.walk(PROJECT):
-        for name in names:
-            if not name.endswith(".py"):
-                continue
-            with open(os.path.join(root, name), encoding="utf-8") as fh:
-                try:
-                    tree = ast.parse(fh.read())
-                except SyntaxError as exc:
-                    _write({"ok": False, "error": "SyntaxError: %s (linha %s)" % (exc.msg, exc.lineno)})
-                    return
-            for node in ast.walk(tree):
-                kind = _CONSTRUCTS.get(type(node))
-                if kind:
-                    constructs.add(kind)
-                if isinstance(node, ast.Call):
-                    n = _call_name(node)
-                    if n:
-                        calls.add(n)
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    functions.add(node.name)
-                    for sub in ast.walk(node):
-                        if isinstance(sub, ast.Call) and _call_name(sub) == node.name:
-                            recursive.add(node.name)
-                if isinstance(node, ast.ClassDef):
-                    classes.add(node.name)
-                if isinstance(node, ast.Import):
-                    imports.update(a.name.split(".")[0] for a in node.names)
-                if isinstance(node, ast.ImportFrom) and node.module:
-                    imports.add(node.module.split(".")[0])
-    if recursive:
-        constructs.add("recursion")
-    _write({"ok": True, "features": {
-        "constructs": sorted(constructs), "calls": sorted(calls), "functions": sorted(functions),
-        "classes": sorted(classes), "imports": sorted(imports), "recursive_functions": sorted(recursive),
-    }})
+    features = {key: set() for key in ("constructs", "calls", "functions", "classes", "imports", "recursive_functions")}
+    for source_path in _project_sources():
+        with open(source_path, encoding="utf-8") as source_file:
+            try:
+                tree = ast.parse(source_file.read())
+            except SyntaxError as exc:
+                _write({"ok": False, "error": "SyntaxError: %s (linha %s)" % (exc.msg, exc.lineno)})
+                return
+        _collect_features(tree, features)
+    if features["recursive_functions"]:
+        features["constructs"].add("recursion")
+    _write({"ok": True, "features": {key: sorted(values) for key, values in features.items()}})
+
+
+def _legacy_result(tests_run, failures, errors, details):
+    return {"ok": True, "legacy": {"testsRun": tests_run, "failures": failures, "errors": errors, "details": details}}
+
+
+def _failure_summary(test, traceback_text):
+    """Última linha de erro do traceback do unittest, sem o prefixo AssertionError."""
+    lines = [line.strip() for line in traceback_text.strip().splitlines() if line.strip()]
+    last_error = next((line for line in reversed(lines) if "Error" in line), lines[-1] if lines else "")
+    return "%s: %s" % (test.id().split(".")[-1], last_error.replace("AssertionError: ", ""))
+
+
+def _run_unittest_cases(code, namespace, unittest):
+    namespace["unittest"] = unittest
+    try:
+        exec(compile(code, "<tests>", "exec"), namespace)
+    except BaseException as exc:  # noqa: BLE001
+        _write({"ok": False, "error": _error_text(exc)})
+        return
+    suite = unittest.TestSuite()
+    for candidate in list(namespace.values()):
+        if isinstance(candidate, type) and issubclass(candidate, unittest.TestCase) and candidate is not unittest.TestCase:
+            suite.addTests(unittest.TestLoader().loadTestsFromTestCase(candidate))
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        outcome = unittest.TextTestRunner(stream=io.StringIO(), verbosity=0).run(suite)
+    details = [_failure_summary(test, traceback_text) for test, traceback_text in outcome.failures + outcome.errors]
+    _write(_legacy_result(outcome.testsRun, len(outcome.failures), len(outcome.errors), details))
+
+
+def _run_assert_block(code, namespace):
+    # Cada assert conta como um teste, mas o bloco para no primeiro que falhar.
+    total = sum(1 for node in ast.walk(ast.parse(code)) if isinstance(node, ast.Assert)) or 1
+    try:
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            exec(compile(code, "<tests>", "exec"), namespace)
+    except AssertionError as exc:
+        _write(_legacy_result(total, 1, 0, [str(exc) or "Resposta incorreta."]))
+        return
+    except BaseException as exc:  # noqa: BLE001
+        _write(_legacy_result(total, 0, 1, [_error_text(exc)]))
+        return
+    _write(_legacy_result(total, 0, 0, []))
 
 
 def probe_legacy():
     """Testes legados (assert/unittest) no namespace do aluno. Correção fraca."""
+    # Importados ANTES de o projeto entrar no sys.path: um unittest.py do aluno
+    # não pode substituir o da stdlib.
     import re
     import unittest
 
     code = _probe["code"]
-    ns, stdout, _, error = _load_project_ns("")
+    namespace, stdout, _, error = _load_project_ns("")
     if error is not None:
         _write({"ok": False, "error": error})
         return
-    with open(os.path.join(PROJECT, _entry), encoding="utf-8") as fh:
-        ns["_source"] = fh.read()
-    ns["_stdout"] = stdout
-    ns["__builtins__"] = builtins
-    ns["AssertionError"] = builtins.AssertionError
+    # Nomes que os gabaritos antigos esperam encontrar: não renomear.
+    namespace["_source"] = _read_entry_source()
+    namespace["_stdout"] = stdout
+    namespace["__builtins__"] = builtins
+    namespace["AssertionError"] = builtins.AssertionError
     if re.search(r"class\s+\w+\s*\(\s*unittest\.TestCase\s*\)", code):
-        ns["unittest"] = unittest
-        try:
-            exec(compile(code, "<tests>", "exec"), ns)
-        except BaseException as exc:  # noqa: BLE001
-            _write({"ok": False, "error": _error_text(exc)})
-            return
-        suite = unittest.TestSuite()
-        for obj in list(ns.values()):
-            if isinstance(obj, type) and issubclass(obj, unittest.TestCase) and obj is not unittest.TestCase:
-                suite.addTests(unittest.TestLoader().loadTestsFromTestCase(obj))
-        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            res = unittest.TextTestRunner(stream=io.StringIO(), verbosity=0).run(suite)
-        details = []
-        for t, tb in res.failures + res.errors:
-            lines = [l.strip() for l in tb.strip().splitlines() if l.strip()]
-            last = next((l for l in reversed(lines) if "Error" in l), lines[-1] if lines else "")
-            details.append("%s: %s" % (t.id().split(".")[-1], last.replace("AssertionError: ", "")))
-        _write({"ok": True, "legacy": {"testsRun": res.testsRun, "failures": len(res.failures),
-                                       "errors": len(res.errors), "details": details}})
-        return
-    total = sum(1 for n in ast.walk(ast.parse(code)) if isinstance(n, ast.Assert)) or 1
-    try:
-        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            exec(compile(code, "<tests>", "exec"), ns)
-    except AssertionError as exc:
-        _write({"ok": True, "legacy": {"testsRun": total, "failures": 1, "errors": 0,
-                                       "details": [str(exc) or "Resposta incorreta."]}})
-        return
-    except BaseException as exc:  # noqa: BLE001
-        _write({"ok": True, "legacy": {"testsRun": total, "failures": 0, "errors": 1, "details": [_error_text(exc)]}})
-        return
-    _write({"ok": True, "legacy": {"testsRun": total, "failures": 0, "errors": 0, "details": []}})
+        _run_unittest_cases(code, namespace, unittest)
+    else:
+        _run_assert_block(code, namespace)
 
 
 _HANDLERS = {"run": probe_run, "call": probe_call, "globals": probe_globals, "ast": probe_ast, "legacy": probe_legacy}
@@ -291,9 +318,9 @@ _real_stdout, _real_stderr = sys.stdout, sys.stderr
 _base_modules = set(sys.modules)
 for _probe in _probes:
     # Estado limpo entre sondas: módulos do projeto, cwd e streams.
-    for _name in list(sys.modules):
-        if _name not in _base_modules:
-            del sys.modules[_name]
+    for _module_name in list(sys.modules):
+        if _module_name not in _base_modules:
+            del sys.modules[_module_name]
     if PROJECT in sys.path:
         sys.path.remove(PROJECT)
     sys.stdout, sys.stderr = _real_stdout, _real_stderr

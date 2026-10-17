@@ -1,18 +1,15 @@
 import { Injectable } from "@nestjs/common"
-import { and, asc, desc, eq, sql } from "drizzle-orm"
+import { asc, desc, eq, sql } from "drizzle-orm"
 import {
   certificates, courses, enrollments, examAttempts, lessonProgress, libraryRequests, notes, notifications, profiles,
   sessions, submissions, teacherApprovals, userBadges, users,
 } from "@levelusp/db"
 import { InjectDb, type Database } from "@/infra/database/database.module"
 
+/** Leituras da exportação LGPD e exclusão da conta. */
 @Injectable()
 export class AccountRepository {
   constructor(@InjectDb() private readonly db: Database) {}
-
-  findProfile(id: string) {
-    return this.db.query.profiles.findFirst({ where: eq(profiles.id, id) })
-  }
 
   /** Dados da credencial SEM o hash de senha (seleção explícita de colunas). */
   findAccount(id: string) {
@@ -28,8 +25,8 @@ export class AccountRepository {
 
   /** Apaga a credencial; o perfil e todos os dados do usuário saem em cascata. */
   async deleteUser(id: string): Promise<boolean> {
-    const rows = await this.db.delete(users).where(eq(users.id, id)).returning({ id: users.id })
-    return rows.length > 0
+    const deleted = await this.db.delete(users).where(eq(users.id, id)).returning({ id: users.id })
+    return deleted.length > 0
   }
 
   progress(userId: string) {
@@ -59,7 +56,7 @@ export class AccountRepository {
 
   certificates(userId: string) {
     return this.db
-      .select({ c: certificates, courseTitle: courses.title })
+      .select({ certificate: certificates, courseTitle: courses.title })
       .from(certificates)
       .leftJoin(courses, eq(courses.id, certificates.courseId))
       .where(eq(certificates.userId, userId))
@@ -91,7 +88,12 @@ export class AccountRepository {
         active: sql<boolean>`${sessions.revokedAt} is null and ${sessions.expiresAt} > now()`,
       })
       .from(sessions)
-      .where(and(eq(sessions.userId, userId)))
+      .where(eq(sessions.userId, userId))
       .orderBy(desc(sessions.createdAt))
   }
 }
+
+export type AccountRow = NonNullable<Awaited<ReturnType<AccountRepository["findAccount"]>>>
+export type EnrollmentExportRow = Awaited<ReturnType<AccountRepository["enrollments"]>>[number]
+export type CertificateExportRow = Awaited<ReturnType<AccountRepository["certificates"]>>[number]
+export type SessionExportRow = Awaited<ReturnType<AccountRepository["sessions"]>>[number]

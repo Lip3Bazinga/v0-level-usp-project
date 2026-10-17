@@ -22,11 +22,11 @@ export class MailService {
     this.transport = env.SMTP_URL ? nodemailer.createTransport(env.SMTP_URL) : null
   }
 
-  async send(msg: MailMessage): Promise<void> {
+  async send(message: MailMessage): Promise<void> {
     if (!this.transport) {
-      this.logger.warn({ to: msg.to, subject: msg.subject, text: msg.text }, "SMTP não configurado — e-mail registrado no log")
+      this.logger.warn({ to: message.to, subject: message.subject, text: message.text }, "SMTP não configurado — e-mail registrado no log")
       return
     }
-    await this.transport.sendMail({ from: this.env.MAIL_FROM, ...msg })
+    await this.transport.sendMail({ from: this.env.MAIL_FROM, ...message })
   }
 }

@@ -2,7 +2,7 @@ import { Body, Controller, Get, HttpCode, Param, Patch, Post } from "@nestjs/com
 import { ApiTags } from "@nestjs/swagger"
 import {
   libraryCatalogToggleSchema, libraryRequestInputSchema, reviewLibraryRequestSchema,
-  type LibraryRequestInput, type ReviewLibraryRequestInput,
+  type LibraryCatalogToggleInput, type LibraryRequestInput, type ReviewLibraryRequestInput,
 } from "@levelusp/contracts"
 import { CurrentUser, Public, Roles } from "@/common/decorators/auth.decorators"
 import type { AuthUser } from "@/common/http/request"
@@ -42,7 +42,7 @@ export class LibraryController {
   @Roles("admin")
   @HttpCode(204)
   @Patch("admin/library/:id")
-  async toggle(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(libraryCatalogToggleSchema)) body: { active: boolean }) {
+  async toggle(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(libraryCatalogToggleSchema)) body: LibraryCatalogToggleInput) {
     await this.library.setActive(user, id, body.active)
   }
 

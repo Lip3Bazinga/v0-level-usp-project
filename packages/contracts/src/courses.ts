@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { difficultySchema, type Difficulty } from "./common"
+import { patchSchemaOf } from "./schema"
 
 export interface Module {
   id: string
@@ -19,22 +20,6 @@ export const moduleInputSchema = z.object({
   sort_order: z.number().int().min(0).default(0),
 })
 export type ModuleInput = z.infer<typeof moduleInputSchema>
-
-type WithoutDefault<T> = T extends z.ZodDefault<infer Inner> ? Inner : T
-
-/**
- * Versão "PATCH" de um schema de criação: todos os campos opcionais e SEM os
- * valores padrão. (`.partial()` do Zod 4 ainda aplica `.default()`, o que
- * faria um PATCH com só `title` sobrescrever os demais campos com o padrão.)
- */
-export function patchSchemaOf<S extends z.ZodRawShape>(schema: z.ZodObject<S>) {
-  const shape: Record<string, z.ZodType> = {}
-  for (const [key, field] of Object.entries(schema.shape)) {
-    const inner = field instanceof z.ZodDefault ? (field.removeDefault() as z.ZodType) : (field as z.ZodType)
-    shape[key] = inner.optional()
-  }
-  return z.object(shape) as unknown as z.ZodObject<{ [K in keyof S]: z.ZodOptional<WithoutDefault<S[K]>> }>
-}
 
 export const moduleUpdateSchema = patchSchemaOf(moduleInputSchema)
 export type ModuleUpdateInput = z.infer<typeof moduleUpdateSchema>

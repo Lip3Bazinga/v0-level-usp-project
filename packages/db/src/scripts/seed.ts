@@ -13,16 +13,28 @@ import { readFileSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { Algorithm, hash } from "@node-rs/argon2"
-import { and, eq, sql } from "drizzle-orm"
-import type { ProjectFile, TestCase } from "@levelusp/contracts"
+import { eq, sql } from "drizzle-orm"
+import { DEFAULT_ENTRY_FILE, type ProjectFile, type TestCase, type UserRole } from "@levelusp/contracts"
 import { createDb } from "../index"
 import { badges, courses, exams, examQuestions, lessons, modules, profiles, users } from "../schema/index"
 
-const url = process.env.DATABASE_URL
-if (!url) throw new Error("DATABASE_URL não definida")
-const here = path.dirname(fileURLToPath(import.meta.url))
-const contentOnly = process.env.SEED_CONTENT !== "false"
-const { db, close } = createDb(url, { max: 1, applicationName: "levelusp-seed" })
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error("DATABASE_URL não definida")
+const scriptDir = path.dirname(fileURLToPath(import.meta.url))
+const shouldSeedContent = process.env.SEED_CONTENT !== "false"
+const { db, close } = createDb(databaseUrl, { max: 1, applicationName: "levelusp-seed" })
+
+/** Mesmos parâmetros OWASP do PasswordService da API (argon2id, 19 MiB, 2 iterações). */
+const PASSWORD_HASH_OPTIONS = { algorithm: Algorithm.Argon2id, memoryCost: 19_456, timeCost: 2, parallelism: 1 } as const
+const MIN_ADMIN_PASSWORD_LENGTH = 12
+const DEFAULT_DEMO_PASSWORD = "demonstracao123"
+
+const COURSE_TITLE = "Python Completo"
+const FINAL_PROJECT_ORDER = 24
+const LESSON_XP = 100
+const FINAL_PROJECT_XP = 300
+/** Tempo estimado de estudo por lição, em minutos. */
+const LESSON_STUDY_MINUTES = 30
 
 const BADGES = [
   { id: "primeiros-passos", name: "Primeiros passos", description: "Concluiu a primeira lição", icon: "Rocket", rarity: "common", criteriaType: "lessons_completed", criteriaValue: 1, sortOrder: 1 },
@@ -35,12 +47,15 @@ const BADGES = [
   { id: "curso-completo", name: "Formado(a)", description: "Concluiu um curso inteiro", icon: "Trophy", rarity: "legendary", criteriaType: "courses_completed", criteriaValue: 1, sortOrder: 8 },
 ] as const
 
+/** `lessonOrders`: faixa (inclusiva) de posições do curso que pertencem ao módulo. */
 const MODULES = [
-  { title: "Fundamentos", description: "Variáveis, operadores, condicionais, laços e funções", icon: "BookOpen", color: "bg-level-purple", sortOrder: 1, range: [2, 9] },
-  { title: "Orientação a Objetos", description: "Classes, herança, encapsulamento e métodos especiais", icon: "Code2", color: "bg-level-blue", sortOrder: 2, range: [10, 13] },
-  { title: "Python Avançado", description: "Exceções, context managers, comprehensions, decorators e generators", icon: "Rocket", color: "bg-level-green", sortOrder: 3, range: [14, 22] },
-  { title: "Certificação", description: "Projeto final do curso", icon: "Trophy", color: "bg-level-orange", sortOrder: 4, range: [23, 99] },
+  { title: "Fundamentos", description: "Variáveis, operadores, condicionais, laços e funções", icon: "BookOpen", color: "bg-level-purple", sortOrder: 1, lessonOrders: [2, 9] },
+  { title: "Orientação a Objetos", description: "Classes, herança, encapsulamento e métodos especiais", icon: "Code2", color: "bg-level-blue", sortOrder: 2, lessonOrders: [10, 13] },
+  { title: "Python Avançado", description: "Exceções, context managers, comprehensions, decorators e generators", icon: "Rocket", color: "bg-level-green", sortOrder: 3, lessonOrders: [14, 22] },
+  { title: "Certificação", description: "Projeto final do curso", icon: "Trophy", color: "bg-level-orange", sortOrder: 4, lessonOrders: [23, 99] },
 ] as const
+
+type SeedModule = (typeof MODULES)[number]
 
 const EXAM_QUESTIONS = [
   { prompt: "Qual é o tipo de `3 / 2` em Python 3?", options: ["int", "float", "str", "Decimal"], correctIndex: 1, explanation: "O operador / sempre devolve float; use // para divisão inteira.", topic: "Operadores" },
@@ -50,97 +65,140 @@ const EXAM_QUESTIONS = [
   { prompt: "Qual bloco sempre executa, com ou sem exceção?", options: ["except", "else", "finally", "raise"], correctIndex: 2, explanation: "finally roda em todos os casos.", topic: "Exceções" },
 ]
 
-async function upsertAdmin() {
+interface SeedLesson {
+  order: number
+  title: string
+  description: string
+  starter_files: ProjectFile[]
+  test_cases: TestCase[]
+}
+
+interface SeedUser {
+  email: string
+  password: string
+  fullName: string
+  username: string
+  role: UserRole
+}
+
+function firstRow<T>(rows: T[], table: string): T {
+  const [row] = rows
+  if (!row) throw new Error(`insert em ${table} não devolveu a linha criada`)
+  return row
+}
+
+function moduleForOrder(order: number): SeedModule | undefined {
+  return MODULES.find(({ lessonOrders: [first, last] }) => order >= first && order <= last)
+}
+
+function loadSeedLessons(): SeedLesson[] {
+  const seedFile = path.resolve(scriptDir, "../../seed/python-completo.json")
+  // Arquivo versionado no repositório; o gabarito é validado pelo `verify:seed` no CI.
+  const seed = JSON.parse(readFileSync(seedFile, "utf8")) as { lessons: SeedLesson[] }
+  return seed.lessons
+}
+
+async function upsertAdmin(): Promise<void> {
   const email = process.env.SEED_ADMIN_EMAIL?.toLowerCase()
   const password = process.env.SEED_ADMIN_PASSWORD
   if (!email || !password) return console.log("· admin: SEED_ADMIN_EMAIL/SEED_ADMIN_PASSWORD não definidos — pulando")
-  if (password.length < 12) throw new Error("SEED_ADMIN_PASSWORD precisa de 12+ caracteres")
-  await ensureUser(email, password, "Administração LevelUSP", "admin", "admin")
+  if (password.length < MIN_ADMIN_PASSWORD_LENGTH) throw new Error(`SEED_ADMIN_PASSWORD precisa de ${MIN_ADMIN_PASSWORD_LENGTH}+ caracteres`)
+  await ensureUser({ email, password, fullName: "Administração LevelUSP", username: "admin", role: "admin" })
 }
 
-async function ensureUser(email: string, password: string, fullName: string, username: string, role: "student" | "teacher" | "admin") {
+async function ensureUser({ email, password, fullName, username, role }: SeedUser): Promise<string> {
   const existing = await db.query.users.findFirst({ where: sql`lower(${users.email}) = ${email}` })
   if (existing) {
     await db.update(profiles).set({ role }).where(eq(profiles.id, existing.id))
     return existing.id
   }
-  const passwordHash = await hash(password, { algorithm: Algorithm.Argon2id, memoryCost: 19_456, timeCost: 2, parallelism: 1 })
-  const [u] = await db.insert(users).values({ email, passwordHash, emailVerifiedAt: sql`now()` }).returning()
-  await db.insert(profiles).values({ id: u!.id, email, fullName, username, role })
+  const passwordHash = await hash(password, PASSWORD_HASH_OPTIONS)
+  const user = firstRow(await db.insert(users).values({ email, passwordHash, emailVerifiedAt: sql`now()` }).returning(), "users")
+  await db.insert(profiles).values({ id: user.id, email, fullName, username, role })
   console.log(`· usuário ${role}: ${email}`)
-  return u!.id
+  return user.id
 }
 
-async function seedContent(authorId: string | null) {
-  const moduleIds = new Map<number, string>()
-  for (const m of MODULES) {
-    const found = await db.query.modules.findFirst({ where: eq(modules.title, m.title) })
-    const id = found?.id ?? (await db.insert(modules).values({ title: m.title, description: m.description, icon: m.icon, color: m.color, sortOrder: m.sortOrder }).returning())[0]!.id
-    for (let o = m.range[0]; o <= m.range[1]; o++) moduleIds.set(o, id)
+/** Id de cada módulo por posição de lição no curso. */
+async function ensureModules(): Promise<Map<number, string>> {
+  const moduleIdByOrder = new Map<number, string>()
+  for (const seedModule of MODULES) {
+    const found = await db.query.modules.findFirst({ where: eq(modules.title, seedModule.title) })
+    const { lessonOrders, ...values } = seedModule
+    const moduleId = found?.id ?? firstRow(await db.insert(modules).values(values).returning(), "modules").id
+    const [first, last] = lessonOrders
+    for (let order = first; order <= last; order++) moduleIdByOrder.set(order, moduleId)
   }
+  return moduleIdByOrder
+}
 
-  const title = "Python Completo"
-  if (await db.query.courses.findFirst({ where: eq(courses.title, title) })) return console.log("· curso já existe — conteúdo mantido")
+async function seedContent(authorId: string | null): Promise<void> {
+  const moduleIdByOrder = await ensureModules()
+  if (await db.query.courses.findFirst({ where: eq(courses.title, COURSE_TITLE) })) return console.log("· curso já existe — conteúdo mantido")
 
-  const data = JSON.parse(readFileSync(path.resolve(here, "../../seed/python-completo.json"), "utf8")) as {
-    lessons: { order: number; title: string; description: string; starter_files: ProjectFile[]; test_cases: TestCase[] }[]
-  }
-  const [course] = await db
-    .insert(courses)
-    .values({
-      title,
-      description: "Do zero à orientação a objetos, com exercícios corrigidos automaticamente e certificado.",
-      longDescription: "Curso de demonstração gerado a partir dos gabaritos do LevelUSP. O conteúdo teórico completo é importado do banco original.",
-      level: "iniciante",
-      tags: ["python", "programação", "certificado"],
-      estimatedHours: 40,
-      published: true,
-      createdBy: authorId,
-      finalProjectTitle: "Gerenciador de tarefas",
-    })
-    .returning()
-  let position = 1
-  for (const l of data.lessons) {
-    const mod = MODULES.find((m) => l.order >= m.range[0] && l.order <= m.range[1])!
+  const seedLessons = loadSeedLessons()
+  const course = firstRow(
+    await db
+      .insert(courses)
+      .values({
+        title: COURSE_TITLE,
+        description: "Do zero à orientação a objetos, com exercícios corrigidos automaticamente e certificado.",
+        longDescription: "Curso de demonstração gerado a partir dos gabaritos do LevelUSP. O conteúdo teórico completo é importado do banco original.",
+        level: "iniciante",
+        tags: ["python", "programação", "certificado"],
+        estimatedHours: 40,
+        published: true,
+        createdBy: authorId,
+        finalProjectTitle: "Gerenciador de tarefas",
+      })
+      .returning(),
+    "courses",
+  )
+  for (const [index, seedLesson] of seedLessons.entries()) {
     await db.insert(lessons).values({
-      title: l.title,
-      slug: `python-completo-${String(l.order).padStart(2, "0")}`,
-      module: mod.title,
-      moduleId: moduleIds.get(l.order) ?? null,
-      order: position++,
-      description: l.description,
-      contentMarkdown: `# ${l.title}\n\n${l.description}\n\nLeia o enunciado nos comentários do código, implemente e clique em **Verificar**.`,
-      starterCode: l.starter_files.find((f) => f.path === "main.py")?.content ?? "",
-      starterFiles: l.starter_files,
-      testCases: l.test_cases,
+      title: seedLesson.title,
+      slug: `python-completo-${String(seedLesson.order).padStart(2, "0")}`,
+      module: moduleForOrder(seedLesson.order)?.title ?? "",
+      moduleId: moduleIdByOrder.get(seedLesson.order) ?? null,
+      order: index + 1,
+      description: seedLesson.description,
+      contentMarkdown: `# ${seedLesson.title}\n\n${seedLesson.description}\n\nLeia o enunciado nos comentários do código, implemente e clique em **Verificar**.`,
+      starterCode: seedLesson.starter_files.find((file) => file.path === DEFAULT_ENTRY_FILE)?.content ?? "",
+      starterFiles: seedLesson.starter_files,
+      testCases: seedLesson.test_cases,
       lessonType: "coding",
-      xpReward: l.order === 24 ? 300 : 100,
-      timeLimit: 30,
+      xpReward: seedLesson.order === FINAL_PROJECT_ORDER ? FINAL_PROJECT_XP : LESSON_XP,
+      timeLimit: LESSON_STUDY_MINUTES,
       published: true,
-      courseId: course!.id,
+      courseId: course.id,
       createdBy: authorId,
     })
   }
-  const [exam] = await db
-    .insert(exams)
-    .values({ courseId: course!.id, title: "Prova final — Python Completo", description: "Prova de demonstração (5 questões).", passingScore: 70, timeLimitMinutes: 20, cooldownMinutes: 10 })
-    .returning()
-  await db.insert(examQuestions).values(EXAM_QUESTIONS.map((q, i) => ({ ...q, examId: exam!.id, sortOrder: i })))
-  console.log(`· curso "${title}" com ${data.lessons.length} lições e prova de demonstração`)
+  const exam = firstRow(
+    await db
+      .insert(exams)
+      .values({ courseId: course.id, title: "Prova final — Python Completo", description: "Prova de demonstração (5 questões).", passingScore: 70, timeLimitMinutes: 20, cooldownMinutes: 10 })
+      .returning(),
+    "exams",
+  )
+  await db.insert(examQuestions).values(EXAM_QUESTIONS.map((question, index) => ({ ...question, examId: exam.id, sortOrder: index })))
+  console.log(`· curso "${COURSE_TITLE}" com ${seedLessons.length} lições e prova de demonstração`)
+}
+
+async function seedDemoUsers(): Promise<string> {
+  const password = process.env.SEED_DEMO_PASSWORD ?? DEFAULT_DEMO_PASSWORD
+  const teacherId = await ensureUser({ email: "professora@levelusp.dev", password, fullName: "Professora Demo", username: "professora_demo", role: "teacher" })
+  await ensureUser({ email: "aluna@levelusp.dev", password, fullName: "Aluna Demo", username: "aluna_demo", role: "student" })
+  return teacherId
 }
 
 try {
-  for (const b of BADGES) await db.insert(badges).values(b).onConflictDoNothing()
+  for (const badge of BADGES) await db.insert(badges).values(badge).onConflictDoNothing()
   console.log(`· ${BADGES.length} badges`)
   await upsertAdmin()
-  let teacherId: string | null = null
-  if (process.env.SEED_DEMO_USERS === "true") {
-    const pwd = process.env.SEED_DEMO_PASSWORD ?? "demonstracao123"
-    teacherId = await ensureUser("professora@levelusp.dev", pwd, "Professora Demo", "professora_demo", "teacher")
-    await ensureUser("aluna@levelusp.dev", pwd, "Aluna Demo", "aluna_demo", "student")
-  }
-  if (contentOnly) {
-    const admin = await db.query.profiles.findFirst({ where: and(eq(profiles.role, "admin")) })
+  const teacherId = process.env.SEED_DEMO_USERS === "true" ? await seedDemoUsers() : null
+  if (shouldSeedContent) {
+    const admin = await db.query.profiles.findFirst({ where: eq(profiles.role, "admin") })
     await seedContent(teacherId ?? admin?.id ?? null)
   }
   console.log("Seed concluído.")

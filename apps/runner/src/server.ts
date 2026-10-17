@@ -1,67 +1,76 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http"
 import { timingSafeEqual } from "node:crypto"
 import { runnerJobSchema } from "@levelusp/contracts"
-import type { Executor } from "./executor.js"
+import type { JobExecutor } from "./executor.js"
+import type { Logger } from "./logger.js"
 import { CancelledError, QueueFullError } from "./semaphore.js"
 
-const MAX_BODY = 1_000_000
+const MAX_BODY_BYTES = 1_000_000
+/** Só as primeiras falhas de validação: o suficiente para depurar a API. */
+const MAX_REPORTED_ISSUES = 5
 
 export interface ServerDeps {
-  executor: Executor
+  executor: JobExecutor
   token: string
-  log: (level: "info" | "warn" | "error", msg: string, extra?: Record<string, unknown>) => void
-}
-
-/** HTTP mínimo (sem framework): menos superfície num serviço que roda código não confiável. */
-export function buildServer({ executor, token, log }: ServerDeps): Server {
-  const expected = Buffer.from(`Bearer ${token}`)
-
-  return createServer(async (req, res) => {
-    try {
-      if (req.method === "GET" && req.url === "/healthz") return send(res, 200, { status: "ok" })
-      if (req.method !== "POST" || req.url !== "/v1/run") return send(res, 404, { error: "not_found" })
-
-      const auth = Buffer.from(req.headers.authorization ?? "")
-      if (auth.length !== expected.length || !timingSafeEqual(auth, expected)) return send(res, 401, { error: "unauthorized" })
-
-      const body = await readBody(req)
-      const parsed = runnerJobSchema.safeParse(body)
-      if (!parsed.success) return send(res, 400, { error: "invalid_job", issues: parsed.error.issues.slice(0, 5) })
-
-      // Cliente (API) desistiu, ex.: por timeout: não executa lotes ainda na fila.
-      const abort = new AbortController()
-      res.on("close", () => {
-        if (!res.writableFinished) abort.abort()
-      })
-      const result = await executor.execute(parsed.data, abort.signal)
-      log("info", "job executado", { probes: parsed.data.probes.length, ms: result.durationMs })
-      return send(res, 200, result)
-    } catch (err) {
-      if (err instanceof QueueFullError) return send(res, 503, { error: "busy" })
-      if (err instanceof CancelledError) return void res.destroy()
-      if (err instanceof BodyTooLargeError) return send(res, 413, { error: "too_large" })
-      if (err instanceof SyntaxError) return send(res, 400, { error: "invalid_json" })
-      log("error", "falha no executor", { error: String(err) })
-      return send(res, 500, { error: "internal" })
-    }
-  })
+  log: Logger
 }
 
 class BodyTooLargeError extends Error {}
 
-async function readBody(req: IncomingMessage): Promise<unknown> {
+/** HTTP mínimo (sem framework): menos superfície num serviço que roda código não confiável. */
+export function buildServer({ executor, token, log }: ServerDeps): Server {
+  const expectedAuthorization = Buffer.from(`Bearer ${token}`)
+
+  const isAuthorized = (request: IncomingMessage): boolean => {
+    const authorization = Buffer.from(request.headers.authorization ?? "")
+    return authorization.length === expectedAuthorization.length && timingSafeEqual(authorization, expectedAuthorization)
+  }
+
+  const runJob = async (request: IncomingMessage, response: ServerResponse) => {
+    const parsed = runnerJobSchema.safeParse(await readJsonBody(request))
+    if (!parsed.success) return sendJson(response, 400, { error: "invalid_job", issues: parsed.error.issues.slice(0, MAX_REPORTED_ISSUES) })
+
+    // Cliente (API) desistiu, ex.: por timeout: não executa lotes ainda na fila.
+    const abort = new AbortController()
+    response.on("close", () => {
+      if (!response.writableFinished) abort.abort()
+    })
+    const result = await executor.execute(parsed.data, abort.signal)
+    log("info", "job executado", { probes: parsed.data.probes.length, ms: result.durationMs })
+    return sendJson(response, 200, result)
+  }
+
+  return createServer(async (request, response) => {
+    try {
+      if (request.method === "GET" && request.url === "/healthz") return sendJson(response, 200, { status: "ok" })
+      if (request.method !== "POST" || request.url !== "/v1/run") return sendJson(response, 404, { error: "not_found" })
+      if (!isAuthorized(request)) return sendJson(response, 401, { error: "unauthorized" })
+      return await runJob(request, response)
+    } catch (error) {
+      if (error instanceof QueueFullError) return sendJson(response, 503, { error: "busy" })
+      if (error instanceof CancelledError) return void response.destroy()
+      if (error instanceof BodyTooLargeError) return sendJson(response, 413, { error: "too_large" })
+      if (error instanceof SyntaxError) return sendJson(response, 400, { error: "invalid_json" })
+      log("error", "falha no executor", { error: String(error) })
+      return sendJson(response, 500, { error: "internal" })
+    }
+  })
+}
+
+async function readJsonBody(request: IncomingMessage): Promise<unknown> {
   let size = 0
   const chunks: Buffer[] = []
-  for await (const chunk of req) {
-    size += (chunk as Buffer).length
-    if (size > MAX_BODY) throw new BodyTooLargeError()
-    chunks.push(chunk as Buffer)
+  for await (const chunk of request) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk))
+    size += buffer.length
+    if (size > MAX_BODY_BYTES) throw new BodyTooLargeError()
+    chunks.push(buffer)
   }
   return JSON.parse(Buffer.concat(chunks).toString("utf8"))
 }
 
-function send(res: ServerResponse, status: number, payload: unknown) {
+function sendJson(response: ServerResponse, status: number, payload: unknown): void {
   const body = JSON.stringify(payload)
-  res.writeHead(status, { "content-type": "application/json", "content-length": Buffer.byteLength(body) })
-  res.end(body)
+  response.writeHead(status, { "content-type": "application/json", "content-length": Buffer.byteLength(body) })
+  response.end(body)
 }

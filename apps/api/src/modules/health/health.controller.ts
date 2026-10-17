@@ -1,20 +1,12 @@
-import { Controller, Get, Inject } from "@nestjs/common"
+import { Controller, Get } from "@nestjs/common"
 import { ApiTags } from "@nestjs/swagger"
-import { sql } from "drizzle-orm"
 import { Public } from "@/common/decorators/auth.decorators"
-import { ENV } from "@/config/config.module"
-import type { Env } from "@/config/env"
-import { InjectDb, type Database } from "@/infra/database/database.module"
-import { RunnerClient } from "@/infra/runner/runner.client"
+import { HealthService, type Readiness } from "./health.service"
 
 @ApiTags("health")
 @Controller("health")
 export class HealthController {
-  constructor(
-    @InjectDb() private readonly db: Database,
-    private readonly runner: RunnerClient,
-    @Inject(ENV) private readonly env: Env,
-  ) {}
+  constructor(private readonly health: HealthService) {}
 
   /** Liveness: o processo responde. */
   @Public()
@@ -26,9 +18,7 @@ export class HealthController {
   /** Readiness: banco e executor acessíveis. */
   @Public()
   @Get("ready")
-  async ready() {
-    const db = await this.db.execute(sql`select 1`).then(() => true, () => false)
-    const runner = await this.runner.healthy()
-    return { status: db && runner ? "ok" : "degraded", env: this.env.APP_ENV, version: process.env.APP_VERSION ?? "dev", checks: { db, runner } }
+  ready(): Promise<Readiness> {
+    return this.health.readiness()
   }
 }

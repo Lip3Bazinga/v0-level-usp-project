@@ -1,7 +1,10 @@
 import { sql } from "drizzle-orm"
 import { boolean, check, index, integer, jsonb, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core"
+import {
+  AUDIT_SEVERITIES, LIBRARY_CATEGORIES, LIBRARY_REQUEST_STATUSES, NOTIFICATION_KINDS, TEACHER_APPROVAL_STATUSES,
+} from "@levelusp/contracts"
 import { profiles } from "./profiles"
-import { createdAt, id, tstz, updatedAt } from "./_helpers"
+import { createdAt, id, isOneOf, timestampTz, updatedAt } from "./_helpers"
 
 export const notifications = pgTable(
   "notifications",
@@ -10,16 +13,19 @@ export const notifications = pgTable(
     userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     body: text("body").notNull().default(""),
-    kind: text("kind", { enum: ["info", "success", "warning", "danger"] }).notNull().default("info"),
+    kind: text("kind", { enum: NOTIFICATION_KINDS }).notNull().default("info"),
     read: boolean("read").notNull().default(false),
     href: text("href"),
     createdAt: createdAt(),
   },
-  (t) => [
-    check("notifications_kind_check", sql`${t.kind} in ('info','success','warning','danger')`),
-    index("notifications_user_unread_idx").on(t.userId, t.read, t.createdAt),
+  (table) => [
+    check("notifications_kind_check", isOneOf(table.kind, NOTIFICATION_KINDS)),
+    index("notifications_user_unread_idx").on(table.userId, table.read, table.createdAt),
   ],
 )
+
+export type NotificationRow = typeof notifications.$inferSelect
+export type NotificationInsert = typeof notifications.$inferInsert
 
 export const auditLog = pgTable(
   "audit_log",
@@ -30,14 +36,16 @@ export const auditLog = pgTable(
     action: text("action").notNull(),
     target: text("target").notNull().default(""),
     meta: jsonb("meta").$type<Record<string, unknown>>().default({}),
-    severity: text("severity", { enum: ["info", "warning", "danger"] }).notNull().default("info"),
+    severity: text("severity", { enum: AUDIT_SEVERITIES }).notNull().default("info"),
     createdAt: createdAt(),
   },
-  (t) => [
-    check("audit_log_severity_check", sql`${t.severity} in ('info','warning','danger')`),
-    index("audit_log_created_idx").on(t.createdAt),
+  (table) => [
+    check("audit_log_severity_check", isOneOf(table.severity, AUDIT_SEVERITIES)),
+    index("audit_log_created_idx").on(table.createdAt),
   ],
 )
+
+export type AuditLogRow = typeof auditLog.$inferSelect
 
 export const platformSettings = pgTable("platform_settings", {
   key: text("key").primaryKey(),
@@ -54,19 +62,22 @@ export const teacherApprovals = pgTable(
     email: text("email").notNull(),
     institution: text("institution").notNull().default(""),
     motivation: text("motivation").notNull().default(""),
-    status: text("status", { enum: ["pending", "approved", "rejected", "superseded"] }).notNull().default("pending"),
+    status: text("status", { enum: TEACHER_APPROVAL_STATUSES }).notNull().default("pending"),
     reviewedBy: uuid("reviewed_by").references(() => profiles.id, { onDelete: "set null" }),
     reviewNote: text("review_note"),
-    submittedAt: tstz("submitted_at").notNull().defaultNow(),
-    reviewedAt: tstz("reviewed_at"),
+    submittedAt: timestampTz("submitted_at").notNull().defaultNow(),
+    reviewedAt: timestampTz("reviewed_at"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [
-    check("teacher_approvals_status_check", sql`${t.status} in ('pending','approved','rejected','superseded')`),
-    uniqueIndex("teacher_approvals_um_pendente_por_usuario").on(t.userId).where(sql`${t.status} = 'pending'`),
+  (table) => [
+    check("teacher_approvals_status_check", isOneOf(table.status, TEACHER_APPROVAL_STATUSES)),
+    uniqueIndex("teacher_approvals_um_pendente_por_usuario").on(table.userId).where(sql`${table.status} = 'pending'`),
   ],
 )
+
+export type TeacherApprovalRow = typeof teacherApprovals.$inferSelect
+export type TeacherApprovalInsert = typeof teacherApprovals.$inferInsert
 
 export const libraryCatalog = pgTable(
   "library_catalog",
@@ -75,14 +86,17 @@ export const libraryCatalog = pgTable(
     name: text("name").notNull().unique(),
     displayName: text("display_name").notNull(),
     description: text("description"),
-    category: text("category").notNull().default("general"),
+    category: text("category", { enum: LIBRARY_CATEGORIES }).notNull().default("general"),
     pyodideNative: boolean("pyodide_native").notNull().default(false),
     active: boolean("active").notNull().default(true),
     addedBy: uuid("added_by").references(() => profiles.id, { onDelete: "set null" }),
     createdAt: createdAt(),
   },
-  (t) => [index("idx_library_catalog_active").on(t.active)],
+  (table) => [index("idx_library_catalog_active").on(table.active)],
 )
+
+export type LibraryCatalogRow = typeof libraryCatalog.$inferSelect
+export type LibraryCatalogInsert = typeof libraryCatalog.$inferInsert
 
 export const libraryRequests = pgTable(
   "library_requests",
@@ -93,14 +107,17 @@ export const libraryRequests = pgTable(
     displayName: text("display_name"),
     description: text("description"),
     useCase: text("use_case"),
-    status: text("status", { enum: ["pending", "approved", "rejected"] }).notNull().default("pending"),
+    status: text("status", { enum: LIBRARY_REQUEST_STATUSES }).notNull().default("pending"),
     reviewedBy: uuid("reviewed_by").references(() => profiles.id, { onDelete: "set null" }),
     reviewNotes: text("review_notes"),
     createdAt: createdAt(),
-    reviewedAt: tstz("reviewed_at"),
+    reviewedAt: timestampTz("reviewed_at"),
   },
-  (t) => [index("idx_library_requests_status").on(t.status), index("idx_library_requests_user").on(t.requestedBy)],
+  (table) => [index("idx_library_requests_status").on(table.status), index("idx_library_requests_user").on(table.requestedBy)],
 )
+
+export type LibraryRequestRow = typeof libraryRequests.$inferSelect
+export type LibraryRequestInsert = typeof libraryRequests.$inferInsert
 
 /** Imagens enviadas (capas, avatares): dono de cada arquivo em /data/uploads. */
 export const uploads = pgTable(
@@ -111,5 +128,5 @@ export const uploads = pgTable(
     bytes: integer("bytes").notNull(),
     createdAt: createdAt(),
   },
-  (t) => [index("uploads_owner_idx").on(t.ownerId, t.createdAt)],
+  (table) => [index("uploads_owner_idx").on(table.ownerId, table.createdAt)],
 )

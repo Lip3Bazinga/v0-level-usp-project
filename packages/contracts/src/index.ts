@@ -1,4 +1,6 @@
 export * from "./common"
+export * from "./schema"
+export * from "./questions"
 export * from "./users"
 export * from "./auth"
 export * from "./courses"

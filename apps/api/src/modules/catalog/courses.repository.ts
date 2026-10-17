@@ -1,46 +1,52 @@
 import { Injectable } from "@nestjs/common"
 import { and, asc, desc, eq, sql, type SQL } from "drizzle-orm"
-import { courses, enrollments, lessons } from "@levelusp/db"
+import { courses, enrollments, lessons, type CourseInsert } from "@levelusp/db"
+import { requireRow } from "@/common/database/rows"
 import { InjectDb, type Database } from "@/infra/database/database.module"
-import { publicLessonColumns } from "./lessons.repository"
-
-type CourseInsert = typeof courses.$inferInsert
+import type { CourseWithAggregatesRow } from "./catalog.mapper"
+import { publicLessonColumns } from "./lesson-columns"
 
 /**
  * Referência qualificada à coluna externa nas subconsultas correlacionadas
  * (numa consulta de tabela única o Drizzle omite o nome da tabela em
  * `${courses.id}`, e o "id" seria resolvido na tabela interna).
  */
-const courseId = sql.raw(`"courses"."id"`)
+const outerCourseId = sql.raw(`"courses"."id"`)
 /** Lições publicadas do curso (o número que o aluno vê no card). */
-const publishedLessonCount = sql<number>`(select count(*)::int from lessons l where l.course_id = ${courseId} and l.published = true)`
-const enrolledBy = (userId: string) =>
-  sql<boolean>`exists(select 1 from enrollments e where e.course_id = ${courseId} and e.user_id = ${userId})`
+const publishedLessonCount = sql<number>`(select count(*)::int from lessons l where l.course_id = ${outerCourseId} and l.published = true)`
+const isEnrolled = (userId: string) =>
+  sql<boolean>`exists(select 1 from enrollments e where e.course_id = ${outerCourseId} and e.user_id = ${userId})`
+
+export interface LessonPlacement {
+  courseId: string | null
+  /** Posição no curso; ausente mantém a atual. */
+  order?: number
+}
 
 @Injectable()
 export class CoursesRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
   /** Cursos com contagem de lições e, se houver usuário, a matrícula dele. */
-  private selectWithExtras(userId: string | undefined, where: SQL | undefined) {
+  private selectWithAggregates(userId: string | undefined, where: SQL | undefined) {
     return this.db
-      .select({ course: courses, lessonCount: publishedLessonCount, enrolled: userId ? enrolledBy(userId) : sql<null>`null` })
+      .select({ course: courses, lessonCount: publishedLessonCount, enrolled: userId ? isEnrolled(userId) : sql<null>`null` })
       .from(courses)
       .where(where)
   }
 
-  listPublished(userId?: string) {
-    return this.selectWithExtras(userId, eq(courses.published, true)).orderBy(asc(courses.title))
+  listPublished(userId?: string): Promise<CourseWithAggregatesRow[]> {
+    return this.selectWithAggregates(userId, eq(courses.published, true)).orderBy(asc(courses.title))
   }
 
   /** `ownerId` null = todos (admin). */
-  listByOwner(ownerId: string | null) {
-    return this.selectWithExtras(undefined, ownerId ? eq(courses.createdBy, ownerId) : undefined).orderBy(desc(courses.createdAt))
+  listByOwner(ownerId: string | null): Promise<CourseWithAggregatesRow[]> {
+    return this.selectWithAggregates(undefined, ownerId ? eq(courses.createdBy, ownerId) : undefined).orderBy(desc(courses.createdAt))
   }
 
-  async findWithExtras(id: string, userId?: string) {
-    const [row] = await this.selectWithExtras(userId, eq(courses.id, id)).limit(1)
-    return row
+  async findWithAggregates(id: string, userId?: string): Promise<CourseWithAggregatesRow | undefined> {
+    const [course] = await this.selectWithAggregates(userId, eq(courses.id, id)).limit(1)
+    return course
   }
 
   findById(id: string) {
@@ -48,15 +54,14 @@ export class CoursesRepository {
   }
 
   async insert(values: CourseInsert) {
-    const [row] = await this.db.insert(courses).values(values).returning()
-    return row!
+    return requireRow(await this.db.insert(courses).values(values).returning(), "courses")
   }
 
-  async update(id: string, patch: Partial<CourseInsert>) {
+  async update(id: string, patch: Partial<CourseInsert>): Promise<void> {
     await this.db.update(courses).set(patch).where(eq(courses.id, id))
   }
 
-  async delete(id: string) {
+  async delete(id: string): Promise<void> {
     await this.db.delete(courses).where(eq(courses.id, id))
   }
 
@@ -82,35 +87,35 @@ export class CoursesRepository {
   }
 
   /** Grava a ordem 1..n numa única transação (tudo ou nada). */
-  async reorder(courseId: string, lessonIds: string[]) {
+  async reorder(courseId: string, lessonIds: string[]): Promise<void> {
     await this.db.transaction(async (tx) => {
-      for (const [i, id] of lessonIds.entries()) {
-        await tx.update(lessons).set({ order: i + 1 }).where(and(eq(lessons.id, id), eq(lessons.courseId, courseId)))
+      for (const [index, lessonId] of lessonIds.entries()) {
+        await tx.update(lessons).set({ order: index + 1 }).where(and(eq(lessons.id, lessonId), eq(lessons.courseId, courseId)))
       }
     })
   }
 
-  async setLessonCourse(lessonId: string, courseId: string | null, order?: number) {
+  async placeLesson(lessonId: string, { courseId, order }: LessonPlacement): Promise<void> {
     await this.db
       .update(lessons)
       .set({ courseId, ...(order !== undefined ? { order } : {}) })
       .where(eq(lessons.id, lessonId))
   }
 
-  async enroll(userId: string, courseId: string) {
+  async enroll(userId: string, courseId: string): Promise<void> {
     await this.db.insert(enrollments).values({ userId, courseId }).onConflictDoNothing()
   }
 
-  async unenroll(userId: string, courseId: string) {
+  async unenroll(userId: string, courseId: string): Promise<void> {
     await this.db.delete(enrollments).where(and(eq(enrollments.userId, userId), eq(enrollments.courseId, courseId)))
   }
 
   async enrolledCourseIds(userId: string): Promise<string[]> {
-    const rows = await this.db
+    const enrolled = await this.db
       .select({ courseId: enrollments.courseId })
       .from(enrollments)
       .where(eq(enrollments.userId, userId))
       .orderBy(asc(enrollments.enrolledAt))
-    return rows.map((r) => r.courseId)
+    return enrolled.map((enrollment) => enrollment.courseId)
   }
 }

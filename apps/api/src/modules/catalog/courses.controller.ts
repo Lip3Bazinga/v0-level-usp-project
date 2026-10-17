@@ -15,8 +15,6 @@ import { CoursesService } from "./courses.service"
 export class CoursesController {
   constructor(private readonly courses: CoursesService) {}
 
-  // ── Leitura pública (identifica o usuário se houver sessão) ────────────────
-
   @Public()
   @OptionalAuth()
   @Get("courses")
@@ -37,8 +35,6 @@ export class CoursesController {
   lessons(@CurrentUser() user: AuthUser | undefined, @Param("id", UuidPipe) id: string) {
     return this.courses.lessons(user, id)
   }
-
-  // ── Autoria (professor dono ou admin) ──────────────────────────────────────
 
   @Roles("teacher", "admin")
   @Get("teacher/courses")
@@ -91,8 +87,6 @@ export class CoursesController {
   async detach(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Param("lessonId", UuidPipe) lessonId: string) {
     await this.courses.detachLesson(user, id, lessonId)
   }
-
-  // ── Matrícula ──────────────────────────────────────────────────────────────
 
   @HttpCode(204)
   @Post("courses/:id/enrollment")

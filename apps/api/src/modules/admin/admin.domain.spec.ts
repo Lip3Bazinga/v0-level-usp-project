@@ -32,12 +32,12 @@ describe("séries diárias", () => {
     expect(lastDays(1, new Date("2026-10-16T01:00:00Z"))).toEqual(["2026-10-15"])
   })
   it("preenche os dias sem atividade com zero", () => {
-    const s = dailySeries([{ day: "2026-10-16", n: 4 }, { day: "2026-10-14", n: 2 }, { day: "2020-01-01", n: 9 }], 3, now)
-    expect(s).toEqual([2, 0, 4])
+    const series = dailySeries([{ day: "2026-10-16", count: 4 }, { day: "2026-10-14", count: 2 }, { day: "2020-01-01", count: 9 }], 3, now)
+    expect(series).toEqual([2, 0, 4])
   })
   it("gera exatamente N posições, atravessando o mês", () => {
-    const s = dailySeries([], 30, new Date("2026-03-02T12:00:00Z"))
-    expect(s).toHaveLength(30)
+    const series = dailySeries([], 30, new Date("2026-03-02T12:00:00Z"))
+    expect(series).toHaveLength(30)
     expect(lastDays(3, new Date("2026-03-02T12:00:00Z"))).toEqual(["2026-02-28", "2026-03-01", "2026-03-02"])
   })
 })

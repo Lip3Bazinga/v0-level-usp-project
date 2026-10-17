@@ -11,12 +11,12 @@ import type { Probe } from "@levelusp/contracts"
  *   namespace novo — reduz o custo de partida de N instâncias para 1.
  */
 export function planBatches(probes: Probe[]): Probe[][] {
-  const ast = probes.filter((p) => p.kind === "ast")
-  const legacy = probes.filter((p) => p.kind === "legacy")
-  const regular = probes.filter((p) => p.kind !== "ast" && p.kind !== "legacy")
+  const astProbes = probes.filter((probe) => probe.kind === "ast")
+  const legacyProbes = probes.filter((probe) => probe.kind === "legacy")
+  const executionProbes = probes.filter((probe) => probe.kind !== "ast" && probe.kind !== "legacy")
   const batches: Probe[][] = []
-  if (regular.length) batches.push(regular)
-  if (legacy.length) batches.push(legacy)
-  for (const p of ast) batches.push([p])
+  if (executionProbes.length) batches.push(executionProbes)
+  if (legacyProbes.length) batches.push(legacyProbes)
+  for (const probe of astProbes) batches.push([probe])
   return batches
 }

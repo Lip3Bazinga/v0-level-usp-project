@@ -4,9 +4,9 @@ import { z } from "zod"
  * Variáveis de ambiente validadas na partida. A API se recusa a subir com
  * configuração inválida (fail fast) — melhor do que falhar no meio de uma aula.
  */
-const bool = z
+const booleanFlag = z
   .enum(["true", "false", "1", "0"])
-  .transform((v) => v === "true" || v === "1")
+  .transform((flag) => flag === "true" || flag === "1")
 
 export const envSchema = z
   .object({
@@ -22,13 +22,13 @@ export const envSchema = z
     RUNNER_TOKEN: z.string().min(24),
     SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
     /** Atrás do túnel/proxy reverso: confia no X-Forwarded-For do primeiro salto. */
-    TRUST_PROXY: bool.default(true),
-    COOKIE_SECURE: bool.optional(),
+    TRUST_PROXY: booleanFlag.default(true),
+    COOKIE_SECURE: booleanFlag.optional(),
     UPLOAD_DIR: z.string().default("./data/uploads"),
     LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error"]).default("info"),
-    SWAGGER_ENABLED: bool.optional(),
+    SWAGGER_ENABLED: booleanFlag.optional(),
     /** Cadastro aberto? Em homolog pode ser fechado (só convites). */
-    SIGNUP_ENABLED: bool.default(true),
+    SIGNUP_ENABLED: booleanFlag.default(true),
     SMTP_URL: z.string().optional(),
     MAIL_FROM: z.string().default("LevelUSP <nao-responda@levelusp.local>"),
   })
@@ -43,7 +43,7 @@ export type Env = z.infer<typeof envSchema>
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   const parsed = envSchema.safeParse(source)
   if (!parsed.success) {
-    const issues = parsed.error.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`).join("\n")
+    const issues = parsed.error.issues.map((issue) => `  - ${issue.path.join(".")}: ${issue.message}`).join("\n")
     throw new Error(`Configuração inválida:\n${issues}`)
   }
   return parsed.data

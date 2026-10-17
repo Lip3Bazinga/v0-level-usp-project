@@ -1,21 +1,22 @@
 import type { QuizQuestionFull, QuizQuestionPublic } from "@levelusp/contracts"
-import type { lessonQuizQuestions } from "@levelusp/db"
+import type { LessonQuizQuestionRow } from "@levelusp/db"
 
-type QuestionRow = typeof lessonQuizQuestions.$inferSelect
+/** jsonb vindo de importação antiga pode não ser lista; o aluno recebe lista vazia. */
+const optionsOf = (options: unknown): string[] => (Array.isArray(options) ? options : [])
 
 /** Questão com gabarito — só para o professor dono (ou admin). */
-export function toQuizQuestionFull(q: QuestionRow): QuizQuestionFull {
+export function toQuizQuestionFull(question: LessonQuizQuestionRow): QuizQuestionFull {
   return {
-    id: q.id,
-    prompt: q.prompt,
-    options: Array.isArray(q.options) ? q.options : [],
-    correct_index: q.correctIndex,
-    explanation: q.explanation,
-    sort_order: q.sortOrder,
+    id: question.id,
+    prompt: question.prompt,
+    options: optionsOf(question.options),
+    correct_index: question.correctIndex,
+    explanation: question.explanation,
+    sort_order: question.sortOrder,
   }
 }
 
 /** Questão para o aluno: campos listados um a um, sem correct_index nem explicação. */
-export function toQuizQuestionPublic(q: Pick<QuestionRow, "id" | "prompt" | "options">): QuizQuestionPublic {
-  return { id: q.id, prompt: q.prompt, options: Array.isArray(q.options) ? q.options : [] }
+export function toQuizQuestionPublic(question: Pick<LessonQuizQuestionRow, "id" | "prompt" | "options">): QuizQuestionPublic {
+  return { id: question.id, prompt: question.prompt, options: optionsOf(question.options) }
 }

@@ -1,25 +1,13 @@
 import { Injectable } from "@nestjs/common"
 import { and, asc, desc, eq, sql } from "drizzle-orm"
-import { libraryCatalog, libraryRequests, profiles } from "@levelusp/db"
-import type { LibraryCatalog, LibraryCategory, LibraryRequest } from "@levelusp/contracts"
-import { InjectDb, type Database, type DbOrTx, type Tx } from "@/infra/database/database.module"
+import { libraryCatalog, libraryRequests, profiles, type LibraryCatalogInsert, type LibraryRequestInsert } from "@levelusp/db"
+import { requireRow } from "@/common/database/rows"
+import { InjectDb, type Database, type DbOrTx } from "@/infra/database/database.module"
 
-type CatalogRow = typeof libraryCatalog.$inferSelect
-type RequestRow = typeof libraryRequests.$inferSelect
-
-export function toCatalog(r: CatalogRow): LibraryCatalog {
-  return {
-    id: r.id, name: r.name, display_name: r.displayName, description: r.description, category: r.category as LibraryCategory,
-    pyodide_native: r.pyodideNative, active: r.active, added_by: r.addedBy, created_at: r.createdAt,
-  }
-}
-
-export function toLibraryRequest(r: RequestRow, requesterName?: string | null): LibraryRequest {
-  return {
-    id: r.id, requested_by: r.requestedBy, library_name: r.libraryName, display_name: r.displayName, description: r.description,
-    use_case: r.useCase, status: r.status, reviewed_by: r.reviewedBy, review_notes: r.reviewNotes, created_at: r.createdAt,
-    reviewed_at: r.reviewedAt, ...(requesterName !== undefined ? { requester_name: requesterName ?? "Desconhecido" } : {}),
-  }
+export interface LibraryReview {
+  status: "approved" | "rejected"
+  reviewedBy: string
+  reviewNotes: string | null
 }
 
 @Injectable()
@@ -35,27 +23,26 @@ export class LibraryRepository {
   }
 
   async setActive(id: string, active: boolean) {
-    const [row] = await this.db.update(libraryCatalog).set({ active }).where(eq(libraryCatalog.id, id)).returning()
-    return row
+    const [library] = await this.db.update(libraryCatalog).set({ active }).where(eq(libraryCatalog.id, id)).returning()
+    return library
   }
 
   /** Insere (ou reativa/atualiza) a biblioteca no catálogo pelo nome do pacote. */
-  upsertCatalog(tx: DbOrTx, v: typeof libraryCatalog.$inferInsert) {
-    return tx
+  async upsertCatalog(library: LibraryCatalogInsert, tx: DbOrTx): Promise<void> {
+    await tx
       .insert(libraryCatalog)
-      .values(v)
+      .values(library)
       .onConflictDoUpdate({
         target: libraryCatalog.name,
-        set: { displayName: v.displayName, description: v.description, category: v.category, pyodideNative: v.pyodideNative, active: true },
+        set: { displayName: library.displayName, description: library.description, category: library.category, pyodideNative: library.pyodideNative, active: true },
       })
   }
 
-  async insertRequest(v: typeof libraryRequests.$inferInsert) {
-    const [row] = await this.db.insert(libraryRequests).values(v).returning()
-    return row!
+  async insertRequest(request: LibraryRequestInsert) {
+    return requireRow(await this.db.insert(libraryRequests).values(request).returning(), "library_requests")
   }
 
-  pendingRequestFor(userId: string, libraryName: string) {
+  findPendingRequest(userId: string, libraryName: string) {
     return this.db.query.libraryRequests.findFirst({
       where: and(
         eq(libraryRequests.requestedBy, userId),
@@ -78,21 +65,15 @@ export class LibraryRepository {
       .orderBy(desc(libraryRequests.createdAt))
   }
 
-  transaction<T>(fn: (tx: Tx) => Promise<T>) {
-    return this.db.transaction(fn)
+  async lockRequest(id: string, tx: DbOrTx) {
+    const [request] = await tx.select().from(libraryRequests).where(eq(libraryRequests.id, id)).for("update")
+    return request
   }
 
-  async lockRequest(tx: DbOrTx, id: string) {
-    const [row] = await tx.select().from(libraryRequests).where(eq(libraryRequests.id, id)).for("update")
-    return row
-  }
-
-  async review(tx: DbOrTx, id: string, patch: { status: "approved" | "rejected"; reviewedBy: string; reviewNotes: string | null }) {
-    const [row] = await tx
-      .update(libraryRequests)
-      .set({ ...patch, reviewedAt: sql`now()` })
-      .where(eq(libraryRequests.id, id))
-      .returning()
-    return row!
+  async review(id: string, review: LibraryReview, tx: DbOrTx) {
+    return requireRow(
+      await tx.update(libraryRequests).set({ ...review, reviewedAt: sql`now()` }).where(eq(libraryRequests.id, id)).returning(),
+      "library_requests",
+    )
   }
 }

@@ -1,4 +1,5 @@
 import { z } from "zod"
+import type { GrantedBadge } from "./gamification"
 
 /**
  * Formato de correção ("casos declarativos").
@@ -10,7 +11,7 @@ import { z } from "zod"
  */
 
 /** Valor JSON arbitrário (entrada/saída de funções do aluno). */
-export type Json = string | number | boolean | null | Json[] | { [k: string]: Json }
+export type Json = string | number | boolean | null | Json[] | { [key: string]: Json }
 export const jsonSchema: z.ZodType<Json> = z.lazy(() =>
   z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(jsonSchema), z.record(z.string(), jsonSchema)]),
 )
@@ -25,6 +26,10 @@ const baseCase = {
   reveal: z.boolean().optional(),
 }
 
+const PYTHON_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/
+/** Nome qualificado: `funcao` ou `Classe.metodo`. */
+const PYTHON_DOTTED_NAME = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/
+
 /** Tipos Python verificáveis (o JSON não distingue int de float, nem list de tuple). */
 export const pyTypeSchema = z.enum(["int", "float", "str", "bool", "list", "tuple", "dict", "set", "NoneType"])
 export type PyType = z.infer<typeof pyTypeSchema>
@@ -33,7 +38,7 @@ export type PyType = z.infer<typeof pyTypeSchema>
 export const callCaseSchema = z.object({
   ...baseCase,
   kind: z.literal("call"),
-  function: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/),
+  function: z.string().regex(PYTHON_DOTTED_NAME),
   args: z.array(jsonSchema).max(20).default([]),
   kwargs: z.record(z.string(), jsonSchema).default({}),
   expected: jsonSchema,
@@ -43,20 +48,24 @@ export const callCaseSchema = z.object({
   tolerance: z.number().min(0).max(1).optional(),
 })
 
+export const OUTPUT_MATCH_MODES = ["exact", "trimmed", "contains", "regex"] as const
+export const outputMatchModeSchema = z.enum(OUTPUT_MATCH_MODES)
+export type OutputMatchMode = z.infer<typeof outputMatchModeSchema>
+
 /** Executa o programa (main.py) com uma entrada e compara a saída padrão. */
 export const ioCaseSchema = z.object({
   ...baseCase,
   kind: z.literal("io"),
   stdin: z.string().max(100_000).default(""),
   expected_stdout: z.string().max(100_000),
-  match: z.enum(["exact", "trimmed", "contains", "regex"]).default("trimmed"),
+  match: outputMatchModeSchema.default("trimmed"),
 })
 
 /** Lê variáveis globais após executar main.py. */
 export const variableCaseSchema = z.object({
   ...baseCase,
   kind: z.literal("variable"),
-  variable: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
+  variable: z.string().regex(PYTHON_IDENTIFIER),
   expected: jsonSchema,
   type: pyTypeSchema.optional(),
   tolerance: z.number().min(0).max(1).optional(),
@@ -115,10 +124,10 @@ export const testCasesSchema = z
   .array(testCaseSchema)
   .max(100)
   .superRefine((cases, ctx) => {
-    const seen = new Set<string>()
-    cases.forEach((c, i) => {
-      if (seen.has(c.id)) ctx.addIssue({ code: "custom", path: [i, "id"], message: `id duplicado: ${c.id}` })
-      seen.add(c.id)
+    const seenIds = new Set<string>()
+    cases.forEach((testCase, index) => {
+      if (seenIds.has(testCase.id)) ctx.addIssue({ code: "custom", path: [index, "id"], message: `id duplicado: ${testCase.id}` })
+      seenIds.add(testCase.id)
     })
   })
 
@@ -152,12 +161,16 @@ export interface GradeResult extends TestResult {
   durationMs: number
 }
 
-export interface SubmissionResult extends GradeResult {
-  submission_id: string
+/** Efeito de concluir uma lição (XP, badges, nível) devolvido após o veredito. */
+export interface LessonCompletion {
   lesson_completed: boolean
   xp_awarded: number
-  /** Badges recém-conquistadas nesta submissão. */
-  new_badges: { id: string; name: string; icon: string; rarity: string }[]
+  /** Badges recém-conquistadas nesta conclusão. */
+  new_badges: GrantedBadge[]
   level_up: boolean
   new_level: number
+}
+
+export interface SubmissionResult extends GradeResult, LessonCompletion {
+  submission_id: string
 }
