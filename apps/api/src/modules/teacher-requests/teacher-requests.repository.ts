@@ -17,7 +17,7 @@ export interface ApprovalReview {
 export class TeacherRequestsRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
-  async insert(approval: TeacherApprovalInsert) {
+  async create(approval: TeacherApprovalInsert) {
     return requireRow(await this.db.insert(teacherApprovals).values(approval).returning(), "teacher_approvals")
   }
 

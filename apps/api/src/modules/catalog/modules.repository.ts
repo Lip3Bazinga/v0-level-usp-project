@@ -17,7 +17,7 @@ export class ModulesRepository {
   }
 
   /** Lições PUBLICADAS por módulo. */
-  publishedLessonCounts() {
+  listPublishedLessonCounts() {
     return this.db
       .select({ moduleId: lessons.moduleId, lessonCount: count() })
       .from(lessons)
@@ -25,7 +25,7 @@ export class ModulesRepository {
       .groupBy(lessons.moduleId)
   }
 
-  async insert(values: ModuleInsert) {
+  async create(values: ModuleInsert) {
     return requireRow(await this.db.insert(modules).values(values).returning(), "modules")
   }
 

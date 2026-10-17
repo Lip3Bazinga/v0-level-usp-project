@@ -16,11 +16,11 @@ const catalogOrder = [asc(lessons.courseId), asc(lessons.order), asc(lessons.cre
 export class LessonsRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
-  publishedSummaries() {
+  listPublishedSummaries() {
     return this.db.select(lessonSummaryColumns).from(lessons).where(eq(lessons.published, true)).orderBy(...catalogOrder)
   }
 
-  published() {
+  listPublished() {
     return this.db.select(publicLessonColumns).from(lessons).where(eq(lessons.published, true)).orderBy(...catalogOrder)
   }
 
@@ -44,7 +44,7 @@ export class LessonsRepository {
   }
 
   /** Início, conclusão e submissões por lição (para o painel do professor). */
-  metrics(ownerId: string | null): Promise<LessonMetricsRow[]> {
+  listMetrics(ownerId: string | null): Promise<LessonMetricsRow[]> {
     return this.db
       .select({
         lessonId: lessons.id,
@@ -59,7 +59,7 @@ export class LessonsRepository {
   }
 
   /** Slugs que colidem com `base` (o próprio ou `base-N`). */
-  async slugsLike(base: string): Promise<string[]> {
+  async listSlugsLike(base: string): Promise<string[]> {
     const colliding = await this.db
       .select({ slug: lessons.slug })
       .from(lessons)
@@ -67,7 +67,7 @@ export class LessonsRepository {
     return colliding.flatMap((lesson) => (lesson.slug ? [lesson.slug] : []))
   }
 
-  async insert(values: LessonInsert) {
+  async create(values: LessonInsert) {
     return requireRow(await this.db.insert(lessons).values(values).returning(), "lessons")
   }
 
@@ -80,7 +80,7 @@ export class LessonsRepository {
     await this.db.delete(lessons).where(eq(lessons.id, id))
   }
 
-  async quizQuestionCount(lessonId: string): Promise<number> {
+  async countQuizQuestions(lessonId: string): Promise<number> {
     const [questions] = await this.db.select({ total: count() }).from(lessonQuizQuestions).where(eq(lessonQuizQuestions.lessonId, lessonId))
     return questions?.total ?? 0
   }

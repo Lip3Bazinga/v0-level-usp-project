@@ -7,6 +7,7 @@ import {
   ResizableHandle,
 } from "@/components/ui/resizable"
 import { BookOpen, Code2, Terminal, FolderTree, type LucideIcon } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface ResponsiveWorkspaceProps {
   lessonPanel: ReactNode
@@ -84,11 +85,10 @@ export function ResponsiveWorkspace({
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex flex-col items-center justify-center gap-1 py-2.5 text-[11px] font-medium transition-colors ${
-                  isActive
-                    ? "border-t-2 border-level-purple text-level-purple"
-                    : "border-t-2 border-transparent text-muted-foreground hover:text-level-purple"
-                }`}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-1 py-2.5 text-[11px] font-medium transition-colors",
+                  isActive ? "border-t-2 border-level-purple text-level-purple" : "border-t-2 border-transparent text-muted-foreground hover:text-level-purple",
+                )}
               >
                 <tab.icon className="h-5 w-5" />
                 {tab.label}

@@ -19,7 +19,7 @@ export async function fetchProgressSnapshot(lessonId: string): Promise<ProjectFi
   const { files } = await api.get<{ files: ProjectFile[] | null }>(`/lessons/${lessonId}/snapshot`)
   return files
 }
-export const saveProgressSnapshot = (lessonId: string, files: ProjectFile[]) =>
+export const updateProgressSnapshot = (lessonId: string, files: ProjectFile[]) =>
   api.put<void, SaveSnapshotInput>(`/lessons/${lessonId}/snapshot`, { files })
 
 export const completeTheoryLesson = (lessonId: string) => api.post<CompletionResult>(`/lessons/${lessonId}/complete`)

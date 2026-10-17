@@ -20,13 +20,13 @@ export class CertificatesController {
 
   /** MyCertificate | null — o null vai como JSON explícito (o Nest mandaria corpo vazio). */
   @Get("courses/:id/certificate")
-  async mine(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) courseId: string, @Res() response: Response) {
-    response.json(await this.certificates.mine(user, courseId))
+  async findMyCertificate(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) courseId: string, @Res() response: Response) {
+    response.json(await this.certificates.findMyCertificate(user, courseId))
   }
 
   @Get("me/certificates")
-  listMine(@CurrentUser() user: AuthUser) {
-    return this.certificates.listMine(user)
+  listMyCertificates(@CurrentUser() user: AuthUser) {
+    return this.certificates.listMyCertificates(user)
   }
 
   @Public()
@@ -37,8 +37,8 @@ export class CertificatesController {
 
   @Public()
   @Get("certificates/:code/pdf")
-  async pdf(@Param("code") code: string, @Res({ passthrough: true }) response: Response) {
-    const { code: normalized, buffer } = await this.certificates.pdf(code)
+  async getPdf(@Param("code") code: string, @Res({ passthrough: true }) response: Response) {
+    const { code: normalized, buffer } = await this.certificates.getPdf(code)
     // O visualizador de PDF do navegador é um plugin: a CSP padrão da API (default-src 'none') o bloquearia.
     response.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; object-src 'self'; frame-ancestors 'self'")
     response.setHeader("Cache-Control", "private, max-age=3600")

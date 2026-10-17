@@ -53,7 +53,7 @@ export class CoursesRepository {
     return this.db.query.courses.findFirst({ where: eq(courses.id, id) })
   }
 
-  async insert(values: CourseInsert) {
+  async create(values: CourseInsert) {
     return requireRow(await this.db.insert(courses).values(values).returning(), "courses")
   }
 
@@ -66,7 +66,7 @@ export class CoursesRepository {
   }
 
   /** Lições do curso sem gabarito, na ordem do curso. */
-  lessonsOf(courseId: string, onlyPublished: boolean) {
+  listLessons(courseId: string, onlyPublished: boolean) {
     return this.db
       .select(publicLessonColumns)
       .from(lessons)
@@ -74,7 +74,7 @@ export class CoursesRepository {
       .orderBy(asc(lessons.order), asc(lessons.createdAt))
   }
 
-  lessonOrders(courseId: string) {
+  listLessonOrders(courseId: string) {
     return this.db.select({ id: lessons.id, order: lessons.order }).from(lessons).where(eq(lessons.courseId, courseId))
   }
 
@@ -110,7 +110,7 @@ export class CoursesRepository {
     await this.db.delete(enrollments).where(and(eq(enrollments.userId, userId), eq(enrollments.courseId, courseId)))
   }
 
-  async enrolledCourseIds(userId: string): Promise<string[]> {
+  async listEnrolledCourseIds(userId: string): Promise<string[]> {
     const enrolled = await this.db
       .select({ courseId: enrollments.courseId })
       .from(enrollments)

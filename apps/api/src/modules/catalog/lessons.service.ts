@@ -49,12 +49,12 @@ export class LessonsService {
     private readonly audit: AuditService,
   ) {}
 
-  async summaries(): Promise<LessonSummary[]> {
-    return (await this.repo.publishedSummaries()).map(toLessonSummary)
+  async listSummaries(): Promise<LessonSummary[]> {
+    return (await this.repo.listPublishedSummaries()).map(toLessonSummary)
   }
 
   async listPublished(): Promise<Lesson[]> {
-    return (await this.repo.published()).map(toLesson)
+    return (await this.repo.listPublished()).map(toLesson)
   }
 
   /** Visão do aluno: nunca inclui o gabarito. */
@@ -64,16 +64,16 @@ export class LessonsService {
     return toLesson(lesson)
   }
 
-  async authoring(user: AuthUser, id: string): Promise<LessonWithTests> {
+  async getForAuthoring(user: AuthUser, id: string): Promise<LessonWithTests> {
     return toLessonWithTests(await this.findManageable(user, id))
   }
 
-  async teacherLessons(user: AuthUser): Promise<Lesson[]> {
+  async listOwned(user: AuthUser): Promise<Lesson[]> {
     return (await this.repo.listByOwner(ownerScope(user))).map(toLesson)
   }
 
-  async metrics(user: AuthUser): Promise<LessonMetrics[]> {
-    return (await this.repo.metrics(ownerScope(user))).map(toLessonMetrics)
+  async listMetrics(user: AuthUser): Promise<LessonMetrics[]> {
+    return (await this.repo.listMetrics(ownerScope(user))).map(toLessonMetrics)
   }
 
   /** Cria sempre como rascunho, com slug único derivado do título. */
@@ -81,12 +81,12 @@ export class LessonsService {
     await this.assertReferences(user, input)
     const values = { ...buildPatch(input, LESSON_PATCH), title: input.title, createdBy: user.id, published: false }
     const baseSlug = generateSlug(input.title)
-    const slug = pickUniqueSlug(baseSlug, await this.repo.slugsLike(baseSlug || DEFAULT_SLUG))
+    const slug = pickUniqueSlug(baseSlug, await this.repo.listSlugsLike(baseSlug || DEFAULT_SLUG))
     try {
-      return toLessonWithTests(await this.repo.insert({ ...values, slug }))
+      return toLessonWithTests(await this.repo.create({ ...values, slug }))
     } catch (error) {
       if (!isUniqueViolation(error)) throw error
-      return toLessonWithTests(await this.repo.insert({ ...values, slug: withRandomSuffix(slug) }))
+      return toLessonWithTests(await this.repo.create({ ...values, slug: withRandomSuffix(slug) }))
     }
   }
 
@@ -101,7 +101,7 @@ export class LessonsService {
     return toLessonWithTests(lesson)
   }
 
-  async remove(user: AuthUser, id: string): Promise<void> {
+  async delete(user: AuthUser, id: string): Promise<void> {
     const lesson = await this.findManageable(user, id)
     await this.repo.delete(id)
     if (lesson.createdBy !== user.id) {
@@ -109,7 +109,7 @@ export class LessonsService {
     }
   }
 
-  async publish(user: AuthUser, id: string, published: boolean): Promise<Lesson> {
+  async setPublished(user: AuthUser, id: string, published: boolean): Promise<Lesson> {
     const current = await this.findManageable(user, id)
     if (published) await this.assertPublishable(id, current.lessonType, current.testCases)
     const lesson = await this.repo.update(id, { published })
@@ -118,7 +118,7 @@ export class LessonsService {
   }
 
   private async assertPublishable(id: string, lessonType: LessonType, testCases: readonly TestCase[]): Promise<void> {
-    const quizQuestionCount = lessonType === "quiz" ? await this.repo.quizQuestionCount(id) : 0
+    const quizQuestionCount = lessonType === "quiz" ? await this.repo.countQuizQuestions(id) : 0
     const blocker = publishBlocker({ lessonType, testCaseCount: testCases.length, quizQuestionCount })
     if (blocker) throw Unprocessable(blocker.message, blocker.code)
   }

@@ -1,6 +1,6 @@
 import { BarChart3, FileText, Send, TrendingUp, type LucideIcon } from "lucide-react"
 import type { Lesson } from "@levelusp/contracts"
-import { formatNumber } from "@/lib/utils"
+import { formatNumber, cn } from "@/lib/utils"
 import { formatPassRate, type MetricsSummary } from "../lesson-metrics"
 
 interface StatCardProps {
@@ -14,7 +14,7 @@ function StatCard({ icon: Icon, iconClassName, value, label }: StatCardProps) {
   return (
     <div className="rounded-2xl border border-border bg-white p-5">
       <div className="flex items-center gap-3">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${iconClassName}`}>
+        <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl", iconClassName)}>
           <Icon className="h-5 w-5" />
         </div>
         <div>

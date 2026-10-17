@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react"
 import { Terminal, Trash2, Download, CheckCircle2, XCircle, AlertCircle } from "lucide-react"
+import { Spinner } from "@/components/design-system/spinner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import type { ConsoleOutput, ConsoleOutputType } from "@/lib/types"
-import { formatTime } from "@/lib/utils"
+import { downloadText, formatTime, cn } from "@/lib/utils"
 
 interface ConsolePanelProps {
   outputs: ConsoleOutput[]
@@ -33,15 +34,6 @@ function OutputIcon({ type }: { type: ConsoleOutputType }) {
   if (type === "error") return <XCircle className="h-4 w-4 shrink-0 text-red-400" />
   if (type === "warning") return <AlertCircle className="h-4 w-4 shrink-0 text-yellow-400" />
   return null
-}
-
-function downloadText(fileName: string, text: string): void {
-  const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }))
-  const link = document.createElement("a")
-  link.href = url
-  link.download = fileName
-  link.click()
-  URL.revokeObjectURL(url)
 }
 
 /** Histórico de comandos do console, navegado com as setas (o mais recente primeiro). */
@@ -98,7 +90,7 @@ export function ConsolePanel({ outputs, onClear, isRunning, onRunCommand }: Cons
   }
 
   const handleDownload = () => {
-    downloadText(DOWNLOAD_FILE_NAME, outputs.map((output) => `[${formatTime(output.timestamp)}] ${output.message}`).join("\n"))
+    downloadText(outputs.map((output) => `[${formatTime(output.timestamp)}] ${output.message}`).join("\n"), DOWNLOAD_FILE_NAME)
   }
 
   return (
@@ -151,7 +143,7 @@ export function ConsolePanel({ outputs, onClear, isRunning, onRunCommand }: Cons
             ))}
             {isRunning && (
               <div className="flex items-center gap-2">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-level-purple border-t-transparent" />
+                <Spinner tone="brand" />
                 <span className="text-purple-400">Processando...</span>
               </div>
             )}
@@ -206,7 +198,7 @@ function ConsoleLine({ output }: { output: ConsoleOutput }) {
     <div className="flex items-start gap-2">
       <OutputIcon type={output.type} />
       <span className="shrink-0 text-[10px] text-gray-400">{timestamp}</span>
-      <span className={`break-all ${OUTPUT_TEXT_CLASSES[output.type]}`}>{output.message}</span>
+      <span className={cn("break-all", OUTPUT_TEXT_CLASSES[output.type])}>{output.message}</span>
     </div>
   )
 }

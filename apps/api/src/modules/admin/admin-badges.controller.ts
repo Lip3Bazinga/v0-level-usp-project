@@ -27,23 +27,23 @@ export class AdminBadgesController {
 
   /** Todas as badges, inclusive inativas (a rota pública /badges mostra só as ativas). */
   @Get()
-  list() {
-    return this.users.badges(true)
+  listBadges() {
+    return this.users.listBadges(true)
   }
 
   @Post()
-  create(@CurrentUser() actor: AuthUser, @Body(new ZodPipe(badgeInputSchema)) body: BadgeInput) {
+  createBadge(@CurrentUser() actor: AuthUser, @Body(new ZodPipe(badgeInputSchema)) body: BadgeInput) {
     return this.admin.createBadge(actor, body)
   }
 
   @Patch(":id")
-  update(@CurrentUser() actor: AuthUser, @Param("id", BadgeIdPipe) id: string, @Body(new ZodPipe(badgeUpdateSchema)) body: BadgeUpdateInput) {
+  updateBadge(@CurrentUser() actor: AuthUser, @Param("id", BadgeIdPipe) id: string, @Body(new ZodPipe(badgeUpdateSchema)) body: BadgeUpdateInput) {
     return this.admin.updateBadge(actor, id, body)
   }
 
   @HttpCode(204)
   @Delete(":id")
-  async remove(@CurrentUser() actor: AuthUser, @Param("id", BadgeIdPipe) id: string): Promise<void> {
+  async deleteBadge(@CurrentUser() actor: AuthUser, @Param("id", BadgeIdPipe) id: string): Promise<void> {
     await this.admin.deleteBadge(actor, id)
   }
 }

@@ -33,11 +33,11 @@ export class UsersRepository {
     return profile
   }
 
-  listAll() {
+  list() {
     return this.db.select().from(profiles).orderBy(desc(profiles.createdAt))
   }
 
-  leaderboard(limit: number) {
+  listLeaderboard(limit: number) {
     return this.db
       .select()
       .from(profiles)
@@ -47,7 +47,7 @@ export class UsersRepository {
   }
 
   /** XP e conclusões por dia (fuso de São Paulo) desde `since`. */
-  activity(userId: string, since: Date) {
+  listActivity(userId: string, since: Date) {
     return this.db
       .select({
         day: sql<string>`to_char(${lessonProgress.completedAt} at time zone ${saoPauloZone}, 'YYYY-MM-DD')`,
@@ -59,11 +59,11 @@ export class UsersRepository {
       .groupBy(sql`1`)
   }
 
-  allBadges(includeInactive: boolean) {
+  listBadges(includeInactive: boolean) {
     return this.db.select().from(badges).where(includeInactive ? undefined : eq(badges.active, true)).orderBy(asc(badges.sortOrder))
   }
 
-  userBadges(userId: string) {
+  listUserBadges(userId: string) {
     return this.db.select().from(userBadges).where(eq(userBadges.userId, userId)).orderBy(desc(userBadges.earnedAt))
   }
 }

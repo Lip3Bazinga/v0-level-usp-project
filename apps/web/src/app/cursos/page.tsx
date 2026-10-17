@@ -10,6 +10,7 @@ import { fetchMyEnrollments, fetchPublishedCourses } from "@/lib/api"
 import { DIFFICULTY_BADGE_CLASSES, DIFFICULTY_LABELS, ROUTES } from "@/lib/constants"
 import { LoadErrorAlert } from "@/components/design-system/load-error-alert"
 import { StudentShell } from "@/components/dashboard/student-shell"
+import { cn } from "@/lib/utils"
 import { CourseIcon } from "./course-icon"
 import { filterCourses, LEVEL_FILTERS, type LevelFilter } from "./course-filters"
 
@@ -71,11 +72,10 @@ export default function CoursesPage() {
               <button
                 key={filter.value}
                 onClick={() => setLevelFilter(filter.value)}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  levelFilter === filter.value
-                    ? "bg-level-purple text-white"
-                    : "border border-border bg-white text-muted-foreground hover:border-level-purple hover:text-level-purple"
-                }`}
+                className={cn(
+                  "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                  levelFilter === filter.value ? "bg-level-purple text-white" : "border border-border bg-white text-muted-foreground hover:border-level-purple hover:text-level-purple",
+                )}
               >
                 {filter.label}
               </button>
@@ -122,7 +122,10 @@ function CourseCard({ course, isEnrolled }: CourseCardProps) {
       href={ROUTES.course(course.id)}
       className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
     >
-      <div className={`relative flex h-36 items-center justify-center bg-gradient-to-br ${COURSE_GRADIENTS[course.level]}`}>
+      <div className={cn(
+        "relative flex h-36 items-center justify-center bg-gradient-to-br",
+        COURSE_GRADIENTS[course.level],
+      )}>
         <CourseIcon courseTitle={course.title} className="h-16 w-16 text-white/80" />
         {isEnrolled && (
           <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 backdrop-blur-sm">
@@ -131,7 +134,11 @@ function CourseCard({ course, isEnrolled }: CourseCardProps) {
           </div>
         )}
         <div className="absolute bottom-3 left-3">
-          <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${DIFFICULTY_BADGE_CLASSES[course.level]} bg-white/90`}>
+          <span className={cn(
+            "rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
+            DIFFICULTY_BADGE_CLASSES[course.level],
+            "bg-white/90",
+          )}>
             {DIFFICULTY_LABELS[course.level]}
           </span>
         </div>

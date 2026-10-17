@@ -15,37 +15,37 @@ export class UsersController {
   constructor(private readonly users: UsersService) {}
 
   @Patch("me/profile")
-  updateMe(@CurrentUser() user: AuthUser, @Body(new ZodPipe(updateMyProfileSchema)) body: UpdateMyProfileInput) {
-    return this.users.updateMe(user.id, body)
+  updateMyProfile(@CurrentUser() user: AuthUser, @Body(new ZodPipe(updateMyProfileSchema)) body: UpdateMyProfileInput) {
+    return this.users.updateMyProfile(user.id, body)
   }
 
   @Public()
   @Get("leaderboard")
-  leaderboard(@Query(new ZodPipe(leaderboardQuery)) query: LimitQuery) {
-    return this.users.leaderboard(query.limit)
+  listLeaderboard(@Query(new ZodPipe(leaderboardQuery)) query: LimitQuery) {
+    return this.users.listLeaderboard(query.limit)
   }
 
   @Public()
   @Get("users/by-username/:username")
-  byUsername(@Param("username") username: string) {
-    return this.users.byUsername(username)
+  getByUsername(@Param("username") username: string) {
+    return this.users.getByUsername(username)
   }
 
   @Public()
   @Get("users/:id/activity")
-  activity(@Param("id", UuidPipe) id: string) {
-    return this.users.activity(id)
+  listActivity(@Param("id", UuidPipe) id: string) {
+    return this.users.listActivity(id)
   }
 
   @Public()
   @Get("users/:id/badges")
-  userBadges(@Param("id", UuidPipe) id: string) {
-    return this.users.userBadges(id)
+  listUserBadges(@Param("id", UuidPipe) id: string) {
+    return this.users.listUserBadges(id)
   }
 
   @Public()
   @Get("badges")
-  badges() {
-    return this.users.badges()
+  listBadges() {
+    return this.users.listBadges()
   }
 }

@@ -32,14 +32,14 @@ export class ExamsAdminService {
     return (await this.repo.listExams()).map(toAdminExamSummary)
   }
 
-  async questions(examId: string): Promise<AdminExamQuestion[]> {
+  async listQuestions(examId: string): Promise<AdminExamQuestion[]> {
     await this.findExam(examId)
-    return (await this.repo.questionsOfExam(examId)).map(toAdminQuestion)
+    return (await this.repo.listQuestions(examId)).map(toAdminQuestion)
   }
 
   async createQuestion(actor: AuthUser, examId: string, input: ExamQuestionInput): Promise<AdminExamQuestion> {
     const exam = await this.findExam(examId)
-    const question = await this.repo.insertQuestion({
+    const question = await this.repo.createQuestion({
       examId,
       prompt: input.prompt,
       options: input.options,

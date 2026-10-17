@@ -9,7 +9,7 @@ import {
   type SourceRule,
   type TestCase,
 } from "@levelusp/contracts"
-import { isOneOf } from "@/lib/utils/guards"
+import { isOneOf } from "@/lib/utils"
 
 /**
  * Rascunho editável de um caso de teste.

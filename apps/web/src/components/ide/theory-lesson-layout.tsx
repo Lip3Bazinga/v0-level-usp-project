@@ -92,7 +92,7 @@ export function TheoryLessonLayout({ lesson, allLessons, currentIndex }: TheoryL
       }
       overlay={
         <SuccessFeedback
-          show={isSuccessOpen}
+          isOpen={isSuccessOpen}
           xpEarned={completion?.result.xp_awarded ?? 0}
           hasNextLesson={navigation.hasNextLesson}
           isCourseEnd={navigation.isCourseEnd}

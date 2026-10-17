@@ -8,15 +8,12 @@ import {
   AuthSubmitButton,
   FormErrorAlert,
   PasswordField,
-} from "@/components/design-system/auth-form"
-import { AuthCenteredLayout } from "@/components/design-system/auth-layout"
+} from "@/components/auth/auth-form"
+import { AuthCenteredLayout } from "@/components/auth/auth-layout"
 import { useSubmitLock } from "@/hooks/use-submit-lock"
 import { getErrorMessage, resetPassword } from "@/lib/api"
-import { ROUTES } from "@/lib/constants"
-import { PASSWORD_MIN_LENGTH, getPasswordPolicyError } from "@/lib/utils/password"
-
-/** Tempo para a pessoa ler a confirmação antes de ir para o login. */
-const LOGIN_REDIRECT_DELAY_MS = 2_500
+import { ROUTES, LOGIN_REDIRECT_DELAY_MS } from "@/lib/constants"
+import { PASSWORD_MIN_LENGTH, getPasswordPolicyError } from "@/lib/utils"
 
 function InvalidResetLinkNotice() {
   return (

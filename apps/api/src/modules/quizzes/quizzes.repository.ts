@@ -18,12 +18,12 @@ export class QuizzesRepository {
   }
 
   /** Questões COM gabarito (só para correção e para o professor dono). */
-  questions(lessonId: string) {
+  listQuestions(lessonId: string) {
     return this.db.select().from(lessonQuizQuestions).where(eq(lessonQuizQuestions.lessonId, lessonId)).orderBy(...quizOrder)
   }
 
   /** Questões sem gabarito (para o aluno) — correct_index nem é lido. */
-  publicQuestions(lessonId: string) {
+  listPublicQuestions(lessonId: string) {
     return this.db
       .select({ id: lessonQuizQuestions.id, prompt: lessonQuizQuestions.prompt, options: lessonQuizQuestions.options })
       .from(lessonQuizQuestions)
@@ -32,7 +32,7 @@ export class QuizzesRepository {
   }
 
   /** Substitui todas as questões numa transação; sort_order = posição na lista. */
-  replace(lessonId: string, questions: QuizQuestionInput[]) {
+  replaceQuestions(lessonId: string, questions: QuizQuestionInput[]) {
     return this.db.transaction(async (tx) => {
       await tx.delete(lessonQuizQuestions).where(eq(lessonQuizQuestions.lessonId, lessonId))
       if (!questions.length) return []

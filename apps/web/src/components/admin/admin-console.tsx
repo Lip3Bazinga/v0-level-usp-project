@@ -13,12 +13,12 @@ import { AdminTopBar, type TopBarAction } from "./admin-top-bar"
 import { AnalyticsPage } from "./analytics-page"
 import { ApprovalsPage } from "./approvals-page"
 import { AuditPage } from "./audit-page"
-import { BadgesAdminPage } from "./badges-page"
+import { BadgesPage } from "./badges-page"
 import { CommandPalette } from "./command-palette"
-import { CoursesAdminPage } from "./courses-admin-page"
-import { ExamQuestionsAdminPage } from "./exam-questions-page"
+import { CoursesPage } from "./courses-page"
+import { ExamQuestionsPage } from "./exam-questions-page"
 import { LessonsPage } from "./lessons/lessons-page"
-import { LibrariesAdminPage } from "./libraries-page"
+import { LibrariesPage } from "./libraries-page"
 import { ModulesPage } from "./modules-page"
 import { SettingsPage } from "./settings/settings-page"
 import type { AdminDashboard, ListUpdate } from "./use-admin-dashboard"
@@ -126,7 +126,7 @@ function AdminSection({ page, dashboard, currentUserId, onNavigate, onToast, upd
     case "users":
       return <UsersPage users={dashboard.users} updateUsers={updateUsers} onToast={onToast} currentUserId={currentUserId} />
     case "courses":
-      return <CoursesAdminPage onToast={onToast} />
+      return <CoursesPage onToast={onToast} />
     case "lessons":
       return <LessonsPage lessons={dashboard.lessons} updateLessons={updateLessons} onToast={onToast} />
     case "analytics":
@@ -134,15 +134,15 @@ function AdminSection({ page, dashboard, currentUserId, onNavigate, onToast, upd
     case "modules":
       return <ModulesPage lessons={dashboard.lessons} onToast={onToast} />
     case "badges":
-      return <BadgesAdminPage onToast={onToast} />
+      return <BadgesPage onToast={onToast} />
     case "approvals":
       return <ApprovalsPage onToast={onToast} />
     case "audit":
       return <AuditPage />
     case "libraries":
-      return <LibrariesAdminPage onToast={onToast} />
+      return <LibrariesPage onToast={onToast} />
     case "exams":
-      return <ExamQuestionsAdminPage onToast={onToast} />
+      return <ExamQuestionsPage onToast={onToast} />
     case "settings":
       return <SettingsPage onToast={onToast} />
   }

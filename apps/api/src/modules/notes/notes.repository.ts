@@ -21,7 +21,7 @@ export class NotesRepository {
       .orderBy(desc(notes.updatedAt))
   }
 
-  async insert(values: NoteInsert) {
+  async create(values: NoteInsert) {
     return requireRow(await this.db.insert(notes).values(values).returning(), "notes")
   }
 

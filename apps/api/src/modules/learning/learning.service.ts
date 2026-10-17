@@ -25,23 +25,23 @@ export class LearningService {
     private readonly rateLimit: RateLimitService,
   ) {}
 
-  async myProgress(userId: string): Promise<LessonProgress[]> {
-    return (await this.repo.progressOf(userId)).map(toLessonProgress)
+  async listMyProgress(userId: string): Promise<LessonProgress[]> {
+    return (await this.repo.listProgress(userId)).map(toLessonProgress)
   }
 
-  async completedLessonIds(userId: string): Promise<string[]> {
-    const progress = await this.repo.progressOf(userId)
+  async listMyCompletedLessonIds(userId: string): Promise<string[]> {
+    const progress = await this.repo.listProgress(userId)
     return progress.filter((lesson) => lesson.status === "completed").map((lesson) => lesson.lessonId)
   }
 
   async getSnapshot(user: AuthUser, lessonId: string): Promise<{ files: ProjectFile[] | null }> {
     await this.findAccessibleLesson(user, lessonId)
-    return { files: parseSnapshot(await this.repo.snapshot(user.id, lessonId)) }
+    return { files: parseSnapshot(await this.repo.findSnapshot(user.id, lessonId)) }
   }
 
-  async saveSnapshot(user: AuthUser, lessonId: string, files: ProjectFile[]): Promise<void> {
+  async updateSnapshot(user: AuthUser, lessonId: string, files: ProjectFile[]): Promise<void> {
     await this.findAccessibleLesson(user, lessonId)
-    await this.repo.saveSnapshot(user.id, lessonId, files)
+    await this.repo.upsertSnapshot(user.id, lessonId, files)
   }
 
   /**
@@ -56,7 +56,7 @@ export class LearningService {
     this.rateLimit.consume(RATE_LIMITS.codeSubmission, user.id)
 
     const { engine, ...gradeResult } = await this.grading.grade(files, lesson.testCases)
-    const submissionId = await this.repo.insertSubmission({
+    const submissionId = await this.repo.createSubmission({
       userId: user.id,
       lessonId,
       files,
@@ -70,7 +70,7 @@ export class LearningService {
     // Prévia do professor numa lição não publicada não credita XP.
     const shouldCredit = gradeResult.allPassed && lesson.published
     const outcome = shouldCredit ? await this.gamification.completeLesson(user.id, lessonId, { score: FULL_SCORE }) : null
-    if (shouldCredit) await this.repo.saveSnapshot(user.id, lessonId, files)
+    if (shouldCredit) await this.repo.upsertSnapshot(user.id, lessonId, files)
     this.logger.log({ userId: user.id, lessonId, passed: gradeResult.allPassed, ms: gradeResult.durationMs }, "submissão corrigida")
 
     return { ...gradeResult, submission_id: submissionId, ...toLessonCompletion(outcome) }

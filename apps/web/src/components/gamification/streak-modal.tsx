@@ -2,19 +2,19 @@
 
 import { motion } from "framer-motion"
 import { Flame, Zap } from "lucide-react"
-import { CelebrationDialog } from "@/components/gamification/celebration-dialog"
+import { CelebrationModal } from "@/components/gamification/celebration-modal"
 
-interface StreakAnimationProps {
-  show: boolean
+interface StreakModalProps {
+  isOpen: boolean
   streakDays: number
   isNewStreak?: boolean
   onClose: () => void
 }
 
-export function StreakAnimation({ show, streakDays, isNewStreak = true, onClose }: StreakAnimationProps) {
+export function StreakModal({ isOpen, streakDays, isNewStreak = true, onClose }: StreakModalProps) {
   return (
-    <CelebrationDialog
-      isOpen={show}
+    <CelebrationModal
+      isOpen={isOpen}
       onClose={onClose}
       backdropClassName="z-[9998] bg-black/60"
       motion={{
@@ -94,6 +94,6 @@ export function StreakAnimation({ show, streakDays, isNewStreak = true, onClose 
       >
         Continuar
       </motion.button>
-    </CelebrationDialog>
+    </CelebrationModal>
   )
 }

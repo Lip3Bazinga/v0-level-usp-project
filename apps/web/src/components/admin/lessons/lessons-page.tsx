@@ -82,7 +82,7 @@ export function LessonsPage({ lessons, updateLessons, onToast }: LessonsPageProp
       onToast(lesson.published ? "Lição despublicada" : "Lição publicada", "success")
     } catch (error) {
       // Ex.: lição de código sem casos de teste não pode ser publicada.
-      onToast(getErrorMessage(error, "Erro ao alterar status da lição"), "danger")
+      onToast(getErrorMessage(error, "Erro ao alterar status da lição"), "error")
     } finally {
       setTogglingId(null)
     }
@@ -96,7 +96,7 @@ export function LessonsPage({ lessons, updateLessons, onToast }: LessonsPageProp
       updateLessons((current) => current.filter((item) => item.id !== lesson.id))
       onToast("Lição excluída", "success")
     } catch (error) {
-      onToast(getErrorMessage(error, "Erro ao excluir lição"), "danger")
+      onToast(getErrorMessage(error, "Erro ao excluir lição"), "error")
     } finally {
       setDeletingId(null)
     }
@@ -117,7 +117,7 @@ export function LessonsPage({ lessons, updateLessons, onToast }: LessonsPageProp
         "success",
       )
     } catch (error) {
-      onToast(getErrorMessage(error, "Erro ao duplicar lição"), "danger")
+      onToast(getErrorMessage(error, "Erro ao duplicar lição"), "error")
     } finally {
       setDuplicatingId(null)
     }

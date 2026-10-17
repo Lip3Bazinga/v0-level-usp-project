@@ -1,23 +1,11 @@
 import type { ReactNode } from "react"
 import Link from "next/link"
-import { Rocket } from "lucide-react"
+import { BrandLogo, BrandMark } from "@/components/design-system/brand-logo"
 import { ROUTES } from "@/lib/constants"
 
 /** Link de destaque das telas de autenticação. */
 export const AUTH_LINK_CLASS =
   "font-semibold text-level-purple hover:text-level-purple-dark transition-colors"
-
-/** Ícone + nome da marca usados no topo das telas de autenticação. */
-export function AuthLogoMark() {
-  return (
-    <>
-      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-level-purple">
-        <Rocket className="h-6 w-6 text-white" />
-      </div>
-      <span className="text-2xl font-bold text-level-purple-dark">LevelUSP</span>
-    </>
-  )
-}
 
 interface AuthHeadingProps {
   as: "h1" | "h2"
@@ -75,9 +63,7 @@ export function AuthBrandPanel({ description, children }: AuthBrandPanelProps) {
   return (
     <div className="hidden lg:flex lg:w-1/2 bg-linear-to-br from-level-purple to-level-purple-dark items-center justify-center p-12">
       <div className="max-w-md text-center">
-        <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 backdrop-blur">
-          <Rocket className="h-10 w-10 text-white" />
-        </div>
+        <BrandMark size="hero" className="mx-auto mb-8 bg-white/10 backdrop-blur" />
         <h1 className="text-4xl font-bold text-white mb-4">
           <Link href={ROUTES.home} className="hover:underline">
             LevelUSP
@@ -102,13 +88,12 @@ export function AuthSplitLayout({ brandPanel, children }: AuthSplitLayoutProps) 
       {brandPanel}
       <div className="flex w-full lg:w-1/2 items-center justify-center p-8">
         <div className="w-full max-w-md">
-          <Link
+          <BrandLogo
+            size="xl"
             href={ROUTES.home}
             aria-label="LevelUSP — página inicial"
-            className="lg:hidden flex items-center justify-center gap-3 mb-8"
-          >
-            <AuthLogoMark />
-          </Link>
+            className="mb-8 justify-center lg:hidden"
+          />
           {children}
         </div>
       </div>
@@ -127,9 +112,7 @@ export function AuthCenteredLayout({ title, description, children }: AuthCentere
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-8">
       <div className="w-full max-w-md">
-        <div className="mb-8 flex items-center justify-center gap-3">
-          <AuthLogoMark />
-        </div>
+        <BrandLogo size="xl" className="mb-8 justify-center" />
         <AuthHeading as="h1" title={title} description={description} />
         {children}
       </div>

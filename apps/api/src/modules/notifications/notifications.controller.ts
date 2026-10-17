@@ -21,13 +21,13 @@ export class NotificationsController {
 
   @HttpCode(204)
   @Post("read-all")
-  async readAll(@CurrentUser() user: AuthUser): Promise<void> {
+  async markAllRead(@CurrentUser() user: AuthUser): Promise<void> {
     await this.notifications.markAllRead(user.id)
   }
 
   @HttpCode(204)
   @Post(":id/read")
-  async read(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string): Promise<void> {
+  async markRead(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string): Promise<void> {
     await this.notifications.markRead(user.id, id)
   }
 }

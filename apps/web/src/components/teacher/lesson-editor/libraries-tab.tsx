@@ -4,7 +4,7 @@ import { LIBRARY_CATEGORIES, type LibraryCatalog, type LibraryRequest } from "@l
 import { Badge } from "@/components/ui/badge"
 import { useAsyncResource } from "@/hooks/use-async-resource"
 import { fetchLibraryCatalog, fetchMyLibraryRequests } from "@/lib/api"
-import { LIBRARY_CATEGORY_LABELS } from "@/lib/constants/library-categories"
+import { LIBRARY_CATEGORY_LABELS } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import { LibraryRequestModal } from "./library-request-modal"
 import { EditorPanel } from "./panel"

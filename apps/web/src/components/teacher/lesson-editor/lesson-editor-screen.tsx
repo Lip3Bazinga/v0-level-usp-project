@@ -7,8 +7,7 @@ import { TeacherSuccessModal } from "@/components/gamification/teacher-success-m
 import { useAsyncResource } from "@/hooks/use-async-resource"
 import { useTransientFlag } from "@/hooks/use-transient-value"
 import { fetchModules, fetchTeacherCourses } from "@/lib/api"
-import { ROUTES } from "@/lib/constants"
-import { SAVED_FEEDBACK_DURATION_MS } from "@/lib/constants/authoring"
+import { ROUTES, SAVED_FEEDBACK_DURATION_MS } from "@/lib/constants"
 import { swalConfirm, swalError, swalToast, swalWarning } from "@/lib/swal"
 import { CheckpointsTab } from "./checkpoints-tab"
 import { ConfigTab } from "./config-tab"
@@ -104,7 +103,7 @@ export function LessonEditorScreen({ initial, onCreated }: LessonEditorScreenPro
   return (
     <div className="min-h-screen bg-white">
       <TeacherSuccessModal
-        show={isSuccessOpen}
+        isOpen={isSuccessOpen}
         type="lesson"
         title={form.title}
         published={editor.published}

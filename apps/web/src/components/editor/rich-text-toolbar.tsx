@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react"
+import { cn } from "@/lib/utils"
 
 const EMOJIS = [
   "😀", "😂", "🤔", "👍", "👎", "✅", "❌", "⚠️", "💡", "🔥", "⭐", "🎉",
@@ -25,9 +26,11 @@ export function ToolbarButton({ isActive, isDisabled, onClick, title, children }
       title={title}
       disabled={isDisabled}
       onClick={onClick}
-      className={`flex h-7 min-w-[28px] items-center justify-center rounded-md px-1.5 text-xs transition-colors ${
-        isActive ? "bg-level-purple text-white" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-      } disabled:opacity-40`}
+      className={cn(
+        "flex h-7 min-w-[28px] items-center justify-center rounded-md px-1.5 text-xs transition-colors",
+        isActive ? "bg-level-purple text-white" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+        "disabled:opacity-40",
+      )}
     >
       {children}
     </button>
@@ -121,9 +124,10 @@ export function FontSizePicker({ value, onChange }: { value: string; onChange: (
                 onChange(size)
                 dropdown.close()
               }}
-              className={`w-full px-3 py-1.5 text-left text-xs transition-colors hover:bg-muted ${
-                size === value ? "font-semibold text-level-purple" : "text-foreground"
-              }`}
+              className={cn(
+                "w-full px-3 py-1.5 text-left text-xs transition-colors hover:bg-muted",
+                size === value ? "font-semibold text-level-purple" : "text-foreground",
+              )}
             >
               {size}
             </button>
@@ -180,7 +184,10 @@ export function UrlPopover({ value, onChange, onConfirm, placeholder, inputClass
           if (event.key === "Enter") onConfirm()
         }}
         placeholder={placeholder}
-        className={`rounded-lg border border-border px-2 py-1 text-xs focus:border-level-purple focus:outline-none ${inputClassName}`}
+        className={cn(
+          "rounded-lg border border-border px-2 py-1 text-xs focus:border-level-purple focus:outline-none",
+          inputClassName,
+        )}
       />
       <button type="button" onClick={onConfirm} className="rounded-lg bg-level-purple px-2 py-1 text-xs text-white hover:bg-level-purple-dark">
         OK

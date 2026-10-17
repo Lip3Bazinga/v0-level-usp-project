@@ -9,18 +9,18 @@ import {
   AuthSubmitButton,
   FormErrorAlert,
   PasswordField,
-} from "@/components/design-system/auth-form"
+} from "@/components/auth/auth-form"
 import {
   AuthBrandPanel,
   AuthDivider,
   AuthFooterPrompt,
   AuthHeading,
   AuthSplitLayout,
-} from "@/components/design-system/auth-layout"
+} from "@/components/auth/auth-layout"
 import { useAuth } from "@/contexts/auth-context"
 import { useSubmitLock } from "@/hooks/use-submit-lock"
 import { ROUTES } from "@/lib/constants"
-import { PASSWORD_MIN_LENGTH, getPasswordPolicyError } from "@/lib/utils/password"
+import { PASSWORD_MIN_LENGTH, getPasswordPolicyError } from "@/lib/utils"
 
 const SIGNUP_BENEFITS = [
   "Aprenda Python do zero ao avançado",

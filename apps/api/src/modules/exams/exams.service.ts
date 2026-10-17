@@ -25,7 +25,7 @@ export interface CertificateRequirements {
 }
 
 interface CourseCompletion {
-  lessons: Awaited<ReturnType<ExamsRepository["publishedLessons"]>>
+  lessons: Awaited<ReturnType<ExamsRepository["listPublishedLessons"]>>
   completed: Set<string>
 }
 
@@ -41,12 +41,12 @@ export class ExamsService {
   ) {}
 
   /** Status da prova: metadados, elegibilidade e tentativas. Nunca devolve questões. */
-  async status(user: AuthUser, courseId: string, now = new Date()): Promise<ExamStatus> {
+  async getStatus(user: AuthUser, courseId: string, now = new Date()): Promise<ExamStatus> {
     const exam = await this.findExamOf(user, courseId)
     const [eligibility, attempts, activeCount] = await Promise.all([
       this.eligibility(user.id, courseId),
-      this.repo.attempts({ examId: exam.id, userId: user.id }),
-      this.repo.activeQuestionCount(exam.id),
+      this.repo.listAttempts({ examId: exam.id, userId: user.id }),
+      this.repo.countActiveQuestions(exam.id),
     ])
     const summary = summarizeAttempts(attempts.map(toAttemptLike), toRules(exam), now)
     return {
@@ -82,7 +82,7 @@ export class ExamsService {
       const owner = { examId: exam.id, userId: user.id }
       await this.repo.lockAttempts(owner, tx)
       const now = new Date()
-      const attemptRows = await this.repo.attempts(owner, tx)
+      const attemptRows = await this.repo.listAttempts(owner, tx)
       const attempts = attemptRows.map(toAttemptLike)
       this.assertCanStart(attempts, exam, now)
 
@@ -90,7 +90,7 @@ export class ExamsService {
       const open = attempts.find((attempt) => isInProgress(attempt, exam, now))
       if (open) {
         const questionIds = attemptRows.find((attemptRow) => attemptRow.id === open.id)?.questionIds ?? []
-        return toExamStart({ attempt: open, exam, questions: await this.repo.publicQuestions(exam.id, questionIds, tx), resumed: true })
+        return toExamStart({ attempt: open, exam, questions: await this.repo.listPublicQuestions(exam.id, questionIds, tx), resumed: true })
       }
       return this.createAttempt(user, exam, now, tx)
     })
@@ -111,7 +111,7 @@ export class ExamsService {
       throw Conflict("Tempo esgotado — a tentativa expirou. Tente novamente.", "EXAM_EXPIRED")
     }
 
-    const questions = await this.repo.questionsForGrading(exam.id, attemptRow.questionIds)
+    const questions = await this.repo.listQuestionsForGrading(exam.id, attemptRow.questionIds)
     if (!questions.length) throw Unprocessable("Esta tentativa não tem questões válidas.", "NO_QUESTIONS")
     const examGrade = gradeExam(questions, input.answers, exam.passingScore)
 
@@ -137,11 +137,11 @@ export class ExamsService {
    * Condições do certificado (usado pelo módulo de certificados): todas as
    * lições publicadas concluídas (inclui o projeto final) e prova aprovada.
    */
-  async certificateRequirements(user: AuthUser, courseId: string): Promise<CertificateRequirements> {
+  async getCertificateRequirements(user: AuthUser, courseId: string): Promise<CertificateRequirements> {
     const course = await this.findVisibleCourse(user, courseId)
     const { lessons, completed } = await this.courseCompletion(user.id, courseId)
     const exam = await this.repo.findActiveExamByCourse(courseId)
-    const passed = exam ? await this.repo.passedAttempt({ examId: exam.id, userId: user.id }) : null
+    const passed = exam ? await this.repo.findPassedAttempt({ examId: exam.id, userId: user.id }) : null
     return {
       course,
       lessonsTotal: lessons.length,
@@ -164,11 +164,11 @@ export class ExamsService {
     // Abandonadas além da tolerância viram reprovação registrada.
     await this.repo.closeStaleAttempts({ ...owner, timeLimitMinutes: exam.timeLimitMinutes, startedBefore: staleAttemptCutoff(exam, now) }, tx)
 
-    const pool = await this.repo.activeQuestionIds(exam.id, tx)
+    const pool = await this.repo.listActiveQuestionIds(exam.id, tx)
     if (!pool.length) throw Unprocessable("Esta prova ainda não tem questões cadastradas.", "NO_QUESTIONS")
     const drawn = drawQuestions(pool, exam.questionsPerAttempt)
-    const created = toAttemptLike(await this.repo.insertAttempt({ ...owner, questionIds: drawn }, tx))
-    const questions = await this.repo.publicQuestions(exam.id, drawn, tx)
+    const created = toAttemptLike(await this.repo.createAttempt({ ...owner, questionIds: drawn }, tx))
+    const questions = await this.repo.listPublicQuestions(exam.id, drawn, tx)
     this.logger.log({ userId: user.id, examId: exam.id, attemptId: created.id, questions: drawn.length }, "tentativa de prova iniciada")
     return toExamStart({ attempt: created, exam, questions, resumed: false })
   }
@@ -189,8 +189,8 @@ export class ExamsService {
   }
 
   private async courseCompletion(userId: string, courseId: string): Promise<CourseCompletion> {
-    const lessons = await this.repo.publishedLessons(courseId)
-    const completed = await this.repo.completedAmong(userId, lessons.map((lesson) => lesson.id))
+    const lessons = await this.repo.listPublishedLessons(courseId)
+    const completed = await this.repo.listCompletedLessonIds(userId, lessons.map((lesson) => lesson.id))
     return { lessons, completed }
   }
 

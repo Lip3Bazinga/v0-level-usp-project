@@ -18,7 +18,7 @@ export class HealthController {
   /** Readiness: banco e executor acessíveis. */
   @Public()
   @Get("ready")
-  ready(): Promise<Readiness> {
-    return this.health.readiness()
+  getReadiness(): Promise<Readiness> {
+    return this.health.getReadiness()
   }
 }

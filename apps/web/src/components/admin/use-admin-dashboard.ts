@@ -4,7 +4,7 @@ import { useCallback } from "react"
 import type { Course, Lesson, PlatformMetrics, Profile, RecentActivity } from "@levelusp/contracts"
 import { useAsyncResource, type AsyncResource } from "@/hooks/use-async-resource"
 import {
-  HTTP_STATUS, fetchAllLessons, fetchAllUsers, fetchDailyActivity, fetchPlatformMetrics, fetchRecentActivity,
+  HTTP_STATUS, fetchAdminLessons, fetchAdminUsers, fetchDailyActivity, fetchPlatformMetrics, fetchRecentActivity,
   fetchTeacherCourses, getErrorMessage, isApiError,
 } from "@/lib/api"
 
@@ -30,8 +30,8 @@ async function loadAdminDashboard(): Promise<AdminDashboardLoad> {
   try {
     const [metrics, users, lessons, activity, dailyCompletions] = await Promise.all([
       fetchPlatformMetrics(),
-      fetchAllUsers(),
-      fetchAllLessons(),
+      fetchAdminUsers(),
+      fetchAdminLessons(),
       fetchRecentActivity(RECENT_ACTIVITY_LIMIT),
       fetchDailyActivity(),
     ])

@@ -38,6 +38,12 @@ function focusInitialElement(dialog: HTMLElement) {
   dialog.focus()
 }
 
+/** Outro diálogo modal aberto por cima (ex.: a confirmação do `swalConfirm`) cuida do próprio teclado. */
+function isInsideAnotherModal(target: EventTarget | null, dialog: HTMLElement): boolean {
+  const modal = target instanceof Element ? target.closest('[aria-modal="true"]') : null
+  return modal !== null && modal !== dialog && !dialog.contains(modal)
+}
+
 /** Leva o foco do fim para o começo (e vice-versa) para o Tab não sair do diálogo. */
 function trapTabKey(event: KeyboardEvent, dialog: HTMLElement) {
   const items = getTabbableItems(dialog)
@@ -85,7 +91,7 @@ export function useModalA11y<TElement extends HTMLElement>(isOpen: boolean, onCl
 
     const handleKeyDown = (event: KeyboardEvent) => {
       const dialog = dialogRef.current
-      if (!dialog) return
+      if (!dialog || isInsideAnotherModal(event.target, dialog)) return
       const close = onCloseRef.current
       if (event.key === "Escape" && close) {
         event.stopPropagation()

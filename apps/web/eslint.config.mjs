@@ -11,16 +11,10 @@ const config = [
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
       // useAsyncResource recebe um array de dependências como o useEffect.
-      "react-hooks/exhaustive-deps": ["warn", { additionalHooks: "useAsyncResource" }],
-      // Regras do React Compiler: ainda há padrões antigos de efeitos e refs nas
-      // telas, então ficam como aviso até a refatoração terminar (docs/v2/divida-tecnica.md).
-      "react-hooks/set-state-in-effect": "warn",
-      "react-hooks/refs": "warn",
-      "react-hooks/immutability": "warn",
-      "react-hooks/static-components": "warn",
-      "react-hooks/preserve-manual-memoization": "warn",
-      "react-hooks/purity": "warn",
-      "react-hooks/globals": "warn",
+      "react-hooks/exhaustive-deps": ["error", { additionalHooks: "useAsyncResource" }],
+      // As demais regras react-hooks/* (React Compiler) já são erro no preset; estas duas vêm como aviso.
+      "react-hooks/incompatible-library": "error",
+      "react-hooks/unsupported-syntax": "error",
     },
   },
 ]

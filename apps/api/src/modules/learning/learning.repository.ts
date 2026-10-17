@@ -17,11 +17,11 @@ export class LearningRepository {
     })
   }
 
-  progressOf(userId: string) {
+  listProgress(userId: string) {
     return this.db.select().from(lessonProgress).where(eq(lessonProgress.userId, userId))
   }
 
-  async snapshot(userId: string, lessonId: string): Promise<string | null> {
+  async findSnapshot(userId: string, lessonId: string): Promise<string | null> {
     const progress = await this.db.query.lessonProgress.findFirst({
       where: and(eq(lessonProgress.userId, userId), eq(lessonProgress.lessonId, lessonId)),
       columns: { codeSnapshot: true },
@@ -30,7 +30,7 @@ export class LearningRepository {
   }
 
   /** Salva o código; não rebaixa lição concluída (o gatilho do banco também impede). */
-  async saveSnapshot(userId: string, lessonId: string, files: ProjectFile[]): Promise<void> {
+  async upsertSnapshot(userId: string, lessonId: string, files: ProjectFile[]): Promise<void> {
     const codeSnapshot = JSON.stringify(files)
     await this.db
       .insert(lessonProgress)
@@ -44,7 +44,7 @@ export class LearningRepository {
       })
   }
 
-  async insertSubmission(submission: SubmissionInsert): Promise<string> {
+  async createSubmission(submission: SubmissionInsert): Promise<string> {
     return requireRow(await this.db.insert(submissions).values(submission).returning({ id: submissions.id }), "submissions").id
   }
 }

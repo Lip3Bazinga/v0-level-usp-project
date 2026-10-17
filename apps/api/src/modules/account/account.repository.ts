@@ -12,7 +12,7 @@ export class AccountRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
   /** Dados da credencial SEM o hash de senha (seleção explícita de colunas). */
-  findAccount(id: string) {
+  findById(id: string) {
     return this.db.query.users.findFirst({
       where: eq(users.id, id),
       columns: { email: true, emailVerifiedAt: true, lastSignInAt: true, createdAt: true },
@@ -24,24 +24,24 @@ export class AccountRepository {
   }
 
   /** Apaga a credencial; o perfil e todos os dados do usuário saem em cascata. */
-  async deleteUser(id: string): Promise<boolean> {
+  async delete(id: string): Promise<boolean> {
     const deleted = await this.db.delete(users).where(eq(users.id, id)).returning({ id: users.id })
     return deleted.length > 0
   }
 
-  progress(userId: string) {
+  listProgress(userId: string) {
     return this.db.select().from(lessonProgress).where(eq(lessonProgress.userId, userId)).orderBy(asc(lessonProgress.createdAt))
   }
 
-  submissions(userId: string) {
+  listSubmissions(userId: string) {
     return this.db.select().from(submissions).where(eq(submissions.userId, userId)).orderBy(asc(submissions.createdAt))
   }
 
-  notes(userId: string) {
+  listNotes(userId: string) {
     return this.db.select().from(notes).where(eq(notes.userId, userId)).orderBy(asc(notes.createdAt))
   }
 
-  enrollments(userId: string) {
+  listEnrollments(userId: string) {
     return this.db
       .select({ courseId: enrollments.courseId, courseTitle: courses.title, enrolledAt: enrollments.enrolledAt })
       .from(enrollments)
@@ -50,11 +50,11 @@ export class AccountRepository {
       .orderBy(asc(enrollments.enrolledAt))
   }
 
-  badges(userId: string) {
+  listBadges(userId: string) {
     return this.db.select().from(userBadges).where(eq(userBadges.userId, userId)).orderBy(asc(userBadges.earnedAt))
   }
 
-  certificates(userId: string) {
+  listCertificates(userId: string) {
     return this.db
       .select({ certificate: certificates, courseTitle: courses.title })
       .from(certificates)
@@ -63,24 +63,24 @@ export class AccountRepository {
       .orderBy(asc(certificates.issuedAt))
   }
 
-  examAttempts(userId: string) {
+  listExamAttempts(userId: string) {
     return this.db.select().from(examAttempts).where(eq(examAttempts.userId, userId)).orderBy(asc(examAttempts.startedAt))
   }
 
-  notifications(userId: string) {
+  listNotifications(userId: string) {
     return this.db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt))
   }
 
-  teacherRequests(userId: string) {
+  listTeacherRequests(userId: string) {
     return this.db.select().from(teacherApprovals).where(eq(teacherApprovals.userId, userId)).orderBy(asc(teacherApprovals.submittedAt))
   }
 
-  libraryRequests(userId: string) {
+  listLibraryRequests(userId: string) {
     return this.db.select().from(libraryRequests).where(eq(libraryRequests.requestedBy, userId)).orderBy(asc(libraryRequests.createdAt))
   }
 
   /** Metadados das sessões. O id (hash do token) nunca é exportado. */
-  sessions(userId: string) {
+  listSessions(userId: string) {
     return this.db
       .select({
         createdAt: sessions.createdAt, lastSeenAt: sessions.lastSeenAt, expiresAt: sessions.expiresAt,
@@ -93,7 +93,7 @@ export class AccountRepository {
   }
 }
 
-export type AccountRow = NonNullable<Awaited<ReturnType<AccountRepository["findAccount"]>>>
-export type EnrollmentExportRow = Awaited<ReturnType<AccountRepository["enrollments"]>>[number]
-export type CertificateExportRow = Awaited<ReturnType<AccountRepository["certificates"]>>[number]
-export type SessionExportRow = Awaited<ReturnType<AccountRepository["sessions"]>>[number]
+export type AccountRow = NonNullable<Awaited<ReturnType<AccountRepository["findById"]>>>
+export type EnrollmentExportRow = Awaited<ReturnType<AccountRepository["listEnrollments"]>>[number]
+export type CertificateExportRow = Awaited<ReturnType<AccountRepository["listCertificates"]>>[number]
+export type SessionExportRow = Awaited<ReturnType<AccountRepository["listSessions"]>>[number]

@@ -7,7 +7,7 @@ import { ArrowLeft, Plus, Trash2, BookOpen, GraduationCap, NotebookPen, Search, 
 import type { Note } from "@levelusp/contracts"
 import { useAuth } from "@/contexts/auth-context"
 import { ROUTES } from "@/lib/constants"
-import { formatRelativeDay, truncatePlainText } from "@/lib/utils"
+import { formatRelativeDay, truncatePlainText, cn } from "@/lib/utils"
 import { LazyRichTextEditor } from "@/components/editor/lazy-rich-text-editor"
 import { filterNotes, useNoteCollection, type NoteSearchField } from "@/components/notes/note-collection"
 import { useNoteAutosave, type EditableNoteField } from "./use-note-autosave"
@@ -171,9 +171,10 @@ function NoteListItem({ note, isActive, isDeleting, onSelect, onDelete }: NoteLi
         event.preventDefault()
         onSelect(note.id)
       }}
-      className={`w-full cursor-pointer border-b border-border px-3 py-3 text-left transition-colors hover:bg-level-purple-light/40 ${
-        isActive ? "bg-level-purple-light/60" : ""
-      }`}
+      className={cn(
+        "w-full cursor-pointer border-b border-border px-3 py-3 text-left transition-colors hover:bg-level-purple-light/40",
+        isActive ? "bg-level-purple-light/60" : "",
+      )}
     >
       <div className="flex items-start justify-between gap-2">
         <p className="truncate text-xs font-semibold text-level-purple-dark">{note.title || "Sem título"}</p>

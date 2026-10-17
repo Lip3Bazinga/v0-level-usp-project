@@ -2,14 +2,15 @@
 
 import { motion } from "framer-motion"
 import { BookOpen, GraduationCap, Star, CheckCircle2, Rocket } from "lucide-react"
-import { MS_PER_SECOND } from "@/lib/constants"
-import { CelebrationDialog } from "@/components/gamification/celebration-dialog"
+import { CELEBRATION_AUTO_CLOSE_MS } from "@/lib/constants"
+import { CelebrationModal } from "@/components/gamification/celebration-modal"
 import { fireConfetti, fireConfettiAfter, useCelebration } from "@/components/gamification/celebration"
+import { cn } from "@/lib/utils"
 
 type TeacherSuccessType = "lesson" | "course"
 
 interface TeacherSuccessModalProps {
-  show: boolean
+  isOpen: boolean
   type: TeacherSuccessType
   title: string
   onClose: () => void
@@ -18,7 +19,6 @@ interface TeacherSuccessModalProps {
   onView?: () => void
 }
 
-const AUTO_CLOSE_MS = 6 * MS_PER_SECOND
 const DECORATION_POSITIONS = [0, 1, 2, 3]
 
 function fireTeacherConfetti() {
@@ -38,15 +38,15 @@ function describeSavedContent(type: TeacherSuccessType, isPublished = false): st
     : "Sua lição foi salva como rascunho. Publique para que os alunos possam acessá-la."
 }
 
-export function TeacherSuccessModal({ show, type, title, onClose, onView, published }: TeacherSuccessModalProps) {
-  useCelebration(show, { celebrate: fireTeacherConfetti, onClose, autoCloseMs: AUTO_CLOSE_MS })
+export function TeacherSuccessModal({ isOpen, type, title, onClose, onView, published }: TeacherSuccessModalProps) {
+  useCelebration(isOpen, { celebrate: fireTeacherConfetti, onClose, autoCloseMs: CELEBRATION_AUTO_CLOSE_MS.teacherSuccess })
   const isLesson = type === "lesson"
   const ContentIcon = isLesson ? BookOpen : GraduationCap
   const gradientClass = isLesson ? "from-level-purple to-level-purple-dark" : "from-emerald-500 to-teal-600"
 
   return (
-    <CelebrationDialog
-      isOpen={show}
+    <CelebrationModal
+      isOpen={isOpen}
       onClose={onClose}
       backdropClassName="z-[9999] bg-black/60"
       motion={{
@@ -58,7 +58,7 @@ export function TeacherSuccessModal({ show, type, title, onClose, onView, publis
       aria-label="Conteúdo salvo com sucesso"
       className="relative mx-4 w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl"
     >
-      <div className={`relative bg-gradient-to-br ${gradientClass} px-6 pb-12 pt-7 text-center`}>
+      <div className={cn("relative bg-gradient-to-br", gradientClass, "px-6 pb-12 pt-7 text-center")}>
         {DECORATION_POSITIONS.map((i) => (
           <motion.div
             key={i}
@@ -144,12 +144,15 @@ export function TeacherSuccessModal({ show, type, title, onClose, onView, publis
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.65 }}
             onClick={onClose}
-            className={`${onView ? "flex-1" : "w-full"} rounded-xl bg-level-purple py-2.5 text-sm font-bold text-white transition-all hover:bg-level-purple-dark`}
+            className={cn(
+              onView ? "flex-1" : "w-full",
+              "rounded-xl bg-level-purple py-2.5 text-sm font-bold text-white transition-all hover:bg-level-purple-dark",
+            )}
           >
             Continuar Editando
           </motion.button>
         </div>
       </div>
-    </CelebrationDialog>
+    </CelebrationModal>
   )
 }

@@ -117,7 +117,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     <ProgressContext.Provider value={value}>
       {children}
       <BadgeEarnedModal
-        show={Boolean(currentBadge)}
+        isOpen={Boolean(currentBadge)}
         badgeName={currentBadge?.name ?? ""}
         badgeIcon={currentBadge?.icon}
         onClose={dismissBadge}

@@ -55,15 +55,15 @@ export class AuthController {
   }
 
   @Get("me")
-  me(@CurrentUser() user: AuthUser): Promise<SessionResponse> {
-    return this.auth.me(user.id)
+  getSession(@CurrentUser() user: AuthUser): Promise<SessionResponse> {
+    return this.auth.getSession(user.id)
   }
 
   @Public()
   @Throttle(PASSWORD_FORGOT_THROTTLE)
   @HttpCode(202)
   @Post("password/forgot")
-  async forgot(@Body(new ZodPipe(requestPasswordResetSchema)) body: RequestPasswordResetInput): Promise<{ ok: true }> {
+  async requestPasswordReset(@Body(new ZodPipe(requestPasswordResetSchema)) body: RequestPasswordResetInput): Promise<{ ok: true }> {
     await this.auth.requestPasswordReset(body.email)
     return { ok: true }
   }
@@ -72,7 +72,7 @@ export class AuthController {
   @Throttle(CREDENTIAL_THROTTLE)
   @HttpCode(200)
   @Post("password/reset")
-  async reset(@Body(new ZodPipe(resetPasswordSchema)) body: ResetPasswordInput): Promise<{ ok: true }> {
+  async resetPassword(@Body(new ZodPipe(resetPasswordSchema)) body: ResetPasswordInput): Promise<{ ok: true }> {
     await this.auth.resetPassword(body.token, body.password)
     return { ok: true }
   }
@@ -80,7 +80,7 @@ export class AuthController {
   @Throttle(CREDENTIAL_THROTTLE)
   @HttpCode(200)
   @Post("password/change")
-  async change(@CurrentUser() user: AuthUser, @Body(new ZodPipe(changePasswordSchema)) body: ChangePasswordInput): Promise<{ ok: true }> {
+  async changePassword(@CurrentUser() user: AuthUser, @Body(new ZodPipe(changePasswordSchema)) body: ChangePasswordInput): Promise<{ ok: true }> {
     await this.auth.changePassword(user, body.current_password, body.new_password)
     return { ok: true }
   }

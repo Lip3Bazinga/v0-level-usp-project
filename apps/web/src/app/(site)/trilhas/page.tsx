@@ -10,6 +10,7 @@ import { FinalCta } from "@/components/marketing/final-cta"
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion-primitives"
 import { PageHero } from "@/components/marketing/page-hero"
 import { DIFFICULTY_LABELS, ROUTES } from "@/lib/constants"
+import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = {
   title: "Trilhas de aprendizado — Currículo do LevelUSP",
@@ -59,7 +60,7 @@ function TrackCard({ track }: { track: LearningTrack }) {
             <track.icon className="h-7 w-7 text-white" />
           </div>
           <span
-            className={`rounded-full px-3 py-1 text-xs font-semibold ${TRACK_LEVEL_BADGE_CLASSES[track.level]}`}
+            className={cn("rounded-full px-3 py-1 text-xs font-semibold", TRACK_LEVEL_BADGE_CLASSES[track.level])}
           >
             {DIFFICULTY_LABELS[track.level]}
           </span>

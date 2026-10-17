@@ -12,6 +12,7 @@ import { useAsyncResource } from "@/hooks/use-async-resource"
 import { useLessonNavigation } from "@/hooks/use-lesson-navigation"
 import { fetchQuizForStudent, getErrorMessage, HTTP_STATUS, nullOnStatus, submitQuiz } from "@/lib/api"
 import { ROUTES } from "@/lib/constants"
+import { cn } from "@/lib/utils"
 
 interface QuizLessonLayoutProps {
   lesson: Lesson
@@ -108,7 +109,7 @@ export function QuizLessonLayout({ lesson, allLessons, currentIndex }: QuizLesso
       }
       overlay={
         <SuccessFeedback
-          show={isSuccessOpen}
+          isOpen={isSuccessOpen}
           xpEarned={result?.xp_awarded ?? 0}
           hasNextLesson={navigation.hasNextLesson}
           isCourseEnd={navigation.isCourseEnd}
@@ -165,14 +166,17 @@ export function QuizLessonLayout({ lesson, allLessons, currentIndex }: QuizLesso
 function QuizScore({ result }: { result: QuizResult }) {
   const { passed } = result
   return (
-    <div className={`mb-6 rounded-2xl border-2 p-5 ${passed ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"}`}>
+    <div className={cn(
+      "mb-6 rounded-2xl border-2 p-5",
+      passed ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50",
+    )}>
       <div className="flex items-center gap-3">
         {passed ? <CheckCircle2 className="h-8 w-8 shrink-0 text-green-600" /> : <XCircle className="h-8 w-8 shrink-0 text-amber-600" />}
         <div>
-          <p className={`text-lg font-bold ${passed ? "text-green-700" : "text-amber-700"}`}>
+          <p className={cn("text-lg font-bold", passed ? "text-green-700" : "text-amber-700")}>
             {passed ? "Aprovado!" : "Ainda não foi dessa vez"}
           </p>
-          <p className={`text-sm ${passed ? "text-green-600" : "text-amber-600"}`}>
+          <p className={cn("text-sm", passed ? "text-green-600" : "text-amber-600")}>
             {result.correctCount} de {result.total} corretas · {result.score}%{" · "}mínimo {result.passingScore}%
           </p>
         </div>
@@ -194,7 +198,7 @@ interface QuizQuestionCardProps {
 function QuizQuestionCard({ question, position, chosenIndex, review, isLocked, onAnswer }: QuizQuestionCardProps) {
   const cardClassName = !review ? "border-border bg-white" : review.correct ? "border-green-200 bg-green-50/50" : "border-red-200 bg-red-50/50"
   return (
-    <div className={`rounded-2xl border-2 p-5 transition-colors ${cardClassName}`}>
+    <div className={cn("rounded-2xl border-2 p-5 transition-colors", cardClassName)}>
       <div className="mb-3 flex items-start gap-3">
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-level-purple text-xs font-bold text-white">
           {position}
@@ -218,18 +222,17 @@ function QuizQuestionCard({ question, position, chosenIndex, review, isLocked, o
               aria-pressed={isSelected}
               disabled={isLocked}
               onClick={() => onAnswer(question.id, optionIndex)}
-              className={`flex w-full items-center gap-3 rounded-xl border-2 px-3 py-2.5 text-left text-sm transition-colors ${
-                isLocked ? "cursor-default" : "cursor-pointer"
-              } ${
-                isSelected
-                  ? "border-level-purple bg-level-purple-subtle text-level-purple-dark"
-                  : "border-border bg-white text-foreground hover:border-level-purple-medium"
-              }`}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-xl border-2 px-3 py-2.5 text-left text-sm transition-colors",
+                isLocked ? "cursor-default" : "cursor-pointer",
+                isSelected ? "border-level-purple bg-level-purple-subtle text-level-purple-dark" : "border-border bg-white text-foreground hover:border-level-purple-medium",
+              )}
             >
               <span
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                  isSelected ? "bg-level-purple text-white" : "bg-muted text-muted-foreground"
-                }`}
+                className={cn(
+                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                  isSelected ? "bg-level-purple text-white" : "bg-muted text-muted-foreground",
+                )}
               >
                 {OPTION_LETTERS[optionIndex] ?? optionIndex + 1}
               </span>

@@ -8,23 +8,23 @@ import { ZodPipe } from "@/common/pipes/zod.pipe"
 import { ExamsService } from "./exams.service"
 
 @ApiTags("exams")
-@Controller()
+@Controller("courses/:id/exam")
 export class ExamsController {
   constructor(private readonly exams: ExamsService) {}
 
-  @Get("courses/:id/exam")
-  status(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) courseId: string) {
-    return this.exams.status(user, courseId)
+  @Get()
+  getStatus(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) courseId: string) {
+    return this.exams.getStatus(user, courseId)
   }
 
   @HttpCode(200)
-  @Post("courses/:id/exam/attempts")
+  @Post("attempts")
   start(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) courseId: string) {
     return this.exams.start(user, courseId)
   }
 
   @HttpCode(200)
-  @Post("courses/:id/exam/submit")
+  @Post("submit")
   submit(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) courseId: string, @Body(new ZodPipe(examSubmitSchema)) body: ExamSubmitInput) {
     return this.exams.submit(user, courseId, body)
   }

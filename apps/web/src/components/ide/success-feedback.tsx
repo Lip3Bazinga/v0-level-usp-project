@@ -5,11 +5,13 @@ import { motion } from "framer-motion"
 import { CheckCircle2, Zap, Star, ArrowRight, Award } from "lucide-react"
 import { XpParticles } from "@/components/gamification/xp-particles"
 import { LevelUpModal } from "@/components/gamification/level-up-modal"
-import { CelebrationDialog } from "@/components/gamification/celebration-dialog"
+import { CelebrationModal } from "@/components/gamification/celebration-modal"
 import { fireConfetti, fireConfettiAfter } from "@/components/gamification/celebration"
+import { SUCCESS_PARTICLES_DELAY_MS, SUCCESS_LEVEL_UP_DELAY_MS } from "@/lib/constants"
+import { cn } from "@/lib/utils"
 
 interface SuccessFeedbackProps {
-  show: boolean
+  isOpen: boolean
   xpEarned: number
   hasNextLesson?: boolean
   isCourseEnd?: boolean
@@ -26,9 +28,6 @@ interface LevelUpTransition {
   newLevel: number
 }
 
-/** Espera o card aparecer antes de lançar as partículas. */
-const PARTICLES_DELAY_MS = 500
-const LEVEL_UP_DELAY_MS = 300
 const MAX_PARTICLES = 120
 const DEFAULT_PARTICLES = 60
 
@@ -64,7 +63,7 @@ function firePurpleConfetti() {
 }
 
 export function SuccessFeedback({
-  show,
+  isOpen,
   xpEarned,
   hasNextLesson = false,
   isCourseEnd = false,
@@ -79,17 +78,17 @@ export function SuccessFeedback({
   const [isLevelUpOpen, setIsLevelUpOpen] = useState(false)
   const didLevelUp = newLevel != null && prevLevel != null && newLevel > prevLevel
 
-  if (!show && areParticlesFlying) setAreParticlesFlying(false)
+  if (!isOpen && areParticlesFlying) setAreParticlesFlying(false)
 
   useEffect(() => {
-    if (!show) return
+    if (!isOpen) return
     firePurpleConfetti()
-    const timer = setTimeout(() => setAreParticlesFlying(true), PARTICLES_DELAY_MS)
+    const timer = setTimeout(() => setAreParticlesFlying(true), SUCCESS_PARTICLES_DELAY_MS)
     return () => clearTimeout(timer)
-  }, [show])
+  }, [isOpen])
 
   const openLevelUpSoon = useCallback(() => {
-    setTimeout(() => setIsLevelUpOpen(true), LEVEL_UP_DELAY_MS)
+    setTimeout(() => setIsLevelUpOpen(true), SUCCESS_LEVEL_UP_DELAY_MS)
   }, [])
 
   const handleParticlesComplete = useCallback(() => {
@@ -120,11 +119,11 @@ export function SuccessFeedback({
         />
       )}
 
-      <LevelUpModal show={isLevelUpOpen} newLevel={newLevel ?? 1} onClose={() => setIsLevelUpOpen(false)} />
+      <LevelUpModal isOpen={isLevelUpOpen} newLevel={newLevel ?? 1} onClose={() => setIsLevelUpOpen(false)} />
 
-      <CelebrationDialog
+      <CelebrationModal
         ref={cardRef}
-        isOpen={show}
+        isOpen={isOpen}
         onClose={handleClose}
         backdropClassName="z-50 bg-black/60"
         backdropTransition={{ duration: 0.3 }}
@@ -245,17 +244,16 @@ export function SuccessFeedback({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.7 }}
               onClick={handleClose}
-              className={`w-full rounded-xl py-3 text-sm font-semibold transition-colors ${
-                hasNextLesson || isCourseEnd
-                  ? "border border-level-purple text-level-purple hover:bg-level-purple-light"
-                  : "btn-3d bg-level-purple text-white hover:bg-level-purple-dark"
-              }`}
+              className={cn(
+                "w-full rounded-xl py-3 text-sm font-semibold transition-colors",
+                hasNextLesson || isCourseEnd ? "border border-level-purple text-level-purple hover:bg-level-purple-light" : "btn-3d bg-level-purple text-white hover:bg-level-purple-dark",
+              )}
             >
               Continuar Aqui
             </motion.button>
           </div>
         </div>
-      </CelebrationDialog>
+      </CelebrationModal>
     </>
   )
 }

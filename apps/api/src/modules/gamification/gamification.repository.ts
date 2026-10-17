@@ -47,14 +47,14 @@ export class GamificationRepository {
     return streak
   }
 
-  async saveStreak({ userId, streak, today }: StreakUpdate, tx: DbOrTx = this.db): Promise<void> {
+  async updateStreak({ userId, streak, today }: StreakUpdate, tx: DbOrTx = this.db): Promise<void> {
     await tx
       .update(profiles)
       .set({ currentStreak: streak, maxStreak: sql`greatest(${profiles.maxStreak}, ${streak})`, lastLoginDate: today })
       .where(eq(profiles.id, userId))
   }
 
-  async progressStatus(userId: string, lessonId: string, tx: DbOrTx = this.db) {
+  async findProgressStatus(userId: string, lessonId: string, tx: DbOrTx = this.db) {
     const [progress] = await tx
       .select({ status: lessonProgress.status })
       .from(lessonProgress)
@@ -77,11 +77,11 @@ export class GamificationRepository {
       .where(eq(profiles.id, userId))
   }
 
-  publishedLessonIds(courseId: string, tx: DbOrTx = this.db) {
+  listPublishedLessonIds(courseId: string, tx: DbOrTx = this.db) {
     return tx.select({ id: lessons.id }).from(lessons).where(and(eq(lessons.courseId, courseId), eq(lessons.published, true)))
   }
 
-  async completedCount(userId: string, lessonIds: string[], tx: DbOrTx = this.db): Promise<number> {
+  async countCompleted(userId: string, lessonIds: string[], tx: DbOrTx = this.db): Promise<number> {
     const [completed] = await tx
       .select({ total: count() })
       .from(lessonProgress)
@@ -93,7 +93,7 @@ export class GamificationRepository {
     await tx.update(profiles).set({ coursesCompleted: sql`${profiles.coursesCompleted} + 1` }).where(eq(profiles.id, userId))
   }
 
-  async courseTitle(courseId: string, tx: DbOrTx = this.db): Promise<string | undefined> {
+  async findCourseTitle(courseId: string, tx: DbOrTx = this.db): Promise<string | undefined> {
     const course = await tx.query.courses.findFirst({ where: eq(courses.id, courseId), columns: { title: true } })
     return course?.title
   }
@@ -102,11 +102,11 @@ export class GamificationRepository {
     return tx.query.profiles.findFirst({ where: eq(profiles.id, userId) })
   }
 
-  badgeRules(tx: DbOrTx = this.db) {
+  listBadgeRules(tx: DbOrTx = this.db) {
     return tx.select().from(badges).orderBy(asc(badges.sortOrder))
   }
 
-  async ownedBadgeIds(userId: string, tx: DbOrTx = this.db): Promise<Set<string>> {
+  async listOwnedBadgeIds(userId: string, tx: DbOrTx = this.db): Promise<Set<string>> {
     const owned = await tx.select({ badgeId: userBadges.badgeId }).from(userBadges).where(eq(userBadges.userId, userId))
     return new Set(owned.map((userBadge) => userBadge.badgeId))
   }

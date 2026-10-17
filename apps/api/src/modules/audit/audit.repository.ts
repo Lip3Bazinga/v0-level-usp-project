@@ -17,11 +17,11 @@ export interface AuditEntry {
 export class AuditRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
-  async insert(entry: AuditEntry): Promise<void> {
+  async create(entry: AuditEntry): Promise<void> {
     await this.db.insert(auditLog).values(entry)
   }
 
-  latest(limit: number) {
+  list(limit: number) {
     return this.db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(limit)
   }
 }

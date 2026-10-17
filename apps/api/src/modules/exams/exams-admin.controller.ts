@@ -14,22 +14,22 @@ export class ExamsAdminController {
   constructor(private readonly admin: ExamsAdminService) {}
 
   @Get("exams")
-  list() {
+  listExams() {
     return this.admin.listExams()
   }
 
   @Get("exams/:examId/questions")
-  questions(@Param("examId", UuidPipe) examId: string) {
-    return this.admin.questions(examId)
+  listQuestions(@Param("examId", UuidPipe) examId: string) {
+    return this.admin.listQuestions(examId)
   }
 
   @Post("exams/:examId/questions")
-  create(@CurrentUser() user: AuthUser, @Param("examId", UuidPipe) examId: string, @Body(new ZodPipe(examQuestionInputSchema)) body: ExamQuestionInput) {
+  createQuestion(@CurrentUser() user: AuthUser, @Param("examId", UuidPipe) examId: string, @Body(new ZodPipe(examQuestionInputSchema)) body: ExamQuestionInput) {
     return this.admin.createQuestion(user, examId, body)
   }
 
   @Patch("exam-questions/:id")
-  update(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(examQuestionUpdateSchema)) body: ExamQuestionUpdateInput) {
+  updateQuestion(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(examQuestionUpdateSchema)) body: ExamQuestionUpdateInput) {
     return this.admin.updateQuestion(user, id, body)
   }
 }

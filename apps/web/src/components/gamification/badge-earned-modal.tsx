@@ -3,20 +3,19 @@
 import { motion } from "framer-motion"
 import { Shield, Star, Sparkles } from "lucide-react"
 import { isBadgeIconName } from "@/lib/badge-icons"
-import { MS_PER_SECOND } from "@/lib/constants"
+import { CELEBRATION_AUTO_CLOSE_MS } from "@/lib/constants"
 import { BadgeIcon } from "@/components/design-system/badge-icon"
-import { CelebrationDialog } from "@/components/gamification/celebration-dialog"
+import { CelebrationModal } from "@/components/gamification/celebration-modal"
 import { fireConfetti, useCelebration } from "@/components/gamification/celebration"
 
 interface BadgeEarnedModalProps {
-  show: boolean
+  isOpen: boolean
   badgeName: string
   badgeDescription?: string
   badgeIcon?: string
   onClose: () => void
 }
 
-const AUTO_CLOSE_MS = 6 * MS_PER_SECOND
 const SPARKLE_POSITIONS = [0, 1, 2, 3, 4, 5]
 
 /**
@@ -45,12 +44,12 @@ function EarnedBadgeIcon({ icon }: { icon?: string }) {
   return <Shield className="h-10 w-10 text-level-purple" />
 }
 
-export function BadgeEarnedModal({ show, badgeName, badgeDescription, badgeIcon, onClose }: BadgeEarnedModalProps) {
-  useCelebration(show, { celebrate: fireBadgeConfetti, onClose, autoCloseMs: AUTO_CLOSE_MS })
+export function BadgeEarnedModal({ isOpen, badgeName, badgeDescription, badgeIcon, onClose }: BadgeEarnedModalProps) {
+  useCelebration(isOpen, { celebrate: fireBadgeConfetti, onClose, autoCloseMs: CELEBRATION_AUTO_CLOSE_MS.badgeEarned })
 
   return (
-    <CelebrationDialog
-      isOpen={show}
+    <CelebrationModal
+      isOpen={isOpen}
       onClose={onClose}
       backdropClassName="z-[10001] bg-black/60"
       motion={{
@@ -147,6 +146,6 @@ export function BadgeEarnedModal({ show, badgeName, badgeDescription, badgeIcon,
           Incrível! Continuar
         </motion.button>
       </div>
-    </CelebrationDialog>
+    </CelebrationModal>
   )
 }

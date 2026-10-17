@@ -13,10 +13,15 @@ export interface AuthUser {
   email: string
 }
 
-export type AuthActionResult = { ok: true } | { ok: false; error: string }
+/**
+ * Resultado das ações de autenticação. Diferente de `ApiResult<T>` (que carrega o `ApiError`
+ * para a tela decidir pelo status), aqui o erro já é a mensagem final: o contexto aplica o
+ * texto padrão de falha e as telas de login/cadastro só exibem.
+ */
+export type AuthActionResult<TData extends object = object> = ({ ok: true } & TData) | { ok: false; error: string }
 
 /** No login a API também atualiza a sequência diária, que dispara a animação. */
-export type SignInResult = { ok: true; streak?: StreakResult } | { ok: false; error: string }
+export type SignInResult = AuthActionResult<{ streak?: StreakResult }>
 
 export interface AuthState {
   user: AuthUser | null

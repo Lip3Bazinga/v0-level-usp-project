@@ -14,7 +14,7 @@ export interface LibraryReview {
 export class LibraryRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
-  catalog(onlyActive: boolean) {
+  listCatalog(onlyActive: boolean) {
     return this.db
       .select()
       .from(libraryCatalog)
@@ -22,7 +22,7 @@ export class LibraryRepository {
       .orderBy(asc(libraryCatalog.category), asc(libraryCatalog.displayName))
   }
 
-  async setActive(id: string, active: boolean) {
+  async setCatalogActive(id: string, active: boolean) {
     const [library] = await this.db.update(libraryCatalog).set({ active }).where(eq(libraryCatalog.id, id)).returning()
     return library
   }
@@ -38,7 +38,7 @@ export class LibraryRepository {
       })
   }
 
-  async insertRequest(request: LibraryRequestInsert) {
+  async createRequest(request: LibraryRequestInsert) {
     return requireRow(await this.db.insert(libraryRequests).values(request).returning(), "library_requests")
   }
 
@@ -53,11 +53,11 @@ export class LibraryRepository {
     })
   }
 
-  requestsBy(userId: string) {
+  listRequestsByUser(userId: string) {
     return this.db.select().from(libraryRequests).where(eq(libraryRequests.requestedBy, userId)).orderBy(desc(libraryRequests.createdAt))
   }
 
-  allRequests() {
+  listRequests() {
     return this.db
       .select({ request: libraryRequests, requesterName: profiles.fullName })
       .from(libraryRequests)
@@ -70,7 +70,7 @@ export class LibraryRepository {
     return request
   }
 
-  async review(id: string, review: LibraryReview, tx: DbOrTx) {
+  async reviewRequest(id: string, review: LibraryReview, tx: DbOrTx) {
     return requireRow(
       await tx.update(libraryRequests).set({ ...review, reviewedAt: sql`now()` }).where(eq(libraryRequests.id, id)).returning(),
       "library_requests",

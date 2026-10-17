@@ -5,6 +5,7 @@ import type { BadgeRarity } from "@levelusp/contracts"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { BadgeIcon } from "@/components/design-system/badge-icon"
 import { cn, formatDate } from "@/lib/utils"
+import { BADGE_TOOLTIP_DELAY_MS } from "@/lib/constants"
 import type { DisplayBadge } from "./display-badges"
 
 export type { DisplayBadge } from "./display-badges"
@@ -13,8 +14,6 @@ interface BadgesSectionProps {
   badges: DisplayBadge[]
   className?: string
 }
-
-const TOOLTIP_DELAY_MS = 200
 
 const RARITY_STYLES: Record<BadgeRarity, { background: string; border: string; icon: string; glow: string }> = {
   common: { background: "bg-level-purple-light", border: "border-level-purple-medium", icon: "text-level-purple", glow: "" },
@@ -77,7 +76,7 @@ export function BadgesSection({ badges, className }: BadgesSectionProps) {
 
       <div className="mb-8">
         <h4 className="mb-4 text-sm font-semibold text-level-purple-dark">Conquistadas ({earnedBadges.length})</h4>
-        <TooltipProvider delayDuration={TOOLTIP_DELAY_MS}>
+        <TooltipProvider delayDuration={BADGE_TOOLTIP_DELAY_MS}>
           <div className="flex flex-wrap gap-4">
             {earnedBadges.map((badge) => (
               <EarnedBadge key={badge.id} badge={badge} />
@@ -89,7 +88,7 @@ export function BadgesSection({ badges, className }: BadgesSectionProps) {
       {lockedBadges.length > 0 && (
         <div>
           <h4 className="mb-4 text-sm font-semibold text-muted-foreground">Bloqueadas ({lockedBadges.length})</h4>
-          <TooltipProvider delayDuration={TOOLTIP_DELAY_MS}>
+          <TooltipProvider delayDuration={BADGE_TOOLTIP_DELAY_MS}>
             <div className="flex flex-wrap gap-4">
               {lockedBadges.map((badge) => (
                 <LockedBadge key={badge.id} badge={badge} />

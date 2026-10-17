@@ -48,12 +48,12 @@ export class CertificatesService {
     const existing = await this.repo.findByUserCourse(user.id, courseId)
     if (existing) return toCertificateIssue(existing, true)
 
-    const requirements = await this.exams.certificateRequirements(user, courseId)
+    const requirements = await this.exams.getCertificateRequirements(user, courseId)
     const passedScore = this.assertEligible(requirements)
 
     for (let attempt = 0; attempt < MAX_CODE_RETRIES; attempt++) {
       const code = generateVerificationCode()
-      const inserted = await this.repo.insert({ userId: user.id, courseId, verificationCode: code, examScore: passedScore })
+      const inserted = await this.repo.create({ userId: user.id, courseId, verificationCode: code, examScore: passedScore })
       if (inserted) {
         await this.afterIssue(user, { courseId, courseTitle: requirements.course.title, code, score: passedScore })
         return toCertificateIssue(inserted, false)
@@ -66,12 +66,12 @@ export class CertificatesService {
     throw ServiceUnavailable("Não foi possível emitir o certificado agora. Tente novamente.", "CERTIFICATE_UNAVAILABLE")
   }
 
-  async mine(user: AuthUser, courseId: string): Promise<MyCertificate | null> {
+  async findMyCertificate(user: AuthUser, courseId: string): Promise<MyCertificate | null> {
     const certificate = await this.repo.findByUserCourse(user.id, courseId)
     return certificate ? toMyCertificate(certificate) : null
   }
 
-  async listMine(user: AuthUser): Promise<MyCertificate[]> {
+  async listMyCertificates(user: AuthUser): Promise<MyCertificate[]> {
     return (await this.repo.listByUser(user.id)).map(toMyCertificate)
   }
 
@@ -83,7 +83,7 @@ export class CertificatesService {
   }
 
   /** PDF oficial, público por código (o código é a credencial). */
-  async pdf(rawCode: string): Promise<CertificatePdf> {
+  async getPdf(rawCode: string): Promise<CertificatePdf> {
     const code = normalizeCode(rawCode)
     const certificate = code ? await this.repo.findByCode(code) : null
     if (!certificate) throw NotFound("Certificado")

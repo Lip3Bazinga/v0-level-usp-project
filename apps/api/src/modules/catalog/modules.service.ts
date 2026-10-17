@@ -28,16 +28,16 @@ export class ModulesService {
   }
 
   /** Lições publicadas por id de módulo. */
-  async lessonCounts(): Promise<Record<string, number>> {
+  async getLessonCounts(): Promise<Record<string, number>> {
     const counts: Record<string, number> = {}
-    for (const { moduleId, lessonCount } of await this.repo.publishedLessonCounts()) {
+    for (const { moduleId, lessonCount } of await this.repo.listPublishedLessonCounts()) {
       if (moduleId) counts[moduleId] = lessonCount
     }
     return counts
   }
 
   async create(actor: AuthUser, input: ModuleInput): Promise<Module> {
-    const module = await this.repo.insert({
+    const module = await this.repo.create({
       title: input.title,
       description: input.description,
       icon: input.icon,
@@ -56,7 +56,7 @@ export class ModulesService {
     return toModule(module)
   }
 
-  async remove(actor: AuthUser, id: string): Promise<void> {
+  async delete(actor: AuthUser, id: string): Promise<void> {
     if (!(await this.repo.delete(id))) throw NotFound("Módulo")
     await this.audit.log(actor, "module.delete", `module:${id}`, {}, "warning")
   }

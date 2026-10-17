@@ -1,3 +1,5 @@
+import { downloadText } from "./download"
+
 function escapeCsvCell(value: unknown): string {
   return `"${String(value ?? "").replace(/"/g, '""')}"`
 }
@@ -14,8 +16,5 @@ export function toCsv<TRow extends Record<string, unknown>>(rows: readonly TRow[
 /** Gera o CSV e dispara o download no navegador. Não faz nada com lista vazia. */
 export function downloadCsv<TRow extends Record<string, unknown>>(rows: readonly TRow[], filename: string): void {
   if (rows.length === 0) return
-  const url = URL.createObjectURL(new Blob([toCsv(rows)], { type: "text/csv;charset=utf-8" }))
-  const link = Object.assign(document.createElement("a"), { href: url, download: filename })
-  link.click()
-  URL.revokeObjectURL(url)
+  downloadText(toCsv(rows), filename, "text/csv;charset=utf-8")
 }

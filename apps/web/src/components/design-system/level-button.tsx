@@ -1,10 +1,8 @@
-"use client"
-
 import type { ButtonHTMLAttributes, ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
-type LevelButtonVariant = "primary" | "secondary" | "outline" | "ghost"
-type LevelButtonSize = "sm" | "md" | "lg"
+export type LevelButtonVariant = "primary" | "secondary" | "outline" | "ghost"
+export type LevelButtonSize = "sm" | "md" | "lg"
 
 interface LevelButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: LevelButtonVariant
@@ -28,9 +26,17 @@ const SIZE_CLASS: Record<LevelButtonSize, string> = {
   lg: "px-8 py-4 text-lg",
 }
 
+/**
+ * Classes do botão da marca, para aplicar o mesmo visual a um `<Link>` (um botão dentro de um
+ * link é HTML inválido e cria dois alvos de foco).
+ */
+export function levelButtonClasses(variant: LevelButtonVariant = "primary", size: LevelButtonSize = "md"): string {
+  return cn(BASE_CLASS, VARIANT_CLASS[variant], SIZE_CLASS[size])
+}
+
 export function LevelButton({ variant = "primary", size = "md", className, children, ...buttonProps }: LevelButtonProps) {
   return (
-    <button className={cn(BASE_CLASS, VARIANT_CLASS[variant], SIZE_CLASS[size], className)} {...buttonProps}>
+    <button className={cn(levelButtonClasses(variant, size), className)} {...buttonProps}>
       {children}
     </button>
   )

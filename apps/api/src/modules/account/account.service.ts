@@ -30,7 +30,7 @@ export class AccountService {
   ) {}
 
   /** LGPD: o próprio usuário apaga a conta confirmando a senha. */
-  async deleteMe(user: AuthUser, password: string): Promise<void> {
+  async deleteMyAccount(user: AuthUser, password: string): Promise<void> {
     this.rateLimit.consume(RATE_LIMITS.accountDeletion, user.id)
     const credentials = await this.auth.findUserById(user.id)
     if (!(await this.passwords.verify(credentials?.passwordHash, password))) {
@@ -39,26 +39,26 @@ export class AccountService {
     if (user.role === "admin" && (await this.repo.countAdmins()) <= 1) {
       throw Conflict("Você é o único administrador. Promova outra pessoa antes de excluir sua conta.", "LAST_ADMIN")
     }
-    await this.repo.deleteUser(user.id)
+    await this.repo.delete(user.id)
   }
 
   /** Todos os dados pessoais do usuário. Nunca inclui hash de senha nem tokens. */
-  async exportData(userId: string): Promise<UserDataExport> {
-    const [profile, account] = await Promise.all([this.users.findById(userId), this.repo.findAccount(userId)])
+  async getDataExport(userId: string): Promise<UserDataExport> {
+    const [profile, account] = await Promise.all([this.users.findById(userId), this.repo.findById(userId)])
     if (!profile || !account) throw NotFound("Usuário")
     const [progress, submissions, notes, enrollments, badges, certificates, examAttempts, notifications, teacherRequests, libraryRequests, sessions] =
       await Promise.all([
-        this.repo.progress(userId),
-        this.repo.submissions(userId),
-        this.repo.notes(userId),
-        this.repo.enrollments(userId),
-        this.repo.badges(userId),
-        this.repo.certificates(userId),
-        this.repo.examAttempts(userId),
-        this.repo.notifications(userId),
-        this.repo.teacherRequests(userId),
-        this.repo.libraryRequests(userId),
-        this.repo.sessions(userId),
+        this.repo.listProgress(userId),
+        this.repo.listSubmissions(userId),
+        this.repo.listNotes(userId),
+        this.repo.listEnrollments(userId),
+        this.repo.listBadges(userId),
+        this.repo.listCertificates(userId),
+        this.repo.listExamAttempts(userId),
+        this.repo.listNotifications(userId),
+        this.repo.listTeacherRequests(userId),
+        this.repo.listLibraryRequests(userId),
+        this.repo.listSessions(userId),
       ])
     return {
       exported_at: new Date().toISOString(),
@@ -78,8 +78,8 @@ export class AccountService {
     }
   }
 
-  exportMine(user: AuthUser): Promise<UserDataExport> {
+  getMyDataExport(user: AuthUser): Promise<UserDataExport> {
     this.rateLimit.consume(RATE_LIMITS.dataExport, user.id)
-    return this.exportData(user.id)
+    return this.getDataExport(user.id)
   }
 }

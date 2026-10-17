@@ -1,7 +1,7 @@
 import { Award, BookOpen, CheckCircle2, Clock, Loader2, Play, Star, Zap } from "lucide-react"
 import type { Course, Difficulty } from "@levelusp/contracts"
 import { DIFFICULTY_BADGE_CLASSES, DIFFICULTY_LABELS } from "@/lib/constants"
-import { toClampedPercent } from "@/lib/utils"
+import { toClampedPercent, cn } from "@/lib/utils"
 import { CourseIcon } from "../course-icon"
 
 const COURSE_GRADIENTS: Record<Difficulty, string> = {
@@ -39,7 +39,7 @@ export function CourseHero({
   onDownloadCertificate,
 }: CourseHeroProps) {
   return (
-    <div className={`relative bg-linear-to-br ${COURSE_GRADIENTS[course.level]} text-white`}>
+    <div className={cn("relative bg-linear-to-br", COURSE_GRADIENTS[course.level], "text-white")}>
       {course.cover_image_url && (
         // eslint-disable-next-line @next/next/no-img-element -- capa enviada pelo professor (upload ou URL externa)
         <img
@@ -56,7 +56,11 @@ export function CourseHero({
 
           <div className="flex-1">
             <div className="mb-3 flex flex-wrap items-center gap-2">
-              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${DIFFICULTY_BADGE_CLASSES[course.level]} bg-white/90`}>
+              <span className={cn(
+                "rounded-full px-3 py-1 text-xs font-semibold",
+                DIFFICULTY_BADGE_CLASSES[course.level],
+                "bg-white/90",
+              )}>
                 {DIFFICULTY_LABELS[course.level]}
               </span>
               {course.tags.slice(0, 3).map((tag) => (
@@ -196,7 +200,10 @@ export function EnrollButton({ isEnrolling, onEnroll, className }: EnrollButtonP
     <button
       onClick={onEnroll}
       disabled={isEnrolling}
-      className={`flex w-full items-center justify-center gap-2 rounded-xl bg-level-purple text-sm font-bold text-white transition-colors hover:bg-level-purple-dark disabled:opacity-50 ${className}`}
+      className={cn(
+        "flex w-full items-center justify-center gap-2 rounded-xl bg-level-purple text-sm font-bold text-white transition-colors hover:bg-level-purple-dark disabled:opacity-50",
+        className,
+      )}
     >
       {isEnrolling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className="h-4 w-4" />}
       {isEnrolling ? "Matriculando..." : "Matricular-se — Grátis"}

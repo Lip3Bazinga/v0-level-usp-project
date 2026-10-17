@@ -34,6 +34,34 @@ entenderia de primeira ao ler o arquivo sem contexto.
   mesma coisa, nem `fetch`/`get`/`load` para o mesmo tipo de operação). Na web:
   `fetchX` = chamada HTTP na camada `lib/api`; `loadX` = efeito que busca e guarda em estado.
 
+### 2.1 Verbos de métodos na API (repositories e services)
+
+| Verbo | Devolve | Exemplos |
+|---|---|---|
+| `list…` | lista (pode ser vazia) | `list()`, `listByOwner(id)`, `listMyEnrollments(user)` |
+| `find…` | um item ou `undefined`/`null`; quem chama decide | `findById`, `findByCode`, `findMyCertificate` |
+| `get…` | um item que precisa existir (o service lança `AppError` 404) ou um agregado calculado | `get(user, id)`, `getMetrics()`, `getStatus(user, courseId)` |
+| `count…`, `is…`/`has…` | número, booleano | `countAdmins()`, `isUsernameTaken(name)` |
+| `create`, `update`, `delete` | escrita | `create(values)`, `update(id, patch)`, `delete(id)` |
+| `upsert…`, `replace…`, `set<Campo>` | insere-ou-atualiza, troca a coleção, muda um campo | `upsertSettings`, `replaceQuestions`, `setPublished` |
+
+- Não use `insert`, `remove`, `save`, `listAll` nem método só com substantivo (`metrics()`, `snapshot()`).
+- A entidade principal do módulo fica implícita (`CoursesRepository.create`, `NotesService.delete`);
+  entidades secundárias vão no nome (`ExamsRepository.createAttempt`, `QuizzesRepository.listQuestions`).
+  Classes sem entidade principal (`admin`, `account`, `auth`, `gamification`) sempre nomeiam a entidade.
+- Recursos do usuário logado (`/me/...`): `My` logo depois do verbo, com a entidade (`listMyProgress`,
+  `getMyDataExport`, `deleteMyAccount`, `updateMyProfile`), o mesmo nome da função da web.
+- Operações que não são CRUD usam o verbo do domínio: `enroll`, `submit`, `approve`, `issue`, `verify`,
+  `grade`, `lock…` (`SELECT … FOR UPDATE`), `revoke…`, `markRead`, `grantBadges`.
+- O handler do controller tem o nome do método do service que ele chama.
+
+### 2.2 Funções HTTP da web (`lib/api`)
+
+- `fetchX` = GET; `fetchMyX` para `/me/...`; `fetchAdminX` quando existe a versão pública e a de
+  administração (que traz tudo, inclusive inativos e rascunhos).
+- Mutações: `createX`, `updateX`, `deleteX`, `setX<Campo>` ou o verbo do domínio (`submitX`, `enrollInCourse`,
+  `markNotificationRead`). Sem `save…` nem `fetchAll…`.
+
 ## 3. Tipos
 
 - **Zero `any`** (explícito ou implícito). Use `unknown` + estreitamento (type guards,
@@ -63,9 +91,11 @@ entenderia de primeira ao ler o arquivo sem contexto.
 ## 5. Centralização e reutilização
 
 - **API**: utilidades transversais em `apps/api/src/common/`; nada de helper duplicado entre módulos.
-- **Web**: `src/lib/api` (cliente HTTP e chamadas), `src/lib/utils` (puras), `src/lib/constants`
-  (rotas, chaves de storage, limites, cores semânticas), `src/hooks` (hooks reutilizáveis),
+- **Web**: `src/lib/api` (cliente HTTP e chamadas), `src/lib/utils` (puras, exportadas pelo
+  `index.ts`), `src/lib/constants` (rotas, chaves de storage, tempos em `timing.ts`, limites, rótulos),
+  `src/hooks` (hooks reutilizáveis), `src/components/design-system` (peças visuais da marca),
   `src/components/ui` (primitivas shadcn — não editar além do necessário).
+- Importe pelos barrels (`@/lib/utils`, `@/lib/constants`, `@/lib/api`), não pelo arquivo interno.
 - Rotas da web em uma constante única (`ROUTES`), nada de string `"/dashboard"` espalhada.
 - Formatação (datas, números, XP, porcentagem) em funções únicas de `lib/utils/format`.
 - Se o mesmo trecho aparece 2+ vezes, extraia. Se aparece 1 vez, não abstraia "por precaução".
@@ -80,9 +110,22 @@ entenderia de primeira ao ler o arquivo sem contexto.
 - **D**: dependências injetadas (Nest DI; na web, funções de `lib/api` recebidas por hooks),
   nunca instanciadas no meio da regra.
 
+### 6.1 Rotas nos controllers
+
+- `@Controller("<prefixo>")` recebe o maior prefixo (por segmento) comum a todas as rotas do controller;
+  cada método declara só o restante (`@Controller("courses/:id/exam")` + `@Post("attempts")`).
+- `@Controller()` vazio só quando as rotas não têm prefixo comum (ex.: `CoursesController` atende
+  `/courses`, `/teacher/courses` e `/me/enrollments`). O caminho final é o de `docs/v2/api-rotas.md`.
+
 ## 7. React
 
 - Componentes funcionais com props tipadas por `interface <Nome>Props`.
+- Props booleanas também seguem `is`/`has` (`isOpen` nos modais, `hasLabel`). Modais ficam em
+  `*-modal.tsx`; telas do painel do admin em `components/admin/<x>-page.tsx`, exportando `<X>Page`.
+- Classes com condição ou composição usam `cn()` (resolve conflitos do Tailwind); template literal
+  só para string sem interpolação. Cores da marca pelos tokens (`level-purple`, …), não por hex.
+- Confirmação: `swalConfirm` (nunca `window.confirm`). Avisos: `swalToast` e o toast do admin usam o
+  mesmo `ToastKind` (`success` | `error` | `warning` | `info`).
 - Estado derivado é calculado, não guardado em `useState` + `useEffect`.
 - Efeitos com dependências corretas (sem desligar `exhaustive-deps`); busca de dados via hook
   comum com cancelamento.

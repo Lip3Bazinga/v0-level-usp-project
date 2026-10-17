@@ -23,7 +23,7 @@ export class NotificationsRepository {
     return this.db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt)).limit(limit)
   }
 
-  async insertMany(userId: string, newNotifications: NewNotification[], tx: DbOrTx = this.db): Promise<void> {
+  async createMany(userId: string, newNotifications: NewNotification[], tx: DbOrTx = this.db): Promise<void> {
     if (!newNotifications.length) return
     await tx.insert(notifications).values(newNotifications.map((notification) => toInsert(userId, notification)))
   }

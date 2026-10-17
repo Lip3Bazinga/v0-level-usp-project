@@ -20,13 +20,13 @@ export class AuditService {
 
   async log(actor: AuthUser | null, action: string, target: string, meta: Record<string, unknown> = {}, severity: AuditSeverity = "info") {
     try {
-      await this.repo.insert({ actorId: actor?.id ?? null, actorName: actor?.fullName ?? SYSTEM_ACTOR_NAME, action, target, meta, severity })
+      await this.repo.create({ actorId: actor?.id ?? null, actorName: actor?.fullName ?? SYSTEM_ACTOR_NAME, action, target, meta, severity })
     } catch (error) {
       this.logger.error({ err: error, action, target }, "falha ao gravar auditoria")
     }
   }
 
   async list(limit = 50): Promise<AuditLog[]> {
-    return (await this.repo.latest(Math.min(limit, MAX_LISTED_ENTRIES))).map(toAuditLog)
+    return (await this.repo.list(Math.min(limit, MAX_LISTED_ENTRIES))).map(toAuditLog)
   }
 }

@@ -70,7 +70,7 @@ export class AdminService {
   ) {}
 
   async listUsers(): Promise<Profile[]> {
-    return (await this.users.listAll()).map(toProfile)
+    return (await this.users.list()).map(toProfile)
   }
 
   async updateUser(actor: AuthUser, id: string, input: AdminUpdateUserInput): Promise<Profile> {
@@ -96,7 +96,7 @@ export class AdminService {
     const violation = selfActionViolation(actor.id, id, { kind: "delete" })
     if (violation) throw Forbidden(violation)
     const target = await this.findUser(id)
-    await this.accountRepo.deleteUser(id)
+    await this.accountRepo.delete(id)
     await this.audit.log(actor, "user.delete", target.email, { user_id: id, role: target.role }, "danger")
   }
 
@@ -113,7 +113,7 @@ export class AdminService {
     await this.audit.log(actor, "user.password_reset", target.email, { user_id: id }, "warning")
   }
 
-  async invite(actor: AuthUser, email: string, fullName?: string): Promise<Profile> {
+  async inviteUser(actor: AuthUser, email: string, fullName?: string): Promise<Profile> {
     this.rateLimit.consume(RATE_LIMITS.adminInvite, actor.id)
     try {
       const profile = await this.auth.inviteUser(email, fullName)
@@ -125,8 +125,8 @@ export class AdminService {
     }
   }
 
-  async exportUser(actor: AuthUser, id: string): Promise<UserDataExport> {
-    const data = await this.accounts.exportData(id)
+  async getUserDataExport(actor: AuthUser, id: string): Promise<UserDataExport> {
+    const data = await this.accounts.getDataExport(id)
     await this.audit.log(actor, "user.export", data.profile.email, { user_id: id }, "warning")
     return data
   }
@@ -143,25 +143,25 @@ export class AdminService {
     await this.audit.log(actor, "sessions.invalidate_all", "todas as sessões", {}, "danger")
   }
 
-  metrics(): Promise<PlatformMetrics> {
-    return this.repo.metrics()
+  getMetrics(): Promise<PlatformMetrics> {
+    return this.repo.getMetrics()
   }
 
-  async recentActivity(limit = 20): Promise<RecentActivity[]> {
-    return (await this.repo.recentCompletions(limit)).flatMap(toRecentActivity)
+  async listRecentActivity(limit = 20): Promise<RecentActivity[]> {
+    return (await this.repo.listRecentCompletions(limit)).flatMap(toRecentActivity)
   }
 
-  async dailyActivity(now = new Date()): Promise<number[]> {
-    const perDay = await this.repo.completionsPerDay(seriesStart(now))
+  async listDailyActivity(now = new Date()): Promise<number[]> {
+    const perDay = await this.repo.listCompletionsPerDay(seriesStart(now))
     return dailySeries(perDay.map(({ day, completions }) => ({ day, count: completions })), SERIES_DAYS, now)
   }
 
-  async analytics(now = new Date()): Promise<AnalyticsMetrics> {
+  async getAnalytics(now = new Date()): Promise<AnalyticsMetrics> {
     const [perDay, totals, topLessons, roles] = await Promise.all([
-      this.repo.completionsPerDay(seriesStart(now)),
-      this.repo.analyticsTotals(),
-      this.repo.topLessons(TOP_LESSONS_LIMIT),
-      this.repo.roleDistribution(),
+      this.repo.listCompletionsPerDay(seriesStart(now)),
+      this.repo.getAnalyticsTotals(),
+      this.repo.listTopLessons(TOP_LESSONS_LIMIT),
+      this.repo.listRoleDistribution(),
     ])
     return {
       dailyActiveUsers: dailySeries(perDay.map(({ day, users }) => ({ day, count: users })), SERIES_DAYS, now),
@@ -172,33 +172,33 @@ export class AdminService {
     }
   }
 
-  async lessons(): Promise<Lesson[]> {
-    return (await this.repo.allLessons()).map(toLesson)
+  async listLessons(): Promise<Lesson[]> {
+    return (await this.repo.listLessons()).map(toLesson)
   }
 
-  async settings(): Promise<PlatformSettings> {
-    const settings = await this.repo.settings()
+  async getSettings(): Promise<PlatformSettings> {
+    const settings = await this.repo.listSettings()
     return Object.fromEntries(settings.map((setting) => [setting.key, setting.value]))
   }
 
-  async saveSettings(actor: AuthUser, input: PlatformSettings): Promise<PlatformSettings> {
+  async updateSettings(actor: AuthUser, input: PlatformSettings): Promise<PlatformSettings> {
     const entries = Object.entries(input).map(([key, value]) => ({ key, value }))
     if (entries.length > MAX_SETTINGS_PER_REQUEST) throw BadRequest(`Envie no máximo ${MAX_SETTINGS_PER_REQUEST} configurações por vez.`)
     if (entries.length) {
       await this.repo.upsertSettings(entries)
       await this.audit.log(actor, "settings.update", "platform_settings", { keys: entries.map((entry) => entry.key) }, "warning")
     }
-    return this.settings()
+    return this.getSettings()
   }
 
-  audits(limit: number): Promise<AuditLog[]> {
+  listAudits(limit: number): Promise<AuditLog[]> {
     return this.audit.list(limit)
   }
 
   async createBadge(actor: AuthUser, input: BadgeInput): Promise<Badge> {
     if (await this.repo.findBadge(input.id)) throw badgeExists()
     try {
-      const badge = await this.repo.insertBadge({
+      const badge = await this.repo.createBadge({
         id: input.id,
         name: input.name,
         description: input.description,

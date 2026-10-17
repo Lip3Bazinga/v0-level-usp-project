@@ -56,7 +56,7 @@ export class ExamsRepository {
   }
 
   /** Lições publicadas do curso com o nome do módulo (texto legado e tabela de módulos). */
-  publishedLessons(courseId: string) {
+  listPublishedLessons(courseId: string) {
     return this.db
       .select({ id: lessons.id, module: lessons.module, moduleTitle: modules.title })
       .from(lessons)
@@ -64,7 +64,7 @@ export class ExamsRepository {
       .where(and(eq(lessons.courseId, courseId), eq(lessons.published, true)))
   }
 
-  async completedAmong(userId: string, lessonIds: string[]): Promise<Set<string>> {
+  async listCompletedLessonIds(userId: string, lessonIds: string[]): Promise<Set<string>> {
     if (!lessonIds.length) return new Set()
     const completed = await this.db
       .select({ lessonId: lessonProgress.lessonId })
@@ -73,7 +73,7 @@ export class ExamsRepository {
     return new Set(completed.map((progress) => progress.lessonId))
   }
 
-  attempts({ examId, userId }: AttemptOwner, tx: DbOrTx = this.db) {
+  listAttempts({ examId, userId }: AttemptOwner, tx: DbOrTx = this.db) {
     return tx
       .select()
       .from(examAttempts)
@@ -88,7 +88,7 @@ export class ExamsRepository {
     })
   }
 
-  async activeQuestionCount(examId: string): Promise<number> {
+  async countActiveQuestions(examId: string): Promise<number> {
     const [active] = await this.db
       .select({ total: count() })
       .from(examQuestions)
@@ -96,7 +96,7 @@ export class ExamsRepository {
     return active?.total ?? 0
   }
 
-  async activeQuestionIds(examId: string, tx: DbOrTx = this.db): Promise<string[]> {
+  async listActiveQuestionIds(examId: string, tx: DbOrTx = this.db): Promise<string[]> {
     const active = await tx
       .select({ id: examQuestions.id })
       .from(examQuestions)
@@ -106,14 +106,14 @@ export class ExamsRepository {
   }
 
   /** Questões da tentativa, sem gabarito, na ordem sorteada. */
-  async publicQuestions(examId: string, ids: string[], tx: DbOrTx = this.db): Promise<PublicExamQuestionRow[]> {
+  async listPublicQuestions(examId: string, ids: string[], tx: DbOrTx = this.db): Promise<PublicExamQuestionRow[]> {
     if (!ids.length) return []
     const questions = await tx.select(publicQuestionColumns).from(examQuestions).where(and(eq(examQuestions.examId, examId), inArray(examQuestions.id, ids)))
     return orderByIds(questions, ids)
   }
 
   /** Questões da tentativa COM gabarito — uso exclusivo da correção no servidor. */
-  async questionsForGrading(examId: string, ids: string[]) {
+  async listQuestionsForGrading(examId: string, ids: string[]) {
     if (!ids.length) return []
     const questions = await this.db
       .select({ id: examQuestions.id, correctIndex: examQuestions.correctIndex, explanation: examQuestions.explanation })
@@ -122,7 +122,7 @@ export class ExamsRepository {
     return orderByIds(questions, ids)
   }
 
-  async insertAttempt(attempt: NewAttempt, tx: DbOrTx) {
+  async createAttempt(attempt: NewAttempt, tx: DbOrTx) {
     return requireRow(await tx.insert(examAttempts).values(attempt).returning(), "exam_attempts")
   }
 
@@ -155,7 +155,7 @@ export class ExamsRepository {
   }
 
   /** Melhor tentativa aprovada do aluno na prova (null se não aprovado). */
-  async passedAttempt({ examId, userId }: AttemptOwner) {
+  async findPassedAttempt({ examId, userId }: AttemptOwner) {
     const [best] = await this.db
       .select({ id: examAttempts.id, score: examAttempts.score })
       .from(examAttempts)
@@ -177,7 +177,7 @@ export class ExamsRepository {
     return this.db.query.exams.findFirst({ where: eq(exams.id, id), columns: { id: true, title: true } })
   }
 
-  questionsOfExam(examId: string) {
+  listQuestions(examId: string) {
     return this.db.select().from(examQuestions).where(eq(examQuestions.examId, examId)).orderBy(...questionOrder)
   }
 
@@ -185,7 +185,7 @@ export class ExamsRepository {
     return this.db.query.examQuestions.findFirst({ where: eq(examQuestions.id, id) })
   }
 
-  async insertQuestion(values: ExamQuestionInsert) {
+  async createQuestion(values: ExamQuestionInsert) {
     return requireRow(await this.db.insert(examQuestions).values(values).returning(), "exam_questions")
   }
 

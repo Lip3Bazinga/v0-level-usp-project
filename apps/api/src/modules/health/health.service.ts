@@ -20,7 +20,7 @@ export class HealthService {
     @Inject(ENV) private readonly env: Env,
   ) {}
 
-  async readiness(): Promise<Readiness> {
+  async getReadiness(): Promise<Readiness> {
     const isDatabaseUp = await this.db.execute(sql`select 1`).then(() => true, () => false)
     const isRunnerUp = await this.runner.healthy()
     return {

@@ -27,7 +27,7 @@ function LessonWorkspace({ lesson, allLessons, currentIndex }: LessonPageData) {
     pythonStatus, isExecuting, isInstalling, stop,
     run, reset, verify,
     hasRun, hasOutput, canVerify, lessonProgress, allPassed, isVerifying,
-    lastResult, levelBefore, showSuccess, setShowSuccess,
+    lastResult, levelBefore, isSuccessOpen, setIsSuccessOpen,
   } = useIDE()
   const navigation = useLessonNavigation(allLessons, currentIndex, lesson)
   const levelUp = getLevelUpTransition(lastResult, levelBefore)
@@ -98,13 +98,13 @@ function LessonWorkspace({ lesson, allLessons, currentIndex }: LessonPageData) {
       />
 
       <SuccessFeedback
-        show={showSuccess}
+        isOpen={isSuccessOpen}
         xpEarned={lastResult?.xp_awarded ?? 0}
         hasNextLesson={navigation.hasNextLesson}
         isCourseEnd={navigation.isCourseEnd}
         prevLevel={levelUp?.prevLevel}
         newLevel={levelUp?.newLevel}
-        onClose={() => setShowSuccess(false)}
+        onClose={() => setIsSuccessOpen(false)}
         onNext={navigation.goToNext}
       />
     </div>

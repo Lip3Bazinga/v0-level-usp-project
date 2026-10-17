@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { BookOpen, CheckCircle2, ChevronRight, Clock, FlaskConical, Lock, Play, Star, Trophy, Zap, type LucideIcon } from "lucide-react"
 import type { Course, ExamStatus, Lesson } from "@levelusp/contracts"
 import { DIFFICULTY_BADGE_CLASSES, DIFFICULTY_LABELS, ROUTES } from "@/lib/constants"
-import { formatPercent, type TrailStatus } from "@/lib/utils"
+import { formatPercent, type TrailStatus, cn } from "@/lib/utils"
 
 const COMPLETED_STARS = [0, 1, 2]
 /** Quantas lições o quadro "O que você vai aprender" lista antes de resumir o resto. */
@@ -64,14 +64,23 @@ function CourseLessonRow({ lesson, position, status, isEnrolled }: CourseLessonR
   const canAccess = isEnrolled && status !== "locked"
   return (
     <div
-      className={`flex items-center gap-4 px-4 py-3.5 transition-colors ${canAccess ? "cursor-pointer hover:bg-level-purple-subtle" : "opacity-60"}`}
+      className={cn(
+        "flex items-center gap-4 px-4 py-3.5 transition-colors",
+        canAccess ? "cursor-pointer hover:bg-level-purple-subtle" : "opacity-60",
+      )}
       onClick={() => canAccess && router.push(ROUTES.lesson(lesson.id))}
     >
-      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${STATUS_BADGE_CLASSES[status]}`}>
+      <div className={cn(
+        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+        STATUS_BADGE_CLASSES[status],
+      )}>
         <LessonStatusIcon status={status} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className={`truncate text-sm font-medium ${status === "locked" ? "text-muted-foreground" : "text-level-purple-dark"}`}>
+        <p className={cn(
+          "truncate text-sm font-medium",
+          status === "locked" ? "text-muted-foreground" : "text-level-purple-dark",
+        )}>
           {position}. {lesson.title}
         </p>
         <p className="text-xs text-muted-foreground">
@@ -120,9 +129,12 @@ export function CertificationSection({ courseId, examStatus, certificateCode }: 
   return (
     <section>
       <h2 className="mb-4 text-xl font-bold text-level-purple-dark">Prova Final e Certificação</h2>
-      <div className={`rounded-2xl border-2 p-5 ${cardClassName}`}>
+      <div className={cn("rounded-2xl border-2 p-5", cardClassName)}>
         <div className="flex items-center gap-4">
-          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${passed ? "bg-green-100" : "bg-white"}`}>
+          <div className={cn(
+            "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl",
+            passed ? "bg-green-100" : "bg-white",
+          )}>
             {passed ? (
               <CheckCircle2 className="h-6 w-6 text-green-600" />
             ) : eligible ? (
@@ -172,17 +184,24 @@ export function FinalProjectSection({ course, lessonCount, isUnlocked, onStart }
     <section>
       <h2 className="mb-4 text-xl font-bold text-level-purple-dark">Projeto Final</h2>
       <div
-        className={`overflow-hidden rounded-2xl border-2 transition-all ${
-          isUnlocked ? "border-yellow-400 shadow-lg shadow-yellow-100" : "border-border opacity-75"
-        }`}
+        className={cn(
+          "overflow-hidden rounded-2xl border-2 transition-all",
+          isUnlocked ? "border-yellow-400 shadow-lg shadow-yellow-100" : "border-border opacity-75",
+        )}
       >
-        <div className={`flex items-center gap-3 px-5 py-4 ${isUnlocked ? "bg-linear-to-r from-yellow-400 to-amber-500 text-white" : "bg-muted/50"}`}>
-          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isUnlocked ? "bg-white/20" : "bg-muted"}`}>
+        <div className={cn(
+          "flex items-center gap-3 px-5 py-4",
+          isUnlocked ? "bg-linear-to-r from-yellow-400 to-amber-500 text-white" : "bg-muted/50",
+        )}>
+          <div className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+            isUnlocked ? "bg-white/20" : "bg-muted",
+          )}>
             {isUnlocked ? <Star className="h-5 w-5 text-white" /> : <Lock className="h-5 w-5 text-muted-foreground" />}
           </div>
           <div className="min-w-0 flex-1">
-            <p className={`text-sm font-bold ${isUnlocked ? "text-white" : "text-level-purple-dark"}`}>{course.final_project_title}</p>
-            <p className={`text-xs ${isUnlocked ? "text-white/80" : "text-muted-foreground"}`}>
+            <p className={cn("text-sm font-bold", isUnlocked ? "text-white" : "text-level-purple-dark")}>{course.final_project_title}</p>
+            <p className={cn("text-xs", isUnlocked ? "text-white/80" : "text-muted-foreground")}>
               {isUnlocked ? "Você desbloqueou o projeto final!" : `Complete todas as ${lessonCount} lições para desbloquear`}
             </p>
           </div>
@@ -282,12 +301,12 @@ export function CourseSidebar({ course, lessons, hasFinalProject }: CourseSideba
           {courseStats(course, lessons.length, hasFinalProject).map((stat) => (
             <div key={stat.label} className="flex items-center justify-between text-sm">
               <span className="flex items-center gap-2 text-muted-foreground">
-                <stat.icon className={`h-4 w-4 ${stat.colorClassName}`} /> {stat.label}
+                <stat.icon className={cn("h-4 w-4", stat.colorClassName)} /> {stat.label}
               </span>
               {stat.badgeClassName ? (
-                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${stat.badgeClassName}`}>{stat.value}</span>
+                <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", stat.badgeClassName)}>{stat.value}</span>
               ) : (
-                <span className={`font-semibold text-level-purple-dark ${stat.colorClassName}`}>{stat.value}</span>
+                <span className={cn("font-semibold text-level-purple-dark", stat.colorClassName)}>{stat.value}</span>
               )}
             </div>
           ))}

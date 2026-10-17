@@ -11,7 +11,7 @@ import { AccountMenuContent } from "@/components/dashboard/student-shell"
 import { useAuth } from "@/contexts/auth-context"
 import { useTransientFlag } from "@/hooks/use-transient-value"
 import { computeLevelProgress, formatNumber, formatXp, getInitials } from "@/lib/utils"
-import { ROUTES } from "@/lib/constants"
+import { ROUTES, XP_PULSE_DURATION_MS } from "@/lib/constants"
 
 interface HeaderProps {
   lessonTitle: string
@@ -19,8 +19,6 @@ interface HeaderProps {
   /** Alvo das partículas de XP do feedback de sucesso. */
   xpBadgeRef?: RefObject<HTMLDivElement | null>
 }
-
-const XP_PULSE_MS = 900
 
 export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps) {
   const { profile } = useAuth()
@@ -89,7 +87,7 @@ export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps)
 
 /** Pulsa quando o XP muda durante a sessão (não na primeira carga do perfil). */
 function useXpPulse(totalXp: number): boolean {
-  const pulse = useTransientFlag(XP_PULSE_MS)
+  const pulse = useTransientFlag(XP_PULSE_DURATION_MS)
   const { activate } = pulse
   const previousXpRef = useRef(totalXp)
 

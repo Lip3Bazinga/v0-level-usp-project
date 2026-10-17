@@ -8,12 +8,11 @@ import {
 import { LoadErrorAlert } from "@/components/design-system/load-error-alert"
 import { useAsyncResource } from "@/hooks/use-async-resource"
 import {
-  fetchAdminLibraryCatalog, fetchAllLibraryRequests, getErrorMessage, reviewLibraryRequest, setLibraryCatalogActive,
+  fetchAdminLibraryCatalog, fetchAdminLibraryRequests, getErrorMessage, reviewLibraryRequest, setLibraryCatalogActive,
 } from "@/lib/api"
-import { LIBRARY_CATEGORY_LABELS } from "@/lib/constants/library-categories"
+import { LIBRARY_CATEGORY_LABELS } from "@/lib/constants"
 import type { OnToast } from "@/lib/types"
-import { cn, formatDate } from "@/lib/utils"
-import { isOneOf } from "@/lib/utils/guards"
+import { cn, formatDate, isOneOf } from "@/lib/utils"
 import { PanelSpinner } from "./panel-spinner"
 
 const STATUS_STYLES: Record<LibraryRequestStatus, { label: string; className: string }> = {
@@ -43,15 +42,15 @@ interface ApprovalOptions {
 }
 
 async function loadLibraries(): Promise<LibrariesData> {
-  const [requests, catalog] = await Promise.all([fetchAllLibraryRequests(), fetchAdminLibraryCatalog()])
+  const [requests, catalog] = await Promise.all([fetchAdminLibraryRequests(), fetchAdminLibraryCatalog()])
   return { requests, catalog }
 }
 
-interface LibrariesAdminPageProps {
+interface LibrariesPageProps {
   onToast: OnToast
 }
 
-export function LibrariesAdminPage({ onToast }: LibrariesAdminPageProps) {
+export function LibrariesPage({ onToast }: LibrariesPageProps) {
   const [tab, setTab] = useState<LibrariesTab>("requests")
   const libraries = useAsyncResource(loadLibraries, [], { errorMessage: "Erro ao carregar dados" })
   const { requests, catalog } = libraries.status === "success" ? libraries.data : { requests: [], catalog: [] }
@@ -89,7 +88,7 @@ export function LibrariesAdminPage({ onToast }: LibrariesAdminPageProps) {
       onToast(`✓ ${request.library_name} aprovada e adicionada ao catálogo`)
       void libraries.reload()
     } catch (error) {
-      onToast(getErrorMessage(error, "Erro ao aprovar requisição"), "danger")
+      onToast(getErrorMessage(error, "Erro ao aprovar requisição"), "error")
     }
   }
 
@@ -98,7 +97,7 @@ export function LibrariesAdminPage({ onToast }: LibrariesAdminPageProps) {
       applyReview(await reviewLibraryRequest(request.id, { status: "rejected", review_notes: notes.trim() || undefined }))
       onToast(`Requisição de ${request.library_name} rejeitada`, "warning")
     } catch (error) {
-      onToast(getErrorMessage(error, "Erro ao rejeitar requisição"), "danger")
+      onToast(getErrorMessage(error, "Erro ao rejeitar requisição"), "error")
     }
   }
 
@@ -109,7 +108,7 @@ export function LibrariesAdminPage({ onToast }: LibrariesAdminPageProps) {
       onToast(active ? "Biblioteca ativada" : "Biblioteca desativada")
     } catch (error) {
       setCatalogActive(libraryId, !active)
-      onToast(getErrorMessage(error, "Erro ao atualizar biblioteca"), "danger")
+      onToast(getErrorMessage(error, "Erro ao atualizar biblioteca"), "error")
     }
   }
 

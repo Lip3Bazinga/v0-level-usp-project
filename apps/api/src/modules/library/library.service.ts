@@ -23,22 +23,22 @@ export class LibraryService {
     private readonly rateLimit: RateLimitService,
   ) {}
 
-  async catalog(onlyActive = true): Promise<LibraryCatalog[]> {
-    return (await this.repo.catalog(onlyActive)).map(toLibraryCatalog)
+  async listCatalog(onlyActive = true): Promise<LibraryCatalog[]> {
+    return (await this.repo.listCatalog(onlyActive)).map(toLibraryCatalog)
   }
 
-  async setActive(actor: AuthUser, id: string, active: boolean): Promise<void> {
-    const library = await this.repo.setActive(id, active)
+  async setCatalogActive(actor: AuthUser, id: string, active: boolean): Promise<void> {
+    const library = await this.repo.setCatalogActive(id, active)
     if (!library) throw NotFound("Biblioteca")
     await this.audit.log(actor, active ? "library.activate" : "library.deactivate", library.name, { id }, "info")
   }
 
-  async request(user: AuthUser, input: LibraryRequestInput): Promise<LibraryRequest> {
+  async createRequest(user: AuthUser, input: LibraryRequestInput): Promise<LibraryRequest> {
     this.rateLimit.consume(RATE_LIMITS.libraryRequest, user.id)
     if (await this.repo.findPendingRequest(user.id, input.library_name)) {
       throw Conflict("Você já tem uma solicitação pendente para esta biblioteca.", "REQUEST_PENDING")
     }
-    const request = await this.repo.insertRequest({
+    const request = await this.repo.createRequest({
       requestedBy: user.id,
       libraryName: input.library_name,
       displayName: input.display_name ?? null,
@@ -48,23 +48,23 @@ export class LibraryService {
     return toLibraryRequest(request)
   }
 
-  async myRequests(user: AuthUser): Promise<LibraryRequest[]> {
-    return (await this.repo.requestsBy(user.id)).map((request) => toLibraryRequest(request))
+  async listMyRequests(user: AuthUser): Promise<LibraryRequest[]> {
+    return (await this.repo.listRequestsByUser(user.id)).map((request) => toLibraryRequest(request))
   }
 
-  async allRequests(): Promise<LibraryRequest[]> {
-    return (await this.repo.allRequests()).map(({ request, requesterName }) => toLibraryRequest(request, requesterName))
+  async listRequests(): Promise<LibraryRequest[]> {
+    return (await this.repo.listRequests()).map(({ request, requesterName }) => toLibraryRequest(request, requesterName))
   }
 
   /** Aprova/rejeita; se aprovado com `catalog`, insere (ou reativa) a biblioteca no catálogo na mesma transação. */
-  async review(actor: AuthUser, id: string, input: ReviewLibraryRequestInput): Promise<LibraryRequest> {
+  async reviewRequest(actor: AuthUser, id: string, input: ReviewLibraryRequestInput): Promise<LibraryRequest> {
     const isApproved = input.status === "approved"
     const catalogEntry = isApproved ? input.catalog : undefined
     const reviewed = await this.transactions.run(async (tx) => {
       const pending = await this.repo.lockRequest(id, tx)
       if (!pending) throw NotFound("Solicitação")
       if (pending.status !== "pending") throw Conflict("Esta solicitação já foi revisada.", "ALREADY_REVIEWED")
-      const updated = await this.repo.review(id, { status: input.status, reviewedBy: actor.id, reviewNotes: input.review_notes ?? null }, tx)
+      const updated = await this.repo.reviewRequest(id, { status: input.status, reviewedBy: actor.id, reviewNotes: input.review_notes ?? null }, tx)
       if (catalogEntry) await this.addToCatalog(pending, catalogEntry, actor, tx)
       await this.notifications.notify(
         pending.requestedBy,

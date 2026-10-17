@@ -1,5 +1,6 @@
 import Swal, { type SweetAlertIcon, type SweetAlertOptions } from "sweetalert2"
 import { TOAST_DURATION_MS } from "@/lib/constants"
+import type { ToastKind } from "@/lib/types"
 
 /*
  * Feedback ao usuário (toasts, alertas e confirmações) com o visual da marca.
@@ -73,7 +74,7 @@ export function swalWarning({ title, text }: AlertOptions) {
 }
 
 /** Toast discreto no canto superior direito, que some sozinho. */
-export function swalToast({ title, icon = "success" }: { title: string; icon?: Exclude<SweetAlertIcon, "question"> }) {
+export function swalToast({ title, icon = "success" }: { title: string; icon?: ToastKind }) {
   return Swal.mixin({
     toast: true,
     position: "top-end",

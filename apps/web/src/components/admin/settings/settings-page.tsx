@@ -3,9 +3,10 @@
 import { useState, type ReactNode } from "react"
 import { Flag, Globe, Loader2, Lock, Settings, Trophy } from "lucide-react"
 import { useAsyncResource } from "@/hooks/use-async-resource"
-import { fetchPlatformSettings, getErrorMessage, invalidateSessions, savePlatformSettings } from "@/lib/api"
+import { fetchPlatformSettings, getErrorMessage, invalidateSessions, updatePlatformSettings } from "@/lib/api"
 import type { OnToast } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { swalConfirm } from "@/lib/swal"
 import {
   DEFAULT_SETTINGS_FORM, FEATURE_FLAG_DETAILS, FEATURE_FLAG_KEYS, parseSettingsForm, toPlatformSettings, type PlatformSettingsForm,
 } from "./platform-settings"
@@ -53,23 +54,29 @@ export function SettingsPage({ onToast }: SettingsPageProps) {
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      await savePlatformSettings(toPlatformSettings(form))
+      await updatePlatformSettings(toPlatformSettings(form))
       onToast("Configurações salvas", "success")
     } catch (error) {
-      onToast(getErrorMessage(error, "Erro ao salvar configurações"), "danger")
+      onToast(getErrorMessage(error, "Erro ao salvar configurações"), "error")
     } finally {
       setIsSaving(false)
     }
   }
 
   const handleInvalidateSessions = async () => {
-    if (!window.confirm("Invalidar TODAS as sessões? Todos os usuários precisarão logar novamente.")) return
+    const isConfirmed = await swalConfirm({
+      title: "Invalidar TODAS as sessões?",
+      text: "Todos os usuários precisarão logar novamente.",
+      confirmText: "Invalidar",
+      danger: true,
+    })
+    if (!isConfirmed) return
     setIsInvalidating(true)
     try {
       await invalidateSessions()
       onToast("Todas as sessões foram invalidadas", "success")
     } catch (error) {
-      onToast(getErrorMessage(error, "Erro ao invalidar sessões"), "danger")
+      onToast(getErrorMessage(error, "Erro ao invalidar sessões"), "error")
     } finally {
       setIsInvalidating(false)
     }

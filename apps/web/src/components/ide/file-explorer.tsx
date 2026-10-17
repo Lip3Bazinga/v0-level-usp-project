@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { MAIN_FILE_PATH } from "@/lib/constants"
-import { buildTree, type FileOperationResult, type TreeNode } from "@/lib/utils"
+import { buildTree, type FileOperationResult, type TreeNode, cn } from "@/lib/utils"
+import { swalConfirm, swalWarning } from "@/lib/swal"
 import { toNewFilePath, toNewFolderPlaceholderPath, toRenamedPath } from "./file-explorer-paths"
 
 type FileDialogMode = "create-file" | "create-folder" | "rename"
@@ -143,9 +144,10 @@ function TreeItem({ node, depth, activePath, isReadOnly, onSelect, onRename, onD
     <div>
       <div
         onClick={() => (isFolder ? setIsOpen((current) => !current) : onSelect(node.path))}
-        className={`group flex w-full cursor-pointer items-center gap-1 px-2 py-1.5 text-sm transition-colors hover:bg-level-purple-light ${
-          isActive ? "bg-level-purple-light text-level-purple-dark" : "text-foreground"
-        }`}
+        className={cn(
+          "group flex w-full cursor-pointer items-center gap-1 px-2 py-1.5 text-sm transition-colors hover:bg-level-purple-light",
+          isActive ? "bg-level-purple-light text-level-purple-dark" : "text-foreground",
+        )}
         style={{ paddingLeft: `${depth * TREE_INDENT_PX + TREE_BASE_PADDING_PX}px` }}
       >
         {isFolder ? (
@@ -259,11 +261,17 @@ export function FileExplorer({ files, activePath, onSelect, onCreate, onRename, 
     }
   }
 
-  const handleDelete = (path: string) => {
+  const handleDelete = async (path: string) => {
     if (!onDelete) return
-    if (!window.confirm(`Excluir "${path}"? Esta ação não pode ser desfeita.`)) return
+    const isConfirmed = await swalConfirm({
+      title: `Excluir "${path}"?`,
+      text: "Esta ação não pode ser desfeita.",
+      confirmText: "Excluir",
+      danger: true,
+    })
+    if (!isConfirmed) return
     const result = onDelete(path)
-    if (!result.ok) window.alert(result.error)
+    if (!result.ok) void swalWarning({ title: "Não foi possível excluir", text: result.error })
   }
 
   return (

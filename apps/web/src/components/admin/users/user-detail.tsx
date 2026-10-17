@@ -14,7 +14,7 @@ import {
   sendPasswordReset, setUserSuspended,
 } from "@/lib/api"
 import type { OnToast } from "@/lib/types"
-import { cn, formatDate, formatNumber, formatTimeAgo, indexBy, todayKey } from "@/lib/utils"
+import { cn, downloadJson, formatDate, formatNumber, formatTimeAgo, indexBy, todayKey } from "@/lib/utils"
 import { AdminModal, ModalCancelButton } from "../admin-modal"
 import type { ListUpdate } from "../use-admin-dashboard"
 import { UserAvatar } from "./user-avatar"
@@ -70,14 +70,6 @@ const RESET_PROGRESS: Pick<Profile, "total_xp" | "level" | "lessons_completed" |
   current_streak: 0,
   max_streak: 0,
   courses_completed: 0,
-}
-
-/** Baixa um objeto como arquivo JSON. */
-function downloadJson(data: unknown, filename: string) {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }))
-  const link = Object.assign(document.createElement("a"), { href: url, download: filename })
-  link.click()
-  URL.revokeObjectURL(url)
 }
 
 interface EarnedBadge {
@@ -149,7 +141,7 @@ export function UserDetail({ user, users, updateUsers, onBack, onToast }: UserDe
     delete: async () => {
       await deleteUser(current.id)
       updateUsers((list) => list.filter((item) => item.id !== current.id))
-      onToast("Conta excluída", "danger")
+      onToast("Conta excluída", "error")
       onBack()
     },
   }
@@ -159,7 +151,7 @@ export function UserDetail({ user, users, updateUsers, onBack, onToast }: UserDe
     try {
       await actionHandlers[action.id]()
     } catch (error) {
-      onToast(getErrorMessage(error, "Erro ao executar ação"), "danger")
+      onToast(getErrorMessage(error, "Erro ao executar ação"), "error")
     } finally {
       setIsBusy(false)
       setPendingAction(null)

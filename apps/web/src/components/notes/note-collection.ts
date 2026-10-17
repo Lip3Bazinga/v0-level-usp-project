@@ -4,6 +4,7 @@ import { useState } from "react"
 import type { Note } from "@levelusp/contracts"
 import { useAsyncResource } from "@/hooks/use-async-resource"
 import { createNote, deleteNote, fetchNotes } from "@/lib/api"
+import { swalConfirm } from "@/lib/swal"
 
 export type NoteSearchField = "title" | "content" | "lesson_title" | "course_title"
 
@@ -51,7 +52,8 @@ export function useNoteCollection(isSignedIn: boolean) {
   }
 
   const remove = async (noteId: string) => {
-    if (!window.confirm("Excluir esta anotação?")) return
+    const isConfirmed = await swalConfirm({ title: "Excluir esta anotação?", confirmText: "Excluir", danger: true })
+    if (!isConfirmed) return
     setDeletingNoteId(noteId)
     try {
       await deleteNote(noteId)

@@ -6,9 +6,10 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { ArrowLeft, BookOpen, Loader2 } from "lucide-react"
 import { ROUTES } from "@/lib/constants"
-import { EnrollmentAnimation } from "@/components/gamification/enrollment-animation"
+import { EnrollmentModal } from "@/components/gamification/enrollment-modal"
 import { CourseCompleteModal } from "@/components/gamification/course-complete-modal"
-import { BrandLink, StudentHeaderBar } from "@/components/dashboard/student-shell"
+import { BrandLogo } from "@/components/design-system/brand-logo"
+import { StudentHeaderBar } from "@/components/dashboard/student-shell"
 import { CourseHero, EnrollButton } from "./course-hero"
 import { CertificationSection, CourseLessonList, CourseSidebar, FinalProjectSection } from "./course-sections"
 import { useCourseDetail } from "./use-course-detail"
@@ -58,14 +59,14 @@ export default function CourseDetailPage() {
 
   return (
     <>
-      <EnrollmentAnimation
-        show={detail.isEnrollAnimationOpen}
+      <EnrollmentModal
+        isOpen={detail.isEnrollAnimationOpen}
         courseTitle={course.title}
         courseXp={course.total_xp}
         onClose={detail.closeEnrollAnimation}
       />
       <CourseCompleteModal
-        show={detail.isCompleteModalOpen}
+        isOpen={detail.isCompleteModalOpen}
         courseTitle={course.title}
         courseXp={course.total_xp}
         hasCertificate
@@ -75,7 +76,7 @@ export default function CourseDetailPage() {
 
       <div className="min-h-screen bg-background pb-24 md:pb-8">
         <StudentHeaderBar>
-          <BrandLink />
+          <BrandLogo href={ROUTES.dashboard} />
           <Link
             href={ROUTES.courses}
             className="flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-level-purple"

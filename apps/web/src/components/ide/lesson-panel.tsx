@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { Spinner } from "@/components/design-system/spinner"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   BookOpen,
@@ -18,6 +19,7 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import type { Checkpoint } from "@levelusp/contracts"
 import { LessonContentPreview } from "@/components/editor/lesson-content-preview"
+import { cn } from "@/lib/utils"
 
 interface PanelCheckpoint extends Checkpoint {
   isCompleted?: boolean
@@ -75,9 +77,10 @@ interface StepItemProps {
 function StepItem({ isDone, label, sublabel }: StepItemProps) {
   return (
     <div
-      className={`flex items-start gap-3 rounded-xl border-2 p-3 transition-all duration-300 ${
-        isDone ? "border-green-200 bg-green-50" : "border-gray-200 bg-gray-50"
-      }`}
+      className={cn(
+        "flex items-start gap-3 rounded-xl border-2 p-3 transition-all duration-300",
+        isDone ? "border-green-200 bg-green-50" : "border-gray-200 bg-gray-50",
+      )}
     >
       {isDone ? (
         <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
@@ -85,7 +88,7 @@ function StepItem({ isDone, label, sublabel }: StepItemProps) {
         <Circle className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
       )}
       <div className="min-w-0">
-        <p className={`text-sm font-medium ${isDone ? "text-green-700" : "text-gray-600"}`}>{label}</p>
+        <p className={cn("text-sm font-medium", isDone ? "text-green-700" : "text-gray-600")}>{label}</p>
         {sublabel && <p className="mt-0.5 text-xs text-gray-500">{sublabel}</p>}
       </div>
     </div>
@@ -138,9 +141,10 @@ export function LessonPanel({
                 {checkpoints.map((checkpoint) => (
                   <div
                     key={checkpoint.id}
-                    className={`rounded-xl border-2 p-3 transition-all duration-300 ${
-                      checkpoint.isCompleted ? "border-green-200 bg-green-50" : "border-gray-200 bg-gray-50"
-                    }`}
+                    className={cn(
+                      "rounded-xl border-2 p-3 transition-all duration-300",
+                      checkpoint.isCompleted ? "border-green-200 bg-green-50" : "border-gray-200 bg-gray-50",
+                    )}
                   >
                     <div className="flex items-start gap-3">
                       {checkpoint.isCompleted ? (
@@ -221,7 +225,7 @@ export function LessonPanel({
           >
             {isVerifying ? (
               <>
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <Spinner />
                 Verificando...
               </>
             ) : areCheckpointsDone ? (

@@ -1,7 +1,6 @@
 import { AlertCircle, CheckCircle2, ChevronDown, ChevronUp, HelpCircle, Plus, Trash2, X } from "lucide-react"
 import type { QuizQuestionFull } from "@levelusp/contracts"
-import { cn } from "@/lib/utils"
-import { moveItem, removeChoiceAt, type MoveDirection } from "@/lib/utils/list-editing"
+import { cn, moveItem, removeChoiceAt, type MoveDirection } from "@/lib/utils"
 import { ADD_BUTTON_CLASS, EditorPanel, MINI_LABEL_CLASS, SMALL_INPUT_CLASS } from "./panel"
 
 const MIN_OPTIONS = 2
@@ -121,7 +120,7 @@ function QuestionCard({ question, index, isLast, onChange, onRemove, onMove }: Q
             onChange={(event) => onChange({ prompt: event.target.value })}
             rows={2}
             placeholder="Ex: Qual é o resultado de len('Python')?"
-            className={`${SMALL_INPUT_CLASS} resize-none`}
+            className={cn(SMALL_INPUT_CLASS, "resize-none")}
           />
         </div>
 

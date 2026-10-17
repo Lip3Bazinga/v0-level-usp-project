@@ -35,14 +35,14 @@ export class StorageService {
   }
 
   /** Salva uma imagem validada e devolve a URL pública relativa (/api/files/...). */
-  async saveImage(bytes: Buffer, ownerId: string): Promise<string> {
+  async storeImage(bytes: Buffer, ownerId: string): Promise<string> {
     if (bytes.length > MAX_IMAGE_BYTES) throw BadRequest("A imagem pode ter no máximo 2 MB.", "FILE_TOO_LARGE")
     const extension = sniffImage(bytes)
     if (!extension) throw BadRequest("Envie uma imagem PNG, JPEG ou WebP.", "INVALID_IMAGE")
     await mkdir(this.directory, { recursive: true })
     const name = `${randomUUID()}.${extension}`
     await writeFile(path.join(this.directory, name), bytes, { mode: IMAGE_FILE_MODE })
-    await this.uploads.insert(name, ownerId, bytes.length)
+    await this.uploads.create(name, ownerId, bytes.length)
     return `${PUBLIC_FILES_PATH}${name}`
   }
 
@@ -69,7 +69,7 @@ export class StorageService {
   }
 
   /** Apaga a imagem só se ela pertence a `ownerId` (nunca arquivos de terceiros). */
-  async remove(url: string | null | undefined, ownerId: string | null): Promise<void> {
+  async delete(url: string | null | undefined, ownerId: string | null): Promise<void> {
     const name = localFileName(url)
     if (!name || !ownerId) return
     if (await this.uploads.deleteOwned(name, ownerId)) await unlink(path.join(this.directory, name)).catch(() => undefined)

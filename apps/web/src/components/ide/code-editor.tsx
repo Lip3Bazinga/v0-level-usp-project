@@ -6,10 +6,13 @@ import CodeMirror, { EditorView } from "@uiw/react-codemirror"
 import { python } from "@codemirror/lang-python"
 import { oneDark } from "@codemirror/theme-one-dark"
 import type { ProjectFile } from "@levelusp/contracts"
+import { Spinner } from "@/components/design-system/spinner"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTransientFlag } from "@/hooks/use-transient-value"
 import type { PyodideStatus } from "@/hooks/use-python"
+import { COPIED_FEEDBACK_DURATION_MS } from "@/lib/constants"
+import { cn } from "@/lib/utils"
 
 interface CodeEditorProps {
   /** Abas abertas, na ordem em que aparecem. */
@@ -25,8 +28,6 @@ interface CodeEditorProps {
   isInstalling?: boolean
   pythonStatus?: PyodideStatus
 }
-
-const COPIED_FEEDBACK_MS = 2_000
 
 // Nome acessível do editor: o Tab indenta, então a saída do teclado precisa ser anunciada.
 const EDITOR_EXTENSIONS = [
@@ -78,7 +79,7 @@ export function CodeEditor({
   isInstalling = false,
   pythonStatus = "idle",
 }: CodeEditorProps) {
-  const copiedFeedback = useTransientFlag(COPIED_FEEDBACK_MS)
+  const copiedFeedback = useTransientFlag(COPIED_FEEDBACK_DURATION_MS)
   const activeFile = tabs.find((tab) => tab.path === activePath)
 
   const handleCopy = async () => {
@@ -146,7 +147,7 @@ export function CodeEditor({
         <div className="flex items-center gap-4">
           <span>Python 3.11 (Pyodide)</span>
           <span className="flex items-center gap-1">
-            <span className={`h-2 w-2 rounded-full ${STATUS_DOT_CLASSES[pythonStatus]}`} />
+            <span className={cn("h-2 w-2 rounded-full", STATUS_DOT_CLASSES[pythonStatus])} />
             {STATUS_LABELS[pythonStatus]}
           </span>
         </div>
@@ -170,9 +171,10 @@ function EditorTab({ path, isActive, onSelect, onClose }: EditorTabProps) {
   return (
     <div
       onClick={() => onSelect(path)}
-      className={`group flex cursor-pointer items-center gap-2 border-r border-border px-3 py-2 text-sm transition-colors ${
-        isActive ? "bg-[#282c34] text-white" : "bg-level-purple-subtle text-muted-foreground hover:bg-level-purple-light"
-      }`}
+      className={cn(
+        "group flex cursor-pointer items-center gap-2 border-r border-border px-3 py-2 text-sm transition-colors",
+        isActive ? "bg-[#282c34] text-white" : "bg-level-purple-subtle text-muted-foreground hover:bg-level-purple-light",
+      )}
     >
       <span className="text-xs">🐍</span>
       <span className={isActive ? "text-white" : "text-level-purple"}>{fileName(path)}</span>
@@ -252,7 +254,7 @@ function RunButton({ isRunning, isInstalling, pythonStatus, onRun }: RunButtonPr
         >
           {label ? (
             <>
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              <Spinner />
               {label}
             </>
           ) : (

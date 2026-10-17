@@ -3,10 +3,9 @@
 import { useCallback, useRef, useState } from "react"
 import type { NoteUpdateInput } from "@levelusp/contracts"
 import { updateNote } from "@/lib/api"
+import { NOTE_AUTOSAVE_DEBOUNCE_MS } from "@/lib/constants"
 
 export type EditableNoteField = "title" | "content"
-
-const AUTOSAVE_DEBOUNCE_MS = 800
 
 interface PendingSave {
   noteId: string
@@ -44,7 +43,7 @@ export function useNoteAutosave() {
       const previousPatch = pendingSaveRef.current?.noteId === noteId ? pendingSaveRef.current.patch : {}
       pendingSaveRef.current = { noteId, patch: { ...previousPatch, [field]: value } }
       setIsSaving(true)
-      timerRef.current = setTimeout(() => void flush(), AUTOSAVE_DEBOUNCE_MS)
+      timerRef.current = setTimeout(() => void flush(), NOTE_AUTOSAVE_DEBOUNCE_MS)
     },
     [flush],
   )

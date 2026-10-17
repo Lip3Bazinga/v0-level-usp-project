@@ -4,6 +4,7 @@ import { useMemo } from "react"
 import type { ActivityDay } from "@levelusp/contracts"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn, formatDate, formatNumber } from "@/lib/utils"
+import { ACTIVITY_TOOLTIP_DELAY_MS } from "@/lib/constants"
 import {
   activityColor,
   countTrailingActiveDays,
@@ -24,7 +25,6 @@ const WEEKDAY_LABELS = ["Seg", "Qua", "Sex"]
 const WEEK_COLUMN_WIDTH_PX = 14
 const DAY_LABELS_WIDTH_PX = 32
 const GRID_HEIGHT_PX = 98
-const TOOLTIP_DELAY_MS = 100
 
 export function ActivityMap({ data, className }: ActivityMapProps) {
   const cells = useMemo(() => toActivityCells(data), [data])
@@ -76,7 +76,7 @@ export function ActivityMap({ data, className }: ActivityMapProps) {
               ))}
             </div>
 
-            <TooltipProvider delayDuration={TOOLTIP_DELAY_MS}>
+            <TooltipProvider delayDuration={ACTIVITY_TOOLTIP_DELAY_MS}>
               <div className="flex gap-[3px]">
                 {weeks.map((week, weekIndex) => (
                   <div key={weekIndex} className="flex flex-col gap-[3px]">

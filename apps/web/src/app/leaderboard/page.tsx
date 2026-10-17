@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { useAsyncResource } from "@/hooks/use-async-resource"
 import { fetchLeaderboard } from "@/lib/api"
 import { ROUTES } from "@/lib/constants"
-import { formatNumber, formatXp, getInitials } from "@/lib/utils"
+import { formatNumber, formatXp, getInitials, cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { LoadErrorAlert } from "@/components/design-system/load-error-alert"
 import { StudentShell } from "@/components/dashboard/student-shell"
@@ -113,7 +113,7 @@ function PodiumPlace({ entry, avatarClassName, fallbackClassName, icon, standCla
         <p className="text-sm font-bold text-level-purple-dark">{entry.full_name.split(" ")[0]}</p>
         <p className="text-xs text-muted-foreground">{formatXp(entry.total_xp)}</p>
       </div>
-      <div className={`mt-2 w-24 rounded-t-xl ${standClassName}`} />
+      <div className={cn("mt-2 w-24 rounded-t-xl", standClassName)} />
     </div>
   )
 }
@@ -122,7 +122,10 @@ function LeaderboardTable({ users }: { users: readonly PublicProfile[] }) {
   const { profile } = useAuth()
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-white">
-      <div className={`${ROW_GRID_CLASS} border-b border-border bg-muted/50 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground`}>
+      <div className={cn(
+        ROW_GRID_CLASS,
+        "border-b border-border bg-muted/50 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground",
+      )}>
         <span>#</span>
         <span>Estudante</span>
         <span className="text-right">XP<span className="hidden sm:inline"> Total</span></span>
@@ -138,9 +141,11 @@ function LeaderboardTable({ users }: { users: readonly PublicProfile[] }) {
           <Link
             key={entry.id}
             href={ROUTES.profile(entry.username)}
-            className={`${ROW_GRID_CLASS} items-center py-3 transition-colors hover:bg-level-purple-subtle/50 ${
-              isCurrentUser ? "border-l-4 border-level-purple bg-level-purple-light/50" : "border-b border-border"
-            }`}
+            className={cn(
+              ROW_GRID_CLASS,
+              "items-center py-3 transition-colors hover:bg-level-purple-subtle/50",
+              isCurrentUser ? "border-l-4 border-level-purple bg-level-purple-light/50" : "border-b border-border",
+            )}
           >
             <div className="flex h-8 w-8 items-center justify-center">
               <RankIcon rank={index + 1} />
@@ -149,7 +154,10 @@ function LeaderboardTable({ users }: { users: readonly PublicProfile[] }) {
             <div className="flex min-w-0 items-center gap-3">
               <Avatar className="h-9 w-9 shrink-0">
                 <AvatarFallback
-                  className={`text-xs font-bold ${isCurrentUser ? "bg-level-purple text-white" : "bg-level-purple-light text-level-purple-dark"}`}
+                  className={cn(
+                    "text-xs font-bold",
+                    isCurrentUser ? "bg-level-purple text-white" : "bg-level-purple-light text-level-purple-dark",
+                  )}
                 >
                   {getInitials(entry.full_name)}
                 </AvatarFallback>

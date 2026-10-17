@@ -4,7 +4,8 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState, useSyncExternalStore, type FocusEvent, type KeyboardEvent } from "react"
 import { AnimatePresence, motion } from "framer-motion"
-import { ChevronDown, Menu, Rocket, X } from "lucide-react"
+import { ChevronDown, Menu, X } from "lucide-react"
+import { BrandLogo } from "@/components/design-system/brand-logo"
 import { ROUTES } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import { EASE } from "./motion-primitives"
@@ -46,15 +47,13 @@ function useMenuOpenOnRoute(pathname: string) {
 
 function SiteLogo() {
   return (
-    <Link href={ROUTES.home} className="flex items-center gap-3">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple shadow-lg shadow-purple-300/40">
-        <Rocket className="h-5 w-5 text-white" />
-      </div>
-      <div className="leading-tight">
-        <span className="block text-lg font-bold text-level-purple-dark">LevelUSP</span>
-        <span className="block text-[10px] font-medium text-level-purple">Iniciativa da USP</span>
-      </div>
-    </Link>
+    <BrandLogo
+      href={ROUTES.home}
+      markClassName="shadow-lg shadow-purple-300/40"
+      wordmarkClassName="text-lg"
+      tagline="Iniciativa da USP"
+      taglineClassName="text-[10px] font-medium text-level-purple"
+    />
   )
 }
 

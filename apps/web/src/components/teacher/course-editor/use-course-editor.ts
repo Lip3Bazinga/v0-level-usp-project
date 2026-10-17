@@ -3,7 +3,7 @@
 import { useState } from "react"
 import type { Course, CourseInput } from "@levelusp/contracts"
 import { createCourse, getErrorMessage, setCoursePublished, updateCourse, uploadImage } from "@/lib/api"
-import { MAX_COVER_IMAGE_BYTES } from "@/lib/constants/authoring"
+import { MAX_COVER_IMAGE_BYTES } from "@/lib/constants"
 import { EMPTY_COURSE_FORM, diffCourseInput, formFromCourse, toCourseInput, validateCourseForm, type CourseFormState } from "./course-form"
 
 export type CourseSaveResult =

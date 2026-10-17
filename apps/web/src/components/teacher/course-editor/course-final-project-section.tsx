@@ -1,4 +1,5 @@
 import { Star } from "lucide-react"
+import { cn } from "@/lib/utils"
 import type { CourseFormState } from "./course-form"
 import { EditorSection, FIELD_CLASS, LABEL_CLASS } from "./editor-section"
 
@@ -36,7 +37,7 @@ export function CourseFinalProjectSection({ form, onChange }: CourseFinalProject
             onChange={(event) => onChange({ final_project_description: event.target.value })}
             rows={3}
             placeholder="O que o aluno deve construir..."
-            className={`${FIELD_CLASS} resize-none`}
+            className={cn(FIELD_CLASS, "resize-none")}
           />
         </div>
         <div>

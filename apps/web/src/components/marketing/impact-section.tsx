@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from "react"
 import { useInView } from "framer-motion"
 import { formatNumber } from "@/lib/utils"
+import { IMPACT_COUNT_UP_DURATION_MS } from "@/lib/constants"
 import { Reveal } from "./motion-primitives"
 import { IMPACT_COUNTERS, type CountUpStat } from "./content/home"
 
-const COUNT_UP_DURATION_MS = 1_600
 /** Dispara a contagem só quando o bloco já está bem dentro da tela. */
 const IN_VIEW_MARGIN = "-100px"
 
@@ -18,7 +18,7 @@ function easeOutCubic(progress: number): number {
 function useCountUp(
   target: number,
   hasStarted: boolean,
-  durationMs = COUNT_UP_DURATION_MS,
+  durationMs = IMPACT_COUNT_UP_DURATION_MS,
 ): number {
   const [value, setValue] = useState(0)
   useEffect(() => {

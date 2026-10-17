@@ -3,8 +3,7 @@ import type {
   QuizQuestionInput, TestCase,
 } from "@levelusp/contracts"
 import { MAIN_FILE_PATH } from "@/lib/constants"
-import { resolveStarterFiles } from "@/lib/utils"
-import { diffChangedFields } from "@/lib/utils/object-diff"
+import { resolveStarterFiles, diffChangedFields } from "@/lib/utils"
 
 const MAX_TITLE_LENGTH = 160
 const MIN_TITLE_LENGTH = 3

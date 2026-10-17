@@ -1,7 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { Rocket, Github, Mail, GraduationCap, MapPin } from "lucide-react"
+import { Github, Mail, GraduationCap, MapPin } from "lucide-react"
+import { BrandLogo } from "@/components/design-system/brand-logo"
 import { ROUTES } from "@/lib/constants"
 import { CAMPUS_ADDRESS, CONTACT_EMAIL_HREF, FOOTER_LINK_GROUPS, GITHUB_URL } from "./content/site"
 
@@ -11,17 +12,16 @@ export function SiteFooter() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid gap-12 lg:grid-cols-5">
           <div className="lg:col-span-2">
-            <Link href={ROUTES.home} className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-level-purple">
-                <Rocket className="h-6 w-6 text-white" />
-              </div>
-              <div className="leading-tight">
-                <span className="block text-xl font-bold text-level-purple-dark">LevelUSP</span>
-                <span className="flex items-center gap-1 text-xs text-level-purple">
+            <BrandLogo
+              size="lg"
+              href={ROUTES.home}
+              taglineClassName="flex items-center gap-1 text-xs text-level-purple"
+              tagline={
+                <>
                   <GraduationCap className="h-3 w-3" /> Iniciativa da USP
-                </span>
-              </div>
-            </Link>
+                </>
+              }
+            />
             <p className="mt-5 max-w-sm text-sm leading-relaxed text-gray-600">
               Plataforma gratuita e gamificada de ensino de programação, desenvolvida na
               Universidade de São Paulo para democratizar a computação em todo o Brasil.

@@ -5,7 +5,8 @@ import Link from "next/link"
 import { Award, CheckCircle2, Clock, GraduationCap, Loader2, Lock, ShieldCheck, XCircle } from "lucide-react"
 import type { ExamResult, ExamStart, ExamStatus } from "@levelusp/contracts"
 import { ROUTES } from "@/lib/constants"
-import { formatPercent, formatTime } from "@/lib/utils"
+import { formatPercent, formatTime, cn } from "@/lib/utils"
+import { swalConfirm } from "@/lib/swal"
 import type { ExamAnswers } from "./use-exam-session"
 
 const PRIMARY_BUTTON_CLASS =
@@ -163,10 +164,16 @@ export function ExamQuestionsForm({ exam, answers, isSubmitting, onAnswer, onSub
   const answeredCount = Object.keys(answers).length
   const questionCount = exam.questions.length
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const missingCount = questionCount - answeredCount
-    const confirmation = `Você deixou ${missingCount} ${missingCount === 1 ? "questão" : "questões"} sem resposta. Entregar mesmo assim?`
-    if (missingCount > 0 && !window.confirm(confirmation)) return
+    if (missingCount > 0) {
+      const isConfirmed = await swalConfirm({
+        title: "Entregar mesmo assim?",
+        text: `Você deixou ${missingCount} ${missingCount === 1 ? "questão" : "questões"} sem resposta.`,
+        confirmText: "Entregar",
+      })
+      if (!isConfirmed) return
+    }
     onSubmit()
   }
 
@@ -191,16 +198,17 @@ export function ExamQuestionsForm({ exam, answers, isSubmitting, onAnswer, onSub
               return (
                 <label
                   key={optionIndex}
-                  className={`flex cursor-pointer items-start gap-3 rounded-xl border-2 p-3 text-sm transition-colors ${
-                    isChosen ? "border-level-purple bg-level-purple-subtle text-level-purple-dark" : "border-border hover:border-level-purple/40"
-                  }`}
+                  className={cn(
+                    "flex cursor-pointer items-start gap-3 rounded-xl border-2 p-3 text-sm transition-colors",
+                    isChosen ? "border-level-purple bg-level-purple-subtle text-level-purple-dark" : "border-border hover:border-level-purple/40",
+                  )}
                 >
                   <input
                     type="radio"
                     name={question.id}
                     checked={isChosen}
                     onChange={() => onAnswer(question.id, optionIndex)}
-                    className="mt-0.5 accent-[#7C3AED]"
+                    className="mt-0.5 accent-level-purple"
                   />
                   <span className="whitespace-pre-wrap font-mono text-[13px]">{option}</span>
                 </label>
@@ -232,14 +240,17 @@ export function ExamResultView({ courseId, result, onBackToStatus }: ExamResultV
   const { passed } = result
   return (
     <div className="space-y-6">
-      <div className={`rounded-3xl border-2 p-8 text-center ${passed ? "border-green-300 bg-green-50" : "border-red-200 bg-red-50"}`}>
+      <div className={cn(
+        "rounded-3xl border-2 p-8 text-center",
+        passed ? "border-green-300 bg-green-50" : "border-red-200 bg-red-50",
+      )}>
         {passed ? (
           <CheckCircle2 className="mx-auto mb-3 h-14 w-14 text-green-600" />
         ) : (
           <XCircle className="mx-auto mb-3 h-14 w-14 text-red-500" />
         )}
-        <h2 className={`text-3xl font-bold ${passed ? "text-green-800" : "text-red-700"}`}>{formatPercent(result.score)}</h2>
-        <p className={`mt-1 font-medium ${passed ? "text-green-700" : "text-red-600"}`}>
+        <h2 className={cn("text-3xl font-bold", passed ? "text-green-800" : "text-red-700")}>{formatPercent(result.score)}</h2>
+        <p className={cn("mt-1 font-medium", passed ? "text-green-700" : "text-red-600")}>
           {passed
             ? `Aprovado! (${result.correctCount} de ${result.total} corretas)`
             : `Não foi dessa vez — nota mínima: ${result.passingScore}% (${result.correctCount}/${result.total} corretas)`}
@@ -270,14 +281,17 @@ export function ExamResultView({ courseId, result, onBackToStatus }: ExamResultV
         )}
         <div className="space-y-3">
           {result.review.map((review, index) => (
-            <div key={review.questionId} className={`flex items-start gap-3 rounded-xl p-3 text-sm ${review.correct ? "bg-green-50" : "bg-red-50"}`}>
+            <div key={review.questionId} className={cn(
+              "flex items-start gap-3 rounded-xl p-3 text-sm",
+              review.correct ? "bg-green-50" : "bg-red-50",
+            )}>
               {review.correct ? (
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
               ) : (
                 <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
               )}
               <div>
-                <p className={`font-semibold ${review.correct ? "text-green-800" : "text-red-700"}`}>
+                <p className={cn("font-semibold", review.correct ? "text-green-800" : "text-red-700")}>
                   Questão {index + 1}: {review.correct ? "correta" : "incorreta"}
                 </p>
                 {!review.correct && review.explanation && <p className="mt-0.5 text-xs text-muted-foreground">{review.explanation}</p>}

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { ExamResult, ExamStart, ExamStatus } from "@levelusp/contracts"
 import * as api from "@/lib/api"
+import { swalConfirm } from "@/lib/swal"
 import ProvaPage from "./page"
 
 vi.mock("next/navigation", () => ({
@@ -21,6 +22,8 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   submitExam: vi.fn(),
   issueCertificate: vi.fn(),
 }))
+
+vi.mock("@/lib/swal", () => ({ swalConfirm: vi.fn() }))
 
 const fetchExamStatus = vi.mocked(api.fetchExamStatus)
 const startExam = vi.mocked(api.startExam)
@@ -69,7 +72,7 @@ describe("prova final", () => {
 
   it("entregar com questões em branco pede confirmação", async () => {
     startExam.mockResolvedValue(examStart(10 * 60_000))
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false)
+    const confirm = vi.mocked(swalConfirm).mockResolvedValue(false)
     const user = userEvent.setup()
     render(<ProvaPage />)
 
@@ -77,7 +80,9 @@ describe("prova final", () => {
     await user.click(await screen.findByLabelText("float"))
     await user.click(screen.getByRole("button", { name: /Entregar prova/ }))
 
-    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("1 questão sem resposta"))
+    await waitFor(() =>
+      expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining("1 questão sem resposta") })),
+    )
     expect(submitExam).not.toHaveBeenCalled()
     expect(screen.getByRole("radiogroup", { name: /Tipo de 3 \/ 2/ })).toBeInTheDocument()
   })

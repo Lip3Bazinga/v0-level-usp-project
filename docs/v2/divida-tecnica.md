@@ -8,6 +8,13 @@
 | Login com Google/GitHub | Botões desabilitados ("em breve") | Tabela `oauth_accounts` pronta; implementar fluxo OAuth na API |
 | SMTP | Links de redefinição vão para o log da API | Configurar `SMTP_URL` |
 | Rate limit em memória | Não compartilha entre réplicas | Trocar por Postgres/Redis ao escalar |
-| 32 avisos de ESLint na web (React Compiler, `<img>`, variáveis não usadas) em `app/` e `components/` | Padrões antigos de efeitos/refs | Migrar buscas para `useAsyncResource` e derivar estado; depois virar as regras `react-hooks/*` para erro |
+| Diálogos do admin feitos à mão (`AdminModal`, paleta de comandos) | Usam `useModalA11y`, não o `Dialog` do Radix | Migrar para `components/ui` quando houver um `Dialog` gerado pelo shadcn |
+| `window.prompt` no convite de usuário (admin) e no novo arquivo do editor do professor | Visual do navegador, fora do padrão do `swal*` | Criar um `swalPrompt` em `lib/swal.ts` e trocar os dois |
+| DAU/MAU do admin com ponto decimal ("12.3%") | Destoa do `formatPercent` ("12,3%") | Decidir o formato e usar `formatPercent(valor, 1)` |
+| Cores em hex nos gráficos do admin e no editor de texto rico | Valores repetem os tokens de `globals.css` | Ler as cores dos tokens CSS (`getComputedStyle`) se o tema mudar |
 | Imagens no Storage do Supabase | Dependência residual após a importação | Script de cópia para o volume `uploads` |
 | Prova final de demonstração (5 questões) | Seed de homologação | Importar o banco de questões real |
+
+Resolvido na auditoria de clean code: os 32 avisos de ESLint da web (lint com 0 erros e 0 avisos em todos
+os pacotes; `react-hooks/*` agora é erro), duplicações entre telas (marca, spinner, downloads, validação de
+senha, tempos) e os nomes de métodos da API e de `lib/api` (convenção em `padroes-de-codigo.md` §2).

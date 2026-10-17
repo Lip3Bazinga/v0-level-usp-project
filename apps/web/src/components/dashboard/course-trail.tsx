@@ -5,7 +5,7 @@ import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
 import { ChevronDown, Check, Lock, Play, Star, BookOpen, Clock, Zap, GraduationCap, ChevronRight } from "lucide-react"
 import type { Course, Lesson, LessonProgress } from "@levelusp/contracts"
-import { computeTrailStatuses, formatNumber, formatXp, toClampedPercent, type TrailStatus } from "@/lib/utils"
+import { computeTrailStatuses, formatNumber, formatXp, toClampedPercent, type TrailStatus, cn } from "@/lib/utils"
 import { ROUTES } from "@/lib/constants"
 import { groupLessonsByModule, sumEarnedXp } from "./course-groups"
 
@@ -56,7 +56,7 @@ function LessonNode({ lesson, status, index, side }: LessonNodeProps) {
       whileInView={{ opacity: 1, x: 0 }}
       viewport={{ once: true, margin: "-20px" }}
       transition={{ type: "spring", stiffness: 240, damping: 22, delay: 0.04 * (index % STAGGER_GROUP_SIZE) }}
-      className={`flex items-center gap-4 ${side === "right" ? "flex-row-reverse" : ""}`}
+      className={cn("flex items-center gap-4", side === "right" ? "flex-row-reverse" : "")}
     >
       <div className="relative shrink-0">
         {isActive && (
@@ -82,13 +82,10 @@ function LessonNode({ lesson, status, index, side }: LessonNodeProps) {
           aria-label={`${lesson.title} — ${trailLabel(status)}`}
           tabIndex={isLocked ? -1 : undefined}
           onClick={(event) => isLocked && event.preventDefault()}
-          className={`group relative flex h-14 w-14 items-center justify-center rounded-full border-b-[5px] transition-transform duration-150 ${
-            isDone
-              ? "border-emerald-700 bg-emerald-500 hover:-translate-y-0.5 active:translate-y-0 active:border-b-2"
-              : isActive
-                ? "border-purple-900 bg-level-purple hover:-translate-y-0.5 active:translate-y-0 active:border-b-2"
-                : "cursor-not-allowed border-zinc-300 bg-zinc-200"
-          }`}
+          className={cn(
+            "group relative flex h-14 w-14 items-center justify-center rounded-full border-b-[5px] transition-transform duration-150",
+            isDone ? "border-emerald-700 bg-emerald-500 hover:-translate-y-0.5 active:translate-y-0 active:border-b-2" : isActive ? "border-purple-900 bg-level-purple hover:-translate-y-0.5 active:translate-y-0 active:border-b-2" : "cursor-not-allowed border-zinc-300 bg-zinc-200",
+          )}
         >
           {isDone ? (
             <Check className="h-6 w-6 text-white" strokeWidth={3} />
@@ -100,13 +97,19 @@ function LessonNode({ lesson, status, index, side }: LessonNodeProps) {
         </Link>
       </div>
 
-      <div className={`min-w-0 flex-1 ${side === "right" ? "text-right" : ""}`}>
-        <p className={`text-sm font-semibold leading-snug ${isLocked ? "text-muted-foreground/50" : "text-foreground"}`}>{lesson.title}</p>
-        <div className={`mt-0.5 flex items-center gap-1.5 ${side === "right" ? "justify-end" : ""}`}>
+      <div className={cn("min-w-0 flex-1", side === "right" ? "text-right" : "")}>
+        <p className={cn(
+          "text-sm font-semibold leading-snug",
+          isLocked ? "text-muted-foreground/50" : "text-foreground",
+        )}>{lesson.title}</p>
+        <div className={cn("mt-0.5 flex items-center gap-1.5", side === "right" ? "justify-end" : "")}>
           {isDone ? (
             COMPLETED_STARS.map((star) => <Star key={star} className="h-3 w-3 fill-amber-400 text-amber-400" />)
           ) : (
-            <span className={`flex items-center gap-1 text-[11px] font-medium ${isLocked ? "text-muted-foreground/40" : "text-muted-foreground"}`}>
+            <span className={cn(
+              "flex items-center gap-1 text-[11px] font-medium",
+              isLocked ? "text-muted-foreground/40" : "text-muted-foreground",
+            )}>
               <Zap className="h-3 w-3" />+{lesson.xp_reward} XP
             </span>
           )}
@@ -129,16 +132,16 @@ function ModuleSection({ name, lessons, statuses, color }: ModuleSectionProps) {
 
   return (
     <div className="mb-8">
-      <div className={`mb-5 flex items-center gap-3 rounded-2xl bg-white p-3 ring-4 ${color.ring}`}>
-        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${color.background}`}>
+      <div className={cn("mb-5 flex items-center gap-3 rounded-2xl bg-white p-3 ring-4", color.ring)}>
+        <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-xl", color.background)}>
           <BookOpen className="h-4 w-4 text-white" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className={`text-sm font-bold ${color.text}`}>{name}</p>
+          <p className={cn("text-sm font-bold", color.text)}>{name}</p>
           <div className="mt-1 flex items-center gap-2">
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
               <motion.div
-                className={`h-full rounded-full bg-gradient-to-r ${color.bar}`}
+                className={cn("h-full rounded-full bg-gradient-to-r", color.bar)}
                 initial={{ width: 0 }}
                 whileInView={{ width: `${percent}%` }}
                 viewport={{ once: true }}

@@ -11,6 +11,7 @@ import { createModule, deleteModule, fetchModules, getErrorMessage, updateModule
 import { ROUTES } from "@/lib/constants"
 import type { OnToast } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { swalConfirm } from "@/lib/swal"
 import { AdminModal, ModalCancelButton, ModalSubmitButton } from "./admin-modal"
 import { PanelSpinner } from "./panel-spinner"
 
@@ -93,21 +94,27 @@ export function ModulesPage({ lessons, onToast }: ModulesPageProps) {
       setEditor(null)
       await modules.reload()
     } catch (error) {
-      onToast(getErrorMessage(error, "Erro ao salvar"), "danger")
+      onToast(getErrorMessage(error, "Erro ao salvar"), "error")
     } finally {
       setIsSaving(false)
     }
   }
 
   const handleDelete = async (moduleId: string) => {
-    if (!window.confirm("Excluir este módulo? As lições não serão apagadas, apenas desvinculadas.")) return
+    const isConfirmed = await swalConfirm({
+      title: "Excluir este módulo?",
+      text: "As lições não serão apagadas, apenas desvinculadas.",
+      confirmText: "Excluir",
+      danger: true,
+    })
+    if (!isConfirmed) return
     setDeletingId(moduleId)
     try {
       await deleteModule(moduleId)
-      onToast("Módulo excluído", "danger")
+      onToast("Módulo excluído", "error")
       await modules.reload()
     } catch (error) {
-      onToast(getErrorMessage(error, "Erro ao excluir"), "danger")
+      onToast(getErrorMessage(error, "Erro ao excluir"), "error")
     } finally {
       setDeletingId(null)
     }

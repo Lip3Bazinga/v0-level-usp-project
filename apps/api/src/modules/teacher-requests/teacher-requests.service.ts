@@ -29,7 +29,7 @@ export class TeacherRequestsService {
     if (user.role !== "student") throw Conflict("Sua conta já tem acesso de professor.", "ALREADY_TEACHER")
     this.rateLimit.consume(RATE_LIMITS.teacherRequest, user.id)
     try {
-      const approval = await this.repo.insert({
+      const approval = await this.repo.create({
         userId: user.id,
         name: user.fullName,
         email: user.email,
@@ -44,7 +44,7 @@ export class TeacherRequestsService {
     }
   }
 
-  async mine(user: AuthUser): Promise<TeacherApproval | null> {
+  async findMyRequest(user: AuthUser): Promise<TeacherApproval | null> {
     const approval = await this.repo.findLatest(user.id)
     return approval ? toTeacherApproval(approval) : null
   }

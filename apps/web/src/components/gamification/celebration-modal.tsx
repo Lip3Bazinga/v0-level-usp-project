@@ -3,10 +3,11 @@
 import type { CSSProperties, ReactNode, Ref } from "react"
 import { AnimatePresence, motion, type MotionProps } from "framer-motion"
 import { useModalA11y } from "@/hooks/use-modal-a11y"
+import { cn } from "@/lib/utils"
 
-export type DialogMotion = Pick<MotionProps, "initial" | "animate" | "exit" | "transition">
+export type ModalMotion = Pick<MotionProps, "initial" | "animate" | "exit" | "transition">
 
-interface CelebrationDialogProps {
+interface CelebrationModalProps {
   isOpen: boolean
   onClose: () => void
   /** Camada e escurecimento do fundo, ex.: `"z-[10000] bg-black/70"`. */
@@ -14,7 +15,7 @@ interface CelebrationDialogProps {
   backdropTransition?: MotionProps["transition"]
   className: string
   style?: CSSProperties
-  motion: DialogMotion
+  motion: ModalMotion
   /** Recebe o elemento do diálogo além do foco preso (ex.: origem das partículas de XP). */
   ref?: Ref<HTMLDivElement>
   "aria-label"?: string
@@ -32,7 +33,7 @@ function assignRef<T>(ref: Ref<T> | undefined, value: T): void {
  * Diálogo animado das comemorações (nível, badge, sequência, matrícula...): fundo
  * clicável que fecha, foco preso e Esc (useModalA11y) e animação de entrada/saída.
  */
-export function CelebrationDialog({
+export function CelebrationModal({
   isOpen,
   onClose,
   backdropClassName,
@@ -43,7 +44,7 @@ export function CelebrationDialog({
   ref,
   children,
   ...ariaProps
-}: CelebrationDialogProps) {
+}: CelebrationModalProps) {
   const dialogRef = useModalA11y<HTMLDivElement>(isOpen, onClose)
 
   const attachDialog = (element: HTMLDivElement | null) => {
@@ -59,7 +60,7 @@ export function CelebrationDialog({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={backdropTransition}
-          className={`fixed inset-0 flex items-center justify-center ${backdropClassName}`}
+          className={cn("fixed inset-0 flex items-center justify-center", backdropClassName)}
           onClick={onClose}
         >
           <motion.div

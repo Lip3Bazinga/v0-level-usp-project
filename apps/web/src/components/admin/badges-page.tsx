@@ -11,8 +11,8 @@ import { useAsyncResource } from "@/hooks/use-async-resource"
 import { createBadge, deleteBadge, fetchAdminBadges, getErrorMessage, updateBadge } from "@/lib/api"
 import { BADGE_ICON_NAMES } from "@/lib/badge-icons"
 import type { OnToast } from "@/lib/types"
-import { cn } from "@/lib/utils"
-import { isOneOf } from "@/lib/utils/guards"
+import { cn, isOneOf } from "@/lib/utils"
+import { swalConfirm } from "@/lib/swal"
 import { AdminModal, ModalCancelButton, ModalSubmitButton } from "./admin-modal"
 import { PanelSpinner } from "./panel-spinner"
 
@@ -81,11 +81,11 @@ function describeCriteria(badge: Badge): string {
   return `${CRITERIA_LABELS[badge.criteria_type]} ≥ ${badge.criteria_value}`
 }
 
-interface BadgesAdminPageProps {
+interface BadgesPageProps {
   onToast: OnToast
 }
 
-export function BadgesAdminPage({ onToast }: BadgesAdminPageProps) {
+export function BadgesPage({ onToast }: BadgesPageProps) {
   const badges = useAsyncResource(() => fetchAdminBadges(), [], { errorMessage: "Não foi possível carregar as badges." })
   const [editor, setEditor] = useState<BadgeEditor | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -111,21 +111,27 @@ export function BadgesAdminPage({ onToast }: BadgesAdminPageProps) {
       setEditor(null)
       await badges.reload()
     } catch (error) {
-      onToast(getErrorMessage(error, "Erro ao salvar badge"), "danger")
+      onToast(getErrorMessage(error, "Erro ao salvar badge"), "error")
     } finally {
       setIsSaving(false)
     }
   }
 
   const handleDelete = async (badgeId: string) => {
-    if (!window.confirm("Excluir esta badge? Quem já a conquistou deixará de exibi-la.")) return
+    const isConfirmed = await swalConfirm({
+      title: "Excluir esta badge?",
+      text: "Quem já a conquistou deixará de exibi-la.",
+      confirmText: "Excluir",
+      danger: true,
+    })
+    if (!isConfirmed) return
     setDeletingId(badgeId)
     try {
       await deleteBadge(badgeId)
-      onToast("Badge excluída", "danger")
+      onToast("Badge excluída", "error")
       await badges.reload()
     } catch (error) {
-      onToast(getErrorMessage(error, "Erro ao excluir badge"), "danger")
+      onToast(getErrorMessage(error, "Erro ao excluir badge"), "error")
     } finally {
       setDeletingId(null)
     }

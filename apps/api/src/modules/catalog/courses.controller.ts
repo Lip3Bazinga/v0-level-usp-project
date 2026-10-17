@@ -18,7 +18,7 @@ export class CoursesController {
   @Public()
   @OptionalAuth()
   @Get("courses")
-  list(@CurrentUser() user: AuthUser | undefined) {
+  listPublished(@CurrentUser() user: AuthUser | undefined) {
     return this.courses.listPublished(user)
   }
 
@@ -32,14 +32,14 @@ export class CoursesController {
   @Public()
   @OptionalAuth()
   @Get("courses/:id/lessons")
-  lessons(@CurrentUser() user: AuthUser | undefined, @Param("id", UuidPipe) id: string) {
-    return this.courses.lessons(user, id)
+  listLessons(@CurrentUser() user: AuthUser | undefined, @Param("id", UuidPipe) id: string) {
+    return this.courses.listLessons(user, id)
   }
 
   @Roles("teacher", "admin")
   @Get("teacher/courses")
-  teacherCourses(@CurrentUser() user: AuthUser) {
-    return this.courses.teacherCourses(user)
+  listOwned(@CurrentUser() user: AuthUser) {
+    return this.courses.listOwned(user)
   }
 
   @Roles("teacher", "admin")
@@ -57,14 +57,14 @@ export class CoursesController {
   @Roles("teacher", "admin")
   @HttpCode(204)
   @Delete("courses/:id")
-  async remove(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string) {
-    await this.courses.remove(user, id)
+  async delete(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string) {
+    await this.courses.delete(user, id)
   }
 
   @Roles("teacher", "admin")
   @Patch("courses/:id/publish")
-  publish(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(publishSchema)) body: PublishInput) {
-    return this.courses.publish(user, id, body.published)
+  setPublished(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(publishSchema)) body: PublishInput) {
+    return this.courses.setPublished(user, id, body.published)
   }
 
   @Roles("teacher", "admin")
@@ -77,14 +77,14 @@ export class CoursesController {
   @Roles("teacher", "admin")
   @HttpCode(204)
   @Post("courses/:id/lessons")
-  async attach(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(attachLessonSchema)) body: AttachLessonInput) {
+  async attachLesson(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(attachLessonSchema)) body: AttachLessonInput) {
     await this.courses.attachLesson(user, id, body)
   }
 
   @Roles("teacher", "admin")
   @HttpCode(204)
   @Delete("courses/:id/lessons/:lessonId")
-  async detach(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Param("lessonId", UuidPipe) lessonId: string) {
+  async detachLesson(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Param("lessonId", UuidPipe) lessonId: string) {
     await this.courses.detachLesson(user, id, lessonId)
   }
 
@@ -101,7 +101,7 @@ export class CoursesController {
   }
 
   @Get("me/enrollments")
-  myEnrollments(@CurrentUser() user: AuthUser) {
-    return this.courses.myEnrollments(user)
+  listMyEnrollments(@CurrentUser() user: AuthUser) {
+    return this.courses.listMyEnrollments(user)
   }
 }

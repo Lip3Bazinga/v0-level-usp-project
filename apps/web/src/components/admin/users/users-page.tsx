@@ -8,8 +8,7 @@ import {
   deleteUser, getErrorMessage, inviteUser, setUserSuspended, updateUserProfile, updateUserRole,
 } from "@/lib/api"
 import type { OnToast } from "@/lib/types"
-import { cn, downloadCsv, formatNumber, indexBy, todayKey } from "@/lib/utils"
-import { isOneOf } from "@/lib/utils/guards"
+import { cn, downloadCsv, formatNumber, indexBy, todayKey, isOneOf } from "@/lib/utils"
 import type { ListUpdate } from "../use-admin-dashboard"
 import { BulkRoleModal } from "./bulk-role-modal"
 import { UserAvatar } from "./user-avatar"
@@ -80,7 +79,7 @@ export function UsersPage({ users, updateUsers, onToast, currentUserId }: UsersP
     setIsBulkBusy(false)
     mergeUpdated(updated)
     if (updated.length) onToast(`${updated.length} usuário(s) agora com papel de ${ROLE_LABELS[role]}`, "success")
-    if (failedCount) onToast(`${failedCount} não alterado(s): ${getErrorMessage(firstError)}`, "danger")
+    if (failedCount) onToast(`${failedCount} não alterado(s): ${getErrorMessage(firstError)}`, "error")
     clearSelection()
     setIsBulkRoleOpen(false)
   }
@@ -91,7 +90,7 @@ export function UsersPage({ users, updateUsers, onToast, currentUserId }: UsersP
     setIsBulkBusy(false)
     mergeUpdated(updated)
     if (updated.length) onToast(`${updated.length} usuário(s) suspenso(s)`, "warning")
-    if (failedCount) onToast(`${failedCount} não suspenso(s): ${getErrorMessage(firstError)}`, "danger")
+    if (failedCount) onToast(`${failedCount} não suspenso(s): ${getErrorMessage(firstError)}`, "error")
     clearSelection()
   }
 
@@ -113,7 +112,7 @@ export function UsersPage({ users, updateUsers, onToast, currentUserId }: UsersP
       updateUsers((current) => (current.some((user) => user.id === invited.id) ? current : [invited, ...current]))
       onToast("Convite enviado por e-mail", "success")
     } catch (error) {
-      onToast(getErrorMessage(error, "Erro ao convidar"), "danger")
+      onToast(getErrorMessage(error, "Erro ao convidar"), "error")
     }
   }
 
@@ -128,7 +127,7 @@ export function UsersPage({ users, updateUsers, onToast, currentUserId }: UsersP
       setEditingUser(null)
       onToast("Usuário atualizado", "success")
     } catch (error) {
-      onToast(getErrorMessage(error, "Erro ao salvar"), "danger")
+      onToast(getErrorMessage(error, "Erro ao salvar"), "error")
     }
   }
 
@@ -137,9 +136,9 @@ export function UsersPage({ users, updateUsers, onToast, currentUserId }: UsersP
       await deleteUser(user.id)
       updateUsers((current) => current.filter((item) => item.id !== user.id))
       setEditingUser(null)
-      onToast("Conta excluída", "danger")
+      onToast("Conta excluída", "error")
     } catch (error) {
-      onToast(getErrorMessage(error, "Erro ao excluir"), "danger")
+      onToast(getErrorMessage(error, "Erro ao excluir"), "error")
     }
   }
 

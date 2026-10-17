@@ -29,7 +29,7 @@ export class NotesController {
 
   @HttpCode(204)
   @Delete(":id")
-  async remove(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string): Promise<void> {
-    await this.notes.remove(user, id)
+  async delete(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string): Promise<void> {
+    await this.notes.delete(user, id)
   }
 }

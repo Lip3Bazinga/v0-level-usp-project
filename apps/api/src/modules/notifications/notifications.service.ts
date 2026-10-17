@@ -23,10 +23,10 @@ export class NotificationsService {
   }
 
   async notify(userId: string, notification: NewNotification, tx?: DbOrTx): Promise<void> {
-    await this.repo.insertMany(userId, [notification], tx)
+    await this.repo.createMany(userId, [notification], tx)
   }
 
   async notifyMany(userId: string, notifications: NewNotification[], tx?: DbOrTx): Promise<void> {
-    await this.repo.insertMany(userId, notifications, tx)
+    await this.repo.createMany(userId, notifications, tx)
   }
 }

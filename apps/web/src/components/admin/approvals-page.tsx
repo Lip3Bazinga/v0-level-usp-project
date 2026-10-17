@@ -37,7 +37,7 @@ export function ApprovalsPage({ onToast }: ApprovalsPageProps) {
       removeApproval(approval.id)
       onToast(`${approval.name} aprovado(a) como professor(a)`, "success")
     } catch (error) {
-      onToast(getErrorMessage(error, "Erro ao aprovar"), "danger")
+      onToast(getErrorMessage(error, "Erro ao aprovar"), "error")
     } finally {
       setBusyId(null)
     }
@@ -49,9 +49,9 @@ export function ApprovalsPage({ onToast }: ApprovalsPageProps) {
       await rejectTeacher(approval.id, reason.trim() || undefined)
       removeApproval(approval.id)
       setRejecting(null)
-      onToast("Solicitação rejeitada", "danger")
+      onToast("Solicitação rejeitada", "error")
     } catch (error) {
-      onToast(getErrorMessage(error, "Erro ao rejeitar"), "danger")
+      onToast(getErrorMessage(error, "Erro ao rejeitar"), "error")
     } finally {
       setBusyId(null)
     }

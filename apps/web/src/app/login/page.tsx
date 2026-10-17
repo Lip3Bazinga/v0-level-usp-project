@@ -10,19 +10,19 @@ import {
   AuthSubmitButton,
   FormErrorAlert,
   PasswordField,
-} from "@/components/design-system/auth-form"
+} from "@/components/auth/auth-form"
 import {
   AuthBrandPanel,
   AuthDivider,
   AuthFooterPrompt,
   AuthHeading,
   AuthSplitLayout,
-} from "@/components/design-system/auth-layout"
-import { StreakAnimation } from "@/components/gamification/streak-animation"
+} from "@/components/auth/auth-layout"
+import { StreakModal } from "@/components/gamification/streak-modal"
 import { useAuth } from "@/contexts/auth-context"
 import { useSubmitLock } from "@/hooks/use-submit-lock"
 import { ROUTES } from "@/lib/constants"
-import { safeRedirectPath } from "@/lib/utils/redirect"
+import { safeRedirectPath } from "@/lib/utils"
 
 const PLATFORM_HIGHLIGHTS = [
   { value: "50K+", label: "Estudantes" },
@@ -90,8 +90,8 @@ function LoginForm() {
 
   return (
     <>
-      <StreakAnimation
-        show={streakDays !== null}
+      <StreakModal
+        isOpen={streakDays !== null}
         streakDays={streakDays ?? 0}
         isNewStreak
         onClose={handleStreakClose}

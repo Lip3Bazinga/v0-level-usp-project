@@ -13,14 +13,14 @@ export class QuizzesController {
   constructor(private readonly quizzes: QuizzesService) {}
 
   @Get()
-  forStudent(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string) {
-    return this.quizzes.forStudent(user, id)
+  listForStudent(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string) {
+    return this.quizzes.listForStudent(user, id)
   }
 
   @Roles("teacher", "admin")
   @Get("authoring")
-  forAuthoring(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string) {
-    return this.quizzes.forAuthoring(user, id)
+  listForAuthoring(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string) {
+    return this.quizzes.listForAuthoring(user, id)
   }
 
   @Roles("teacher", "admin")

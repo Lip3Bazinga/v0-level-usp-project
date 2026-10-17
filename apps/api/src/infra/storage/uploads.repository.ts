@@ -7,7 +7,7 @@ import { InjectDb, type Database } from "@/infra/database/database.module"
 export class UploadsRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
-  async insert(name: string, ownerId: string, sizeBytes: number): Promise<void> {
+  async create(name: string, ownerId: string, sizeBytes: number): Promise<void> {
     await this.db.insert(uploads).values({ name, ownerId, bytes: sizeBytes })
   }
 

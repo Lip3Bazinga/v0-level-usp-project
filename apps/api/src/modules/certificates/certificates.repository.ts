@@ -46,7 +46,7 @@ export class CertificatesRepository {
    * Insere o certificado. Em conflito (código repetido ou já emitido para o
    * par aluno+curso) não insere e devolve null — o service decide o que fazer.
    */
-  async insert(certificate: NewCertificate) {
+  async create(certificate: NewCertificate) {
     const [inserted] = await this.db
       .insert(certificates)
       .values({ ...certificate, projectStatus: "passed" })

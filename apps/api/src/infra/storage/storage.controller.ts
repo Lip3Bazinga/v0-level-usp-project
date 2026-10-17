@@ -24,15 +24,15 @@ export class StorageController {
   /** Upload de imagem (capa/avatar). Qualquer usuário logado; 2 MB; tipo verificado pelos bytes. */
   @Post("uploads/images")
   @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_IMAGE_BYTES, files: 1 } }))
-  async upload(@CurrentUser() user: AuthUser, @UploadedFile() file?: Express.Multer.File): Promise<{ url: string }> {
+  async uploadImage(@CurrentUser() user: AuthUser, @UploadedFile() file?: Express.Multer.File): Promise<{ url: string }> {
     if (!file) throw BadRequest("Nenhum arquivo enviado.")
     this.rateLimit.consume(RATE_LIMITS.imageUpload, user.id)
-    return { url: await this.storage.saveImage(file.buffer, user.id) }
+    return { url: await this.storage.storeImage(file.buffer, user.id) }
   }
 
   @Public()
   @Get("files/:name")
-  async file(@Param("name") name: string, @Res() response: Response) {
+  async readFile(@Param("name") name: string, @Res() response: Response) {
     const { data, mime } = await this.storage.read(name)
     response.setHeader("Content-Type", mime)
     response.setHeader("Cache-Control", IMMUTABLE_CACHE)

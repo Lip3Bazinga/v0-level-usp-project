@@ -1,7 +1,8 @@
 import type { InputHTMLAttributes, ReactNode } from "react"
 import { AlertCircle, Eye, EyeOff, type LucideIcon } from "lucide-react"
+import { LevelButton } from "@/components/design-system/level-button"
+import { Spinner } from "@/components/design-system/spinner"
 import { cn } from "@/lib/utils"
-import { LevelButton } from "./level-button"
 
 const INPUT_CLASS =
   "w-full rounded-xl border-2 border-border bg-white pl-11 py-3 text-foreground placeholder:text-muted-foreground focus:border-level-purple focus:outline-none transition-colors"
@@ -156,7 +157,7 @@ export function AuthSubmitButton({
     <LevelButton variant="primary" size="lg" disabled={isSubmitting} className="w-full">
       {isSubmitting && hasSpinner ? (
         <span className="flex items-center gap-2">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+          <Spinner />
           {label}
         </span>
       ) : (

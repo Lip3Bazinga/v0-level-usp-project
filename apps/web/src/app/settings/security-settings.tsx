@@ -2,25 +2,15 @@
 
 import { useState, type FormEvent } from "react"
 import { Download, Loader2, Lock } from "lucide-react"
-import { passwordSchema } from "@levelusp/contracts"
 import { LevelButton } from "@/components/design-system/level-button"
 import { useAuth } from "@/contexts/auth-context"
 import { changePassword, deleteMyAccount, fetchMyDataExport, getErrorMessage } from "@/lib/api"
 import { ROUTES } from "@/lib/constants"
 import { swalConfirm } from "@/lib/swal"
-import { localDateKey } from "@/lib/utils"
+import { PASSWORD_MIN_LENGTH, downloadJson, getPasswordPolicyError, todayKey, cn } from "@/lib/utils"
 import { INPUT_CLASS, LABEL_CLASS } from "./settings-styles"
 
 type SecurityFeedback = { kind: "error" | "success"; message: string } | null
-
-function downloadJson(fileName: string, data: unknown): void {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }))
-  const link = Object.assign(document.createElement("a"), { href: url, download: fileName })
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
-}
 
 /** Troca de senha, exportação LGPD e exclusão da conta. Fica acima das abas, como o perfil. */
 export function useSecuritySettings() {
@@ -38,9 +28,9 @@ export function useSecuritySettings() {
   const submitPasswordChange = async (event: FormEvent) => {
     event.preventDefault()
     setFeedback(null)
-    const passwordCheck = passwordSchema.safeParse(newPassword)
-    if (!passwordCheck.success) {
-      showError(passwordCheck.error.issues[0]?.message ?? "Senha inválida.")
+    const passwordError = getPasswordPolicyError(newPassword)
+    if (passwordError) {
+      showError(passwordError)
       return
     }
     if (newPassword !== confirmPassword) {
@@ -65,7 +55,7 @@ export function useSecuritySettings() {
     setFeedback(null)
     setIsExporting(true)
     try {
-      downloadJson(`levelusp-meus-dados-${localDateKey(new Date())}.json`, await fetchMyDataExport())
+      downloadJson(await fetchMyDataExport(), `levelusp-meus-dados-${todayKey()}.json`)
     } catch (error) {
       showError(getErrorMessage(error, "Não foi possível exportar seus dados."))
     } finally {
@@ -151,7 +141,10 @@ export function SecuritySettingsSection({ security }: { security: SecuritySettin
       {feedback && (
         <div
           role={feedback.kind === "error" ? "alert" : "status"}
-          className={`rounded-xl px-4 py-3 text-sm ${feedback.kind === "error" ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success"}`}
+          className={cn(
+            "rounded-xl px-4 py-3 text-sm",
+            feedback.kind === "error" ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success",
+          )}
         >
           {feedback.message}
         </div>
@@ -174,7 +167,7 @@ export function SecuritySettingsSection({ security }: { security: SecuritySettin
             value={security.newPassword}
             onChange={security.setNewPassword}
             placeholder="Mínimo 10 caracteres, com letra e número"
-            minLength={10}
+            minLength={PASSWORD_MIN_LENGTH}
           />
           <PasswordField
             id="confirm-new-password"

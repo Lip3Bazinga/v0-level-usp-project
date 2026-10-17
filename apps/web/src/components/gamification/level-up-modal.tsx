@@ -2,17 +2,16 @@
 
 import { motion } from "framer-motion"
 import { Trophy, Star, Zap, ArrowUp } from "lucide-react"
-import { MS_PER_SECOND } from "@/lib/constants"
-import { CelebrationDialog } from "@/components/gamification/celebration-dialog"
+import { CELEBRATION_AUTO_CLOSE_MS } from "@/lib/constants"
+import { CelebrationModal } from "@/components/gamification/celebration-modal"
 import { fireConfetti, fireConfettiAfter, useCelebration } from "@/components/gamification/celebration"
 
 interface LevelUpModalProps {
-  show: boolean
+  isOpen: boolean
   newLevel: number
   onClose: () => void
 }
 
-const AUTO_CLOSE_MS = 5 * MS_PER_SECOND
 /** Mesma regra fixa da API: cada nível exige mais 1.000 XP. */
 const XP_PER_LEVEL = 1_000
 const CONFETTI_COLORS = ["#FACC15", "#F59E0B", "#7C3AED", "#A78BFA", "#FFFFFF"]
@@ -38,12 +37,12 @@ function fireLevelUpConfetti() {
   fireConfettiAfter(500, { ...shared, particleCount: 60, spread: 80, origin: { y: 0.3, x: 0.5 } })
 }
 
-export function LevelUpModal({ show, newLevel, onClose }: LevelUpModalProps) {
-  useCelebration(show, { celebrate: fireLevelUpConfetti, onClose, autoCloseMs: AUTO_CLOSE_MS })
+export function LevelUpModal({ isOpen, newLevel, onClose }: LevelUpModalProps) {
+  useCelebration(isOpen, { celebrate: fireLevelUpConfetti, onClose, autoCloseMs: CELEBRATION_AUTO_CLOSE_MS.levelUp })
 
   return (
-    <CelebrationDialog
-      isOpen={show}
+    <CelebrationModal
+      isOpen={isOpen}
       onClose={onClose}
       backdropClassName="z-[10000] bg-black/70"
       backdropTransition={{ duration: 0.3 }}
@@ -142,6 +141,6 @@ export function LevelUpModal({ show, newLevel, onClose }: LevelUpModalProps) {
       >
         Continuar
       </motion.button>
-    </CelebrationDialog>
+    </CelebrationModal>
   )
 }

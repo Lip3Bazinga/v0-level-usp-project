@@ -5,9 +5,7 @@ import {
   AlertTriangle, ChevronDown, ChevronRight, ChevronUp, Code2, Eye, FlaskConical, Plus, ShieldCheck, Terminal, Trash2,
   Variable, Workflow, type LucideIcon,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { isOneOf } from "@/lib/utils/guards"
-import { moveItem, type MoveDirection } from "@/lib/utils/list-editing"
+import { cn, isOneOf, moveItem, type MoveDirection } from "@/lib/utils"
 import {
   ALL_KINDS, CONSTRUCT_LABELS, CREATABLE_KINDS, KIND_DESCRIPTIONS, KIND_LABELS, MATCH_LABELS, MATCH_MODES, PY_TYPES, RULE_LABELS,
   RULE_TYPES, changeDraftKind, changeRuleType, compileDraft, compileDrafts, constructsFor, emptyDraft, isConstructRule, isMatchMode,

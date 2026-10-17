@@ -6,8 +6,7 @@ import type { AdminExamQuestion, ExamQuestionInput } from "@levelusp/contracts"
 import { useAsyncResource } from "@/hooks/use-async-resource"
 import { createExamQuestion, fetchAdminExamQuestions, fetchAdminExams, getErrorMessage, updateExamQuestion } from "@/lib/api"
 import type { OnToast } from "@/lib/types"
-import { cn } from "@/lib/utils"
-import { removeChoiceAt } from "@/lib/utils/list-editing"
+import { cn, removeChoiceAt } from "@/lib/utils"
 import { PanelSpinner } from "./panel-spinner"
 
 // Banco de questões da prova final. O gabarito só aparece aqui (rotas /admin):
@@ -52,11 +51,11 @@ export function validateExamQuestion(form: ExamQuestionInput): string | null {
   return null
 }
 
-interface ExamQuestionsAdminPageProps {
+interface ExamQuestionsPageProps {
   onToast: OnToast
 }
 
-export function ExamQuestionsAdminPage({ onToast }: ExamQuestionsAdminPageProps) {
+export function ExamQuestionsPage({ onToast }: ExamQuestionsPageProps) {
   const exams = useAsyncResource(() => fetchAdminExams(), [], { errorMessage: "Erro ao carregar as provas" })
   const [chosenExamId, setChosenExamId] = useState<string | null>(null)
   const examList = exams.status === "success" ? exams.data : []
@@ -80,7 +79,7 @@ export function ExamQuestionsAdminPage({ onToast }: ExamQuestionsAdminPageProps)
     if (!editor) return
     const invalid = validateExamQuestion(editor.form)
     if (invalid) {
-      onToast(invalid, "danger")
+      onToast(invalid, "error")
       return
     }
     setIsSaving(true)
@@ -95,7 +94,7 @@ export function ExamQuestionsAdminPage({ onToast }: ExamQuestionsAdminPageProps)
       }
       setEditor(null)
     } catch (error) {
-      onToast(getErrorMessage(error, "Erro ao salvar"), "danger")
+      onToast(getErrorMessage(error, "Erro ao salvar"), "error")
     } finally {
       setIsSaving(false)
     }
@@ -110,7 +109,7 @@ export function ExamQuestionsAdminPage({ onToast }: ExamQuestionsAdminPageProps)
       onToast(question.active ? "Questão desativada" : "Questão ativada")
     } catch (error) {
       setActive(question.active)
-      onToast(getErrorMessage(error, "Erro ao atualizar"), "danger")
+      onToast(getErrorMessage(error, "Erro ao atualizar"), "error")
     }
   }
 
@@ -241,7 +240,7 @@ function QuestionForm({ editor, isSaving, onChange, onCancel, onSave }: Question
               aria-label={`Alternativa ${index + 1} é a correta`}
               checked={form.correct_index === index}
               onChange={() => patch({ correct_index: index })}
-              className="accent-[#7C3AED]"
+              className="accent-level-purple"
             />
             <input
               aria-label={`Alternativa ${index + 1}`}

@@ -21,14 +21,14 @@ export class QuizzesService {
   ) {}
 
   /** Questões para responder: SEM correct_index nem explicação. */
-  async forStudent(user: AuthUser, lessonId: string): Promise<QuizQuestionPublic[]> {
+  async listForStudent(user: AuthUser, lessonId: string): Promise<QuizQuestionPublic[]> {
     await this.findVisibleQuiz(user, lessonId)
-    return (await this.repo.publicQuestions(lessonId)).map(toQuizQuestionPublic)
+    return (await this.repo.listPublicQuestions(lessonId)).map(toQuizQuestionPublic)
   }
 
-  async forAuthoring(user: AuthUser, lessonId: string): Promise<QuizQuestionFull[]> {
+  async listForAuthoring(user: AuthUser, lessonId: string): Promise<QuizQuestionFull[]> {
     await this.findManageableLesson(user, lessonId)
-    return (await this.repo.questions(lessonId)).map(toQuizQuestionFull)
+    return (await this.repo.listQuestions(lessonId)).map(toQuizQuestionFull)
   }
 
   async replace(user: AuthUser, lessonId: string, questions: QuizQuestionInput[]): Promise<QuizQuestionFull[]> {
@@ -36,7 +36,7 @@ export class QuizzesService {
     if (lesson.published && lesson.lessonType === "quiz" && !questions.length) {
       throw Unprocessable("Um quiz publicado precisa de ao menos uma questão.", "NO_QUESTIONS")
     }
-    return (await this.repo.replace(lessonId, questions)).map(toQuizQuestionFull)
+    return (await this.repo.replaceQuestions(lessonId, questions)).map(toQuizQuestionFull)
   }
 
   /**
@@ -47,7 +47,7 @@ export class QuizzesService {
     const lesson = await this.findVisibleQuiz(user, lessonId)
     this.rateLimit.consume(RATE_LIMITS.quizSubmission, user.id)
 
-    const questions = await this.repo.questions(lessonId)
+    const questions = await this.repo.listQuestions(lessonId)
     if (!questions.length) throw Unprocessable("Este quiz ainda não tem questões. Avise o professor.", "NO_QUESTIONS")
 
     const quizGrade = gradeQuiz(questions, answers, lesson.quizPassingScore)

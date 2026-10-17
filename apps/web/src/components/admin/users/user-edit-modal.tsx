@@ -5,6 +5,7 @@ import { Edit3, Info, Loader2, Trash2 } from "lucide-react"
 import { USER_ROLES, MAX_FULL_NAME_LENGTH, type AdminUpdateUserInput, type Profile } from "@levelusp/contracts"
 import { RoleBadge } from "@/components/ui/badges"
 import { cn, formatDate, formatNumber } from "@/lib/utils"
+import { swalConfirm } from "@/lib/swal"
 import { AdminModal } from "../admin-modal"
 import { UserAvatar } from "./user-avatar"
 
@@ -71,7 +72,13 @@ export function UserEditModal({ user, isSelf, onClose, onSave, onDelete }: UserE
   }
 
   const handleDelete = async () => {
-    if (!window.confirm(`Excluir permanentemente a conta de ${user.full_name}? Esta ação não pode ser desfeita.`)) return
+    const isConfirmed = await swalConfirm({
+      title: `Excluir permanentemente a conta de ${user.full_name}?`,
+      text: "Esta ação não pode ser desfeita.",
+      confirmText: "Excluir",
+      danger: true,
+    })
+    if (!isConfirmed) return
     setIsDeleting(true)
     try {
       await onDelete(user)

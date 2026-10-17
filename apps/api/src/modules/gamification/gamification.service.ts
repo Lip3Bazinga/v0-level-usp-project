@@ -42,7 +42,7 @@ export class GamificationService {
     if (!current) return { ...NO_STREAK }
     const today = saoPauloDate()
     const result = nextStreak(current.lastActivityDate, today, current.currentStreak)
-    if (current.lastActivityDate !== today) await this.repo.saveStreak({ userId, streak: result.streak, today }, tx)
+    if (current.lastActivityDate !== today) await this.repo.updateStreak({ userId, streak: result.streak, today }, tx)
     return result
   }
 
@@ -60,7 +60,7 @@ export class GamificationService {
       // existe (FOR UPDATE numa linha inexistente não trava nada).
       const before = await this.repo.lockProgression(userId, tx)
       if (!before) throw new Error(`perfil ${userId} inexistente`)
-      if ((await this.repo.progressStatus(userId, lessonId, tx)) === "completed") {
+      if ((await this.repo.findProgressStatus(userId, lessonId, tx)) === "completed") {
         return { newlyCompleted: false, xpAwarded: 0, levelUp: false, newLevel: before.level, newBadges: [], courseCompleted: false }
       }
 
@@ -80,7 +80,7 @@ export class GamificationService {
   private async grantBadges(userId: string, tx: DbOrTx): Promise<GrantedBadge[]> {
     const profile = await this.repo.findProfile(userId, tx)
     if (!profile) return []
-    const rules = await this.repo.badgeRules(tx)
+    const rules = await this.repo.listBadgeRules(tx)
     const stats: PlayerStats = {
       total_xp: profile.totalXp,
       current_streak: profile.currentStreak,
@@ -88,7 +88,7 @@ export class GamificationService {
       lessons_completed: profile.lessonsCompleted,
       courses_completed: profile.coursesCompleted,
     }
-    const earnedIds = eligibleBadges(stats, rules, await this.repo.ownedBadgeIds(userId, tx))
+    const earnedIds = eligibleBadges(stats, rules, await this.repo.listOwnedBadgeIds(userId, tx))
     if (!earnedIds.length) return []
     await this.repo.grantBadges(userId, earnedIds, tx)
     const earned = rules.filter((rule) => earnedIds.includes(rule.id))
@@ -102,11 +102,11 @@ export class GamificationService {
 
   /** Conta o curso como concluído quando todas as lições publicadas estão feitas. */
   private async markCourseIfCompleted(userId: string, courseId: string, tx: DbOrTx): Promise<boolean> {
-    const publishedIds = (await this.repo.publishedLessonIds(courseId, tx)).map((lesson) => lesson.id)
+    const publishedIds = (await this.repo.listPublishedLessonIds(courseId, tx)).map((lesson) => lesson.id)
     if (!publishedIds.length) return false
-    if ((await this.repo.completedCount(userId, publishedIds, tx)) < publishedIds.length) return false
+    if ((await this.repo.countCompleted(userId, publishedIds, tx)) < publishedIds.length) return false
     await this.repo.incrementCoursesCompleted(userId, tx)
-    const courseTitle = await this.repo.courseTitle(courseId, tx)
+    const courseTitle = await this.repo.findCourseTitle(courseId, tx)
     await this.notifications.notify(
       userId,
       {

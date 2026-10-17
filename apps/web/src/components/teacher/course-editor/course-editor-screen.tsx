@@ -6,8 +6,7 @@ import { AlertCircle, BookOpen, X } from "lucide-react"
 import type { Course } from "@levelusp/contracts"
 import { TeacherSuccessModal } from "@/components/gamification/teacher-success-modal"
 import { useTransientFlag } from "@/hooks/use-transient-value"
-import { ROUTES } from "@/lib/constants"
-import { SAVED_FEEDBACK_DURATION_MS } from "@/lib/constants/authoring"
+import { ROUTES, SAVED_FEEDBACK_DURATION_MS } from "@/lib/constants"
 import { swalConfirm, swalError, swalToast, swalWarning } from "@/lib/swal"
 import { CourseBasicsSection } from "./course-basics-section"
 import { CourseCoverSection } from "./course-cover-section"
@@ -72,7 +71,7 @@ export function CourseEditorScreen({ initial, onCreated }: CourseEditorScreenPro
   return (
     <div className="min-h-screen bg-background">
       <TeacherSuccessModal
-        show={isSuccessOpen}
+        isOpen={isSuccessOpen}
         type="course"
         title={form.title}
         onClose={() => setIsSuccessOpen(false)}

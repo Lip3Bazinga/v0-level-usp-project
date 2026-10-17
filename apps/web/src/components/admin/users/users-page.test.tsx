@@ -97,7 +97,7 @@ describe("UsersPage (admin)", () => {
     await user.click(screen.getByLabelText("Selecionar Ana Souza"))
     await user.click(screen.getByRole("button", { name: /Suspender/ }))
 
-    expect(onToast).toHaveBeenCalledWith("1 não suspenso(s): Acesso restrito a administradores.", "danger")
+    expect(onToast).toHaveBeenCalledWith("1 não suspenso(s): Acesso restrito a administradores.", "error")
     expect(within(rowOf("Ana Souza")).queryByText("suspenso")).not.toBeInTheDocument()
   })
 

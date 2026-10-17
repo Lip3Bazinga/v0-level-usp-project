@@ -38,7 +38,7 @@ export class AdminRepository {
     })
   }
 
-  async metrics(): Promise<PlatformMetrics> {
+  async getMetrics(): Promise<PlatformMetrics> {
     const result = await this.db.execute<Record<keyof PlatformMetrics, number>>(sql`
       select
         (select count(*) from profiles)::int                                   as "totalUsers",
@@ -57,7 +57,7 @@ export class AdminRepository {
     return requireRow(result.rows, "metrics")
   }
 
-  recentCompletions(limit: number): Promise<RecentCompletionRow[]> {
+  listRecentCompletions(limit: number): Promise<RecentCompletionRow[]> {
     return this.db
       .select({
         id: lessonProgress.id,
@@ -75,7 +75,7 @@ export class AdminRepository {
   }
 
   /** Conclusões e usuários distintos por dia civil (São Paulo) desde `since`. */
-  completionsPerDay(since: Date) {
+  listCompletionsPerDay(since: Date) {
     return this.db
       .select({
         day: sql<string>`to_char(${lessonProgress.completedAt} at time zone ${saoPauloZone}, 'YYYY-MM-DD')`,
@@ -87,7 +87,7 @@ export class AdminRepository {
       .groupBy(sql`1`)
   }
 
-  async analyticsTotals(): Promise<AnalyticsTotalsRow> {
+  async getAnalyticsTotals(): Promise<AnalyticsTotalsRow> {
     const result = await this.db.execute<AnalyticsTotalsRow>(sql`
       with done as (
         select user_id, completed_at from lesson_progress where status = 'completed' and completed_at is not null
@@ -111,7 +111,7 @@ export class AdminRepository {
     return requireRow(result.rows, "analytics")
   }
 
-  topLessons(limit: number) {
+  listTopLessons(limit: number) {
     return this.db
       .select({ lessonId: lessons.id, title: lessons.title, completions: sql<number>`count(*)::int` })
       .from(lessonProgress)
@@ -122,7 +122,7 @@ export class AdminRepository {
       .limit(limit)
   }
 
-  roleDistribution() {
+  listRoleDistribution() {
     return this.db
       .select({ role: profiles.role, count: sql<number>`count(*)::int` })
       .from(profiles)
@@ -131,11 +131,11 @@ export class AdminRepository {
   }
 
   /** Lições sem gabarito — `test_cases` nunca é selecionado aqui. */
-  allLessons(): Promise<PublicLessonRow[]> {
+  listLessons(): Promise<PublicLessonRow[]> {
     return this.db.select(publicLessonColumns).from(lessons).orderBy(asc(lessons.module), asc(lessons.order), asc(lessons.title))
   }
 
-  settings() {
+  listSettings() {
     return this.db.select({ key: platformSettings.key, value: platformSettings.value }).from(platformSettings).orderBy(asc(platformSettings.key))
   }
 
@@ -151,7 +151,7 @@ export class AdminRepository {
     return this.db.query.badges.findFirst({ where: eq(badges.id, id) })
   }
 
-  async insertBadge(badge: BadgeInsert) {
+  async createBadge(badge: BadgeInsert) {
     return requireRow(await this.db.insert(badges).values(badge).returning(), "badges")
   }
 

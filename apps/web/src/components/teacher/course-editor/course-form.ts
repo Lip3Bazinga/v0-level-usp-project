@@ -1,5 +1,5 @@
 import type { Course, CourseInput, CourseUpdateInput, Difficulty } from "@levelusp/contracts"
-import { diffChangedFields } from "@/lib/utils/object-diff"
+import { diffChangedFields } from "@/lib/utils"
 
 const MIN_TITLE_LENGTH = 3
 const MAX_DESCRIPTION_LENGTH = 500

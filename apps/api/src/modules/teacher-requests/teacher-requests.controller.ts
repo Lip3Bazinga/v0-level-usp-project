@@ -25,8 +25,8 @@ export class TeacherRequestsController {
 
   /** Responde JSON `null` (e não corpo vazio) quando não há solicitação. */
   @Get("me/teacher-request")
-  async mine(@CurrentUser() user: AuthUser, @Res() response: Response): Promise<void> {
-    response.status(200).json(await this.requests.mine(user))
+  async findMyRequest(@CurrentUser() user: AuthUser, @Res() response: Response): Promise<void> {
+    response.status(200).json(await this.requests.findMyRequest(user))
   }
 
   @Roles("admin")

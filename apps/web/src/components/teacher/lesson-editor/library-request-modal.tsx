@@ -3,6 +3,7 @@ import { Loader2, Plus, X } from "lucide-react"
 import type { LibraryRequest } from "@levelusp/contracts"
 import { useModalA11y } from "@/hooks/use-modal-a11y"
 import { createLibraryRequest, getErrorMessage } from "@/lib/api"
+import { cn } from "@/lib/utils"
 import { MINI_LABEL_CLASS } from "./panel"
 
 const FIELD_CLASS = "w-full rounded-xl border-2 border-border px-3 py-2.5 text-sm focus:border-level-purple focus:outline-none"
@@ -72,7 +73,7 @@ export function LibraryRequestModal({ onClose, onCreated }: LibraryRequestModalP
               onChange={(event) => setUseCase(event.target.value)}
               rows={3}
               placeholder="Para qual tópico/módulo precisa desta biblioteca? O que os alunos farão com ela?"
-              className={`${FIELD_CLASS} resize-none`}
+              className={cn(FIELD_CLASS, "resize-none")}
             />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}

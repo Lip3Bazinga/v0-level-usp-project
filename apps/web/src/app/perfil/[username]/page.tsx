@@ -21,7 +21,8 @@ import { swalToast } from "@/lib/swal"
 import { computeLevelProgress, formatDate, formatNumber, formatPercent, formatXp, getInitials } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { BrandLink, StudentHeaderBar } from "@/components/dashboard/student-shell"
+import { BrandLogo } from "@/components/design-system/brand-logo"
+import { StudentHeaderBar } from "@/components/dashboard/student-shell"
 import { StatCard } from "@/components/profile/stat-card"
 import { ActivityMap } from "@/components/profile/activity-map"
 import { BadgesSection } from "@/components/profile/badges-section"
@@ -129,7 +130,7 @@ export default function ProfilePage() {
               <ChevronLeft className="h-5 w-5 text-level-purple" />
             </Link>
           </Button>
-          <BrandLink size="compact" />
+          <BrandLogo href={ROUTES.dashboard} size="sm" />
         </div>
 
         <div className="flex items-center gap-2">

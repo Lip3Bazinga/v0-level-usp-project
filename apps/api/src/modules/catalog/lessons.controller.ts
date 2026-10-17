@@ -18,26 +18,26 @@ export class LessonsController {
   // Rotas fixas antes de "lessons/:id": o Express casa na ordem de declaração.
   @Public()
   @Get("lessons/summaries")
-  summaries() {
-    return this.lessons.summaries()
+  listSummaries() {
+    return this.lessons.listSummaries()
   }
 
   @Public()
   @Get("lessons")
-  list() {
+  listPublished() {
     return this.lessons.listPublished()
   }
 
   @Roles("teacher", "admin")
   @Get("teacher/lessons")
-  teacherLessons(@CurrentUser() user: AuthUser) {
-    return this.lessons.teacherLessons(user)
+  listOwned(@CurrentUser() user: AuthUser) {
+    return this.lessons.listOwned(user)
   }
 
   @Roles("teacher", "admin")
   @Get("teacher/metrics")
-  metrics(@CurrentUser() user: AuthUser) {
-    return this.lessons.metrics(user)
+  listMetrics(@CurrentUser() user: AuthUser) {
+    return this.lessons.listMetrics(user)
   }
 
   @Public()
@@ -49,8 +49,8 @@ export class LessonsController {
 
   @Roles("teacher", "admin")
   @Get("lessons/:id/authoring")
-  authoring(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string) {
-    return this.lessons.authoring(user, id)
+  getForAuthoring(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string) {
+    return this.lessons.getForAuthoring(user, id)
   }
 
   @Roles("teacher", "admin")
@@ -68,13 +68,13 @@ export class LessonsController {
   @Roles("teacher", "admin")
   @HttpCode(204)
   @Delete("lessons/:id")
-  async remove(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string) {
-    await this.lessons.remove(user, id)
+  async delete(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string) {
+    await this.lessons.delete(user, id)
   }
 
   @Roles("teacher", "admin")
   @Patch("lessons/:id/publish")
-  publish(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(publishSchema)) body: PublishInput) {
-    return this.lessons.publish(user, id, body.published)
+  setPublished(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(publishSchema)) body: PublishInput) {
+    return this.lessons.setPublished(user, id, body.published)
   }
 }

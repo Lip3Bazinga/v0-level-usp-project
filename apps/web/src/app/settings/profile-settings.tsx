@@ -3,16 +3,17 @@
 import { useRef, useState, type ChangeEvent } from "react"
 import { Camera, CheckCircle2, Loader2, Mail, Save } from "lucide-react"
 import { usernameSchema, type Profile, type UpdateMyProfileInput } from "@levelusp/contracts"
+import { Spinner } from "@/components/design-system/spinner"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { LevelButton } from "@/components/design-system/level-button"
 import { useAuth } from "@/contexts/auth-context"
 import { useTransientValue } from "@/hooks/use-transient-value"
 import { getErrorMessage, updateMyProfile, uploadImage } from "@/lib/api"
-import { getInitials } from "@/lib/utils"
+import { getInitials, cn } from "@/lib/utils"
+import { SAVED_FEEDBACK_DURATION_MS } from "@/lib/constants"
 import { INPUT_CLASS, LABEL_CLASS } from "./settings-styles"
 
 const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024
-const SAVED_FEEDBACK_MS = 3_000
 const ACCEPTED_AVATAR_TYPES = "image/jpeg,image/png,image/webp"
 
 interface ProfileFields {
@@ -51,7 +52,7 @@ export function useProfileForm(profile: Profile) {
   const [isSaving, setIsSaving] = useState(false)
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const [error, setError] = useState("")
-  const savedFeedback = useTransientValue<true>(SAVED_FEEDBACK_MS)
+  const savedFeedback = useTransientValue<true>(SAVED_FEEDBACK_DURATION_MS)
 
   const updateField = (field: keyof ProfileFields, value: string) => setFields((current) => ({ ...current, [field]: value }))
 
@@ -175,7 +176,7 @@ export function ProfileSettingsSection({ profile, form }: ProfileSettingsSection
               value={fields.bio}
               onChange={(event) => updateField("bio", event.target.value)}
               rows={3}
-              className={`${INPUT_CLASS} resize-none`}
+              className={cn(INPUT_CLASS, "resize-none")}
             />
           </div>
 
@@ -199,7 +200,7 @@ export function ProfileSettingsSection({ profile, form }: ProfileSettingsSection
           <LevelButton variant="primary" size="md" onClick={form.save} disabled={form.isSaving}>
             {form.isSaving ? (
               <span className="flex items-center gap-2">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <Spinner />
                 Salvando...
               </span>
             ) : (

@@ -8,6 +8,7 @@ import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion-prim
 import { PageHero } from "@/components/marketing/page-hero"
 import { ScienceSection } from "@/components/marketing/science-section"
 import { SectionHeading } from "@/components/marketing/section-heading"
+import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = {
   title: "Metodologia — Como ensinamos no LevelUSP",
@@ -62,7 +63,7 @@ function ComparisonSection() {
             {METHOD_COMPARISON.map((row, index) => (
               <div
                 key={row.traditional}
-                className={`grid grid-cols-2 ${index % 2 === 0 ? "bg-white" : "bg-[#FAFAFA]"}`}
+                className={cn("grid grid-cols-2", index % 2 === 0 ? "bg-white" : "bg-[#FAFAFA]")}
               >
                 <div className="px-6 py-4 text-sm text-gray-500 line-through decoration-gray-300">
                   {row.traditional}

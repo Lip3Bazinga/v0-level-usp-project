@@ -2,13 +2,15 @@
 
 import { useState, type ReactNode } from "react"
 import Link from "next/link"
-import { BookOpen, Code2, Database, ExternalLink, Globe, Rocket, Terminal, Zap } from "lucide-react"
+import { BookOpen, Code2, Database, ExternalLink, Globe, Terminal, Zap } from "lucide-react"
+import { BrandLogo, BrandMark } from "@/components/design-system/brand-logo"
 import { CourseCard } from "@/components/design-system/course-card"
-import { LevelButton } from "@/components/design-system/level-button"
+import { LevelButton, levelButtonClasses } from "@/components/design-system/level-button"
 import { LevelProgress } from "@/components/design-system/level-progress"
 import { StreakCounter } from "@/components/design-system/streak-counter"
 import { XPBadge } from "@/components/design-system/xp-badge"
 import { ROUTES } from "@/lib/constants"
+import { cn } from "@/lib/utils"
 
 const INITIAL_PROGRESS_PERCENT = 65
 
@@ -76,9 +78,7 @@ function ShowcaseHeader() {
     <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple">
-            <Rocket className="h-5 w-5 text-white" />
-          </div>
+          <BrandMark />
           <div>
             <h1 className="text-xl font-bold text-level-purple-dark">LevelUSP</h1>
             <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -100,7 +100,7 @@ function ShowcaseHeader() {
 function ShowcaseHero() {
   return (
     <section className="relative overflow-hidden bg-linear-to-b from-level-purple-light to-white py-16 sm:py-24">
-      <div className={`absolute inset-0 ${DOT_PATTERN_CLASS} opacity-50`} />
+      <div className={cn("absolute inset-0", DOT_PATTERN_CLASS, "opacity-50")} />
 
       <div className="relative mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
         <div className="inline-flex items-center gap-2 rounded-full bg-level-purple-subtle px-4 py-2 text-sm font-medium text-level-purple-dark mb-6">
@@ -123,13 +123,11 @@ function ShowcaseHero() {
             Começar Agora
           </LevelButton>
           {SHOWCASE_LINKS.map((link) => (
-            <Link key={link.label} href={link.href}>
-              <LevelButton size="lg" variant={link.variant}>
-                <span className="flex items-center gap-2">
-                  {link.label}
-                  <ExternalLink className="h-4 w-4" />
-                </span>
-              </LevelButton>
+            <Link key={link.label} href={link.href} className={levelButtonClasses(link.variant, "lg")}>
+              <span className="flex items-center gap-2">
+                {link.label}
+                <ExternalLink className="h-4 w-4" />
+              </span>
             </Link>
           ))}
         </div>
@@ -175,7 +173,7 @@ function ProgressBarsDemo() {
       </div>
       <div>
         <p className="mb-3 text-sm font-medium text-muted-foreground">Grande (grossa)</p>
-        <LevelProgress value={progressPercent} size="lg" showLabel />
+        <LevelProgress value={progressPercent} size="lg" hasLabel />
       </div>
       <div className="flex items-center gap-4 pt-4 border-t border-border">
         <span className="text-sm text-muted-foreground">Ajustar progresso:</span>
@@ -294,7 +292,7 @@ function DesignSystemSection() {
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
                 {PALETTE_SWATCHES.map((swatch) => (
                   <div key={swatch.name} className="space-y-2">
-                    <div className={`h-20 rounded-xl shadow-sm ${swatch.swatchClass}`} />
+                    <div className={cn("h-20 rounded-xl shadow-sm", swatch.swatchClass)} />
                     <p className="text-xs font-medium">{swatch.name}</p>
                     <p className="text-xs text-muted-foreground">{swatch.hex}</p>
                   </div>
@@ -337,12 +335,7 @@ function ShowcaseFooter() {
     <footer className="border-t border-border bg-white py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-level-purple">
-              <Rocket className="h-4 w-4 text-white" />
-            </div>
-            <span className="font-bold text-level-purple-dark">LevelUSP</span>
-          </div>
+          <BrandLogo size="sm" className="gap-3" markClassName="rounded-lg" wordmarkClassName="text-base" />
           <p className="text-sm text-muted-foreground">
             Uma iniciativa da Universidade de São Paulo para a democratização do ensino de
             programação.

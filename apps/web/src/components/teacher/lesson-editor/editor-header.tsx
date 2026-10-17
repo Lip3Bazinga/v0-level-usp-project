@@ -2,6 +2,7 @@ import Link from "next/link"
 import { ArrowLeft, BookOpen, CheckCircle2, Eye, EyeOff, Globe, Loader2, Save } from "lucide-react"
 import { LevelButton } from "@/components/design-system/level-button"
 import { ROUTES } from "@/lib/constants"
+import { cn } from "@/lib/utils"
 
 interface EditorHeaderProps {
   isNew: boolean
@@ -38,9 +39,10 @@ export function EditorHeader({
                 <span className="truncate">{isNew ? "Nova lição" : title || "Sem título"}</span>
                 {!isNew && (
                   <span
-                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                      isPublished ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
-                    }`}
+                    className={cn(
+                      "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                      isPublished ? "bg-success/10 text-success" : "bg-muted text-muted-foreground",
+                    )}
                   >
                     {isPublished ? "Publicada" : "Rascunho"}
                   </span>

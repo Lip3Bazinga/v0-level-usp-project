@@ -3,9 +3,11 @@
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { AlertTriangle, ArrowLeft, Clock, Loader2 } from "lucide-react"
-import { ROUTES } from "@/lib/constants"
-import { BrandLink, StudentHeaderBar } from "@/components/dashboard/student-shell"
-import { formatCountdown, LOW_TIME_WARNING_MS } from "./exam-countdown"
+import { EXAM_LOW_TIME_WARNING_MS, ROUTES } from "@/lib/constants"
+import { BrandLogo } from "@/components/design-system/brand-logo"
+import { StudentHeaderBar } from "@/components/dashboard/student-shell"
+import { cn } from "@/lib/utils"
+import { formatCountdown } from "./exam-countdown"
 import { ExamQuestionsForm, ExamResultView, ExamStatusCard } from "./exam-views"
 import { useExamSession } from "./use-exam-session"
 
@@ -25,14 +27,15 @@ export default function ProvaPage() {
   return (
     <div className="min-h-screen bg-background pb-16">
       <StudentHeaderBar className="max-w-4xl">
-        <BrandLink />
+        <BrandLogo href={ROUTES.dashboard} />
         {phase.name === "running" && remainingMs !== null ? (
           <div
             role="timer"
             aria-label="Tempo restante da prova"
-            className={`flex items-center gap-2 rounded-xl px-4 py-2 font-mono text-sm font-bold ${
-              remainingMs < LOW_TIME_WARNING_MS ? "bg-red-50 text-red-600" : "bg-level-purple-subtle text-level-purple-dark"
-            }`}
+            className={cn(
+              "flex items-center gap-2 rounded-xl px-4 py-2 font-mono text-sm font-bold",
+              remainingMs < EXAM_LOW_TIME_WARNING_MS ? "bg-red-50 text-red-600" : "bg-level-purple-subtle text-level-purple-dark",
+            )}
           >
             <Clock className="h-4 w-4" />
             {formatCountdown(remainingMs)}

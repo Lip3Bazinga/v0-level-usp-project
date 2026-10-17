@@ -6,7 +6,7 @@ import type { Lesson, ProjectFile, SubmissionResult } from "@levelusp/contracts"
 import { useAuth } from "@/contexts/auth-context"
 import { useProgress } from "@/contexts/progress-context"
 import { usePython, type ExecutionResult, type PyodideStatus } from "@/hooks/use-python"
-import { fetchProgressSnapshot, HTTP_STATUS, isApiError, saveProgressSnapshot, submitLessonCode } from "@/lib/api"
+import { fetchProgressSnapshot, HTTP_STATUS, isApiError, updateProgressSnapshot, submitLessonCode } from "@/lib/api"
 import { CONSOLE_COMMAND_FILE_PATH, MAIN_FILE_PATH, ROUTES, SNAPSHOT_SAVE_DEBOUNCE_MS } from "@/lib/constants"
 import type { ConsoleOutput, ConsoleOutputType } from "@/lib/types"
 import {
@@ -34,6 +34,7 @@ import {
   verificationSuccessLine,
   type ConsoleLine,
 } from "@/lib/utils/ide-feedback"
+import { swalConfirm } from "@/lib/swal"
 
 /** Barra de progresso da lição: marcos atingidos a cada etapa do exercício. */
 const LESSON_PROGRESS = {
@@ -43,7 +44,12 @@ const LESSON_PROGRESS = {
   passed: 100,
 } as const
 
-const RESET_CONFIRMATION_MESSAGE = "Restaurar o código inicial da lição? Suas alterações serão perdidas."
+const RESET_CONFIRMATION = {
+  title: "Restaurar o código inicial da lição?",
+  text: "Suas alterações serão perdidas.",
+  confirmText: "Restaurar",
+  danger: true,
+} as const
 
 export interface IDEFilesState {
   /** Fonte da verdade do projeto do aluno. */
@@ -91,8 +97,8 @@ export interface IDELessonState {
   lastResult: SubmissionResult | null
   /** Nível antes da última conclusão, para a animação de subida de nível. */
   levelBefore: number | null
-  showSuccess: boolean
-  setShowSuccess: (isOpen: boolean) => void
+  isSuccessOpen: boolean
+  setIsSuccessOpen: (isOpen: boolean) => void
 }
 
 export type IDEContextValue = IDEFilesState & IDEFileActions & IDEConsole & IDERuntime & IDELessonState
@@ -124,7 +130,7 @@ function useSnapshotAutosave(lessonId: string, userId: string | undefined, files
   useEffect(() => {
     if (!userId || !hasLocalEditsRef.current) return
     const timer = setTimeout(() => {
-      saveProgressSnapshot(lessonId, files).catch(() => {})
+      updateProgressSnapshot(lessonId, files).catch(() => {})
     }, SNAPSHOT_SAVE_DEBOUNCE_MS)
     return () => clearTimeout(timer)
   }, [lessonId, userId, files])
@@ -153,7 +159,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
   const [runSucceeded, setRunSucceeded] = useState(false)
   const [lessonProgress, setLessonProgress] = useState(0)
   const [allPassed, setAllPassed] = useState(false)
-  const [showSuccess, setShowSuccess] = useState(false)
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
   const [lastResult, setLastResult] = useState<SubmissionResult | null>(null)
   const [levelBefore, setLevelBefore] = useState<number | null>(null)
@@ -252,9 +258,9 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
     [files, commitFiles, closeTab],
   )
 
-  const reset = useCallback(() => {
+  const reset = useCallback(async () => {
     // Apagar o código do aluno é irreversível: pede confirmação (botão e atalho Alt+G).
-    if (!window.confirm(RESET_CONFIRMATION_MESSAGE)) return
+    if (!(await swalConfirm(RESET_CONFIRMATION))) return
     commitFiles(resolveStarterFiles(lesson))
     setTabs(createEditorTabs())
     replaceWithLine({ type: "info", message: "Código restaurado para o estado inicial da lição." })
@@ -343,7 +349,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
       setLevelBefore(levelAtStart)
       setAllPassed(true)
       setLessonProgress(LESSON_PROGRESS.passed)
-      setShowSuccess(true)
+      setIsSuccessOpen(true)
       try {
         // A conclusão e o XP já foram gravados pela API; aqui só refletimos na interface.
         await applyCompletion(lesson.id, result)
@@ -453,14 +459,14 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
       isVerifying: isVerifying || isInstalling,
       lastResult,
       levelBefore,
-      showSuccess,
-      setShowSuccess,
+      isSuccessOpen,
+      setIsSuccessOpen,
     }),
     [
       files, tabs, setActivePath, openFile, closeTab, handleContentChange, createFile, renameFile, deleteFile,
       consoleOutputs, clearConsole, addOutput, runConsoleCommand, pythonStatus, isExecuting, isInstalling, stop,
       run, reset, verify, hasRun, hasOutput, runSucceeded, lessonProgress, allPassed, isVerifying, lastResult,
-      levelBefore, showSuccess,
+      levelBefore, isSuccessOpen,
     ],
   )
 

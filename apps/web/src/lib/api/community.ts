@@ -37,7 +37,7 @@ export const fetchLibraryCatalog = () => api.get<LibraryCatalog[]>("/library")
 export const fetchAdminLibraryCatalog = () => api.get<LibraryCatalog[]>("/admin/library")
 export const createLibraryRequest = (input: LibraryRequestInput) => api.post<LibraryRequest>("/library/requests", input)
 export const fetchMyLibraryRequests = () => api.get<LibraryRequest[]>("/me/library/requests")
-export const fetchAllLibraryRequests = () => api.get<LibraryRequest[]>("/admin/library/requests")
+export const fetchAdminLibraryRequests = () => api.get<LibraryRequest[]>("/admin/library/requests")
 export const reviewLibraryRequest = (requestId: string, input: ReviewLibraryRequestInput) =>
   api.post<LibraryRequest>(`/admin/library/requests/${requestId}/review`, input)
 export const setLibraryCatalogActive = (libraryId: string, active: boolean) =>

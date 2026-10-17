@@ -45,19 +45,19 @@ export class CoursesService {
   }
 
   /** Aluno vê as lições publicadas; dono/admin vê todas (inclusive rascunhos). */
-  async lessons(user: AuthUser | undefined, id: string): Promise<Lesson[]> {
+  async listLessons(user: AuthUser | undefined, id: string): Promise<Lesson[]> {
     const course = await this.repo.findById(id)
     if (!course || !canViewContent(user, course)) throw NotFound("Curso")
-    return (await this.repo.lessonsOf(id, !canManage(user, course.createdBy))).map(toLesson)
+    return (await this.repo.listLessons(id, !canManage(user, course.createdBy))).map(toLesson)
   }
 
-  async teacherCourses(user: AuthUser): Promise<Course[]> {
+  async listOwned(user: AuthUser): Promise<Course[]> {
     return (await this.repo.listByOwner(ownerScope(user))).map(toCourseWithAggregates)
   }
 
   async create(user: AuthUser, input: CourseInput): Promise<Course> {
     await this.storage.assertUsableUrl(input.cover_image_url, user.id)
-    const course = await this.repo.insert({ ...buildPatch(input, COURSE_PATCH), title: input.title, createdBy: user.id, published: false })
+    const course = await this.repo.create({ ...buildPatch(input, COURSE_PATCH), title: input.title, createdBy: user.id, published: false })
     return toCourse(course, { lessonCount: 0 })
   }
 
@@ -69,21 +69,21 @@ export class CoursesService {
     if (Object.keys(patch).length) await this.repo.update(id, patch)
     // Capa trocada ou removida: apaga a imagem antiga do disco.
     if (isChangingCover && course.coverImageUrl && course.coverImageUrl !== input.cover_image_url) {
-      await this.storage.remove(course.coverImageUrl, course.createdBy)
+      await this.storage.delete(course.coverImageUrl, course.createdBy)
     }
     return this.get(user, id)
   }
 
-  async remove(user: AuthUser, id: string): Promise<void> {
+  async delete(user: AuthUser, id: string): Promise<void> {
     const course = await this.findManageable(user, id)
     await this.repo.delete(id)
-    await this.storage.remove(course.coverImageUrl, course.createdBy)
+    await this.storage.delete(course.coverImageUrl, course.createdBy)
     if (course.createdBy !== user.id) {
       await this.audit.log(user, "course.delete", `course:${id}`, { title: course.title, owner: course.createdBy }, "warning")
     }
   }
 
-  async publish(user: AuthUser, id: string, published: boolean): Promise<Course> {
+  async setPublished(user: AuthUser, id: string, published: boolean): Promise<Course> {
     await this.findManageable(user, id)
     await this.repo.update(id, { published })
     return this.get(user, id)
@@ -91,7 +91,7 @@ export class CoursesService {
 
   async reorder(user: AuthUser, id: string, lessonIds: string[]): Promise<void> {
     await this.findManageable(user, id)
-    const courseLessonIds = new Set((await this.repo.lessonOrders(id)).map((lesson) => lesson.id))
+    const courseLessonIds = new Set((await this.repo.listLessonOrders(id)).map((lesson) => lesson.id))
     const reorderCheck = checkReorder(lessonIds, courseLessonIds)
     if (!reorderCheck.ok) {
       throw reorderCheck.reason === "DUPLICATE"
@@ -129,13 +129,13 @@ export class CoursesService {
     await this.repo.unenroll(user.id, id)
   }
 
-  myEnrollments(user: AuthUser): Promise<string[]> {
-    return this.repo.enrolledCourseIds(user.id)
+  listMyEnrollments(user: AuthUser): Promise<string[]> {
+    return this.repo.listEnrolledCourseIds(user.id)
   }
 
   /** Posição depois da última lição do curso, ignorando a própria lição se já estiver nele. */
   private async endOfCourse(courseId: string, lessonId: string): Promise<number> {
-    const orders = (await this.repo.lessonOrders(courseId)).filter((lesson) => lesson.id !== lessonId).map((lesson) => lesson.order)
+    const orders = (await this.repo.listLessonOrders(courseId)).filter((lesson) => lesson.id !== lessonId).map((lesson) => lesson.order)
     return nextOrder(orders)
   }
 

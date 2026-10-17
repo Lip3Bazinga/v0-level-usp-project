@@ -1,8 +1,5 @@
 import { MS_PER_MINUTE, MS_PER_SECOND } from "@/lib/constants"
 
-/** Abaixo disso o cronômetro fica vermelho. */
-export const LOW_TIME_WARNING_MS = 5 * MS_PER_MINUTE
-
 const SECONDS_PER_MINUTE = MS_PER_MINUTE / MS_PER_SECOND
 
 /** "m:ss" do tempo restante; prazo vencido aparece como "0:00". */

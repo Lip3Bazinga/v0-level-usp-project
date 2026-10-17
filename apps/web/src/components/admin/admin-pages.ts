@@ -1,5 +1,5 @@
 import { STORAGE_KEYS } from "@/lib/constants"
-import { isOneOf } from "@/lib/utils/guards"
+import { isOneOf } from "@/lib/utils"
 
 export const ADMIN_PAGE_IDS = [
   "overview",

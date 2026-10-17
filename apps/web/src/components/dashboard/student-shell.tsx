@@ -4,10 +4,11 @@ import type { ReactNode } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
-  BookOpen, Flame, GraduationCap, LayoutDashboard, LogOut, NotebookPen, Rocket, Settings, Shield, Star, Trophy, User, Zap,
+  BookOpen, Flame, GraduationCap, LayoutDashboard, LogOut, NotebookPen, Settings, Shield, Star, Trophy, User, Zap,
   type LucideIcon,
 } from "lucide-react"
 import type { UserRole } from "@levelusp/contracts"
+import { BrandLogo } from "@/components/design-system/brand-logo"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -102,7 +103,7 @@ export function StudentShell({ screen, children }: StudentShellProps) {
   return (
     <div className={cn("min-h-screen bg-background", layout.bottomPaddingClassName)}>
       <StudentHeaderBar>
-        <BrandLink />
+        <BrandLogo href={ROUTES.dashboard} />
         <nav aria-label="Navegação principal" className="hidden items-center gap-6 lg:flex">
           {layout.desktopItems.map((itemId) => (
             <DesktopNavLink key={itemId} itemId={itemId} layout={layout} username={username} />
@@ -138,23 +139,6 @@ export function StudentHeaderBar({ children, className }: { children: ReactNode;
     <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-sm">
       <div className={cn("mx-auto flex h-16 max-w-6xl items-center justify-between px-4", className)}>{children}</div>
     </header>
-  )
-}
-
-interface BrandLinkProps {
-  /** `compact`: marca menor, usada ao lado de um botão de voltar. */
-  size?: "regular" | "compact"
-}
-
-export function BrandLink({ size = "regular" }: BrandLinkProps) {
-  const isCompact = size === "compact"
-  return (
-    <Link href={ROUTES.dashboard} className={cn("flex items-center", isCompact ? "gap-2" : "gap-3")}>
-      <div className={cn("flex items-center justify-center rounded-xl bg-level-purple", isCompact ? "h-8 w-8" : "h-10 w-10")}>
-        <Rocket className={cn("text-white", isCompact ? "h-4 w-4" : "h-5 w-5")} />
-      </div>
-      <span className={cn("font-bold text-level-purple-dark", isCompact ? "text-lg" : "text-xl")}>LevelUSP</span>
-    </Link>
   )
 }
 

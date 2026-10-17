@@ -84,7 +84,7 @@ export function ConfigTab({ form, onChange: patch, courses, modules }: ConfigTab
       </div>
 
       <div className="space-y-2">
-        <label className={`${LABEL_CLASS} flex items-center gap-2`}>
+        <label className={cn(LABEL_CLASS, "flex items-center gap-2")}>
           <GraduationCap className="h-4 w-4 text-level-purple" />
           Curso <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
         </label>
@@ -219,7 +219,7 @@ export function ConfigTab({ form, onChange: patch, courses, modules }: ConfigTab
               min={1}
               max={100}
               step={5}
-              className={`${INPUT_CLASS} pr-10`}
+              className={cn(INPUT_CLASS, "pr-10")}
             />
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-level-purple">%</span>
           </div>
@@ -241,7 +241,7 @@ export function ConfigTab({ form, onChange: patch, courses, modules }: ConfigTab
               min={0}
               max={5000}
               step={10}
-              className={`${INPUT_CLASS} pr-12`}
+              className={cn(INPUT_CLASS, "pr-12")}
             />
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-level-purple">XP</span>
           </div>
@@ -257,7 +257,7 @@ export function ConfigTab({ form, onChange: patch, courses, modules }: ConfigTab
               min={1}
               max={300}
               step={5}
-              className={`${INPUT_CLASS} pr-12`}
+              className={cn(INPUT_CLASS, "pr-12")}
             />
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">min</span>
           </div>

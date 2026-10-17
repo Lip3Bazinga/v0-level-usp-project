@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, Loader2, LogOut, Rocket, Shield, User, type LucideIcon } from "lucide-react"
+import { ChevronLeft, Loader2, LogOut, Shield, User, type LucideIcon } from "lucide-react"
 import type { Profile } from "@levelusp/contracts"
+import { BrandMark } from "@/components/design-system/brand-logo"
 import { useAuth } from "@/contexts/auth-context"
 import { useSignOut } from "@/hooks/use-sign-out"
 import { ROUTES } from "@/lib/constants"
+import { cn } from "@/lib/utils"
 import { ProfileSettingsSection, useProfileForm } from "./profile-settings"
 import { SecuritySettingsSection, useSecuritySettings } from "./security-settings"
 
@@ -56,9 +58,7 @@ function SettingsContent({ profile }: { profile: Profile }) {
               <ChevronLeft className="h-5 w-5" />
             </Link>
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-level-purple">
-                <Rocket className="h-4 w-4 text-white" />
-              </div>
+              <BrandMark size="sm" />
               <h1 className="text-lg font-bold text-level-purple-dark">Configurações</h1>
             </div>
           </div>
@@ -74,11 +74,10 @@ function SettingsContent({ profile }: { profile: Profile }) {
                   key={tab.id}
                   aria-current={activeTab === tab.id ? "page" : undefined}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
-                    activeTab === tab.id
-                      ? "bg-level-purple text-white"
-                      : "text-muted-foreground hover:bg-level-purple-subtle hover:text-level-purple-dark"
-                  }`}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors",
+                    activeTab === tab.id ? "bg-level-purple text-white" : "text-muted-foreground hover:bg-level-purple-subtle hover:text-level-purple-dark",
+                  )}
                 >
                   <tab.icon className="h-4 w-4" />
                   {tab.label}

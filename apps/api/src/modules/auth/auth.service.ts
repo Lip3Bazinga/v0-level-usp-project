@@ -105,7 +105,7 @@ export class AuthService {
     return { id: profile.id, email: profile.email, role: profile.role, fullName: profile.fullName, sessionId }
   }
 
-  async me(userId: string): Promise<SessionResponse> {
+  async getSession(userId: string): Promise<SessionResponse> {
     const profile = await this.users.findById(userId)
     if (!profile) throw Unauthorized()
     return { user: toProfile(profile) }
@@ -209,7 +209,7 @@ export class AuthService {
       userAgent: client.userAgent?.slice(0, MAX_USER_AGENT_LENGTH) ?? null,
     })
     const streak = await this.gamification.touchStreak(userId)
-    const response = await this.me(userId)
+    const response = await this.getSession(userId)
     // A animação de sequência só aparece quando a sequência mudou (primeiro acesso do dia).
     return { token, expiresAt, response: { ...response, ...(streak.increased ? { streak } : {}) } }
   }

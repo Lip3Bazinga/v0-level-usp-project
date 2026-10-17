@@ -10,13 +10,12 @@ import { useAuth } from "@/contexts/auth-context"
 import { useModalA11y } from "@/hooks/use-modal-a11y"
 import { useTransientFlag } from "@/hooks/use-transient-value"
 import { updateNote } from "@/lib/api"
-import { ROUTES } from "@/lib/constants"
-import { formatRelativeDay, truncatePlainText } from "@/lib/utils"
+import { ROUTES, SAVED_FEEDBACK_DURATION_MS } from "@/lib/constants"
+import { formatRelativeDay, truncatePlainText, cn } from "@/lib/utils"
 import { filterNotes, sortByRecentUpdate, useNoteCollection, type NoteSearchField } from "./note-collection"
 
 const IDE_ROUTE_PREFIXES = [ROUTES.lesson(""), ROUTES.ide]
 const SEARCH_FIELDS: readonly NoteSearchField[] = ["title", "content", "lesson_title"]
-const SAVED_FEEDBACK_MS = 2_000
 const PREVIEW_LENGTH = 72
 const LESSON_TAG_LENGTH = 18
 
@@ -37,7 +36,7 @@ function NoteEditor({ note, onSaved }: NoteEditorProps) {
   const contentRef = useRef(note.content)
   const [isSaving, setIsSaving] = useState(false)
   const [hasSaveError, setHasSaveError] = useState(false)
-  const savedFeedback = useTransientFlag(SAVED_FEEDBACK_MS)
+  const savedFeedback = useTransientFlag(SAVED_FEEDBACK_DURATION_MS)
   const { activate: showSaved } = savedFeedback
 
   const handleSave = useCallback(async () => {
@@ -87,7 +86,11 @@ function NoteEditor({ note, onSaved }: NoteEditorProps) {
           onClick={handleSave}
           disabled={isSaving}
           aria-live="polite"
-          className={`flex shrink-0 items-center gap-1.5 rounded-lg ${hasSaveError ? "bg-destructive" : "bg-level-purple"} px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-level-purple-dark disabled:opacity-60`}
+          className={cn(
+            "flex shrink-0 items-center gap-1.5 rounded-lg",
+            hasSaveError ? "bg-destructive" : "bg-level-purple",
+            "px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-level-purple-dark disabled:opacity-60",
+          )}
         >
           {isSaving ? (
             <>
@@ -256,9 +259,10 @@ function NoteListItem({ note, isActive, isDeleting, onSelect, onDelete }: NoteLi
         event.preventDefault()
         onSelect(note.id)
       }}
-      className={`group w-full cursor-pointer border-b border-border/50 px-3 py-2.5 text-left transition-colors hover:bg-white/70 ${
-        isActive ? "bg-white shadow-sm" : ""
-      }`}
+      className={cn(
+        "group w-full cursor-pointer border-b border-border/50 px-3 py-2.5 text-left transition-colors hover:bg-white/70",
+        isActive ? "bg-white shadow-sm" : "",
+      )}
     >
       <div className="flex items-start justify-between gap-1">
         <p className="truncate text-xs font-semibold leading-tight text-level-purple-dark">{note.title || "Sem título"}</p>
@@ -319,7 +323,11 @@ export function NotesFloatingWidget() {
         title="Abrir caderno de anotações"
         aria-label="Abrir caderno de anotações"
         aria-haspopup="dialog"
-        className={`fixed ${positionClassName} z-40 h-12 w-12 items-center justify-center rounded-full bg-level-purple text-white shadow-lg shadow-purple-300/50 transition-all hover:scale-105 hover:bg-level-purple-dark active:scale-95`}
+        className={cn(
+          "fixed",
+          positionClassName,
+          "z-40 h-12 w-12 items-center justify-center rounded-full bg-level-purple text-white shadow-lg shadow-purple-300/50 transition-all hover:scale-105 hover:bg-level-purple-dark active:scale-95",
+        )}
       >
         <NotebookPen className="h-5 w-5" aria-hidden="true" />
       </button>

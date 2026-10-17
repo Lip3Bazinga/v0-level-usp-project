@@ -2,18 +2,17 @@
 
 import { motion } from "framer-motion"
 import { BookOpen, CheckCircle2, Zap } from "lucide-react"
-import { MS_PER_SECOND } from "@/lib/constants"
-import { CelebrationDialog } from "@/components/gamification/celebration-dialog"
+import { CELEBRATION_AUTO_CLOSE_MS } from "@/lib/constants"
+import { CelebrationModal } from "@/components/gamification/celebration-modal"
 import { fireConfetti, useCelebration } from "@/components/gamification/celebration"
 
-interface EnrollmentAnimationProps {
-  show: boolean
+interface EnrollmentModalProps {
+  isOpen: boolean
   courseTitle: string
   courseXp?: number
   onClose: () => void
 }
 
-const AUTO_CLOSE_MS = 5.5 * MS_PER_SECOND
 const BASE_BENEFITS = ["Acesso completo ao conteúdo", "Progresso salvo automaticamente", "Certificado ao concluir"]
 
 function fireEnrollmentConfetti() {
@@ -29,14 +28,14 @@ function fireEnrollmentConfetti() {
   })
 }
 
-export function EnrollmentAnimation({ show, courseTitle, courseXp, onClose }: EnrollmentAnimationProps) {
-  useCelebration(show, { celebrate: fireEnrollmentConfetti, onClose, autoCloseMs: AUTO_CLOSE_MS })
+export function EnrollmentModal({ isOpen, courseTitle, courseXp, onClose }: EnrollmentModalProps) {
+  useCelebration(isOpen, { celebrate: fireEnrollmentConfetti, onClose, autoCloseMs: CELEBRATION_AUTO_CLOSE_MS.enrollment })
   const hasCourseXp = Boolean(courseXp)
   const benefits = hasCourseXp ? [...BASE_BENEFITS, `${courseXp} XP ao completar o curso`] : BASE_BENEFITS
 
   return (
-    <CelebrationDialog
-      isOpen={show}
+    <CelebrationModal
+      isOpen={isOpen}
       onClose={onClose}
       backdropClassName="z-[9999] bg-black/60"
       motion={{
@@ -123,6 +122,6 @@ export function EnrollmentAnimation({ show, courseTitle, courseXp, onClose }: En
           Começar a Aprender!
         </motion.button>
       </div>
-    </CelebrationDialog>
+    </CelebrationModal>
   )
 }

@@ -2,11 +2,12 @@
 
 import { motion } from "framer-motion"
 import { Trophy, Star, Award, Download, Zap } from "lucide-react"
-import { CelebrationDialog } from "@/components/gamification/celebration-dialog"
+import { CelebrationModal } from "@/components/gamification/celebration-modal"
 import { fireConfetti, fireConfettiAfter, useCelebration } from "@/components/gamification/celebration"
+import { CONFETTI_SIDE_BURST_INTERVAL_MS } from "@/lib/constants"
 
 interface CourseCompleteModalProps {
-  show: boolean
+  isOpen: boolean
   courseTitle: string
   courseXp?: number
   hasCertificate?: boolean
@@ -17,7 +18,6 @@ interface CourseCompleteModalProps {
 const ORBIT_POSITIONS = [0, 1, 2, 3, 4]
 const ORBIT_RADIUS_PX = 60
 const SIDE_BURST_COUNT = 3
-const SIDE_BURST_INTERVAL_MS = 400
 
 function orbitTransform(position: number): string {
   const angle = (position / ORBIT_POSITIONS.length) * Math.PI * 2
@@ -38,7 +38,7 @@ function fireCourseCompleteConfetti() {
   })
   for (let burst = 0; burst < SIDE_BURST_COUNT; burst++) {
     fireConfettiAfter(
-      burst * SIDE_BURST_INTERVAL_MS,
+      burst * CONFETTI_SIDE_BURST_INTERVAL_MS,
       { ...shared, particleCount: 80, angle: 60, spread: 80, origin: { x: 0, y: 0.6 } },
       { ...shared, particleCount: 80, angle: 120, spread: 80, origin: { x: 1, y: 0.6 } },
     )
@@ -47,18 +47,18 @@ function fireCourseCompleteConfetti() {
 
 /** Sem fechamento automático: o botão de certificado precisa ficar disponível. */
 export function CourseCompleteModal({
-  show,
+  isOpen,
   courseTitle,
   courseXp,
   hasCertificate = false,
   onClose,
   onDownloadCertificate,
 }: CourseCompleteModalProps) {
-  useCelebration(show, { celebrate: fireCourseCompleteConfetti, onClose })
+  useCelebration(isOpen, { celebrate: fireCourseCompleteConfetti, onClose })
 
   return (
-    <CelebrationDialog
-      isOpen={show}
+    <CelebrationModal
+      isOpen={isOpen}
       onClose={onClose}
       backdropClassName="z-[10000] bg-black/70"
       motion={{
@@ -163,6 +163,6 @@ export function CourseCompleteModal({
           Continuar Aprendendo
         </motion.button>
       </div>
-    </CelebrationDialog>
+    </CelebrationModal>
   )
 }

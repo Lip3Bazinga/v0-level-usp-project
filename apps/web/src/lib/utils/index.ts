@@ -1,6 +1,7 @@
 export { cn } from "./cn"
 export { indexBy } from "./collections"
 export { toCsv, downloadCsv } from "./csv"
+export { downloadBlob, downloadText, downloadJson } from "./download"
 export { PLATFORM_TIMEZONE, localDateKey, todayKey } from "./date"
 export { createEditorTabs, openTab, closeTab, renameTabs, type EditorTabs } from "./editor-tabs"
 export { buildTree, type TreeNode } from "./file-tree"
@@ -42,3 +43,7 @@ export {
   type GamificationSummary,
   type LessonCompletion,
 } from "./progress"
+export { isOneOf } from "./guards"
+export { diffChangedFields } from "./object-diff"
+export { moveItem, removeChoiceAt, type MoveDirection } from "./list-editing"
+export { PASSWORD_MIN_LENGTH, getPasswordPolicyError } from "./password"

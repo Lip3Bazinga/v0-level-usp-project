@@ -4,6 +4,7 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { ArrowRight, GraduationCap, Play, Sparkles } from "lucide-react"
 import { ROUTES } from "@/lib/constants"
+import { cn } from "@/lib/utils"
 import { EASE, entranceMotion } from "./motion-primitives"
 import { HERO_FLOATING_STATS } from "./content/home"
 
@@ -22,7 +23,7 @@ function FloatingStats() {
         ease: EASE,
         delay: FLOATING_STATS_DELAY_SECONDS + index * FLOATING_STATS_STAGGER_SECONDS,
       }}
-      className={`absolute hidden rounded-2xl glass px-5 py-3 md:block ${stat.positionClass}`}
+      className={cn("absolute hidden rounded-2xl glass px-5 py-3 md:block", stat.positionClass)}
     >
       <motion.div
         animate={{ y: [0, -8, 0] }}

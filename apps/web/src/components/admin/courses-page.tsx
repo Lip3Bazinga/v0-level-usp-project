@@ -9,6 +9,7 @@ import { deleteCourse, fetchTeacherCourses, getErrorMessage, setCoursePublished 
 import { DIFFICULTY_BADGE_CLASSES, DIFFICULTY_LABELS, ROUTES } from "@/lib/constants"
 import type { OnToast } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { swalConfirm } from "@/lib/swal"
 import { PanelSpinner } from "./panel-spinner"
 
 const ICON_ACTION_CLASS =
@@ -25,11 +26,11 @@ function matchesSearch(course: Course, search: string): boolean {
   return course.title.toLowerCase().includes(term) || (course.description ?? "").toLowerCase().includes(term)
 }
 
-interface CoursesAdminPageProps {
+interface CoursesPageProps {
   onToast: OnToast
 }
 
-export function CoursesAdminPage({ onToast }: CoursesAdminPageProps) {
+export function CoursesPage({ onToast }: CoursesPageProps) {
   const courses = useAsyncResource(loadAllCourses, [], { errorMessage: "Não foi possível carregar os cursos." })
   const [search, setSearch] = useState("")
   const [togglingId, setTogglingId] = useState<string | null>(null)
@@ -46,21 +47,22 @@ export function CoursesAdminPage({ onToast }: CoursesAdminPageProps) {
       courses.setData((current) => current.map((item) => (item.id === course.id ? { ...item, published: updated.published } : item)))
       onToast(course.published ? "Curso despublicado" : "Curso publicado", "success")
     } catch (error) {
-      onToast(getErrorMessage(error, "Erro ao alterar status"), "danger")
+      onToast(getErrorMessage(error, "Erro ao alterar status"), "error")
     } finally {
       setTogglingId(null)
     }
   }
 
   const handleDelete = async (course: Course) => {
-    if (!confirm(`Excluir "${course.title}" permanentemente?`)) return
+    const isConfirmed = await swalConfirm({ title: `Excluir "${course.title}" permanentemente?`, confirmText: "Excluir", danger: true })
+    if (!isConfirmed) return
     setDeletingId(course.id)
     try {
       await deleteCourse(course.id)
       courses.setData((current) => current.filter((item) => item.id !== course.id))
       onToast("Curso excluído", "success")
     } catch (error) {
-      onToast(getErrorMessage(error, "Erro ao excluir"), "danger")
+      onToast(getErrorMessage(error, "Erro ao excluir"), "error")
     } finally {
       setDeletingId(null)
     }

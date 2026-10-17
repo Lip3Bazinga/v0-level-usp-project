@@ -27,7 +27,7 @@ export class NotesService {
     if (input.lesson_id && (!lesson || !canViewContent(user, lesson))) throw NotFound("Lição")
     const course = input.course_id ? await this.repo.findCourse(input.course_id) : undefined
     if (input.course_id && (!course || !canViewContent(user, course))) throw NotFound("Curso")
-    const note = await this.repo.insert({
+    const note = await this.repo.create({
       userId: user.id,
       title: input.title ?? null,
       content: input.content,
@@ -45,7 +45,7 @@ export class NotesService {
     return toNote(note)
   }
 
-  async remove(user: AuthUser, id: string): Promise<void> {
+  async delete(user: AuthUser, id: string): Promise<void> {
     if (!(await this.repo.deleteOwned(user.id, id))) throw NotFound("Nota")
   }
 }

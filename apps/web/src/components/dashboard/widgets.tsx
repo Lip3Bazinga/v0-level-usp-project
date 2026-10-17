@@ -7,7 +7,8 @@ import type { Badge, BadgeCriteriaType, BadgeRarity, LessonProgress, Profile } f
 import { BadgeIcon } from "@/components/design-system/badge-icon"
 import { useAsyncResource } from "@/hooks/use-async-resource"
 import { fetchBadges, fetchUserBadges } from "@/lib/api"
-import { formatNumber, localDateKey, todayKey, PLATFORM_TIMEZONE, toClampedPercent } from "@/lib/utils"
+import { formatNumber, localDateKey, todayKey, PLATFORM_TIMEZONE, toClampedPercent, cn } from "@/lib/utils"
+import { XP_COUNT_UP_DURATION_MS, LESSONS_COUNT_UP_DURATION_MS } from "@/lib/constants"
 
 /** Conjunto de dias (YYYY-MM-DD) com pelo menos uma lição concluída. */
 export function useStudyDays(progressByLessonId: ReadonlyMap<string, LessonProgress>): Set<string> {
@@ -20,11 +21,8 @@ export function useStudyDays(progressByLessonId: ReadonlyMap<string, LessonProgr
   }, [progressByLessonId])
 }
 
-const COUNT_UP_DURATION_MS = 900
-const LESSONS_COUNT_UP_DURATION_MS = 700
-
 /** Conta de 0 até `target` com desaceleração no fim (ease-out cúbico). */
-function useCountUp(target: number, durationMs = COUNT_UP_DURATION_MS): number {
+function useCountUp(target: number, durationMs = XP_COUNT_UP_DURATION_MS): number {
   const [value, setValue] = useState(0)
   useEffect(() => {
     let animationFrame = 0
@@ -74,10 +72,16 @@ export function StatCards({ streak, totalXp, lessonsCompleted, level }: StatCard
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 * index, duration: 0.35, ease: "easeOut" }}
-          className={`flex items-center gap-3 rounded-2xl border border-border bg-white p-3 shadow-sm ring-4 ${item.ringClassName}`}
+          className={cn(
+            "flex items-center gap-3 rounded-2xl border border-border bg-white p-3 shadow-sm ring-4",
+            item.ringClassName,
+          )}
         >
-          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${item.backgroundClassName}`}>
-            <item.icon className={`h-5 w-5 ${item.iconClassName}`} />
+          <div className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+            item.backgroundClassName,
+          )}>
+            <item.icon className={cn("h-5 w-5", item.iconClassName)} />
           </div>
           <div className="min-w-0">
             <p className="text-lg font-extrabold leading-none tabular-nums text-foreground">{formatNumber(item.value)}</p>
@@ -177,17 +181,14 @@ export function WeeklyActivity({ studyDays }: { studyDays: Set<string> }) {
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.06 * index, type: "spring", stiffness: 300, damping: 20 }}
-                className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                  hasStudied
-                    ? "bg-gradient-to-br from-orange-400 to-red-500 shadow-md shadow-orange-200"
-                    : day.isToday
-                      ? "border-2 border-dashed border-level-purple-medium bg-level-purple-subtle"
-                      : "bg-muted"
-                }`}
+                className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-full",
+                  hasStudied ? "bg-gradient-to-br from-orange-400 to-red-500 shadow-md shadow-orange-200" : day.isToday ? "border-2 border-dashed border-level-purple-medium bg-level-purple-subtle" : "bg-muted",
+                )}
               >
                 {hasStudied && <Flame className="h-4 w-4 text-white" />}
               </motion.div>
-              <span className={`text-[10px] font-bold ${day.isToday ? "text-level-purple" : "text-muted-foreground"}`}>{day.label}</span>
+              <span className={cn("text-[10px] font-bold", day.isToday ? "text-level-purple" : "text-muted-foreground")}>{day.label}</span>
             </div>
           )
         })}
@@ -272,7 +273,11 @@ function NextBadgeCard({ badge, current }: BadgeProgress) {
       <p className="mb-3 text-sm font-bold text-foreground">Próxima conquista</p>
       <div className="flex items-center gap-3">
         <div
-          className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${RARITY_GRADIENTS[badge.rarity]} opacity-90`}
+          className={cn(
+            "relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br",
+            RARITY_GRADIENTS[badge.rarity],
+            "opacity-90",
+          )}
         >
           <BadgeIcon name={badge.icon} className="h-6 w-6 text-white" />
           <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-muted">

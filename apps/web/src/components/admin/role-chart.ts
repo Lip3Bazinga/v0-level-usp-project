@@ -1,5 +1,5 @@
 import { USER_ROLES, type UserRole } from "@levelusp/contracts"
-import { isOneOf } from "@/lib/utils/guards"
+import { isOneOf } from "@/lib/utils"
 import type { ChartSlice } from "./charts"
 
 const ROLE_CHART_META: Record<UserRole, { label: string; color: string }> = {

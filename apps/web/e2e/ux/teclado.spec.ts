@@ -117,13 +117,11 @@ test("lição: 'Restaurar código inicial' pede confirmação e não apaga ao ca
   await editor.click()
   await page.keyboard.press("Control+A")
   await page.keyboard.insertText("x = 42  # meu código\n")
-  let confirmMessage = ""
-  page.once("dialog", (dialog) => {
-    confirmMessage = dialog.message()
-    void dialog.dismiss()
-  })
   await page.getByRole("button", { name: "Restaurar código inicial" }).click()
-  await expect.poll(() => confirmMessage).toContain("Restaurar o código inicial")
+  const confirmation = page.getByRole("dialog", { name: /Restaurar o código inicial/ })
+  await expect(confirmation).toBeVisible()
+  await confirmation.getByRole("button", { name: "Cancelar" }).click()
+  await expect(confirmation).toBeHidden()
   await expect(editor).toContainText("meu código")
 })
 

@@ -26,7 +26,7 @@ export class UsersService {
     private readonly storage: StorageService,
   ) {}
 
-  async updateMe(userId: string, input: UpdateMyProfileInput): Promise<Profile> {
+  async updateMyProfile(userId: string, input: UpdateMyProfileInput): Promise<Profile> {
     if (input.username && (await this.repo.isUsernameTaken(input.username, userId))) {
       throw Conflict("Este nome de usuário já está em uso.", "USERNAME_TAKEN")
     }
@@ -37,25 +37,25 @@ export class UsersService {
     if (!profile) throw NotFound("Perfil")
     // Avatar trocado: remove o arquivo antigo (só se foi enviado por este usuário).
     if (previousProfile?.avatarUrl && previousProfile.avatarUrl !== profile.avatarUrl) {
-      await this.storage.remove(previousProfile.avatarUrl, userId)
+      await this.storage.delete(previousProfile.avatarUrl, userId)
     }
     return toProfile(profile)
   }
 
-  async byUsername(username: string): Promise<PublicProfile> {
+  async getByUsername(username: string): Promise<PublicProfile> {
     const profile = await this.repo.findByUsername(username)
     if (!profile || profile.suspended) throw NotFound("Perfil")
     return toPublicProfile(profile)
   }
 
-  async leaderboard(limit: number): Promise<PublicProfile[]> {
-    return (await this.repo.leaderboard(limit)).map(toPublicProfile)
+  async listLeaderboard(limit: number): Promise<PublicProfile[]> {
+    return (await this.repo.listLeaderboard(limit)).map(toPublicProfile)
   }
 
   /** Um ano, do mais antigo ao mais recente, sem buracos. */
-  async activity(userId: string, now = new Date()): Promise<ActivityDay[]> {
+  async listActivity(userId: string, now = new Date()): Promise<ActivityDay[]> {
     const since = new Date(now.getTime() - ACTIVITY_DAYS * DAY_MS)
-    const activityByDay = new Map((await this.repo.activity(userId, since)).map((day) => [day.day, day]))
+    const activityByDay = new Map((await this.repo.listActivity(userId, since)).map((day) => [day.day, day]))
     const days: ActivityDay[] = []
     for (let daysAgo = ACTIVITY_DAYS - 1; daysAgo >= 0; daysAgo--) {
       const date = saoPauloDate(new Date(now.getTime() - daysAgo * DAY_MS))
@@ -65,11 +65,11 @@ export class UsersService {
     return days
   }
 
-  async badges(includeInactive = false): Promise<Badge[]> {
-    return (await this.repo.allBadges(includeInactive)).map(toBadge)
+  async listBadges(includeInactive = false): Promise<Badge[]> {
+    return (await this.repo.listBadges(includeInactive)).map(toBadge)
   }
 
-  async userBadges(userId: string): Promise<UserBadge[]> {
-    return (await this.repo.userBadges(userId)).map(toUserBadge)
+  async listUserBadges(userId: string): Promise<UserBadge[]> {
+    return (await this.repo.listUserBadges(userId)).map(toUserBadge)
   }
 }

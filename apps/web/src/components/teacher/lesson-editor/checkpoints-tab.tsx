@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp, ListChecks, Plus, Trash2 } from "lucide-react"
 import type { Checkpoint } from "@levelusp/contracts"
-import { moveItem, type MoveDirection } from "@/lib/utils/list-editing"
+import { moveItem, type MoveDirection, cn } from "@/lib/utils"
 import { ADD_BUTTON_CLASS, EditorPanel, MINI_LABEL_CLASS, SMALL_INPUT_CLASS } from "./panel"
 
 const MAX_CHECKPOINTS = 50
@@ -78,7 +78,7 @@ export function CheckpointsTab({ checkpoints, onChange }: CheckpointsTabProps) {
                     onChange={(event) => handleUpdate(checkpoint.id, { instruction: event.target.value })}
                     rows={2}
                     placeholder="Ex: Defina a função soma(a, b) que retorna a + b"
-                    className={`${SMALL_INPUT_CLASS} resize-none`}
+                    className={cn(SMALL_INPUT_CLASS, "resize-none")}
                   />
                 </div>
                 <div>

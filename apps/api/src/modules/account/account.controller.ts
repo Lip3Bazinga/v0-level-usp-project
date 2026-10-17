@@ -26,14 +26,14 @@ export class AccountController {
   @Throttle({ default: { limit: IP_THROTTLE.accountDeletionLimit, ttl: IP_THROTTLE.windowMs } })
   @HttpCode(204)
   @Delete()
-  async deleteMe(@CurrentUser() user: AuthUser, @Body(new ZodPipe(deleteAccountBody)) body: DeleteAccountInput, @Res({ passthrough: true }) response: Response): Promise<void> {
-    await this.account.deleteMe(user, body.password)
+  async deleteMyAccount(@CurrentUser() user: AuthUser, @Body(new ZodPipe(deleteAccountBody)) body: DeleteAccountInput, @Res({ passthrough: true }) response: Response): Promise<void> {
+    await this.account.deleteMyAccount(user, body.password)
     clearSessionCookie(response, this.env.COOKIE_SECURE)
   }
 
   @Get("export")
-  async export(@CurrentUser() user: AuthUser, @Res({ passthrough: true }) response: Response) {
-    const data = await this.account.exportMine(user)
+  async getMyDataExport(@CurrentUser() user: AuthUser, @Res({ passthrough: true }) response: Response) {
+    const data = await this.account.getMyDataExport(user)
     response.setHeader("Content-Disposition", `attachment; filename="levelusp-meus-dados.json"`)
     response.setHeader("Cache-Control", "no-store")
     return data

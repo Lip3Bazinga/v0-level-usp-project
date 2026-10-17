@@ -23,13 +23,13 @@ export class AdminController {
   constructor(private readonly admin: AdminService) {}
 
   @Get("users")
-  users() {
+  listUsers() {
     return this.admin.listUsers()
   }
 
   @Post("users/invite")
-  invite(@CurrentUser() actor: AuthUser, @Body(new ZodPipe(inviteUserSchema)) body: InviteUserInput) {
-    return this.admin.invite(actor, body.email, body.full_name)
+  inviteUser(@CurrentUser() actor: AuthUser, @Body(new ZodPipe(inviteUserSchema)) body: InviteUserInput) {
+    return this.admin.inviteUser(actor, body.email, body.full_name)
   }
 
   @Patch("users/:id")
@@ -51,14 +51,14 @@ export class AdminController {
 
   @HttpCode(202)
   @Post("users/:id/password-reset")
-  async passwordReset(@CurrentUser() actor: AuthUser, @Param("id", UuidPipe) id: string): Promise<{ ok: true }> {
+  async sendPasswordReset(@CurrentUser() actor: AuthUser, @Param("id", UuidPipe) id: string): Promise<{ ok: true }> {
     await this.admin.sendPasswordReset(actor, id)
     return { ok: true }
   }
 
   @Get("users/:id/export")
-  async exportUser(@CurrentUser() actor: AuthUser, @Param("id", UuidPipe) id: string, @Res({ passthrough: true }) response: Response) {
-    const data = await this.admin.exportUser(actor, id)
+  async getUserDataExport(@CurrentUser() actor: AuthUser, @Param("id", UuidPipe) id: string, @Res({ passthrough: true }) response: Response) {
+    const data = await this.admin.getUserDataExport(actor, id)
     response.setHeader("Content-Disposition", `attachment; filename="usuario-${id}-lgpd.json"`)
     response.setHeader("Cache-Control", "no-store")
     return data
@@ -66,47 +66,47 @@ export class AdminController {
 
   @HttpCode(204)
   @Post("sessions/invalidate")
-  async invalidate(@CurrentUser() actor: AuthUser, @Body(new ZodPipe(invalidateSessionsBody)) body: InvalidateSessionsInput): Promise<void> {
+  async invalidateSessions(@CurrentUser() actor: AuthUser, @Body(new ZodPipe(invalidateSessionsBody)) body: InvalidateSessionsInput): Promise<void> {
     await this.admin.invalidateSessions(actor, body.user_id)
   }
 
   @Get("metrics")
-  metrics() {
-    return this.admin.metrics()
+  getMetrics() {
+    return this.admin.getMetrics()
   }
 
   @Get("activity/recent")
-  recent(@Query(new ZodPipe(recentActivityQuery)) query: LimitQuery) {
-    return this.admin.recentActivity(query.limit)
+  listRecentActivity(@Query(new ZodPipe(recentActivityQuery)) query: LimitQuery) {
+    return this.admin.listRecentActivity(query.limit)
   }
 
   @Get("activity/daily")
-  daily() {
-    return this.admin.dailyActivity()
+  listDailyActivity() {
+    return this.admin.listDailyActivity()
   }
 
   @Get("analytics")
-  analytics() {
-    return this.admin.analytics()
+  getAnalytics() {
+    return this.admin.getAnalytics()
   }
 
   @Get("lessons")
-  lessons() {
-    return this.admin.lessons()
+  listLessons() {
+    return this.admin.listLessons()
   }
 
   @Get("settings")
-  settings() {
-    return this.admin.settings()
+  getSettings() {
+    return this.admin.getSettings()
   }
 
   @Put("settings")
-  saveSettings(@CurrentUser() actor: AuthUser, @Body(new ZodPipe(platformSettingsSchema)) body: PlatformSettings) {
-    return this.admin.saveSettings(actor, body)
+  updateSettings(@CurrentUser() actor: AuthUser, @Body(new ZodPipe(platformSettingsSchema)) body: PlatformSettings) {
+    return this.admin.updateSettings(actor, body)
   }
 
   @Get("audit")
-  audit(@Query(new ZodPipe(auditQuery)) query: LimitQuery) {
-    return this.admin.audits(query.limit)
+  listAudits(@Query(new ZodPipe(auditQuery)) query: LimitQuery) {
+    return this.admin.listAudits(query.limit)
   }
 }

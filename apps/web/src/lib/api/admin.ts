@@ -18,9 +18,9 @@ export const fetchRecentActivity = (limit = RECENT_ACTIVITY_SIZE) =>
   api.get<RecentActivity[]>("/admin/activity/recent", { query: { limit } })
 export const fetchDailyActivity = () => api.get<number[]>("/admin/activity/daily")
 export const fetchAnalyticsMetrics = () => api.get<AnalyticsMetrics>("/admin/analytics")
-export const fetchAllLessons = () => api.get<Lesson[]>("/admin/lessons")
+export const fetchAdminLessons = () => api.get<Lesson[]>("/admin/lessons")
 
-export const fetchAllUsers = () => api.get<Profile[]>("/admin/users")
+export const fetchAdminUsers = () => api.get<Profile[]>("/admin/users")
 export const updateUserProfile = (userId: string, patch: AdminUpdateUserInput) =>
   api.patch<Profile>(`/admin/users/${userId}`, patch)
 export const updateUserRole = (userId: string, role: Profile["role"]) => updateUserProfile(userId, { role })
@@ -44,7 +44,7 @@ export const rejectTeacher = (approvalId: string, note?: string) =>
   api.post<void, ReviewTeacherInput>(`/admin/teacher-approvals/${approvalId}/reject`, { note })
 
 export const fetchPlatformSettings = () => api.get<PlatformSettings>("/admin/settings")
-export const savePlatformSettings = (settings: PlatformSettings) => api.put<PlatformSettings>("/admin/settings", settings)
+export const updatePlatformSettings = (settings: PlatformSettings) => api.put<PlatformSettings>("/admin/settings", settings)
 export const fetchAuditLog = (limit = AUDIT_LOG_SIZE) => api.get<AuditLog[]>("/admin/audit", { query: { limit } })
 
 /** Espelha o `AdminExamSummary` da API, que ainda não está em @levelusp/contracts. */
