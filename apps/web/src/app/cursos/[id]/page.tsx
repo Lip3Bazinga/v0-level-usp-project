@@ -7,40 +7,29 @@ import { useAuth } from "@/contexts/auth-context"
 import type { Course, ExamStatus, Lesson, LessonProgress } from "@levelusp/contracts"
 import {
   certificatePdfUrl,
-  computeModuleStatuses,
   enrollInCourse,
-  errorMessage,
-  fetchCourseById,
+  getErrorMessage,
+  fetchCourseWithLessons,
   fetchExamStatus,
   fetchMyCertificate,
-  fetchUserProgress,
+  fetchMyProgress,
   issueCertificate,
+  toApiResult,
   unenrollFromCourse,
 } from "@/lib/api"
+import { computeTrailStatuses, formatPercent } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import {
-  ArrowLeft, BookOpen, CheckCircle2, Play, Lock, Zap, Clock,
-  Star, Trophy, ChevronRight, Loader2, Rocket, Code2, Database,
-  Brain, User, Flame, FlaskConical, Award,
+  ArrowLeft, BookOpen, CheckCircle2, Play, Lock, Zap, Clock, Star, Trophy, ChevronRight, Loader2, Rocket,
+  Code2, Database, Brain, FlaskConical, Award,
 } from "lucide-react"
 import { EnrollmentAnimation } from "@/components/gamification/enrollment-animation"
 import { CourseCompleteModal } from "@/components/gamification/course-complete-modal"
 import { swalConfirm, swalError, swalToast } from "@/lib/swal"
+import { DIFFICULTY_BADGE_CLASSES, DIFFICULTY_LABELS, ROUTES } from "@/lib/constants"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-const LEVEL_LABEL: Record<string, string> = {
-  iniciante:     "Iniciante",
-  intermediario: "Intermediário",
-  avancado:      "Avançado",
-}
-
-const LEVEL_COLOR: Record<string, string> = {
-  iniciante:     "bg-green-100 text-green-700",
-  intermediario: "bg-yellow-100 text-yellow-700",
-  avancado:      "bg-red-100 text-red-700",
-}
 
 const COURSE_GRADIENTS: Record<string, string> = {
   iniciante:     "from-violet-500 to-purple-700",
@@ -93,7 +82,7 @@ export default function CourseDetailPage() {
     let cancelled = false
     async function loadExam() {
       const [res, cert] = await Promise.all([
-        fetchExamStatus(courseId),
+        toApiResult(fetchExamStatus(courseId)),
         fetchMyCertificate(courseId).catch(() => null),
       ])
       if (cancelled) return
@@ -111,8 +100,8 @@ export default function CourseDetailPage() {
       setError(null)
       try {
         const [result, prog] = await Promise.all([
-          fetchCourseById(courseId),
-          profile?.id ? fetchUserProgress().catch(() => [] as LessonProgress[]) : Promise.resolve([] as LessonProgress[]),
+          fetchCourseWithLessons(courseId),
+          profile?.id ? fetchMyProgress().catch(() => [] as LessonProgress[]) : Promise.resolve([] as LessonProgress[]),
         ])
         if (!result) { setError("Curso não encontrado."); return }
         setCourse(result.course)
@@ -129,7 +118,7 @@ export default function CourseDetailPage() {
   }, [authLoading, courseId, profile?.id])
 
   const progressMap = new Map(progress.map((p) => [p.lesson_id, p]))
-  const statuses    = computeModuleStatuses(lessons, progressMap)
+  const statuses    = computeTrailStatuses(lessons, progressMap)
   const completed   = statuses.filter((s) => s === "completed").length
   const allDone     = lessons.length > 0 && completed === lessons.length
 
@@ -142,7 +131,7 @@ export default function CourseDetailPage() {
   }, [allDone, enrolled, loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleEnroll = useCallback(async () => {
-    if (!profile) { router.push(`/login?next=${encodeURIComponent(`/cursos/${courseId}`)}`); return }
+    if (!profile) { router.push(ROUTES.loginWithNext(ROUTES.course(courseId))); return }
     setEnrolling(true)
     try {
       if (enrolled) {
@@ -163,7 +152,7 @@ export default function CourseDetailPage() {
         setShowEnrollAnim(true)
       }
     } catch (err) {
-      await swalError({ title: "Erro na matrícula", text: errorMessage(err, "Tente novamente em instantes.") })
+      await swalError({ title: "Erro na matrícula", text: getErrorMessage(err, "Tente novamente em instantes.") })
     } finally {
       setEnrolling(false)
     }
@@ -172,7 +161,7 @@ export default function CourseDetailPage() {
   const handleStartLesson = useCallback(() => {
     const firstAvailable = lessons.find((_, i) => statuses[i] !== "completed")
     const target = firstAvailable ?? lessons[0]
-    if (target) router.push(`/lesson/${target.id}`)
+    if (target) router.push(ROUTES.lesson(target.id))
   }, [lessons, statuses, router])
 
   const handleDownloadCertificate = useCallback(async () => {
@@ -183,12 +172,12 @@ export default function CourseDetailPage() {
         return
       }
       swalToast({ title: "Emitindo certificado...", icon: "info" })
-      const res = await issueCertificate(courseId)
+      const res = await toApiResult(issueCertificate(courseId))
       if (res.ok) {
         setCertCode(res.data.verificationCode)
         window.open(certificatePdfUrl(res.data.verificationCode), "_blank")
       } else {
-        await swalError({ title: "Certificado indisponível", text: res.error })
+        await swalError({ title: "Certificado indisponível", text: res.error.message })
       }
       return
     }
@@ -214,7 +203,7 @@ export default function CourseDetailPage() {
       <div className="flex h-screen flex-col items-center justify-center gap-4">
         <BookOpen className="h-16 w-16 text-muted-foreground/30" />
         <h2 className="text-lg font-semibold text-level-purple-dark">{error ?? "Curso não encontrado"}</h2>
-        <button onClick={() => router.push("/cursos")} className="rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors">
+        <button onClick={() => router.push(ROUTES.courses)} className="rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors">
           Ver todos os cursos
         </button>
       </div>
@@ -248,13 +237,13 @@ export default function CourseDetailPage() {
         {/* Header */}
         <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-sm">
           <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-            <Link href="/dashboard" className="flex items-center gap-3">
+            <Link href={ROUTES.dashboard} className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple">
                 <Rocket className="h-5 w-5 text-white" />
               </div>
               <span className="text-xl font-bold text-level-purple-dark">LevelUSP</span>
             </Link>
-            <Link href="/cursos" className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
+            <Link href={ROUTES.courses} className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
               <ArrowLeft className="h-4 w-4" /> Todos os cursos
             </Link>
           </div>
@@ -279,8 +268,8 @@ export default function CourseDetailPage() {
               {/* Info */}
               <div className="flex-1">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${LEVEL_COLOR[course.level]} bg-white/90`}>
-                    {LEVEL_LABEL[course.level]}
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${DIFFICULTY_BADGE_CLASSES[course.level]} bg-white/90`}>
+                    {DIFFICULTY_LABELS[course.level]}
                   </span>
                   {course.tags.slice(0, 3).map((tag) => (
                     <span key={tag} className="rounded-full bg-white/20 px-3 py-1 text-xs font-medium">{tag}</span>
@@ -427,7 +416,7 @@ export default function CourseDetailPage() {
                           className={`flex items-center gap-4 px-4 py-3.5 transition-colors ${
                             canAccess ? "hover:bg-level-purple-subtle cursor-pointer" : "opacity-60"
                           }`}
-                          onClick={() => canAccess && router.push(`/lesson/${lesson.id}`)}
+                          onClick={() => canAccess && router.push(ROUTES.lesson(lesson.id))}
                         >
                           <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
                             status === "completed"   ? "bg-green-100" :
@@ -485,7 +474,7 @@ export default function CourseDetailPage() {
                         <p className="font-bold text-level-purple-dark">{examStatus.exam.title}</p>
                         <p className="text-xs text-muted-foreground">
                           {examStatus.passed
-                            ? `Aprovado com ${examStatus.passedScore?.toFixed(0)}% — conclua o projeto final para emitir o certificado`
+                            ? `Aprovado com ${formatPercent(examStatus.passedScore ?? 0)} — conclua o projeto final para emitir o certificado`
                             : examStatus.eligible
                               ? `${examStatus.exam.questionCount} questões · nota mínima ${examStatus.exam.passingScore}% · ${examStatus.exam.timeLimitMinutes} min`
                               : `Conclua as ${examStatus.lessonsRemaining} lições restantes para desbloquear a prova`}
@@ -493,7 +482,7 @@ export default function CourseDetailPage() {
                       </div>
                       {(examStatus.eligible || examStatus.passed) && (
                         <Link
-                          href={`/cursos/${courseId}/prova`}
+                          href={ROUTES.courseExam(courseId)}
                           className="shrink-0 rounded-xl bg-level-purple px-4 py-2.5 text-xs font-bold text-white hover:bg-level-purple-dark transition-colors"
                         >
                           {examStatus.passed ? "Ver resultado" : "Fazer a prova"}
@@ -505,7 +494,7 @@ export default function CourseDetailPage() {
                         <p className="text-xs text-muted-foreground">
                           🎓 Certificado emitido — código <span className="font-mono font-semibold">{certCode}</span>
                         </p>
-                        <Link href={`/certificado/${certCode}`} className="shrink-0 text-xs font-bold text-level-purple hover:underline">
+                        <Link href={ROUTES.certificate(certCode)} className="shrink-0 text-xs font-bold text-level-purple hover:underline">
                           Ver / baixar PDF →
                         </Link>
                       </div>
@@ -574,7 +563,7 @@ export default function CourseDetailPage() {
                         <button
                           onClick={() => {
                             const lastLesson = lessons[lessons.length - 1]
-                            if (lastLesson) router.push(`/lesson/${lastLesson.id}`)
+                            if (lastLesson) router.push(ROUTES.lesson(lastLesson.id))
                           }}
                           className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-level-purple py-3 text-sm font-bold text-white transition-colors hover:bg-level-purple-dark"
                         >
@@ -618,9 +607,9 @@ export default function CourseDetailPage() {
                     { icon: BookOpen, label: "Lições", value: lessons.length.toString(), color: "" },
                     { icon: Zap, label: "XP Total", value: course.total_xp.toString(), color: "text-yellow-500" },
                     { icon: Clock, label: "Duração est.", value: course.estimated_hours > 0 ? `${course.estimated_hours}h` : "—", color: "" },
-                    { icon: Trophy, label: "Nível", value: LEVEL_LABEL[course.level], color: "", badge: LEVEL_COLOR[course.level] },
+                    { icon: Trophy, label: "Nível", value: DIFFICULTY_LABELS[course.level], color: "", badge: DIFFICULTY_BADGE_CLASSES[course.level] },
                     hasFinalProject ? { icon: Star, label: "Projeto Final", value: "Incluído", color: "text-yellow-500" } : null,
-                  ].filter(Boolean).map((item: any) => (
+                  ].filter((item) => item !== null).map((item) => (
                     <div key={item.label} className="flex items-center justify-between text-sm">
                       <span className="flex items-center gap-2 text-muted-foreground">
                         <item.icon className={`h-4 w-4 ${item.color}`} /> {item.label}

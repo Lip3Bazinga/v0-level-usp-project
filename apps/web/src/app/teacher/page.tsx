@@ -7,12 +7,12 @@ import type { Course, Lesson, LessonMetrics } from "@levelusp/contracts"
 import {
   deleteCourse,
   deleteLesson,
-  errorMessage,
+  getErrorMessage,
   fetchTeacherCourses,
   fetchTeacherLessons,
   fetchTeacherMetrics,
-  toggleCoursePublished,
-  toggleLessonPublished,
+  setCoursePublished,
+  setLessonPublished,
 } from "@/lib/api"
 import { LessonMetricsRow, formatPassRate, summarizeMetrics } from "@/components/teacher/lesson-metrics"
 import {
@@ -23,6 +23,8 @@ import {
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { swalConfirm, swalError, swalToast } from "@/lib/swal"
+import { ROUTES } from "@/lib/constants"
+import { formatNumber } from "@/lib/utils"
 
 function getDifficultyColor(difficulty: string) {
   switch (difficulty) {
@@ -63,7 +65,7 @@ export default function TeacherPage() {
         setLessons(fetched)
         setCourses(fetchedCourses)
       } catch (err) {
-        if (!cancelled) setLoadError(errorMessage(err, "Não foi possível carregar suas lições e cursos."))
+        if (!cancelled) setLoadError(getErrorMessage(err, "Não foi possível carregar suas lições e cursos."))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -104,11 +106,11 @@ export default function TeacherPage() {
 
     setTogglingCourseId(course.id)
     try {
-      await toggleCoursePublished(course.id, !course.published)
+      await setCoursePublished(course.id, !course.published)
       setCourses((prev) => prev.map((c) => c.id === course.id ? { ...c, published: !course.published } : c))
       swalToast({ title: course.published ? "Curso despublicado." : "Curso publicado!", icon: "success" })
     } catch (err) {
-      await swalError({ title: "Não foi possível alterar o curso", text: errorMessage(err) })
+      await swalError({ title: "Não foi possível alterar o curso", text: getErrorMessage(err) })
     } finally {
       setTogglingCourseId(null)
     }
@@ -129,7 +131,7 @@ export default function TeacherPage() {
       setCourses((prev) => prev.filter((c) => c.id !== course.id))
       swalToast({ title: "Curso excluído.", icon: "success" })
     } catch (err) {
-      await swalError({ title: "Erro ao excluir curso", text: errorMessage(err) })
+      await swalError({ title: "Erro ao excluir curso", text: getErrorMessage(err) })
     } finally {
       setDeletingCourseId(null)
     }
@@ -159,7 +161,7 @@ export default function TeacherPage() {
       setLessons((prev) => prev.filter((l) => l.id !== lesson.id))
       swalToast({ title: "Lição excluída.", icon: "success" })
     } catch (err) {
-      await swalError({ title: "Erro ao excluir lição", text: errorMessage(err) })
+      await swalError({ title: "Erro ao excluir lição", text: getErrorMessage(err) })
     } finally {
       setDeletingId(null)
     }
@@ -179,14 +181,14 @@ export default function TeacherPage() {
 
     setTogglingId(lesson.id)
     try {
-      const updated = await toggleLessonPublished(lesson.id, !lesson.published)
+      const updated = await setLessonPublished(lesson.id, !lesson.published)
       setLessons((prev) =>
         prev.map((l) => (l.id === lesson.id ? { ...l, published: updated.published } : l))
       )
       swalToast({ title: lesson.published ? "Lição despublicada." : "Lição publicada!", icon: "success" })
     } catch (err) {
       // Ex.: a API recusa publicar lição de código sem casos de teste.
-      await swalError({ title: "Não foi possível alterar a lição", text: errorMessage(err) })
+      await swalError({ title: "Não foi possível alterar a lição", text: getErrorMessage(err) })
     } finally {
       setTogglingId(null)
     }
@@ -203,7 +205,7 @@ export default function TeacherPage() {
       <header className="sticky top-0 z-40 border-b border-border bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-2 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-2 sm:gap-4">
-            <Link href="/dashboard" aria-label="Voltar ao painel do aluno" className="flex items-center gap-2 text-muted-foreground hover:text-level-purple transition-colors">
+            <Link href={ROUTES.dashboard} aria-label="Voltar ao painel do aluno" className="flex items-center gap-2 text-muted-foreground hover:text-level-purple transition-colors">
               <ChevronLeft className="h-4 w-4" />
               <span className="hidden text-sm sm:inline">Painel</span>
             </Link>
@@ -222,9 +224,8 @@ export default function TeacherPage() {
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
-            {/* Link estilizado como botão (antes: <button> dentro de <a>, dois focos e sem nome no celular) */}
             <Link
-              href="/teacher/curso/new"
+              href={ROUTES.teacherNewCourse}
               aria-label="Novo curso"
               className="flex items-center gap-2 rounded-xl bg-level-purple-light px-4 py-3 text-base font-semibold text-level-purple-dark transition-colors hover:bg-level-purple-subtle focus:outline-none focus:ring-2 focus:ring-level-purple focus:ring-offset-2 sm:px-6"
             >
@@ -232,7 +233,7 @@ export default function TeacherPage() {
               <span className="hidden sm:inline">Novo Curso</span>
             </Link>
             <Link
-              href="/teacher/edit/new"
+              href={ROUTES.teacherNewLesson}
               aria-label="Nova lição"
               className="btn-3d flex items-center gap-2 rounded-xl bg-level-purple px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-level-purple-dark focus:outline-none focus:ring-2 focus:ring-level-purple focus:ring-offset-2 sm:px-6"
             >
@@ -269,9 +270,9 @@ export default function TeacherPage() {
                 <TrendingUp className="h-5 w-5 text-success" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-level-purple-dark">{summary.completed.toLocaleString("pt-BR")}</p>
+                <p className="text-2xl font-bold text-level-purple-dark">{formatNumber(summary.completed)}</p>
                 <p className="text-xs text-muted-foreground">
-                  Conclusões de alunos · {summary.started.toLocaleString("pt-BR")} iniciaram
+                  Conclusões de alunos · {formatNumber(summary.started)} iniciaram
                 </p>
               </div>
             </div>
@@ -282,7 +283,7 @@ export default function TeacherPage() {
                 <Send className="h-5 w-5 text-level-purple" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-level-purple-dark">{summary.submissions.toLocaleString("pt-BR")}</p>
+                <p className="text-2xl font-bold text-level-purple-dark">{formatNumber(summary.submissions)}</p>
                 <p className="text-xs text-muted-foreground">Envios para correção</p>
               </div>
             </div>
@@ -308,7 +309,7 @@ export default function TeacherPage() {
               <h2 className="text-base font-semibold text-level-purple-dark">Meus Cursos</h2>
               <span className="text-xs text-muted-foreground">({courses.length})</span>
             </div>
-            <Link href="/teacher/curso/new" className="flex items-center gap-1.5 rounded-lg bg-level-purple px-3 py-1.5 text-xs font-semibold text-white hover:bg-level-purple-dark transition-colors">
+            <Link href={ROUTES.teacherNewCourse} className="flex items-center gap-1.5 rounded-lg bg-level-purple px-3 py-1.5 text-xs font-semibold text-white hover:bg-level-purple-dark transition-colors">
               <Plus className="h-3.5 w-3.5" /> Novo Curso
             </Link>
           </div>
@@ -324,7 +325,7 @@ export default function TeacherPage() {
               <GraduationCap className="mb-3 h-10 w-10 text-muted-foreground/30" />
               <p className="text-sm font-medium text-level-purple-dark">Nenhum curso criado</p>
               <p className="mt-1 text-xs text-muted-foreground">Crie um curso para organizar suas lições</p>
-              <Link href="/teacher/curso/new" className="mt-4 rounded-xl bg-level-purple px-5 py-2 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors">
+              <Link href={ROUTES.teacherNewCourse} className="mt-4 rounded-xl bg-level-purple px-5 py-2 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors">
                 Criar primeiro curso
               </Link>
             </div>
@@ -374,13 +375,13 @@ export default function TeacherPage() {
                       {togglingCourseId === course.id ? <Loader2 className="h-4 w-4 animate-spin" /> : course.published ? <Globe className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                     </button>
                     {course.published && (
-                      <Link href={`/cursos/${course.id}`} target="_blank">
+                      <Link href={ROUTES.course(course.id)} target="_blank">
                         <button title="Ver página" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-level-purple-light hover:text-level-purple transition-colors">
                           <Eye className="h-4 w-4" />
                         </button>
                       </Link>
                     )}
-                    <Link href={`/teacher/curso/${course.id}`}>
+                    <Link href={ROUTES.teacherCourse(course.id)}>
                       <button title="Editar" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-level-purple-light hover:text-level-purple transition-colors">
                         <Edit3 className="h-4 w-4" />
                       </button>
@@ -485,7 +486,7 @@ export default function TeacherPage() {
                     </button>
 
                     {lesson.published && (
-                      <Link href={`/lesson/${lesson.id}`} target="_blank">
+                      <Link href={ROUTES.lesson(lesson.id)} target="_blank">
                         <button
                           title="Visualizar lição"
                           className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-level-purple-light hover:text-level-purple transition-colors"
@@ -495,7 +496,7 @@ export default function TeacherPage() {
                       </Link>
                     )}
 
-                    <Link href={`/teacher/edit/${lesson.id}`}>
+                    <Link href={ROUTES.teacherLesson(lesson.id)}>
                       <button
                         title="Editar"
                         className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-level-purple-light hover:text-level-purple transition-colors"
@@ -527,7 +528,7 @@ export default function TeacherPage() {
                     {lessons.length === 0 ? "Nenhuma lição criada ainda" : "Nenhuma lição encontrada"}
                   </p>
                   {lessons.length === 0 && (
-                    <Link href="/teacher/edit/new">
+                    <Link href={ROUTES.teacherNewLesson}>
                       <button className="mt-4 rounded-xl bg-level-purple px-5 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors">
                         Criar primeira lição
                       </button>

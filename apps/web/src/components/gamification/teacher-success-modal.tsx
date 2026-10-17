@@ -20,7 +20,8 @@ interface TeacherSuccessModalProps {
 
 function fireTeacherConfetti() {
   const colors = ["#7C3AED", "#A78BFA", "#10B981", "#FACC15", "#FFFFFF"]
-  confetti({ disableForReducedMotion: true,
+  confetti({
+    disableForReducedMotion: true,
     particleCount: 120,
     spread: 90,
     origin: { y: 0.5, x: 0.5 },

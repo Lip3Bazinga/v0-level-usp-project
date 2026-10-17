@@ -4,6 +4,7 @@ import Link from "next/link"
 import { PageHero } from "@/components/marketing/page-hero"
 import { ContactForm } from "@/components/marketing/contact-form"
 import { Reveal } from "@/components/marketing/motion-primitives"
+import { ROUTES } from "@/lib/constants"
 
 export const metadata: Metadata = {
   title: "Contato — Fale com o LevelUSP",
@@ -95,7 +96,7 @@ export default function ContatoPage() {
                     Muitas dúvidas já estão respondidas na nossa página de perguntas frequentes.
                   </p>
                   <Link
-                    href="/faq"
+                    href={ROUTES.site.faq}
                     className="mt-4 inline-block text-sm font-semibold text-white underline-offset-4 hover:underline"
                   >
                     Ver perguntas frequentes →

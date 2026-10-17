@@ -4,9 +4,9 @@ import { useState, useEffect } from "react"
 import { Plus, Edit3, Trash2, Loader2, X, Award } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Badge, BadgeCriteriaType, BadgeInput, BadgeRarity } from "@levelusp/contracts"
-import { createBadge, deleteBadge, errorMessage, fetchAllBadgesAdmin, updateBadge } from "@/lib/api"
+import { createBadge, deleteBadge, getErrorMessage, fetchAdminBadges, updateBadge } from "@/lib/api"
 import { badgeIcon, BADGE_ICON_NAMES } from "@/lib/badge-icons"
-import type { OnToast } from "@/lib/types/ui"
+import type { OnToast } from "@/lib/types"
 
 type BadgeFormData = BadgeInput
 
@@ -49,9 +49,9 @@ export function BadgesAdminPage({ onToast }: BadgesAdminPageProps) {
   const load = async () => {
     setLoading(true)
     try {
-      setBadges(await fetchAllBadgesAdmin())
+      setBadges(await fetchAdminBadges())
     } catch (err) {
-      onToast(errorMessage(err, "Erro ao carregar badges"), "danger")
+      onToast(getErrorMessage(err, "Erro ao carregar badges"), "danger")
     } finally {
       setLoading(false)
     }
@@ -88,7 +88,7 @@ export function BadgesAdminPage({ onToast }: BadgesAdminPageProps) {
       setEditing(null)
       await load()
     } catch (err) {
-      onToast(errorMessage(err, "Erro ao salvar badge"), "danger")
+      onToast(getErrorMessage(err, "Erro ao salvar badge"), "danger")
     } finally {
       setSaving(false)
     }
@@ -102,7 +102,7 @@ export function BadgesAdminPage({ onToast }: BadgesAdminPageProps) {
       onToast("Badge excluída", "danger")
       await load()
     } catch (err) {
-      onToast(errorMessage(err, "Erro ao excluir badge"), "danger")
+      onToast(getErrorMessage(err, "Erro ao excluir badge"), "danger")
     } finally {
       setDeletingId(null)
     }

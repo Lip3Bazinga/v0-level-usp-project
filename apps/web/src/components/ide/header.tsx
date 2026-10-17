@@ -3,7 +3,6 @@
 import { useRef, useEffect, useState } from "react"
 import Link from "next/link"
 import { Flame, Zap, Trophy, ChevronDown, User, Settings, LogOut, LayoutDashboard } from "lucide-react"
-import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -16,7 +15,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { motion, AnimatePresence } from "framer-motion"
-import { getInitials, xpForLevel } from "@/lib/utils"
+import { computeLevelProgress, formatNumber, formatXp, getInitials } from "@/lib/utils"
+import { ROUTES } from "@/lib/constants"
 
 interface HeaderProps {
   lessonTitle: string
@@ -32,14 +32,10 @@ export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps)
   const internalBadgeRef = useRef<HTMLDivElement>(null)
   const resolvedRef = xpBadgeRef ?? internalBadgeRef
 
-  // Gamificação derivada do perfil
   const level = profile?.level ?? 1
   const totalXp = profile?.total_xp ?? 0
   const streak = profile?.current_streak ?? 0
-  const xpFloor = xpForLevel(level - 1)     // XP acumulado no início do nível atual
-  const xpCeil = xpForLevel(level)           // XP necessário para o próximo nível
-  const xpInLevel = totalXp - xpFloor       // XP acumulado dentro do nível atual
-  const xpPct = Math.min(100, Math.round((xpInLevel / (xpCeil - xpFloor)) * 100))
+  const { xpInLevel, xpLevelRange, levelPercent: xpPct } = computeLevelProgress(totalXp, level)
   const initials = profile?.full_name ? getInitials(profile.full_name) : "?"
 
   // Pulse animation on xp change
@@ -57,15 +53,14 @@ export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps)
 
   const handleSignOut = async () => {
     await signOut()
-    window.location.href = "/login"
+    window.location.href = ROUTES.login
   }
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-white px-3 sm:px-4">
       {/* Logo e Título */}
       <div className="flex items-center gap-2 sm:gap-4">
-        {/* A marca leva de volta ao painel (antes não havia saída da lição além do "Voltar" do navegador). */}
-        <Link href="/dashboard" aria-label="LevelUSP Voltar ao painel" className="flex items-center gap-2 rounded-xl">
+        <Link href={ROUTES.dashboard} aria-label="LevelUSP Voltar ao painel" className="flex items-center gap-2 rounded-xl">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-level-purple">
             <span className="text-sm font-bold text-white" aria-hidden="true">L</span>
           </div>
@@ -107,15 +102,15 @@ export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps)
           animate={xpPulse ? { scale: [1, 1.18, 1] } : {}}
           transition={{ duration: 0.4, ease: "easeInOut" }}
           className="relative flex items-center"
-          title={`${xpInLevel} / ${xpCeil - xpFloor} XP neste nível`}
+          title={`${xpInLevel} / ${xpLevelRange} XP neste nível`}
         >
           {/* Pill de XP: linha única + barra fina de progresso do nível */}
           <div className="flex flex-col gap-1 rounded-full bg-level-purple px-3 py-1.5 text-white">
             <div className="flex items-center gap-1.5 whitespace-nowrap">
               <Zap className="h-3.5 w-3.5 shrink-0 text-yellow-300" />
               <span className="text-xs font-bold leading-none">
-                {xpInLevel.toLocaleString("pt-BR")}
-                <span className="font-normal opacity-95">/{(xpCeil - xpFloor).toLocaleString("pt-BR")} XP</span>
+                {formatNumber(xpInLevel)}
+                <span className="font-normal opacity-95">/{formatXp(xpLevelRange)}</span>
               </span>
             </div>
             <div className="h-1 w-full overflow-hidden rounded-full bg-white/25">
@@ -170,15 +165,15 @@ export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps)
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={() => router.push("/dashboard")}>
+            <DropdownMenuItem onClick={() => router.push(ROUTES.dashboard)}>
               <LayoutDashboard className="mr-2 h-4 w-4" />
               Painel
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push(`/perfil/${profile?.username || "me"}`)}>
+            <DropdownMenuItem onClick={() => router.push(ROUTES.profile(profile?.username))}>
               <User className="mr-2 h-4 w-4" />
               Meu Perfil
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push("/settings")}>
+            <DropdownMenuItem onClick={() => router.push(ROUTES.settings)}>
               <Settings className="mr-2 h-4 w-4" />
               Configurações
             </DropdownMenuItem>

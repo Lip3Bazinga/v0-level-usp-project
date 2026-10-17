@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Loader2, Plus, X } from "lucide-react"
 import type { LibraryRequest } from "@levelusp/contracts"
-import { createLibraryRequest, errorMessage } from "@/lib/api"
+import { createLibraryRequest, getErrorMessage } from "@/lib/api"
 import { miniLabelClass } from "./panel"
 
 const fieldClass = "w-full rounded-xl border-2 border-border px-3 py-2.5 text-sm focus:border-level-purple focus:outline-none"
@@ -28,7 +28,7 @@ export function LibraryRequestModal({ onClose, onCreated }: {
       })
       onCreated(created)
     } catch (err) {
-      setError(errorMessage(err, "Não foi possível enviar a solicitação."))
+      setError(getErrorMessage(err, "Não foi possível enviar a solicitação."))
     } finally {
       setSending(false)
     }

@@ -2,34 +2,35 @@
 
 import Link from "next/link"
 import { Rocket, Github, Mail, GraduationCap, MapPin } from "lucide-react"
+import { ROUTES } from "@/lib/constants"
 
 const FOOTER_LINKS = [
   {
     title: "Institucional",
     links: [
-      { label: "Sobre o projeto", href: "/sobre" },
-      { label: "Metodologia", href: "/metodologia" },
-      { label: "Impacto", href: "/impacto" },
-      { label: "Equipe", href: "/equipe" },
-      { label: "Parceiros", href: "/parceiros" },
+      { label: "Sobre o projeto", href: ROUTES.site.about },
+      { label: "Metodologia", href: ROUTES.site.methodology },
+      { label: "Impacto", href: ROUTES.site.impact },
+      { label: "Equipe", href: ROUTES.site.team },
+      { label: "Parceiros", href: ROUTES.site.partners },
     ],
   },
   {
     title: "Plataforma",
     links: [
-      { label: "Trilhas de aprendizado", href: "/trilhas" },
-      { label: "Catálogo de cursos", href: "/cursos" },
-      { label: "Ranking", href: "/leaderboard" },
-      { label: "IDE no navegador", href: "/ide" },
+      { label: "Trilhas de aprendizado", href: ROUTES.site.tracks },
+      { label: "Catálogo de cursos", href: ROUTES.courses },
+      { label: "Ranking", href: ROUTES.leaderboard },
+      { label: "IDE no navegador", href: ROUTES.ide },
     ],
   },
   {
     title: "Ajuda",
     links: [
-      { label: "Perguntas frequentes", href: "/faq" },
-      { label: "Contato", href: "/contato" },
-      { label: "Entrar", href: "/login" },
-      { label: "Criar conta", href: "/signup" },
+      { label: "Perguntas frequentes", href: ROUTES.site.faq },
+      { label: "Contato", href: ROUTES.site.contact },
+      { label: "Entrar", href: ROUTES.login },
+      { label: "Criar conta", href: ROUTES.signup },
     ],
   },
 ]
@@ -40,7 +41,7 @@ export function SiteFooter() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid gap-12 lg:grid-cols-5">
           <div className="lg:col-span-2">
-            <Link href="/" className="flex items-center gap-3">
+            <Link href={ROUTES.home} className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#7C3AED]">
                 <Rocket className="h-6 w-6 text-white" />
               </div>

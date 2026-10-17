@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Eye, EyeOff } from "lucide-react"
 import { RichTextEditor } from "@/components/editor/rich-text-editor"
 import { LessonContentPreview } from "@/components/editor/lesson-content-preview"
-import { errorMessage, uploadImage } from "@/lib/api"
+import { getErrorMessage, uploadImage } from "@/lib/api"
 
 export function ContentTab({ title, module, content, onChange, onError }: {
   title: string
@@ -17,7 +17,7 @@ export function ContentTab({ title, module, content, onChange, onError }: {
     try {
       return await uploadImage(file)
     } catch (err) {
-      throw new Error(errorMessage(err, "Não foi possível enviar a imagem."))
+      throw new Error(getErrorMessage(err, "Não foi possível enviar a imagem."))
     }
   }
 

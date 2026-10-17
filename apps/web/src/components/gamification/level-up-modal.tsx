@@ -15,7 +15,9 @@ interface LevelUpModalProps {
 function fireLevelUpConfetti() {
   const colors = ["#FACC15", "#F59E0B", "#7C3AED", "#A78BFA", "#FFFFFF"]
 
-  confetti({ disableForReducedMotion: true,
+  confetti({
+
+    disableForReducedMotion: true,
     particleCount: 150,
     spread: 100,
     origin: { y: 0.5, x: 0.5 },

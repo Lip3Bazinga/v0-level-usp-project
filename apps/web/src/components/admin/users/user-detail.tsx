@@ -9,13 +9,12 @@ import { RoleBadge } from "@/components/ui/badges"
 import { X, Loader2 } from "lucide-react"
 import type { Badge, Profile, UserBadge } from "@levelusp/contracts"
 import {
-  deleteUser, errorMessage, exportUserDataLGPD, fetchAllBadges, fetchUserBadges, invalidateSessions, resetUserProgress,
+  deleteUser, getErrorMessage, fetchUserDataExport, fetchBadges, fetchUserBadges, invalidateSessions, resetUserProgress,
   sendPasswordReset, setUserSuspended,
 } from "@/lib/api"
 import { badgeIcon } from "@/lib/badge-icons"
-import { getInitials, timeAgo } from "@/lib/utils"
-import { cn } from "@/lib/utils"
-import type { OnToast } from "@/lib/types/ui"
+import { cn, formatDate, formatNumber, formatTimeAgo, getInitials } from "@/lib/utils"
+import type { OnToast } from "@/lib/types"
 
 /** Baixa um objeto como arquivo JSON. */
 function downloadJson(data: unknown, filename: string) {
@@ -76,7 +75,7 @@ export function UserDetail({ user, users, setUsers, onBack, onToast }: UserDetai
   const [earned, setEarned] = useState<{ badge: Badge; earned_at: string }[] | null>(null)
   useEffect(() => {
     let cancelled = false
-    Promise.all([fetchUserBadges(user.id), fetchAllBadges()])
+    Promise.all([fetchUserBadges(user.id), fetchBadges()])
       .then(([mine, all]: [UserBadge[], Badge[]]) => {
         if (cancelled) return
         const byId = new Map(all.map((b) => [b.id, b]))
@@ -127,7 +126,7 @@ export function UserDetail({ user, users, setUsers, onBack, onToast }: UserDetai
           onToast("Progresso zerado", "success")
           break
         case "export": {
-          const data = await exportUserDataLGPD(current.id)
+          const data = await fetchUserDataExport(current.id)
           downloadJson(data, `lgpd-${current.username ?? current.id}-${new Date().toISOString().slice(0, 10)}.json`)
           onToast("Arquivo LGPD gerado", "success")
           break
@@ -141,7 +140,7 @@ export function UserDetail({ user, users, setUsers, onBack, onToast }: UserDetai
           return
       }
     } catch (e) {
-      onToast(errorMessage(e, "Erro ao executar ação"), "danger")
+      onToast(getErrorMessage(e, "Erro ao executar ação"), "danger")
     } finally {
       setBusy(false)
       setConfirmAction(null)
@@ -180,21 +179,21 @@ export function UserDetail({ user, users, setUsers, onBack, onToast }: UserDetai
               <p className="text-sm text-muted-foreground">{current.username ? `@${current.username} · ` : ""}{current.email}</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 Ingressou em{" "}
-                {new Date(current.created_at).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" })}
+                {formatDate(current.created_at, "long")}
               </p>
             </div>
             {current.last_login_date && (
-              <p className="pb-2 text-xs text-muted-foreground">Último acesso {timeAgo(current.last_login_date)}</p>
+              <p className="pb-2 text-xs text-muted-foreground">Último acesso {formatTimeAgo(current.last_login_date)}</p>
             )}
           </div>
 
           <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-5">
             {[
               { Icon: Trophy,   label: "Nível",    value: String(current.level),                                              color: "text-warning",      bg: "bg-warning/10" },
-              { Icon: Zap,      label: "XP",       value: current.total_xp.toLocaleString("pt-BR"),                           color: "text-level-purple", bg: "bg-level-purple-light" },
+              { Icon: Zap,      label: "XP",       value: formatNumber(current.total_xp),                           color: "text-level-purple", bg: "bg-level-purple-light" },
               { Icon: Flame,    label: "Streak",   value: `${current.current_streak}d`,                                       color: "text-warning",      bg: "bg-warning/10" },
               { Icon: BookOpen, label: "Lições",   value: String(current.lessons_completed),                                  color: "text-info",         bg: "bg-info/10" },
-              { Icon: Activity, label: "Cadastro", value: new Date(current.created_at).toLocaleDateString("pt-BR"),           color: "text-success",      bg: "bg-success/10", small: true },
+              { Icon: Activity, label: "Cadastro", value: formatDate(current.created_at),           color: "text-success",      bg: "bg-success/10", small: true },
             ].map((s, i) => (
               <div key={i} className="rounded-xl border border-border p-3">
                 <div className={cn("mb-1.5 inline-flex h-8 w-8 items-center justify-center rounded-lg", s.bg, s.color)}>
@@ -245,7 +244,7 @@ export function UserDetail({ user, users, setUsers, onBack, onToast }: UserDetai
                       <p className="text-xs font-semibold text-foreground">{badge.name}</p>
                       <p className="truncate text-[11px] text-muted-foreground">{badge.description}</p>
                     </div>
-                    <span className="text-[11px] text-muted-foreground">{timeAgo(earned_at)}</span>
+                    <span className="text-[11px] text-muted-foreground">{formatTimeAgo(earned_at)}</span>
                   </div>
                 )
               })}

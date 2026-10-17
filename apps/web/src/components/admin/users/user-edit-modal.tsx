@@ -4,8 +4,7 @@ import { useState, useEffect } from "react"
 import { Edit3, X, Trash2, Info, Loader2 } from "lucide-react"
 import type { AdminUpdateUserInput, Profile, UserRole } from "@levelusp/contracts"
 import { RoleBadge } from "@/components/ui/badges"
-import { getInitials } from "@/lib/utils"
-import { cn } from "@/lib/utils"
+import { cn, formatDate, formatNumber, getInitials } from "@/lib/utils"
 
 function AvatarInitials({ name, role, size = 36 }: { name: string; role: string; size?: number }) {
   const bg =
@@ -102,7 +101,7 @@ export function UserEditModal({ user, isSelf, onClose, onSave, onDelete }: UserE
             <div>
               <p className="text-base font-extrabold text-level-purple-dark">{form.full_name}</p>
               <p className="text-xs text-muted-foreground">
-                {user.email} · criado em {new Date(user.created_at).toLocaleDateString("pt-BR")}
+                {user.email} · criado em {formatDate(user.created_at)}
               </p>
             </div>
           </div>
@@ -172,7 +171,7 @@ export function UserEditModal({ user, isSelf, onClose, onSave, onDelete }: UserE
           <div className="mt-4 grid grid-cols-3 gap-3">
             {[
               { label: "Nível", value: user.level },
-              { label: "XP total", value: user.total_xp.toLocaleString("pt-BR") },
+              { label: "XP total", value: formatNumber(user.total_xp) },
               { label: "Streak", value: `${user.current_streak}d` },
             ].map((f) => (
               <div key={f.label} className="rounded-xl border border-border bg-muted/30 px-3 py-2">

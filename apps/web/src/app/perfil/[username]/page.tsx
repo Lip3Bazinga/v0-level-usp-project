@@ -4,39 +4,28 @@ import * as React from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
-import { useToast } from "@/contexts/toast-context"
 import type { ActivityDay, MyCertificate, PublicProfile } from "@levelusp/contracts"
 import {
   certificatePdfUrl,
-  fetchAllBadges,
+  fetchBadges,
   fetchMyCertificates,
   fetchProfileByUsername,
   fetchUserActivity,
   fetchUserBadges,
+  isAbortError,
 } from "@/lib/api"
+import { swalToast } from "@/lib/swal"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
-  Trophy,
-  Zap,
-  Flame,
-  Settings,
-  ChevronLeft,
-  Calendar,
-  BookOpen,
-  Target,
-  Share2,
-  Edit3,
-  User,
-  Rocket,
-  Loader2,
-  Award,
+  Trophy, Zap, Flame, Settings, ChevronLeft, Calendar, BookOpen, Share2, Edit3, User, Rocket, Loader2, Award,
   Download,
 } from "lucide-react"
 import { StatCard } from "@/components/profile/stat-card"
 import { ActivityMap } from "@/components/profile/activity-map"
 import { BadgesSection, type DisplayBadge } from "@/components/profile/badges-section"
-import { getInitials, xpForLevel } from "@/lib/utils"
+import { computeLevelProgress, formatDate, formatNumber, formatPercent, formatXp, getInitials } from "@/lib/utils"
+import { ROUTES } from "@/lib/constants"
 
 export default function ProfilePage() {
   const params = useParams()
@@ -51,10 +40,8 @@ export default function ProfilePage() {
   const [certificates, setCertificates] = React.useState<MyCertificate[]>([])
 
   const isOwnProfile = username === "me" || username === currentUser?.username
-  const toast = useToast()
 
-  // O botão de compartilhar não fazia nada: agora usa o compartilhamento nativo
-  // (celular) ou copia o link do perfil.
+  // Compartilhamento nativo no celular; nos demais, copia o link do perfil.
   const handleShare = async () => {
     const url = window.location.href
     try {
@@ -63,9 +50,9 @@ export default function ProfilePage() {
         return
       }
       await navigator.clipboard.writeText(url)
-      toast.success("Link do perfil copiado!")
-    } catch (e) {
-      if ((e as Error)?.name !== "AbortError") toast.error("Não foi possível copiar o link.")
+      swalToast({ title: "Link do perfil copiado!", icon: "success" })
+    } catch (error) {
+      if (!isAbortError(error)) swalToast({ title: "Não foi possível copiar o link.", icon: "error" })
     }
   }
 
@@ -92,7 +79,7 @@ export default function ProfilePage() {
 
       if (username === "me") {
         if (!currentUser) {
-          router.replace("/login?next=/perfil/me")
+          router.replace(ROUTES.loginWithNext(ROUTES.profile()))
           return
         }
         resolvedUser = currentUser
@@ -111,7 +98,7 @@ export default function ProfilePage() {
           .catch(() => setActivityData([]))
 
         // Badges: catálogo + conquistas do dono do perfil (públicas)
-        Promise.all([fetchAllBadges(), fetchUserBadges(resolvedUser.id)])
+        Promise.all([fetchBadges(), fetchUserBadges(resolvedUser.id)])
           .then(([catalog, earned]) => {
             const earnedMap = new Map(earned.map((e) => [e.badge_id, e.earned_at]))
             setBadges(
@@ -147,7 +134,7 @@ export default function ProfilePage() {
         <h2 className="text-lg font-semibold text-level-purple-dark">Perfil não encontrado</h2>
         <p className="text-sm text-muted-foreground">O usuário @{username} não existe.</p>
         <button
-          onClick={() => router.push("/dashboard")}
+          onClick={() => router.push(ROUTES.dashboard)}
           className="rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors"
         >
           Voltar ao painel
@@ -158,12 +145,7 @@ export default function ProfilePage() {
 
   const level = user.level
   const totalXp = user.total_xp
-  const xpFloor = xpForLevel(level - 1)
-  const xpCeil = xpForLevel(level)
-  const xpInLevel = totalXp - xpFloor
-  // Faixa de XP do nível atual (antes dividia pelo teto absoluto e mostrava "500/2.000" no nível 2).
-  const xpRange = Math.max(1, xpCeil - xpFloor)
-  const progressToNextLevel = Math.min(100, Math.round((xpInLevel / xpRange) * 100))
+  const { xpInLevel, xpLevelRange, levelPercent: progressToNextLevel } = computeLevelProgress(totalXp, level)
 
   return (
     <div className="min-h-screen bg-white">
@@ -172,11 +154,11 @@ export default function ProfilePage() {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <div className="flex items-center gap-4">
             <Button asChild variant="ghost" size="icon" className="hover:bg-level-purple-light">
-              <Link href="/dashboard" aria-label="Voltar ao painel">
+              <Link href={ROUTES.dashboard} aria-label="Voltar ao painel">
                 <ChevronLeft className="h-5 w-5 text-level-purple" />
               </Link>
             </Button>
-            <Link href="/dashboard" className="flex items-center gap-2">
+            <Link href={ROUTES.dashboard} className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-level-purple">
                 <Rocket className="h-4 w-4 text-white" />
               </div>
@@ -190,7 +172,7 @@ export default function ProfilePage() {
             </Button>
             {isOwnProfile && (
               <Button asChild variant="ghost" size="icon" className="hover:bg-level-purple-light">
-                <Link href="/settings" aria-label="Configurações">
+                <Link href={ROUTES.settings} aria-label="Configurações">
                   <Settings className="h-5 w-5 text-muted-foreground" />
                 </Link>
               </Button>
@@ -218,7 +200,7 @@ export default function ProfilePage() {
 
               {isOwnProfile && (
                 <Link
-                  href="/settings"
+                  href={ROUTES.settings}
                   aria-label="Editar perfil"
                   className="absolute -right-1 top-0 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md transition-colors hover:bg-level-purple-light"
                 >
@@ -237,7 +219,7 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-2 rounded-full bg-level-purple-light px-4 py-2">
                   <Calendar className="h-4 w-4 text-level-purple" />
                   <span className="text-sm text-level-purple-dark">
-                    Membro desde {new Date(user.created_at).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+                    Membro desde {formatDate(user.created_at, "monthYear")}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 rounded-full bg-orange-50 px-4 py-2">
@@ -252,7 +234,7 @@ export default function ProfilePage() {
                 <div className="mb-2 flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Progresso para o Nível {level + 1}</span>
                   <span className="font-medium text-level-purple">
-                    {xpInLevel.toLocaleString("pt-BR")}/{xpRange.toLocaleString("pt-BR")} XP
+                    {formatNumber(xpInLevel)}/{formatXp(xpLevelRange)}
                   </span>
                 </div>
                 <div className="h-3 w-full overflow-hidden rounded-full bg-level-purple-subtle">
@@ -269,7 +251,7 @@ export default function ProfilePage() {
         {/* Stats Cards */}
         <section className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="Nível Atual" value={level} icon={Trophy} iconColor="text-level-purple" />
-          <StatCard label="Total XP" value={totalXp.toLocaleString("pt-BR")} icon={Zap} iconColor="text-yellow-500" />
+          <StatCard label="Total XP" value={formatNumber(totalXp)} icon={Zap} iconColor="text-yellow-500" />
           <StatCard label="Maior sequência" value={`${user.max_streak} dias`} icon={Flame} iconColor="text-orange-500" />
           <StatCard label="Lições concluídas" value={user.lessons_completed} icon={BookOpen} iconColor="text-success" />
         </section>
@@ -301,14 +283,14 @@ export default function ProfilePage() {
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-level-purple-dark truncate">{cert.course_title}</p>
                         <p className="text-xs text-muted-foreground">
-                          Emitido em {new Date(cert.issued_at).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" })}
-                          {" · "}Prova: {cert.exam_score.toFixed(0)}%
+                          Emitido em {formatDate(cert.issued_at, "long")}
+                          {" · "}Prova: {formatPercent(cert.exam_score)}
                           {" · "}Código: <span className="font-mono">{cert.verification_code}</span>
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <Link
-                          href={`/certificado/${cert.verification_code}`}
+                          href={ROUTES.certificate(cert.verification_code)}
                           className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-level-purple hover:bg-level-purple-subtle transition-colors"
                         >
                           Verificar

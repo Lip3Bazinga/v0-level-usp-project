@@ -6,7 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Rocket, Lock, Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react"
 import { passwordSchema } from "@levelusp/contracts"
 import { LevelButton } from "@/components/design-system/level-button"
-import { errorMessage, resetPassword } from "@/lib/api"
+import { getErrorMessage, resetPassword } from "@/lib/api"
+import { ROUTES } from "@/lib/constants"
 
 function ResetPasswordForm() {
   const router = useRouter()
@@ -35,9 +36,9 @@ function ResetPasswordForm() {
     try {
       await resetPassword(token, password)
       setDone(true)
-      setTimeout(() => router.push("/login"), 2500)
+      setTimeout(() => router.push(ROUTES.login), 2500)
     } catch (err) {
-      setError(errorMessage(err, "Não foi possível redefinir a senha. Peça um novo link."))
+      setError(getErrorMessage(err, "Não foi possível redefinir a senha. Peça um novo link."))
     } finally {
       setLoading(false)
     }
@@ -50,7 +51,7 @@ function ResetPasswordForm() {
           <AlertCircle className="h-4 w-4 shrink-0" />
           Link inválido ou incompleto.
         </div>
-        <Link href="/esqueci-senha" className="font-semibold text-level-purple hover:text-level-purple-dark">
+        <Link href={ROUTES.forgotPassword} className="font-semibold text-level-purple hover:text-level-purple-dark">
           Pedir um novo link
         </Link>
       </div>

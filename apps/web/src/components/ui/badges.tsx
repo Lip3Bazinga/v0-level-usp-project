@@ -1,7 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import { Shield, BookOpen, Users } from "lucide-react"
+import { Shield, BookOpen } from "lucide-react"
 
 export function DiffBadge({ d }: { d: string }) {
   const map: Record<string, string> = {

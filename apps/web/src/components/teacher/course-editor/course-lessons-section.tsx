@@ -9,9 +9,10 @@ import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSo
 import { Link2, Loader2, Plus } from "lucide-react"
 import type { Lesson } from "@levelusp/contracts"
 import {
-  addLessonToCourse, errorMessage, fetchCourseLessons, fetchTeacherLessons, removeLessonFromCourse, reorderLessons,
+  addLessonToCourse, getErrorMessage, fetchCourseLessons, fetchTeacherLessons, removeLessonFromCourse, reorderCourseLessons,
 } from "@/lib/api"
 import { SortableLesson } from "./sortable-lesson"
+import { ROUTES } from "@/lib/constants"
 
 /**
  * Lições do curso: lista arrastável (a ordem é salva na hora), remover e
@@ -54,7 +55,7 @@ export function CourseLessonsSection({ courseId, onLessonsChange, onError, onBus
         const ids = new Set(sorted.map((l) => l.id))
         setFreeLessons(mine.filter((l) => !ids.has(l.id) && l.course_id === null))
       })
-      .catch((err) => !cancelled && onError(errorMessage(err, "Não foi possível carregar as lições do curso.")))
+      .catch((err) => !cancelled && onError(getErrorMessage(err, "Não foi possível carregar as lições do curso.")))
       .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true
@@ -74,10 +75,10 @@ export function CourseLessonsSection({ courseId, onLessonsChange, onError, onBus
     setLessons(reordered) // otimista
     onBusyChange?.(true)
     try {
-      await reorderLessons(courseId, reordered.map((l) => l.id))
+      await reorderCourseLessons(courseId, reordered.map((l) => l.id))
     } catch (err) {
       setLessons(previous)
-      onError(`Erro ao salvar a nova ordem: ${errorMessage(err)}`)
+      onError(`Erro ao salvar a nova ordem: ${getErrorMessage(err)}`)
     } finally {
       onBusyChange?.(false)
     }
@@ -86,12 +87,12 @@ export function CourseLessonsSection({ courseId, onLessonsChange, onError, onBus
   const handleRemove = async (lessonId: string) => {
     setRemovingId(lessonId)
     try {
-      await removeLessonFromCourse(lessonId, courseId)
+      await removeLessonFromCourse(courseId, lessonId)
       const removed = courseLessons.find((l) => l.id === lessonId)
       setLessons(courseLessons.filter((l) => l.id !== lessonId))
       if (removed) setFreeLessons((prev) => [...prev, { ...removed, course_id: null }])
     } catch (err) {
-      onError(`Erro ao remover lição: ${errorMessage(err)}`)
+      onError(`Erro ao remover lição: ${getErrorMessage(err)}`)
     } finally {
       setRemovingId(null)
     }
@@ -101,11 +102,11 @@ export function CourseLessonsSection({ courseId, onLessonsChange, onError, onBus
     setAddingId(lesson.id)
     try {
       const order = courseLessons.length + 1
-      await addLessonToCourse(lesson.id, courseId, order)
+      await addLessonToCourse(courseId, lesson.id, order)
       setLessons([...courseLessons, { ...lesson, course_id: courseId, order }])
       setFreeLessons((prev) => prev.filter((l) => l.id !== lesson.id))
     } catch (err) {
-      onError(`Erro ao adicionar lição: ${errorMessage(err)}`)
+      onError(`Erro ao adicionar lição: ${getErrorMessage(err)}`)
     } finally {
       setAddingId(null)
     }
@@ -152,7 +153,7 @@ export function CourseLessonsSection({ courseId, onLessonsChange, onError, onBus
           {freeLessons.length === 0 ? (
             <div className="py-4 text-center text-xs text-muted-foreground">
               Nenhuma lição avulsa disponível.{" "}
-              <Link href="/teacher/edit/new" className="font-medium text-level-purple hover:underline">Criar nova lição</Link>
+              <Link href={ROUTES.teacherNewLesson} className="font-medium text-level-purple hover:underline">Criar nova lição</Link>
             </div>
           ) : (
             <div className="space-y-2">
@@ -180,7 +181,7 @@ export function CourseLessonsSection({ courseId, onLessonsChange, onError, onBus
           )}
           <div className="mt-3 border-t border-level-purple/20 pt-3">
             <Link
-              href="/teacher/edit/new"
+              href={ROUTES.teacherNewLesson}
               className="flex items-center justify-center gap-2 rounded-lg border border-level-purple px-4 py-2 text-xs font-semibold text-level-purple transition-colors hover:bg-level-purple hover:text-white"
             >
               <Plus className="h-3.5 w-3.5" /> Criar nova lição e vincular depois

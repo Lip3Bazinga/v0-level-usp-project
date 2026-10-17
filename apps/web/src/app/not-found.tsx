@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { Rocket, ArrowLeft } from "lucide-react"
+import { ROUTES } from "@/lib/constants"
 
 export default function NotFound() {
   return (
@@ -13,17 +14,17 @@ export default function NotFound() {
         <p className="mt-2 text-muted-foreground">
           Esta página não existe ou foi movida.
         </p>
-        {/* Visitante ia para /dashboard e caía no login: agora há as duas saídas. */}
+        {/* Sem sessão, o painel redireciona para o login: o visitante precisa da página inicial. */}
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
-            href="/"
+            href={ROUTES.home}
             className="flex items-center gap-2 rounded-xl bg-level-purple px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-level-purple-dark"
           >
             <ArrowLeft className="h-4 w-4" />
             Página inicial
           </Link>
           <Link
-            href="/dashboard"
+            href={ROUTES.dashboard}
             className="rounded-xl border border-border px-6 py-3 text-sm font-semibold text-level-purple-dark transition-colors hover:border-level-purple"
           >
             Ir para o painel

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ResponsiveWorkspace } from "@/components/ide/responsive-workspace"
 import { Header } from "@/components/ide/header"
@@ -12,10 +12,12 @@ import { FileExplorer } from "@/components/ide/file-explorer"
 import { SuccessFeedback } from "@/components/ide/success-feedback"
 import { IDEProvider, useIDE } from "@/contexts/ide-context"
 import type { Lesson, LessonSummary } from "@levelusp/contracts"
-import { fetchPublishedLessonSummaries, fetchLessonById } from "@/lib/api"
+import { fetchPublishedLessonSummaries, fetchLesson } from "@/lib/api"
 import { Loader2, BookOpen } from "lucide-react"
+import { useAsyncResource } from "@/hooks/use-async-resource"
 import { TheoryLessonLayout } from "@/components/ide/theory-lesson-layout"
 import { QuizLessonLayout } from "@/components/ide/quiz-lesson-layout"
+import { ROUTES } from "@/lib/constants"
 
 // ── Layout interno (consome o IDEContext) ──────────────────────────────────────
 
@@ -30,7 +32,7 @@ function LessonWorkspace({
 }) {
   const router = useRouter()
   const {
-    files, activePath, openPaths, setActivePath, openFile, closeTab, onContentChange,
+    files, activePath, openPaths, setActivePath, openFile, closeTab, updateFileContent,
     createFile, renameFile, deleteFile,
     consoleOutputs, clearConsole, runConsoleCommand,
     pythonStatus, isExecuting, isInstalling, stop,
@@ -50,17 +52,17 @@ function LessonWorkspace({
 
   const handlePrev = useCallback(() => {
     const prev = allLessons[currentIndex - 1]
-    if (prev && prev.course_id === lesson.course_id) router.push(`/lesson/${prev.id}`)
+    if (prev && prev.course_id === lesson.course_id) router.push(ROUTES.lesson(prev.id))
   }, [allLessons, currentIndex, lesson.course_id, router])
 
   const handleNext = useCallback(() => {
     const next = allLessons[currentIndex + 1]
     if (next && next.course_id === lesson.course_id) {
-      router.push(`/lesson/${next.id}`)
+      router.push(ROUTES.lesson(next.id))
     } else if (lesson.course_id) {
-      router.push(`/cursos/${lesson.course_id}`)
+      router.push(ROUTES.course(lesson.course_id))
     } else {
-      router.push("/dashboard")
+      router.push(ROUTES.dashboard)
     }
   }, [allLessons, currentIndex, lesson.course_id, router])
 
@@ -100,7 +102,7 @@ function LessonWorkspace({
               activePath={activePath}
               onTabSelect={setActivePath}
               onTabClose={closeTab}
-              onContentChange={onContentChange}
+              onContentChange={updateFileContent}
               onRun={run}
               onReset={reset}
               onStop={stop}
@@ -152,53 +154,62 @@ function LessonWorkspace({
   )
 }
 
-// ── Página: carrega a lição e provê o IDEContext ────────────────────────────────
+interface LessonPageData {
+  lesson: Lesson
+  /** Sumários leves de todas as lições, para a navegação anterior/próxima. */
+  allLessons: LessonSummary[]
+  currentIndex: number
+}
+
+/** `null` quando a lição não existe ou não está publicada. */
+async function loadLessonPage(lessonId: string): Promise<LessonPageData | null> {
+  const [allLessons, lesson] = await Promise.all([fetchPublishedLessonSummaries(), fetchLesson(lessonId)])
+  if (!lesson) return null
+  const index = allLessons.findIndex((summary) => summary.id === lessonId)
+  return { lesson, allLessons, currentIndex: Math.max(index, 0) }
+}
+
+const LESSON_MISSING_MESSAGE = "Esta lição não existe ou não está disponível."
+const LESSON_LOAD_ERROR_MESSAGE = "Não foi possível carregar a lição. Verifique sua conexão e tente novamente."
+
+/** Falha de rede (com nova tentativa) é diferente de lição inexistente. */
+function LessonUnavailable({ onRetry }: { onRetry?: () => void }) {
+  const router = useRouter()
+  const isLoadError = Boolean(onRetry)
+  return (
+    <main role={isLoadError ? "alert" : undefined} className="flex h-screen flex-col items-center justify-center gap-4 bg-white px-6 text-center">
+      <BookOpen className="h-16 w-16 text-muted-foreground/30" aria-hidden="true" />
+      <h1 className="text-lg font-semibold text-level-purple-dark">
+        {isLoadError ? "Não foi possível carregar a lição" : "Lição não encontrada"}
+      </h1>
+      <p className="text-sm text-muted-foreground">{isLoadError ? LESSON_LOAD_ERROR_MESSAGE : LESSON_MISSING_MESSAGE}</p>
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        {onRetry && (
+          <button
+            onClick={onRetry}
+            className="rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors"
+          >
+            Tentar novamente
+          </button>
+        )}
+        <button
+          onClick={() => router.push(ROUTES.dashboard)}
+          className={isLoadError
+            ? "rounded-xl border border-border px-6 py-2.5 text-sm font-semibold text-level-purple-dark hover:border-level-purple transition-colors"
+            : "rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors"}
+        >
+          Voltar ao painel
+        </button>
+      </div>
+    </main>
+  )
+}
 
 export default function LessonPage() {
-  const params = useParams()
-  const router = useRouter()
-  const lessonId = params.id as string
+  const { id: lessonId } = useParams<{ id: string }>()
+  const page = useAsyncResource(() => loadLessonPage(lessonId), [lessonId])
 
-  const [allLessons, setAllLessons] = useState<LessonSummary[]>([])
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [lesson, setLesson] = useState<Lesson | null>(null)
-  const [lessonLoading, setLessonLoading] = useState(true)
-  const [lessonError, setLessonError] = useState<string | null>(null)
-  // "network" = falha da API (mostra "Tentar novamente"); "missing" = a lição não existe.
-  const [errorKind, setErrorKind] = useState<"network" | "missing" | null>(null)
-  const [reloadKey, setReloadKey] = useState(0)
-
-  useEffect(() => {
-    async function load() {
-      setLessonLoading(true)
-      setLessonError(null)
-      setErrorKind(null)
-      try {
-        // Sumários leves para navegação + conteúdo completo só da lição atual
-        const [summaries, direct] = await Promise.all([
-          fetchPublishedLessonSummaries(),
-          fetchLessonById(lessonId),
-        ])
-        setAllLessons(summaries)
-        if (direct) {
-          setLesson(direct)
-          const idx = summaries.findIndex((l) => l.id === lessonId)
-          setCurrentIndex(idx >= 0 ? idx : 0)
-        } else {
-          setLessonError("Esta lição não existe ou não está disponível.")
-          setErrorKind("missing")
-        }
-      } catch {
-        setLessonError("Não foi possível carregar a lição. Verifique sua conexão e tente novamente.")
-        setErrorKind("network")
-      } finally {
-        setLessonLoading(false)
-      }
-    }
-    load()
-  }, [lessonId, reloadKey])
-
-  if (lessonLoading) {
+  if (page.status === "loading") {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-white">
         <Loader2 className="h-10 w-10 animate-spin text-level-purple" />
@@ -207,35 +218,10 @@ export default function LessonPage() {
     )
   }
 
-  if (lessonError || !lesson) {
-    return (
-      <main role={errorKind === "network" ? "alert" : undefined} className="flex h-screen flex-col items-center justify-center gap-4 bg-white px-6 text-center">
-        <BookOpen className="h-16 w-16 text-muted-foreground/30" aria-hidden="true" />
-        <h1 className="text-lg font-semibold text-level-purple-dark">
-          {errorKind === "network" ? "Não foi possível carregar a lição" : "Lição não encontrada"}
-        </h1>
-        <p className="text-sm text-muted-foreground">{lessonError ?? "Esta lição não existe ou não está disponível."}</p>
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          {errorKind === "network" && (
-            <button
-              onClick={() => setReloadKey((k) => k + 1)}
-              className="rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors"
-            >
-              Tentar novamente
-            </button>
-          )}
-          <button
-            onClick={() => router.push("/dashboard")}
-            className={errorKind === "network"
-              ? "rounded-xl border border-border px-6 py-2.5 text-sm font-semibold text-level-purple-dark hover:border-level-purple transition-colors"
-              : "rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors"}
-          >
-            Voltar ao painel
-          </button>
-        </div>
-      </main>
-    )
-  }
+  if (page.status === "error") return <LessonUnavailable onRetry={() => void page.reload()} />
+  if (!page.data) return <LessonUnavailable />
+
+  const { lesson, allLessons, currentIndex } = page.data
 
   // Questionário: múltipla escolha, correção server-side, sem IDE
   if (lesson.lesson_type === "quiz") {

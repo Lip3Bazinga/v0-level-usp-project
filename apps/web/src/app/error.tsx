@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 import Link from "next/link"
 import { AlertTriangle, RefreshCw } from "lucide-react"
+import { ROUTES } from "@/lib/constants"
 
 export default function Error({
   error,
@@ -39,7 +40,7 @@ export default function Error({
             Tentar novamente
           </button>
           <Link
-            href="/dashboard"
+            href={ROUTES.dashboard}
             className="rounded-xl bg-level-purple px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-level-purple-dark"
           >
             Ir para o painel

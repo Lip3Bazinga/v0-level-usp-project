@@ -1,14 +1,14 @@
 "use client"
 
 import * as React from "react"
-import { cn } from "@/lib/utils"
+import { cn, formatDate, formatNumber } from "@/lib/utils"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import type { ActivityDay } from "@/lib/types"
+import type { ActivityDay } from "@levelusp/contracts"
 
 // Fonte única em @/lib/types; re-exportado por compatibilidade.
 export type { ActivityDay }
@@ -139,14 +139,6 @@ export function ActivityMap({ data: rawData, className }: ActivityMapProps) {
     return streak
   }
   
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString("pt-BR", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric"
-    })
-  }
 
   return (
     <div className={cn("rounded-2xl border border-border bg-white p-6", className)}>
@@ -226,7 +218,7 @@ export function ActivityMap({ data: rawData, className }: ActivityMapProps) {
                             />
                           </TooltipTrigger>
                           <TooltipContent className="bg-level-purple-dark text-white">
-                            <p className="font-medium">{formatDate(day.date)}</p>
+                            <p className="font-medium">{formatDate(day.date, "weekdayLong")}</p>
                             <p className="text-sm opacity-90">
                               {day.xp > 0 
                                 ? `${day.xp} XP ganhos • ${day.activities} atividades`
@@ -250,7 +242,7 @@ export function ActivityMap({ data: rawData, className }: ActivityMapProps) {
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-level-purple" />
           <span className="text-sm text-muted-foreground">
-            <strong className="text-level-purple-dark">{totalXP.toLocaleString()}</strong> XP total no ano
+            <strong className="text-level-purple-dark">{formatNumber(totalXP)}</strong> XP total no ano
           </span>
         </div>
         <div className="flex items-center gap-2">

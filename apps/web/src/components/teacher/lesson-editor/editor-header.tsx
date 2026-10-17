@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { ArrowLeft, BookOpen, CheckCircle2, Eye, EyeOff, Globe, Loader2, Save } from "lucide-react"
 import { LevelButton } from "@/components/design-system/level-button"
+import { ROUTES } from "@/lib/constants"
 
 export function EditorHeader({ isNew, title, published, saving, dirty, justSaved, onSave, onPublish, onUnpublish }: {
   isNew: boolean
@@ -18,7 +19,7 @@ export function EditorHeader({ isNew, title, published, saving, dirty, justSaved
     <header className="sticky top-0 z-50 border-b border-border bg-white/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-2 px-4 sm:gap-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-2 sm:gap-4">
-          <Link href="/teacher" aria-label="Voltar ao painel do professor" className="flex shrink-0 items-center gap-2 text-muted-foreground transition-colors hover:text-level-purple">
+          <Link href={ROUTES.teacher} aria-label="Voltar ao painel do professor" className="flex shrink-0 items-center gap-2 text-muted-foreground transition-colors hover:text-level-purple">
             <ArrowLeft className="h-4 w-4" />
             <span className="hidden text-sm sm:inline">Voltar</span>
           </Link>

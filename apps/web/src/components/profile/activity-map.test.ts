@@ -7,7 +7,7 @@ describe("toActivityCells", () => {
   it("gera 365 dias contínuos terminando hoje (datas locais)", () => {
     const cells = toActivityCells([], today)
     expect(cells).toHaveLength(365)
-    const last = cells[364]!
+    const last = cells[364]
     expect([last.date.getFullYear(), last.date.getMonth(), last.date.getDate()]).toEqual([2026, 9, 16])
     expect(cells.every((c) => c.xp === 0 && c.activities === 0)).toBe(true)
   })

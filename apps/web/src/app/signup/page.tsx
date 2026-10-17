@@ -8,6 +8,7 @@ import { LevelButton } from "@/components/design-system/level-button"
 import { OAuthButtons } from "@/components/auth/oauth-buttons"
 import { useAuth } from "@/contexts/auth-context"
 import { Rocket, Mail, Lock, Eye, EyeOff, User, AlertCircle, CheckCircle2 } from "lucide-react"
+import { ROUTES } from "@/lib/constants"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -36,16 +37,16 @@ export default function SignupPage() {
     if (submittingRef.current) return
     submittingRef.current = true
     setLoading(true)
-    const { error } = await signUp({ email: email.trim(), password, full_name: fullName.trim() })
-    if (error) {
-      setError(error)
+    const result = await signUp({ email: email.trim(), password, full_name: fullName.trim() })
+    if (!result.ok) {
+      setError(result.error)
       setLoading(false)
       submittingRef.current = false
       return
     }
 
     // A API já abre a sessão (cookie httpOnly) no cadastro.
-    router.push("/dashboard")
+    router.push(ROUTES.dashboard)
     router.refresh()
   }
 
@@ -57,7 +58,7 @@ export default function SignupPage() {
           <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 backdrop-blur">
             <Rocket className="h-10 w-10 text-white" />
           </div>
-          <h1 className="text-4xl font-bold text-white mb-4"><Link href="/" className="hover:underline">LevelUSP</Link></h1>
+          <h1 className="text-4xl font-bold text-white mb-4"><Link href={ROUTES.home} className="hover:underline">LevelUSP</Link></h1>
           <p className="text-lg text-purple-200 leading-relaxed">
             Comece sua jornada na programação hoje. 100% gratuito, 100% gamificado.
           </p>
@@ -81,7 +82,7 @@ export default function SignupPage() {
       <div className="flex w-full lg:w-1/2 items-center justify-center p-8">
         <div className="w-full max-w-md">
           {/* Mobile logo */}
-          <Link href="/" aria-label="LevelUSP — página inicial" className="lg:hidden flex items-center justify-center gap-3 mb-8">
+          <Link href={ROUTES.home} aria-label="LevelUSP — página inicial" className="lg:hidden flex items-center justify-center gap-3 mb-8">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-level-purple">
               <Rocket className="h-6 w-6 text-white" />
             </div>
@@ -201,7 +202,7 @@ export default function SignupPage() {
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Já tem uma conta?{" "}
-            <Link href="/login" className="font-semibold text-level-purple hover:text-level-purple-dark transition-colors">
+            <Link href={ROUTES.login} className="font-semibold text-level-purple hover:text-level-purple-dark transition-colors">
               Fazer login
             </Link>
           </p>

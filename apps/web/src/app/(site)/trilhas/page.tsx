@@ -4,6 +4,7 @@ import { Code2, BarChart3, Database, Globe2, Cpu, Clock, BookOpen, Trophy, Check
 import { PageHero } from "@/components/marketing/page-hero"
 import { FinalCta } from "@/components/marketing/final-cta"
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion-primitives"
+import { ROUTES } from "@/lib/constants"
 
 export const metadata: Metadata = {
   title: "Trilhas de aprendizado — Currículo do LevelUSP",
@@ -170,10 +171,13 @@ export default function TrilhasPage() {
           </Stagger>
 
           <Reveal className="mt-12 text-center">
-            <Link href="/cursos" className="inline-flex items-center gap-2 rounded-2xl bg-[#7C3AED] px-8 py-4 text-lg font-semibold text-white btn-3d">
-                Ver catálogo completo
-                <ArrowRight className="h-5 w-5" />
-              </Link>
+            <Link
+              href={ROUTES.courses}
+              className="inline-flex items-center gap-2 rounded-2xl bg-[#7C3AED] px-8 py-4 text-lg font-semibold text-white btn-3d"
+            >
+              Ver catálogo completo
+              <ArrowRight className="h-5 w-5" />
+            </Link>
           </Reveal>
         </div>
       </section>

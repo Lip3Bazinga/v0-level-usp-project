@@ -3,6 +3,7 @@ import { Code2, Plus, X } from "lucide-react"
 import type { ProjectFile } from "@levelusp/contracts"
 import { isValidStarterPath } from "./lesson-form"
 import { addButtonClass, EditorPanel } from "./panel"
+import { MAIN_FILE_PATH } from "@/lib/constants"
 
 const FILE_ICON: Record<string, string> = { py: "🐍", txt: "📄", csv: "📊", json: "🧾", md: "📝" }
 
@@ -11,9 +12,9 @@ export function StarterFilesTab({ files, onChange, onError }: {
   onChange: (files: ProjectFile[]) => void
   onError: (message: string) => void
 }) {
-  const list = files.length ? files : [{ path: "main.py", content: "" }]
-  const [activePath, setActivePath] = useState("main.py")
-  const active = list.find((f) => f.path === activePath) ?? list[0]!
+  const list = files.length ? files : [{ path: MAIN_FILE_PATH, content: "" }]
+  const [activePath, setActivePath] = useState(MAIN_FILE_PATH)
+  const active = list.find((f) => f.path === activePath) ?? list[0]
 
   const add = () => {
     const name = window.prompt("Nome do arquivo (ex: utils.py, dados.csv ou pasta/mod.py):")
@@ -36,9 +37,9 @@ export function StarterFilesTab({ files, onChange, onError }: {
   }
 
   const remove = (path: string) => {
-    if (path === "main.py") return
+    if (path === MAIN_FILE_PATH) return
     onChange(list.filter((f) => f.path !== path))
-    setActivePath("main.py")
+    setActivePath(MAIN_FILE_PATH)
   }
 
   return (
@@ -64,7 +65,7 @@ export function StarterFilesTab({ files, onChange, onError }: {
             >
               <span>{FILE_ICON[f.path.split(".").pop() ?? ""] ?? "📄"}</span>
               <span>{f.path}</span>
-              {f.path !== "main.py" && (
+              {f.path !== MAIN_FILE_PATH && (
                 <button
                   type="button"
                   onClick={(e) => {

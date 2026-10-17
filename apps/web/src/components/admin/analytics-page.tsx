@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react"
 import { AlertTriangle, Loader2, Trophy } from "lucide-react"
 import type { AnalyticsMetrics } from "@levelusp/contracts"
-import { cn } from "@/lib/utils"
-import { errorMessage, fetchAnalyticsMetrics } from "@/lib/api"
+import { cn, formatNumber } from "@/lib/utils"
+import { getErrorMessage, fetchAnalyticsMetrics } from "@/lib/api"
 import { Donut, SparkBar } from "./charts"
 
 const ROLE_META: Record<string, { label: string; color: string }> = {
@@ -26,7 +26,7 @@ function DailyChart({ title, subtitle, data, color }: { title: string; subtitle:
           <p className="text-[11px] text-muted-foreground">{subtitle}</p>
         </div>
         <div className="text-right">
-          <p className="text-lg font-extrabold text-level-purple-dark">{sum(data).toLocaleString("pt-BR")}</p>
+          <p className="text-lg font-extrabold text-level-purple-dark">{formatNumber(sum(data))}</p>
           <p className="text-[10px] text-muted-foreground">pico {peak}/dia</p>
         </div>
       </div>
@@ -47,7 +47,7 @@ export function AnalyticsPage() {
   useEffect(() => {
     fetchAnalyticsMetrics()
       .then(setMetrics)
-      .catch((err) => setError(errorMessage(err, "Não foi possível carregar as métricas.")))
+      .catch((err) => setError(getErrorMessage(err, "Não foi possível carregar as métricas.")))
       .finally(() => setLoading(false))
   }, [])
 
@@ -95,12 +95,12 @@ export function AnalyticsPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {[
-          { label: "DAU", value: dau.toLocaleString("pt-BR"), sub: "ativos nas últimas 24 h", color: "text-level-purple" },
-          { label: "WAU", value: wau.toLocaleString("pt-BR"), sub: "ativos nos últimos 7 dias", color: "text-level-purple-medium" },
-          { label: "MAU", value: mau.toLocaleString("pt-BR"), sub: "ativos nos últimos 30 dias", color: "text-level-purple-dark" },
+          { label: "DAU", value: formatNumber(dau), sub: "ativos nas últimas 24 h", color: "text-level-purple" },
+          { label: "WAU", value: formatNumber(wau), sub: "ativos nos últimos 7 dias", color: "text-level-purple-medium" },
+          { label: "MAU", value: formatNumber(mau), sub: "ativos nos últimos 30 dias", color: "text-level-purple-dark" },
           { label: "DAU/MAU", value: `${dauMau}%`, sub: "stickiness", color: "text-warning" },
           { label: "Retenção 7d", value: `${metrics.retention7d}%`, sub: "contas com 7+ dias ativas na semana", color: "text-success" },
-          { label: "XP médio", value: metrics.averageXp.toLocaleString("pt-BR"), sub: "por aluno", color: "text-info" },
+          { label: "XP médio", value: formatNumber(metrics.averageXp), sub: "por aluno", color: "text-info" },
         ].map((k) => (
           <div key={k.label} className="rounded-2xl border border-border bg-white p-5">
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{k.label}</p>
@@ -129,7 +129,7 @@ export function AnalyticsPage() {
                 <div className="mb-1 flex items-center justify-between">
                   <span className="text-xs font-semibold text-foreground">{s.label}</span>
                   <span className="text-xs font-bold text-level-purple-dark">
-                    {s.value.toLocaleString("pt-BR")} <span className="font-semibold text-muted-foreground">· {s.pct}%</span>
+                    {formatNumber(s.value)} <span className="font-semibold text-muted-foreground">· {s.pct}%</span>
                   </span>
                 </div>
                 <div className="h-7 overflow-hidden rounded-lg bg-level-purple-subtle/50">
@@ -176,7 +176,7 @@ export function AnalyticsPage() {
                 <div className="min-w-0 flex-1">
                   <div className="mb-0.5 flex items-center justify-between gap-2">
                     <span className="truncate text-xs font-semibold text-foreground">{l.title}</span>
-                    <span className="text-xs font-bold text-level-purple-dark">{l.completions.toLocaleString("pt-BR")}</span>
+                    <span className="text-xs font-bold text-level-purple-dark">{formatNumber(l.completions)}</span>
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-level-purple-subtle">
                     <div className="h-full rounded-full bg-level-purple" style={{ width: `${(l.completions / maxTop) * 100}%` }} />

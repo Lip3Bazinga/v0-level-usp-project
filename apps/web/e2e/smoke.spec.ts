@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test"
 
 test("página inicial carrega", async ({ page }) => {
-  const res = await page.goto("/")
-  expect(res?.status()).toBeLessThan(400)
+  const response = await page.goto("/")
+  expect(response?.status()).toBeLessThan(400)
   await expect(page).toHaveTitle(/LevelUSP/i)
 })
 
@@ -12,14 +12,14 @@ test("rota protegida sem sessão leva ao login preservando o destino", async ({ 
 })
 
 test("API responde pelo mesmo domínio e está saudável", async ({ request }) => {
-  const res = await request.get("/api/health/ready")
-  expect(res.ok()).toBeTruthy()
-  expect(await res.json()).toMatchObject({ checks: { db: true, runner: true } })
+  const response = await request.get("/api/health/ready")
+  expect(response.ok()).toBeTruthy()
+  expect(await response.json()).toMatchObject({ checks: { db: true, runner: true } })
 })
 
 test("API exige o cabeçalho anti-CSRF", async ({ request }) => {
-  const res = await request.post("/api/auth/sign-in", { data: { email: "x@y.z", password: "x" } })
-  expect(res.status()).toBe(403)
+  const response = await request.post("/api/auth/sign-in", { data: { email: "x@y.z", password: "x" } })
+  expect(response.status()).toBe(403)
 })
 
 test("verificação pública de certificado inexistente", async ({ page }) => {

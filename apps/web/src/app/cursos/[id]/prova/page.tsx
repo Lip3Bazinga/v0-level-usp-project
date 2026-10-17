@@ -1,15 +1,17 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import type { ExamResult, ExamStart, ExamStatus } from "@levelusp/contracts"
-import { fetchExamStatus, issueCertificate, startExam, submitExam } from "@/lib/api"
+import { fetchExamStatus, HTTP_STATUS, issueCertificate, startExam, submitExam, toApiResult } from "@/lib/api"
 import {
   ArrowLeft, Award, CheckCircle2, Clock, GraduationCap, Loader2,
   Lock, Rocket, ShieldCheck, XCircle, AlertTriangle,
 } from "lucide-react"
+import { ROUTES } from "@/lib/constants"
+import { formatPercent, formatTime } from "@/lib/utils"
 
 type Phase = "status" | "running" | "result"
 
@@ -41,32 +43,31 @@ export default function ProvaPage() {
   const loadStatus = useCallback(async () => {
     setLoading(true)
     setError(null)
-    const statusResult = await fetchExamStatus(courseId)
+    const statusResult = await toApiResult(fetchExamStatus(courseId))
     if (statusResult.ok) setStatus(statusResult.data)
-    else if (statusResult.status === 401) router.push(`/login?next=${encodeURIComponent(`/cursos/${courseId}/prova`)}`)
-    else setError(statusResult.error)
+    else if (statusResult.error.status === HTTP_STATUS.UNAUTHORIZED) router.push(ROUTES.loginWithNext(ROUTES.courseExam(courseId)))
+    else setError(statusResult.error.message)
     setLoading(false)
   }, [courseId, router])
 
   useEffect(() => {
     if (!authLoading) {
-      if (!profile) { router.push(`/login?next=${encodeURIComponent(`/cursos/${courseId}/prova`)}`); return }
+      if (!profile) { router.push(ROUTES.loginWithNext(ROUTES.courseExam(courseId))); return }
       loadStatus()
     }
   }, [authLoading, profile, loadStatus, router, courseId])
 
-
   const handleStart = useCallback(async () => {
     setLoading(true)
     setError(null)
-    const startResult = await startExam(courseId)
+    const startResult = await toApiResult(startExam(courseId))
     if (startResult.ok) {
       submittedRef.current = false
       setExam(startResult.data)
       setAnswers({})
       setPhase("running")
     } else {
-      setError(startResult.error)
+      setError(startResult.error.message)
     }
     setLoading(false)
   }, [courseId])
@@ -75,49 +76,48 @@ export default function ProvaPage() {
     if (!exam || submittedRef.current) return
     submittedRef.current = true
     setSubmitting(true)
-    const submitResult = await submitExam(courseId, exam.attemptId, answers)
+    const submitResult = await toApiResult(submitExam(courseId, exam.attemptId, answers))
     setSubmitting(false)
     if (submitResult.ok) {
       setResult(submitResult.data)
       setPhase("result")
     } else {
-      setError(submitResult.error)
+      setError(submitResult.error.message)
       submittedRef.current = false
-      if (submitResult.status === 408 || submitResult.status === 409) {
+      // Prazo esgotado ou tentativa já encerrada no servidor: volta ao resumo atualizado.
+      const { status: errorStatus } = submitResult.error
+      if (errorStatus === HTTP_STATUS.REQUEST_TIMEOUT || errorStatus === HTTP_STATUS.CONFLICT) {
         setPhase("status")
         loadStatus()
       }
     }
-     
   }, [exam, answers, courseId, loadStatus])
 
-  const submitLatestRef = useRef<(() => void) | null>(null)
-  useEffect(() => {
-    submitLatestRef.current = () => { void handleSubmit() }
-  }, [handleSubmit])
+  // O cronômetro só reinicia com a prova; o envio automático precisa da versão mais recente
+  // de handleSubmit (com as respostas atuais), senão a prova sai com as respostas do início.
+  const handleSubmitRef = useRef(handleSubmit)
+  useLayoutEffect(() => {
+    handleSubmitRef.current = handleSubmit
+  })
 
-  // Cronômetro
   useEffect(() => {
     if (phase !== "running" || !exam) return
     const tick = () => {
-      const ms = new Date(exam.expiresAt).getTime() - Date.now()
-      setRemainingMs(ms)
-      // Usa a versão MAIS RECENTE de handleSubmit (com as respostas atuais). Antes, a
-      // closure do efeito guardava as respostas vazias do início e o envio automático
-      // ao fim do tempo zerava a prova.
-      if (ms <= 0 && !submittedRef.current) submitLatestRef.current?.()
+      const remaining = new Date(exam.expiresAt).getTime() - Date.now()
+      setRemainingMs(remaining)
+      if (remaining <= 0 && !submittedRef.current) void handleSubmitRef.current()
     }
     tick()
-    const id = setInterval(tick, 1000)
-    return () => clearInterval(id)
+    const intervalId = setInterval(tick, 1000)
+    return () => clearInterval(intervalId)
   }, [phase, exam])
 
   const handleIssueCertificate = useCallback(async () => {
     setLoading(true)
-    const certResult = await issueCertificate(courseId)
+    const certResult = await toApiResult(issueCertificate(courseId))
     setLoading(false)
     if (certResult.ok) setCertCode(certResult.data.verificationCode)
-    else setError(certResult.error)
+    else setError(certResult.error.message)
   }, [courseId])
 
   if (authLoading || (loading && phase === "status" && !status)) {
@@ -134,7 +134,7 @@ export default function ProvaPage() {
     <div className="min-h-screen bg-background pb-16">
       <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-4xl items-center justify-between px-4">
-          <Link href="/dashboard" className="flex items-center gap-3">
+          <Link href={ROUTES.dashboard} className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple">
               <Rocket className="h-5 w-5 text-white" />
             </div>
@@ -148,7 +148,7 @@ export default function ProvaPage() {
               {formatCountdown(remainingMs)}
             </div>
           ) : (
-            <Link href={`/cursos/${courseId}`} className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
+            <Link href={ROUTES.course(courseId)} className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
               <ArrowLeft className="h-4 w-4" /> Voltar ao curso
             </Link>
           )}
@@ -196,7 +196,7 @@ export default function ProvaPage() {
                   <CheckCircle2 className="h-8 w-8 shrink-0 text-green-600" />
                   <div>
                     <p className="font-bold text-green-800">
-                      Aprovado com {status.passedScore?.toFixed(0)}%! 🎉
+                      Aprovado com {formatPercent(status.passedScore ?? 0)}! 🎉
                     </p>
                     <p className="text-sm text-green-700">
                       Agora conclua o projeto final do curso para emitir seu certificado.
@@ -205,7 +205,7 @@ export default function ProvaPage() {
                 </div>
                 {certCode ? (
                   <a
-                    href={`/certificado/${certCode}`}
+                    href={ROUTES.certificate(certCode)}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-linear-to-r from-yellow-400 to-amber-500 py-3.5 text-sm font-bold text-white shadow-lg shadow-yellow-400/30"
                   >
                     <Award className="h-5 w-5" />
@@ -242,8 +242,8 @@ export default function ProvaPage() {
                   <p className="font-bold text-amber-800">Aguarde para tentar de novo</p>
                   <p className="text-sm text-amber-700">
                     Próxima tentativa disponível às{" "}
-                    {new Date(status.cooldownUntil).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                    {status.bestScore !== null && ` · Sua melhor nota: ${status.bestScore.toFixed(0)}%`}
+                    {formatTime(status.cooldownUntil)}
+                    {status.bestScore !== null && ` · Sua melhor nota: ${formatPercent(status.bestScore)}`}
                   </p>
                 </div>
               </div>
@@ -251,7 +251,7 @@ export default function ProvaPage() {
               <div className="space-y-4">
                 {status.bestScore !== null && (
                   <p className="text-center text-sm text-muted-foreground">
-                    Sua melhor nota até agora: <span className="font-bold">{status.bestScore.toFixed(0)}%</span>
+                    Sua melhor nota até agora: <span className="font-bold">{formatPercent(status.bestScore)}</span>
                   </p>
                 )}
                 <button
@@ -337,7 +337,7 @@ export default function ProvaPage() {
                 <XCircle className="mx-auto mb-3 h-14 w-14 text-red-500" />
               )}
               <h2 className={`text-3xl font-bold ${result.passed ? "text-green-800" : "text-red-700"}`}>
-                {result.score.toFixed(0)}%
+                {formatPercent(result.score)}
               </h2>
               <p className={`mt-1 font-medium ${result.passed ? "text-green-700" : "text-red-600"}`}>
                 {result.passed
@@ -361,7 +361,7 @@ export default function ProvaPage() {
                   </button>
                 )}
                 <Link
-                  href={`/cursos/${courseId}`}
+                  href={ROUTES.course(courseId)}
                   className="rounded-xl border border-border px-6 py-3 text-sm font-semibold text-muted-foreground hover:text-level-purple transition-colors"
                 >
                   Voltar ao curso

@@ -21,7 +21,8 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { getInitials, xpForLevel } from "@/lib/utils"
+import { formatNumber, formatXp, getInitials } from "@/lib/utils"
+import { ROUTES } from "@/lib/constants"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -68,7 +69,7 @@ export default function DashboardPage() {
     return groups
   }, [courses, lessons])
 
-  const { level, totalXp, streak, xpInLevel, xpCeil, xpProgress } = gamification
+  const { level, totalXp, streak, xpInLevel, xpLevelRange, xpProgress } = gamification
   const studyDays = useStudyDays(progressMap)
   const lessonsCompleted = useMemo(() => {
     let n = 0
@@ -81,7 +82,7 @@ export default function DashboardPage() {
 
   const handleSignOut = async () => {
     await signOut()
-    window.location.href = "/login"
+    window.location.href = ROUTES.login
   }
 
   const RING_R = 34
@@ -94,7 +95,7 @@ export default function DashboardPage() {
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <Link href="/dashboard" className="flex items-center gap-3">
+          <Link href={ROUTES.dashboard} className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple">
               <Rocket className="h-5 w-5 text-white" />
             </div>
@@ -102,19 +103,19 @@ export default function DashboardPage() {
           </Link>
 
           <nav aria-label="Navegação principal" className="hidden lg:flex items-center gap-6">
-            <Link href="/dashboard" className="flex items-center gap-2 text-sm font-medium text-level-purple">
+            <Link href={ROUTES.dashboard} className="flex items-center gap-2 text-sm font-medium text-level-purple">
               <BookOpen className="h-4 w-4" /> Aprender
             </Link>
-            <Link href="/cursos" className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
+            <Link href={ROUTES.courses} className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
               <GraduationCap className="h-4 w-4" /> Cursos
             </Link>
-            <Link href="/leaderboard" className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
+            <Link href={ROUTES.leaderboard} className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
               <Trophy className="h-4 w-4" /> Ranking
             </Link>
-            <Link href="/notas" className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
+            <Link href={ROUTES.notes} className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
               <NotebookPen className="h-4 w-4" /> Notas
             </Link>
-            <Link href={`/perfil/${profile?.username || "me"}`} className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
+            <Link href={ROUTES.profile(profile?.username)} className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
               <User className="h-4 w-4" /> Perfil
             </Link>
           </nav>
@@ -122,7 +123,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-level-purple px-3 py-1.5 text-white">
               <Zap className="h-4 w-4 text-yellow-300" />
-              <span className="text-xs font-bold">{totalXp.toLocaleString("pt-BR")} XP</span>
+              <span className="text-xs font-bold">{formatXp(totalXp)}</span>
             </div>
             <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-linear-to-r from-orange-500 to-red-500 px-3 py-1.5 text-white">
               <Flame className="h-4 w-4 text-yellow-300" />
@@ -139,19 +140,19 @@ export default function DashboardPage() {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => router.push(`/perfil/${profile?.username || "me"}`)}>
+                <DropdownMenuItem onClick={() => router.push(ROUTES.profile(profile?.username))}>
                   <User className="mr-2 h-4 w-4" /> Meu Perfil
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push("/settings")}>
+                <DropdownMenuItem onClick={() => router.push(ROUTES.settings)}>
                   <Settings className="mr-2 h-4 w-4" /> Configurações
                 </DropdownMenuItem>
                 {profile?.role === "teacher" || profile?.role === "admin" ? (
-                  <DropdownMenuItem onClick={() => router.push("/teacher")}>
+                  <DropdownMenuItem onClick={() => router.push(ROUTES.teacher)}>
                     <BookOpen className="mr-2 h-4 w-4" /> Painel Professor
                   </DropdownMenuItem>
                 ) : null}
                 {profile?.role === "admin" ? (
-                  <DropdownMenuItem onClick={() => router.push("/admin")}>
+                  <DropdownMenuItem onClick={() => router.push(ROUTES.admin)}>
                     <Shield className="mr-2 h-4 w-4" /> Painel Admin
                   </DropdownMenuItem>
                 ) : null}
@@ -185,7 +186,7 @@ export default function DashboardPage() {
                 {authLoading ? "Carregando..." : `Olá, ${firstName}!`}
               </h1>
               <p className="mt-1 text-sm text-purple-200">
-                {xpInLevel.toLocaleString("pt-BR")} / {(xpCeil - xpForLevel(level - 1)).toLocaleString("pt-BR")} XP para o Nível {level + 1}
+                {formatNumber(xpInLevel)} / {formatXp(xpLevelRange)} para o Nível {level + 1}
               </p>
               <div className="mt-4 h-3 max-w-md overflow-hidden rounded-full bg-white/20">
                 <motion.div
@@ -251,7 +252,7 @@ export default function DashboardPage() {
                   Os cursos aparecerão aqui quando forem publicados.
                 </p>
                 <Link
-                  href="/cursos"
+                  href={ROUTES.courses}
                   className="mt-4 inline-flex items-center gap-2 rounded-xl bg-level-purple px-5 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors"
                 >
                   <BookOpen className="h-4 w-4" /> Explorar cursos
@@ -281,19 +282,19 @@ export default function DashboardPage() {
       {/* Mobile nav */}
       <nav aria-label="Navegação principal" className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-white lg:hidden">
         <div className="flex items-center justify-around py-2">
-          <Link href="/dashboard" className="flex flex-col items-center gap-1 px-3 py-2 text-level-purple">
+          <Link href={ROUTES.dashboard} className="flex flex-col items-center gap-1 px-3 py-2 text-level-purple">
             <BookOpen className="h-5 w-5" /><span className="text-xs font-medium">Aprender</span>
           </Link>
-          <Link href="/cursos" className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground">
+          <Link href={ROUTES.courses} className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground">
             <GraduationCap className="h-5 w-5" /><span className="text-xs">Cursos</span>
           </Link>
-          <Link href="/leaderboard" className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground">
+          <Link href={ROUTES.leaderboard} className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground">
             <Trophy className="h-5 w-5" /><span className="text-xs">Ranking</span>
           </Link>
-          <Link href="/notas" className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground">
+          <Link href={ROUTES.notes} className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground">
             <NotebookPen className="h-5 w-5" /><span className="text-xs">Notas</span>
           </Link>
-          <Link href={`/perfil/${profile?.username || "me"}`} className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground">
+          <Link href={ROUTES.profile(profile?.username)} className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground">
             <User className="h-5 w-5" /><span className="text-xs">Perfil</span>
           </Link>
         </div>

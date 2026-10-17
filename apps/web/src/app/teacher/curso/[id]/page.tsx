@@ -8,14 +8,15 @@ import {
   Trash2, Upload, X, type LucideIcon,
 } from "lucide-react"
 import type { CourseInput, Lesson } from "@levelusp/contracts"
-import { createCourse, errorMessage, fetchCourseByIdRaw, toggleCoursePublished, updateCourse, uploadImage } from "@/lib/api"
+import { createCourse, getErrorMessage, fetchCourse, setCoursePublished, updateCourse, uploadImage } from "@/lib/api"
 import { TeacherSuccessModal } from "@/components/gamification/teacher-success-modal"
 import { swalConfirm, swalError, swalToast, swalWarning } from "@/lib/swal"
-import { CoursePreview, LEVEL_COLOR } from "@/components/teacher/course-editor/course-preview"
+import { CoursePreview } from "@/components/teacher/course-editor/course-preview"
 import { CourseLessonsSection } from "@/components/teacher/course-editor/course-lessons-section"
 import {
   EMPTY_COURSE_FORM, diffCourseInput, formFromCourse, toCourseInput, validateCourseForm, type CourseFormState,
 } from "@/components/teacher/course-editor/course-form"
+import { DIFFICULTY_BADGE_CLASSES, ROUTES } from "@/lib/constants"
 
 const LEVEL_OPTIONS = [
   { value: "iniciante", label: "Iniciante" },
@@ -79,7 +80,7 @@ export default function TeacherCourseEditPage() {
     if (isNew || params.id === createdId.current) return
     let cancelled = false
     setLoading(true)
-    fetchCourseByIdRaw(params.id)
+    fetchCourse(params.id)
       .then((course) => {
         if (cancelled) return
         if (!course) {
@@ -92,7 +93,7 @@ export default function TeacherCourseEditPage() {
         setPublished(course.published)
         baseline.current = toCourseInput(f)
       })
-      .catch((err) => !cancelled && setError(errorMessage(err, "Não foi possível carregar o curso.")))
+      .catch((err) => !cancelled && setError(getErrorMessage(err, "Não foi possível carregar o curso.")))
       .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true
@@ -108,7 +109,7 @@ export default function TeacherCourseEditPage() {
       setCourseId(created.id)
       setPublished(created.published)
       baseline.current = input
-      window.history.replaceState(null, "", `/teacher/curso/${created.id}`)
+      window.history.replaceState(null, "", ROUTES.teacherCourse(created.id))
       return created.id
     }
     const changes = baseline.current ? diffCourseInput(baseline.current, input) : input
@@ -146,7 +147,7 @@ export default function TeacherCourseEditPage() {
             text: "Adicione ao menos uma lição antes de publicar o curso.",
           })
         } else {
-          const updated = await toggleCoursePublished(id, publish)
+          const updated = await setCoursePublished(id, publish)
           setPublished(updated.published)
         }
       }
@@ -155,7 +156,7 @@ export default function TeacherCourseEditPage() {
       if (wasNew || publish === true) setShowSuccess(true)
       else swalToast({ title: publish === false ? "Curso despublicado." : "Alterações salvas.", icon: "success" })
     } catch (err) {
-      const message = errorMessage(err)
+      const message = getErrorMessage(err)
       setError(message)
       await swalError({ title: "Erro ao salvar", text: message })
     } finally {
@@ -189,7 +190,7 @@ export default function TeacherCourseEditPage() {
       setCoverPreview(url)
     } catch (err) {
       setCoverPreview(previous)
-      setError(`Erro no envio da capa: ${errorMessage(err)}`)
+      setError(`Erro no envio da capa: ${getErrorMessage(err)}`)
     } finally {
       setUploading(false)
     }
@@ -206,7 +207,7 @@ export default function TeacherCourseEditPage() {
     } catch (err) {
       patch({ cover_image_url: previous.url })
       setCoverPreview(previous.preview)
-      setError(`Erro ao remover a capa: ${errorMessage(err)}`)
+      setError(`Erro ao remover a capa: ${getErrorMessage(err)}`)
     }
   }
 
@@ -229,7 +230,7 @@ export default function TeacherCourseEditPage() {
       <div className="flex h-screen flex-col items-center justify-center gap-4 px-6 text-center">
         <AlertCircle className="h-10 w-10 text-destructive/60" />
         <p className="text-sm font-semibold text-level-purple-dark">Curso não encontrado.</p>
-        <Link href="/teacher" className="rounded-xl bg-level-purple px-5 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark">
+        <Link href={ROUTES.teacher} className="rounded-xl bg-level-purple px-5 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark">
           Voltar ao painel
         </Link>
       </div>
@@ -245,13 +246,13 @@ export default function TeacherCourseEditPage() {
         type="course"
         title={form.title}
         onClose={() => setShowSuccess(false)}
-        onView={courseId ? () => router.push(`/cursos/${courseId}`) : undefined}
+        onView={courseId ? () => router.push(ROUTES.course(courseId)) : undefined}
       />
 
       <header className="sticky top-0 z-50 border-b border-border bg-white/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-[1400px] items-center justify-between gap-2 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-2 sm:gap-4">
-            <Link href="/teacher" aria-label="Voltar ao painel do professor" className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-level-purple">
+            <Link href={ROUTES.teacher} aria-label="Voltar ao painel do professor" className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-level-purple">
               <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Painel</span>
             </Link>
             <div className="hidden h-5 w-px bg-border sm:block" />
@@ -279,7 +280,7 @@ export default function TeacherCourseEditPage() {
             )}
             {courseId && (
               <Link
-                href={`/cursos/${courseId}`}
+                href={ROUTES.course(courseId)}
                 target="_blank"
                 className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-level-purple hover:text-level-purple"
               >
@@ -382,7 +383,7 @@ export default function TeacherCourseEditPage() {
                               : "border-border hover:border-level-purple hover:bg-level-purple-subtle"
                           }`}
                         >
-                          <span className={`h-2 w-2 shrink-0 rounded-full ${LEVEL_COLOR[opt.value]!.split(" ")[0]}`} />
+                          <span className={`h-2 w-2 shrink-0 rounded-full ${DIFFICULTY_BADGE_CLASSES[opt.value].split(" ")[0]}`} />
                           {opt.label}
                         </button>
                       ))}

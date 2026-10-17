@@ -1,42 +1,52 @@
 import AxeBuilder from "@axe-core/playwright"
 import { expect, type Page } from "@playwright/test"
-import { ADMIN, STUDENT, TEACHER } from "../helpers"
+import type { Course, LessonSummary } from "@levelusp/contracts"
+import { ADMIN, STUDENT, TEACHER, apiPost, type Credentials } from "../helpers"
 
-export type Perfil = "visitante" | "aluna" | "professora" | "admin"
+/** Perfis percorridos pelos testes de UX; o valor aparece no título de cada teste. */
+export type Persona = "visitante" | "aluna" | "professora" | "admin"
 
-const USERS = { aluna: STUDENT, professora: TEACHER, admin: ADMIN } as const
-
-/** Login direto pela API (mais rápido que a tela; o cookie fica no contexto da página). */
-export async function entrarComo(page: Page, perfil: Perfil) {
-  if (perfil === "visitante") return
-  const res = await page.request.post("/api/auth/sign-in", {
-    data: USERS[perfil],
-    headers: { "x-levelusp-csrf": "1" },
-  })
-  expect(res.ok(), `login de ${perfil}`).toBeTruthy()
+const CREDENTIALS: Record<Exclude<Persona, "visitante">, Credentials> = {
+  aluna: STUDENT,
+  professora: TEACHER,
+  admin: ADMIN,
 }
 
-export async function idDoCurso(page: Page): Promise<string> {
-  const cursos = await (await page.request.get("/api/courses")).json()
-  return cursos[0].id
+const DEFAULT_LESSON_SLUG = "python-completo-02"
+
+/** Pausa para as animações de entrada terminarem antes de medir a tela. */
+const SETTLE_DELAY_MS = 600
+
+/** Login direto pela API (mais rápido que a tela); o cookie fica no contexto da página. */
+export async function signInAs(page: Page, persona: Persona) {
+  if (persona === "visitante") return
+  const response = await apiPost(page, "/auth/sign-in", CREDENTIALS[persona])
+  expect(response.ok(), `login de ${persona}`).toBeTruthy()
 }
 
-export async function idDaLicao(page: Page, slug = "python-completo-02"): Promise<string> {
-  const licoes = await (await page.request.get("/api/lessons/summaries")).json()
-  return licoes.find((l: { slug: string }) => l.slug === slug).id
+export async function fetchFirstCourseId(page: Page): Promise<string> {
+  const courses: Course[] = await (await page.request.get("/api/courses")).json()
+  return courses[0].id
+}
+
+export async function fetchLessonId(page: Page, slug = DEFAULT_LESSON_SLUG): Promise<string> {
+  const lessons: LessonSummary[] = await (await page.request.get("/api/lessons/summaries")).json()
+  const lesson = lessons.find((summary) => summary.slug === slug)
+  expect(lesson, `lição ${slug} do seed de homologação`).toBeTruthy()
+  return lesson?.id ?? ""
 }
 
 /** Espera a tela "assentar" (dados carregados, animações de entrada concluídas). */
-export async function aguardarTela(page: Page) {
+export async function waitForPageToSettle(page: Page) {
   await page.waitForLoadState("networkidle").catch(() => {})
-  await page.waitForTimeout(600)
+  await page.waitForTimeout(SETTLE_DELAY_MS)
 }
 
 /**
  * Regras do axe que DEVEM estar zeradas em todas as telas principais.
- * (Contraste é verificado à parte, só nas telas já corrigidas — ver a11y.spec.ts.)
+ * (Contraste é verificado à parte, só nas telas já corrigidas; ver a11y.spec.ts.)
  */
-export const REGRAS_ESTRUTURAIS = [
+export const STRUCTURAL_AXE_RULES = [
   "button-name",
   "link-name",
   "label",
@@ -60,15 +70,19 @@ export const REGRAS_ESTRUTURAIS = [
   "target-size",
 ]
 
-export async function violacoes(page: Page, regras: string[]) {
-  let builder = new AxeBuilder({ page }).withRules(regras)
-  // Números/ornamentos marcados aria-hidden são decoração (WCAG 1.4.3 isenta texto decorativo).
-  if (regras.includes("color-contrast")) builder = builder.exclude('[aria-hidden="true"]')
-  const r = await builder.analyze()
-  return r.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3).join(" | ")}`)
+/** Violações do axe nas regras pedidas, uma linha por regra com até 3 elementos culpados. */
+export async function findAxeViolations(page: Page, rules: string[]): Promise<string[]> {
+  let builder = new AxeBuilder({ page }).withRules(rules)
+  // Números e ornamentos marcados aria-hidden são decoração (a WCAG 1.4.3 isenta texto decorativo).
+  if (rules.includes("color-contrast")) builder = builder.exclude('[aria-hidden="true"]')
+  const results = await builder.analyze()
+  return results.violations.map((violation) => {
+    const targets = violation.nodes.map((node) => node.target.join(" ")).slice(0, 3)
+    return `${violation.id}: ${targets.join(" | ")}`
+  })
 }
 
-/** Largura do documento > viewport = rolagem horizontal indesejada. */
-export async function larguraExcedente(page: Page): Promise<number> {
+/** Largura do documento além da viewport: rolagem horizontal indesejada. */
+export async function measureHorizontalOverflow(page: Page): Promise<number> {
   return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
 }

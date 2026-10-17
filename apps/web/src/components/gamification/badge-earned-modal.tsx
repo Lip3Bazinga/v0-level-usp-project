@@ -4,7 +4,8 @@ import { useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import confetti from "canvas-confetti"
 import { Shield, Star, Sparkles } from "lucide-react"
-import { BADGE_ICONS } from "@/lib/badge-icons"
+import { isBadgeIconName } from "@/lib/badge-icons"
+import { BadgeIcon } from "@/components/design-system/badge-icon"
 import { useModalA11y } from "@/hooks/use-modal-a11y"
 
 interface BadgeEarnedModalProps {
@@ -14,6 +15,12 @@ interface BadgeEarnedModalProps {
   badgeIcon?: string
   onClose: () => void
 }
+
+/**
+ * O seed e o admin gravam o NOME do ícone lucide (ex.: "Rocket"); badges antigas guardam um
+ * emoji, que segue como texto. Um nome desconhecido não deve aparecer escrito no lugar do ícone.
+ */
+const ICON_NAME_PATTERN = /^[A-Za-z0-9_-]+$/
 
 function fireBadgeConfetti() {
   const colors = ["#7C3AED", "#A78BFA", "#C4B5FD", "#FACC15", "#FFFFFF"]
@@ -42,8 +49,6 @@ export function BadgeEarnedModal({ show, badgeName, badgeDescription, badgeIcon,
 
   const handleClose = useCallback(() => onClose(), [onClose])
   const dialogRef = useModalA11y<HTMLDivElement>(show, handleClose)
-  // O seed/admin grava o NOME do ícone lucide (ex.: "Rocket"); emojis antigos seguem como texto.
-  const LucideIcon = badgeIcon ? BADGE_ICONS[badgeIcon] : undefined
 
   return (
     <AnimatePresence>
@@ -116,9 +121,9 @@ export function BadgeEarnedModal({ show, badgeName, badgeDescription, badgeIcon,
               className="relative -mt-10 flex justify-center"
             >
               <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-xl ring-4 ring-level-purple">
-                {LucideIcon ? (
-                  <LucideIcon className="h-10 w-10 text-level-purple" aria-hidden="true" />
-                ) : badgeIcon && !/^[A-Za-z0-9_-]+$/.test(badgeIcon) ? (
+                {badgeIcon && isBadgeIconName(badgeIcon) ? (
+                  <BadgeIcon name={badgeIcon} className="h-10 w-10 text-level-purple" />
+                ) : badgeIcon && !ICON_NAME_PATTERN.test(badgeIcon) ? (
                   <span className="text-4xl" aria-hidden="true">{badgeIcon}</span>
                 ) : (
                   <Shield className="h-10 w-10 text-level-purple" />

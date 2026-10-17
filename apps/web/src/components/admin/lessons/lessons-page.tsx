@@ -3,15 +3,16 @@
 import { useState, useMemo } from "react"
 import Link from "next/link"
 import {
-  Search, Plus, Eye, Edit3, Trash2, Globe, EyeOff,
-  BookOpen, Zap, Clock, Loader2, FileText, List, Grid3X3, Columns, Copy,
+  Search, Plus, Edit3, Trash2, Globe, EyeOff, BookOpen, Zap, Clock, Loader2, FileText, List, Grid3X3,
+  Columns, Copy,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DiffBadge, PubBadge } from "@/components/ui/badges"
 import { IconBtn } from "@/components/ui/icon-btn"
 import type { Lesson, LessonInput } from "@levelusp/contracts"
-import { createLesson, deleteLesson, errorMessage, fetchLessonForAuthoring, toggleLessonPublished } from "@/lib/api"
-import type { OnToast } from "@/lib/types/ui"
+import { createLesson, deleteLesson, getErrorMessage, fetchLessonForAuthoring, setLessonPublished } from "@/lib/api"
+import type { OnToast } from "@/lib/types"
+import { ROUTES } from "@/lib/constants"
 
 interface LessonsPageProps {
   lessons: Lesson[]
@@ -48,12 +49,12 @@ export function LessonsPageEnhanced({ lessons, setLessons, onToast }: LessonsPag
   const handleToggle = async (l: Lesson) => {
     setTogglingId(l.id)
     try {
-      const updated = await toggleLessonPublished(l.id, !l.published)
+      const updated = await setLessonPublished(l.id, !l.published)
       setLessons((prev) => prev.map((x) => (x.id === l.id ? { ...x, published: updated.published } : x)))
       onToast(l.published ? "Lição despublicada" : "Lição publicada", "success")
     } catch (err) {
       // Ex.: lição de código sem casos de teste não pode ser publicada.
-      onToast(errorMessage(err, "Erro ao alterar status da lição"), "danger")
+      onToast(getErrorMessage(err, "Erro ao alterar status da lição"), "danger")
     } finally {
       setTogglingId(null)
     }
@@ -69,7 +70,7 @@ export function LessonsPageEnhanced({ lessons, setLessons, onToast }: LessonsPag
       setLessons((prev) => prev.filter((x) => x.id !== target.id))
       onToast("Lição excluída", "success")
     } catch (err) {
-      onToast(errorMessage(err, "Erro ao excluir lição"), "danger")
+      onToast(getErrorMessage(err, "Erro ao excluir lição"), "danger")
     } finally {
       setDeletingId(null)
     }
@@ -109,7 +110,7 @@ export function LessonsPageEnhanced({ lessons, setLessons, onToast }: LessonsPag
         "success",
       )
     } catch (err) {
-      onToast(errorMessage(err, "Erro ao duplicar lição"), "danger")
+      onToast(getErrorMessage(err, "Erro ao duplicar lição"), "danger")
     } finally {
       setDuplicatingId(null)
     }
@@ -141,7 +142,7 @@ export function LessonsPageEnhanced({ lessons, setLessons, onToast }: LessonsPag
               </button>
             ))}
           </div>
-          <Link href="/teacher/edit/new">
+          <Link href={ROUTES.teacherNewLesson}>
             <button className="btn-3d flex items-center gap-2 rounded-xl bg-level-purple px-4 py-2 text-sm font-bold text-white">
               <Plus className="h-4 w-4" /> Nova Lição
             </button>
@@ -233,7 +234,7 @@ export function LessonsPageEnhanced({ lessons, setLessons, onToast }: LessonsPag
                       <IconBtn title={l.published ? "Despublicar" : "Publicar"} size="sm" tone={l.published ? "success" : "neutral"} onClick={() => handleToggle(l)}>
                         {togglingId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : l.published ? <Globe className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
                       </IconBtn>
-                      <Link href={`/teacher/edit/${l.id}`}>
+                      <Link href={ROUTES.teacherLesson(l.id)}>
                         <IconBtn title="Editar" size="sm"><Edit3 className="h-3.5 w-3.5" /></IconBtn>
                       </Link>
                       <IconBtn title="Duplicar" size="sm" onClick={() => duplicate(l)}>
@@ -286,7 +287,7 @@ export function LessonsPageEnhanced({ lessons, setLessons, onToast }: LessonsPag
                   <IconBtn title={l.published ? "Despublicar" : "Publicar"} size="sm" onClick={() => handleToggle(l)}>
                     {togglingId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : l.published ? <Globe className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
                   </IconBtn>
-                  <Link href={`/teacher/edit/${l.id}`}>
+                  <Link href={ROUTES.teacherLesson(l.id)}>
                     <IconBtn title="Editar" size="sm"><Edit3 className="h-3.5 w-3.5" /></IconBtn>
                   </Link>
                   <IconBtn title="Excluir" size="sm" tone="danger" onClick={() => setToDelete(l)}>

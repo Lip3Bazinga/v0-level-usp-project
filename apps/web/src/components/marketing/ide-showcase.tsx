@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { Reveal, motion } from "./motion-primitives"
 import { FileCode, Code2, Terminal, CheckCircle2, Zap, Trophy } from "lucide-react"
+import { ROUTES } from "@/lib/constants"
 
 const CODE_LINES = [
   { n: 1, content: <><span className="text-[#C586C0]">def</span> <span className="text-[#DCDCAA]">calcular_media</span><span className="text-gray-300">(notas):</span></> },
@@ -150,10 +151,10 @@ export function IdeShowcase() {
         </Reveal>
 
         <div className="mt-16 text-center">
-          <Link href="/signup" className="inline-flex items-center gap-2 rounded-2xl bg-[#7C3AED] px-8 py-4 text-lg font-bold text-white btn-3d">
-              <Terminal className="h-5 w-5" />
-              Experimentar a IDE
-            </Link>
+          <Link href={ROUTES.signup} className="inline-flex items-center gap-2 rounded-2xl bg-[#7C3AED] px-8 py-4 text-lg font-bold text-white btn-3d">
+            <Terminal className="h-5 w-5" />
+            Experimentar a IDE
+          </Link>
         </div>
       </div>
     </section>

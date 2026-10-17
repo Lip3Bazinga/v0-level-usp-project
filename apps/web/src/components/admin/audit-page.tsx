@@ -3,9 +3,8 @@
 import { useState, useEffect } from "react"
 import { Search, Download, Activity, AlertTriangle, X, History, Loader2 } from "lucide-react"
 import type { AuditLog } from "@levelusp/contracts"
-import { errorMessage, exportToCsv, fetchAuditLog } from "@/lib/api"
-import { timeAgo } from "@/lib/utils"
-import { cn } from "@/lib/utils"
+import { fetchAuditLog, getErrorMessage } from "@/lib/api"
+import { cn, downloadCsv, formatDateTime, formatTimeAgo } from "@/lib/utils"
 
 
 const TONE_CLASSES: Record<string, string> = {
@@ -29,7 +28,7 @@ export function AuditPage() {
   useEffect(() => {
     fetchAuditLog(200)
       .then(setLogs)
-      .catch((err) => setLoadError(errorMessage(err, "Não foi possível carregar o log de auditoria.")))
+      .catch((err) => setLoadError(getErrorMessage(err, "Não foi possível carregar o log de auditoria.")))
       .finally(() => setLoadingData(false))
   }, [])
 
@@ -60,7 +59,7 @@ export function AuditPage() {
             />
           </div>
           <button
-            onClick={() => exportToCsv(
+            onClick={() => downloadCsv(
               filtered.map((a) => ({
                 data: a.created_at,
                 ator: a.actor_name,
@@ -100,8 +99,8 @@ export function AuditPage() {
                     <b className="text-level-purple-dark">{a.actor_name}</b> {a.action}{" "}
                     <b>{a.target}</b>
                   </p>
-                  <p className="font-mono text-[11px] text-muted-foreground" title={new Date(a.created_at).toLocaleString("pt-BR")}>
-                    {timeAgo(a.created_at)}
+                  <p className="font-mono text-[11px] text-muted-foreground" title={formatDateTime(a.created_at)}>
+                    {formatTimeAgo(a.created_at)}
                   </p>
                 </div>
               </div>

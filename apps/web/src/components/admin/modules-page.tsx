@@ -6,8 +6,9 @@ import { Layers, Edit3, Eye, Plus, Trash2, X, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { PubBadge } from "@/components/ui/badges"
 import type { Lesson, Module, ModuleInput } from "@levelusp/contracts"
-import { createModule, deleteModule, errorMessage, fetchModules, updateModule } from "@/lib/api"
-import type { OnToast } from "@/lib/types/ui"
+import { createModule, deleteModule, getErrorMessage, fetchModules, updateModule } from "@/lib/api"
+import type { OnToast } from "@/lib/types"
+import { ROUTES } from "@/lib/constants"
 
 type ModuleFormData = ModuleInput
 
@@ -39,7 +40,7 @@ export function ModulesPage({ lessons, onToast }: ModulesPageProps) {
   const load = async () => {
     setLoading(true)
     try { setModules(await fetchModules()) }
-    catch (err) { onToast(errorMessage(err, "Erro ao carregar módulos"), "danger") }
+    catch (err) { onToast(getErrorMessage(err, "Erro ao carregar módulos"), "danger") }
     finally { setLoading(false) }
   }
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -71,7 +72,7 @@ export function ModulesPage({ lessons, onToast }: ModulesPageProps) {
       setEditing(null)
       await load()
     } catch (e) {
-      onToast(errorMessage(e, "Erro ao salvar"), "danger")
+      onToast(getErrorMessage(e, "Erro ao salvar"), "danger")
     } finally {
       setSaving(false)
     }
@@ -85,7 +86,7 @@ export function ModulesPage({ lessons, onToast }: ModulesPageProps) {
       onToast("Módulo excluído", "danger")
       await load()
     } catch (e) {
-      onToast(errorMessage(e, "Erro ao excluir"), "danger")
+      onToast(getErrorMessage(e, "Erro ao excluir"), "danger")
     } finally {
       setDeletingId(null)
     }
@@ -153,7 +154,7 @@ export function ModulesPage({ lessons, onToast }: ModulesPageProps) {
                     <Edit3 className="h-3 w-3" /> Editar
                   </button>
                   <Link
-                    href={`/dashboard?modulo=${encodeURIComponent(mod.title)}`}
+                    href={ROUTES.dashboardModule(mod.title)}
                     className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-level-purple-subtle px-3 py-1.5 text-xs font-bold text-level-purple hover:bg-level-purple-light"
                   >
                     <Eye className="h-3 w-3" /> Pré-visualizar

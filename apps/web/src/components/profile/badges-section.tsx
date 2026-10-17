@@ -1,6 +1,6 @@
 "use client"
 
-import { cn } from "@/lib/utils"
+import { cn, formatDate } from "@/lib/utils"
 import {
   Tooltip,
   TooltipContent,
@@ -127,7 +127,7 @@ export function BadgesSection({ badges, className }: BadgesSectionProps) {
                       <p className="text-sm opacity-90">{badge.description}</p>
                       {badge.earnedAt && (
                         <p className="text-xs opacity-70">
-                          Conquistado em {badge.earnedAt.toLocaleDateString("pt-BR")}
+                          Conquistado em {formatDate(badge.earnedAt)}
                         </p>
                       )}
                     </div>

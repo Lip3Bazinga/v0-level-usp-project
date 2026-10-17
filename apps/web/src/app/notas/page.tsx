@@ -10,14 +10,9 @@ import {
   ArrowLeft, Plus, Trash2, BookOpen, GraduationCap,
   NotebookPen, Search, Loader2, FileText, Clock,
 } from "lucide-react"
-import { formatDate, snippet } from "@/lib/utils"
-import dynamic from "next/dynamic"
-
-// TipTap (~130 KB gzip) só quando há nota aberta; evita pesar no prefetch de /notas a partir do painel.
-const RichTextEditor = dynamic(
-  () => import("@/components/editor/rich-text-editor").then((m) => m.RichTextEditor),
-  { ssr: false, loading: () => <div className="h-[280px] animate-pulse rounded-xl bg-muted/60" /> },
-)
+import { formatRelativeDay, truncatePlainText } from "@/lib/utils"
+import { ROUTES } from "@/lib/constants"
+import { LazyRichTextEditor } from "@/components/editor/lazy-rich-text-editor"
 
 
 
@@ -31,10 +26,10 @@ export default function NotasPage() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(false)
   // Campos alterados desde o último salvamento (título E conteúdo — o debounce não pode perder um deles).
-  const pending = useRef<{ id: string; patch: { title?: string; content?: string } } | null>(null)
+  const pendingSaveRef = useRef<{ id: string; patch: { title?: string; content?: string } } | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
-  // Falha da API ≠ caderno vazio: antes dizia "Nenhuma anotação ainda" (parecia que as notas sumiram).
-  const [loadError, setLoadError] = useState(false)
+  // Falha da API ≠ caderno vazio: "Nenhuma anotação ainda" faria parecer que as notas sumiram.
+  const [hasLoadError, setHasLoadError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -42,14 +37,14 @@ export default function NotasPage() {
 
   useEffect(() => {
     if (authLoading) return
-    if (!profile) { router.push("/login?next=/notas"); return }
+    if (!profile) { router.push(ROUTES.loginWithNext(ROUTES.notes)); return }
     fetchNotes()
       .then((data) => {
-        setLoadError(false)
+        setHasLoadError(false)
         setNotes(data)
         if (data.length > 0) setActiveId(data[0].id)
       })
-      .catch(() => setLoadError(true))
+      .catch(() => setHasLoadError(true))
       .finally(() => setLoading(false))
   }, [profile, authLoading, router, reloadKey])
 
@@ -88,15 +83,15 @@ export default function NotasPage() {
       )
       // Autosave com debounce de 800ms
       if (saveTimer.current) clearTimeout(saveTimer.current)
-      const prevPatch = pending.current?.id === activeId ? pending.current.patch : {}
-      pending.current = { id: activeId, patch: { ...prevPatch, [field]: value } }
+      const previousPatch = pendingSaveRef.current?.id === activeId ? pendingSaveRef.current.patch : {}
+      pendingSaveRef.current = { id: activeId, patch: { ...previousPatch, [field]: value } }
       setSaving(true)
       saveTimer.current = setTimeout(async () => {
-        const job = pending.current
-        pending.current = null
-        if (!job) return
+        const pendingSave = pendingSaveRef.current
+        pendingSaveRef.current = null
+        if (!pendingSave) return
         try {
-          await updateNote(job.id, job.patch)
+          await updateNote(pendingSave.id, pendingSave.patch)
           setSaveError(false)
         } catch {
           setSaveError(true)
@@ -133,7 +128,7 @@ export default function NotasPage() {
       <header className="shrink-0 border-b border-border bg-white/90 backdrop-blur-sm">
         <div className="flex h-14 items-center gap-2 px-4 sm:gap-4">
           <Link
-            href="/dashboard"
+            href={ROUTES.dashboard}
             className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-level-purple-light hover:text-level-purple transition-colors"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
@@ -179,12 +174,15 @@ export default function NotasPage() {
 
           {/* Lista */}
           <div className="flex-1 overflow-y-auto">
-            {loadError ? (
+            {hasLoadError ? (
               <div role="alert" className="px-4 py-10 text-center">
                 <p className="text-sm font-semibold text-red-800">Não foi possível carregar suas anotações.</p>
                 <button
                   type="button"
-                  onClick={() => { setLoading(true); setReloadKey((k) => k + 1) }}
+                  onClick={() => {
+                    setLoading(true)
+                    setReloadKey((key) => key + 1)
+                  }}
                   className="mt-3 rounded-lg bg-level-purple px-4 py-2 text-xs font-semibold text-white hover:bg-level-purple-dark"
                 >
                   Tentar novamente
@@ -205,7 +203,12 @@ export default function NotasPage() {
                   tabIndex={0}
                   aria-current={activeId === note.id ? "true" : undefined}
                   onClick={() => setActiveId(note.id)}
-                  onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setActiveId(note.id) } }}
+                  onKeyDown={(event) => {
+                    const isActivationKey = event.key === "Enter" || event.key === " "
+                    if (event.target !== event.currentTarget || !isActivationKey) return
+                    event.preventDefault()
+                    setActiveId(note.id)
+                  }}
                   className={`w-full cursor-pointer border-b border-border px-3 py-3 text-left transition-colors hover:bg-level-purple-light/40 ${
                     activeId === note.id ? "bg-level-purple-light/60" : ""
                   }`}
@@ -227,7 +230,7 @@ export default function NotasPage() {
                     </button>
                   </div>
                   <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">
-                    {snippet(note.content) || "Sem conteúdo"}
+                    {truncatePlainText(note.content) || "Sem conteúdo"}
                   </p>
                   <div className="mt-1.5 flex items-center gap-2 flex-wrap">
                     {note.lesson_title && (
@@ -244,7 +247,7 @@ export default function NotasPage() {
                     )}
                     <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground ml-auto">
                       <Clock className="h-2.5 w-2.5" />
-                      {formatDate(note.updated_at)}
+                      {formatRelativeDay(note.updated_at)}
                     </span>
                   </div>
                 </div>
@@ -281,7 +284,7 @@ export default function NotasPage() {
                   )}
                   <span className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    Atualizado {formatDate(activeNote.updated_at)}
+                    Atualizado {formatRelativeDay(activeNote.updated_at)}
                   </span>
                 </div>
               </div>
@@ -289,7 +292,7 @@ export default function NotasPage() {
               {/* Conteúdo */}
               {/* Mesmo editor rico do caderno flutuante: o conteúdo é HTML. */}
               <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-                <RichTextEditor
+                <LazyRichTextEditor
                   key={activeNote.id}
                   value={activeNote.content}
                   onChange={(html) => handleChange("content", html)}

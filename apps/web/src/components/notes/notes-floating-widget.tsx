@@ -9,19 +9,15 @@ import { createPortal } from "react-dom"
 import { usePathname } from "next/navigation"
 import type { Note } from "@levelusp/contracts"
 import { fetchNotes, createNote, updateNote, deleteNote } from "@/lib/api"
-import dynamic from "next/dynamic"
+import { LazyRichTextEditor } from "@/components/editor/lazy-rich-text-editor"
 import { useAuth } from "@/contexts/auth-context"
 import { useModalA11y } from "@/hooks/use-modal-a11y"
-import { formatDate, snippet } from "@/lib/utils"
+import { formatRelativeDay, truncatePlainText } from "@/lib/utils"
+import { ROUTES } from "@/lib/constants"
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
-// O widget está no layout raiz: importar o TipTap estaticamente colocava ~130 KB (gzip)
-// de JS em TODAS as páginas, inclusive login e site público. Agora só carrega ao abrir uma nota.
-const RichTextEditor = dynamic(
-  () => import("@/components/editor/rich-text-editor").then((m) => m.RichTextEditor),
-  { ssr: false, loading: () => <div className="h-[280px] animate-pulse rounded-xl bg-muted/60" /> },
-)
+const IDE_ROUTE_PREFIXES = [ROUTES.lesson(""), ROUTES.ide]
 
 
 
@@ -55,7 +51,7 @@ function NoteEditor({
       onSaved({ id: note.id, title, content, updated_at })
       setSavedAt(Date.now())
     } catch {
-      setSaveError(true) // mostra o erro no botão; o usuário pode tentar de novo
+      setSaveError(true)
     } finally {
       setSaving(false)
     }
@@ -117,7 +113,7 @@ function NoteEditor({
 
       {/* Editor rico NÃO controlado — digitar não re-renderiza o React */}
       <div className="flex-1 overflow-y-auto p-4">
-        <RichTextEditor
+        <LazyRichTextEditor
           value={note.content}
           onChange={(html) => { contentRef.current = html }}
           placeholder="Escreva suas anotações aqui… (Ctrl+S para salvar)"
@@ -260,7 +256,11 @@ function NotesModal({ onClose }: { onClose: () => void }) {
                   tabIndex={0}
                   aria-current={activeId === note.id ? "true" : undefined}
                   onClick={() => setActiveId(note.id)}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setActiveId(note.id) } }}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return
+                    event.preventDefault()
+                    setActiveId(note.id)
+                  }}
                   className={`group w-full cursor-pointer border-b border-border/50 px-3 py-2.5 text-left transition-colors hover:bg-white/70 ${
                     activeId === note.id ? "bg-white shadow-sm" : ""
                   }`}
@@ -281,7 +281,7 @@ function NotesModal({ onClose }: { onClose: () => void }) {
                     </button>
                   </div>
                   <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground">
-                    {snippet(note.content, 72) || "Sem conteúdo"}
+                    {truncatePlainText(note.content, 72) || "Sem conteúdo"}
                   </p>
                   <div className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
                     {note.lesson_title && (
@@ -291,7 +291,7 @@ function NotesModal({ onClose }: { onClose: () => void }) {
                       </span>
                     )}
                     <Clock className="ml-auto h-2.5 w-2.5" />
-                    {formatDate(note.updated_at)}
+                    {formatRelativeDay(note.updated_at)}
                   </div>
                 </div>
               ))
@@ -345,11 +345,11 @@ export function NotesFloatingWidget() {
 
   if (!profile || !mounted) return null
   // Na própria página de notas o botão é redundante.
-  if (pathname.startsWith("/notas")) return null
+  if (pathname.startsWith(ROUTES.notes)) return null
   // Na IDE o rodapé (Voltar/Próximo) e as abas móveis ficam no canto inferior:
   // no celular o botão some (as notas continuam em /notas) e no desktop sobe acima do rodapé.
-  const inIde = pathname.startsWith("/lesson") || pathname.startsWith("/ide")
-  const position = inIde
+  const isInIde = IDE_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+  const position = isInIde
     ? "hidden md:flex bottom-16 right-4"
     : "flex bottom-20 right-4 lg:bottom-6"
 

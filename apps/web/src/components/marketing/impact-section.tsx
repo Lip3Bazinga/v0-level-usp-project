@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useInView } from "framer-motion"
 import { Reveal } from "./motion-primitives"
 import { Users, BookOpen, MapPin, Award } from "lucide-react"
+import { formatNumber } from "@/lib/utils"
 
 const STATS = [
   { icon: Users, target: 50000, suffix: "+", label: "Estudantes alcançados" },
@@ -38,7 +39,7 @@ function StatItem({ icon: Icon, target, suffix, label, run }: (typeof STATS)[num
         <Icon className="h-7 w-7 text-white" />
       </div>
       <div className="text-4xl font-bold text-white sm:text-5xl">
-        {value.toLocaleString("pt-BR")}
+        {formatNumber(value)}
         {suffix}
       </div>
       <div className="mt-1 text-purple-50">{label}</div>

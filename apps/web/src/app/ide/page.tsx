@@ -8,8 +8,9 @@
 import { useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense } from "react"
-import { ApiError, fetchPublishedLessonSummaries, fetchCompletedLessonIds } from "@/lib/api"
+import { ApiError, fetchPublishedLessonSummaries, fetchMyCompletedLessonIds } from "@/lib/api"
 import { Loader2 } from "lucide-react"
+import { ROUTES } from "@/lib/constants"
 
 function IdeRedirect() {
   const router = useRouter()
@@ -23,27 +24,27 @@ function IdeRedirect() {
         const lessons = await fetchPublishedLessonSummaries()
         if (cancelled) return
         if (!lessons.length) {
-          router.replace("/dashboard")
+          router.replace(ROUTES.dashboard)
           return
         }
 
         const requested = searchParams.get("lesson")
         if (requested && lessons.some((l) => l.id === requested)) {
-          router.replace(`/lesson/${requested}`)
+          router.replace(ROUTES.lesson(requested))
           return
         }
 
         // Primeira lição ainda não concluída pelo usuário logado (sessão via cookie)
         let completedLessonIds = new Set<string>()
         try {
-          completedLessonIds = await fetchCompletedLessonIds()
+          completedLessonIds = await fetchMyCompletedLessonIds()
         } catch (err) {
           if (!(err instanceof ApiError && err.status === 401)) throw err
         }
         const nextLesson = lessons.find((lesson) => !completedLessonIds.has(lesson.id))
-        if (!cancelled) router.replace(`/lesson/${(nextLesson ?? lessons[0]).id}`)
+        if (!cancelled) router.replace(ROUTES.lesson((nextLesson ?? lessons[0]).id))
       } catch {
-        if (!cancelled) router.replace("/dashboard")
+        if (!cancelled) router.replace(ROUTES.dashboard)
       }
     }
 

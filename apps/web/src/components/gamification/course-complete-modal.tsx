@@ -3,7 +3,7 @@
 import { useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import confetti from "canvas-confetti"
-import { Trophy, Star, Award, Download, ExternalLink, Zap } from "lucide-react"
+import { Trophy, Star, Award, Download, Zap } from "lucide-react"
 import { useModalA11y } from "@/hooks/use-modal-a11y"
 
 interface CourseCompleteModalProps {
@@ -18,7 +18,9 @@ interface CourseCompleteModalProps {
 function fireCourseCompleteConfetti() {
   const colors = ["#FACC15", "#F59E0B", "#7C3AED", "#A78BFA", "#10B981", "#FFFFFF"]
 
-  confetti({ disableForReducedMotion: true,
+  confetti({
+
+    disableForReducedMotion: true,
     particleCount: 200,
     spread: 120,
     origin: { y: 0.5, x: 0.5 },

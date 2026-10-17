@@ -3,7 +3,7 @@
 import { useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import confetti from "canvas-confetti"
-import { BookOpen, Star, CheckCircle2, Zap } from "lucide-react"
+import { BookOpen, CheckCircle2, Zap } from "lucide-react"
 import { useModalA11y } from "@/hooks/use-modal-a11y"
 
 interface EnrollmentAnimationProps {
@@ -15,7 +15,8 @@ interface EnrollmentAnimationProps {
 
 function fireEnrollmentConfetti() {
   const colors = ["#7C3AED", "#A78BFA", "#10B981", "#34D399", "#FFFFFF"]
-  confetti({ disableForReducedMotion: true,
+  confetti({
+    disableForReducedMotion: true,
     particleCount: 100,
     spread: 80,
     origin: { y: 0.55, x: 0.5 },

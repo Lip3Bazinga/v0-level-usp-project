@@ -5,20 +5,9 @@ import Link from "next/link"
 import { Search, Eye, Edit3, Trash2, Globe, EyeOff, Star, BookOpen, Zap, Clock, Loader2, GraduationCap } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Course } from "@levelusp/contracts"
-import { deleteCourse, errorMessage, fetchTeacherCourses, toggleCoursePublished } from "@/lib/api"
-import type { OnToast } from "@/lib/types/ui"
-
-const LEVEL_LABEL: Record<string, string> = {
-  iniciante:     "Iniciante",
-  intermediario: "Intermediário",
-  avancado:      "Avançado",
-}
-
-const LEVEL_COLOR: Record<string, string> = {
-  iniciante:     "bg-green-100 text-green-700",
-  intermediario: "bg-yellow-100 text-yellow-700",
-  avancado:      "bg-red-100 text-red-700",
-}
+import { deleteCourse, getErrorMessage, fetchTeacherCourses, setCoursePublished } from "@/lib/api"
+import type { OnToast } from "@/lib/types"
+import { DIFFICULTY_BADGE_CLASSES, DIFFICULTY_LABELS, ROUTES } from "@/lib/constants"
 
 interface CoursesAdminPageProps {
   onToast: OnToast
@@ -37,7 +26,7 @@ export function CoursesAdminPage({ onToast }: CoursesAdminPageProps) {
     // Para admin, /teacher/courses devolve todos os cursos (com lesson_count).
     fetchTeacherCourses()
       .then((list) => setCourses([...list].sort((a, b) => b.created_at.localeCompare(a.created_at))))
-      .catch((err) => setLoadError(errorMessage(err, "Não foi possível carregar os cursos.")))
+      .catch((err) => setLoadError(getErrorMessage(err, "Não foi possível carregar os cursos.")))
       .finally(() => setLoading(false))
   }, [])
 
@@ -49,11 +38,11 @@ export function CoursesAdminPage({ onToast }: CoursesAdminPageProps) {
   const handleToggle = async (course: Course) => {
     setTogglingId(course.id)
     try {
-      const updated = await toggleCoursePublished(course.id, !course.published)
+      const updated = await setCoursePublished(course.id, !course.published)
       setCourses((prev) => prev.map((c) => c.id === course.id ? { ...c, published: updated.published } : c))
       onToast(course.published ? "Curso despublicado" : "Curso publicado", "success")
     } catch (err) {
-      onToast(errorMessage(err, "Erro ao alterar status"), "danger")
+      onToast(getErrorMessage(err, "Erro ao alterar status"), "danger")
     } finally {
       setTogglingId(null)
     }
@@ -67,7 +56,7 @@ export function CoursesAdminPage({ onToast }: CoursesAdminPageProps) {
       setCourses((prev) => prev.filter((c) => c.id !== course.id))
       onToast("Curso excluído", "success")
     } catch (err) {
-      onToast(errorMessage(err, "Erro ao excluir"), "danger")
+      onToast(getErrorMessage(err, "Erro ao excluir"), "danger")
     } finally {
       setDeletingId(null)
     }
@@ -123,8 +112,8 @@ export function CoursesAdminPage({ onToast }: CoursesAdminPageProps) {
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm font-semibold text-level-purple-dark truncate">{course.title}</p>
-                    <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", LEVEL_COLOR[course.level])}>
-                      {LEVEL_LABEL[course.level]}
+                    <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", DIFFICULTY_BADGE_CLASSES[course.level])}>
+                      {DIFFICULTY_LABELS[course.level]}
                     </span>
                     {course.published ? (
                       <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">Publicado</span>
@@ -163,13 +152,13 @@ export function CoursesAdminPage({ onToast }: CoursesAdminPageProps) {
                      course.published ? <Globe className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                   </button>
                   {course.published && (
-                    <Link href={`/cursos/${course.id}`} target="_blank">
+                    <Link href={ROUTES.course(course.id)} target="_blank">
                       <button title="Ver página" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-level-purple-light hover:text-level-purple transition-colors">
                         <Eye className="h-4 w-4" />
                       </button>
                     </Link>
                   )}
-                  <Link href={`/teacher/curso/${course.id}`}>
+                  <Link href={ROUTES.teacherCourse(course.id)}>
                     <button title="Editar" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-level-purple-light hover:text-level-purple transition-colors">
                       <Edit3 className="h-4 w-4" />
                     </button>

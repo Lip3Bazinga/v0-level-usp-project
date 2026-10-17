@@ -17,7 +17,7 @@ export function CheckpointsTab({ checkpoints, onChange }: {
     const target = idx + dir
     if (target < 0 || target >= checkpoints.length) return
     const copy = [...checkpoints]
-    ;[copy[idx], copy[target]] = [copy[target]!, copy[idx]!]
+    ;[copy[idx], copy[target]] = [copy[target], copy[idx]]
     onChange(copy)
   }
 

@@ -1,140 +1,90 @@
 "use client"
 
-import {
-  createContext,
-  useContext,
-  useCallback,
-  useEffect,
-  useState,
-  useMemo,
-  type ReactNode,
-} from "react"
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react"
 import type { GrantedBadge, Lesson, LessonProgress } from "@levelusp/contracts"
+import { BadgeEarnedModal } from "@/components/gamification/badge-earned-modal"
 import { useAuth } from "@/contexts/auth-context"
 import { useNotifications } from "@/contexts/notification-context"
-import { fetchPublishedLessons, fetchUserProgress, type CompletionResult } from "@/lib/api"
-import { xpForLevel } from "@/lib/utils"
-import { BadgeEarnedModal } from "@/components/gamification/badge-earned-modal"
-
-// ── Tipos ─────────────────────────────────────────────────────────────────────
-
-export interface Gamification {
-  level: number
-  totalXp: number
-  streak: number
-  maxStreak: number
-  xpInLevel: number
-  xpCeil: number
-  xpProgress: number // 0–100
-}
+import { useAsyncResource } from "@/hooks/use-async-resource"
+import { fetchMyProgress, fetchPublishedLessons, type CompletionResult } from "@/lib/api"
+import { applyLessonCompletion, indexBy, summarizeGamification, type GamificationSummary } from "@/lib/utils"
 
 /**
- * Resultado de conclusão vindo da API (submissão de código, quiz ou lição
- * teórica). Só `lesson_completed` e `xp_awarded` são garantidos; quiz não
- * informa badges/nível.
+ * Resultado de uma conclusão (submissão de código, quiz ou lição teórica). Só
+ * `lesson_completed` e `xp_awarded` são garantidos: o quiz não informa badges nem nível.
  */
 export type CompletionLike = Pick<CompletionResult, "lesson_completed" | "xp_awarded"> &
   Partial<Pick<CompletionResult, "new_badges" | "level_up" | "new_level">>
 
-export interface ProgressContextValue {
+export interface ProgressState {
   lessons: Lesson[]
   progressMap: Map<string, LessonProgress>
   isLoading: boolean
   error: string | null
-  gamification: Gamification
-  refresh: () => Promise<void>
+  gamification: GamificationSummary
+}
+
+export interface ProgressActions {
   isCompleted: (lessonId: string) => boolean
   /**
-   * Aplica um resultado de conclusão JÁ GRAVADO pela API: atualiza progresso e
-   * perfil locais e enfileira a animação das badges novas. XP, nível, sequência
-   * e badges são decididos só no servidor — o cliente apenas exibe.
+   * Aplica uma conclusão JÁ GRAVADA pela API: atualiza o progresso local, enfileira
+   * a animação das badges novas e busca perfil, progresso e notificações de novo.
+   * XP, nível, sequência e badges são decididos só no servidor.
    */
   applyCompletion: (lessonId: string, result: CompletionLike) => Promise<void>
 }
 
-// ── Context ───────────────────────────────────────────────────────────────────
+export type ProgressContextValue = ProgressState & ProgressActions
+
+interface ProgressData {
+  lessons: Lesson[]
+  progress: LessonProgress[]
+}
+
+const LOAD_ERROR_MESSAGE = "Não foi possível carregar as lições. Tente novamente."
+const NO_LESSONS: Lesson[] = []
+const NO_PROGRESS: LessonProgress[] = []
 
 const ProgressContext = createContext<ProgressContextValue | null>(null)
+
+async function loadProgressData(profileId: string | undefined): Promise<ProgressData> {
+  const [lessons, progress] = await Promise.all([
+    fetchPublishedLessons(),
+    profileId ? fetchMyProgress() : Promise.resolve(NO_PROGRESS),
+  ])
+  return { lessons, progress }
+}
 
 export function ProgressProvider({ children }: { children: ReactNode }) {
   const { profile, refreshProfile } = useAuth()
   const { refresh: refreshNotifications } = useNotifications()
-  const [lessons, setLessons] = useState<Lesson[]>([])
-  const [progressList, setProgressList] = useState<LessonProgress[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [badgeQueue, setBadgeQueue] = useState<GrantedBadge[]>([])
 
   const profileId = profile?.id
-
-  const load = useCallback(
-    async ({ silent = false }: { silent?: boolean } = {}) => {
-      if (!silent) setIsLoading(true)
-      setError(null)
-      try {
-        const [fetchedLessons, fetchedProgress] = await Promise.all([
-          fetchPublishedLessons(),
-          profileId ? fetchUserProgress() : Promise.resolve([] as LessonProgress[]),
-        ])
-        setLessons(fetchedLessons)
-        setProgressList(fetchedProgress)
-      } catch {
-        if (!silent) setError("Não foi possível carregar as lições. Tente novamente.")
-      } finally {
-        if (!silent) setIsLoading(false)
-      }
-    },
-    [profileId],
-  )
-
-  const refresh = useCallback(() => load(), [load])
-
-  useEffect(() => {
-    load()
-  }, [load])
-
-  const progressMap = useMemo(
-    () => new Map(progressList.map((p) => [p.lesson_id, p])),
-    [progressList],
-  )
+  const resource = useAsyncResource(() => loadProgressData(profileId), [profileId], {
+    errorMessage: () => LOAD_ERROR_MESSAGE,
+  })
+  const { reload, setData } = resource
+  const data = resource.status === "success" ? resource.data : null
+  const lessons = data?.lessons ?? NO_LESSONS
+  const progressMap = useMemo(() => indexBy(data?.progress ?? NO_PROGRESS, (entry) => entry.lesson_id), [data])
 
   const applyCompletion = useCallback(
     async (lessonId: string, result: CompletionLike) => {
       if (result.lesson_completed && profileId) {
-        // Reflete a conclusão imediatamente (trilhas/cadeados), antes do refetch.
-        setProgressList((prev) => {
-          const now = new Date().toISOString()
-          const existing = prev.find((p) => p.lesson_id === lessonId)
-          if (existing) {
-            return prev.map((p) =>
-              p.lesson_id === lessonId
-                ? { ...p, status: "completed", xp_earned: p.xp_earned + result.xp_awarded, completed_at: now }
-                : p,
-            )
-          }
-          return [
-            ...prev,
-            {
-              id: `local-${lessonId}`,
-              user_id: profileId,
-              lesson_id: lessonId,
-              status: "completed",
-              code_snapshot: null,
-              score: null,
-              xp_earned: result.xp_awarded,
-              completed_at: now,
-              created_at: now,
-            },
-          ]
-        })
+        const completion = {
+          lessonId,
+          userId: profileId,
+          xpAwarded: result.xp_awarded,
+          completedAt: new Date().toISOString(),
+        }
+        setData((current) => ({ ...current, progress: applyLessonCompletion(current.progress, completion) }))
       }
-      if (result.new_badges?.length) {
-        setBadgeQueue((prev) => [...prev, ...result.new_badges!])
-      }
-      // Perfil (XP/nível/sequência), progresso real e notificações geradas pela API.
-      await Promise.all([refreshProfile(), load({ silent: true }), refreshNotifications()])
+      const newBadges = result.new_badges ?? []
+      if (newBadges.length) setBadgeQueue((queue) => [...queue, ...newBadges])
+      await Promise.all([refreshProfile(), reload(), refreshNotifications()])
     },
-    [profileId, refreshProfile, load, refreshNotifications],
+    [profileId, setData, refreshProfile, reload, refreshNotifications],
   )
 
   const isCompleted = useCallback(
@@ -142,34 +92,32 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     [progressMap],
   )
 
-  const gamification = useMemo<Gamification>(() => {
-    const level = profile?.level ?? 1
-    const totalXp = profile?.total_xp ?? 0
-    const streak = profile?.current_streak ?? 0
-    const maxStreak = profile?.max_streak ?? 0
-    const xpFloor = xpForLevel(level - 1)
-    const xpCeil = xpForLevel(level)
-    const xpInLevel = totalXp - xpFloor
-    // Progresso dentro da faixa do nível (antes dividia pelo teto absoluto: no nível 2 a barra ficava pela metade).
-    const xpRange = Math.max(1, xpCeil - xpFloor)
-    const xpProgress = Math.min(100, Math.round((xpInLevel / xpRange) * 100))
-    return { level, totalXp, streak, maxStreak, xpInLevel, xpCeil, xpProgress }
-  }, [profile?.level, profile?.total_xp, profile?.current_streak, profile?.max_streak])
+  const gamification = useMemo(() => summarizeGamification(profile), [profile])
+  const isLoading = resource.status === "loading"
+  const error = resource.status === "error" ? resource.error : null
 
   const value = useMemo<ProgressContextValue>(
-    () => ({ lessons, progressMap, isLoading, error, gamification, refresh, isCompleted, applyCompletion }),
-    [lessons, progressMap, isLoading, error, gamification, refresh, isCompleted, applyCompletion],
+    () => ({
+      lessons,
+      progressMap,
+      isLoading,
+      error,
+      gamification,
+      isCompleted,
+      applyCompletion,
+    }),
+    [lessons, progressMap, isLoading, error, gamification, isCompleted, applyCompletion],
   )
 
   const currentBadge = badgeQueue[0]
-  // Callback estável: o modal reinicia o timer/confete quando onClose muda.
-  const dismissBadge = useCallback(() => setBadgeQueue((prev) => prev.slice(1)), [])
+  // Callback estável: o modal reinicia o timer e o confete quando `onClose` muda.
+  const dismissBadge = useCallback(() => setBadgeQueue((queue) => queue.slice(1)), [])
 
   return (
     <ProgressContext.Provider value={value}>
       {children}
       <BadgeEarnedModal
-        show={!!currentBadge}
+        show={Boolean(currentBadge)}
         badgeName={currentBadge?.name ?? ""}
         badgeIcon={currentBadge?.icon}
         onClose={dismissBadge}
@@ -178,10 +126,8 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   )
 }
 
-// ── Hook ──────────────────────────────────────────────────────────────────────
-
 export function useProgress(): ProgressContextValue {
-  const ctx = useContext(ProgressContext)
-  if (!ctx) throw new Error("useProgress deve ser usado dentro de ProgressProvider")
-  return ctx
+  const context = useContext(ProgressContext)
+  if (!context) throw new Error("useProgress deve ser usado dentro de ProgressProvider")
+  return context
 }

@@ -4,6 +4,7 @@ import { HelpCircle, MessageCircle } from "lucide-react"
 import { PageHero } from "@/components/marketing/page-hero"
 import { FaqAccordion } from "@/components/marketing/faq-accordion"
 import { Reveal } from "@/components/marketing/motion-primitives"
+import { ROUTES } from "@/lib/constants"
 
 export const metadata: Metadata = {
   title: "Perguntas frequentes — LevelUSP",
@@ -108,9 +109,12 @@ export default function FaqPage() {
               <p className="mt-3 max-w-md text-gray-600">
                 Nossa equipe está pronta para ajudar. Envie sua mensagem e responderemos o quanto antes.
               </p>
-              <Link href="/contato" className="mt-6 inline-block rounded-2xl bg-[#7C3AED] px-8 py-4 font-semibold text-white btn-3d">
-                  Falar com a equipe
-                </Link>
+              <Link
+                href={ROUTES.site.contact}
+                className="mt-6 inline-block rounded-2xl bg-[#7C3AED] px-8 py-4 font-semibold text-white btn-3d"
+              >
+                Falar com a equipe
+              </Link>
             </div>
           </Reveal>
         </div>

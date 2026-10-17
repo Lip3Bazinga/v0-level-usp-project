@@ -10,15 +10,15 @@ test("admin acessa o painel e vê os usuários", async ({ page }) => {
 
 test("aluna não acessa rotas de administração", async ({ page }) => {
   await login(page, STUDENT)
-  const res = await page.request.get("/api/admin/users")
-  expect(res.status()).toBe(403)
+  const response = await page.request.get("/api/admin/users")
+  expect(response.status()).toBe(403)
 })
 
 test("professora vê suas lições com métricas", async ({ page }) => {
   await login(page, TEACHER, "/teacher")
-  const res = await page.request.get("/api/teacher/metrics")
-  expect(res.ok()).toBeTruthy()
-  expect(Array.isArray(await res.json())).toBeTruthy()
+  const response = await page.request.get("/api/teacher/metrics")
+  expect(response.ok()).toBeTruthy()
+  expect(Array.isArray(await response.json())).toBeTruthy()
   // O professor dono enxerga o gabarito na edição
   const lessons = await (await page.request.get("/api/teacher/lessons")).json()
   const authoring = await (await page.request.get(`/api/lessons/${lessons[0].id}/authoring`)).json()

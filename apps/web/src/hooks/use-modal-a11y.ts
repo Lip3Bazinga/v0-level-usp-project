@@ -1,78 +1,107 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useLayoutEffect, useRef, type RefObject } from "react"
 
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]'
+const FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+  '[contenteditable="true"]',
+].join(", ")
+
+const AUTOFOCUS_SELECTOR = "[data-autofocus]"
+
+function getActiveElement(): HTMLElement | null {
+  return document.activeElement instanceof HTMLElement ? document.activeElement : null
+}
+
+/** Itens que recebem Tab agora: os ocultos (`display: none`) ficam de fora, exceto o focado. */
+function getTabbableItems(dialog: HTMLElement): HTMLElement[] {
+  const activeElement = getActiveElement()
+  return Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (item) => item.offsetParent !== null || item === activeElement,
+  )
+}
+
+/** Foca `[data-autofocus]`, senão o primeiro item focável, senão o próprio diálogo. */
+function focusInitialElement(dialog: HTMLElement) {
+  if (dialog.contains(document.activeElement)) return
+  const initial = dialog.querySelector<HTMLElement>(AUTOFOCUS_SELECTOR) ?? dialog.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
+  if (initial) {
+    initial.focus()
+    return
+  }
+  if (!dialog.hasAttribute("tabindex")) dialog.setAttribute("tabindex", "-1")
+  dialog.focus()
+}
+
+/** Leva o foco do fim para o começo (e vice-versa) para o Tab não sair do diálogo. */
+function trapTabKey(event: KeyboardEvent, dialog: HTMLElement) {
+  const items = getTabbableItems(dialog)
+  if (items.length === 0) {
+    event.preventDefault()
+    return
+  }
+  const firstItem = items[0]
+  const lastItem = items[items.length - 1]
+  const activeElement = getActiveElement()
+  const isFocusOutside = !dialog.contains(activeElement)
+  if (event.shiftKey && (activeElement === firstItem || isFocusOutside)) {
+    event.preventDefault()
+    lastItem.focus()
+  } else if (!event.shiftKey && (activeElement === lastItem || isFocusOutside)) {
+    event.preventDefault()
+    firstItem.focus()
+  }
+}
 
 /**
- * Acessibilidade mínima para diálogos feitos à mão (WCAG 2.1.2 / 2.4.3):
- * - move o foco para dentro do diálogo ao abrir;
- * - mantém o Tab preso dentro dele;
- * - Esc fecha (quando `onClose` é passado);
- * - devolve o foco ao elemento que abriu o diálogo ao fechar.
+ * Acessibilidade mínima para diálogos feitos à mão (WCAG 2.1.2 e 2.4.3): ao abrir, move
+ * o foco para dentro do diálogo e prende o Tab nele; Esc fecha (quando há `onClose`); ao
+ * fechar, devolve o foco a quem abriu.
  *
- * Uso: `const ref = useModalA11y<HTMLDivElement>(open, onClose)` e
- * `<div ref={ref} role="dialog" aria-modal="true" aria-labelledby=...>`.
+ * @example
+ * const dialogRef = useModalA11y<HTMLDivElement>(isOpen, handleClose)
+ * <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="titulo">…</div>
  */
-export function useModalA11y<T extends HTMLElement>(open: boolean, onClose?: () => void) {
-  const ref = useRef<T>(null)
+export function useModalA11y<TElement extends HTMLElement>(isOpen: boolean, onClose?: () => void): RefObject<TElement | null> {
+  const dialogRef = useRef<TElement>(null)
   const onCloseRef = useRef(onClose)
-  useEffect(() => {
+
+  useLayoutEffect(() => {
     onCloseRef.current = onClose
-  }, [onClose])
+  })
 
   useEffect(() => {
-    if (!open) return
-    const previous = document.activeElement as HTMLElement | null
-
-    // Espera o conteúdo montar (AnimatePresence/portal) antes de focar.
-    const raf = requestAnimationFrame(() => {
-      const root = ref.current
-      if (!root || root.contains(document.activeElement)) return
-      const first = root.querySelector<HTMLElement>("[data-autofocus]") ?? root.querySelector<HTMLElement>(FOCUSABLE)
-      if (first) first.focus()
-      else {
-        if (!root.hasAttribute("tabindex")) root.setAttribute("tabindex", "-1")
-        root.focus()
-      }
+    if (!isOpen) return
+    const previouslyFocused = getActiveElement()
+    // O conteúdo ainda está montando (AnimatePresence/portal) quando o efeito roda.
+    const focusFrame = requestAnimationFrame(() => {
+      if (dialogRef.current) focusInitialElement(dialogRef.current)
     })
 
-    const onKeyDown = (e: KeyboardEvent) => {
-      const root = ref.current
-      if (!root) return
-      if (e.key === "Escape" && onCloseRef.current) {
-        e.stopPropagation()
-        onCloseRef.current()
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const dialog = dialogRef.current
+      if (!dialog) return
+      const close = onCloseRef.current
+      if (event.key === "Escape" && close) {
+        event.stopPropagation()
+        close()
         return
       }
-      if (e.key !== "Tab") return
-      const items = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-        (el) => el.offsetParent !== null || el === document.activeElement,
-      )
-      if (items.length === 0) {
-        e.preventDefault()
-        return
-      }
-      const first = items[0]
-      const last = items[items.length - 1]
-      const active = document.activeElement as HTMLElement | null
-      if (e.shiftKey && (active === first || !root.contains(active))) {
-        e.preventDefault()
-        last.focus()
-      } else if (!e.shiftKey && (active === last || !root.contains(active))) {
-        e.preventDefault()
-        first.focus()
-      }
+      if (event.key === "Tab") trapTabKey(event, dialog)
     }
-    document.addEventListener("keydown", onKeyDown, true)
+    document.addEventListener("keydown", handleKeyDown, true)
 
     return () => {
-      cancelAnimationFrame(raf)
-      document.removeEventListener("keydown", onKeyDown, true)
-      if (previous && document.contains(previous)) previous.focus()
+      cancelAnimationFrame(focusFrame)
+      document.removeEventListener("keydown", handleKeyDown, true)
+      if (previouslyFocused && document.contains(previouslyFocused)) previouslyFocused.focus()
     }
-  }, [open])
+  }, [isOpen])
 
-  return ref
+  return dialogRef
 }

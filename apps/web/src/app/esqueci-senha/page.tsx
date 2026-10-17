@@ -4,7 +4,8 @@ import { useState } from "react"
 import Link from "next/link"
 import { Rocket, Mail, AlertCircle, CheckCircle2, ArrowLeft } from "lucide-react"
 import { LevelButton } from "@/components/design-system/level-button"
-import { ApiError, errorMessage, requestPasswordReset } from "@/lib/api"
+import { ApiError, getErrorMessage, requestPasswordReset } from "@/lib/api"
+import { ROUTES } from "@/lib/constants"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -23,7 +24,7 @@ export default function ForgotPasswordPage() {
       // Por privacidade a resposta é a mesma exista ou não a conta; só
       // mostramos erro quando o pedido em si falhou (rede, limite, e-mail inválido).
       if (err instanceof ApiError && err.status === 404) setSent(true)
-      else setError(errorMessage(err, "Não foi possível enviar o link. Tente novamente."))
+      else setError(getErrorMessage(err, "Não foi possível enviar o link. Tente novamente."))
     } finally {
       setLoading(false)
     }
@@ -85,7 +86,7 @@ export default function ForgotPasswordPage() {
         )}
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          <Link href="/login" className="inline-flex items-center gap-1 font-semibold text-level-purple hover:text-level-purple-dark transition-colors">
+          <Link href={ROUTES.login} className="inline-flex items-center gap-1 font-semibold text-level-purple hover:text-level-purple-dark transition-colors">
             <ArrowLeft className="h-4 w-4" /> Voltar para o login
           </Link>
         </p>

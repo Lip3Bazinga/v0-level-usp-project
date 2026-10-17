@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Loader2, ShieldAlert } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import { ROUTES } from "@/lib/constants"
 
 // Protege todas as rotas /teacher/*. Sem isto, um aluno que navegue direto para
 // /teacher/curso/new recebe o editor completo e só descobre a falta de permissão
@@ -20,7 +21,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isLoading) return
-    if (!user) router.replace("/login")
+    if (!user) router.replace(ROUTES.login)
   }, [isLoading, user, router])
 
   // Enquanto carrega, ou logo após disparar o redirect para /login
@@ -46,7 +47,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
           um administrador da plataforma.
         </p>
         <Link
-          href="/dashboard"
+          href={ROUTES.dashboard}
           className="rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-level-purple-dark"
         >
           Voltar ao painel

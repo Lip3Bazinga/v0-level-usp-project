@@ -8,6 +8,6 @@
 | Login com Google/GitHub | Botões desabilitados ("em breve") | Tabela `oauth_accounts` pronta; implementar fluxo OAuth na API |
 | SMTP | Links de redefinição vão para o log da API | Configurar `SMTP_URL` |
 | Rate limit em memória | Não compartilha entre réplicas | Trocar por Postgres/Redis ao escalar |
-| 67 avisos de ESLint (regras do React Compiler) | Padrões antigos de efeitos/refs | Refatorar gradualmente; regras como aviso |
+| 32 avisos de ESLint na web (React Compiler, `<img>`, variáveis não usadas) em `app/` e `components/` | Padrões antigos de efeitos/refs | Migrar buscas para `useAsyncResource` e derivar estado; depois virar as regras `react-hooks/*` para erro |
 | Imagens no Storage do Supabase | Dependência residual após a importação | Script de cópia para o volume `uploads` |
 | Prova final de demonstração (5 questões) | Seed de homologação | Importar o banco de questões real |

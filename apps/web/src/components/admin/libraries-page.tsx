@@ -1,15 +1,13 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import {
-  Package, CheckCircle2, X, Clock, ChevronDown, ChevronUp,
-  Plus, AlertCircle, Search, Loader2, ExternalLink,
-} from "lucide-react"
+import { Package, CheckCircle2, X, Clock, ChevronDown, ChevronUp, AlertCircle, Search, Loader2 } from "lucide-react"
 import type { LibraryCatalog, LibraryRequest } from "@levelusp/contracts"
 import {
-  errorMessage, fetchAllLibraryRequests, fetchFullLibraryCatalog, reviewLibraryRequest, toggleLibraryCatalog,
+  getErrorMessage, fetchAllLibraryRequests, fetchAdminLibraryCatalog, reviewLibraryRequest, setLibraryCatalogActive,
 } from "@/lib/api"
-import type { OnToast } from "@/lib/types/ui"
+import type { OnToast } from "@/lib/types"
+import { formatDate } from "@/lib/utils"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -76,7 +74,7 @@ function RequestRow({ req, onApprove, onReject }: RequestRowProps) {
             </span>
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Por {req.requester_name ?? "professor"} · {new Date(req.created_at).toLocaleDateString("pt-BR")}
+            Por {req.requester_name ?? "professor"} · {formatDate(req.created_at)}
           </p>
           {req.use_case && (
             <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{req.use_case}</p>
@@ -260,11 +258,11 @@ export function LibrariesAdminPage({ onToast }: { onToast: OnToast }) {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [reqs, cat] = await Promise.all([fetchAllLibraryRequests(), fetchFullLibraryCatalog()])
+      const [reqs, cat] = await Promise.all([fetchAllLibraryRequests(), fetchAdminLibraryCatalog()])
       setRequests(reqs)
       setCatalog(cat)
     } catch (err) {
-      onToast(errorMessage(err, "Erro ao carregar dados"), "danger")
+      onToast(getErrorMessage(err, "Erro ao carregar dados"), "danger")
     } finally {
       setLoading(false)
     }
@@ -290,9 +288,9 @@ export function LibrariesAdminPage({ onToast }: { onToast: OnToast }) {
       })
       setRequests((prev) => prev.map((r) => (r.id === req.id ? { ...r, ...reviewed, requester_name: r.requester_name } : r)))
       onToast(`✓ ${req.library_name} aprovada e adicionada ao catálogo`)
-      fetchFullLibraryCatalog().then(setCatalog).catch(() => {})
+      fetchAdminLibraryCatalog().then(setCatalog).catch(() => {})
     } catch (err) {
-      onToast(errorMessage(err, "Erro ao aprovar requisição"), "danger")
+      onToast(getErrorMessage(err, "Erro ao aprovar requisição"), "danger")
     }
   }
 
@@ -302,7 +300,7 @@ export function LibrariesAdminPage({ onToast }: { onToast: OnToast }) {
       setRequests((prev) => prev.map((r) => (r.id === req.id ? { ...r, ...reviewed, requester_name: r.requester_name } : r)))
       onToast(`Requisição de ${req.library_name} rejeitada`, "warning")
     } catch (err) {
-      onToast(errorMessage(err, "Erro ao rejeitar requisição"), "danger")
+      onToast(getErrorMessage(err, "Erro ao rejeitar requisição"), "danger")
     }
   }
 
@@ -310,11 +308,11 @@ export function LibrariesAdminPage({ onToast }: { onToast: OnToast }) {
     // Optimistic update com rollback em caso de erro
     setCatalog((prev) => prev.map((l) => l.id === id ? { ...l, active } : l))
     try {
-      await toggleLibraryCatalog(id, active)
+      await setLibraryCatalogActive(id, active)
       onToast(active ? "Biblioteca ativada" : "Biblioteca desativada")
     } catch (err) {
       setCatalog((prev) => prev.map((l) => l.id === id ? { ...l, active: !active } : l))
-      onToast(errorMessage(err, "Erro ao atualizar biblioteca"), "danger")
+      onToast(getErrorMessage(err, "Erro ao atualizar biblioteca"), "danger")
     }
   }
 

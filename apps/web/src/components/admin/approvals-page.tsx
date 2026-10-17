@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react"
 import { Clock, Shield, Check, X, Loader2 } from "lucide-react"
 import type { TeacherApproval } from "@levelusp/contracts"
-import { approveTeacher, errorMessage, fetchPendingApprovals, rejectTeacher } from "@/lib/api"
-import { getInitials, timeAgo } from "@/lib/utils"
-import type { OnToast } from "@/lib/types/ui"
+import { approveTeacher, getErrorMessage, fetchTeacherApprovals, rejectTeacher } from "@/lib/api"
+import { getInitials, formatTimeAgo } from "@/lib/utils"
+import type { OnToast } from "@/lib/types"
 
 
 
@@ -22,9 +22,9 @@ export function ApprovalsPage({ onToast }: ApprovalsPageProps) {
   const [rejectReason, setRejectReason] = useState("")
 
   useEffect(() => {
-    fetchPendingApprovals("pending")
+    fetchTeacherApprovals("pending")
       .then(setApprovals)
-      .catch((err) => setLoadError(errorMessage(err, "Erro ao carregar aprovações")))
+      .catch((err) => setLoadError(getErrorMessage(err, "Erro ao carregar aprovações")))
       .finally(() => setLoadingData(false))
   }, [])
 
@@ -35,7 +35,7 @@ export function ApprovalsPage({ onToast }: ApprovalsPageProps) {
       setApprovals((prev) => prev.filter((a) => a.id !== approval.id))
       onToast(`${approval.name} aprovado(a) como professor(a)`, "success")
     } catch (err) {
-      onToast(errorMessage(err, "Erro ao aprovar"), "danger")
+      onToast(getErrorMessage(err, "Erro ao aprovar"), "danger")
     } finally {
       setBusyId(null)
     }
@@ -52,7 +52,7 @@ export function ApprovalsPage({ onToast }: ApprovalsPageProps) {
       setRejectReason("")
       onToast("Solicitação rejeitada", "danger")
     } catch (err) {
-      onToast(errorMessage(err, "Erro ao rejeitar"), "danger")
+      onToast(getErrorMessage(err, "Erro ao rejeitar"), "danger")
     } finally {
       setBusyId(null)
     }
@@ -87,7 +87,7 @@ export function ApprovalsPage({ onToast }: ApprovalsPageProps) {
           <div key={p.id} className="overflow-hidden rounded-2xl border border-warning/30 bg-white">
             <div className="flex items-center justify-between border-b border-warning/20 bg-warning/5 px-5 py-3">
               <span className="inline-flex items-center gap-1.5 text-xs font-bold text-warning">
-                <Clock className="h-3 w-3" /> Aguardando {timeAgo(p.submitted_at)}
+                <Clock className="h-3 w-3" /> Aguardando {formatTimeAgo(p.submitted_at)}
               </span>
               <span className="text-[10px] text-muted-foreground">ID · {p.id.slice(0, 8)}</span>
             </div>

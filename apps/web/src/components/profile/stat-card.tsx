@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { cn } from "@/lib/utils"
+import { cn, formatNumber } from "@/lib/utils"
 import { LucideIcon } from "lucide-react"
 
 interface StatCardProps {
@@ -42,7 +42,7 @@ export function StatCard({
 
         {/* Value */}
         <p className="mb-1 text-3xl font-bold text-level-purple-dark">
-          {typeof value === "number" ? value.toLocaleString("pt-BR") : value}
+          {typeof value === "number" ? formatNumber(value) : value}
         </p>
 
         {/* Label */}

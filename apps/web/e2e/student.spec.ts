@@ -59,10 +59,10 @@ test("sandbox: código malicioso não acessa o servidor", async ({ page }) => {
   await login(page, STUDENT)
   const lessons = await (await page.request.get("/api/lessons/summaries")).json()
   const lesson = lessons.find((l: { slug: string }) => l.slug === "python-completo-03")
-  const res = await apiPost(page, `/lessons/${lesson.id}/submissions`, {
+  const response = await apiPost(page, `/lessons/${lesson.id}/submissions`, {
     files: [{ path: "main.py", content: "import os\ndef dobro_mais_um(n):\n    return open('/proc/1/environ').read()\n" }],
   })
-  const body = await res.json()
+  const body = await response.json()
   expect(body.allPassed).toBe(false)
   expect(JSON.stringify(body)).toMatch(/FileNotFoundError|No such file/)
 })

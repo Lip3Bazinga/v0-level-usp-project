@@ -5,23 +5,13 @@ import remarkGfm from "remark-gfm"
 import { BookOpen, Clock, Lock, Star } from "lucide-react"
 import type { Lesson } from "@levelusp/contracts"
 import type { CourseFormState } from "./course-form"
+import { DIFFICULTY_BADGE_CLASSES, DIFFICULTY_LABELS } from "@/lib/constants"
 
 const GRADIENTS: Record<string, string> = {
   iniciante: "from-violet-500 to-purple-700",
   intermediario: "from-amber-500 to-orange-600",
   avancado: "from-rose-500 to-red-700",
 }
-export const LEVEL_COLOR: Record<string, string> = {
-  iniciante: "bg-green-100 text-green-700",
-  intermediario: "bg-yellow-100 text-yellow-700",
-  avancado: "bg-red-100 text-red-700",
-}
-export const LEVEL_LABEL: Record<string, string> = {
-  iniciante: "Iniciante",
-  intermediario: "Intermediário",
-  avancado: "Avançado",
-}
-
 /** Prévia ao vivo da página pública do curso. */
 export function CoursePreview({ form, coverPreview, lessons }: {
   form: CourseFormState
@@ -45,8 +35,8 @@ export function CoursePreview({ form, coverPreview, lessons }: {
         {coverPreview && <img src={coverPreview} alt="Capa" className="absolute inset-0 h-full w-full object-cover opacity-30" />}
         <div className="relative z-10 w-full">
           <div className="mb-2 flex flex-wrap gap-1.5">
-            <span className={`rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold ${LEVEL_COLOR[form.level]}`}>
-              {LEVEL_LABEL[form.level]}
+            <span className={`rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold ${DIFFICULTY_BADGE_CLASSES[form.level]}`}>
+              {DIFFICULTY_LABELS[form.level]}
             </span>
             {form.tags.slice(0, 2).map((t) => (
               <span key={t} className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium">{t}</span>

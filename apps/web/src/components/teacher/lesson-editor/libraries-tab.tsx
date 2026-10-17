@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { CheckCircle2, Package, Plus, X } from "lucide-react"
 import type { LibraryCatalog, LibraryCategory, LibraryRequest } from "@levelusp/contracts"
 import { Badge } from "@/components/ui/badge"
-import { errorMessage, fetchLibraryCatalog, fetchMyLibraryRequests } from "@/lib/api"
+import { getErrorMessage, fetchLibraryCatalog, fetchMyLibraryRequests } from "@/lib/api"
 import { LibraryRequestModal } from "./library-request-modal"
 import { EditorPanel } from "./panel"
 
@@ -31,7 +31,7 @@ export function LibrariesTab({ selected, onChange, onToast }: {
     let cancelled = false
     fetchLibraryCatalog()
       .then((c) => !cancelled && setCatalog(c))
-      .catch((err) => !cancelled && setLoadError(errorMessage(err, "Não foi possível carregar o catálogo.")))
+      .catch((err) => !cancelled && setLoadError(getErrorMessage(err, "Não foi possível carregar o catálogo.")))
       .finally(() => !cancelled && setLoading(false))
     fetchMyLibraryRequests()
       .then((r) => !cancelled && setRequests(r))

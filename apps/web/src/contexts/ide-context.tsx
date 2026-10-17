@@ -1,144 +1,153 @@
 "use client"
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  useEffect,
-  useRef,
-  useMemo,
-  type ReactNode,
-} from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
-import { usePython } from "@/hooks/use-python"
-import { parsePythonError } from "@/lib/parse-python-error"
 import type { Lesson, ProjectFile, SubmissionResult } from "@levelusp/contracts"
-import { useProgress } from "@/contexts/progress-context"
 import { useAuth } from "@/contexts/auth-context"
+import { useProgress } from "@/contexts/progress-context"
+import { usePython, type ExecutionResult, type PyodideStatus } from "@/hooks/use-python"
+import { fetchProgressSnapshot, HTTP_STATUS, isApiError, saveProgressSnapshot, submitLessonCode } from "@/lib/api"
+import { CONSOLE_COMMAND_FILE_PATH, MAIN_FILE_PATH, ROUTES, SNAPSHOT_SAVE_DEBOUNCE_MS } from "@/lib/constants"
+import type { ConsoleOutput, ConsoleOutputType } from "@/lib/types"
 import {
-  evaluateOnServer,
+  addFile,
+  closeTab as closeEditorTab,
+  createEditorTabs,
+  hasFile,
+  normalizePath,
+  openTab,
+  pickEntryFile,
+  removeFile,
+  renameEntry,
+  renameTabs,
   resolveStarterFiles,
-  fetchProgressSnapshot,
-  saveProgressSnapshot,
-} from "@/lib/api"
-import type { ConsoleOutput } from "@/lib/types"
-import { normalizePath, isValidPath } from "@/lib/utils/path"
+  updateFileContent,
+  type EditorTabs,
+  type FileOperationResult,
+} from "@/lib/utils"
+import {
+  pythonErrorLines,
+  stdoutLines,
+  toConsoleOutput,
+  verificationErrorLine,
+  verificationFailureLines,
+  verificationSuccessLine,
+  type ConsoleLine,
+} from "@/lib/utils/ide-feedback"
 
-// ── Tipos ─────────────────────────────────────────────────────────────────────
+/** Barra de progresso da lição: marcos atingidos a cada etapa do exercício. */
+const LESSON_PROGRESS = {
+  ran: 40,
+  ranWithoutErrors: 60,
+  verifiedWithFailures: 70,
+  passed: 100,
+} as const
 
-export const MAIN_FILE = "main.py"
+const RESET_CONFIRMATION_MESSAGE = "Restaurar o código inicial da lição? Suas alterações serão perdidas."
 
-export interface IDEContextValue {
-  // Arquivos (fonte de verdade: path → content)
+export interface IDEFilesState {
+  /** Fonte da verdade do projeto do aluno. */
   files: ProjectFile[]
   activePath: string
   openPaths: string[]
+}
+
+export interface IDEFileActions {
   setActivePath: (path: string) => void
   openFile: (path: string) => void
   closeTab: (path: string) => void
-  onContentChange: (path: string, content: string) => void
-  // Operações de arquivo
-  createFile: (path: string) => { ok: boolean; error?: string }
-  renameFile: (oldPath: string, newPath: string) => { ok: boolean; error?: string }
-  deleteFile: (path: string) => { ok: boolean; error?: string }
-  // Console
+  updateFileContent: (path: string, content: string) => void
+  createFile: (path: string) => FileOperationResult
+  renameFile: (oldPath: string, newPath: string) => FileOperationResult
+  deleteFile: (path: string) => FileOperationResult
+}
+
+export interface IDEConsole {
   consoleOutputs: ConsoleOutput[]
   clearConsole: () => void
-  addOutput: (type: ConsoleOutput["type"], message: string) => void
-  // Pyodide
-  pythonStatus: ReturnType<typeof usePython>["status"]
+  addOutput: (type: ConsoleOutputType, message: string) => void
+  runConsoleCommand: (command: string) => void
+}
+
+export interface IDERuntime {
+  pythonStatus: PyodideStatus
   isExecuting: boolean
   isInstalling: boolean
   stop: () => void
-  // Ações
   run: () => void
   reset: () => void
   verify: () => Promise<void>
-  runConsoleCommand: (cmd: string) => void
-  // Estado de progresso da lição
+}
+
+export interface IDELessonState {
   hasRun: boolean
   hasOutput: boolean
-  /** true quando a última execução terminou sem erros e o código não foi alterado desde então */
+  /** A última execução terminou sem erros e o código não mudou desde então. */
   canVerify: boolean
   lessonProgress: number
   allPassed: boolean
   isVerifying: boolean
   /** Último veredito do servidor (XP, nível e badges já creditados pela API). */
   lastResult: SubmissionResult | null
-  /** Nível antes da última conclusão (para a animação de subida de nível). */
+  /** Nível antes da última conclusão, para a animação de subida de nível. */
   levelBefore: number | null
   showSuccess: boolean
-  setShowSuccess: (v: boolean) => void
+  setShowSuccess: (isOpen: boolean) => void
 }
 
-// ── Context ───────────────────────────────────────────────────────────────────
+export type IDEContextValue = IDEFilesState & IDEFileActions & IDEConsole & IDERuntime & IDELessonState
 
 const IDEContext = createContext<IDEContextValue | null>(null)
 
+function useConsoleOutputs() {
+  const [consoleOutputs, setConsoleOutputs] = useState<ConsoleOutput[]>([])
+  const appendLines = useCallback(
+    (lines: readonly ConsoleLine[]) => setConsoleOutputs((current) => [...current, ...lines.map(toConsoleOutput)]),
+    [],
+  )
+  const replaceWithLine = useCallback((line: ConsoleLine) => setConsoleOutputs([toConsoleOutput(line)]), [])
+  const addOutput = useCallback(
+    (type: ConsoleOutputType, message: string) => appendLines([{ type, message }]),
+    [appendLines],
+  )
+  const clearConsole = useCallback(() => setConsoleOutputs([]), [])
+  return { consoleOutputs, appendLines, replaceWithLine, addOutput, clearConsole }
+}
+
 /**
- * Encapsula todo o estado da IDE de uma lição: projeto multi-arquivo, console,
- * execução Pyodide e verificação dos testes ocultos. A página de lição consome
- * via useIDE(), ficando responsável apenas pelo layout.
+ * Salva o projeto na API um pouco depois da última edição do aluno. Só edições
+ * feitas na tela disparam o salvamento (marcadas por `markEdited`): carregar o
+ * snapshot ou os arquivos iniciais não grava nada.
+ */
+function useSnapshotAutosave(lessonId: string, userId: string | undefined, files: ProjectFile[]) {
+  const hasLocalEditsRef = useRef(false)
+  useEffect(() => {
+    if (!userId || !hasLocalEditsRef.current) return
+    const timer = setTimeout(() => {
+      saveProgressSnapshot(lessonId, files).catch(() => {})
+    }, SNAPSHOT_SAVE_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [lessonId, userId, files])
+  return useCallback(() => {
+    hasLocalEditsRef.current = true
+  }, [])
+}
+
+/**
+ * Estado da IDE de uma lição: projeto multi-arquivo, console, execução no
+ * navegador (Pyodide) e verificação no servidor. A página só cuida do layout.
  */
 export function IDEProvider({ lesson, children }: { lesson: Lesson; children: ReactNode }) {
   const router = useRouter()
   const { applyCompletion } = useProgress()
   const { user, profile } = useAuth()
-  const { status: pythonStatus, isExecuting, isInstalling, execute, installPackages, stop } = usePython()
+  const userId = user?.id
+  const { consoleOutputs, appendLines, replaceWithLine, addOutput, clearConsole } = useConsoleOutputs()
 
-  // ── Arquivos ────────────────────────────────────────────────────────────────
   const [files, setFiles] = useState<ProjectFile[]>(() => resolveStarterFiles(lesson))
-  const [activePath, setActivePath] = useState(MAIN_FILE)
-  const [openPaths, setOpenPaths] = useState<string[]>([MAIN_FILE])
+  const [tabs, setTabs] = useState<EditorTabs>(() => createEditorTabs())
+  const markEdited = useSnapshotAutosave(lesson.id, userId, files)
 
-  // Carrega snapshot salvo do aluno (se houver) ao montar
-  useEffect(() => {
-    let cancelled = false
-    async function loadSnapshot() {
-      if (!user?.id) return
-      try {
-        const snap = await fetchProgressSnapshot(lesson.id)
-        if (!cancelled && snap && snap.length) {
-          setFiles(snap)
-          const hasMain = snap.some((f) => f.path === MAIN_FILE)
-          const first = hasMain ? MAIN_FILE : snap[0].path
-          setActivePath(first)
-          setOpenPaths([first])
-        }
-      } catch { /* mantém starter_files */ }
-    }
-    loadSnapshot()
-    return () => { cancelled = true }
-  }, [lesson.id, user?.id])
-
-  // ── Persistência (debounced) ────────────────────────────────────────────────
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const scheduleSave = useCallback((nextFiles: ProjectFile[]) => {
-    if (!user?.id) return
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => {
-      saveProgressSnapshot(lesson.id, nextFiles).catch(() => {})
-    }, 1500)
-  }, [user?.id, lesson.id])
-
-  useEffect(() => {
-    return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
-  }, [])
-
-  // ── Console ─────────────────────────────────────────────────────────────────
-  const [consoleOutputs, setConsoleOutputs] = useState<ConsoleOutput[]>([])
-
-  const addOutput = useCallback((type: ConsoleOutput["type"], message: string) => {
-    setConsoleOutputs((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), type, message, timestamp: new Date() },
-    ])
-  }, [])
-
-  const clearConsole = useCallback(() => setConsoleOutputs([]), [])
-
-  // ── Progresso dinâmico ──────────────────────────────────────────────────────
   const [hasRun, setHasRun] = useState(false)
   const [hasOutput, setHasOutput] = useState(false)
   const [runSucceeded, setRunSucceeded] = useState(false)
@@ -148,142 +157,152 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
   const [isVerifying, setIsVerifying] = useState(false)
   const [lastResult, setLastResult] = useState<SubmissionResult | null>(null)
   const [levelBefore, setLevelBefore] = useState<number | null>(null)
-  const lessonCompletedRef = useRef(false)
+  const isLessonCompletedRef = useRef(false)
 
-  // Instala pacotes quando o Pyodide fica pronto
+  const reachProgress = useCallback((milestone: number) => setLessonProgress((current) => Math.max(current, milestone)), [])
+
+  const libraries = lesson.libraries
+  const handlePythonStatus = useCallback(
+    (status: PyodideStatus) => {
+      if (status === "loading") replaceWithLine({ type: "info", message: "Inicializando Python no navegador..." })
+      if (status === "ready") {
+        if (libraries?.length) addOutput("info", `Instalando pacotes: ${libraries.join(", ")}...`)
+        addOutput("success", "Python pronto! Você pode executar seu código.")
+      }
+      if (status === "error") {
+        addOutput("error", "Erro ao carregar Python. Verifique sua conexão e recarregue a página.")
+      }
+    },
+    [libraries, addOutput, replaceWithLine],
+  )
+  const { status: pythonStatus, isExecuting, isInstalling, execute, stop } = usePython({
+    packages: libraries,
+    onStatusChange: handlePythonStatus,
+  })
+
   useEffect(() => {
-    if (pythonStatus === "ready" && lesson.libraries?.length) {
-      addOutput("info", `Instalando pacotes: ${lesson.libraries.join(", ")}...`)
-      installPackages(lesson.libraries)
+    if (!userId) return
+    let isCurrent = true
+    fetchProgressSnapshot(lesson.id)
+      .then((snapshot) => {
+        if (!isCurrent || !snapshot?.length) return
+        setFiles(snapshot)
+        setTabs(createEditorTabs(pickEntryFile(snapshot)))
+      })
+      .catch(() => {
+        // Sem snapshot legível, o aluno continua com os arquivos iniciais da lição.
+      })
+    return () => {
+      isCurrent = false
     }
-  }, [pythonStatus, lesson.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [lesson.id, userId])
 
-  // Mensagens de status do Pyodide
-  useEffect(() => {
-    if (pythonStatus === "loading") {
-      setConsoleOutputs([{ id: crypto.randomUUID(), type: "info", message: "Inicializando Python no navegador...", timestamp: new Date() }])
-    } else if (pythonStatus === "ready") {
-      setConsoleOutputs((prev) => [...prev, { id: crypto.randomUUID(), type: "success", message: "Python pronto! Você pode executar seu código.", timestamp: new Date() }])
-    } else if (pythonStatus === "error") {
-      setConsoleOutputs((prev) => [...prev, { id: crypto.randomUUID(), type: "error", message: "Erro ao carregar Python. Verifique sua conexão e recarregue a página.", timestamp: new Date() }])
-    }
-  }, [pythonStatus])
-
-  // ── Abas ────────────────────────────────────────────────────────────────────
-  const openFile = useCallback((path: string) => {
-    setOpenPaths((prev) => (prev.includes(path) ? prev : [...prev, path]))
-    setActivePath(path)
-  }, [])
-
-  const closeTab = useCallback((path: string) => {
-    setOpenPaths((prev) => {
-      const next = prev.filter((p) => p !== path)
-      // Se fechou a aba ativa, ativa a vizinha
-      setActivePath((cur) => (cur === path ? (next[next.length - 1] ?? MAIN_FILE) : cur))
-      return next.length ? next : [MAIN_FILE]
-    })
-  }, [])
-
-  // ── Edição de conteúdo ──────────────────────────────────────────────────────
-  const onContentChange = useCallback((path: string, content: string) => {
-    setRunSucceeded(false)
-    setFiles((prev) => {
-      const next = prev.map((f) => (f.path === path ? { ...f, content } : f))
-      scheduleSave(next)
-      return next
-    })
-  }, [scheduleSave])
-
-  // ── Operações de arquivo ────────────────────────────────────────────────────
-  const createFile = useCallback((rawPath: string): { ok: boolean; error?: string } => {
-    const path = normalizePath(rawPath)
-    if (!isValidPath(path)) return { ok: false, error: "Nome inválido. Use apenas letras, números, e extensões .py .txt .json .csv .md" }
-    let result: { ok: boolean; error?: string } = { ok: true }
-    setFiles((prev) => {
-      if (prev.some((f) => f.path === path)) {
-        result = { ok: false, error: "Já existe um arquivo com esse nome." }
-        return prev
-      }
-      const next = [...prev, { path, content: "" }]
-      scheduleSave(next)
-      return next
-    })
-    if (result.ok) {
+  const commitFiles = useCallback(
+    (nextFiles: ProjectFile[]) => {
+      markEdited()
       setRunSucceeded(false)
-      openFile(path)
-    }
-    return result
-  }, [openFile, scheduleSave])
+      setFiles(nextFiles)
+    },
+    [markEdited],
+  )
 
-  const renameFile = useCallback((oldPath: string, rawNew: string): { ok: boolean; error?: string } => {
-    if (oldPath === MAIN_FILE) return { ok: false, error: "main.py não pode ser renomeado." }
-    const newPath = normalizePath(rawNew)
+  const setActivePath = useCallback((path: string) => setTabs((current) => ({ ...current, activePath: path })), [])
+  const openFile = useCallback((path: string) => setTabs((current) => openTab(current, path)), [])
+  const closeTab = useCallback((path: string) => setTabs((current) => closeEditorTab(current, path)), [])
 
-    // Verifica se é uma pasta (sem extensão) ou arquivo
-    const isFolder = !oldPath.includes(".")
-    if (!isFolder && !isValidPath(newPath)) return { ok: false, error: "Nome inválido." }
-
-    let result: { ok: boolean; error?: string } = { ok: true }
-    setFiles((prev) => {
-      if (!isFolder && prev.some((f) => f.path === newPath)) {
-        result = { ok: false, error: "Já existe um arquivo com esse nome." }
-        return prev
-      }
-      // Para pastas: substitui prefixo em todos os filhos
-      const next = isFolder
-        ? prev.map((f) => f.path.startsWith(oldPath + "/")
-            ? { ...f, path: newPath + f.path.slice(oldPath.length) }
-            : f)
-        : prev.map((f) => (f.path === oldPath ? { ...f, path: newPath } : f))
-      scheduleSave(next)
-      return next
-    })
-    if (result.ok) {
+  const handleContentChange = useCallback(
+    (path: string, content: string) => {
+      markEdited()
       setRunSucceeded(false)
-      if (isFolder) {
-        setOpenPaths((prev) => prev.map((p) => p.startsWith(oldPath + "/") ? newPath + p.slice(oldPath.length) : p))
-        setActivePath((cur) => cur.startsWith(oldPath + "/") ? newPath + cur.slice(oldPath.length) : cur)
-      } else {
-        setOpenPaths((prev) => prev.map((p) => (p === oldPath ? newPath : p)))
-        setActivePath((cur) => (cur === oldPath ? newPath : cur))
-      }
-    }
-    return result
-  }, [scheduleSave])
+      setFiles((current) => updateFileContent(current, path, content))
+    },
+    [markEdited],
+  )
 
-  const deleteFile = useCallback((path: string): { ok: boolean; error?: string } => {
-    if (path === MAIN_FILE) return { ok: false, error: "main.py não pode ser excluído." }
-    setRunSucceeded(false)
-    setFiles((prev) => {
-      const next = prev.filter((f) => f.path !== path)
-      scheduleSave(next)
-      return next
-    })
-    setOpenPaths((prev) => {
-      const next = prev.filter((p) => p !== path)
-      setActivePath((cur) => (cur === path ? (next[next.length - 1] ?? MAIN_FILE) : cur))
-      return next.length ? next : [MAIN_FILE]
-    })
-    return { ok: true }
-  }, [scheduleSave])
+  const createFile = useCallback(
+    (rawPath: string): FileOperationResult => {
+      const change = addFile(files, rawPath)
+      if (!change.ok) return change
+      commitFiles(change.files)
+      openFile(normalizePath(rawPath))
+      return { ok: true }
+    },
+    [files, commitFiles, openFile],
+  )
 
-  // ── Reset ───────────────────────────────────────────────────────────────────
+  const renameFile = useCallback(
+    (oldPath: string, rawNewPath: string): FileOperationResult => {
+      const change = renameEntry(files, oldPath, rawNewPath)
+      if (!change.ok) return change
+      commitFiles(change.files)
+      setTabs((current) => renameTabs(current, oldPath, normalizePath(rawNewPath)))
+      return { ok: true }
+    },
+    [files, commitFiles],
+  )
+
+  const deleteFile = useCallback(
+    (path: string): FileOperationResult => {
+      const change = removeFile(files, path)
+      if (!change.ok) return change
+      commitFiles(change.files)
+      closeTab(path)
+      return { ok: true }
+    },
+    [files, commitFiles, closeTab],
+  )
+
   const reset = useCallback(() => {
     // Apagar o código do aluno é irreversível: pede confirmação (botão e atalho Alt+G).
-    if (typeof window !== "undefined" && !window.confirm("Restaurar o código inicial da lição? Suas alterações serão perdidas.")) return
-    const starter = resolveStarterFiles(lesson)
-    setFiles(starter)
-    setActivePath(MAIN_FILE)
-    setOpenPaths([MAIN_FILE])
-    setConsoleOutputs([{ id: crypto.randomUUID(), type: "info", message: "Código restaurado para o estado inicial da lição.", timestamp: new Date() }])
+    if (!window.confirm(RESET_CONFIRMATION_MESSAGE)) return
+    commitFiles(resolveStarterFiles(lesson))
+    setTabs(createEditorTabs())
+    replaceWithLine({ type: "info", message: "Código restaurado para o estado inicial da lição." })
     setHasRun(false)
     setHasOutput(false)
-    setRunSucceeded(false)
-    lessonCompletedRef.current = false
-    scheduleSave(starter)
-  }, [lesson, scheduleSave])
+    isLessonCompletedRef.current = false
+  }, [lesson, commitFiles, replaceWithLine])
 
-  // ── Executar ────────────────────────────────────────────────────────────────
+  const handleRunResult = useCallback(
+    (entryPath: string, result: ExecutionResult) => {
+      const outputLines = stdoutLines(result.stdout)
+      const figureLines: ConsoleLine[] = result.figures.map((figureB64, index) => ({
+        type: "figure",
+        message: `Figura ${index + 1}`,
+        figureB64,
+      }))
+      appendLines([...outputLines, ...figureLines])
+
+      if (result.stderr) {
+        appendLines(pythonErrorLines(result.stderr))
+        setHasOutput(false)
+        setRunSucceeded(false)
+        return
+      }
+
+      const producedOutput = outputLines.length > 0 || figureLines.length > 0
+      setRunSucceeded(true)
+      setHasOutput(producedOutput)
+      addOutput(
+        producedOutput ? "success" : "info",
+        producedOutput
+          ? "✓ Código executado com sucesso!"
+          : `✓ ${entryPath} executado sem erros — este arquivo não produziu saída (provavelmente só define funções). Use print() para ver resultados, ou rode o main.py.`,
+      )
+      reachProgress(LESSON_PROGRESS.ranWithoutErrors)
+    },
+    [appendLines, addOutput, reachProgress],
+  )
+
+  const handleRunError = useCallback(
+    (rawError: string) => {
+      appendLines(pythonErrorLines(rawError))
+      setHasOutput(false)
+      setRunSucceeded(false)
+    },
+    [appendLines],
+  )
+
   const run = useCallback(() => {
     if (pythonStatus === "loading") {
       addOutput("warning", "O runtime Python ainda está carregando. Aguarde...")
@@ -295,72 +314,48 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
       return
     }
 
-    // Roda o ARQUIVO ATIVO (a aba aberta), não necessariamente o main.py.
-    // Os demais arquivos continuam disponíveis para import.
-    const entryPath = files.some((f) => f.path === activePath) ? activePath : MAIN_FILE
-    if (!files.some((f) => f.path === entryPath)) {
+    // Executa a aba aberta, não necessariamente o main.py; os demais arquivos ficam disponíveis para import.
+    const entryPath = hasFile(files, tabs.activePath) ? tabs.activePath : MAIN_FILE_PATH
+    if (!hasFile(files, entryPath)) {
       addOutput("error", "Nenhum arquivo selecionado para executar.")
       return
     }
 
     setHasRun(true)
-    setLessonProgress((p) => Math.max(p, 40))
-    setConsoleOutputs([{ id: crypto.randomUUID(), type: "info", message: `Executando ${entryPath}...`, timestamp: new Date() }])
+    reachProgress(LESSON_PROGRESS.ran)
+    replaceWithLine({ type: "info", message: `Executando ${entryPath}...` })
+    execute(
+      { files, entryPath },
+      { onResult: (result) => handleRunResult(entryPath, result), onError: handleRunError },
+    )
+  }, [files, tabs.activePath, pythonStatus, isInstalling, execute, addOutput, replaceWithLine, reachProgress, handleRunResult, handleRunError])
 
-    execute("", {
-      files,
-      entryPath,
-      onResult: (result) => {
-        let producedOutput = false
-        if (result.stdout) {
-          const lines = result.stdout.split("\n").filter((l) => l.length > 0)
-          lines.forEach((l) => addOutput("output", l))
-          if (lines.length) producedOutput = true
-        }
-        result.figures?.forEach((b64, i) => {
-          producedOutput = true
-          setConsoleOutputs((prev) => [...prev, {
-            id: crypto.randomUUID(),
-            type: "figure",
-            message: `Figura ${i + 1}`,
-            timestamp: new Date(),
-            figureB64: b64,
-          }])
-        })
-        if (result.stderr) {
-          const parsed = parsePythonError(result.stderr)
-          addOutput("error", `${parsed.title}: ${parsed.explanation}`)
-          addOutput("warning", `Erro original: ${parsed.original}`)
-          addOutput("warning", `💡 Dica: ${parsed.hint}`)
-          setHasOutput(false)
-          setRunSucceeded(false)
-        } else {
-          setRunSucceeded(true)
-          if (producedOutput) {
-            addOutput("success", "✓ Código executado com sucesso!")
-            setHasOutput(true)
-          } else {
-            // Aviso amigável: arquivo só define funções/classes, sem saída
-            addOutput("info", `✓ ${entryPath} executado sem erros — este arquivo não produziu saída (provavelmente só define funções). Use print() para ver resultados, ou rode o main.py.`)
-            setHasOutput(false)
-          }
-          setLessonProgress((p) => Math.max(p, 60))
-        }
-      },
-      onError: (error) => {
-        const parsed = parsePythonError(error)
-        addOutput("error", `${parsed.title}: ${parsed.explanation}`)
-        addOutput("warning", `Erro original: ${parsed.original}`)
-        addOutput("warning", `💡 Dica: ${parsed.hint}`)
-        setHasOutput(false)
-        setRunSucceeded(false)
-      },
-    })
-  }, [files, activePath, pythonStatus, isInstalling, execute, addOutput])
+  const handleVerificationResult = useCallback(
+    async (result: SubmissionResult, levelAtStart: number | null) => {
+      setLastResult(result)
+      if (!result.allPassed) {
+        appendLines(verificationFailureLines(result))
+        reachProgress(LESSON_PROGRESS.verifiedWithFailures)
+        return
+      }
+      appendLines([verificationSuccessLine(result)])
+      isLessonCompletedRef.current = true
+      setLevelBefore(levelAtStart)
+      setAllPassed(true)
+      setLessonProgress(LESSON_PROGRESS.passed)
+      setShowSuccess(true)
+      try {
+        // A conclusão e o XP já foram gravados pela API; aqui só refletimos na interface.
+        await applyCompletion(lesson.id, result)
+      } catch {
+        // A celebração já apareceu; uma falha ao atualizar o painel não deve interrompê-la.
+      }
+    },
+    [appendLines, reachProgress, applyCompletion, lesson.id],
+  )
 
-  // ── Verificar ───────────────────────────────────────────────────────────────
   const verify = useCallback(async () => {
-    if (lessonCompletedRef.current) {
+    if (isLessonCompletedRef.current) {
       addOutput("info", "Você já completou essa lição! Avance para a próxima.")
       return
     }
@@ -376,112 +371,104 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
     addOutput("info", "🔬 Verificando sua solução com testes ocultos...")
     setIsVerifying(true)
     const levelAtStart = profile?.level ?? null
-
-    const res = await evaluateOnServer(lesson.id, files)
-    setIsVerifying(false)
-
-    if (!res.ok) {
-      switch (res.error.type) {
-        case "unauthenticated":
-          router.push(`/login?next=${encodeURIComponent(`/lesson/${lesson.id}`)}`)
-          return
-        case "not_found": addOutput("error", "Lição não encontrada no servidor."); return
-        case "timeout": addOutput("error", res.error.message); return
-        case "rate_limited": addOutput("warning", res.error.message); return
-        case "server_error": addOutput("error", res.error.message); return
-        case "network_error": addOutput("error", "Erro de conexão ao verificar. Verifique sua internet e tente novamente."); return
+    try {
+      const result = await submitLessonCode(lesson.id, files)
+      setIsVerifying(false)
+      await handleVerificationResult(result, levelAtStart)
+    } catch (error) {
+      setIsVerifying(false)
+      if (isApiError(error, HTTP_STATUS.UNAUTHORIZED)) {
+        router.push(ROUTES.loginWithNext(ROUTES.lesson(lesson.id)))
+        return
       }
-      return
+      appendLines([verificationErrorLine(error)])
     }
+  }, [files, isInstalling, runSucceeded, lesson.id, profile?.level, addOutput, appendLines, handleVerificationResult, router])
 
-    const result = res.result
-    setLastResult(result)
-    if (result.allPassed) {
-      addOutput(
-        "success",
-        result.xp_awarded > 0
-          ? `✓ Todos os testes passaram! +${result.xp_awarded} XP conquistado!`
-          : "✓ Todos os testes passaram! (Você já tinha concluído esta lição.)",
+  const runConsoleCommand = useCallback(
+    (command: string) => {
+      if (pythonStatus !== "ready") {
+        addOutput("warning", "Python ainda não está pronto.")
+        return
+      }
+      addOutput("info", `>>> ${command}`)
+      // O comando roda junto com os arquivos do projeto para poder importá-los.
+      execute(
+        { files: [...files, { path: CONSOLE_COMMAND_FILE_PATH, content: command }], entryPath: CONSOLE_COMMAND_FILE_PATH },
+        {
+          onResult: (result) => {
+            if (result.stdout) appendLines(stdoutLines(result.stdout))
+            if (result.stderr) addOutput("error", result.stderr.trim())
+          },
+          onError: (message) => addOutput("error", message),
+        },
       )
-      lessonCompletedRef.current = true
-      setLevelBefore(levelAtStart)
-      setAllPassed(true)
-      setLessonProgress(100)
-      setShowSuccess(true)
-      try {
-        // A conclusão e o XP já foram gravados pela API; aqui só refletimos na UI.
-        await applyCompletion(lesson.id, result)
-      } catch { /* silencioso */ }
-    } else {
-      const failCount = result.failures + result.errors
-      addOutput("error", `${failCount} de ${result.testsRun} testes falharam.`)
-      const failedCases = (result.cases ?? []).filter((c) => !c.passed)
-      if (failedCases.length) {
-        failedCases.forEach((c) => addOutput("warning", c.message ? `${c.name}: ${c.message}` : c.name))
-      } else {
-        result.failureDetails.forEach((msg) => addOutput("warning", msg))
-      }
-      addOutput("info", "Continue tentando! Leia o feedback acima e ajuste seu código.")
-      setLessonProgress((p) => Math.max(p, 70))
-    }
-  }, [files, isInstalling, runSucceeded, lesson.id, profile?.level, addOutput, applyCompletion, router])
+    },
+    [pythonStatus, files, execute, addOutput, appendLines],
+  )
 
-  // ── Comando avulso no console ───────────────────────────────────────────────
-  const runConsoleCommand = useCallback((cmd: string) => {
-    if (pythonStatus !== "ready") {
-      addOutput("warning", "Python ainda não está pronto.")
-      return
-    }
-    addOutput("info", `>>> ${cmd}`)
-    // Inclui os arquivos do projeto para que o comando possa importá-los
-    execute("", {
-      files: [...files, { path: "__console__.py", content: cmd }],
-      entryPath: "__console__.py",
-      onResult: (r) => {
-        if (r.stdout) r.stdout.split("\n").filter(Boolean).forEach((l) => addOutput("output", l))
-        if (r.stderr) addOutput("error", r.stderr.trim())
-      },
-      onError: (e) => addOutput("error", e),
-    })
-  }, [pythonStatus, files, execute, addOutput])
-
-  // ── Atalhos de teclado ──────────────────────────────────────────────────────
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); run() }
-      if (e.altKey && e.key === "g") { e.preventDefault(); reset() }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        event.preventDefault()
+        run()
+      }
+      if (event.altKey && event.key === "g") {
+        event.preventDefault()
+        reset()
+      }
     }
-    window.addEventListener("keydown", onKeyDown)
-    return () => window.removeEventListener("keydown", onKeyDown)
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
   }, [run, reset])
 
   const value = useMemo<IDEContextValue>(
     () => ({
-      files, activePath, openPaths, setActivePath, openFile, closeTab, onContentChange,
-      createFile, renameFile, deleteFile,
-      consoleOutputs, clearConsole, addOutput,
-      pythonStatus, isExecuting, isInstalling, stop,
-      run, reset, verify, runConsoleCommand,
-      hasRun, hasOutput, canVerify: runSucceeded, lessonProgress, allPassed,
+      files,
+      activePath: tabs.activePath,
+      openPaths: tabs.openPaths,
+      setActivePath,
+      openFile,
+      closeTab,
+      updateFileContent: handleContentChange,
+      createFile,
+      renameFile,
+      deleteFile,
+      consoleOutputs,
+      clearConsole,
+      addOutput,
+      runConsoleCommand,
+      pythonStatus,
+      isExecuting,
+      isInstalling,
+      stop,
+      run,
+      reset,
+      verify,
+      hasRun,
+      hasOutput,
+      canVerify: runSucceeded,
+      lessonProgress,
+      allPassed,
       isVerifying: isVerifying || isInstalling,
-      lastResult, levelBefore,
-      showSuccess, setShowSuccess,
+      lastResult,
+      levelBefore,
+      showSuccess,
+      setShowSuccess,
     }),
     [
-      files, activePath, openPaths, setActivePath, openFile, closeTab, onContentChange,
-      createFile, renameFile, deleteFile, consoleOutputs, clearConsole, addOutput,
-      pythonStatus, isExecuting, isInstalling, stop,
-      run, reset, verify, runConsoleCommand,
-      hasRun, hasOutput, runSucceeded, lessonProgress, allPassed,
-      isVerifying, lastResult, levelBefore, showSuccess, setShowSuccess,
-    ]
+      files, tabs, setActivePath, openFile, closeTab, handleContentChange, createFile, renameFile, deleteFile,
+      consoleOutputs, clearConsole, addOutput, runConsoleCommand, pythonStatus, isExecuting, isInstalling, stop,
+      run, reset, verify, hasRun, hasOutput, runSucceeded, lessonProgress, allPassed, isVerifying, lastResult,
+      levelBefore, showSuccess,
+    ],
   )
 
   return <IDEContext.Provider value={value}>{children}</IDEContext.Provider>
 }
 
-export function useIDE() {
-  const ctx = useContext(IDEContext)
-  if (!ctx) throw new Error("useIDE must be used within IDEProvider")
-  return ctx
+export function useIDE(): IDEContextValue {
+  const context = useContext(IDEContext)
+  if (!context) throw new Error("useIDE deve ser usado dentro de IDEProvider")
+  return context
 }

@@ -18,6 +18,7 @@ import { StarterFilesTab } from "@/components/teacher/lesson-editor/starter-file
 import { TestsTab } from "@/components/teacher/lesson-editor/tests-tab"
 import { CheckpointsTab } from "@/components/teacher/lesson-editor/checkpoints-tab"
 import { LibrariesTab } from "@/components/teacher/lesson-editor/libraries-tab"
+import { ROUTES } from "@/lib/constants"
 
 export default function TeacherEditPage() {
   const params = useParams<{ id: string }>()
@@ -41,7 +42,7 @@ export default function TeacherEditPage() {
   // editor (o estado local já é a versão salva).
   useEffect(() => {
     if (editor.lessonId && params.id === "new") {
-      window.history.replaceState(null, "", `/teacher/edit/${editor.lessonId}`)
+      window.history.replaceState(null, "", ROUTES.teacherLesson(editor.lessonId))
     }
   }, [editor.lessonId, params.id])
 
@@ -104,7 +105,7 @@ export default function TeacherEditPage() {
       <div className="flex h-screen flex-col items-center justify-center gap-4 px-6 text-center">
         <AlertCircle className="h-10 w-10 text-destructive/60" />
         <p className="text-sm font-semibold text-level-purple-dark">{editor.loadError}</p>
-        <Link href="/teacher" className="rounded-xl bg-level-purple px-5 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark">
+        <Link href={ROUTES.teacher} className="rounded-xl bg-level-purple px-5 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark">
           Voltar ao painel
         </Link>
       </div>
@@ -114,6 +115,8 @@ export default function TeacherEditPage() {
   const testErrors = editor.compiled.errorCount
   const showError = (message: string) => swalError({ text: message })
 
+  const savedLessonId = editor.lessonId
+
   return (
     <div className="min-h-screen bg-white">
       <TeacherSuccessModal
@@ -122,7 +125,7 @@ export default function TeacherEditPage() {
         title={form.title}
         published={editor.published}
         onClose={() => setSuccessOpen(false)}
-        onView={editor.lessonId ? () => router.push(`/lesson/${editor.lessonId}`) : undefined}
+        onView={savedLessonId ? () => router.push(ROUTES.lesson(savedLessonId)) : undefined}
       />
 
       <EditorHeader

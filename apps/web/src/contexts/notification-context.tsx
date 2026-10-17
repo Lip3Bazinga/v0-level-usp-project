@@ -1,102 +1,93 @@
 "use client"
 
-import {
-  createContext,
-  useContext,
-  useCallback,
-  useEffect,
-  useState,
-  useMemo,
-  type ReactNode,
-} from "react"
-import { useAuth } from "@/contexts/auth-context"
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react"
 import type { Notification } from "@levelusp/contracts"
-import {
-  fetchNotifications,
-  markRead as apiMarkRead,
-  markAllRead as apiMarkAllRead,
-} from "@/lib/api"
+import { useAuth } from "@/contexts/auth-context"
+import { useAsyncResource } from "@/hooks/use-async-resource"
+import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from "@/lib/api"
 
-// ── Tipos ─────────────────────────────────────────────────────────────────────
-
-export interface NotificationContextValue {
+export interface NotificationState {
   notifications: Notification[]
   unreadCount: number
   isLoading: boolean
+}
+
+export interface NotificationActions {
+  /** Busca de novo (ex.: depois de uma conclusão que gerou notificações no servidor). */
   refresh: () => Promise<void>
-  markRead: (id: string) => Promise<void>
+  markRead: (notificationId: string) => Promise<void>
   markAllRead: () => Promise<void>
 }
 
-// ── Context ───────────────────────────────────────────────────────────────────
+export type NotificationContextValue = NotificationState & NotificationActions
 
 const NotificationContext = createContext<NotificationContextValue | null>(null)
 
+const NO_NOTIFICATIONS: Notification[] = []
+
+/** O sino não deve quebrar a página: falha ao buscar mostra a lista vazia. */
+async function loadNotifications(userId: string | undefined): Promise<Notification[]> {
+  if (!userId) return NO_NOTIFICATIONS
+  try {
+    return await fetchNotifications()
+  } catch {
+    return NO_NOTIFICATIONS
+  }
+}
+
+function markAsRead(notification: Notification): Notification {
+  return { ...notification, read: true }
+}
+
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-
   const userId = user?.id
+  const resource = useAsyncResource(() => loadNotifications(userId), [userId])
+  const { reload, setData } = resource
+  const notifications = resource.status === "success" ? resource.data : NO_NOTIFICATIONS
 
-  const refresh = useCallback(async () => {
-    if (!userId) {
-      setNotifications([])
-      return
-    }
-    setIsLoading(true)
-    try {
-      const data = await fetchNotifications()
-      setNotifications(data)
-    } catch {
-      setNotifications([])
-    } finally {
-      setIsLoading(false)
-    }
-  }, [userId])
-
-  // Carrega ao logar / trocar de usuário
-  useEffect(() => {
-    refresh()
-  }, [refresh])
-
-  const markRead = useCallback(async (id: string) => {
-    // Atualização otimista
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
-    try {
-      await apiMarkRead(id)
-    } catch {
-      refresh() // reverte para o estado real em caso de falha
-    }
-  }, [refresh])
+  // Atualização otimista: em caso de falha, recarrega para voltar ao estado real.
+  const markRead = useCallback(
+    async (notificationId: string) => {
+      setData((current) => current.map((item) => (item.id === notificationId ? markAsRead(item) : item)))
+      try {
+        await markNotificationRead(notificationId)
+      } catch {
+        await reload()
+      }
+    },
+    [reload, setData],
+  )
 
   const markAllRead = useCallback(async () => {
     if (!userId) return
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+    setData((current) => current.map(markAsRead))
     try {
-      await apiMarkAllRead()
+      await markAllNotificationsRead()
     } catch {
-      refresh()
+      await reload()
     }
-  }, [userId, refresh])
+  }, [userId, reload, setData])
 
-  const unreadCount = useMemo(
-    () => notifications.filter((n) => !n.read).length,
-    [notifications],
-  )
+  const unreadCount = useMemo(() => notifications.filter((item) => !item.read).length, [notifications])
 
   const value = useMemo<NotificationContextValue>(
-    () => ({ notifications, unreadCount, isLoading, refresh, markRead, markAllRead }),
-    [notifications, unreadCount, isLoading, refresh, markRead, markAllRead],
+    () => ({
+      notifications,
+      unreadCount,
+      isLoading: resource.status === "loading",
+      refresh: reload,
+      markRead,
+      markAllRead,
+    }),
+    [notifications, unreadCount, resource.status, reload, markRead, markAllRead],
   )
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>
 }
 
-// ── Hook ──────────────────────────────────────────────────────────────────────
-
 export function useNotifications(): NotificationContextValue {
-  const ctx = useContext(NotificationContext)
-  if (!ctx) throw new Error("useNotifications deve ser usado dentro de NotificationProvider")
-  return ctx
+  const context = useContext(NotificationContext)
+  if (!context) throw new Error("useNotifications deve ser usado dentro de NotificationProvider")
+  return context
 }

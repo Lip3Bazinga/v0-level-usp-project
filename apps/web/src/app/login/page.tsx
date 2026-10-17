@@ -9,6 +9,7 @@ import { Rocket, Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { StreakAnimation } from "@/components/gamification/streak-animation"
 import { safeRedirectPath } from "@/lib/utils/redirect"
+import { ROUTES } from "@/lib/constants"
 
 function LoginForm() {
   const searchParams = useSearchParams()
@@ -36,18 +37,17 @@ function LoginForm() {
     setError("")
     setLoading(true)
 
-    const { error, streakResult } = await signIn(email, password)
+    const result = await signIn(email, password)
 
-    if (error) {
-      setError(error)
+    if (!result.ok) {
+      setError(result.error)
       setLoading(false)
       submittingRef.current = false
       return
     }
 
-    // Show streak animation if the user extended their streak today
-    if (streakResult?.streakUpdated && streakResult.newStreak > 0) {
-      setStreakDays(streakResult.newStreak)
+    if (result.streak?.increased && result.streak.streak > 0) {
+      setStreakDays(result.streak.streak)
       setPendingRedirect(redirect)
       setShowStreak(true)
       setLoading(false)
@@ -78,7 +78,7 @@ function LoginForm() {
             <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 backdrop-blur">
               <Rocket className="h-10 w-10 text-white" />
             </div>
-            <h1 className="text-4xl font-bold text-white mb-4"><Link href="/" className="hover:underline">LevelUSP</Link></h1>
+            <h1 className="text-4xl font-bold text-white mb-4"><Link href={ROUTES.home} className="hover:underline">LevelUSP</Link></h1>
             <p className="text-lg text-purple-200 leading-relaxed">
               Aprenda programação de forma gamificada. Uma iniciativa gratuita da
               Universidade de São Paulo para todo o Brasil.
@@ -104,7 +104,7 @@ function LoginForm() {
         <div className="flex w-full lg:w-1/2 items-center justify-center p-8">
           <div className="w-full max-w-md">
             {/* Mobile logo */}
-            <Link href="/" aria-label="LevelUSP — página inicial" className="lg:hidden flex items-center justify-center gap-3 mb-8">
+            <Link href={ROUTES.home} aria-label="LevelUSP — página inicial" className="lg:hidden flex items-center justify-center gap-3 mb-8">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-level-purple">
                 <Rocket className="h-6 w-6 text-white" />
               </div>
@@ -161,7 +161,7 @@ function LoginForm() {
                 <div className="flex items-center justify-between">
                   <label htmlFor="login-password" className="text-sm font-medium text-level-purple-dark">Senha</label>
                   <Link
-                    href="/esqueci-senha"
+                    href={ROUTES.forgotPassword}
                     className="text-sm text-level-purple hover:text-level-purple-dark transition-colors"
                   >
                     Esqueci minha senha
@@ -210,7 +210,7 @@ function LoginForm() {
 
             <p className="mt-6 text-center text-sm text-muted-foreground">
               Não tem uma conta?{" "}
-              <Link href="/signup" className="font-semibold text-level-purple hover:text-level-purple-dark transition-colors">
+              <Link href={ROUTES.signup} className="font-semibold text-level-purple hover:text-level-purple-dark transition-colors">
                 Cadastre-se gratuitamente
               </Link>
             </p>

@@ -50,7 +50,7 @@ export function TestCasesEditor({ value, onChange, disabled }: TestCasesEditorPr
     const target = index + dir
     if (target < 0 || target >= value.length) return
     const copy = [...value]
-    ;[copy[index], copy[target]] = [copy[target]!, copy[index]!]
+    ;[copy[index], copy[target]] = [copy[target], copy[index]]
     onChange(copy)
   }
   const toggleCollapsed = (key: string) =>
