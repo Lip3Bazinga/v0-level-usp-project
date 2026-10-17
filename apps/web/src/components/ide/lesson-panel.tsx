@@ -82,7 +82,7 @@ function StepItem({ done, label, sublabel }: { done: boolean; label: string; sub
       )}
       <div className="min-w-0">
         <p className={`text-sm font-medium ${done ? "text-green-700" : "text-gray-600"}`}>{label}</p>
-        {sublabel && <p className="mt-0.5 text-xs text-gray-400">{sublabel}</p>}
+        {sublabel && <p className="mt-0.5 text-xs text-gray-500">{sublabel}</p>}
       </div>
     </div>
   )
@@ -121,7 +121,7 @@ export function LessonPanel({
             {moduleName}
           </p>
           <h2 className="mb-1 text-xl font-bold text-level-purple-dark leading-tight">{title}</h2>
-          {estimatedTime && <p className="mb-5 text-xs text-gray-400">{estimatedTime}</p>}
+          {estimatedTime && <p className="mb-5 text-xs text-gray-500">{estimatedTime}</p>}
 
           {/* Teoria — HTML ou Markdown (mesma renderização da pré-visualização do professor) */}
           <LessonContentPreview content={content} />
@@ -186,7 +186,7 @@ export function LessonPanel({
                   Ver cheatsheet <ExternalLink className="h-3 w-3" />
                 </a>
               ) : (
-                <span className="italic text-gray-400">Não disponível</span>
+                <span className="italic text-gray-500">Não disponível</span>
               )}
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -198,7 +198,7 @@ export function LessonPanel({
                   Fórum <ExternalLink className="h-3 w-3" />
                 </a>
               ) : (
-                <span className="italic text-gray-400">Em breve</span>
+                <span className="italic text-gray-500">Em breve</span>
               )}
             </div>
           </div>
@@ -212,7 +212,7 @@ export function LessonPanel({
       {onVerify && (
         <div className="shrink-0 border-t border-gray-100 bg-white p-4">
           {!canVerify && !allCheckpointsDone && (
-            <p className="mb-2 text-center text-xs text-gray-400">
+            <p className="mb-2 text-center text-xs text-gray-500">
               Execute seu código sem erros para liberar a verificação.
             </p>
           )}

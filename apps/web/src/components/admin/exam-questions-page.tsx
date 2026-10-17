@@ -136,6 +136,7 @@ export function ExamQuestionsAdminPage({ onToast }: { onToast: OnToast }) {
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <div className="relative">
           <select
+            aria-label="Prova"
             value={examId}
             onChange={(e) => setExamId(e.target.value)}
             className="appearance-none rounded-xl border border-border bg-white py-2.5 pl-4 pr-10 text-sm font-medium focus:border-level-purple focus:outline-none"

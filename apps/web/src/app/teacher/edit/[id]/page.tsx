@@ -120,6 +120,7 @@ export default function TeacherEditPage() {
         show={successOpen}
         type="lesson"
         title={form.title}
+        published={editor.published}
         onClose={() => setSuccessOpen(false)}
         onView={editor.lessonId ? () => router.push(`/lesson/${editor.lessonId}`) : undefined}
       />
@@ -136,9 +137,9 @@ export default function TeacherEditPage() {
         onUnpublish={() => handleSave(false)}
       />
 
-      <main className="mx-auto max-w-7xl px-6 py-8">
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         {(inlineError || editor.loadError) && (
-          <div role="alert" className="mb-6 flex items-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <div role="alert" className="mb-6 flex items-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-red-700">
             <AlertCircle className="h-4 w-4 shrink-0" />
             {inlineError ?? editor.loadError}
           </div>

@@ -125,7 +125,7 @@ export function DailyGoalRing({ studyDays }: { studyDays: Set<string> }) {
         <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
           {pct >= 1
             ? "Meta concluída! Streak garantido por hoje."
-            : `Complete ${DAILY_GOAL} lição hoje para manter o streak.`}
+            : `Complete ${DAILY_GOAL} lição hoje para manter a sequência.`}
         </p>
       </div>
     </div>

@@ -150,7 +150,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     const xpFloor = xpForLevel(level - 1)
     const xpCeil = xpForLevel(level)
     const xpInLevel = totalXp - xpFloor
-    const xpProgress = xpCeil > 0 ? Math.min(100, Math.round((xpInLevel / xpCeil) * 100)) : 0
+    // Progresso dentro da faixa do nível (antes dividia pelo teto absoluto: no nível 2 a barra ficava pela metade).
+    const xpRange = Math.max(1, xpCeil - xpFloor)
+    const xpProgress = Math.min(100, Math.round((xpInLevel / xpRange) * 100))
     return { level, totalXp, streak, maxStreak, xpInLevel, xpCeil, xpProgress }
   }, [profile?.level, profile?.total_xp, profile?.current_streak, profile?.max_streak])
 

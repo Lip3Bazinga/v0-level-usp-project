@@ -89,6 +89,8 @@ export function ModuleTrail({ name, icon: Icon, accentClass, lessons, statuses }
               <Link
                 href={status === "locked" ? "#" : `/lesson/${lesson.id}`}
                 aria-disabled={status === "locked"}
+                aria-label={`${lesson.title} — ${isDone ? "concluída" : status === "locked" ? "bloqueada" : "começar"}`}
+                tabIndex={status === "locked" ? -1 : undefined}
                 title={`${lesson.title} · +${lesson.xp_reward} XP`}
                 onClick={(e) => status === "locked" && e.preventDefault()}
                 className={`group relative block ${status === "locked" ? "cursor-not-allowed" : ""}`}

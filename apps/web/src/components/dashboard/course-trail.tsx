@@ -69,6 +69,8 @@ function LessonNode({ lesson, status, index, side }: LessonNodeProps) {
         <Link
           href={isLocked ? "#" : `/lesson/${lesson.id}`}
           aria-disabled={isLocked}
+          aria-label={`${lesson.title} — ${isDone ? "concluída" : status === "locked" ? "bloqueada" : "começar"}`}
+          tabIndex={isLocked ? -1 : undefined}
           onClick={(e) => isLocked && e.preventDefault()}
           className={`group relative flex h-14 w-14 items-center justify-center rounded-full border-b-[5px] transition-transform duration-150 ${
             isDone

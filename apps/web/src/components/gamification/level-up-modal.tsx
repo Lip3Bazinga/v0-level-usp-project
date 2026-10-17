@@ -4,6 +4,7 @@ import { useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import confetti from "canvas-confetti"
 import { Trophy, Star, Zap, ArrowUp } from "lucide-react"
+import { useModalA11y } from "@/hooks/use-modal-a11y"
 
 interface LevelUpModalProps {
   show: boolean
@@ -14,7 +15,7 @@ interface LevelUpModalProps {
 function fireLevelUpConfetti() {
   const colors = ["#FACC15", "#F59E0B", "#7C3AED", "#A78BFA", "#FFFFFF"]
 
-  confetti({
+  confetti({ disableForReducedMotion: true,
     particleCount: 150,
     spread: 100,
     origin: { y: 0.5, x: 0.5 },
@@ -27,12 +28,12 @@ function fireLevelUpConfetti() {
   })
 
   setTimeout(() => {
-    confetti({ particleCount: 80, angle: 60, spread: 70, origin: { x: 0, y: 0.5 }, colors, zIndex: 10000 })
-    confetti({ particleCount: 80, angle: 120, spread: 70, origin: { x: 1, y: 0.5 }, colors, zIndex: 10000 })
+    confetti({ disableForReducedMotion: true, particleCount: 80, angle: 60, spread: 70, origin: { x: 0, y: 0.5 }, colors, zIndex: 10000 })
+    confetti({ disableForReducedMotion: true, particleCount: 80, angle: 120, spread: 70, origin: { x: 1, y: 0.5 }, colors, zIndex: 10000 })
   }, 200)
 
   setTimeout(() => {
-    confetti({ particleCount: 60, spread: 80, origin: { y: 0.3, x: 0.5 }, colors, zIndex: 10000 })
+    confetti({ disableForReducedMotion: true, particleCount: 60, spread: 80, origin: { y: 0.3, x: 0.5 }, colors, zIndex: 10000 })
   }, 500)
 }
 
@@ -46,6 +47,7 @@ export function LevelUpModal({ show, newLevel, onClose }: LevelUpModalProps) {
   }, [show, onClose])
 
   const handleClose = useCallback(() => onClose(), [onClose])
+  const dialogRef = useModalA11y<HTMLDivElement>(show, handleClose)
 
   return (
     <AnimatePresence>
@@ -63,6 +65,10 @@ export function LevelUpModal({ show, newLevel, onClose }: LevelUpModalProps) {
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.7, opacity: 0, y: -30 }}
             transition={{ type: "spring", stiffness: 260, damping: 18, delay: 0.1 }}
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Você subiu de nível"
             onClick={(e) => e.stopPropagation()}
             className="relative mx-4 flex flex-col items-center overflow-hidden rounded-3xl bg-gradient-to-b from-yellow-400 via-amber-400 to-yellow-500 px-10 py-10 text-center shadow-2xl shadow-yellow-500/40"
             style={{ maxWidth: 400, width: "100%" }}

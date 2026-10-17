@@ -3,6 +3,7 @@
 import { useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Flame, Zap } from "lucide-react"
+import { useModalA11y } from "@/hooks/use-modal-a11y"
 
 interface StreakAnimationProps {
   show: boolean
@@ -13,6 +14,7 @@ interface StreakAnimationProps {
 
 export function StreakAnimation({ show, streakDays, isNewStreak = true, onClose }: StreakAnimationProps) {
   const handleClose = useCallback(() => onClose(), [onClose])
+  const dialogRef = useModalA11y<HTMLDivElement>(show, handleClose)
 
   return (
     <AnimatePresence>
@@ -29,6 +31,10 @@ export function StreakAnimation({ show, streakDays, isNewStreak = true, onClose 
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.8, opacity: 0 }}
             transition={{ type: "spring", stiffness: 280, damping: 18 }}
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Sequência de estudos"
             onClick={(e) => e.stopPropagation()}
             className="relative mx-4 w-full max-w-xs overflow-hidden rounded-3xl bg-gradient-to-br from-orange-500 via-red-500 to-orange-600 p-7 text-center shadow-2xl shadow-orange-500/40"
           >

@@ -256,7 +256,7 @@ export function ActivityMap({ data: rawData, className }: ActivityMapProps) {
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-success" />
           <span className="text-sm text-muted-foreground">
-            <strong className="text-level-purple-dark">{currentStreak}</strong> {currentStreak === 1 ? "dia" : "dias"} de streak atual
+            <strong className="text-level-purple-dark">{currentStreak}</strong> {currentStreak === 1 ? "dia" : "dias"} de sequência atual
           </span>
         </div>
       </div>

@@ -39,7 +39,7 @@ export default async function CertificadoPage({
         <div className="mb-6 flex items-center gap-2">
           <GraduationCap className="h-6 w-6 text-purple-600" />
           <span className="text-lg font-bold text-purple-900">LevelUSP</span>
-          <span className="ml-auto text-xs uppercase tracking-widest text-gray-400">
+          <span className="ml-auto text-xs uppercase tracking-widest text-gray-500">
             Verificação de certificado
           </span>
         </div>

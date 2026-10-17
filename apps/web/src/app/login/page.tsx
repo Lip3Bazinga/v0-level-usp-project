@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, Suspense } from "react"
+import { useRef, useState, Suspense } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { LevelButton } from "@/components/design-system/level-button"
@@ -21,6 +21,8 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  // Trava síncrona contra duplo clique (o estado `loading` só desabilita no próximo render).
+  const submittingRef = useRef(false)
 
   // Streak animation state
   const [showStreak, setShowStreak] = useState(false)
@@ -29,6 +31,8 @@ function LoginForm() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (submittingRef.current) return
+    submittingRef.current = true
     setError("")
     setLoading(true)
 
@@ -37,6 +41,7 @@ function LoginForm() {
     if (error) {
       setError(error)
       setLoading(false)
+      submittingRef.current = false
       return
     }
 
@@ -66,14 +71,14 @@ function LoginForm() {
         onClose={handleStreakClose}
       />
 
-      <div className="flex min-h-screen">
+      <main className="flex min-h-screen">
         {/* Left side — Branding */}
         <div className="hidden lg:flex lg:w-1/2 bg-linear-to-br from-level-purple to-level-purple-dark items-center justify-center p-12">
           <div className="max-w-md text-center">
             <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 backdrop-blur">
               <Rocket className="h-10 w-10 text-white" />
             </div>
-            <h1 className="text-4xl font-bold text-white mb-4">LevelUSP</h1>
+            <h1 className="text-4xl font-bold text-white mb-4"><Link href="/" className="hover:underline">LevelUSP</Link></h1>
             <p className="text-lg text-purple-200 leading-relaxed">
               Aprenda programação de forma gamificada. Uma iniciativa gratuita da
               Universidade de São Paulo para todo o Brasil.
@@ -99,12 +104,12 @@ function LoginForm() {
         <div className="flex w-full lg:w-1/2 items-center justify-center p-8">
           <div className="w-full max-w-md">
             {/* Mobile logo */}
-            <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
+            <Link href="/" aria-label="LevelUSP — página inicial" className="lg:hidden flex items-center justify-center gap-3 mb-8">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-level-purple">
                 <Rocket className="h-6 w-6 text-white" />
               </div>
               <span className="text-2xl font-bold text-level-purple-dark">LevelUSP</span>
-            </div>
+            </Link>
 
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-level-purple-dark">Bem-vindo de volta!</h2>
@@ -129,7 +134,7 @@ function LoginForm() {
             {/* Login Form */}
             <form onSubmit={handleLogin} className="space-y-4">
               {error && (
-                <div role="alert" className="flex items-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                <div role="alert" className="flex items-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-red-700">
                   <AlertCircle className="h-4 w-4 shrink-0" />
                   {error}
                 </div>
@@ -177,8 +182,9 @@ function LoginForm() {
                   <button
                     type="button"
                     aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                    aria-pressed={showPassword}
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -210,7 +216,7 @@ function LoginForm() {
             </p>
           </div>
         </div>
-      </div>
+      </main>
     </>
   )
 }

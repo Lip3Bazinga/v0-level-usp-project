@@ -4,6 +4,8 @@ import { useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import confetti from "canvas-confetti"
 import { Shield, Star, Sparkles } from "lucide-react"
+import { BADGE_ICONS } from "@/lib/badge-icons"
+import { useModalA11y } from "@/hooks/use-modal-a11y"
 
 interface BadgeEarnedModalProps {
   show: boolean
@@ -16,6 +18,7 @@ interface BadgeEarnedModalProps {
 function fireBadgeConfetti() {
   const colors = ["#7C3AED", "#A78BFA", "#C4B5FD", "#FACC15", "#FFFFFF"]
   confetti({
+    disableForReducedMotion: true,
     particleCount: 120,
     spread: 90,
     origin: { y: 0.45, x: 0.5 },
@@ -38,6 +41,9 @@ export function BadgeEarnedModal({ show, badgeName, badgeDescription, badgeIcon,
   }, [show, onClose])
 
   const handleClose = useCallback(() => onClose(), [onClose])
+  const dialogRef = useModalA11y<HTMLDivElement>(show, handleClose)
+  // O seed/admin grava o NOME do ícone lucide (ex.: "Rocket"); emojis antigos seguem como texto.
+  const LucideIcon = badgeIcon ? BADGE_ICONS[badgeIcon] : undefined
 
   return (
     <AnimatePresence>
@@ -50,6 +56,11 @@ export function BadgeEarnedModal({ show, badgeName, badgeDescription, badgeIcon,
           onClick={handleClose}
         >
           <motion.div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="badge-earned-title"
+            aria-describedby={badgeDescription ? "badge-earned-desc" : undefined}
             initial={{ scale: 0.4, opacity: 0, rotateY: -90 }}
             animate={{ scale: 1, opacity: 1, rotateY: 0 }}
             exit={{ scale: 0.7, opacity: 0 }}
@@ -90,6 +101,7 @@ export function BadgeEarnedModal({ show, badgeName, badgeDescription, badgeIcon,
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
+                id="badge-earned-title"
                 className="text-xl font-black text-white"
               >
                 {badgeName}
@@ -104,8 +116,10 @@ export function BadgeEarnedModal({ show, badgeName, badgeDescription, badgeIcon,
               className="relative -mt-10 flex justify-center"
             >
               <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-xl ring-4 ring-level-purple">
-                {badgeIcon ? (
-                  <span className="text-4xl">{badgeIcon}</span>
+                {LucideIcon ? (
+                  <LucideIcon className="h-10 w-10 text-level-purple" aria-hidden="true" />
+                ) : badgeIcon && !/^[A-Za-z0-9_-]+$/.test(badgeIcon) ? (
+                  <span className="text-4xl" aria-hidden="true">{badgeIcon}</span>
                 ) : (
                   <Shield className="h-10 w-10 text-level-purple" />
                 )}
@@ -133,6 +147,7 @@ export function BadgeEarnedModal({ show, badgeName, badgeDescription, badgeIcon,
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.5 }}
+                  id="badge-earned-desc"
                   className="mb-5 text-sm text-muted-foreground"
                 >
                   {badgeDescription}

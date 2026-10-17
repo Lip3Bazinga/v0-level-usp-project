@@ -20,7 +20,7 @@ export function LevelButton({
   const baseStyles = "relative font-semibold rounded-xl transition-all duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-level-purple disabled:opacity-50 disabled:cursor-not-allowed"
   
   const variants = {
-    primary: "bg-level-purple text-white btn-3d hover:bg-level-purple-medium",
+    primary: "bg-level-purple text-white btn-3d hover:bg-level-purple-dark",
     secondary: "bg-level-purple-light text-level-purple-dark hover:bg-level-purple-subtle",
     outline: "border-2 border-level-purple text-level-purple hover:bg-level-purple-light",
     ghost: "text-level-purple hover:bg-level-purple-light",

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { passwordSchema } from "@levelusp/contracts"
@@ -19,6 +19,8 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  // Trava síncrona contra duplo clique (o estado `loading` só desabilita no próximo render).
+  const submittingRef = useRef(false)
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,11 +33,14 @@ export default function SignupPage() {
       return
     }
 
+    if (submittingRef.current) return
+    submittingRef.current = true
     setLoading(true)
     const { error } = await signUp({ email: email.trim(), password, full_name: fullName.trim() })
     if (error) {
       setError(error)
       setLoading(false)
+      submittingRef.current = false
       return
     }
 
@@ -45,14 +50,14 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <main className="flex min-h-screen">
       {/* Left side — Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-linear-to-br from-level-purple to-level-purple-dark items-center justify-center p-12">
         <div className="max-w-md text-center">
           <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 backdrop-blur">
             <Rocket className="h-10 w-10 text-white" />
           </div>
-          <h1 className="text-4xl font-bold text-white mb-4">LevelUSP</h1>
+          <h1 className="text-4xl font-bold text-white mb-4"><Link href="/" className="hover:underline">LevelUSP</Link></h1>
           <p className="text-lg text-purple-200 leading-relaxed">
             Comece sua jornada na programação hoje. 100% gratuito, 100% gamificado.
           </p>
@@ -76,12 +81,12 @@ export default function SignupPage() {
       <div className="flex w-full lg:w-1/2 items-center justify-center p-8">
         <div className="w-full max-w-md">
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
+          <Link href="/" aria-label="LevelUSP — página inicial" className="lg:hidden flex items-center justify-center gap-3 mb-8">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-level-purple">
               <Rocket className="h-6 w-6 text-white" />
             </div>
             <span className="text-2xl font-bold text-level-purple-dark">LevelUSP</span>
-          </div>
+          </Link>
 
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-level-purple-dark">Crie sua conta</h2>
@@ -106,18 +111,20 @@ export default function SignupPage() {
           {/* Signup Form */}
           <form onSubmit={handleSignup} className="space-y-4">
             {error && (
-              <div role="alert" className="flex items-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              <div role="alert" className="flex items-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-red-700">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 {error}
               </div>
             )}
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-level-purple-dark">Nome completo</label>
+              <label htmlFor="signup-name" className="text-sm font-medium text-level-purple-dark">Nome completo</label>
               <div className="relative">
                 <User className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
+                  id="signup-name"
                   type="text"
+                  autoComplete="name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Seu nome completo"
@@ -128,11 +135,13 @@ export default function SignupPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-level-purple-dark">Email</label>
+              <label htmlFor="signup-email" className="text-sm font-medium text-level-purple-dark">Email</label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
+                  id="signup-email"
                   type="email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="seu@email.com"
@@ -143,10 +152,12 @@ export default function SignupPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-level-purple-dark">Senha</label>
+              <label htmlFor="signup-password" className="text-sm font-medium text-level-purple-dark">Senha</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
+                  id="signup-password"
+                  aria-describedby="signup-password-hint"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -158,12 +169,17 @@ export default function SignupPage() {
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                  aria-pressed={showPassword}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              <p id="signup-password-hint" className="text-xs text-muted-foreground">
+                Mínimo de 10 caracteres, com pelo menos uma letra e um número.
+              </p>
             </div>
 
             <LevelButton
@@ -191,6 +207,6 @@ export default function SignupPage() {
           </p>
         </div>
       </div>
-    </div>
+    </main>
   )
 }

@@ -4,6 +4,7 @@ import { useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import confetti from "canvas-confetti"
 import { BookOpen, Star, CheckCircle2, Zap } from "lucide-react"
+import { useModalA11y } from "@/hooks/use-modal-a11y"
 
 interface EnrollmentAnimationProps {
   show: boolean
@@ -14,7 +15,7 @@ interface EnrollmentAnimationProps {
 
 function fireEnrollmentConfetti() {
   const colors = ["#7C3AED", "#A78BFA", "#10B981", "#34D399", "#FFFFFF"]
-  confetti({
+  confetti({ disableForReducedMotion: true,
     particleCount: 100,
     spread: 80,
     origin: { y: 0.55, x: 0.5 },
@@ -36,6 +37,7 @@ export function EnrollmentAnimation({ show, courseTitle, courseXp, onClose }: En
   }, [show, onClose])
 
   const handleClose = useCallback(() => onClose(), [onClose])
+  const dialogRef = useModalA11y<HTMLDivElement>(show, handleClose)
 
   return (
     <AnimatePresence>
@@ -52,6 +54,10 @@ export function EnrollmentAnimation({ show, courseTitle, courseXp, onClose }: En
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.85, opacity: 0 }}
             transition={{ type: "spring", stiffness: 280, damping: 18 }}
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Matrícula realizada"
             onClick={(e) => e.stopPropagation()}
             className="relative mx-4 w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl"
           >

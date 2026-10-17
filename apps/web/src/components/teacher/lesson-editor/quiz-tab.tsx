@@ -87,8 +87,9 @@ export function QuizTab({ questions, setQuestions, passingScore, loading }: {
 
               <div className="space-y-3">
                 <div>
-                  <label className={miniLabelClass}>Enunciado</label>
+                  <label htmlFor={`quiz-prompt-${q.id}`} className={miniLabelClass}>Enunciado</label>
                   <textarea
+                    id={`quiz-prompt-${q.id}`}
                     value={q.prompt}
                     onChange={(e) => update(q.id, { prompt: e.target.value })}
                     rows={2}
@@ -120,6 +121,7 @@ export function QuizTab({ questions, setQuestions, passingScore, loading }: {
                             type="button"
                             onClick={() => update(q.id, { correct_index: oi })}
                             title="Marcar como correta"
+                            aria-label={`Marcar alternativa ${String.fromCharCode(65 + oi)} como correta`}
                             aria-pressed={correct}
                             className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
                               correct ? "border-success bg-success text-white" : "border-border text-transparent hover:border-success"
@@ -131,6 +133,7 @@ export function QuizTab({ questions, setQuestions, passingScore, loading }: {
                             value={opt}
                             onChange={(e) => setOption(q, oi, e.target.value)}
                             placeholder={`Alternativa ${String.fromCharCode(65 + oi)}`}
+                            aria-label={`Alternativa ${String.fromCharCode(65 + oi)}${correct ? " (correta)" : ""}`}
                             className={`w-full rounded-xl border-2 px-3 py-2 text-sm focus:outline-none ${
                               correct ? "border-success/50 bg-success/5 focus:border-success" : "border-border focus:border-level-purple"
                             }`}
@@ -151,8 +154,9 @@ export function QuizTab({ questions, setQuestions, passingScore, loading }: {
                 </div>
 
                 <div>
-                  <label className={miniLabelClass}>Explicação (mostrada após a correção)</label>
+                  <label htmlFor={`quiz-expl-${q.id}`} className={miniLabelClass}>Explicação (mostrada após a correção)</label>
                   <input
+                    id={`quiz-expl-${q.id}`}
                     value={q.explanation}
                     onChange={(e) => update(q.id, { explanation: e.target.value })}
                     placeholder="Ex: len() conta os caracteres da string, e 'Python' tem 6."

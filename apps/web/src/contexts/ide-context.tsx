@@ -269,11 +269,13 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
 
   // ── Reset ───────────────────────────────────────────────────────────────────
   const reset = useCallback(() => {
+    // Apagar o código do aluno é irreversível: pede confirmação (botão e atalho Alt+G).
+    if (typeof window !== "undefined" && !window.confirm("Restaurar o código inicial da lição? Suas alterações serão perdidas.")) return
     const starter = resolveStarterFiles(lesson)
     setFiles(starter)
     setActivePath(MAIN_FILE)
     setOpenPaths([MAIN_FILE])
-    setConsoleOutputs([{ id: crypto.randomUUID(), type: "info", message: "Projeto resetado para o estado inicial.", timestamp: new Date() }])
+    setConsoleOutputs([{ id: crypto.randomUUID(), type: "info", message: "Código restaurado para o estado inicial da lição.", timestamp: new Date() }])
     setHasRun(false)
     setHasOutput(false)
     setRunSucceeded(false)

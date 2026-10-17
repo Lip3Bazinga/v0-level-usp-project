@@ -1,7 +1,8 @@
 "use client"
 
 import { useRef, useEffect, useState } from "react"
-import { Flame, Zap, Trophy, ChevronDown, User, Settings, LogOut } from "lucide-react"
+import Link from "next/link"
+import { Flame, Zap, Trophy, ChevronDown, User, Settings, LogOut, LayoutDashboard } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 import {
@@ -63,15 +64,16 @@ export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps)
     <header className="flex h-14 items-center justify-between border-b border-border bg-white px-3 sm:px-4">
       {/* Logo e Título */}
       <div className="flex items-center gap-2 sm:gap-4">
-        <div className="flex items-center gap-2">
+        {/* A marca leva de volta ao painel (antes não havia saída da lição além do "Voltar" do navegador). */}
+        <Link href="/dashboard" aria-label="LevelUSP Voltar ao painel" className="flex items-center gap-2 rounded-xl">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-level-purple">
-            <span className="text-sm font-bold text-white">L</span>
+            <span className="text-sm font-bold text-white" aria-hidden="true">L</span>
           </div>
           <div className="hidden flex-col sm:flex">
             <span className="text-sm font-bold text-level-purple-dark">LevelUSP</span>
-            <span className="text-[10px] text-muted-foreground">100% Gratuito</span>
+            <span className="text-[10px] text-muted-foreground">Voltar ao painel</span>
           </div>
-        </div>
+        </Link>
         <div className="hidden h-6 w-px bg-border md:block" />
         <div className="hidden md:block">
           <span className="text-sm font-medium text-level-purple-dark">{lessonTitle}</span>
@@ -92,7 +94,7 @@ export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps)
             />
           </div>
           <span className="absolute right-0 top-4 text-[10px] font-medium text-level-purple">
-            {lessonProgress}% completo
+            {lessonProgress}% da lição
           </span>
         </div>
       </div>
@@ -113,7 +115,7 @@ export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps)
               <Zap className="h-3.5 w-3.5 shrink-0 text-yellow-300" />
               <span className="text-xs font-bold leading-none">
                 {xpInLevel.toLocaleString("pt-BR")}
-                <span className="font-normal opacity-80">/{(xpCeil - xpFloor).toLocaleString("pt-BR")} XP</span>
+                <span className="font-normal opacity-95">/{(xpCeil - xpFloor).toLocaleString("pt-BR")} XP</span>
               </span>
             </div>
             <div className="h-1 w-full overflow-hidden rounded-full bg-white/25">
@@ -158,7 +160,7 @@ export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps)
         {/* Avatar/Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 rounded-full px-2 hover:bg-level-purple-light">
+            <Button variant="ghost" aria-label={`Menu da conta (${initials})`} className="flex items-center gap-2 rounded-full px-2 hover:bg-level-purple-light">
               <Avatar className="h-8 w-8 border-2 border-level-purple">
                 <AvatarFallback className="bg-level-purple-light text-level-purple-dark text-xs font-bold">
                   {initials}
@@ -168,6 +170,10 @@ export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps)
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={() => router.push("/dashboard")}>
+              <LayoutDashboard className="mr-2 h-4 w-4" />
+              Painel
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => router.push(`/perfil/${profile?.username || "me"}`)}>
               <User className="mr-2 h-4 w-4" />
               Meu Perfil

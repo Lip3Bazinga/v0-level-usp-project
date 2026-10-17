@@ -234,6 +234,7 @@ export function QuizLessonLayout({ lesson, allLessons, currentIndex }: QuizLesso
                             <button
                               key={oi}
                               type="button"
+                              aria-pressed={selected}
                               disabled={!!result}
                               onClick={() => setAnswers((prev) => ({ ...prev, [q.id]: oi }))}
                               className={`flex w-full items-center gap-3 rounded-xl border-2 px-3 py-2.5 text-left text-sm transition-colors ${
@@ -275,7 +276,7 @@ export function QuizLessonLayout({ lesson, allLessons, currentIndex }: QuizLesso
                 <button
                   onClick={handleSubmit}
                   disabled={!allAnswered || submitting || questions.length === 0}
-                  className="btn-3d flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-level-purple py-3 text-sm font-semibold text-white transition-colors hover:bg-level-purple-medium disabled:cursor-not-allowed disabled:opacity-50"
+                  className="btn-3d flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-level-purple py-3 text-sm font-semibold text-white transition-colors hover:bg-level-purple-dark disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {submitting
                     ? <><Loader2 className="h-4 w-4 animate-spin" /> Corrigindo...</>
@@ -284,7 +285,7 @@ export function QuizLessonLayout({ lesson, allLessons, currentIndex }: QuizLesso
               ) : !result.passed ? (
                 <button
                   onClick={handleRetry}
-                  className="btn-3d flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-level-purple py-3 text-sm font-semibold text-white transition-colors hover:bg-level-purple-medium"
+                  className="btn-3d flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-level-purple py-3 text-sm font-semibold text-white transition-colors hover:bg-level-purple-dark"
                 >
                   <RotateCcw className="h-4 w-4" /> Tentar novamente
                 </button>

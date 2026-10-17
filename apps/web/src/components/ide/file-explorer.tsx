@@ -121,7 +121,7 @@ function FileModal({ mode, initialValue = "", onConfirm, onClose }: FileModalPro
             <button
               type="submit"
               disabled={!value.trim()}
-              className="btn-3d flex-1 rounded-xl bg-level-purple py-2.5 text-sm font-semibold text-white hover:bg-level-purple-medium transition-colors disabled:opacity-50"
+              className="btn-3d flex-1 rounded-xl bg-level-purple py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors disabled:opacity-50"
             >
               Confirmar
             </button>
@@ -177,7 +177,8 @@ function TreeItem({ node, level, activePath, readOnly, onSelect, onRename, onDel
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost" size="icon"
-                className="h-5 w-5 opacity-0 group-hover:opacity-100"
+                aria-label={`Ações de ${node.name}`}
+                className="h-5 w-5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="h-3 w-3" />

@@ -29,7 +29,7 @@
   --muted-foreground: #6B7280;
   --accent: #EDE9FE;
   --accent-foreground: #4C1D95;
-  --destructive: #EF4444;
+  --destructive: #DC2626;            /* red-600: 4,8:1 sobre branco (antes #EF4444, 3,8:1) */
   --destructive-foreground: #FFFFFF;
   --border: #E5E7EB;
   --input: #F3F4F6;
@@ -55,12 +55,12 @@
   --sidebar-border: #E5E7EB;
   --sidebar-ring: #7C3AED;
   
-  /* Success/Warning/Info */
-  --success: #10B981;
+  /* Success/Warning/Info — tons escurecidos para texto/ícone atingirem 4,5:1 (WCAG 1.4.3) */
+  --success: #047857;                /* emerald-700 (antes #10B981, 2,5:1) */
   --success-foreground: #FFFFFF;
-  --warning: #F59E0B;
+  --warning: #B45309;                /* amber-700 (antes #F59E0B, 2,1:1) */
   --warning-foreground: #FFFFFF;
-  --info: #3B82F6;
+  --info: #1D4ED8;                   /* blue-700 (antes #3B82F6, 3,7:1) */
   --info-foreground: #FFFFFF;
   
   /* Editor Theme (for IDE mode) */
@@ -551,7 +551,22 @@ textarea:focus {
 @media (prefers-reduced-motion: reduce) {
   .aurora-bg::before,
   .aurora-bg::after,
-  .gradient-text {
+  .gradient-text,
+  .animate-pulse,
+  .animate-bounce,
+  .animate-ping {
     animation: none;
+  }
+  .btn-3d,
+  .card-hover,
+  .progress-thick > div {
+    transition: none;
+  }
+  .btn-3d:hover,
+  .card-hover:hover {
+    transform: none;
+  }
+  html {
+    scroll-behavior: auto;
   }
 }

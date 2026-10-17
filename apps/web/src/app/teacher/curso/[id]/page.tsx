@@ -249,13 +249,13 @@ export default function TeacherCourseEditPage() {
       />
 
       <header className="sticky top-0 z-50 border-b border-border bg-white/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-[1400px] items-center justify-between px-6">
-          <div className="flex items-center gap-4">
-            <Link href="/teacher" className="flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-level-purple">
-              <ArrowLeft className="h-4 w-4" /> Painel
+        <div className="mx-auto flex h-16 max-w-[1400px] items-center justify-between gap-2 px-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+            <Link href="/teacher" aria-label="Voltar ao painel do professor" className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-level-purple">
+              <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Painel</span>
             </Link>
-            <div className="h-5 w-px bg-border" />
-            <div className="flex items-center gap-2">
+            <div className="hidden h-5 w-px bg-border sm:block" />
+            <div className="hidden min-w-0 items-center gap-2 md:flex">
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-level-purple">
                 <BookOpen className="h-4 w-4 text-white" />
               </div>
@@ -266,7 +266,7 @@ export default function TeacherCourseEditPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {saved && (
               <span className="flex items-center gap-1 text-xs text-green-600">
                 <CheckCircle2 className="h-3.5 w-3.5" /> Salvo
@@ -283,7 +283,7 @@ export default function TeacherCourseEditPage() {
                 target="_blank"
                 className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-level-purple hover:text-level-purple"
               >
-                <Eye className="h-3.5 w-3.5" /> Ver página
+                <Eye className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Ver página</span><span className="sr-only sm:hidden">Ver página do curso</span>
               </Link>
             )}
             <button
@@ -319,7 +319,7 @@ export default function TeacherCourseEditPage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1400px] px-6 py-8">
+      <main className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6">
         {error && (
           <div role="alert" className="mb-6 flex items-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
             <AlertCircle className="h-4 w-4 shrink-0" /> {error}
@@ -329,7 +329,7 @@ export default function TeacherCourseEditPage() {
           </div>
         )}
 
-        <div className="grid gap-8 xl:grid-cols-[1fr_420px]">
+        <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_420px]">
           <div className="space-y-6">
             <Section icon={FileText} title="Informações Básicas" subtitle="Dados exibidos no catálogo">
               <div className="space-y-4">
@@ -549,11 +549,11 @@ export default function TeacherCourseEditPage() {
             </Section>
           </div>
 
-          <div className="xl:sticky xl:top-24 xl:self-start">
+          <div className="min-w-0 xl:sticky xl:top-24 xl:self-start">
             <CoursePreview form={form} coverPreview={coverPreview} lessons={courseLessons} />
           </div>
         </div>
-      </div>
+      </main>
     </div>
   )
 }

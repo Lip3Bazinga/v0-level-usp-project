@@ -1,6 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
+import { MotionConfig } from "framer-motion"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/contexts/auth-context"
 import { ToastProvider } from "@/contexts/toast-context"
@@ -18,12 +19,14 @@ import { ProgressProvider } from "@/contexts/progress-context"
  *   ToastProvider        → feedback unificado (wrapper sobre lib/swal)
  *   NotificationProvider → notificações reais por usuário
  *   ProgressProvider     → lições + progresso + gamificação (fonte única)
+ *   MotionConfig         → respeita "reduzir movimento" do sistema (WCAG 2.3.3)
  *
  * Nota: IDEProvider não fica aqui — é escopado às páginas da IDE.
  */
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider attribute="class" defaultTheme="light" disableTransitionOnChange>
+      <MotionConfig reducedMotion="user">
       <AuthProvider>
         <ToastProvider>
           <NotificationProvider>
@@ -31,6 +34,7 @@ export function Providers({ children }: { children: ReactNode }) {
           </NotificationProvider>
         </ToastProvider>
       </AuthProvider>
+      </MotionConfig>
     </ThemeProvider>
   )
 }

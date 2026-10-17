@@ -6,13 +6,22 @@ import {
   BookOpen, Clock, FileText, Check, Save,
 } from "lucide-react"
 import { createPortal } from "react-dom"
+import { usePathname } from "next/navigation"
 import type { Note } from "@levelusp/contracts"
 import { fetchNotes, createNote, updateNote, deleteNote } from "@/lib/api"
-import { RichTextEditor } from "@/components/editor/rich-text-editor"
+import dynamic from "next/dynamic"
 import { useAuth } from "@/contexts/auth-context"
+import { useModalA11y } from "@/hooks/use-modal-a11y"
 import { formatDate, snippet } from "@/lib/utils"
 
 // ── helpers ────────────────────────────────────────────────────────────────────
+
+// O widget está no layout raiz: importar o TipTap estaticamente colocava ~130 KB (gzip)
+// de JS em TODAS as páginas, inclusive login e site público. Agora só carrega ao abrir uma nota.
+const RichTextEditor = dynamic(
+  () => import("@/components/editor/rich-text-editor").then((m) => m.RichTextEditor),
+  { ssr: false, loading: () => <div className="h-[280px] animate-pulse rounded-xl bg-muted/60" /> },
+)
 
 
 
@@ -32,19 +41,21 @@ function NoteEditor({
   const contentRef = useRef<string>(note.content)
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<number | null>(null)
+  const [saveError, setSaveError] = useState(false)
 
   const handleSave = useCallback(async () => {
     if (saving) return
     const title = titleRef.current?.value ?? ""
     const content = contentRef.current
     setSaving(true)
+    setSaveError(false)
     try {
       await updateNote(note.id, { title, content })
       const updated_at = new Date().toISOString()
       onSaved({ id: note.id, title, content, updated_at })
       setSavedAt(Date.now())
     } catch {
-      /* silencioso — o usuário pode tentar de novo */
+      setSaveError(true) // mostra o erro no botão; o usuário pode tentar de novo
     } finally {
       setSaving(false)
     }
@@ -77,7 +88,8 @@ function NoteEditor({
           ref={titleRef}
           defaultValue={note.title ?? ""}
           placeholder="Título…"
-          className="flex-1 bg-transparent text-base font-bold text-level-purple-dark placeholder:text-muted-foreground/40 focus:outline-none"
+          aria-label="Título da anotação"
+          className="min-w-0 flex-1 bg-transparent text-base font-bold text-level-purple-dark placeholder:text-muted-foreground/40 focus:outline-none"
         />
         {note.lesson_title && (
           <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:flex">
@@ -88,10 +100,13 @@ function NoteEditor({
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-level-purple px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-level-purple-dark disabled:opacity-60"
+          aria-live="polite"
+          className={`flex shrink-0 items-center gap-1.5 rounded-lg ${saveError ? "bg-destructive" : "bg-level-purple"} px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-level-purple-dark disabled:opacity-60`}
         >
           {saving ? (
             <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Salvando…</>
+          ) : saveError ? (
+            <>Erro ao salvar — tentar de novo</>
           ) : savedAt ? (
             <><Check className="h-3.5 w-3.5" /> Salvo!</>
           ) : (
@@ -136,11 +151,8 @@ function NotesModal({ onClose }: { onClose: () => void }) {
       .finally(() => setLoading(false))
   }, [profile])
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
-    window.addEventListener("keydown", handler)
-    return () => window.removeEventListener("keydown", handler)
-  }, [onClose])
+  // Foco preso no diálogo, Esc fecha e o foco volta ao botão que abriu.
+  const dialogRef = useModalA11y<HTMLDivElement>(true, onClose)
 
   const handleCreate = async () => {
     try {
@@ -189,15 +201,17 @@ function NotesModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+      ref={dialogRef}
+      className="fixed inset-0 z-[200] flex items-center justify-center p-2 sm:p-4"
       role="dialog"
       aria-modal="true"
+      aria-label="Caderno de anotações"
     >
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
-      <div className="relative z-10 flex h-[80vh] w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="relative z-10 flex h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:h-[80vh] sm:flex-row">
         {/* ── Sidebar ── */}
-        <aside className="flex w-64 shrink-0 flex-col border-r border-border bg-[#F7F5FF]">
+        <aside className="flex max-h-[40%] w-full shrink-0 flex-col border-b border-border bg-[#F7F5FF] sm:max-h-none sm:w-64 sm:border-b-0 sm:border-r">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <span className="flex items-center gap-1.5 text-sm font-semibold text-level-purple-dark">
               <NotebookPen className="h-4 w-4 text-level-purple" />
@@ -206,7 +220,8 @@ function NotesModal({ onClose }: { onClose: () => void }) {
             <button
               onClick={handleCreate}
               title="Nova anotação"
-              className="flex h-7 w-7 items-center justify-center rounded-lg bg-level-purple text-white transition-colors hover:bg-level-purple-dark"
+              aria-label="Nova anotação"
+              className="mr-9 flex h-7 w-7 sm:mr-0 items-center justify-center rounded-lg bg-level-purple text-white transition-colors hover:bg-level-purple-dark"
             >
               <Plus className="h-3.5 w-3.5" />
             </button>
@@ -219,6 +234,7 @@ function NotesModal({ onClose }: { onClose: () => void }) {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar…"
+                aria-label="Buscar anotações"
                 className="w-full rounded-md border border-border bg-white py-1 pl-6 pr-2 text-xs placeholder:text-muted-foreground focus:border-level-purple focus:outline-none"
               />
             </div>
@@ -238,10 +254,14 @@ function NotesModal({ onClose }: { onClose: () => void }) {
               </div>
             ) : (
               filtered.map((note) => (
-                <button
+                <div
                   key={note.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-current={activeId === note.id ? "true" : undefined}
                   onClick={() => setActiveId(note.id)}
-                  className={`group w-full border-b border-border/50 px-3 py-2.5 text-left transition-colors hover:bg-white/70 ${
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setActiveId(note.id) } }}
+                  className={`group w-full cursor-pointer border-b border-border/50 px-3 py-2.5 text-left transition-colors hover:bg-white/70 ${
                     activeId === note.id ? "bg-white shadow-sm" : ""
                   }`}
                 >
@@ -251,7 +271,8 @@ function NotesModal({ onClose }: { onClose: () => void }) {
                     </p>
                     <button
                       onClick={(e) => handleDelete(note.id, e)}
-                      className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-all hover:text-destructive group-hover:opacity-100"
+                      aria-label={`Excluir anotação ${note.title || "sem título"}`}
+                      className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-all hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
                       disabled={deleting === note.id}
                     >
                       {deleting === note.id
@@ -272,7 +293,7 @@ function NotesModal({ onClose }: { onClose: () => void }) {
                     <Clock className="ml-auto h-2.5 w-2.5" />
                     {formatDate(note.updated_at)}
                   </div>
-                </button>
+                </div>
               ))
             )}
           </div>
@@ -302,6 +323,7 @@ function NotesModal({ onClose }: { onClose: () => void }) {
         {/* Fechar */}
         <button
           onClick={onClose}
+          aria-label="Fechar caderno de anotações"
           className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-white text-muted-foreground transition-colors hover:bg-muted"
         >
           <X className="h-4 w-4" />
@@ -315,21 +337,32 @@ function NotesModal({ onClose }: { onClose: () => void }) {
 
 export function NotesFloatingWidget() {
   const { profile } = useAuth()
+  const pathname = usePathname() ?? ""
   const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => { setMounted(true) }, [])
 
   if (!profile || !mounted) return null
+  // Na própria página de notas o botão é redundante.
+  if (pathname.startsWith("/notas")) return null
+  // Na IDE o rodapé (Voltar/Próximo) e as abas móveis ficam no canto inferior:
+  // no celular o botão some (as notas continuam em /notas) e no desktop sobe acima do rodapé.
+  const inIde = pathname.startsWith("/lesson") || pathname.startsWith("/ide")
+  const position = inIde
+    ? "hidden md:flex bottom-16 right-4"
+    : "flex bottom-20 right-4 lg:bottom-6"
 
   return (
     <>
       <button
         onClick={() => setOpen(true)}
         title="Abrir caderno de anotações"
-        className="fixed bottom-20 right-4 z-[100] flex h-12 w-12 items-center justify-center rounded-full bg-level-purple text-white shadow-lg shadow-purple-300/50 transition-all hover:bg-level-purple-dark hover:scale-105 active:scale-95 md:bottom-6"
+        aria-label="Abrir caderno de anotações"
+        aria-haspopup="dialog"
+        className={`fixed ${position} z-40 h-12 w-12 items-center justify-center rounded-full bg-level-purple text-white shadow-lg shadow-purple-300/50 transition-all hover:bg-level-purple-dark hover:scale-105 active:scale-95`}
       >
-        <NotebookPen className="h-5 w-5" />
+        <NotebookPen className="h-5 w-5" aria-hidden="true" />
       </button>
 
       {open && createPortal(

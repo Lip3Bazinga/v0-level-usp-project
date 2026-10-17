@@ -108,11 +108,9 @@ export default function FaqPage() {
               <p className="mt-3 max-w-md text-gray-600">
                 Nossa equipe está pronta para ajudar. Envie sua mensagem e responderemos o quanto antes.
               </p>
-              <Link href="/contato" className="mt-6">
-                <button className="rounded-2xl bg-[#7C3AED] px-8 py-4 font-semibold text-white btn-3d">
+              <Link href="/contato" className="mt-6 inline-block rounded-2xl bg-[#7C3AED] px-8 py-4 font-semibold text-white btn-3d">
                   Falar com a equipe
-                </button>
-              </Link>
+                </Link>
             </div>
           </Reveal>
         </div>

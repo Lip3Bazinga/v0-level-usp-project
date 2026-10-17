@@ -16,14 +16,14 @@ export function EditorHeader({ isNew, title, published, saving, dirty, justSaved
   const canSave = !saving && title.trim().length > 0
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-white/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-6">
-        <div className="flex min-w-0 items-center gap-4">
-          <Link href="/teacher" className="flex items-center gap-2 text-muted-foreground transition-colors hover:text-level-purple">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-2 px-4 sm:gap-3 sm:px-6">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+          <Link href="/teacher" aria-label="Voltar ao painel do professor" className="flex shrink-0 items-center gap-2 text-muted-foreground transition-colors hover:text-level-purple">
             <ArrowLeft className="h-4 w-4" />
-            <span className="text-sm">Voltar</span>
+            <span className="hidden text-sm sm:inline">Voltar</span>
           </Link>
-          <div className="h-6 w-px bg-border" />
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="hidden h-6 w-px bg-border sm:block" />
+          <div className="hidden min-w-0 items-center gap-2 sm:flex">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-level-purple">
               <BookOpen className="h-4 w-4 text-white" />
             </div>
@@ -58,10 +58,10 @@ export function EditorHeader({ isNew, title, published, saving, dirty, justSaved
             type="button"
             onClick={onSave}
             disabled={!canSave}
-            className="flex items-center gap-2 rounded-xl border-2 border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-level-purple hover:text-level-purple disabled:opacity-50"
+            className="flex items-center gap-2 rounded-xl border-2 border-border px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-level-purple hover:text-level-purple disabled:opacity-50 sm:px-4"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {published ? "Salvar" : "Salvar rascunho"}
+            {published ? "Salvar" : <><span className="sm:hidden">Salvar</span><span className="hidden sm:inline">Salvar rascunho</span></>}
           </button>
 
           {published ? (
@@ -69,15 +69,15 @@ export function EditorHeader({ isNew, title, published, saving, dirty, justSaved
               type="button"
               onClick={onUnpublish}
               disabled={!canSave}
-              className="flex items-center gap-2 rounded-xl border-2 border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-destructive hover:text-destructive disabled:opacity-50"
+              className="flex items-center gap-2 rounded-xl border-2 border-border px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-destructive hover:text-destructive disabled:opacity-50 sm:px-4"
             >
               <EyeOff className="h-4 w-4" /> Despublicar
             </button>
           ) : (
-            <LevelButton variant="primary" size="md" onClick={onPublish} disabled={!canSave}>
+            <LevelButton variant="primary" size="md" onClick={onPublish} disabled={!canSave} className="px-4 sm:px-6">
               <span className="flex items-center gap-2">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : isNew ? <Eye className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
-                {saving ? "Salvando..." : "Publicar lição"}
+                {saving ? "Salvando..." : <><span className="sm:hidden">Publicar</span><span className="hidden sm:inline">Publicar lição</span></>}
               </span>
             </LevelButton>
           )}
