@@ -9,6 +9,7 @@ import { Rocket, Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { StreakAnimation } from "@/components/gamification/streak-animation"
 import { safeRedirectPath } from "@/lib/utils/redirect"
+import { ROUTES } from "@/lib/constants"
 
 function LoginForm() {
   const searchParams = useSearchParams()
@@ -32,17 +33,16 @@ function LoginForm() {
     setError("")
     setLoading(true)
 
-    const { error, streakResult } = await signIn(email, password)
+    const result = await signIn(email, password)
 
-    if (error) {
-      setError(error)
+    if (!result.ok) {
+      setError(result.error)
       setLoading(false)
       return
     }
 
-    // Show streak animation if the user extended their streak today
-    if (streakResult?.streakUpdated && streakResult.newStreak > 0) {
-      setStreakDays(streakResult.newStreak)
+    if (result.streak?.increased && result.streak.streak > 0) {
+      setStreakDays(result.streak.streak)
       setPendingRedirect(redirect)
       setShowStreak(true)
       setLoading(false)
@@ -156,7 +156,7 @@ function LoginForm() {
                 <div className="flex items-center justify-between">
                   <label htmlFor="login-password" className="text-sm font-medium text-level-purple-dark">Senha</label>
                   <Link
-                    href="/esqueci-senha"
+                    href={ROUTES.forgotPassword}
                     className="text-sm text-level-purple hover:text-level-purple-dark transition-colors"
                   >
                     Esqueci minha senha
@@ -204,7 +204,7 @@ function LoginForm() {
 
             <p className="mt-6 text-center text-sm text-muted-foreground">
               Não tem uma conta?{" "}
-              <Link href="/signup" className="font-semibold text-level-purple hover:text-level-purple-dark transition-colors">
+              <Link href={ROUTES.signup} className="font-semibold text-level-purple hover:text-level-purple-dark transition-colors">
                 Cadastre-se gratuitamente
               </Link>
             </p>

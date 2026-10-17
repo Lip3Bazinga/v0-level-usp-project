@@ -11,7 +11,8 @@ import type { Lesson, LessonSummary, QuizQuestionPublic, QuizResult } from "@lev
 import { SuccessFeedback } from "@/components/ide/success-feedback"
 import { LessonContentPreview } from "@/components/editor/lesson-content-preview"
 import { useProgress } from "@/contexts/progress-context"
-import { ApiError, errorMessage, fetchQuizForStudent, submitQuiz } from "@/lib/api"
+import { ApiError, getErrorMessage, fetchQuizForStudent, submitQuiz } from "@/lib/api"
+import { ROUTES } from "@/lib/constants"
 
 interface QuizLessonLayoutProps {
   lesson: Lesson
@@ -57,10 +58,10 @@ export function QuizLessonLayout({ lesson, allLessons, currentIndex }: QuizLesso
       } catch (err) {
         if (cancelled) return
         if (err instanceof ApiError && err.status === 401) {
-          router.push(`/login?next=${encodeURIComponent(`/lesson/${lesson.id}`)}`)
+          router.push(ROUTES.loginWithNext(ROUTES.lesson(lesson.id)))
           return
         }
-        setError(errorMessage(err, "Erro ao carregar o quiz."))
+        setError(getErrorMessage(err, "Erro ao carregar o quiz."))
       }
       setLoading(false)
     }
@@ -72,17 +73,17 @@ export function QuizLessonLayout({ lesson, allLessons, currentIndex }: QuizLesso
     setShowSuccess(false)
     const next = allLessons[currentIndex + 1]
     if (next && next.course_id === lesson.course_id) {
-      router.push(`/lesson/${next.id}`)
+      router.push(ROUTES.lesson(next.id))
     } else if (lesson.course_id) {
-      router.push(`/cursos/${lesson.course_id}`)
+      router.push(ROUTES.course(lesson.course_id))
     } else {
-      router.push("/dashboard")
+      router.push(ROUTES.dashboard)
     }
   }, [allLessons, currentIndex, lesson.course_id, router])
 
   const handlePrev = useCallback(() => {
     const prev = allLessons[currentIndex - 1]
-    if (prev && prev.course_id === lesson.course_id) router.push(`/lesson/${prev.id}`)
+    if (prev && prev.course_id === lesson.course_id) router.push(ROUTES.lesson(prev.id))
   }, [allLessons, currentIndex, lesson.course_id, router])
 
   const allAnswered = questions.length > 0 && questions.every((q) => answers[q.id] !== undefined)
@@ -97,7 +98,7 @@ export function QuizLessonLayout({ lesson, allLessons, currentIndex }: QuizLesso
     try {
       res = await submitQuiz(lesson.id, answers)
     } catch (err) {
-      setError(errorMessage(err, "Erro ao corrigir o quiz."))
+      setError(getErrorMessage(err, "Erro ao corrigir o quiz."))
       setSubmitting(false)
       return
     }
@@ -124,7 +125,7 @@ export function QuizLessonLayout({ lesson, allLessons, currentIndex }: QuizLesso
     <div className="flex h-screen flex-col bg-white">
       <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
         <button
-          onClick={() => lesson.course_id ? router.push(`/cursos/${lesson.course_id}`) : router.push("/dashboard")}
+          onClick={() => lesson.course_id ? router.push(ROUTES.course(lesson.course_id)) : router.push(ROUTES.dashboard)}
           className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-level-purple-light hover:text-level-purple"
         >
           <Home className="h-3.5 w-3.5" />

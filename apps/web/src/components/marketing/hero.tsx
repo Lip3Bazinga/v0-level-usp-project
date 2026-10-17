@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { Play, ArrowRight, Sparkles, GraduationCap } from "lucide-react"
+import { ROUTES } from "@/lib/constants"
 
 const EASE = [0.22, 1, 0.36, 1] as const
 
@@ -55,14 +56,14 @@ export function Hero() {
           transition={{ duration: 0.8, ease: EASE, delay: 0.3 }}
           className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row"
         >
-          <Link href="/signup">
+          <Link href={ROUTES.signup}>
             <button className="group inline-flex items-center gap-2 rounded-2xl bg-[#7C3AED] px-10 py-5 text-lg font-bold text-white btn-3d">
               <Play className="h-5 w-5" />
               Começar agora
               <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
             </button>
           </Link>
-          <Link href="/metodologia">
+          <Link href={ROUTES.site.methodology}>
             <button className="inline-flex items-center gap-2 rounded-2xl border-2 border-[#E9D5FF] bg-white/60 px-8 py-4 text-lg font-semibold text-[#7C3AED] backdrop-blur transition-all hover:border-[#7C3AED] hover:bg-[#F3E8FF]">
               <Sparkles className="h-5 w-5" />
               Conhecer o método

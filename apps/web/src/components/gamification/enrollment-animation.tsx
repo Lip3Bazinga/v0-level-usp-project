@@ -3,7 +3,7 @@
 import { useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import confetti from "canvas-confetti"
-import { BookOpen, Star, CheckCircle2, Zap } from "lucide-react"
+import { BookOpen, CheckCircle2, Zap } from "lucide-react"
 
 interface EnrollmentAnimationProps {
   show: boolean

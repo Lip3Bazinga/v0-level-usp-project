@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Search, Users, BookOpen, GraduationCap, X } from "lucide-react"
 import type { Lesson, Profile } from "@levelusp/contracts"
+import { ROUTES } from "@/lib/constants"
 
 export interface CommandTarget {
   id: string
@@ -18,6 +19,13 @@ interface CommandPaletteProps {
   lessons: Lesson[]
   courses: { id: string; title: string }[]
   onNavigate: (page: string) => void
+}
+
+const OPEN_ADMIN_SEARCH_EVENT = "levelusp:open-admin-search"
+
+/** Abre a paleta de comandos de qualquer lugar do painel. */
+export function openAdminSearch(): void {
+  window.dispatchEvent(new Event(OPEN_ADMIN_SEARCH_EVENT))
 }
 
 const KIND_META = {
@@ -44,10 +52,11 @@ export function CommandPalette({ users, lessons, courses, onNavigate }: CommandP
     return () => window.removeEventListener("keydown", onKey)
   }, [])
 
-  // Expõe um abridor global simples para o input do TopBar
+  // O campo de busca do TopBar fica em outra árvore; um evento de janela evita prop drilling.
   useEffect(() => {
-    ; (window as unknown as { __openAdminSearch?: () => void }).__openAdminSearch = () => setOpen(true)
-    return () => { delete (window as unknown as { __openAdminSearch?: () => void }).__openAdminSearch }
+    const handleOpenRequest = () => setOpen(true)
+    window.addEventListener(OPEN_ADMIN_SEARCH_EVENT, handleOpenRequest)
+    return () => window.removeEventListener(OPEN_ADMIN_SEARCH_EVENT, handleOpenRequest)
   }, [])
 
   const results = useMemo<CommandTarget[]>(() => {
@@ -62,12 +71,12 @@ export function CommandPalette({ users, lessons, courses, onNavigate }: CommandP
 
     for (const l of lessons) {
       if (l.title.toLowerCase().includes(term) || (l.module ?? "").toLowerCase().includes(term)) {
-        out.push({ id: l.id, label: l.title, sublabel: l.module || "Lição", kind: "lesson", page: "lessons", href: `/teacher/edit/${l.id}` })
+        out.push({ id: l.id, label: l.title, sublabel: l.module || "Lição", kind: "lesson", page: "lessons", href: ROUTES.teacherLesson(l.id) })
       }
     }
     for (const c of courses) {
       if (c.title.toLowerCase().includes(term)) {
-        out.push({ id: c.id, label: c.title, sublabel: "Curso", kind: "course", page: "courses", href: `/teacher/curso/${c.id}` })
+        out.push({ id: c.id, label: c.title, sublabel: "Curso", kind: "course", page: "courses", href: ROUTES.teacherCourse(c.id) })
       }
     }
     return out.slice(0, 20)

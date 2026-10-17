@@ -5,6 +5,7 @@ import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { Eye, GripVertical, Link2Off, Loader2 } from "lucide-react"
 import type { Lesson } from "@levelusp/contracts"
+import { ROUTES } from "@/lib/constants"
 
 /** Item arrastável da lista de lições do curso. */
 export function SortableLesson({ lesson, index, onRemove, removing }: {
@@ -52,7 +53,7 @@ export function SortableLesson({ lesson, index, onRemove, removing }: {
 
       <div className="flex shrink-0 items-center gap-1">
         <Link
-          href={`/teacher/edit/${lesson.id}`}
+          href={ROUTES.teacherLesson(lesson.id)}
           target="_blank"
           title="Editar lição"
           className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-level-purple-light hover:text-level-purple"

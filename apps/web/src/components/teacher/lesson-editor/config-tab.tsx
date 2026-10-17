@@ -4,6 +4,7 @@ import type { Course, Module } from "@levelusp/contracts"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { LessonFormState } from "./lesson-form"
 import { inputClass, labelClass } from "./panel"
+import { ROUTES } from "@/lib/constants"
 
 const DIFFICULTIES = [
   { value: "iniciante", label: "Iniciante", color: "bg-success" },
@@ -70,7 +71,7 @@ export function ConfigTab({ form, patch, courses, modules }: {
           <div className="flex items-center gap-2 rounded-xl border-2 border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
             <GraduationCap className="h-4 w-4 shrink-0" />
             Nenhum curso criado ainda.{" "}
-            <Link href="/teacher/curso/new" className="font-medium text-level-purple hover:underline">
+            <Link href={ROUTES.teacherNewCourse} className="font-medium text-level-purple hover:underline">
               Criar um curso
             </Link>
           </div>

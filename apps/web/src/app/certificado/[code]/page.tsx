@@ -1,7 +1,9 @@
 import Link from "next/link"
 import { CheckCircle2, XCircle, Download, GraduationCap } from "lucide-react"
 import type { CertificateVerification } from "@levelusp/contracts"
-import { certificatePdfUrl, verifyCertificate } from "@/lib/api"
+import { certificatePdfUrl, fetchCertificateVerification } from "@/lib/api"
+import { ROUTES } from "@/lib/constants"
+import { formatDate, formatPercent } from "@/lib/utils"
 
 // Página PÚBLICA de verificação de certificado — não exige login.
 // Renderizada no servidor: consulta a API (rota pública GET /certificates/:code),
@@ -17,7 +19,7 @@ type VerifiedCertificate = CertificateVerification & {
 
 async function verifyCode(code: string): Promise<VerifiedCertificate | null> {
   try {
-    const res = await verifyCertificate(code)
+    const res = await fetchCertificateVerification(code)
     if (!res.valid || !res.student_name || !res.course_title || !res.issued_at) return null
     return res as VerifiedCertificate
   } catch {
@@ -69,14 +71,12 @@ export default async function CertificadoPage({
                 <div>
                   <dt className="text-xs uppercase tracking-wide text-gray-400">Emitido em</dt>
                   <dd className="font-medium text-gray-700">
-                    {new Date(cert.issued_at).toLocaleDateString("pt-BR", {
-                      day: "numeric", month: "long", year: "numeric",
-                    })}
+                    {formatDate(cert.issued_at, "long")}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-xs uppercase tracking-wide text-gray-400">Prova final</dt>
-                  <dd className="font-medium text-gray-700">{Number(cert.exam_score ?? 0).toFixed(0)}%</dd>
+                  <dd className="font-medium text-gray-700">{formatPercent(cert.exam_score ?? 0)}</dd>
                 </div>
               </div>
               <div>
@@ -115,7 +115,7 @@ export default async function CertificadoPage({
         )}
 
         <div className="mt-8 border-t border-gray-100 pt-4 text-center">
-          <Link href="/" className="text-sm font-medium text-purple-600 hover:underline">
+          <Link href={ROUTES.home} className="text-sm font-medium text-purple-600 hover:underline">
             Conheça a LevelUSP →
           </Link>
         </div>

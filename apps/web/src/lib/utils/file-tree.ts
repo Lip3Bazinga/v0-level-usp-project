@@ -1,4 +1,4 @@
-import type { ProjectFile } from "@/lib/types"
+import type { ProjectFile } from "@levelusp/contracts"
 
 /** Nó da árvore de arquivos derivada dos paths de um projeto multi-arquivo. */
 export interface TreeNode {
@@ -9,9 +9,8 @@ export interface TreeNode {
 }
 
 /**
- * Constrói a árvore (pastas implícitas pelos paths) a partir da lista plana de
- * arquivos, já ordenada (pastas antes de arquivos, alfabética). Lógica pura —
- * antes vivia dentro de components/ide/file-explorer.tsx.
+ * Árvore de pastas implícitas nos caminhos, ordenada com pastas antes de
+ * arquivos e cada grupo em ordem alfabética.
  */
 export function buildTree(files: ProjectFile[]): TreeNode[] {
   const root: TreeNode = { name: "", path: "", type: "folder", children: [] }

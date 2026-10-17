@@ -5,32 +5,20 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import type { Course } from "@levelusp/contracts"
-import { fetchPublishedCourses, fetchUserEnrollments } from "@/lib/api"
+import { fetchPublishedCourses, fetchMyEnrollments } from "@/lib/api"
 import {
-  BookOpen, Code2, Database, Brain, Trophy, Zap, Flame, User,
-  Settings, LogOut, Shield, Lock, CheckCircle2, ChevronRight,
-  Rocket, Star, Clock, Loader2, Search,
+  BookOpen, Code2, Database, Brain, Trophy, Zap, Flame, User, Settings, LogOut, Shield, CheckCircle2,
+  ChevronRight, Rocket, Star, Search,
 } from "lucide-react"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { getInitials, xpForLevel } from "@/lib/utils"
+import { computeLevelProgress, formatXp, getInitials } from "@/lib/utils"
+import { DIFFICULTY_BADGE_CLASSES, DIFFICULTY_LABELS, ROUTES } from "@/lib/constants"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-const LEVEL_LABEL: Record<string, string> = {
-  iniciante:     "Iniciante",
-  intermediario: "Intermediário",
-  avancado:      "Avançado",
-}
-
-const LEVEL_COLOR: Record<string, string> = {
-  iniciante:     "bg-green-100 text-green-700",
-  intermediario: "bg-yellow-100 text-yellow-700",
-  avancado:      "bg-red-100 text-red-700",
-}
 
 const COURSE_ICONS: Record<string, typeof Code2> = {
   "Python Básico":        Code2,
@@ -59,7 +47,7 @@ function CourseCard({
 
   return (
     <Link
-      href={`/cursos/${course.id}`}
+      href={ROUTES.course(course.id)}
       className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
     >
       {/* Thumbnail / banner */}
@@ -72,8 +60,8 @@ function CourseCard({
           </div>
         )}
         <div className="absolute bottom-3 left-3">
-          <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${LEVEL_COLOR[course.level]} bg-white/90`}>
-            {LEVEL_LABEL[course.level]}
+          <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${DIFFICULTY_BADGE_CLASSES[course.level]} bg-white/90`}>
+            {DIFFICULTY_LABELS[course.level]}
           </span>
         </div>
       </div>
@@ -148,7 +136,7 @@ export default function CoursesPage() {
       try {
         const [fetchedCourses, ids] = await Promise.all([
           fetchPublishedCourses(),
-          profile?.id ? fetchUserEnrollments().catch(() => [] as string[]) : Promise.resolve([] as string[]),
+          profile?.id ? fetchMyEnrollments().catch(() => [] as string[]) : Promise.resolve([] as string[]),
         ])
         setCourses(fetchedCourses)
         setEnrolledIds(new Set(ids))
@@ -164,8 +152,7 @@ export default function CoursesPage() {
   const level      = profile?.level ?? 1
   const totalXp    = profile?.total_xp ?? 0
   const streak     = profile?.current_streak ?? 0
-  const xpFloor    = xpForLevel(level - 1)
-  const xpInLevel  = totalXp - xpFloor
+  const { xpInLevel } = computeLevelProgress(totalXp, level)
   const initials   = profile?.full_name ? getInitials(profile.full_name) : "?"
 
   const filtered = courses.filter((c) => {
@@ -177,7 +164,7 @@ export default function CoursesPage() {
 
   const handleSignOut = async () => {
     await signOut()
-    window.location.href = "/login"
+    window.location.href = ROUTES.login
   }
 
   return (
@@ -185,7 +172,7 @@ export default function CoursesPage() {
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <Link href="/dashboard" className="flex items-center gap-3">
+          <Link href={ROUTES.dashboard} className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple">
               <Rocket className="h-5 w-5 text-white" />
             </div>
@@ -193,16 +180,16 @@ export default function CoursesPage() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">
-            <Link href="/dashboard" className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
+            <Link href={ROUTES.dashboard} className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
               <BookOpen className="h-4 w-4" /> Aprender
             </Link>
-            <Link href="/cursos" className="flex items-center gap-2 text-sm font-medium text-level-purple">
+            <Link href={ROUTES.courses} className="flex items-center gap-2 text-sm font-medium text-level-purple">
               <Star className="h-4 w-4" /> Cursos
             </Link>
-            <Link href="/leaderboard" className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
+            <Link href={ROUTES.leaderboard} className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
               <Trophy className="h-4 w-4" /> Ranking
             </Link>
-            <Link href={`/perfil/${profile?.username || "me"}`} className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
+            <Link href={ROUTES.profile(profile?.username)} className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
               <User className="h-4 w-4" /> Perfil
             </Link>
           </nav>
@@ -210,7 +197,7 @@ export default function CoursesPage() {
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-level-purple px-3 py-1.5 text-white">
               <Zap className="h-4 w-4 text-yellow-300" />
-              <span className="text-xs font-bold">{xpInLevel.toLocaleString("pt-BR")} XP</span>
+              <span className="text-xs font-bold">{formatXp(xpInLevel)}</span>
             </div>
             <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-gradient-to-r from-orange-500 to-red-500 px-3 py-1.5 text-white">
               <Flame className="h-4 w-4 text-yellow-300" />
@@ -227,19 +214,19 @@ export default function CoursesPage() {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => router.push(`/perfil/${profile?.username || "me"}`)}>
+                <DropdownMenuItem onClick={() => router.push(ROUTES.profile(profile?.username))}>
                   <User className="mr-2 h-4 w-4" /> Meu Perfil
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push("/settings")}>
+                <DropdownMenuItem onClick={() => router.push(ROUTES.settings)}>
                   <Settings className="mr-2 h-4 w-4" /> Configurações
                 </DropdownMenuItem>
                 {(profile?.role === "teacher" || profile?.role === "admin") && (
-                  <DropdownMenuItem onClick={() => router.push("/teacher")}>
+                  <DropdownMenuItem onClick={() => router.push(ROUTES.teacher)}>
                     <BookOpen className="mr-2 h-4 w-4" /> Painel Professor
                   </DropdownMenuItem>
                 )}
                 {profile?.role === "admin" && (
-                  <DropdownMenuItem onClick={() => router.push("/admin")}>
+                  <DropdownMenuItem onClick={() => router.push(ROUTES.admin)}>
                     <Shield className="mr-2 h-4 w-4" /> Painel Admin
                   </DropdownMenuItem>
                 )}
@@ -324,16 +311,16 @@ export default function CoursesPage() {
       {/* Mobile nav */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-white md:hidden">
         <div className="flex items-center justify-around py-2">
-          <Link href="/dashboard" className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground">
+          <Link href={ROUTES.dashboard} className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground">
             <BookOpen className="h-5 w-5" /><span className="text-xs">Aprender</span>
           </Link>
-          <Link href="/cursos" className="flex flex-col items-center gap-1 px-3 py-2 text-level-purple">
+          <Link href={ROUTES.courses} className="flex flex-col items-center gap-1 px-3 py-2 text-level-purple">
             <Star className="h-5 w-5" /><span className="text-xs font-medium">Cursos</span>
           </Link>
-          <Link href="/leaderboard" className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground">
+          <Link href={ROUTES.leaderboard} className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground">
             <Trophy className="h-5 w-5" /><span className="text-xs">Ranking</span>
           </Link>
-          <Link href={`/perfil/${profile?.username || "me"}`} className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground">
+          <Link href={ROUTES.profile(profile?.username)} className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground">
             <User className="h-5 w-5" /><span className="text-xs">Perfil</span>
           </Link>
         </div>

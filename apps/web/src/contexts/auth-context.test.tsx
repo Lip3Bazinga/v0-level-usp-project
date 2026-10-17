@@ -1,8 +1,8 @@
-import { act, render, screen, waitFor } from "@testing-library/react"
+import { act, renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { Profile } from "@levelusp/contracts"
 import * as api from "@/lib/api"
-import { ApiError } from "@/lib/api/client"
+import { ApiError } from "@/lib/api"
 import { AuthProvider, useAuth } from "./auth-context"
 
 vi.mock("@/lib/api", async (importOriginal) => ({
@@ -37,25 +37,8 @@ const profile: Profile = {
   updated_at: "2026-01-01T00:00:00.000Z",
 }
 
-/** Expõe o contexto para o teste interagir com ele. */
-let ctx: ReturnType<typeof useAuth>
-function Probe() {
-  ctx = useAuth()
-  return (
-    <div>
-      <span data-testid="loading">{String(ctx.isLoading)}</span>
-      <span data-testid="user">{ctx.user ? `${ctx.user.id}|${ctx.user.email}` : "anon"}</span>
-      <span data-testid="name">{ctx.profile?.full_name ?? ""}</span>
-    </div>
-  )
-}
-
-function renderWithProvider() {
-  return render(
-    <AuthProvider>
-      <Probe />
-    </AuthProvider>,
-  )
+function renderAuth() {
+  return renderHook(() => useAuth(), { wrapper: AuthProvider })
 }
 
 beforeEach(() => {
@@ -65,68 +48,76 @@ beforeEach(() => {
 describe("AuthProvider", () => {
   it("carrega a sessão atual a partir do cookie (GET /auth/me)", async () => {
     fetchSession.mockResolvedValue({ user: profile })
-    renderWithProvider()
-    expect(screen.getByTestId("loading")).toHaveTextContent("true")
-    await waitFor(() => expect(screen.getByTestId("loading")).toHaveTextContent("false"))
-    expect(screen.getByTestId("user")).toHaveTextContent(`${profile.id}|ana@usp.br`)
-    expect(screen.getByTestId("name")).toHaveTextContent("Ana Souza")
+    const { result } = renderAuth()
+    expect(result.current.isLoading).toBe(true)
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.user).toEqual({ id: profile.id, email: "ana@usp.br" })
+    expect(result.current.profile?.full_name).toBe("Ana Souza")
   })
 
   it("trata ausência de sessão como deslogado", async () => {
     fetchSession.mockResolvedValue(null)
-    renderWithProvider()
-    await waitFor(() => expect(screen.getByTestId("loading")).toHaveTextContent("false"))
-    expect(screen.getByTestId("user")).toHaveTextContent("anon")
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.user).toBeNull()
+  })
+
+  it("trata falha ao ler a sessão como deslogado", async () => {
+    fetchSession.mockRejectedValue(new ApiError(0, "NETWORK", "Sem conexão."))
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.user).toBeNull()
   })
 
   it("login com sucesso define o perfil e devolve a sequência diária", async () => {
     fetchSession.mockResolvedValue(null)
-    signIn.mockResolvedValue({ user: profile, streak: { streak: 4, increased: true, reset: false } })
-    renderWithProvider()
-    await waitFor(() => expect(screen.getByTestId("loading")).toHaveTextContent("false"))
+    const streak = { streak: 4, increased: true, reset: false }
+    signIn.mockResolvedValue({ user: profile, streak })
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
 
-    let result: Awaited<ReturnType<typeof ctx.signIn>> | undefined
+    let signInResult: Awaited<ReturnType<typeof result.current.signIn>> | undefined
     await act(async () => {
-      result = await ctx.signIn(" ana@usp.br ", "segredo123456")
+      signInResult = await result.current.signIn(" ana@usp.br ", "segredo123456")
     })
 
     expect(signIn).toHaveBeenCalledWith({ email: "ana@usp.br", password: "segredo123456" })
-    expect(result).toEqual({ error: null, streakResult: { streakUpdated: true, newStreak: 4 } })
-    expect(screen.getByTestId("user")).toHaveTextContent(profile.id)
+    expect(signInResult).toEqual({ ok: true, streak })
+    expect(result.current.user?.id).toBe(profile.id)
   })
 
   it("login com erro devolve a mensagem da API e mantém deslogado", async () => {
     fetchSession.mockResolvedValue(null)
     signIn.mockRejectedValue(new ApiError(401, "INVALID_CREDENTIALS", "E-mail ou senha incorretos."))
-    renderWithProvider()
-    await waitFor(() => expect(screen.getByTestId("loading")).toHaveTextContent("false"))
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
 
-    let result: Awaited<ReturnType<typeof ctx.signIn>> | undefined
+    let signInResult: Awaited<ReturnType<typeof result.current.signIn>> | undefined
     await act(async () => {
-      result = await ctx.signIn("ana@usp.br", "errada")
+      signInResult = await result.current.signIn("ana@usp.br", "errada")
     })
 
-    expect(result).toEqual({ error: "E-mail ou senha incorretos." })
-    expect(screen.getByTestId("user")).toHaveTextContent("anon")
+    expect(signInResult).toEqual({ ok: false, error: "E-mail ou senha incorretos." })
+    expect(result.current.user).toBeNull()
   })
 
   it("logout chama a API e limpa o estado, mesmo se a API falhar", async () => {
     fetchSession.mockResolvedValue({ user: profile })
     signOut.mockRejectedValue(new ApiError(401, "UNAUTHENTICATED", "Sessão expirada."))
-    renderWithProvider()
-    await waitFor(() => expect(screen.getByTestId("user")).toHaveTextContent(profile.id))
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.user?.id).toBe(profile.id))
 
     await act(async () => {
-      await ctx.signOut()
+      await result.current.signOut()
     })
 
     expect(signOut).toHaveBeenCalledTimes(1)
-    expect(screen.getByTestId("user")).toHaveTextContent("anon")
+    expect(result.current.user).toBeNull()
   })
 
   it("useAuth fora do provider lança erro claro", () => {
-    const spy = vi.spyOn(console, "error").mockImplementation(() => {})
-    expect(() => render(<Probe />)).toThrow("useAuth deve ser usado dentro de AuthProvider")
-    spy.mockRestore()
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+    expect(() => renderHook(() => useAuth())).toThrow("useAuth deve ser usado dentro de AuthProvider")
+    consoleError.mockRestore()
   })
 })

@@ -1,22 +1,26 @@
-/**
- * Régua de XP: 1000 XP por nível. Fonte única — antes duplicado em
- * cursos/page, perfil/[username]/page, ide/header e progress-context.
- */
-export function xpForLevel(level: number): number {
-  return level * 1000
+import { XP_PER_LEVEL } from "@levelusp/contracts"
+
+/** XP total acumulado ao concluir o nível `level` (régua linear da API). */
+function xpForLevel(level: number): number {
+  return level * XP_PER_LEVEL
 }
 
-/** XP acumulado no início do nível atual. */
-export function xpFloorForLevel(level: number): number {
-  return xpForLevel(level - 1)
+export interface LevelProgress {
+  /** XP total no início do nível atual. */
+  xpFloor: number
+  /** XP total necessário para chegar ao próximo nível. */
+  xpCeil: number
+  /** XP acumulado dentro do nível atual. */
+  xpInLevel: number
 }
 
-/** XP total necessário para alcançar o próximo nível. */
-export function xpCeilForLevel(level: number): number {
-  return xpForLevel(level)
+export function computeLevelProgress(totalXp: number, level: number): LevelProgress {
+  const xpFloor = xpForLevel(level - 1)
+  return { xpFloor, xpCeil: xpForLevel(level), xpInLevel: totalXp - xpFloor }
 }
 
-/** XP acumulado dentro do nível atual. */
-export function xpInLevel(totalXp: number, level: number): number {
-  return totalXp - xpFloorForLevel(level)
+/** Fração `part / whole` em 0–100, arredondada e limitada a 100 (0 quando `whole` não é positivo). */
+export function toClampedPercent(part: number, whole: number): number {
+  if (whole <= 0) return 0
+  return Math.min(100, Math.round((part / whole) * 100))
 }

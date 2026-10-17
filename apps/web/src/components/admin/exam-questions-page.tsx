@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useState } from "react"
 import type { AdminExamQuestion, ExamQuestionInput } from "@levelusp/contracts"
 import {
-  createExamQuestion, errorMessage, fetchAdminExams, fetchExamQuestionsAdmin, updateExamQuestion, type AdminExamSummary,
+  createExamQuestion, getErrorMessage, fetchAdminExams, fetchAdminExamQuestions, updateExamQuestion, type AdminExamSummary,
 } from "@/lib/api"
 import { CheckCircle2, ChevronDown, GraduationCap, Loader2, Pencil, Plus, Trash2, X } from "lucide-react"
-import type { OnToast } from "@/lib/types/ui"
+import type { OnToast } from "@/lib/types"
 
 // Gestão do banco de questões da prova final. O gabarito só aparece aqui
 // (rotas /admin) — a API nunca envia correct_index ao aluno.
@@ -36,11 +36,11 @@ export function ExamQuestionsAdminPage({ onToast }: { onToast: OnToast }) {
     fetchAdminExams()
       .then((rows) => {
         setExams(rows)
-        if (rows.length) setExamId((current) => current || rows[0]!.id)
+        if (rows.length) setExamId((current) => current || rows[0].id)
         else setLoading(false)
       })
       .catch((e) => {
-        onToast(errorMessage(e, "Erro ao carregar as provas"), "danger")
+        onToast(getErrorMessage(e, "Erro ao carregar as provas"), "danger")
         setLoading(false)
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -50,9 +50,9 @@ export function ExamQuestionsAdminPage({ onToast }: { onToast: OnToast }) {
     if (!examId) return
     setLoading(true)
     try {
-      setQuestions(await fetchExamQuestionsAdmin(examId))
+      setQuestions(await fetchAdminExamQuestions(examId))
     } catch (e) {
-      onToast(errorMessage(e, "Erro ao carregar questões"), "danger")
+      onToast(getErrorMessage(e, "Erro ao carregar questões"), "danger")
     } finally {
       setLoading(false)
     }
@@ -95,7 +95,7 @@ export function ExamQuestionsAdminPage({ onToast }: { onToast: OnToast }) {
       }
       setEditingId(null)
     } catch (e) {
-      onToast(errorMessage(e, "Erro ao salvar"), "danger")
+      onToast(getErrorMessage(e, "Erro ao salvar"), "danger")
     } finally {
       setSaving(false)
     }
@@ -108,7 +108,7 @@ export function ExamQuestionsAdminPage({ onToast }: { onToast: OnToast }) {
       onToast(!q.active ? "Questão ativada" : "Questão desativada")
     } catch (e) {
       setQuestions((prev) => prev.map((x) => (x.id === q.id ? { ...x, active: q.active } : x)))
-      onToast(errorMessage(e, "Erro ao atualizar"), "danger")
+      onToast(getErrorMessage(e, "Erro ao atualizar"), "danger")
     }
   }
 

@@ -4,9 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { motion } from "framer-motion"
 import { Flame, Zap, Trophy, CheckCircle2, Sparkles, Lock } from "lucide-react"
 import type { Badge, LessonProgress, Profile } from "@levelusp/contracts"
-import { fetchAllBadges, fetchUserBadges } from "@/lib/api"
+import { fetchBadges, fetchUserBadges } from "@/lib/api"
 import { badgeIcon } from "@/lib/badge-icons"
 import { localDateKey, todayKey, PLATFORM_TIMEZONE } from "@/lib/utils/date"
+import { formatNumber } from "@/lib/utils"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -75,7 +76,7 @@ export function StatCards({ streak, totalXp, lessonsCompleted, level }: StatCard
           </div>
           <div className="min-w-0">
             <p className="text-lg font-extrabold leading-none text-foreground tabular-nums">
-              {s.value.toLocaleString("pt-BR")}
+              {formatNumber(s.value)}
             </p>
             <p className="mt-0.5 truncate text-[11px] font-medium text-muted-foreground">{s.label}</p>
           </div>
@@ -191,13 +192,12 @@ const RARITY_STYLE: Record<string, string> = {
 }
 
 function badgeCurrent(b: Badge, profile: Profile): number {
-  const p = profile as unknown as Record<string, number>
   switch (b.criteria_type) {
-    case "total_xp": return p.total_xp ?? 0
-    case "current_streak": return p.current_streak ?? 0
-    case "max_streak": return p.max_streak ?? 0
-    case "lessons_completed": return p.lessons_completed ?? 0
-    case "courses_completed": return p.courses_completed ?? 0
+    case "total_xp": return profile.total_xp
+    case "current_streak": return profile.current_streak
+    case "max_streak": return profile.max_streak
+    case "lessons_completed": return profile.lessons_completed
+    case "courses_completed": return profile.courses_completed
     default: return 0
   }
 }
@@ -209,7 +209,7 @@ export function NextBadge({ profile }: { profile: Profile | null }) {
   useEffect(() => {
     if (!profile) return
     let alive = true
-    Promise.all([fetchAllBadges(), fetchUserBadges(profile.id)])
+    Promise.all([fetchBadges(), fetchUserBadges(profile.id)])
       .then(([all, mine]) => {
         if (!alive) return
         const owned = new Set(mine.map((m) => m.badge_id))
@@ -263,11 +263,11 @@ export function NextBadge({ profile }: { profile: Profile | null }) {
               />
             </div>
             <span className="shrink-0 text-[11px] font-bold text-level-purple tabular-nums">
-              {current.toLocaleString("pt-BR")}/{badge.criteria_value.toLocaleString("pt-BR")}
+              {formatNumber(current)}/{formatNumber(badge.criteria_value)}
             </span>
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            {remaining > 0 ? `Faltam ${remaining.toLocaleString("pt-BR")} para desbloquear` : "Quase lá!"}
+            {remaining > 0 ? `Faltam ${formatNumber(remaining)} para desbloquear` : "Quase lá!"}
           </p>
         </div>
       </div>

@@ -214,7 +214,7 @@ export function changeDraftKind(d: TestCaseDraft, kind: TestCase["kind"]): TestC
     // valor coerente com o tipo de regra atual
     const constructs: readonly string[] = next.ruleType === "not_uses" ? NOT_USES_CONSTRUCTS : USES_CONSTRUCTS
     if ((next.ruleType === "uses" || next.ruleType === "not_uses") && !constructs.includes(next.ruleValue)) {
-      next.ruleValue = constructs[0]!
+      next.ruleValue = constructs[0]
     }
   }
   return next
@@ -397,7 +397,7 @@ export function compileDrafts(drafts: TestCaseDraft[]): CompiledDrafts {
     else if (testCase) cases.push(testCase)
   }
   if (drafts.length > 100) {
-    const last = drafts[drafts.length - 1]!
+    const last = drafts[drafts.length - 1]
     errors[last.key] = { ...errors[last.key], id: "Limite de 100 casos por lição." }
   }
   const errorCount = Object.values(errors).reduce((n, e) => n + Object.keys(e).length, 0)

@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import type { Course, Lesson, PlatformMetrics, Profile, RecentActivity } from "@levelusp/contracts"
 import {
   ApiError,
-  errorMessage,
+  getErrorMessage,
   fetchAllLessons,
   fetchAllUsers,
   fetchDailyActivity,
@@ -28,14 +28,13 @@ import { NotificationBell } from "@/components/notification-bell"
 import { BadgesAdminPage } from "@/components/admin/badges-page"
 import { LibrariesAdminPage } from "@/components/admin/libraries-page"
 import { ExamQuestionsAdminPage } from "@/components/admin/exam-questions-page"
-import { CommandPalette } from "@/components/admin/command-palette"
+import { CommandPalette, openAdminSearch } from "@/components/admin/command-palette"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import {
   Users,
   BookOpen,
   Activity,
   TrendingUp,
-  Crown,
   Search,
   AlertTriangle,
   Loader2,
@@ -49,14 +48,14 @@ import {
   History,
   Settings as SettingsIcon,
   Sparkles,
-  LogOut,
   ChevronRight,
   GraduationCap as Cap,
   Menu,
   ShieldAlert,
 } from "lucide-react"
-import { cn, getInitials, timeAgo } from "@/lib/utils"
+import { cn, formatNumber, formatTimeAgo, getInitials } from "@/lib/utils"
 import { SparkBar, Donut } from "@/components/admin/charts"
+import { ROUTES, STORAGE_KEYS } from "@/lib/constants"
 
 // ── Types & helpers ───────────────────────────────────────────────────────────
 
@@ -185,7 +184,7 @@ function Sidebar({ current, onChange, counts, profileName, profileEmail }: {
           <p className="truncate text-xs font-semibold text-level-purple-dark">{profileName}</p>
           <p className="truncate text-[11px] text-muted-foreground">{profileEmail}</p>
         </div>
-        <Link href="/dashboard" title="Voltar à plataforma"
+        <Link href={ROUTES.dashboard} title="Voltar à plataforma"
           className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-level-purple-light hover:text-level-purple">
           <ChevronRight className="h-4 w-4 rotate-180" />
         </Link>
@@ -223,7 +222,7 @@ function TopBar({ title, breadcrumb, primaryHref, primaryLabel, onMenuClick }: {
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <button
-            onClick={() => (window as unknown as { __openAdminSearch?: () => void }).__openAdminSearch?.()}
+            onClick={openAdminSearch}
             className="relative hidden items-center lg:flex"
           >
             <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
@@ -234,7 +233,7 @@ function TopBar({ title, breadcrumb, primaryHref, primaryLabel, onMenuClick }: {
           </button>
           <NotificationBell />
           <Link
-            href="/dashboard"
+            href={ROUTES.dashboard}
             className="flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:border-level-purple hover:text-level-purple"
           >
             <ChevronRight className="h-4 w-4 rotate-180" />
@@ -264,14 +263,11 @@ function Overview({
   dailyBars: number[]
   onNavigate: (p: PageId) => void
 }) {
-  const pubRate = metrics.totalLessons > 0
-    ? Math.round((metrics.publishedLessons / metrics.totalLessons) * 100) : 0
-
   const kpis = [
     { label: "Usuários",        value: metrics.totalUsers,                              icon: Users,      color: "bg-level-purple-light text-level-purple" },
     { label: "Conclusões",      value: metrics.totalCompletions,                        icon: Activity,   color: "bg-success/10 text-success" },
     { label: "Matrículas",      value: metrics.totalEnrollments,                        icon: Cap,        color: "bg-info/10 text-info" },
-    { label: "XP Distribuído",  value: metrics.totalXpAwarded.toLocaleString("pt-BR"),  icon: TrendingUp, color: "bg-warning/10 text-warning" },
+    { label: "XP Distribuído",  value: formatNumber(metrics.totalXpAwarded),  icon: TrendingUp, color: "bg-warning/10 text-warning" },
     { label: "Cursos Publicados", value: `${metrics.publishedCourses}/${metrics.totalCourses}`, icon: BookOpen, color: "bg-level-purple-light text-level-purple" },
     { label: "Lições Publicadas", value: `${metrics.publishedLessons}/${metrics.totalLessons}`, icon: CheckCircle2, color: "bg-success/10 text-success" },
   ]
@@ -297,7 +293,7 @@ function Overview({
               Olá, Admin 👋 A plataforma tem {metrics.totalUsers} usuários ativos.
             </h2>
             <p className="mt-2 text-sm text-white/80">
-              {metrics.publishedCourses} cursos · {metrics.publishedLessons} lições · {metrics.totalCompletions.toLocaleString("pt-BR")} conclusões · {metrics.totalEnrollments} matrículas
+              {metrics.publishedCourses} cursos · {metrics.publishedLessons} lições · {formatNumber(metrics.totalCompletions)} conclusões · {metrics.totalEnrollments} matrículas
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
               {metrics.pendingApprovals > 0 && (
@@ -330,7 +326,7 @@ function Overview({
                 <Icon className="h-4 w-4" />
               </div>
               <p className="text-xl font-extrabold text-level-purple-dark">
-                {typeof k.value === "number" ? k.value.toLocaleString("pt-BR") : k.value}
+                {typeof k.value === "number" ? formatNumber(k.value) : k.value}
               </p>
               <p className="text-xs text-muted-foreground">{k.label}</p>
             </div>
@@ -399,7 +395,7 @@ function Overview({
                     {a.xp_earned > 0 && <span className="ml-1 text-xs font-bold text-level-purple">+{a.xp_earned} XP</span>}
                   </p>
                 </div>
-                <span className="shrink-0 text-[11px] text-muted-foreground">{timeAgo(a.completed_at)}</span>
+                <span className="shrink-0 text-[11px] text-muted-foreground">{formatTimeAgo(a.completed_at)}</span>
               </li>
             ))}
           </ul>
@@ -417,7 +413,7 @@ export default function AdminPage() {
 
   const [page, setPage] = useState<PageId>(() => {
     if (typeof window === "undefined") return "overview"
-    return (localStorage.getItem("adminPage") as PageId) || "overview"
+    return (localStorage.getItem(STORAGE_KEYS.adminActivePage) as PageId) || "overview"
   })
   const [metrics,    setMetrics]    = useState<PlatformMetrics | null>(null)
   const [users,      setUsers]      = useState<Profile[]>([])
@@ -433,7 +429,7 @@ export default function AdminPage() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   useEffect(() => {
-    if (typeof window !== "undefined") localStorage.setItem("adminPage", page)
+    if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEYS.adminActivePage, page)
   }, [page])
 
   const profileId = profile?.id
@@ -442,7 +438,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (authLoading) return
     if (!profileId) {
-      router.replace("/login")
+      router.replace(ROUTES.login)
       return
     }
     // A guarda no front só evita uma tela quebrada; quem autoriza é a API (403).
@@ -474,7 +470,7 @@ export default function AdminPage() {
       } catch (e) {
         if (cancelled) return
         if (e instanceof ApiError && e.status === 403) setForbidden(true)
-        setLoadError(errorMessage(e, "Erro ao carregar os dados do painel."))
+        setLoadError(getErrorMessage(e, "Erro ao carregar os dados do painel."))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -494,7 +490,7 @@ export default function AdminPage() {
           {forbidden && loadError ? loadError : "Sua conta não tem permissão para acessar o painel administrativo."}
         </p>
         <Link
-          href="/dashboard"
+          href={ROUTES.dashboard}
           className="rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-level-purple-dark"
         >
           Voltar ao Dashboard
@@ -563,8 +559,8 @@ export default function AdminPage() {
   else                           main = <SettingsPage onToast={onToast} />
 
   const primaryAction =
-    page === "lessons" ? { href: "/teacher/edit/new",   label: "Nova Lição" } :
-    page === "courses" ? { href: "/teacher/curso/new",  label: "Novo Curso" } :
+    page === "lessons" ? { href: ROUTES.teacherNewLesson,   label: "Nova Lição" } :
+    page === "courses" ? { href: ROUTES.teacherNewCourse,  label: "Novo Curso" } :
     undefined
 
   const toastColors: Record<string, string> = {

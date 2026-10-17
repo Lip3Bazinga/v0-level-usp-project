@@ -2,19 +2,17 @@
 
 import { useState, useMemo } from "react"
 import {
-  Search, Download, Plus, Eye, Edit3, Shield,
-  Zap, Flame, Trophy, Users, BookOpen, Ban, X, ChevronRight, Loader2,
+  Search, Download, Plus, Eye, Edit3, Shield, Zap, Flame, Trophy, Users, BookOpen, Ban, X, ChevronRight,
 } from "lucide-react"
 import { RoleBadge } from "@/components/ui/badges"
 import { UserEditModal } from "./user-edit-modal"
 import { UserDetail } from "./user-detail"
 import type { AdminUpdateUserInput, Profile, UserRole } from "@levelusp/contracts"
 import {
-  deleteUser, errorMessage, exportToCsv, inviteUser, setUserSuspended, updateUserProfile, updateUserRole,
+  deleteUser, getErrorMessage, inviteUser, setUserSuspended, updateUserProfile, updateUserRole,
 } from "@/lib/api"
-import { getInitials } from "@/lib/utils"
-import { cn } from "@/lib/utils"
-import type { OnToast } from "@/lib/types/ui"
+import { cn, downloadCsv, formatNumber, getInitials } from "@/lib/utils"
+import type { OnToast } from "@/lib/types"
 
 const ROLE_LABEL: Record<UserRole, string> = { student: "aluno", teacher: "professor", admin: "administrador" }
 
@@ -112,7 +110,7 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
     setBulkBusy(false)
     mergeUpdated(updated)
     if (updated.length) onToast(`${updated.length} usuário(s) agora com papel de ${ROLE_LABEL[r]}`, "success")
-    if (failed) onToast(`${failed} não alterado(s): ${errorMessage(firstError)}`, "danger")
+    if (failed) onToast(`${failed} não alterado(s): ${getErrorMessage(firstError)}`, "danger")
     setSelected(new Set())
     setShowBulkRole(false)
   }
@@ -123,7 +121,7 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
     setBulkBusy(false)
     mergeUpdated(updated)
     if (updated.length) onToast(`${updated.length} usuário(s) suspenso(s)`, "warning")
-    if (failed) onToast(`${failed} não suspenso(s): ${errorMessage(firstError)}`, "danger")
+    if (failed) onToast(`${failed} não suspenso(s): ${getErrorMessage(firstError)}`, "danger")
     setSelected(new Set())
   }
 
@@ -142,7 +140,7 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
       criado_em: u.created_at,
     }))
     if (rows.length === 0) { onToast("Nenhum usuário para exportar", "warning"); return }
-    exportToCsv(rows, `usuarios-${new Date().toISOString().slice(0, 10)}.csv`)
+    downloadCsv(rows, `usuarios-${new Date().toISOString().slice(0, 10)}.csv`)
     if (onlySelected) setSelected(new Set())
   }
 
@@ -154,7 +152,7 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
       setUsers((prev) => (prev.some((u) => u.id === invited.id) ? prev : [invited, ...prev]))
       onToast("Convite enviado por e-mail", "success")
     } catch (e) {
-      onToast(errorMessage(e, "Erro ao convidar"), "danger")
+      onToast(getErrorMessage(e, "Erro ao convidar"), "danger")
     }
   }
 
@@ -327,7 +325,7 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
                   </td>
                   <td className="hidden px-2 py-3 text-right lg:table-cell">
                     <span className="inline-flex items-center gap-1 text-sm font-bold text-level-purple">
-                      <Zap className="h-3 w-3" /> {u.total_xp.toLocaleString("pt-BR")}
+                      <Zap className="h-3 w-3" /> {formatNumber(u.total_xp)}
                     </span>
                   </td>
                   <td className="hidden px-2 py-3 text-right font-bold text-foreground lg:table-cell">{u.lessons_completed}</td>
@@ -434,7 +432,7 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
               setEditUser(null)
               onToast("Usuário atualizado", "success")
             } catch (e) {
-              onToast(errorMessage(e, "Erro ao salvar"), "danger")
+              onToast(getErrorMessage(e, "Erro ao salvar"), "danger")
             }
           }}
           onDelete={async (u) => {
@@ -444,7 +442,7 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
               setEditUser(null)
               onToast("Conta excluída", "danger")
             } catch (e) {
-              onToast(errorMessage(e, "Erro ao excluir"), "danger")
+              onToast(getErrorMessage(e, "Erro ao excluir"), "danger")
             }
           }}
         />

@@ -8,7 +8,7 @@ function moveItem<T>(list: T[], index: number, dir: -1 | 1): T[] {
   const target = index + dir
   if (index < 0 || target < 0 || target >= list.length) return list
   const copy = [...list]
-  ;[copy[index], copy[target]] = [copy[target]!, copy[index]!]
+  ;[copy[index], copy[target]] = [copy[target], copy[index]]
   return copy
 }
 

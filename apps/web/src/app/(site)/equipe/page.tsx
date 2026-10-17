@@ -3,6 +3,7 @@ import { Users, Github, Linkedin, GraduationCap, Code2, Palette, BookOpen, Heart
 import { PageHero } from "@/components/marketing/page-hero"
 import { FinalCta } from "@/components/marketing/final-cta"
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion-primitives"
+import { ROUTES } from "@/lib/constants"
 
 export const metadata: Metadata = {
   title: "Equipe — Quem constrói o LevelUSP",
@@ -134,7 +135,7 @@ export default function EquipePage() {
               Estamos sempre abertos a voluntários — desenvolvedores, educadores e designers que queiram
               contribuir com a democratização do ensino de tecnologia.
             </p>
-            <a href="/contato" className="mt-5 inline-block">
+            <a href={ROUTES.site.contact} className="mt-5 inline-block">
               <button className="rounded-2xl bg-[#7C3AED] px-7 py-3.5 font-semibold text-white btn-3d">
                 Seja voluntário
               </button>

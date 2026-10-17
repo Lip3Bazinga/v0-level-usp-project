@@ -4,8 +4,8 @@ import { useState, useEffect } from "react"
 import { Trophy, Globe, Flag, Lock, Settings, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { PlatformSettings } from "@levelusp/contracts"
-import { errorMessage, fetchPlatformSettings, invalidateSessions, savePlatformSettings } from "@/lib/api"
-import type { OnToast } from "@/lib/types/ui"
+import { getErrorMessage, fetchPlatformSettings, invalidateSessions, savePlatformSettings } from "@/lib/api"
+import type { OnToast } from "@/lib/types"
 
 const FLAG_DEFS = [
   { key: "new_ide",            label: "Novo editor IDE",         desc: "Editor Monaco com auto-complete Python",     defaultOn: true  },
@@ -94,7 +94,7 @@ export function SettingsPage({ onToast }: SettingsPageProps) {
         if (s.session_timeout)  setSessionTimeout(String(s.session_timeout))
         if (s.rate_limit)       setRateLimit(String(s.rate_limit))
       })
-      .catch((err) => setLoadError(errorMessage(err, "Não foi possível carregar as configurações.")))
+      .catch((err) => setLoadError(getErrorMessage(err, "Não foi possível carregar as configurações.")))
       .finally(() => setLoadingSettings(false))
   }, [])
 
@@ -118,7 +118,7 @@ export function SettingsPage({ onToast }: SettingsPageProps) {
       })
       onToast("Configurações salvas", "success")
     } catch (err) {
-      onToast(errorMessage(err, "Erro ao salvar configurações"), "danger")
+      onToast(getErrorMessage(err, "Erro ao salvar configurações"), "danger")
     } finally {
       setSaving(false)
     }
@@ -275,7 +275,7 @@ export function SettingsPage({ onToast }: SettingsPageProps) {
                     await invalidateSessions()
                     onToast("Todas as sessões foram invalidadas", "success")
                   } catch (e) {
-                    onToast(errorMessage(e, "Erro ao invalidar sessões"), "danger")
+                    onToast(getErrorMessage(e, "Erro ao invalidar sessões"), "danger")
                   } finally {
                     setInvalidating(false)
                   }

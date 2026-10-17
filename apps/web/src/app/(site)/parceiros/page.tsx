@@ -3,6 +3,7 @@ import { Handshake, Building2, School, Code2, Heart, ArrowRight, CheckCircle2 } 
 import { PageHero } from "@/components/marketing/page-hero"
 import { FinalCta } from "@/components/marketing/final-cta"
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion-primitives"
+import { ROUTES } from "@/lib/constants"
 
 export const metadata: Metadata = {
   title: "Parceiros — Quem apoia o LevelUSP",
@@ -126,7 +127,7 @@ export default function ParceirosPage() {
                     Sua instituição ou empresa pode ampliar o alcance da educação em tecnologia no Brasil.
                     Junte-se a uma rede comprometida com o impacto social.
                   </p>
-                  <a href="/contato" className="mt-8 inline-block">
+                  <a href={ROUTES.site.contact} className="mt-8 inline-block">
                     <button className="inline-flex items-center gap-2 rounded-2xl bg-white px-8 py-4 font-semibold text-[#4C1D95] transition-transform hover:scale-105">
                       Quero ser parceiro
                       <ArrowRight className="h-5 w-5" />

@@ -14,8 +14,9 @@ import type { Lesson, LessonSummary } from "@levelusp/contracts"
 import { SuccessFeedback } from "@/components/ide/success-feedback"
 import { useAuth } from "@/contexts/auth-context"
 import { useProgress } from "@/contexts/progress-context"
-import { useToast } from "@/contexts/toast-context"
-import { ApiError, completeTheoryLesson, errorMessage, type CompletionResult } from "@/lib/api"
+import { swalToast } from "@/lib/swal"
+import { ApiError, completeTheoryLesson, getErrorMessage, type CompletionResult } from "@/lib/api"
+import { ROUTES } from "@/lib/constants"
 
 function isHtmlContent(text: string): boolean {
   return /^\s*<[a-zA-Z]/.test(text.trim())
@@ -32,7 +33,6 @@ export function TheoryLessonLayout({ lesson, allLessons, currentIndex, onComplet
   const router = useRouter()
   const { profile } = useAuth()
   const { isCompleted, applyCompletion } = useProgress()
-  const toast = useToast()
   const [read, setRead] = useState(() => isCompleted(lesson.id))
   const [completing, setCompleting] = useState(false)
   const [result, setResult] = useState<CompletionResult | null>(null)
@@ -51,17 +51,17 @@ export function TheoryLessonLayout({ lesson, allLessons, currentIndex, onComplet
     setShowSuccess(false)
     const next = allLessons[currentIndex + 1]
     if (next && next.course_id === lesson.course_id) {
-      router.push(`/lesson/${next.id}`)
+      router.push(ROUTES.lesson(next.id))
     } else if (lesson.course_id) {
-      router.push(`/cursos/${lesson.course_id}`)
+      router.push(ROUTES.course(lesson.course_id))
     } else {
-      router.push("/dashboard")
+      router.push(ROUTES.dashboard)
     }
   }, [allLessons, currentIndex, lesson.course_id, router])
 
   const handlePrev = useCallback(() => {
     const prev = allLessons[currentIndex - 1]
-    if (prev && prev.course_id === lesson.course_id) router.push(`/lesson/${prev.id}`)
+    if (prev && prev.course_id === lesson.course_id) router.push(ROUTES.lesson(prev.id))
   }, [allLessons, currentIndex, lesson.course_id, router])
 
   const handleMarkDone = async () => {
@@ -79,10 +79,10 @@ export function TheoryLessonLayout({ lesson, allLessons, currentIndex, onComplet
       await applyCompletion(lesson.id, res)
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        router.push(`/login?next=${encodeURIComponent(`/lesson/${lesson.id}`)}`)
+        router.push(ROUTES.loginWithNext(ROUTES.lesson(lesson.id)))
         return
       }
-      toast.error(errorMessage(err, "Não foi possível concluir a lição. Tente novamente."))
+      swalToast({ title: getErrorMessage(err, "Não foi possível concluir a lição. Tente novamente."), icon: "error" })
     } finally {
       setCompleting(false)
     }
@@ -97,7 +97,7 @@ export function TheoryLessonLayout({ lesson, allLessons, currentIndex, onComplet
       {/* Header */}
       <header className="flex items-center gap-3 border-b border-border px-4 py-3 shrink-0">
         <button
-          onClick={() => lesson.course_id ? router.push(`/cursos/${lesson.course_id}`) : router.push("/dashboard")}
+          onClick={() => lesson.course_id ? router.push(ROUTES.course(lesson.course_id)) : router.push(ROUTES.dashboard)}
           className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-level-purple-light hover:text-level-purple transition-colors"
         >
           <Home className="h-3.5 w-3.5" />

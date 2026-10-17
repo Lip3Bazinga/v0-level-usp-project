@@ -11,8 +11,8 @@ import { Input } from "@/components/ui/input"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import type { ProjectFile } from "@/lib/types"
-import { MAIN_FILE } from "@/contexts/ide-context"
+import type { ProjectFile } from "@levelusp/contracts"
+import { MAIN_FILE_PATH } from "@/lib/constants"
 import { buildTree, type TreeNode } from "@/lib/utils/file-tree"
 
 const getFileIcon = (name: string) => {
@@ -148,7 +148,7 @@ function TreeItem({ node, level, activePath, readOnly, onSelect, onRename, onDel
   const [open, setOpen] = useState(true)
   const isFolder = node.type === "folder"
   const isActive = node.path === activePath
-  const isMain = node.path === MAIN_FILE
+  const isMain = node.path === MAIN_FILE_PATH
 
   return (
     <div>

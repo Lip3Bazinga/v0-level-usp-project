@@ -5,19 +5,20 @@ import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Rocket, Menu, X, ChevronDown } from "lucide-react"
+import { ROUTES } from "@/lib/constants"
 
 const PRIMARY_LINKS = [
-  { href: "/sobre", label: "Sobre" },
-  { href: "/metodologia", label: "Metodologia" },
-  { href: "/trilhas", label: "Trilhas" },
-  { href: "/impacto", label: "Impacto" },
+  { href: ROUTES.site.about, label: "Sobre" },
+  { href: ROUTES.site.methodology, label: "Metodologia" },
+  { href: ROUTES.site.tracks, label: "Trilhas" },
+  { href: ROUTES.site.impact, label: "Impacto" },
 ]
 
 const MORE_LINKS = [
-  { href: "/equipe", label: "Equipe", desc: "Quem constrói o LevelUSP" },
-  { href: "/parceiros", label: "Parceiros", desc: "Instituições que apoiam" },
-  { href: "/faq", label: "Perguntas frequentes", desc: "Tire suas dúvidas" },
-  { href: "/contato", label: "Contato", desc: "Fale com a equipe" },
+  { href: ROUTES.site.team, label: "Equipe", desc: "Quem constrói o LevelUSP" },
+  { href: ROUTES.site.partners, label: "Parceiros", desc: "Instituições que apoiam" },
+  { href: ROUTES.site.faq, label: "Perguntas frequentes", desc: "Tire suas dúvidas" },
+  { href: ROUTES.site.contact, label: "Contato", desc: "Fale com a equipe" },
 ]
 
 const ALL_MOBILE_LINKS = [...PRIMARY_LINKS, ...MORE_LINKS.map((l) => ({ href: l.href, label: l.label }))]
@@ -53,7 +54,7 @@ export function SiteNav() {
       }`}
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-3">
+        <Link href={ROUTES.home} className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#7C3AED] shadow-lg shadow-purple-300/40">
             <Rocket className="h-5 w-5 text-white" />
           </div>
@@ -124,12 +125,12 @@ export function SiteNav() {
 
         <div className="hidden items-center gap-3 lg:flex">
           <Link
-            href="/login"
+            href={ROUTES.login}
             className="text-sm font-semibold text-[#7C3AED] transition-colors hover:text-[#4C1D95]"
           >
             Entrar
           </Link>
-          <Link href="/signup">
+          <Link href={ROUTES.signup}>
             <button className="rounded-full bg-[#7C3AED] px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-300/40 transition-all hover:bg-[#6D28D9] hover:shadow-purple-400/50">
               Começar grátis
             </button>
@@ -167,12 +168,12 @@ export function SiteNav() {
               ))}
               <div className="my-2 h-px bg-gray-100" />
               <Link
-                href="/login"
+                href={ROUTES.login}
                 className="rounded-lg px-3 py-2.5 text-sm font-semibold text-[#7C3AED] hover:bg-[#F3E8FF]"
               >
                 Entrar
               </Link>
-              <Link href="/signup">
+              <Link href={ROUTES.signup}>
                 <button className="mt-1 w-full rounded-full bg-[#7C3AED] px-6 py-2.5 text-sm font-semibold text-white">
                   Começar grátis
                 </button>

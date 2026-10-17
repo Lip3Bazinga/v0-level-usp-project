@@ -8,7 +8,8 @@ import {
   Zap, GraduationCap, ChevronRight,
 } from "lucide-react"
 import type { Course, Lesson, LessonProgress } from "@levelusp/contracts"
-import { computeModuleStatuses, type TrailStatus } from "@/lib/api"
+import { computeTrailStatuses, formatNumber, formatXp, type TrailStatus } from "@/lib/utils"
+import { ROUTES } from "@/lib/constants"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ function LessonNode({ lesson, status, index, side }: LessonNodeProps) {
           </motion.div>
         )}
         <Link
-          href={isLocked ? "#" : `/lesson/${lesson.id}`}
+          href={isLocked ? "#" : ROUTES.lesson(lesson.id)}
           aria-disabled={isLocked}
           onClick={(e) => isLocked && e.preventDefault()}
           className={`group relative flex h-14 w-14 items-center justify-center rounded-full border-b-[5px] transition-transform duration-150 ${
@@ -193,7 +194,7 @@ export function CourseCard({ course, lessons, progressMap, defaultOpen = false }
     }))
   })()
 
-  const allStatuses = computeModuleStatuses(lessons, progressMap)
+  const allStatuses = computeTrailStatuses(lessons, progressMap)
   const completed = allStatuses.filter((s) => s === "completed").length
   const pct = lessons.length ? Math.round((completed / lessons.length) * 100) : 0
 
@@ -257,7 +258,7 @@ export function CourseCard({ course, lessons, progressMap, defaultOpen = false }
             )}
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
               <Zap className="h-3 w-3" />
-              {earnedXp.toLocaleString("pt-BR")}/{(course.total_xp ?? 0).toLocaleString("pt-BR")} XP
+              {formatNumber(earnedXp)}/{formatXp(course.total_xp ?? 0)}
             </span>
           </div>
         </div>
@@ -286,7 +287,7 @@ export function CourseCard({ course, lessons, progressMap, defaultOpen = false }
             <div className="border-t border-border px-5 py-6">
               {/* Link rápido */}
               <Link
-                href={`/cursos/${course.id}`}
+                href={ROUTES.course(course.id)}
                 className="mb-6 flex items-center justify-between rounded-xl border border-level-purple/30 bg-level-purple-subtle px-4 py-2.5 text-sm font-semibold text-level-purple transition-colors hover:bg-level-purple hover:text-white"
               >
                 <span>Ver página do curso</span>

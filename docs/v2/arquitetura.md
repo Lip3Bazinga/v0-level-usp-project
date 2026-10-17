@@ -39,7 +39,7 @@ flowchart LR
 apps/
   api/         NestJS: src/{config,common,infra,modules}, test/e2e
   runner/      src/ (servidor HTTP mínimo, sandbox, plano de lotes), python/harness.py
-  web/         Next.js: src/{app,components,contexts,hooks,lib/api}, e2e/ (Playwright)
+  web/         Next.js: src/{app,components,contexts,hooks,lib/{api,constants,utils,python,types}}, e2e/ (Playwright)
 packages/
   contracts/   schemas Zod + tipos (users, auth, courses, lessons, grading, exams, …)
   db/          schema Drizzle, migrations/, seed/, tools/ (conversor de gabaritos)

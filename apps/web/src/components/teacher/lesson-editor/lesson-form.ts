@@ -2,7 +2,8 @@ import type {
   Checkpoint, Difficulty, LessonInput, LessonType, LessonUpdateInput, LessonWithTests, ProjectFile, QuizQuestionFull,
   QuizQuestionInput, TestCase,
 } from "@levelusp/contracts"
-import { resolveStarterFiles } from "@/lib/api/learning"
+import { resolveStarterFiles } from "@/lib/utils"
+import { MAIN_FILE_PATH } from "@/lib/constants"
 
 /** Estado do formulário do editor de lição (tudo que vai em `LessonInput`, menos os casos). */
 export interface LessonFormState {
@@ -60,7 +61,7 @@ export const DEFAULT_FORM: LessonFormState = {
   difficulty: "iniciante",
   lesson_type: "coding",
   content_markdown: DEFAULT_CONTENT,
-  starter_files: [{ path: "main.py", content: DEFAULT_STARTER }],
+  starter_files: [{ path: MAIN_FILE_PATH, content: DEFAULT_STARTER }],
   checkpoints: [],
   libraries: [],
   xp_reward: 50,
@@ -94,8 +95,8 @@ function clamp(n: number, min: number, max: number) {
 
 /** Monta o corpo completo aceito por `POST /lessons`. */
 export function toLessonInput(f: LessonFormState, testCases: TestCase[]): LessonInput {
-  const files = f.starter_files.length ? f.starter_files : [{ path: "main.py", content: "" }]
-  const main = files.find((x) => x.path === "main.py") ?? files[0]!
+  const files = f.starter_files.length ? f.starter_files : [{ path: MAIN_FILE_PATH, content: "" }]
+  const main = files.find((x) => x.path === MAIN_FILE_PATH) ?? files[0]
   return {
     title: f.title.trim(),
     description: f.description.trim(),
@@ -136,7 +137,7 @@ export function validateLessonForm(f: LessonFormState): string | null {
   if (f.title.trim().length > 160) return "O título pode ter no máximo 160 caracteres."
   if (f.lesson_type === "coding") {
     const paths = f.starter_files.map((x) => x.path)
-    if (!paths.includes("main.py")) return "O exercício precisa de um arquivo main.py."
+    if (!paths.includes(MAIN_FILE_PATH)) return "O exercício precisa de um arquivo main.py."
     if (new Set(paths).size !== paths.length) return "Há arquivos do exercício com o mesmo nome."
   }
   return null

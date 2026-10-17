@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { Rocket, ArrowLeft } from "lucide-react"
+import { ROUTES } from "@/lib/constants"
 
 export default function NotFound() {
   return (
@@ -15,7 +16,7 @@ export default function NotFound() {
         </p>
         <div className="mt-8 flex items-center justify-center gap-3">
           <Link
-            href="/dashboard"
+            href={ROUTES.dashboard}
             className="flex items-center gap-2 rounded-xl bg-level-purple px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-level-purple-dark"
           >
             <ArrowLeft className="h-4 w-4" />

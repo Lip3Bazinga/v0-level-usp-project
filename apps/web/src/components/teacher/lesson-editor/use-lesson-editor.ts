@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { LessonInput, QuizQuestionFull } from "@levelusp/contracts"
 import {
-  createLesson, errorMessage, fetchLessonForAuthoring, fetchQuizQuestionsForTeacher, replaceQuizQuestions,
-  toggleLessonPublished, updateLesson,
+  createLesson, getErrorMessage, fetchLessonForAuthoring, fetchQuizForAuthoring, replaceQuizQuestions,
+  setLessonPublished, updateLesson,
 } from "@/lib/api"
 import { compileDrafts, draftsFromCases, type TestCaseDraft } from "../test-cases-editor"
 import {
@@ -63,18 +63,18 @@ export function useLessonEditor(idParam: string) {
         if (lesson.lesson_type === "quiz") {
           setQuizLoading(true)
           try {
-            const questions = await fetchQuizQuestionsForTeacher(lesson.id)
+            const questions = await fetchQuizForAuthoring(lesson.id)
             if (cancelled) return
             setQuiz(questions)
             quizBaseline.current = JSON.stringify(toQuizInputs(questions))
           } catch (err) {
-            if (!cancelled) setLoadError(errorMessage(err, "Não foi possível carregar as questões do questionário."))
+            if (!cancelled) setLoadError(getErrorMessage(err, "Não foi possível carregar as questões do questionário."))
           } finally {
             if (!cancelled) setQuizLoading(false)
           }
         }
       } catch (err) {
-        if (!cancelled) setLoadError(errorMessage(err, "Não foi possível carregar a lição."))
+        if (!cancelled) setLoadError(getErrorMessage(err, "Não foi possível carregar a lição."))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -162,8 +162,8 @@ export function useLessonEditor(idParam: string) {
           ok: false,
           title: "Erro ao salvar",
           message: created
-            ? `A lição foi criada como rascunho, mas o questionário não foi salvo: ${errorMessage(err)}`
-            : errorMessage(err),
+            ? `A lição foi criada como rascunho, mas o questionário não foi salvo: ${getErrorMessage(err)}`
+            : getErrorMessage(err),
         }
       }
 
@@ -172,10 +172,10 @@ export function useLessonEditor(idParam: string) {
       let isPublished = created ? false : published
       if (publish !== undefined && publish !== isPublished) {
         try {
-          const lesson = await toggleLessonPublished(id, publish)
+          const lesson = await setLessonPublished(id, publish)
           isPublished = lesson.published
         } catch (err) {
-          publishError = errorMessage(err)
+          publishError = getErrorMessage(err)
         }
       }
       setPublished(isPublished)

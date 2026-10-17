@@ -4,7 +4,8 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { Check, Lock, Play, Star, type LucideIcon } from "lucide-react"
 import type { Lesson } from "@levelusp/contracts"
-import type { TrailStatus } from "@/lib/api"
+import type { TrailStatus } from "@/lib/utils"
+import { ROUTES } from "@/lib/constants"
 
 // Serpentina: deslocamento horizontal cíclico dos nós (estilo Duolingo)
 const WAVE = [0, 52, 84, 52, 0, -52, -84, -52]
@@ -87,7 +88,7 @@ export function ModuleTrail({ name, icon: Icon, accentClass, lessons, statuses }
               )}
 
               <Link
-                href={status === "locked" ? "#" : `/lesson/${lesson.id}`}
+                href={status === "locked" ? "#" : ROUTES.lesson(lesson.id)}
                 aria-disabled={status === "locked"}
                 title={`${lesson.title} · +${lesson.xp_reward} XP`}
                 onClick={(e) => status === "locked" && e.preventDefault()}

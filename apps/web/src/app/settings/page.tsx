@@ -8,8 +8,8 @@ import { useAuth } from "@/contexts/auth-context"
 import {
   changePassword,
   deleteMyAccount,
-  errorMessage,
-  exportMyData,
+  getErrorMessage,
+  fetchMyDataExport,
   updateMyProfile,
   uploadImage,
 } from "@/lib/api"
@@ -31,6 +31,7 @@ import {
   Download,
 } from "lucide-react"
 import { getInitials } from "@/lib/utils"
+import { ROUTES } from "@/lib/constants"
 
 const inputClass =
   "w-full rounded-xl border-2 border-border bg-white px-4 py-3 text-foreground focus:border-level-purple focus:outline-none transition-colors"
@@ -87,7 +88,7 @@ export default function SettingsPage() {
       setAvatarUrl(updated.avatar_url)
       setProfile(updated)
     } catch (err) {
-      setError(errorMessage(err, "Erro ao enviar a foto. Tente novamente."))
+      setError(getErrorMessage(err, "Erro ao enviar a foto. Tente novamente."))
     } finally {
       setUploadingAvatar(false)
       if (fileInputRef.current) fileInputRef.current.value = ""
@@ -115,7 +116,7 @@ export default function SettingsPage() {
       setConfirmPassword("")
       setSecurityMessage("Senha alterada com sucesso!")
     } catch (err) {
-      setSecurityError(errorMessage(err, "Não foi possível alterar a senha."))
+      setSecurityError(getErrorMessage(err, "Não foi possível alterar a senha."))
     } finally {
       setChangingPassword(false)
     }
@@ -125,7 +126,7 @@ export default function SettingsPage() {
     setSecurityError("")
     setExporting(true)
     try {
-      const data = await exportMyData()
+      const data = await fetchMyDataExport()
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
       const url = URL.createObjectURL(blob)
       const a = Object.assign(document.createElement("a"), {
@@ -137,7 +138,7 @@ export default function SettingsPage() {
       a.remove()
       URL.revokeObjectURL(url)
     } catch (err) {
-      setSecurityError(errorMessage(err, "Não foi possível exportar seus dados."))
+      setSecurityError(getErrorMessage(err, "Não foi possível exportar seus dados."))
     } finally {
       setExporting(false)
     }
@@ -161,9 +162,9 @@ export default function SettingsPage() {
     try {
       await deleteMyAccount(deletePassword)
       setProfile(null)
-      window.location.href = "/"
+      window.location.href = ROUTES.home
     } catch (err) {
-      setSecurityError(errorMessage(err, "Erro ao excluir a conta. Tente novamente."))
+      setSecurityError(getErrorMessage(err, "Erro ao excluir a conta. Tente novamente."))
       setDeletingAccount(false)
     }
   }
@@ -171,7 +172,7 @@ export default function SettingsPage() {
   // Redirect if not logged in
   useEffect(() => {
     if (!authLoading && !profile) {
-      router.push("/login?next=/settings")
+      router.push(ROUTES.loginWithNext(ROUTES.settings))
     }
   }, [authLoading, profile, router])
 
@@ -205,7 +206,7 @@ export default function SettingsPage() {
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
-      setError(errorMessage(err, "Erro ao salvar. Tente novamente."))
+      setError(getErrorMessage(err, "Erro ao salvar. Tente novamente."))
     } finally {
       setSaving(false)
     }
@@ -213,7 +214,7 @@ export default function SettingsPage() {
 
   const handleSignOut = async () => {
     await signOut()
-    window.location.href = "/login"
+    window.location.href = ROUTES.login
   }
 
   const tabs = [
@@ -237,7 +238,7 @@ export default function SettingsPage() {
       <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-4xl items-center justify-between px-4">
           <div className="flex items-center gap-4">
-            <Link href="/dashboard">
+            <Link href={ROUTES.dashboard}>
               <button className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground hover:bg-level-purple-light hover:text-level-purple transition-colors">
                 <ChevronLeft className="h-5 w-5" />
               </button>

@@ -3,33 +3,22 @@
 import type { ReactNode } from "react"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/contexts/auth-context"
-import { ToastProvider } from "@/contexts/toast-context"
 import { NotificationProvider } from "@/contexts/notification-context"
 import { ProgressProvider } from "@/contexts/progress-context"
 
 /**
- * Centraliza todos os providers client-side da aplicação.
- * Mantido separado do app/layout.tsx (Server Component) para preservar
- * suporte a metadata e geração estática do Next.js.
- *
- * Camadas (de fora para dentro):
- *   ThemeProvider        → dark/light mode via next-themes
- *   AuthProvider         → sessão (cookie httpOnly da API) + perfil do usuário
- *   ToastProvider        → feedback unificado (wrapper sobre lib/swal)
- *   NotificationProvider → notificações reais por usuário
- *   ProgressProvider     → lições + progresso + gamificação (fonte única)
- *
- * Nota: IDEProvider não fica aqui — é escopado às páginas da IDE.
+ * Providers do lado do cliente, fora do app/layout.tsx para que o layout continue
+ * Server Component (metadata e geração estática). A ordem importa: notificações
+ * dependem da sessão, e o progresso depende de ambos. O IDEProvider fica só nas
+ * páginas de lição.
  */
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider attribute="class" defaultTheme="light" disableTransitionOnChange>
       <AuthProvider>
-        <ToastProvider>
-          <NotificationProvider>
-            <ProgressProvider>{children}</ProgressProvider>
-          </NotificationProvider>
-        </ToastProvider>
+        <NotificationProvider>
+          <ProgressProvider>{children}</ProgressProvider>
+        </NotificationProvider>
       </AuthProvider>
     </ThemeProvider>
   )

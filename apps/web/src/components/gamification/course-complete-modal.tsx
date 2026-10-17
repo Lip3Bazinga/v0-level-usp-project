@@ -3,7 +3,7 @@
 import { useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import confetti from "canvas-confetti"
-import { Trophy, Star, Award, Download, ExternalLink, Zap } from "lucide-react"
+import { Trophy, Star, Award, Download, Zap } from "lucide-react"
 
 interface CourseCompleteModalProps {
   show: boolean

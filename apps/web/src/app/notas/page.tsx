@@ -10,7 +10,8 @@ import {
   ArrowLeft, Plus, Trash2, BookOpen, GraduationCap,
   NotebookPen, Search, Loader2, FileText, Clock,
 } from "lucide-react"
-import { formatDate, snippet } from "@/lib/utils"
+import { formatRelativeDay, truncatePlainText } from "@/lib/utils"
+import { ROUTES } from "@/lib/constants"
 
 
 
@@ -29,7 +30,7 @@ export default function NotasPage() {
 
   useEffect(() => {
     if (authLoading) return
-    if (!profile) { router.push("/login?next=/notas"); return }
+    if (!profile) { router.push(ROUTES.loginWithNext(ROUTES.notes)); return }
     fetchNotes()
       .then((data) => {
         setNotes(data)
@@ -111,7 +112,7 @@ export default function NotasPage() {
       <header className="shrink-0 border-b border-border bg-white/90 backdrop-blur-sm">
         <div className="flex h-14 items-center gap-4 px-4">
           <Link
-            href="/dashboard"
+            href={ROUTES.dashboard}
             className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-level-purple-light hover:text-level-purple transition-colors"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
@@ -186,7 +187,7 @@ export default function NotasPage() {
                     </button>
                   </div>
                   <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">
-                    {snippet(note.content) || "Sem conteúdo"}
+                    {truncatePlainText(note.content) || "Sem conteúdo"}
                   </p>
                   <div className="mt-1.5 flex items-center gap-2 flex-wrap">
                     {note.lesson_title && (
@@ -203,7 +204,7 @@ export default function NotasPage() {
                     )}
                     <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground ml-auto">
                       <Clock className="h-2.5 w-2.5" />
-                      {formatDate(note.updated_at)}
+                      {formatRelativeDay(note.updated_at)}
                     </span>
                   </div>
                 </button>
@@ -239,7 +240,7 @@ export default function NotasPage() {
                   )}
                   <span className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    Atualizado {formatDate(activeNote.updated_at)}
+                    Atualizado {formatRelativeDay(activeNote.updated_at)}
                   </span>
                 </div>
               </div>

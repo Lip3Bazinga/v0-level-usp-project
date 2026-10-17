@@ -8,6 +8,7 @@ import { LevelButton } from "@/components/design-system/level-button"
 import { OAuthButtons } from "@/components/auth/oauth-buttons"
 import { useAuth } from "@/contexts/auth-context"
 import { Rocket, Mail, Lock, Eye, EyeOff, User, AlertCircle, CheckCircle2 } from "lucide-react"
+import { ROUTES } from "@/lib/constants"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -32,15 +33,15 @@ export default function SignupPage() {
     }
 
     setLoading(true)
-    const { error } = await signUp({ email: email.trim(), password, full_name: fullName.trim() })
-    if (error) {
-      setError(error)
+    const result = await signUp({ email: email.trim(), password, full_name: fullName.trim() })
+    if (!result.ok) {
+      setError(result.error)
       setLoading(false)
       return
     }
 
     // A API já abre a sessão (cookie httpOnly) no cadastro.
-    router.push("/dashboard")
+    router.push(ROUTES.dashboard)
     router.refresh()
   }
 
@@ -185,7 +186,7 @@ export default function SignupPage() {
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Já tem uma conta?{" "}
-            <Link href="/login" className="font-semibold text-level-purple hover:text-level-purple-dark transition-colors">
+            <Link href={ROUTES.login} className="font-semibold text-level-purple hover:text-level-purple-dark transition-colors">
               Fazer login
             </Link>
           </p>

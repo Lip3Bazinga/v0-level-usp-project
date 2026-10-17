@@ -1,143 +1,132 @@
 "use client"
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-  useMemo,
-  useRef,
-  type ReactNode,
-} from "react"
-import type { Profile, SessionResponse, SignUpInput } from "@levelusp/contracts"
-import {
-  fetchSession,
-  signIn as apiSignIn,
-  signUp as apiSignUp,
-  signOut as apiSignOut,
-  errorMessage,
-} from "@/lib/api"
-
-// ── Tipos ─────────────────────────────────────────────────────────────────────
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
+import type { Profile, SignUpInput, StreakResult } from "@levelusp/contracts"
+import { fetchSession, getErrorMessage, signIn as requestSignIn, signOut as requestSignOut, signUp as requestSignUp } from "@/lib/api"
 
 /**
- * Usuário autenticado. A sessão vive num cookie httpOnly emitido pela API —
- * o navegador nunca vê token; aqui só guardamos o mínimo derivado do perfil.
+ * O mínimo derivado do perfil para identificar quem está logado. A sessão em si
+ * vive num cookie httpOnly emitido pela API: o navegador nunca vê o token.
  */
 export interface AuthUser {
   id: string
   email: string
 }
 
-/** Resultado da sequência diária atualizada no login (dispara a animação). */
-export interface StreakResult {
-  streakUpdated: boolean
-  newStreak: number
-}
+export type AuthActionResult = { ok: true } | { ok: false; error: string }
 
-export interface AuthContextValue {
+/** No login a API também atualiza a sequência diária, que dispara a animação. */
+export type SignInResult = { ok: true; streak?: StreakResult } | { ok: false; error: string }
+
+export interface AuthState {
   user: AuthUser | null
   profile: Profile | null
   isLoading: boolean
-  signIn: (email: string, password: string) => Promise<{ error: string | null; streakResult?: StreakResult }>
-  signUp: (input: SignUpInput) => Promise<{ error: string | null }>
+}
+
+export interface AuthActions {
+  signIn: (email: string, password: string) => Promise<SignInResult>
+  signUp: (input: SignUpInput) => Promise<AuthActionResult>
+  /** Encerra a sessão; o estado local é limpo mesmo se a API falhar. */
   signOut: () => Promise<void>
+  /** Busca o perfil de novo (ex.: depois de ganhar XP). */
   refreshProfile: () => Promise<void>
-  /** Atualiza o perfil local com o que a API devolveu (ex.: após PATCH /me/profile). */
+  /** Substitui o perfil local pelo que a API acabou de devolver (ex.: após PATCH /me/profile). */
   setProfile: (profile: Profile | null) => void
 }
 
-// ── Context ───────────────────────────────────────────────────────────────────
+export type AuthContextValue = AuthState & AuthActions
+
+type SessionState = { status: "loading" } | { status: "ready"; profile: Profile | null }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-function toStreakResult(session: SessionResponse): StreakResult | undefined {
-  if (!session.streak) return undefined
-  return { streakUpdated: session.streak.increased, newStreak: session.streak.streak }
+/** Falha de rede ou servidor ao ler a sessão é tratada como "deslogado", sem quebrar a página. */
+async function loadSessionProfile(): Promise<Profile | null> {
+  try {
+    const session = await fetchSession()
+    return session?.user ?? null
+  } catch {
+    return null
+  }
 }
 
-// ── Provider ──────────────────────────────────────────────────────────────────
+function toAuthUser(profile: Profile | null): AuthUser | null {
+  return profile ? { id: profile.id, email: profile.email } : null
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  // Evita setState após unmount (Strict Mode monta/desmonta em dev)
-  const mounted = useRef(true)
+  const [session, setSession] = useState<SessionState>({ status: "loading" })
 
-  const loadSession = useCallback(async () => {
-    try {
-      const session = await fetchSession()
-      if (mounted.current) setProfile(session?.user ?? null)
-    } catch {
-      // Falha de rede/servidor: trata como deslogado, sem quebrar a página.
-      if (mounted.current) setProfile(null)
-    }
-  }, [])
+  const setProfile = useCallback((profile: Profile | null) => setSession({ status: "ready", profile }), [])
 
   useEffect(() => {
-    mounted.current = true
-    loadSession().finally(() => {
-      if (mounted.current) setIsLoading(false)
+    let isCurrent = true
+    void loadSessionProfile().then((profile) => {
+      if (isCurrent) setProfile(profile)
     })
     return () => {
-      mounted.current = false
+      isCurrent = false
     }
-  }, [loadSession])
+  }, [setProfile])
 
   const signIn = useCallback(
-    async (email: string, password: string): Promise<{ error: string | null; streakResult?: StreakResult }> => {
+    async (email: string, password: string): Promise<SignInResult> => {
       try {
-        const session = await apiSignIn({ email: email.trim(), password })
-        if (mounted.current) setProfile(session.user)
-        return { error: null, streakResult: toStreakResult(session) }
-      } catch (err) {
-        return { error: errorMessage(err, "Não foi possível entrar. Tente novamente.") }
+        const response = await requestSignIn({ email: email.trim(), password })
+        setProfile(response.user)
+        return { ok: true, streak: response.streak }
+      } catch (error) {
+        return { ok: false, error: getErrorMessage(error, "Não foi possível entrar. Tente novamente.") }
       }
     },
-    [],
+    [setProfile],
   )
 
-  const signUp = useCallback(async (input: SignUpInput): Promise<{ error: string | null }> => {
-    try {
-      const session = await apiSignUp(input)
-      if (mounted.current) setProfile(session.user)
-      return { error: null }
-    } catch (err) {
-      return { error: errorMessage(err, "Não foi possível criar a conta. Tente novamente.") }
-    }
-  }, [])
+  const signUp = useCallback(
+    async (input: SignUpInput): Promise<AuthActionResult> => {
+      try {
+        const response = await requestSignUp(input)
+        setProfile(response.user)
+        return { ok: true }
+      } catch (error) {
+        return { ok: false, error: getErrorMessage(error, "Não foi possível criar a conta. Tente novamente.") }
+      }
+    },
+    [setProfile],
+  )
 
   const signOut = useCallback(async () => {
     try {
-      await apiSignOut()
+      await requestSignOut()
     } catch {
-      // Mesmo se a API falhar (sessão já expirada, rede), limpa o estado local.
+      // Sessão já expirada ou sem rede: do lado do navegador, sair é só limpar o estado.
     }
-    if (mounted.current) setProfile(null)
-  }, [])
+    setProfile(null)
+  }, [setProfile])
 
-  const refreshProfile = useCallback(async () => {
-    await loadSession()
-  }, [loadSession])
+  const refreshProfile = useCallback(async () => setProfile(await loadSessionProfile()), [setProfile])
 
-  const user = useMemo<AuthUser | null>(
-    () => (profile ? { id: profile.id, email: profile.email } : null),
-    [profile],
-  )
-
+  const profile = session.status === "ready" ? session.profile : null
   const value = useMemo<AuthContextValue>(
-    () => ({ user, profile, isLoading, signIn, signUp, signOut, refreshProfile, setProfile }),
-    [user, profile, isLoading, signIn, signUp, signOut, refreshProfile],
+    () => ({
+      user: toAuthUser(profile),
+      profile,
+      isLoading: session.status === "loading",
+      signIn,
+      signUp,
+      signOut,
+      refreshProfile,
+      setProfile,
+    }),
+    [profile, session.status, signIn, signUp, signOut, refreshProfile, setProfile],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-// ── Hook ──────────────────────────────────────────────────────────────────────
-
 export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error("useAuth deve ser usado dentro de AuthProvider")
-  return ctx
+  const context = useContext(AuthContext)
+  if (!context) throw new Error("useAuth deve ser usado dentro de AuthProvider")
+  return context
 }

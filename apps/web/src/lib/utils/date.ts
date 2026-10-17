@@ -1,15 +1,15 @@
-/** Fuso usado para "dia" na plataforma (streak, metas diárias, mapa de atividade). */
+/** Fuso que define o "dia" na plataforma (sequência, metas diárias, mapa de atividade). */
 export const PLATFORM_TIMEZONE = "America/Sao_Paulo"
 
 /**
- * Chave de dia no formato YYYY-MM-DD no fuso da plataforma.
- * Usar sempre isto para comparar "dias" — não `toISOString()`, que é UTC.
+ * Chave YYYY-MM-DD no fuso da plataforma. Comparar dias sempre por aqui:
+ * `toISOString()` usa UTC e erra o dia à noite no Brasil.
  */
-export function localDateKey(iso: string): string {
-  return new Date(iso).toLocaleDateString("sv-SE", { timeZone: PLATFORM_TIMEZONE })
+export function localDateKey(value: string | Date): string {
+  const date = value instanceof Date ? value : new Date(value)
+  return date.toLocaleDateString("sv-SE", { timeZone: PLATFORM_TIMEZONE })
 }
 
-/** Chave do dia de hoje (YYYY-MM-DD) no fuso da plataforma. */
 export function todayKey(): string {
-  return new Date().toLocaleDateString("sv-SE", { timeZone: PLATFORM_TIMEZONE })
+  return localDateKey(new Date())
 }

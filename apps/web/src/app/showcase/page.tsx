@@ -7,7 +7,8 @@ import { LevelProgress } from "@/components/design-system/level-progress"
 import { CourseCard } from "@/components/design-system/course-card"
 import { XPBadge } from "@/components/design-system/xp-badge"
 import { StreakCounter } from "@/components/design-system/streak-counter"
-import { Code2, Database, Globe, Rocket, Terminal, BookOpen, ExternalLink, Zap, Trophy, Flame } from "lucide-react"
+import { Code2, Database, Globe, Rocket, Terminal, BookOpen, ExternalLink, Zap } from "lucide-react"
+import { ROUTES } from "@/lib/constants"
 
 export default function DesignSystemShowcase() {
   const [progress, setProgress] = useState(65)
@@ -63,7 +64,7 @@ export default function DesignSystemShowcase() {
             <LevelButton size="lg" variant="primary">
               Começar Agora
             </LevelButton>
-            <Link href="/ide">
+            <Link href={ROUTES.ide}>
               <LevelButton size="lg" variant="outline">
                 <span className="flex items-center gap-2">
                   Ver IDE
@@ -71,7 +72,7 @@ export default function DesignSystemShowcase() {
                 </span>
               </LevelButton>
             </Link>
-            <Link href="/perfil">
+            <Link href={ROUTES.profile()}>
               <LevelButton size="lg" variant="secondary">
                 <span className="flex items-center gap-2">
                   Ver Perfil
@@ -79,7 +80,7 @@ export default function DesignSystemShowcase() {
                 </span>
               </LevelButton>
             </Link>
-            <Link href="/landing">
+            <Link href={ROUTES.landing}>
               <LevelButton size="lg" variant="ghost">
                 <span className="flex items-center gap-2">
                   Landing Page
@@ -87,7 +88,7 @@ export default function DesignSystemShowcase() {
                 </span>
               </LevelButton>
             </Link>
-            <Link href="/admin">
+            <Link href={ROUTES.admin}>
               <LevelButton size="lg" variant="ghost">
                 <span className="flex items-center gap-2">
                   Painel Admin
@@ -304,7 +305,7 @@ export default function DesignSystemShowcase() {
             Junte-se a milhares de brasileiros que estão aprendendo programação gratuitamente.
           </p>
           <div className="mt-8">
-            <Link href="/ide">
+            <Link href={ROUTES.ide}>
               <button className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-lg font-semibold text-level-purple transition-all hover:bg-level-purple-light hover:shadow-lg">
                 <Terminal className="h-5 w-5" />
                 Acessar IDE

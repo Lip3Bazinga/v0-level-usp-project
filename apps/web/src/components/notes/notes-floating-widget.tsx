@@ -10,7 +10,7 @@ import type { Note } from "@levelusp/contracts"
 import { fetchNotes, createNote, updateNote, deleteNote } from "@/lib/api"
 import { RichTextEditor } from "@/components/editor/rich-text-editor"
 import { useAuth } from "@/contexts/auth-context"
-import { formatDate, snippet } from "@/lib/utils"
+import { formatRelativeDay, truncatePlainText } from "@/lib/utils"
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -260,7 +260,7 @@ function NotesModal({ onClose }: { onClose: () => void }) {
                     </button>
                   </div>
                   <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground">
-                    {snippet(note.content, 72) || "Sem conteúdo"}
+                    {truncatePlainText(note.content, 72) || "Sem conteúdo"}
                   </p>
                   <div className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
                     {note.lesson_title && (
@@ -270,7 +270,7 @@ function NotesModal({ onClose }: { onClose: () => void }) {
                       </span>
                     )}
                     <Clock className="ml-auto h-2.5 w-2.5" />
-                    {formatDate(note.updated_at)}
+                    {formatRelativeDay(note.updated_at)}
                   </div>
                 </button>
               ))

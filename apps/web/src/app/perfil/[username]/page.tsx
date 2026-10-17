@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/auth-context"
 import type { ActivityDay, MyCertificate, PublicProfile } from "@levelusp/contracts"
 import {
   certificatePdfUrl,
-  fetchAllBadges,
+  fetchBadges,
   fetchMyCertificates,
   fetchProfileByUsername,
   fetchUserActivity,
@@ -16,26 +16,14 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
-  Trophy,
-  Zap,
-  Flame,
-  Settings,
-  ChevronLeft,
-  Calendar,
-  BookOpen,
-  Target,
-  Share2,
-  Edit3,
-  User,
-  Rocket,
-  Loader2,
-  Award,
+  Trophy, Zap, Flame, Settings, ChevronLeft, Calendar, BookOpen, Share2, Edit3, User, Rocket, Loader2, Award,
   Download,
 } from "lucide-react"
 import { StatCard } from "@/components/profile/stat-card"
 import { ActivityMap } from "@/components/profile/activity-map"
 import { BadgesSection, type DisplayBadge } from "@/components/profile/badges-section"
-import { getInitials, xpForLevel } from "@/lib/utils"
+import { computeLevelProgress, formatDate, formatNumber, formatPercent, formatXp, getInitials, toClampedPercent } from "@/lib/utils"
+import { ROUTES } from "@/lib/constants"
 
 export default function ProfilePage() {
   const params = useParams()
@@ -74,7 +62,7 @@ export default function ProfilePage() {
 
       if (username === "me") {
         if (!currentUser) {
-          router.replace("/login?next=/perfil/me")
+          router.replace(ROUTES.loginWithNext(ROUTES.profile()))
           return
         }
         resolvedUser = currentUser
@@ -93,7 +81,7 @@ export default function ProfilePage() {
           .catch(() => setActivityData([]))
 
         // Badges: catálogo + conquistas do dono do perfil (públicas)
-        Promise.all([fetchAllBadges(), fetchUserBadges(resolvedUser.id)])
+        Promise.all([fetchBadges(), fetchUserBadges(resolvedUser.id)])
           .then(([catalog, earned]) => {
             const earnedMap = new Map(earned.map((e) => [e.badge_id, e.earned_at]))
             setBadges(
@@ -129,7 +117,7 @@ export default function ProfilePage() {
         <h2 className="text-lg font-semibold text-level-purple-dark">Perfil não encontrado</h2>
         <p className="text-sm text-muted-foreground">O usuário @{username} não existe.</p>
         <button
-          onClick={() => router.push("/dashboard")}
+          onClick={() => router.push(ROUTES.dashboard)}
           className="rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors"
         >
           Voltar ao Dashboard
@@ -140,10 +128,8 @@ export default function ProfilePage() {
 
   const level = user.level
   const totalXp = user.total_xp
-  const xpFloor = xpForLevel(level - 1)
-  const xpCeil = xpForLevel(level)
-  const xpInLevel = totalXp - xpFloor
-  const progressToNextLevel = xpCeil > 0 ? Math.min(100, Math.round((xpInLevel / xpCeil) * 100)) : 0
+  const { xpCeil, xpInLevel } = computeLevelProgress(totalXp, level)
+  const progressToNextLevel = toClampedPercent(xpInLevel, xpCeil)
 
   return (
     <div className="min-h-screen bg-white">
@@ -151,12 +137,12 @@ export default function ProfilePage() {
       <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <div className="flex items-center gap-4">
-            <Link href="/dashboard">
+            <Link href={ROUTES.dashboard}>
               <Button variant="ghost" size="icon" className="hover:bg-level-purple-light">
                 <ChevronLeft className="h-5 w-5 text-level-purple" />
               </Button>
             </Link>
-            <Link href="/dashboard" className="flex items-center gap-2">
+            <Link href={ROUTES.dashboard} className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-level-purple">
                 <Rocket className="h-4 w-4 text-white" />
               </div>
@@ -169,7 +155,7 @@ export default function ProfilePage() {
               <Share2 className="h-5 w-5 text-muted-foreground" />
             </Button>
             {isOwnProfile && (
-              <Link href="/settings">
+              <Link href={ROUTES.settings}>
                 <Button variant="ghost" size="icon" className="hover:bg-level-purple-light">
                   <Settings className="h-5 w-5 text-muted-foreground" />
                 </Button>
@@ -197,7 +183,7 @@ export default function ProfilePage() {
               </div>
 
               {isOwnProfile && (
-                <Link href="/settings">
+                <Link href={ROUTES.settings}>
                   <button className="absolute -right-1 top-0 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md transition-colors hover:bg-level-purple-light">
                     <Edit3 className="h-4 w-4 text-level-purple" />
                   </button>
@@ -215,7 +201,7 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-2 rounded-full bg-level-purple-light px-4 py-2">
                   <Calendar className="h-4 w-4 text-level-purple" />
                   <span className="text-sm text-level-purple-dark">
-                    Membro desde {new Date(user.created_at).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+                    Membro desde {formatDate(user.created_at, "monthYear")}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 rounded-full bg-success/10 px-4 py-2">
@@ -230,7 +216,7 @@ export default function ProfilePage() {
                 <div className="mb-2 flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Progresso para o Nível {level + 1}</span>
                   <span className="font-medium text-level-purple">
-                    {xpInLevel.toLocaleString("pt-BR")}/{xpCeil.toLocaleString("pt-BR")} XP
+                    {formatNumber(xpInLevel)}/{formatXp(xpCeil)}
                   </span>
                 </div>
                 <div className="h-3 w-full overflow-hidden rounded-full bg-level-purple-subtle">
@@ -247,7 +233,7 @@ export default function ProfilePage() {
         {/* Stats Cards */}
         <section className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="Nível Atual" value={level} icon={Trophy} iconColor="text-level-purple" />
-          <StatCard label="Total XP" value={totalXp.toLocaleString("pt-BR")} icon={Zap} iconColor="text-yellow-500" />
+          <StatCard label="Total XP" value={formatNumber(totalXp)} icon={Zap} iconColor="text-yellow-500" />
           <StatCard label="Maior Streak" value={`${user.max_streak} dias`} icon={Flame} iconColor="text-orange-500" />
           <StatCard label="Licoes Completas" value={user.lessons_completed} icon={BookOpen} iconColor="text-success" />
         </section>
@@ -279,14 +265,14 @@ export default function ProfilePage() {
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-level-purple-dark truncate">{cert.course_title}</p>
                         <p className="text-xs text-muted-foreground">
-                          Emitido em {new Date(cert.issued_at).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" })}
-                          {" · "}Prova: {cert.exam_score.toFixed(0)}%
+                          Emitido em {formatDate(cert.issued_at, "long")}
+                          {" · "}Prova: {formatPercent(cert.exam_score)}
                           {" · "}Código: <span className="font-mono">{cert.verification_code}</span>
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <Link
-                          href={`/certificado/${cert.verification_code}`}
+                          href={ROUTES.certificate(cert.verification_code)}
                           className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-level-purple hover:bg-level-purple-subtle transition-colors"
                         >
                           Verificar

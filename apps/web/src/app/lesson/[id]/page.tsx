@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ResponsiveWorkspace } from "@/components/ide/responsive-workspace"
 import { Header } from "@/components/ide/header"
@@ -12,10 +12,12 @@ import { FileExplorer } from "@/components/ide/file-explorer"
 import { SuccessFeedback } from "@/components/ide/success-feedback"
 import { IDEProvider, useIDE } from "@/contexts/ide-context"
 import type { Lesson, LessonSummary } from "@levelusp/contracts"
-import { fetchPublishedLessonSummaries, fetchLessonById } from "@/lib/api"
+import { fetchPublishedLessonSummaries, fetchLesson } from "@/lib/api"
 import { Loader2, BookOpen } from "lucide-react"
+import { useAsyncResource } from "@/hooks/use-async-resource"
 import { TheoryLessonLayout } from "@/components/ide/theory-lesson-layout"
 import { QuizLessonLayout } from "@/components/ide/quiz-lesson-layout"
+import { ROUTES } from "@/lib/constants"
 
 // ── Layout interno (consome o IDEContext) ──────────────────────────────────────
 
@@ -30,7 +32,7 @@ function LessonWorkspace({
 }) {
   const router = useRouter()
   const {
-    files, activePath, openPaths, setActivePath, openFile, closeTab, onContentChange,
+    files, activePath, openPaths, setActivePath, openFile, closeTab, updateFileContent,
     createFile, renameFile, deleteFile,
     consoleOutputs, clearConsole, runConsoleCommand,
     pythonStatus, isExecuting, isInstalling, stop,
@@ -50,17 +52,17 @@ function LessonWorkspace({
 
   const handlePrev = useCallback(() => {
     const prev = allLessons[currentIndex - 1]
-    if (prev && prev.course_id === lesson.course_id) router.push(`/lesson/${prev.id}`)
+    if (prev && prev.course_id === lesson.course_id) router.push(ROUTES.lesson(prev.id))
   }, [allLessons, currentIndex, lesson.course_id, router])
 
   const handleNext = useCallback(() => {
     const next = allLessons[currentIndex + 1]
     if (next && next.course_id === lesson.course_id) {
-      router.push(`/lesson/${next.id}`)
+      router.push(ROUTES.lesson(next.id))
     } else if (lesson.course_id) {
-      router.push(`/cursos/${lesson.course_id}`)
+      router.push(ROUTES.course(lesson.course_id))
     } else {
-      router.push("/dashboard")
+      router.push(ROUTES.dashboard)
     }
   }, [allLessons, currentIndex, lesson.course_id, router])
 
@@ -100,7 +102,7 @@ function LessonWorkspace({
               activePath={activePath}
               onTabSelect={setActivePath}
               onTabClose={closeTab}
-              onContentChange={onContentChange}
+              onContentChange={updateFileContent}
               onRun={run}
               onReset={reset}
               onStop={stop}
@@ -152,47 +154,29 @@ function LessonWorkspace({
   )
 }
 
-// ── Página: carrega a lição e provê o IDEContext ────────────────────────────────
+interface LessonPageData {
+  lesson: Lesson
+  /** Sumários leves de todas as lições, para a navegação anterior/próxima. */
+  allLessons: LessonSummary[]
+  currentIndex: number
+}
+
+/** `null` quando a lição não existe ou não está publicada. */
+async function loadLessonPage(lessonId: string): Promise<LessonPageData | null> {
+  const [allLessons, lesson] = await Promise.all([fetchPublishedLessonSummaries(), fetchLesson(lessonId)])
+  if (!lesson) return null
+  const index = allLessons.findIndex((summary) => summary.id === lessonId)
+  return { lesson, allLessons, currentIndex: Math.max(index, 0) }
+}
 
 export default function LessonPage() {
-  const params = useParams()
+  const { id: lessonId } = useParams<{ id: string }>()
   const router = useRouter()
-  const lessonId = params.id as string
+  const page = useAsyncResource(() => loadLessonPage(lessonId), [lessonId], {
+    errorMessage: () => "Erro ao carregar lição.",
+  })
 
-  const [allLessons, setAllLessons] = useState<LessonSummary[]>([])
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [lesson, setLesson] = useState<Lesson | null>(null)
-  const [lessonLoading, setLessonLoading] = useState(true)
-  const [lessonError, setLessonError] = useState<string | null>(null)
-
-  useEffect(() => {
-    async function load() {
-      setLessonLoading(true)
-      setLessonError(null)
-      try {
-        // Sumários leves para navegação + conteúdo completo só da lição atual
-        const [summaries, direct] = await Promise.all([
-          fetchPublishedLessonSummaries(),
-          fetchLessonById(lessonId),
-        ])
-        setAllLessons(summaries)
-        if (direct) {
-          setLesson(direct)
-          const idx = summaries.findIndex((l) => l.id === lessonId)
-          setCurrentIndex(idx >= 0 ? idx : 0)
-        } else {
-          setLessonError("Lição não encontrada.")
-        }
-      } catch {
-        setLessonError("Erro ao carregar lição.")
-      } finally {
-        setLessonLoading(false)
-      }
-    }
-    load()
-  }, [lessonId])
-
-  if (lessonLoading) {
+  if (page.status === "loading") {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-white">
         <Loader2 className="h-10 w-10 animate-spin text-level-purple" />
@@ -201,14 +185,16 @@ export default function LessonPage() {
     )
   }
 
-  if (lessonError || !lesson) {
+  if (page.status === "error" || !page.data) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-white">
         <BookOpen className="h-16 w-16 text-muted-foreground/30" />
         <h2 className="text-lg font-semibold text-level-purple-dark">Lição não encontrada</h2>
-        <p className="text-sm text-muted-foreground">{lessonError ?? "Esta lição não existe ou não está disponível."}</p>
+        <p className="text-sm text-muted-foreground">
+          {page.status === "error" ? page.error : "Lição não encontrada."}
+        </p>
         <button
-          onClick={() => router.push("/dashboard")}
+          onClick={() => router.push(ROUTES.dashboard)}
           className="rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors"
         >
           Voltar ao Dashboard
@@ -216,6 +202,8 @@ export default function LessonPage() {
       </div>
     )
   }
+
+  const { lesson, allLessons, currentIndex } = page.data
 
   // Questionário: múltipla escolha, correção server-side, sem IDE
   if (lesson.lesson_type === "quiz") {
