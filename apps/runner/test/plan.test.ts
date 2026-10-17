@@ -2,23 +2,28 @@ import { describe, expect, it } from "vitest"
 import type { Probe } from "@levelusp/contracts"
 import { planBatches } from "../src/plan"
 
-const p = (id: string, kind: Probe["kind"]): Probe =>
-  ({ id, kind, ...(kind === "call" ? { function: "f", args: [], kwargs: {} } : {}), ...(kind === "run" ? { stdin: "" } : {}), ...(kind === "globals" ? { names: [] } : {}), ...(kind === "legacy" ? { code: "assert True" } : {}) }) as Probe
+const probeOf: { [K in Probe["kind"]]: (id: string) => Extract<Probe, { kind: K }> } = {
+  run: (id) => ({ id, kind: "run", stdin: "" }),
+  call: (id) => ({ id, kind: "call", function: "f", args: [], kwargs: {} }),
+  globals: (id) => ({ id, kind: "globals", names: [] }),
+  ast: (id) => ({ id, kind: "ast" }),
+  legacy: (id) => ({ id, kind: "legacy", code: "assert True" }),
+}
 
 describe("planBatches", () => {
   it("isola a análise de AST em instâncias próprias", () => {
-    const batches = planBatches([p("a", "call"), p("b", "ast"), p("c", "run")])
+    const batches = planBatches([probeOf.call("a"), probeOf.ast("b"), probeOf.run("c")])
     expect(batches).toHaveLength(2)
-    expect(batches.find((b) => b.some((x) => x.kind === "ast"))).toHaveLength(1)
+    expect(batches.find((batch) => batch.some((probe) => probe.kind === "ast"))).toHaveLength(1)
   })
 
   it("separa testes legados das sondas normais", () => {
-    const batches = planBatches([p("a", "call"), p("l1", "legacy"), p("l2", "legacy")])
-    expect(batches.map((b) => b.map((x) => x.id))).toEqual([["a"], ["l1", "l2"]])
+    const batches = planBatches([probeOf.call("a"), probeOf.legacy("l1"), probeOf.legacy("l2")])
+    expect(batches.map((batch) => batch.map((probe) => probe.id))).toEqual([["a"], ["l1", "l2"]])
   })
 
   it("agrupa run/call/globals numa única instância", () => {
-    const batches = planBatches([p("a", "call"), p("b", "globals"), p("c", "run")])
+    const batches = planBatches([probeOf.call("a"), probeOf.globals("b"), probeOf.run("c")])
     expect(batches).toHaveLength(1)
   })
 })

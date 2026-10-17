@@ -1,7 +1,11 @@
 import { z } from "zod"
 
-export type LibraryCategory = "data-science" | "ml" | "deep-learning" | "visualization" | "math" | "general"
-export const libraryCategorySchema = z.enum(["data-science", "ml", "deep-learning", "visualization", "math", "general"])
+export const LIBRARY_CATEGORIES = ["data-science", "ml", "deep-learning", "visualization", "math", "general"] as const
+export const libraryCategorySchema = z.enum(LIBRARY_CATEGORIES)
+export type LibraryCategory = z.infer<typeof libraryCategorySchema>
+
+export const LIBRARY_REQUEST_STATUSES = ["pending", "approved", "rejected"] as const
+export type LibraryRequestStatus = (typeof LIBRARY_REQUEST_STATUSES)[number]
 
 export interface LibraryCatalog {
   id: string
@@ -22,7 +26,7 @@ export interface LibraryRequest {
   display_name: string | null
   description: string | null
   use_case: string | null
-  status: "pending" | "approved" | "rejected"
+  status: LibraryRequestStatus
   reviewed_by: string | null
   review_notes: string | null
   created_at: string
@@ -54,3 +58,4 @@ export const reviewLibraryRequestSchema = z.object({
 export type ReviewLibraryRequestInput = z.infer<typeof reviewLibraryRequestSchema>
 
 export const libraryCatalogToggleSchema = z.object({ active: z.boolean() })
+export type LibraryCatalogToggleInput = z.infer<typeof libraryCatalogToggleSchema>

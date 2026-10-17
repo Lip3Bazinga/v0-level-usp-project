@@ -1,11 +1,32 @@
 import { Injectable } from "@nestjs/common"
-import { and, eq, gt, isNull, sql } from "drizzle-orm"
+import { and, eq, gt, isNull, ne, sql } from "drizzle-orm"
 import { passwordResetTokens, profiles, sessions, users } from "@levelusp/db"
-import { InjectDb, type Database, type DbOrTx } from "@/infra/database/database.module"
+import { requireRow } from "@/common/database/rows"
+import { InjectDb, type Database } from "@/infra/database/database.module"
 
-export type UserRow = typeof users.$inferSelect
-export type ProfileRow = typeof profiles.$inferSelect
+export interface NewAccount {
+  email: string
+  passwordHash: string | null
+  fullName: string
+  username: string
+}
 
+export interface NewSession {
+  /** SHA-256 do token do cookie. */
+  id: string
+  userId: string
+  expiresAt: string
+  ip: string | null
+  userAgent: string | null
+}
+
+export interface NewPasswordToken {
+  tokenHash: string
+  userId: string
+  expiresAt: string
+}
+
+/** Credenciais, sessões e tokens de senha. Perfis ficam no UsersRepository. */
 @Injectable()
 export class AuthRepository {
   constructor(@InjectDb() private readonly db: Database) {}
@@ -18,94 +39,80 @@ export class AuthRepository {
     return this.db.query.users.findFirst({ where: eq(users.id, id) })
   }
 
-  findProfile(id: string, tx: DbOrTx = this.db) {
-    return tx.query.profiles.findFirst({ where: eq(profiles.id, id) })
-  }
-
-  async usernameTaken(username: string): Promise<boolean> {
-    const row = await this.db.query.profiles.findFirst({ where: eq(profiles.username, username), columns: { id: true } })
-    return Boolean(row)
-  }
-
   /** Cria credencial + perfil na mesma transação. */
-  async createUserWithProfile(input: { email: string; passwordHash: string | null; fullName: string; username: string }) {
+  createUserWithProfile(account: NewAccount) {
     return this.db.transaction(async (tx) => {
-      const [user] = await tx.insert(users).values({ email: input.email, passwordHash: input.passwordHash }).returning()
-      const [profile] = await tx
-        .insert(profiles)
-        .values({ id: user!.id, email: input.email, fullName: input.fullName, username: input.username })
-        .returning()
-      return { user: user!, profile: profile! }
+      const user = requireRow(await tx.insert(users).values({ email: account.email, passwordHash: account.passwordHash }).returning(), "users")
+      const profile = requireRow(
+        await tx.insert(profiles).values({ id: user.id, email: account.email, fullName: account.fullName, username: account.username }).returning(),
+        "profiles",
+      )
+      return { user, profile }
     })
   }
 
-  recordFailedLogin(userId: string, failures: number, lockUntil: string | null) {
-    return this.db
+  async recordFailedLogin(userId: string, failures: number, lockedUntil: string | null): Promise<void> {
+    await this.db.update(users).set({ failedLoginCount: failures, lockedUntil }).where(eq(users.id, userId))
+  }
+
+  /** `upgradedHash`: hash legado (bcrypt) trocado por argon2id neste login. */
+  async recordSuccessfulLogin(userId: string, upgradedHash?: string): Promise<void> {
+    await this.db
       .update(users)
-      .set({ failedLoginCount: failures, lockedUntil: lockUntil })
+      .set({ failedLoginCount: 0, lockedUntil: null, lastSignInAt: sql`now()`, ...(upgradedHash ? { passwordHash: upgradedHash } : {}) })
       .where(eq(users.id, userId))
   }
 
-  recordSuccessfulLogin(userId: string, newHash?: string) {
-    return this.db
-      .update(users)
-      .set({ failedLoginCount: 0, lockedUntil: null, lastSignInAt: sql`now()`, ...(newHash ? { passwordHash: newHash } : {}) })
-      .where(eq(users.id, userId))
+  async updatePassword(userId: string, passwordHash: string): Promise<void> {
+    await this.db.update(users).set({ passwordHash, failedLoginCount: 0, lockedUntil: null }).where(eq(users.id, userId))
   }
 
-  updatePassword(userId: string, passwordHash: string) {
-    return this.db.update(users).set({ passwordHash, failedLoginCount: 0, lockedUntil: null }).where(eq(users.id, userId))
-  }
-
-  // ── Sessões ────────────────────────────────────────────────────────────────
-
-  createSession(s: { id: string; userId: string; expiresAt: string; ip: string | null; userAgent: string | null }) {
-    return this.db.insert(sessions).values(s)
+  async createSession(session: NewSession): Promise<void> {
+    await this.db.insert(sessions).values(session)
   }
 
   /** Sessão válida + perfil do dono, numa consulta (caminho quente de toda requisição). */
   async findActiveSession(id: string) {
-    const rows = await this.db
+    const [active] = await this.db
       .select({ session: sessions, profile: profiles })
       .from(sessions)
       .innerJoin(profiles, eq(profiles.id, sessions.userId))
       .where(and(eq(sessions.id, id), isNull(sessions.revokedAt), gt(sessions.expiresAt, sql`now()`)))
       .limit(1)
-    return rows[0]
+    return active
   }
 
-  touchSession(id: string, expiresAt: string) {
-    return this.db.update(sessions).set({ lastSeenAt: sql`now()`, expiresAt }).where(eq(sessions.id, id))
+  async touchSession(id: string, expiresAt: string): Promise<void> {
+    await this.db.update(sessions).set({ lastSeenAt: sql`now()`, expiresAt }).where(eq(sessions.id, id))
   }
 
-  revokeSession(id: string) {
-    return this.db.update(sessions).set({ revokedAt: sql`now()` }).where(eq(sessions.id, id))
+  async revokeSession(id: string): Promise<void> {
+    await this.db.update(sessions).set({ revokedAt: sql`now()` }).where(eq(sessions.id, id))
   }
 
-  revokeAllSessions(userId: string, exceptId?: string) {
-    const cond = exceptId
-      ? and(eq(sessions.userId, userId), isNull(sessions.revokedAt), sql`${sessions.id} <> ${exceptId}`)
-      : and(eq(sessions.userId, userId), isNull(sessions.revokedAt))
-    return this.db.update(sessions).set({ revokedAt: sql`now()` }).where(cond)
+  /** `exceptSessionId`: mantém a sessão atual (troca de senha pelo próprio usuário). */
+  async revokeAllSessions(userId: string, exceptSessionId?: string): Promise<void> {
+    await this.db
+      .update(sessions)
+      .set({ revokedAt: sql`now()` })
+      .where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt), exceptSessionId ? ne(sessions.id, exceptSessionId) : undefined))
   }
 
-  revokeEverySession() {
-    return this.db.update(sessions).set({ revokedAt: sql`now()` }).where(isNull(sessions.revokedAt))
+  async revokeEverySession(): Promise<void> {
+    await this.db.update(sessions).set({ revokedAt: sql`now()` }).where(isNull(sessions.revokedAt))
   }
 
-  // ── Redefinição de senha ───────────────────────────────────────────────────
-
-  createResetToken(tokenHash: string, userId: string, expiresAt: string) {
-    return this.db.insert(passwordResetTokens).values({ tokenHash, userId, expiresAt })
+  async createPasswordToken(token: NewPasswordToken): Promise<void> {
+    await this.db.insert(passwordResetTokens).values(token)
   }
 
   /** Consome o token atomicamente: só um uso, dentro da validade. */
-  async consumeResetToken(tokenHash: string): Promise<string | null> {
-    const [row] = await this.db
+  async consumePasswordToken(tokenHash: string): Promise<string | null> {
+    const [consumed] = await this.db
       .update(passwordResetTokens)
       .set({ usedAt: sql`now()` })
       .where(and(eq(passwordResetTokens.tokenHash, tokenHash), isNull(passwordResetTokens.usedAt), gt(passwordResetTokens.expiresAt, sql`now()`)))
       .returning({ userId: passwordResetTokens.userId })
-    return row?.userId ?? null
+    return consumed?.userId ?? null
   }
 }

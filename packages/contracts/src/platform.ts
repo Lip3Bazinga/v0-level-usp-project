@@ -1,4 +1,8 @@
 import { z } from "zod"
+import { MAX_FULL_NAME_LENGTH } from "./users"
+
+export const TEACHER_APPROVAL_STATUSES = ["pending", "approved", "rejected", "superseded"] as const
+export type TeacherApprovalStatus = (typeof TEACHER_APPROVAL_STATUSES)[number]
 
 export interface TeacherApproval {
   id: string
@@ -7,7 +11,7 @@ export interface TeacherApproval {
   email: string
   institution: string
   motivation: string
-  status: "pending" | "approved" | "rejected" | "superseded"
+  status: TeacherApprovalStatus
   reviewed_by: string | null
   review_note: string | null
   submitted_at: string
@@ -23,6 +27,10 @@ export const teacherRequestSchema = z.object({
 export type TeacherRequestInput = z.infer<typeof teacherRequestSchema>
 
 export const reviewTeacherSchema = z.object({ note: z.string().trim().max(1000).optional() })
+export type ReviewTeacherInput = z.infer<typeof reviewTeacherSchema>
+
+export const AUDIT_SEVERITIES = ["info", "warning", "danger"] as const
+export type AuditSeverity = (typeof AUDIT_SEVERITIES)[number]
 
 export interface AuditLog {
   id: string
@@ -31,11 +39,12 @@ export interface AuditLog {
   action: string
   target: string
   meta: Record<string, unknown> | null
-  severity: "info" | "warning" | "danger"
+  severity: AuditSeverity
   created_at: string
 }
 
-export type NotificationKind = "info" | "success" | "warning" | "danger"
+export const NOTIFICATION_KINDS = ["info", "success", "warning", "danger"] as const
+export type NotificationKind = (typeof NOTIFICATION_KINDS)[number]
 export interface Notification {
   id: string
   user_id: string
@@ -95,9 +104,12 @@ export interface AnalyticsMetrics {
 export type PlatformSettings = Record<string, unknown>
 export const platformSettingsSchema = z.record(z.string().regex(/^[a-z0-9_.]{1,64}$/), z.unknown())
 
-export const inviteUserSchema = z.object({ email: z.email().trim().toLowerCase(), full_name: z.string().trim().max(120).optional() })
+export const inviteUserSchema = z.object({ email: z.email().trim().toLowerCase(), full_name: z.string().trim().max(MAX_FULL_NAME_LENGTH).optional() })
+export type InviteUserInput = z.infer<typeof inviteUserSchema>
 export const invalidateSessionsSchema = z.object({ user_id: z.uuid().optional() })
+export type InvalidateSessionsInput = z.infer<typeof invalidateSessionsSchema>
 
 export const teacherApprovalStatusQuerySchema = z.object({
-  status: z.enum(["pending", "approved", "rejected", "superseded", "all"]).default("pending"),
+  status: z.enum([...TEACHER_APPROVAL_STATUSES, "all"]).default("pending"),
 })
+export type TeacherApprovalStatusQuery = z.infer<typeof teacherApprovalStatusQuerySchema>

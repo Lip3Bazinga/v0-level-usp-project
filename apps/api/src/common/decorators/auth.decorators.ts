@@ -14,6 +14,6 @@ export const OptionalAuth = () => SetMetadata(OPTIONAL_AUTH, true)
 export const Roles = (...roles: UserRole[]) => SetMetadata(ROLES, roles)
 
 /** Usuário autenticado da requisição. */
-export const CurrentUser = createParamDecorator((_data: unknown, ctx: ExecutionContext): AuthUser | undefined => {
-  return ctx.switchToHttp().getRequest<AuthenticatedRequest>().user
+export const CurrentUser = createParamDecorator((_data: unknown, context: ExecutionContext): AuthUser | undefined => {
+  return context.switchToHttp().getRequest<AuthenticatedRequest>().user
 })

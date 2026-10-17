@@ -1,15 +1,15 @@
 import { loadConfig } from "./config.js"
 import { Executor, hostInfo } from "./executor.js"
+import { createLogger } from "./logger.js"
 import { WasmtimeSandbox } from "./sandbox.js"
 import { Semaphore } from "./semaphore.js"
 import { buildServer } from "./server.js"
 
+/** Prazo para as requisições em andamento terminarem antes de forçar a saída. */
+const SHUTDOWN_GRACE_MS = 5_000
+
 const config = loadConfig()
-const levels = { debug: 10, info: 20, warn: 30, error: 40 } as const
-const log = (level: keyof typeof levels, msg: string, extra: Record<string, unknown> = {}) => {
-  if (levels[level] < levels[config.LOG_LEVEL]) return
-  process.stdout.write(JSON.stringify({ time: new Date().toISOString(), level, service: "runner", msg, ...extra }) + "\n")
-}
+const log = createLogger(config.LOG_LEVEL)
 
 const sandbox = new WasmtimeSandbox({
   wasmtimeBin: config.WASMTIME_BIN,
@@ -24,10 +24,10 @@ server.listen(config.PORT, config.HOST, () => {
   log("info", "executor ouvindo", { port: config.PORT, concurrency: config.CONCURRENCY, ...hostInfo() })
 })
 
-for (const sig of ["SIGINT", "SIGTERM"] as const) {
-  process.on(sig, () => {
-    log("info", "encerrando", { signal: sig })
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => {
+    log("info", "encerrando", { signal })
     server.close(() => process.exit(0))
-    setTimeout(() => process.exit(0), 5_000).unref()
+    setTimeout(() => process.exit(0), SHUTDOWN_GRACE_MS).unref()
   })
 }

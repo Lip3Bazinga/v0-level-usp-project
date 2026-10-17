@@ -1,14 +1,13 @@
 import { Body, Controller, Get, Param, Patch, Query } from "@nestjs/common"
 import { ApiTags } from "@nestjs/swagger"
-import { z } from "zod"
-import { updateMyProfileSchema, type UpdateMyProfileInput } from "@levelusp/contracts"
+import { limitQuerySchema, updateMyProfileSchema, type LimitQuery, type UpdateMyProfileInput } from "@levelusp/contracts"
 import { CurrentUser, Public } from "@/common/decorators/auth.decorators"
 import type { AuthUser } from "@/common/http/request"
 import { UuidPipe } from "@/common/pipes/uuid.pipe"
 import { ZodPipe } from "@/common/pipes/zod.pipe"
 import { UsersService } from "./users.service"
 
-const limitSchema = z.object({ limit: z.coerce.number().int().min(1).max(100).default(50) })
+const leaderboardQuery = limitQuerySchema({ defaultLimit: 50, maxLimit: 100 })
 
 @ApiTags("users")
 @Controller()
@@ -22,8 +21,8 @@ export class UsersController {
 
   @Public()
   @Get("leaderboard")
-  leaderboard(@Query(new ZodPipe(limitSchema)) q: { limit: number }) {
-    return this.users.leaderboard(q.limit)
+  leaderboard(@Query(new ZodPipe(leaderboardQuery)) query: LimitQuery) {
+    return this.users.leaderboard(query.limit)
   }
 
   @Public()

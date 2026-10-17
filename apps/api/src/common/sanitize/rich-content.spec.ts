@@ -3,9 +3,9 @@ import { sanitizeRichContent } from "./rich-content"
 
 describe("sanitizeRichContent", () => {
   it("remove scripts e atributos de evento (XSS armazenado)", () => {
-    const out = sanitizeRichContent('<p>Oi</p><img src=x onerror="alert(1)"><script>fetch("/api")</script>')
-    expect(out).not.toMatch(/onerror|<script|fetch/)
-    expect(out).toContain("<p>Oi</p>")
+    const sanitized = sanitizeRichContent('<p>Oi</p><img src=x onerror="alert(1)"><script>fetch("/api")</script>')
+    expect(sanitized).not.toMatch(/onerror|<script|fetch/)
+    expect(sanitized).toContain("<p>Oi</p>")
   })
 
   it("remove links javascript:", () => {
@@ -18,7 +18,7 @@ describe("sanitizeRichContent", () => {
   })
 
   it("não altera Markdown (inclusive com < em código)", () => {
-    const md = "# Comparações\n\n```python\nprint(1 < 2)\n```"
-    expect(sanitizeRichContent(md)).toBe(md)
+    const markdown = "# Comparações\n\n```python\nprint(1 < 2)\n```"
+    expect(sanitizeRichContent(markdown)).toBe(markdown)
   })
 })

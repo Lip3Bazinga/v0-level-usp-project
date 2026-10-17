@@ -16,35 +16,42 @@
  */
 import pg from "pg"
 
-const source = process.env.SOURCE_DATABASE_URL
-const target = process.env.DATABASE_URL
-const dryRun = process.argv.includes("--dry-run")
-if (!source || !target) {
+const sourceUrl = process.env.SOURCE_DATABASE_URL
+const targetUrl = process.env.DATABASE_URL
+const isDryRun = process.argv.includes("--dry-run")
+if (!sourceUrl || !targetUrl) {
   console.error("Defina SOURCE_DATABASE_URL (Supabase) e DATABASE_URL (banco novo).")
   process.exit(1)
 }
 
-type Row = Record<string, unknown>
-interface Step {
+type SourceRow = Record<string, unknown>
+interface ImportStep {
   table: string
   /** SELECT na origem (colunas já com os nomes do destino). */
   select: string
-  transform?: (r: Row) => Row | null
+  transform?: (row: SourceRow) => SourceRow | null
 }
 
+const DEFAULT_TIME_LIMIT_MINUTES = 10
+const MIN_TIME_LIMIT_MINUTES = 1
+const MAX_TIME_LIMIT_MINUTES = 300
+const TABLE_NAME_COLUMN_WIDTH = 22
+const COUNT_COLUMN_WIDTH = 5
+
+/** hidden_tests (texto) vira um único caso "legacy" no formato declarativo. */
 const legacyTests = (code: unknown) => {
   const text = typeof code === "string" ? code.trim() : ""
   return JSON.stringify(text ? [{ id: "legado1", kind: "legacy", name: "Testes do gabarito original", code: text }] : [])
 }
 
 /** Ordem respeita as chaves estrangeiras. */
-const STEPS: Step[] = [
+const STEPS: ImportStep[] = [
   {
     table: "users",
     select: `select id, email, encrypted_password as password_hash, email_confirmed_at as email_verified_at,
                     last_sign_in_at, created_at, coalesce(updated_at, created_at) as updated_at
              from auth.users where deleted_at is null`,
-    transform: (r) => ({ ...r, password_hash: typeof r.password_hash === "string" && r.password_hash ? r.password_hash : null }),
+    transform: (row) => ({ ...row, password_hash: typeof row.password_hash === "string" && row.password_hash ? row.password_hash : null }),
   },
   {
     table: "profiles",
@@ -62,7 +69,7 @@ const STEPS: Step[] = [
     select: `select id, title, slug, module, module_id, "order", difficulty, description, content_markdown, starter_code, starter_files,
                     checkpoints, hidden_tests as test_cases, coalesce(libraries, '{}') as libraries, lesson_type, quiz_passing_score,
                     xp_reward, time_limit, published, course_id, created_by, created_at, updated_at from public.lessons`,
-    transform: (r) => ({ ...r, test_cases: legacyTests(r.test_cases), time_limit: Math.min(Math.max(Number(r.time_limit) || 10, 1), 300) }),
+    transform: (row) => ({ ...row, test_cases: legacyTests(row.test_cases), time_limit: clampTimeLimit(row.time_limit) }),
   },
   { table: "lesson_quiz_questions", select: `select id, lesson_id, prompt, options, correct_index, explanation, sort_order, created_at from public.lesson_quiz_questions` },
   { table: "enrollments", select: `select id, user_id, course_id, enrolled_at from public.enrollments` },
@@ -84,45 +91,61 @@ const STEPS: Step[] = [
 
 const JSON_COLUMNS = new Set(["starter_files", "checkpoints", "test_cases", "options", "answers", "meta", "value"])
 
-async function main() {
-  const src = new pg.Client({ connectionString: source, ssl: { rejectUnauthorized: false } })
-  const dst = new pg.Client({ connectionString: target })
-  await src.connect()
-  await dst.connect()
+function clampTimeLimit(value: unknown): number {
+  const minutes = Number(value) || DEFAULT_TIME_LIMIT_MINUTES
+  return Math.min(Math.max(minutes, MIN_TIME_LIMIT_MINUTES), MAX_TIME_LIMIT_MINUTES)
+}
+
+/** O driver não serializa objetos para jsonb sozinho; texto já vem pronto da origem. */
+function toColumnValue(column: string, value: unknown): unknown {
+  return JSON_COLUMNS.has(column) && value !== null && typeof value !== "string" ? JSON.stringify(value) : value
+}
+
+async function importRow(target: pg.Client, table: string, row: SourceRow): Promise<number> {
+  const columns = Object.keys(row)
+  const values = columns.map((column) => toColumnValue(column, row[column]))
+  const quotedColumns = columns.map((column) => `"${column}"`).join(", ")
+  const placeholders = columns.map((_, index) => `$${index + 1}`).join(", ")
+  const result = await target.query(`insert into ${table} (${quotedColumns}) values (${placeholders}) on conflict do nothing`, values)
+  return result.rowCount ?? 0
+}
+
+async function importStep(source: pg.Client, target: pg.Client, step: ImportStep): Promise<void> {
+  const { rows } = await source.query<SourceRow>(step.select)
+  let insertedCount = 0
+  for (const sourceRow of rows) {
+    const row = step.transform ? step.transform(sourceRow) : sourceRow
+    if (row) insertedCount += await importRow(target, step.table, row)
+  }
+  console.log(`${step.table.padEnd(TABLE_NAME_COLUMN_WIDTH)} origem=${String(rows.length).padStart(COUNT_COLUMN_WIDTH)}  importadas=${insertedCount}`)
+}
+
+async function main(source: pg.Client, target: pg.Client) {
+  await source.connect()
+  await target.connect()
   try {
-    await dst.query("begin")
-    for (const step of STEPS) {
-      const { rows } = await src.query<Row>(step.select)
-      let inserted = 0
-      for (const raw of rows) {
-        const r = step.transform ? step.transform(raw) : raw
-        if (!r) continue
-        const cols = Object.keys(r)
-        const values = cols.map((c) => (JSON_COLUMNS.has(c) && r[c] !== null && typeof r[c] !== "string" ? JSON.stringify(r[c]) : r[c]))
-        const sql = `insert into ${step.table} (${cols.map((c) => `"${c}"`).join(", ")}) values (${cols.map((_, i) => `$${i + 1}`).join(", ")}) on conflict do nothing`
-        const res = await dst.query(sql, values)
-        inserted += res.rowCount ?? 0
-      }
-      console.log(`${step.table.padEnd(22)} origem=${String(rows.length).padStart(5)}  importadas=${inserted}`)
-    }
-    await dst.query(`update courses c set total_xp = coalesce((select sum(xp_reward) from lessons l where l.course_id = c.id and l.published), 0)`)
-    if (dryRun) {
-      await dst.query("rollback")
+    await target.query("begin")
+    for (const step of STEPS) await importStep(source, target, step)
+    await target.query(`update courses c set total_xp = coalesce((select sum(xp_reward) from lessons l where l.course_id = c.id and l.published), 0)`)
+    if (isDryRun) {
+      await target.query("rollback")
       console.log("\n--dry-run: nada foi gravado.")
     } else {
-      await dst.query("commit")
+      await target.query("commit")
       console.log("\nImportação concluída.")
     }
-  } catch (err) {
-    await dst.query("rollback").catch(() => undefined)
-    throw err
+  } catch (error) {
+    await target.query("rollback").catch(() => undefined)
+    throw error
   } finally {
-    await src.end()
-    await dst.end()
+    await source.end()
+    await target.end()
   }
 }
 
-main().catch((err) => {
-  console.error("Falha na importação:", err instanceof Error ? err.message : err)
+const source = new pg.Client({ connectionString: sourceUrl, ssl: { rejectUnauthorized: false } })
+const target = new pg.Client({ connectionString: targetUrl })
+main(source, target).catch((error: unknown) => {
+  console.error("Falha na importação:", error instanceof Error ? error.message : error)
   process.exit(1)
 })

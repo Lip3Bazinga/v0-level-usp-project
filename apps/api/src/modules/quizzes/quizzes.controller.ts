@@ -1,14 +1,11 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Put } from "@nestjs/common"
 import { ApiTags } from "@nestjs/swagger"
-import { z } from "zod"
-import { quizSubmitSchema, replaceQuizSchema, type QuizSubmitInput } from "@levelusp/contracts"
+import { quizSubmitSchema, replaceQuizSchema, type QuizSubmitInput, type ReplaceQuizInput } from "@levelusp/contracts"
 import { CurrentUser, Roles } from "@/common/decorators/auth.decorators"
 import type { AuthUser } from "@/common/http/request"
 import { UuidPipe } from "@/common/pipes/uuid.pipe"
 import { ZodPipe } from "@/common/pipes/zod.pipe"
 import { QuizzesService } from "./quizzes.service"
-
-type ReplaceQuizInput = z.infer<typeof replaceQuizSchema>
 
 @ApiTags("quizzes")
 @Controller("lessons/:id/quiz")

@@ -1,10 +1,9 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Res } from "@nestjs/common"
 import { ApiTags } from "@nestjs/swagger"
 import type { Response } from "express"
-import { z } from "zod"
 import {
-  adminUpdateUserSchema, invalidateSessionsSchema, inviteUserSchema, platformSettingsSchema,
-  type AdminUpdateUserInput, type PlatformSettings,
+  adminUpdateUserSchema, invalidateSessionsSchema, inviteUserSchema, limitQuerySchema, optionalBodySchema, platformSettingsSchema,
+  type AdminUpdateUserInput, type InvalidateSessionsInput, type InviteUserInput, type LimitQuery, type PlatformSettings,
 } from "@levelusp/contracts"
 import { CurrentUser, Roles } from "@/common/decorators/auth.decorators"
 import type { AuthUser } from "@/common/http/request"
@@ -12,10 +11,10 @@ import { UuidPipe } from "@/common/pipes/uuid.pipe"
 import { ZodPipe } from "@/common/pipes/zod.pipe"
 import { AdminService } from "./admin.service"
 
-const auditQuery = z.object({ limit: z.coerce.number().int().min(1).max(500).default(50) })
-const recentQuery = z.object({ limit: z.coerce.number().int().min(1).max(100).default(20) })
+const auditQuery = limitQuerySchema({ defaultLimit: 50, maxLimit: 500 })
+const recentActivityQuery = limitQuerySchema({ defaultLimit: 20, maxLimit: 100 })
 /** Corpo opcional: `{}` ou ausente = todas as sessões. */
-const invalidateBody = z.preprocess((v) => v ?? {}, invalidateSessionsSchema)
+const invalidateSessionsBody = optionalBodySchema(invalidateSessionsSchema)
 
 @ApiTags("admin")
 @Roles("admin")
@@ -23,15 +22,13 @@ const invalidateBody = z.preprocess((v) => v ?? {}, invalidateSessionsSchema)
 export class AdminController {
   constructor(private readonly admin: AdminService) {}
 
-  // ── Usuários ───────────────────────────────────────────────────────────────
-
   @Get("users")
   users() {
     return this.admin.listUsers()
   }
 
   @Post("users/invite")
-  invite(@CurrentUser() actor: AuthUser, @Body(new ZodPipe(inviteUserSchema)) body: z.infer<typeof inviteUserSchema>) {
+  invite(@CurrentUser() actor: AuthUser, @Body(new ZodPipe(inviteUserSchema)) body: InviteUserInput) {
     return this.admin.invite(actor, body.email, body.full_name)
   }
 
@@ -60,20 +57,18 @@ export class AdminController {
   }
 
   @Get("users/:id/export")
-  async exportUser(@CurrentUser() actor: AuthUser, @Param("id", UuidPipe) id: string, @Res({ passthrough: true }) res: Response) {
+  async exportUser(@CurrentUser() actor: AuthUser, @Param("id", UuidPipe) id: string, @Res({ passthrough: true }) response: Response) {
     const data = await this.admin.exportUser(actor, id)
-    res.setHeader("Content-Disposition", `attachment; filename="usuario-${id}-lgpd.json"`)
-    res.setHeader("Cache-Control", "no-store")
+    response.setHeader("Content-Disposition", `attachment; filename="usuario-${id}-lgpd.json"`)
+    response.setHeader("Cache-Control", "no-store")
     return data
   }
 
   @HttpCode(204)
   @Post("sessions/invalidate")
-  async invalidate(@CurrentUser() actor: AuthUser, @Body(new ZodPipe(invalidateBody)) body: { user_id?: string }): Promise<void> {
+  async invalidate(@CurrentUser() actor: AuthUser, @Body(new ZodPipe(invalidateSessionsBody)) body: InvalidateSessionsInput): Promise<void> {
     await this.admin.invalidateSessions(actor, body.user_id)
   }
-
-  // ── Painel ─────────────────────────────────────────────────────────────────
 
   @Get("metrics")
   metrics() {
@@ -81,8 +76,8 @@ export class AdminController {
   }
 
   @Get("activity/recent")
-  recent(@Query(new ZodPipe(recentQuery)) q: { limit: number }) {
-    return this.admin.recentActivity(q.limit)
+  recent(@Query(new ZodPipe(recentActivityQuery)) query: LimitQuery) {
+    return this.admin.recentActivity(query.limit)
   }
 
   @Get("activity/daily")
@@ -100,8 +95,6 @@ export class AdminController {
     return this.admin.lessons()
   }
 
-  // ── Configurações e auditoria ──────────────────────────────────────────────
-
   @Get("settings")
   settings() {
     return this.admin.settings()
@@ -113,7 +106,7 @@ export class AdminController {
   }
 
   @Get("audit")
-  audit(@Query(new ZodPipe(auditQuery)) q: { limit: number }) {
-    return this.admin.audits(q.limit)
+  audit(@Query(new ZodPipe(auditQuery)) query: LimitQuery) {
+    return this.admin.audits(query.limit)
   }
 }

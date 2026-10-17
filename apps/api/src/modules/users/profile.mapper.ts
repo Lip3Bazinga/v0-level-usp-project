@@ -1,31 +1,29 @@
 import type { Profile, PublicProfile } from "@levelusp/contracts"
-import type { profiles } from "@levelusp/db"
+import type { ProfileRow } from "@levelusp/db"
 
-type ProfileRow = typeof profiles.$inferSelect
-
-export function toProfile(r: ProfileRow): Profile {
+export function toProfile(profile: ProfileRow): Profile {
   return {
-    id: r.id,
-    email: r.email,
-    full_name: r.fullName,
-    username: r.username,
-    avatar_url: r.avatarUrl,
-    bio: r.bio,
-    role: r.role,
-    level: r.level,
-    total_xp: r.totalXp,
-    current_streak: r.currentStreak,
-    max_streak: r.maxStreak,
-    courses_completed: r.coursesCompleted,
-    lessons_completed: r.lessonsCompleted,
-    last_login_date: r.lastLoginDate,
-    suspended: r.suspended,
-    created_at: r.createdAt,
-    updated_at: r.updatedAt,
+    id: profile.id,
+    email: profile.email,
+    full_name: profile.fullName,
+    username: profile.username,
+    avatar_url: profile.avatarUrl,
+    bio: profile.bio,
+    role: profile.role,
+    level: profile.level,
+    total_xp: profile.totalXp,
+    current_streak: profile.currentStreak,
+    max_streak: profile.maxStreak,
+    courses_completed: profile.coursesCompleted,
+    lessons_completed: profile.lessonsCompleted,
+    last_login_date: profile.lastLoginDate,
+    suspended: profile.suspended,
+    created_at: profile.createdAt,
+    updated_at: profile.updatedAt,
   }
 }
 
-export function toPublicProfile(r: ProfileRow): PublicProfile {
-  const { email: _email, suspended: _suspended, ...rest } = toProfile(r)
-  return rest
+export function toPublicProfile(profile: ProfileRow): PublicProfile {
+  const { email: _email, suspended: _suspended, ...publicFields } = toProfile(profile)
+  return publicFields
 }

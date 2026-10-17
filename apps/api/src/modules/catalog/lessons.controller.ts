@@ -15,7 +15,7 @@ import { LessonsService } from "./lessons.service"
 export class LessonsController {
   constructor(private readonly lessons: LessonsService) {}
 
-  // Rotas fixas antes de "lessons/:id".
+  // Rotas fixas antes de "lessons/:id": o Express casa na ordem de declaração.
   @Public()
   @Get("lessons/summaries")
   summaries() {

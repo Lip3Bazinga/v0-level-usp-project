@@ -1,4 +1,7 @@
 import { randomInt } from "node:crypto"
+import type { AnswerSheet, AnswerSheetResult } from "@levelusp/contracts"
+import { reviewAnswers, type GradableQuestion } from "@/common/scoring/answer-sheet"
+import { MINUTE_MS, SECOND_MS } from "@/common/time/time"
 
 /**
  * Regras puras da prova final (porte de apps/web/src/lib/server/exam.ts e das
@@ -6,7 +9,7 @@ import { randomInt } from "node:crypto"
  */
 
 /** Tolerância além do tempo limite para latência de rede no envio. */
-export const SUBMIT_GRACE_MS = 30_000
+export const SUBMIT_GRACE_MS = 30 * SECOND_MS
 
 export interface ExamRules {
   passingScore: number
@@ -23,18 +26,25 @@ export interface AttemptLike {
   passed: boolean | null
 }
 
-export function attemptExpiresAt(attempt: Pick<AttemptLike, "startedAt">, exam: Pick<ExamRules, "timeLimitMinutes">): Date {
-  return new Date(new Date(attempt.startedAt).getTime() + exam.timeLimitMinutes * 60_000)
+type TimeLimit = Pick<ExamRules, "timeLimitMinutes">
+
+export function attemptExpiresAt(attempt: Pick<AttemptLike, "startedAt">, exam: TimeLimit): Date {
+  return new Date(new Date(attempt.startedAt).getTime() + exam.timeLimitMinutes * MINUTE_MS)
 }
 
 /** Tentativa aberta e dentro do tempo (pode ser retomada). */
-export function isInProgress(attempt: AttemptLike, exam: Pick<ExamRules, "timeLimitMinutes">, now: Date): boolean {
+export function isInProgress(attempt: AttemptLike, exam: TimeLimit, now: Date): boolean {
   return attempt.submittedAt === null && attemptExpiresAt(attempt, exam).getTime() > now.getTime()
 }
 
 /** Ainda aceita envio: aberta e dentro do tempo + tolerância. */
-export function acceptsSubmission(attempt: AttemptLike, exam: Pick<ExamRules, "timeLimitMinutes">, now: Date): boolean {
+export function acceptsSubmission(attempt: AttemptLike, exam: TimeLimit, now: Date): boolean {
   return attempt.submittedAt === null && now.getTime() <= attemptExpiresAt(attempt, exam).getTime() + SUBMIT_GRACE_MS
+}
+
+/** Início mais antigo de uma tentativa aberta que ainda aceita envio; antes disso, está abandonada. */
+export function staleAttemptCutoff(exam: TimeLimit, now: Date): Date {
+  return new Date(now.getTime() - exam.timeLimitMinutes * MINUTE_MS - SUBMIT_GRACE_MS)
 }
 
 /**
@@ -42,23 +52,23 @@ export function acceptsSubmission(attempt: AttemptLike, exam: Pick<ExamRules, "t
  * com nota 0, encerrada no instante em que expirou — assim o cooldown vale
  * também para quem abre a prova, vê as questões e deixa o tempo acabar.
  */
-export function closeExpired<T extends AttemptLike>(attempts: T[], exam: Pick<ExamRules, "timeLimitMinutes">, now: Date): T[] {
-  return attempts.map((a) => {
-    if (a.submittedAt !== null || isInProgress(a, exam, now)) return a
-    return { ...a, submittedAt: attemptExpiresAt(a, exam).toISOString(), score: 0, passed: false }
+export function closeExpired<T extends AttemptLike>(attempts: T[], exam: TimeLimit, now: Date): T[] {
+  return attempts.map((attempt) => {
+    if (attempt.submittedAt !== null || isInProgress(attempt, exam, now)) return attempt
+    return { ...attempt, submittedAt: attemptExpiresAt(attempt, exam).toISOString(), score: 0, passed: false }
   })
 }
 
 /** Mais recente primeiro (pela hora de início). */
-function byStartDesc<T extends AttemptLike>(attempts: T[]): T[] {
-  return [...attempts].sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+function newestFirst<T extends AttemptLike>(attempts: T[]): T[] {
+  return [...attempts].sort((first, second) => new Date(second.startedAt).getTime() - new Date(first.startedAt).getTime())
 }
 
 /** Fim do cooldown a partir da última tentativa encerrada e reprovada (null = liberado). */
 export function cooldownUntil(attempts: AttemptLike[], exam: Pick<ExamRules, "cooldownMinutes" | "timeLimitMinutes">, now: Date): Date | null {
-  const lastSubmitted = byStartDesc(closeExpired(attempts, exam, now)).find((a) => a.submittedAt !== null)
-  if (!lastSubmitted || lastSubmitted.passed) return null
-  const until = new Date(new Date(lastSubmitted.submittedAt!).getTime() + exam.cooldownMinutes * 60_000)
+  const lastSubmitted = newestFirst(closeExpired(attempts, exam, now)).find((attempt) => attempt.submittedAt !== null)
+  if (!lastSubmitted?.submittedAt || lastSubmitted.passed) return null
+  const until = new Date(new Date(lastSubmitted.submittedAt).getTime() + exam.cooldownMinutes * MINUTE_MS)
   return until.getTime() > now.getTime() ? until : null
 }
 
@@ -71,17 +81,20 @@ export interface AttemptsSummary {
   inProgress: { id: string; expiresAt: string } | null
 }
 
+function bestScoreOf(attempts: AttemptLike[]): number | null {
+  return attempts.reduce<number | null>((best, attempt) => (attempt.score !== null && (best === null || attempt.score > best) ? attempt.score : best), null)
+}
+
 /** Resumo das tentativas para o status da prova. */
 export function summarizeAttempts(attempts: AttemptLike[], exam: ExamRules, now: Date): AttemptsSummary {
-  const closed = byStartDesc(closeExpired(attempts, exam, now))
-  const submitted = closed.filter((a) => a.submittedAt !== null)
-  const passedAttempt = submitted.find((a) => a.passed)
-  const bestScore = submitted.reduce<number | null>((best, a) => (a.score !== null && (best === null || a.score > best) ? a.score : best), null)
-  const open = closed.find((a) => isInProgress(a, exam, now))
+  const closed = newestFirst(closeExpired(attempts, exam, now))
+  const submitted = closed.filter((attempt) => attempt.submittedAt !== null)
+  const passedAttempt = submitted.find((attempt) => attempt.passed)
+  const open = closed.find((attempt) => isInProgress(attempt, exam, now))
   const cooldown = cooldownUntil(attempts, exam, now)
   return {
     attemptsCount: submitted.length,
-    bestScore,
+    bestScore: bestScoreOf(submitted),
     passed: Boolean(passedAttempt),
     passedScore: passedAttempt ? (passedAttempt.score ?? 0) : null,
     cooldownUntil: cooldown ? cooldown.toISOString() : null,
@@ -96,29 +109,22 @@ export function questionsPerAttempt(activeCount: number, configured: number | nu
 }
 
 /** Embaralha (Fisher–Yates com gerador criptográfico) e sorteia `count` itens. */
-export function drawQuestions<T>(items: T[], count: number | null, rand: (max: number) => number = randomInt): T[] {
-  const a = [...items]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = rand(i + 1)
-    ;[a[i], a[j]] = [a[j]!, a[i]!]
+export function drawQuestions<T>(items: readonly T[], count: number | null, randomBelow: (max: number) => number = randomInt): T[] {
+  const shuffled = [...items]
+  for (let index = shuffled.length - 1; index > 0; index--) {
+    const swapIndex = randomBelow(index + 1)
+    const current = shuffled[index]
+    const swapped = shuffled[swapIndex]
+    if (current === undefined || swapped === undefined) continue
+    shuffled[index] = swapped
+    shuffled[swapIndex] = current
   }
-  return a.slice(0, questionsPerAttempt(a.length, count))
+  return shuffled.slice(0, questionsPerAttempt(shuffled.length, count))
 }
 
-export interface GradableQuestion {
-  id: string
-  correctIndex: number
-  explanation: string
-}
-
-export interface GradeOutcome {
-  score: number
-  passed: boolean
-  correctCount: number
-  total: number
+export interface ExamGrade extends Omit<AnswerSheetResult, "passingScore"> {
   /** Só as respostas a questões da tentativa (o resto é descartado). */
-  answers: Record<string, number>
-  review: { questionId: string; correct: boolean; explanation: string }[]
+  answers: AnswerSheet
 }
 
 /** Nota em 0–100 com duas casas decimais. */
@@ -128,18 +134,10 @@ export function scoreOf(correct: number, total: number): number {
 }
 
 /** Corrige no servidor apenas as questões sorteadas para a tentativa, na ordem dela. */
-export function gradeExam(questions: GradableQuestion[], answers: Record<string, number>, passingScore: number): GradeOutcome {
-  let correct = 0
-  const sanitized: Record<string, number> = {}
-  const review = questions.map((q) => {
-    const given = Object.prototype.hasOwnProperty.call(answers, q.id) ? answers[q.id] : undefined
-    if (typeof given === "number" && Number.isInteger(given)) sanitized[q.id] = given
-    const ok = given === q.correctIndex
-    if (ok) correct++
-    return { questionId: q.id, correct: ok, explanation: q.explanation }
-  })
-  const score = scoreOf(correct, questions.length)
-  return { score, passed: score >= passingScore, correctCount: correct, total: questions.length, answers: sanitized, review }
+export function gradeExam(questions: readonly GradableQuestion[], answers: Readonly<AnswerSheet>, passingScore: number): ExamGrade {
+  const { review, correctCount, answeredQuestions } = reviewAnswers(questions, answers)
+  const score = scoreOf(correctCount, questions.length)
+  return { score, passed: score >= passingScore, correctCount, total: questions.length, answers: answeredQuestions, review }
 }
 
 /**
@@ -157,9 +155,15 @@ export interface LessonForEligibility {
   moduleTitle: string | null
 }
 
+export interface ExamEligibility {
+  eligible: boolean
+  remaining: number
+  total: number
+}
+
 /** Elegibilidade: todas as lições publicadas do curso (fora o módulo de certificação) concluídas. */
-export function examEligibility(lessons: LessonForEligibility[], completed: ReadonlySet<string>) {
-  const required = lessons.filter((l) => !isCertificationModule(l.module) && !isCertificationModule(l.moduleTitle))
-  const remaining = required.filter((l) => !completed.has(l.id)).length
+export function examEligibility(lessons: LessonForEligibility[], completed: ReadonlySet<string>): ExamEligibility {
+  const required = lessons.filter((lesson) => !isCertificationModule(lesson.module) && !isCertificationModule(lesson.moduleTitle))
+  const remaining = required.filter((lesson) => !completed.has(lesson.id)).length
   return { eligible: required.length > 0 && remaining === 0, remaining, total: required.length }
 }

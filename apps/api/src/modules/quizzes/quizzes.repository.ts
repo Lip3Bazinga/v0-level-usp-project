@@ -4,6 +4,8 @@ import { lessonQuizQuestions, lessons } from "@levelusp/db"
 import type { QuizQuestionInput } from "@levelusp/contracts"
 import { InjectDb, type Database } from "@/infra/database/database.module"
 
+const quizOrder = [asc(lessonQuizQuestions.sortOrder), asc(lessonQuizQuestions.createdAt)]
+
 @Injectable()
 export class QuizzesRepository {
   constructor(@InjectDb() private readonly db: Database) {}
@@ -17,11 +19,7 @@ export class QuizzesRepository {
 
   /** Questões COM gabarito (só para correção e para o professor dono). */
   questions(lessonId: string) {
-    return this.db
-      .select()
-      .from(lessonQuizQuestions)
-      .where(eq(lessonQuizQuestions.lessonId, lessonId))
-      .orderBy(asc(lessonQuizQuestions.sortOrder), asc(lessonQuizQuestions.createdAt))
+    return this.db.select().from(lessonQuizQuestions).where(eq(lessonQuizQuestions.lessonId, lessonId)).orderBy(...quizOrder)
   }
 
   /** Questões sem gabarito (para o aluno) — correct_index nem é lido. */
@@ -30,7 +28,7 @@ export class QuizzesRepository {
       .select({ id: lessonQuizQuestions.id, prompt: lessonQuizQuestions.prompt, options: lessonQuizQuestions.options })
       .from(lessonQuizQuestions)
       .where(eq(lessonQuizQuestions.lessonId, lessonId))
-      .orderBy(asc(lessonQuizQuestions.sortOrder), asc(lessonQuizQuestions.createdAt))
+      .orderBy(...quizOrder)
   }
 
   /** Substitui todas as questões numa transação; sort_order = posição na lista. */
@@ -38,20 +36,20 @@ export class QuizzesRepository {
     return this.db.transaction(async (tx) => {
       await tx.delete(lessonQuizQuestions).where(eq(lessonQuizQuestions.lessonId, lessonId))
       if (!questions.length) return []
-      const rows = await tx
+      const inserted = await tx
         .insert(lessonQuizQuestions)
         .values(
-          questions.map((q, i) => ({
+          questions.map((question, position) => ({
             lessonId,
-            prompt: q.prompt,
-            options: q.options,
-            correctIndex: q.correct_index,
-            explanation: q.explanation,
-            sortOrder: i,
+            prompt: question.prompt,
+            options: question.options,
+            correctIndex: question.correct_index,
+            explanation: question.explanation,
+            sortOrder: position,
           })),
         )
         .returning()
-      return rows.sort((a, b) => a.sortOrder - b.sortOrder)
+      return inserted.sort((first, second) => first.sortOrder - second.sortOrder)
     })
   }
 }

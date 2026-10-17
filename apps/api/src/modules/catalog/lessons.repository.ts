@@ -1,33 +1,13 @@
 import { Injectable } from "@nestjs/common"
-import { asc, count, eq, getTableColumns, like, or, sql } from "drizzle-orm"
-import { lessonQuizQuestions, lessons } from "@levelusp/db"
+import { asc, count, eq, like, or, sql } from "drizzle-orm"
+import { lessonQuizQuestions, lessons, type LessonInsert } from "@levelusp/db"
+import { requireRow } from "@/common/database/rows"
 import { InjectDb, type Database } from "@/infra/database/database.module"
-
-type LessonInsert = typeof lessons.$inferInsert
-
-/**
- * Colunas de `lessons` SEM `test_cases`. Toda consulta que alimenta uma
- * resposta para o aluno usa isto: o gabarito nem sai do banco.
- */
-const { testCases: _gabarito, ...publicColumns } = getTableColumns(lessons)
-export const publicLessonColumns = publicColumns
-
-const summaryColumns = {
-  id: lessons.id,
-  title: lessons.title,
-  slug: lessons.slug,
-  module: lessons.module,
-  moduleId: lessons.moduleId,
-  order: lessons.order,
-  difficulty: lessons.difficulty,
-  lessonType: lessons.lessonType,
-  xpReward: lessons.xpReward,
-  courseId: lessons.courseId,
-  published: lessons.published,
-}
+import type { LessonMetricsRow } from "./catalog.mapper"
+import { lessonSummaryColumns, publicLessonColumns } from "./lesson-columns"
 
 /** Coluna externa qualificada para subconsultas correlacionadas (ver courses.repository). */
-const lessonId = sql.raw(`"lessons"."id"`)
+const outerLessonId = sql.raw(`"lessons"."id"`)
 
 /** Ordem do catálogo: por curso (avulsas por último) e posição no curso. */
 const catalogOrder = [asc(lessons.courseId), asc(lessons.order), asc(lessons.createdAt)]
@@ -37,7 +17,7 @@ export class LessonsRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
   publishedSummaries() {
-    return this.db.select(summaryColumns).from(lessons).where(eq(lessons.published, true)).orderBy(...catalogOrder)
+    return this.db.select(lessonSummaryColumns).from(lessons).where(eq(lessons.published, true)).orderBy(...catalogOrder)
   }
 
   published() {
@@ -45,8 +25,8 @@ export class LessonsRepository {
   }
 
   async findPublic(id: string) {
-    const [row] = await this.db.select(publicLessonColumns).from(lessons).where(eq(lessons.id, id)).limit(1)
-    return row
+    const [lesson] = await this.db.select(publicLessonColumns).from(lessons).where(eq(lessons.id, id)).limit(1)
+    return lesson
   }
 
   /** Linha completa, COM gabarito — só para autoria (dono/admin). */
@@ -64,14 +44,14 @@ export class LessonsRepository {
   }
 
   /** Início, conclusão e submissões por lição (para o painel do professor). */
-  metrics(ownerId: string | null) {
+  metrics(ownerId: string | null): Promise<LessonMetricsRow[]> {
     return this.db
       .select({
         lessonId: lessons.id,
-        started: sql<number>`(select count(*)::int from lesson_progress p where p.lesson_id = ${lessonId})`,
-        completed: sql<number>`(select count(*)::int from lesson_progress p where p.lesson_id = ${lessonId} and p.status = 'completed')`,
-        submissions: sql<number>`(select count(*)::int from submissions s where s.lesson_id = ${lessonId})`,
-        passed: sql<number>`(select count(*)::int from submissions s where s.lesson_id = ${lessonId} and s.passed = true)`,
+        started: sql<number>`(select count(*)::int from lesson_progress p where p.lesson_id = ${outerLessonId})`,
+        completed: sql<number>`(select count(*)::int from lesson_progress p where p.lesson_id = ${outerLessonId} and p.status = 'completed')`,
+        submissions: sql<number>`(select count(*)::int from submissions s where s.lesson_id = ${outerLessonId})`,
+        passed: sql<number>`(select count(*)::int from submissions s where s.lesson_id = ${outerLessonId} and s.passed = true)`,
       })
       .from(lessons)
       .where(ownerId ? eq(lessons.createdBy, ownerId) : undefined)
@@ -80,29 +60,28 @@ export class LessonsRepository {
 
   /** Slugs que colidem com `base` (o próprio ou `base-N`). */
   async slugsLike(base: string): Promise<string[]> {
-    const rows = await this.db
+    const colliding = await this.db
       .select({ slug: lessons.slug })
       .from(lessons)
       .where(or(eq(lessons.slug, base), like(lessons.slug, `${base}-%`)))
-    return rows.flatMap((r) => (r.slug ? [r.slug] : []))
+    return colliding.flatMap((lesson) => (lesson.slug ? [lesson.slug] : []))
   }
 
   async insert(values: LessonInsert) {
-    const [row] = await this.db.insert(lessons).values(values).returning()
-    return row!
+    return requireRow(await this.db.insert(lessons).values(values).returning(), "lessons")
   }
 
   async update(id: string, patch: Partial<LessonInsert>) {
-    const [row] = await this.db.update(lessons).set(patch).where(eq(lessons.id, id)).returning()
-    return row
+    const [lesson] = await this.db.update(lessons).set(patch).where(eq(lessons.id, id)).returning()
+    return lesson
   }
 
-  async delete(id: string) {
+  async delete(id: string): Promise<void> {
     await this.db.delete(lessons).where(eq(lessons.id, id))
   }
 
   async quizQuestionCount(lessonId: string): Promise<number> {
-    const [row] = await this.db.select({ n: count() }).from(lessonQuizQuestions).where(eq(lessonQuizQuestions.lessonId, lessonId))
-    return row?.n ?? 0
+    const [questions] = await this.db.select({ total: count() }).from(lessonQuizQuestions).where(eq(lessonQuizQuestions.lessonId, lessonId))
+    return questions?.total ?? 0
   }
 }

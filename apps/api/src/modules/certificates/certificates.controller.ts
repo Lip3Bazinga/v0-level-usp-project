@@ -20,8 +20,8 @@ export class CertificatesController {
 
   /** MyCertificate | null — o null vai como JSON explícito (o Nest mandaria corpo vazio). */
   @Get("courses/:id/certificate")
-  async mine(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) courseId: string, @Res() res: Response) {
-    res.json(await this.certificates.mine(user, courseId))
+  async mine(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) courseId: string, @Res() response: Response) {
+    response.json(await this.certificates.mine(user, courseId))
   }
 
   @Get("me/certificates")
@@ -37,11 +37,11 @@ export class CertificatesController {
 
   @Public()
   @Get("certificates/:code/pdf")
-  async pdf(@Param("code") code: string, @Res({ passthrough: true }) res: Response) {
+  async pdf(@Param("code") code: string, @Res({ passthrough: true }) response: Response) {
     const { code: normalized, buffer } = await this.certificates.pdf(code)
     // O visualizador de PDF do navegador é um plugin: a CSP padrão da API (default-src 'none') o bloquearia.
-    res.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; object-src 'self'; frame-ancestors 'self'")
-    res.setHeader("Cache-Control", "private, max-age=3600")
+    response.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; object-src 'self'; frame-ancestors 'self'")
+    response.setHeader("Cache-Control", "private, max-age=3600")
     return new StreamableFile(buffer, {
       type: "application/pdf",
       disposition: `inline; filename="certificado-levelusp-${normalized}.pdf"`,

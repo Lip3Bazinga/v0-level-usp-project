@@ -1,4 +1,6 @@
 import { z } from "zod"
+import { answerSheetSchema, CORRECT_INDEX_OUT_OF_RANGE, correctIndexWithinOptions, multipleChoiceFields, type AnswerSheetResult } from "./questions"
+import { patchSchemaOf } from "./schema"
 
 export interface ExamStatus {
   exam: {
@@ -38,18 +40,11 @@ export interface ExamStart {
 
 export const examSubmitSchema = z.object({
   attemptId: z.uuid(),
-  answers: z.record(z.uuid(), z.number().int().min(0).max(20)),
+  answers: answerSheetSchema,
 })
 export type ExamSubmitInput = z.infer<typeof examSubmitSchema>
 
-export interface ExamResult {
-  score: number
-  passed: boolean
-  passingScore: number
-  correctCount: number
-  total: number
-  review: { questionId: string; correct: boolean; explanation: string }[]
-}
+export type ExamResult = AnswerSheetResult
 
 export interface CertificateIssue {
   issued: boolean
@@ -77,6 +72,14 @@ export interface CertificateVerification {
   exam_score: number | null
 }
 
+/** Prova na listagem administrativa do banco de questões. */
+export interface AdminExamSummary {
+  id: string
+  course_id: string
+  course_title: string
+  title: string
+}
+
 /** Questão de prova como o admin vê (inclui gabarito). */
 export interface AdminExamQuestion {
   id: string
@@ -91,30 +94,15 @@ export interface AdminExamQuestion {
   created_at: string
 }
 
-export const examQuestionInputSchema = z
-  .object({
-    prompt: z.string().trim().min(1).max(2000),
-    options: z.array(z.string().trim().min(1).max(500)).min(2).max(8),
-    correct_index: z.number().int().min(0),
-    explanation: z.string().trim().max(2000).default(""),
-    topic: z.string().trim().max(120).default(""),
-    sort_order: z.number().int().min(0).default(0),
-    active: z.boolean().default(true),
-  })
-  .refine((q) => q.correct_index < q.options.length, {
-    message: "correct_index fora das opções",
-    path: ["correct_index"],
-  })
+const examQuestionObjectSchema = z.object({
+  ...multipleChoiceFields,
+  topic: z.string().trim().max(120).default(""),
+  sort_order: z.number().int().min(0).default(0),
+  active: z.boolean().default(true),
+})
+
+export const examQuestionInputSchema = examQuestionObjectSchema.refine(correctIndexWithinOptions, CORRECT_INDEX_OUT_OF_RANGE)
 export type ExamQuestionInput = z.infer<typeof examQuestionInputSchema>
-export const examQuestionUpdateSchema = z
-  .object({
-    prompt: z.string().trim().min(1).max(2000),
-    options: z.array(z.string().trim().min(1).max(500)).min(2).max(8),
-    correct_index: z.number().int().min(0),
-    explanation: z.string().trim().max(2000),
-    topic: z.string().trim().max(120),
-    sort_order: z.number().int().min(0),
-    active: z.boolean(),
-  })
-  .partial()
+/** PATCH sem defaults; o limite do correct_index é checado na API contra as opções gravadas. */
+export const examQuestionUpdateSchema = patchSchemaOf(examQuestionObjectSchema)
 export type ExamQuestionUpdateInput = z.infer<typeof examQuestionUpdateSchema>

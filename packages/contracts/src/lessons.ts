@@ -1,7 +1,8 @@
 import { z } from "zod"
 import { difficultySchema, type Difficulty } from "./common"
 import { testCasesSchema, type TestCase } from "./grading"
-import { patchSchemaOf } from "./courses"
+import { answerSheetSchema, CORRECT_INDEX_OUT_OF_RANGE, correctIndexWithinOptions, multipleChoiceFields, type AnswerSheetResult } from "./questions"
+import { patchSchemaOf } from "./schema"
 
 export interface Checkpoint {
   id: number
@@ -13,6 +14,9 @@ export const checkpointSchema = z.object({
   instruction: z.string().max(2000),
   hint: z.string().max(2000).optional(),
 })
+
+/** Arquivo de entrada executado pelo corretor e pelo botão Executar. */
+export const DEFAULT_ENTRY_FILE = "main.py"
 
 /** Arquivo de um projeto multi-arquivo. Pastas são implícitas pelo path. */
 export interface ProjectFile {
@@ -35,9 +39,11 @@ export const projectFilesSchema = z
   .array(projectFileSchema)
   .min(1)
   .max(30)
-  .refine((files) => files.reduce((n, f) => n + f.content.length, 0) <= 300_000, "Projeto grande demais")
+  .refine((files) => files.reduce((totalLength, file) => totalLength + file.content.length, 0) <= 300_000, "Projeto grande demais")
 
-export type LessonType = "coding" | "theory" | "quiz"
+export const LESSON_TYPES = ["coding", "theory", "quiz"] as const
+export const lessonTypeSchema = z.enum(LESSON_TYPES)
+export type LessonType = z.infer<typeof lessonTypeSchema>
 
 /** Lição como o aluno vê (sem gabarito). */
 export interface Lesson {
@@ -89,7 +95,7 @@ export const lessonInputSchema = z.object({
   starter_files: z.array(projectFileSchema).max(30).default([]),
   checkpoints: z.array(checkpointSchema).max(50).default([]),
   libraries: z.array(z.string().trim().min(1).max(60)).max(20).default([]),
-  lesson_type: z.enum(["coding", "theory", "quiz"]).default("coding"),
+  lesson_type: lessonTypeSchema.default("coding"),
   quiz_passing_score: z.number().int().min(1).max(100).default(70),
   xp_reward: z.number().int().min(0).max(5000).default(50),
   /** Tempo estimado de estudo, em minutos (informativo). */
@@ -100,7 +106,8 @@ export type LessonInput = z.infer<typeof lessonInputSchema>
 export const lessonUpdateSchema = patchSchemaOf(lessonInputSchema)
 export type LessonUpdateInput = z.infer<typeof lessonUpdateSchema>
 
-export type LessonStatus = "not_started" | "in_progress" | "completed"
+export const LESSON_STATUSES = ["not_started", "in_progress", "completed"] as const
+export type LessonStatus = (typeof LESSON_STATUSES)[number]
 
 export interface LessonProgress {
   id: string
@@ -136,8 +143,6 @@ export interface LessonMetrics {
   pass_rate: number | null
 }
 
-// ── Quiz de lição ────────────────────────────────────────────────────────────
-
 export interface QuizQuestionFull {
   id: string
   prompt: string
@@ -149,31 +154,16 @@ export interface QuizQuestionFull {
 export type QuizQuestionPublic = Pick<QuizQuestionFull, "id" | "prompt" | "options">
 
 export const quizQuestionInputSchema = z
-  .object({
-    prompt: z.string().trim().min(1).max(2000),
-    options: z.array(z.string().trim().min(1).max(500)).min(2).max(8),
-    correct_index: z.number().int().min(0),
-    explanation: z.string().trim().max(2000).default(""),
-  })
-  .refine((q) => q.correct_index < q.options.length, {
-    message: "correct_index fora das opções",
-    path: ["correct_index"],
-  })
+  .object(multipleChoiceFields)
+  .refine(correctIndexWithinOptions, CORRECT_INDEX_OUT_OF_RANGE)
 export type QuizQuestionInput = z.infer<typeof quizQuestionInputSchema>
 export const replaceQuizSchema = z.object({ questions: z.array(quizQuestionInputSchema).max(50) })
+export type ReplaceQuizInput = z.infer<typeof replaceQuizSchema>
 
-export const quizSubmitSchema = z.object({
-  answers: z.record(z.uuid(), z.number().int().min(0).max(20)),
-})
+export const quizSubmitSchema = z.object({ answers: answerSheetSchema })
 export type QuizSubmitInput = z.infer<typeof quizSubmitSchema>
 
-export interface QuizResult {
-  score: number
-  passed: boolean
-  passingScore: number
-  correctCount: number
-  total: number
-  review: { questionId: string; correct: boolean; explanation: string }[]
+export interface QuizResult extends AnswerSheetResult {
   xp_awarded: number
   lesson_completed: boolean
 }

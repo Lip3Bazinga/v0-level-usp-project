@@ -10,7 +10,7 @@ describe("generateVerificationCode", () => {
     }
   })
   it("usa o gerador injetado", () => {
-    expect(generateVerificationCode(() => 0)).toBe(`LVL-${CODE_ALPHABET[0]!.repeat(4)}-${CODE_ALPHABET[0]!.repeat(4)}`)
+    expect(generateVerificationCode(() => 0)).toBe(`LVL-${CODE_ALPHABET.charAt(0).repeat(4)}-${CODE_ALPHABET.charAt(0).repeat(4)}`)
   })
   it("praticamente não repete", () => {
     const seen = new Set(Array.from({ length: 2000 }, () => generateVerificationCode()))

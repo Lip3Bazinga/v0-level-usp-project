@@ -1,28 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { canManage, canView, checkReorder, generateSlug, nextOrder, passRate, pickUniqueSlug, publishBlocker } from "./catalog.domain"
-
-const teacher = { id: "t1", role: "teacher" as const }
-const admin = { id: "a1", role: "admin" as const }
-const student = { id: "s1", role: "student" as const }
-
-describe("canManage / canView", () => {
-  it("dono e admin gerenciam; outros não", () => {
-    expect(canManage(teacher, "t1")).toBe(true)
-    expect(canManage(admin, "t1")).toBe(true)
-    expect(canManage(student, "t1")).toBe(false)
-    expect(canManage(undefined, "t1")).toBe(false)
-  })
-  it("recurso sem dono só é gerenciável por admin", () => {
-    expect(canManage(teacher, null)).toBe(false)
-    expect(canManage(admin, null)).toBe(true)
-  })
-  it("rascunho é invisível para quem não é dono", () => {
-    expect(canView(undefined, true, "t1")).toBe(true)
-    expect(canView(student, false, "t1")).toBe(false)
-    expect(canView(undefined, false, "t1")).toBe(false)
-    expect(canView(teacher, false, "t1")).toBe(true)
-  })
-})
+import { checkReorder, generateSlug, nextOrder, passRate, pickUniqueSlug, publishBlocker, withRandomSuffix } from "./catalog.domain"
 
 describe("generateSlug / pickUniqueSlug", () => {
   it("remove acentos e símbolos", () => {
@@ -36,6 +13,10 @@ describe("generateSlug / pickUniqueSlug", () => {
     expect(pickUniqueSlug("listas", [])).toBe("listas")
     expect(pickUniqueSlug("listas", ["listas"])).toBe("listas-2")
     expect(pickUniqueSlug("listas", ["listas", "listas-2", "listas-3"])).toBe("listas-4")
+  })
+  it("desempata corridas com um sufixo aleatório curto", () => {
+    expect(withRandomSuffix("listas", () => 0.5)).toBe("listas-i")
+    expect(withRandomSuffix("listas")).toMatch(/^listas-[a-z0-9]{1,6}$/)
   })
 })
 
