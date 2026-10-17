@@ -3,18 +3,17 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* LevelUSP Design System - Purple & White Theme */
-/* Inspired by Duolingo's clean, gamified aesthetic */
+/* Design system do LevelUSP: tema roxo e branco. */
 
 :root {
-  /* Core Brand Colors */
-  --level-purple: #7C3AED;           /* Primary actions, links */
-  --level-purple-dark: #4C1D95;      /* Headers, emphasis */
-  --level-purple-light: #F3E8FF;     /* Card backgrounds */
-  --level-purple-medium: #A78BFA;    /* Hover states */
-  --level-purple-subtle: #EDE9FE;    /* Subtle backgrounds */
-  
-  /* Semantic Colors */
+  /* Marca */
+  --level-purple: #7C3AED;           /* ações principais, links */
+  --level-purple-dark: #4C1D95;      /* títulos, ênfase */
+  --level-purple-light: #F3E8FF;     /* fundo de cartões */
+  --level-purple-medium: #A78BFA;    /* estados de hover */
+  --level-purple-subtle: #EDE9FE;    /* fundos sutis */
+
+  /* Cores semânticas */
   --background: #FFFFFF;
   --foreground: #1F2937;
   --card: #FFFFFF;
@@ -29,22 +28,21 @@
   --muted-foreground: #6B7280;
   --accent: #EDE9FE;
   --accent-foreground: #4C1D95;
-  --destructive: #DC2626;            /* red-600: 4,8:1 sobre branco (antes #EF4444, 3,8:1) */
+  --destructive: #DC2626;            /* red-600: 4,8:1 sobre branco */
   --destructive-foreground: #FFFFFF;
   --border: #E5E7EB;
   --input: #F3F4F6;
   --ring: #7C3AED;
-  
-  /* Chart Colors */
+
+  /* Gráficos */
   --chart-1: #7C3AED;
   --chart-2: #A78BFA;
   --chart-3: #C4B5FD;
   --chart-4: #DDD6FE;
   --chart-5: #EDE9FE;
-  
-  /* Design Tokens */
+
   --radius: 0.75rem;
-  
+
   /* Sidebar */
   --sidebar: #FAFAFA;
   --sidebar-foreground: #1F2937;
@@ -54,16 +52,16 @@
   --sidebar-accent-foreground: #4C1D95;
   --sidebar-border: #E5E7EB;
   --sidebar-ring: #7C3AED;
-  
-  /* Success/Warning/Info — tons escurecidos para texto/ícone atingirem 4,5:1 (WCAG 1.4.3) */
-  --success: #047857;                /* emerald-700 (antes #10B981, 2,5:1) */
+
+  /* Sucesso/aviso/info: tons escuros para texto e ícone atingirem 4,5:1 (WCAG 1.4.3) */
+  --success: #047857;                /* emerald-700 */
   --success-foreground: #FFFFFF;
-  --warning: #B45309;                /* amber-700 (antes #F59E0B, 2,1:1) */
+  --warning: #B45309;                /* amber-700 */
   --warning-foreground: #FFFFFF;
-  --info: #1D4ED8;                   /* blue-700 (antes #3B82F6, 3,7:1) */
+  --info: #1D4ED8;                   /* blue-700 */
   --info-foreground: #FFFFFF;
-  
-  /* Editor Theme (for IDE mode) */
+
+  /* Editor da IDE */
   --editor-bg: #1E1E2E;
   --editor-line: #2D2D3D;
   --editor-selection: #44475a;
@@ -107,18 +105,18 @@
 }
 
 @theme inline {
-  /* Typography */
+  /* Tipografia */
   --font-sans: var(--font-inter), 'Inter', system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono), 'JetBrains Mono', monospace;
-  
-  /* Brand Colors */
+
+  /* Marca */
   --color-level-purple: var(--level-purple);
   --color-level-purple-dark: var(--level-purple-dark);
   --color-level-purple-light: var(--level-purple-light);
   --color-level-purple-medium: var(--level-purple-medium);
   --color-level-purple-subtle: var(--level-purple-subtle);
-  
-  /* Semantic Colors */
+
+  /* Semânticas */
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
@@ -152,15 +150,15 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  
-  /* Border Radius - Modern rounded corners */
+
+  /* Raios de borda */
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
   --radius-2xl: 1.25rem;
   --radius-full: 9999px;
-  
+
   /* Sidebar */
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -195,7 +193,7 @@
   }
 }
 
-/* Custom scrollbar */
+/* Barra de rolagem */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -222,12 +220,12 @@
   background: #4D4D6C;
 }
 
-/* Code editor textarea styling */
+/* Textareas sem o contorno de foco padrão do navegador */
 textarea:focus {
   outline: none;
 }
 
-/* Selection color */
+/* Seleção de texto */
 ::selection {
   background: #EDE9FE;
   color: #4C1D95;
@@ -238,7 +236,7 @@ textarea:focus {
   color: #FFFFFF;
 }
 
-/* Prose styles for lesson content */
+/* Conteúdo em prosa (descrições de curso) */
 .prose h3 {
   color: var(--foreground);
   font-weight: 600;
@@ -256,7 +254,7 @@ textarea:focus {
   color: var(--foreground);
 }
 
-/* ── Lesson Markdown Styles ───────────────────────────────────── */
+/* Markdown das lições */
 .prose-lesson {
   font-size: 0.875rem;
   line-height: 1.7;
@@ -389,7 +387,7 @@ textarea:focus {
   color: #4C1D95;
 }
 
-/* LevelUSP Button 3D Effect */
+/* Botão com efeito 3D */
 .btn-3d {
   position: relative;
   transform: translateY(0);
@@ -422,22 +420,7 @@ textarea:focus {
   box-shadow: 0 0 0 0 #5B21B6;
 }
 
-/* Progress bar thick style */
-.progress-thick {
-  height: 16px;
-  border-radius: 9999px;
-  background: #EDE9FE;
-  overflow: hidden;
-}
-
-.progress-thick > div {
-  height: 100%;
-  border-radius: 9999px;
-  background: linear-gradient(90deg, #7C3AED 0%, #A78BFA 100%);
-  transition: width 0.5s ease;
-}
-
-/* Card hover effect */
+/* Cartão que sobe no hover */
 .card-hover {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -447,7 +430,7 @@ textarea:focus {
   box-shadow: 0 12px 24px -8px rgba(124, 58, 237, 0.15);
 }
 
-/* ── Glassmorphism ─────────────────────────────────────────────── */
+/* Vidro fosco */
 .glass {
   background: rgba(255, 255, 255, 0.6);
   backdrop-filter: blur(16px) saturate(160%);
@@ -472,7 +455,7 @@ textarea:focus {
   box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.4);
 }
 
-/* ── Aurora / mesh background ───────────────────────────────────── */
+/* Fundo aurora do site público */
 .aurora-bg {
   position: absolute;
   inset: 0;
@@ -517,7 +500,7 @@ textarea:focus {
   50% { transform: translate(-3rem, 1.5rem) scale(0.92); }
 }
 
-/* ── Animated gradient text ────────────────────────────────────── */
+/* Texto com gradiente animado */
 .gradient-text {
   background: linear-gradient(90deg, #7C3AED, #A78BFA, #6D28D9, #7C3AED);
   background-size: 300% 100%;
@@ -533,7 +516,7 @@ textarea:focus {
   100% { background-position: 0% 50%; }
 }
 
-/* ── Subtle grid backdrop ──────────────────────────────────────── */
+/* Grade sutil de fundo */
 .grid-backdrop {
   background-image:
     linear-gradient(to right, rgba(124, 58, 237, 0.06) 1px, transparent 1px),
@@ -543,11 +526,7 @@ textarea:focus {
   mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 40%, transparent 100%);
 }
 
-/* Hide horizontal scrollbar inside horizontal-scroll track */
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-/* Reduced motion safety */
+/* Movimento reduzido */
 @media (prefers-reduced-motion: reduce) {
   .aurora-bg::before,
   .aurora-bg::after,
@@ -558,8 +537,7 @@ textarea:focus {
     animation: none;
   }
   .btn-3d,
-  .card-hover,
-  .progress-thick > div {
+  .card-hover {
     transition: none;
   }
   .btn-3d:hover,

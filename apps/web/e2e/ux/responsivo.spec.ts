@@ -1,6 +1,16 @@
 import { expect, test, type Page } from "@playwright/test"
 import { ROUTES } from "@/lib/constants"
-import { fetchFirstCourseId, fetchLessonId, measureHorizontalOverflow, signInAs, waitForPageToSettle, type Persona } from "./ux-helpers"
+import { fetchFirstCourseId } from "../helpers"
+import {
+  courseRoute,
+  lessonRoute,
+  measureHorizontalOverflow,
+  resolveScreenRoute,
+  signInAs,
+  waitForPageToSettle,
+  type Persona,
+  type ScreenRoute,
+} from "./ux-helpers"
 
 /** Sem rolagem horizontal nos 4 tamanhos de tela de referência. */
 const VIEWPORTS = [
@@ -10,26 +20,38 @@ const VIEWPORTS = [
   { name: "celular 390×844", width: 390, height: 844 },
 ]
 
-/** Rota fixa ou montada com ids do seed, consultados na API na hora do teste. */
-type ScreenRoute = string | ((page: Page) => Promise<string>)
-
-const courseRoute = async (page: Page) => ROUTES.course(await fetchFirstCourseId(page))
 const courseEditorRoute = async (page: Page) => ROUTES.teacherCourse(await fetchFirstCourseId(page))
-const lessonRoute = async (page: Page) => ROUTES.lesson(await fetchLessonId(page))
 
 const ROUTES_BY_PERSONA: { persona: Persona; routes: ScreenRoute[] }[] = [
   {
     persona: "visitante",
     routes: [
-      ROUTES.home, ROUTES.site.about, ROUTES.site.tracks, ROUTES.site.methodology, ROUTES.site.impact, ROUTES.site.team,
-      ROUTES.site.partners, ROUTES.site.faq, ROUTES.site.contact, ROUTES.login, ROUTES.signup, ROUTES.forgotPassword,
-      ROUTES.certificate("LVL-0000-0000"), "/rota-que-nao-existe",
+      ROUTES.home,
+      ROUTES.site.about,
+      ROUTES.site.tracks,
+      ROUTES.site.methodology,
+      ROUTES.site.impact,
+      ROUTES.site.team,
+      ROUTES.site.partners,
+      ROUTES.site.faq,
+      ROUTES.site.contact,
+      ROUTES.login,
+      ROUTES.signup,
+      ROUTES.forgotPassword,
+      ROUTES.certificate("LVL-0000-0000"),
+      "/rota-que-nao-existe",
     ],
   },
   {
     persona: "aluna",
     routes: [
-      ROUTES.dashboard, ROUTES.courses, courseRoute, lessonRoute, ROUTES.leaderboard, ROUTES.notes, ROUTES.settings,
+      ROUTES.dashboard,
+      ROUTES.courses,
+      courseRoute,
+      lessonRoute,
+      ROUTES.leaderboard,
+      ROUTES.notes,
+      ROUTES.settings,
       ROUTES.profile("aluna_demo"),
     ],
   },
@@ -47,7 +69,7 @@ for (const viewport of VIEWPORTS) {
       await signInAs(page, persona)
       const overflowingRoutes: string[] = []
       for (const screenRoute of routes) {
-        const route = typeof screenRoute === "string" ? screenRoute : await screenRoute(page)
+        const route = await resolveScreenRoute(page, screenRoute)
         await page.goto(route)
         await waitForPageToSettle(page)
         const overflowPx = await measureHorizontalOverflow(page)
@@ -58,12 +80,16 @@ for (const viewport of VIEWPORTS) {
   }
 }
 
-test("menu do painel: navegação completa no desktop, barra inferior até 1023px", async ({ page }) => {
+test("menu do painel: navegação completa no desktop, barra inferior até 1023px", async ({
+  page,
+}) => {
   await signInAs(page, "aluna")
   await page.setViewportSize({ width: 768, height: 1024 })
   await page.goto(ROUTES.dashboard)
   await waitForPageToSettle(page)
-  const visibleNav = page.getByRole("navigation", { name: "Navegação principal" }).filter({ visible: true })
+  const visibleNav = page
+    .getByRole("navigation", { name: "Navegação principal" })
+    .filter({ visible: true })
   await expect(visibleNav).toHaveCount(1)
   // Em 768px a barra visível é a inferior (fixa no rodapé).
   const tabletBox = await visibleNav.boundingBox()
@@ -73,7 +99,9 @@ test("menu do painel: navegação completa no desktop, barra inferior até 1023p
   expect(desktopBox?.y).toBeLessThan(80)
 })
 
-test("IDE no celular: abas Aprender/Código/Console/Arquivos e botão de notas fora do caminho", async ({ page }) => {
+test("IDE no celular: abas Aprender/Código/Console/Arquivos e botão de notas fora do caminho", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await signInAs(page, "aluna")
   await page.goto(await lessonRoute(page))

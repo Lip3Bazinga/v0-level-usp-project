@@ -5,19 +5,22 @@ import Link from "next/link"
 import { AlertTriangle, RefreshCw } from "lucide-react"
 import { ROUTES } from "@/lib/constants"
 
-export default function Error({
-  error,
-  reset,
-}: {
+interface ErrorPageProps {
   error: Error & { digest?: string }
   reset: () => void
-}) {
+}
+
+export default function ErrorPage({ error, reset }: ErrorPageProps) {
   useEffect(() => {
+    // Sem telemetria no navegador: o console é o único registro do erro para diagnóstico.
     console.error(error)
   }, [error])
 
   return (
-    <main role="alert" className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
+    <main
+      role="alert"
+      className="flex min-h-screen flex-col items-center justify-center bg-background px-4"
+    >
       <div className="text-center">
         <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-destructive/10">
           <AlertTriangle className="h-10 w-10 text-destructive" />
@@ -27,12 +30,11 @@ export default function Error({
           Ocorreu um erro inesperado. Tente novamente ou volte ao início.
         </p>
         {error.digest && (
-          <p className="mt-1 font-mono text-xs text-muted-foreground">
-            ID: {error.digest}
-          </p>
+          <p className="mt-1 font-mono text-xs text-muted-foreground">ID: {error.digest}</p>
         )}
         <div className="mt-8 flex items-center justify-center gap-3">
           <button
+            type="button"
             onClick={reset}
             className="flex items-center gap-2 rounded-xl border border-border px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:border-level-purple hover:text-level-purple"
           >

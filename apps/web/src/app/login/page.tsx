@@ -1,222 +1,162 @@
 "use client"
 
-import { useRef, useState, Suspense } from "react"
+import { Suspense, useState, type FormEvent } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { LevelButton } from "@/components/design-system/level-button"
+import { Lock, Mail } from "lucide-react"
 import { OAuthButtons } from "@/components/auth/oauth-buttons"
-import { Rocket, Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react"
-import { useAuth } from "@/contexts/auth-context"
+import {
+  AuthField,
+  AuthSubmitButton,
+  FormErrorAlert,
+  PasswordField,
+} from "@/components/design-system/auth-form"
+import {
+  AuthBrandPanel,
+  AuthDivider,
+  AuthFooterPrompt,
+  AuthHeading,
+  AuthSplitLayout,
+} from "@/components/design-system/auth-layout"
 import { StreakAnimation } from "@/components/gamification/streak-animation"
-import { safeRedirectPath } from "@/lib/utils/redirect"
+import { useAuth } from "@/contexts/auth-context"
+import { useSubmitLock } from "@/hooks/use-submit-lock"
 import { ROUTES } from "@/lib/constants"
+import { safeRedirectPath } from "@/lib/utils/redirect"
+
+const PLATFORM_HIGHLIGHTS = [
+  { value: "50K+", label: "Estudantes" },
+  { value: "200+", label: "Lições" },
+  { value: "15", label: "Trilhas" },
+] as const
+
+function LoginBrandPanel() {
+  return (
+    <AuthBrandPanel description="Aprenda programação de forma gamificada. Uma iniciativa gratuita da Universidade de São Paulo para todo o Brasil.">
+      <div className="mt-12 grid grid-cols-3 gap-6">
+        {PLATFORM_HIGHLIGHTS.map((highlight) => (
+          <div key={highlight.label}>
+            <div className="text-3xl font-bold text-white">{highlight.value}</div>
+            <div className="text-sm text-purple-200">{highlight.label}</div>
+          </div>
+        ))}
+      </div>
+    </AuthBrandPanel>
+  )
+}
 
 function LoginForm() {
   const searchParams = useSearchParams()
   // `next` é o parâmetro do middleware novo; `redirect` mantém links antigos.
-  const redirect = safeRedirectPath(searchParams.get("next") ?? searchParams.get("redirect"))
+  const redirectPath = safeRedirectPath(searchParams.get("next") ?? searchParams.get("redirect"))
   const { signIn } = useAuth()
+  const submitLock = useSubmitLock()
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
-  // Trava síncrona contra duplo clique (o estado `loading` só desabilita no próximo render).
-  const submittingRef = useRef(false)
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
+  const [errorMessage, setErrorMessage] = useState("")
+  /** Dias de sequência a comemorar antes de redirecionar; `null` quando não há animação. */
+  const [streakDays, setStreakDays] = useState<number | null>(null)
 
-  // Streak animation state
-  const [showStreak, setShowStreak] = useState(false)
-  const [streakDays, setStreakDays] = useState(0)
-  const [pendingRedirect, setPendingRedirect] = useState("")
+  // Navegação completa: os providers recarregam com a sessão nova.
+  const goToRedirectPath = () => window.location.assign(redirectPath)
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (submittingRef.current) return
-    submittingRef.current = true
-    setError("")
-    setLoading(true)
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!submitLock.acquire()) return
+    setErrorMessage("")
 
     const result = await signIn(email, password)
-
     if (!result.ok) {
-      setError(result.error)
-      setLoading(false)
-      submittingRef.current = false
+      setErrorMessage(result.error)
+      submitLock.release()
       return
     }
 
     if (result.streak?.increased && result.streak.streak > 0) {
       setStreakDays(result.streak.streak)
-      setPendingRedirect(redirect)
-      setShowStreak(true)
-      setLoading(false)
+      submitLock.release()
       return
     }
 
-    window.location.href = redirect
+    goToRedirectPath()
   }
 
   const handleStreakClose = () => {
-    setShowStreak(false)
-    window.location.href = pendingRedirect
+    setStreakDays(null)
+    goToRedirectPath()
   }
 
   return (
     <>
       <StreakAnimation
-        show={showStreak}
-        streakDays={streakDays}
+        show={streakDays !== null}
+        streakDays={streakDays ?? 0}
         isNewStreak
         onClose={handleStreakClose}
       />
 
-      <main className="flex min-h-screen">
-        {/* Left side — Branding */}
-        <div className="hidden lg:flex lg:w-1/2 bg-linear-to-br from-level-purple to-level-purple-dark items-center justify-center p-12">
-          <div className="max-w-md text-center">
-            <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 backdrop-blur">
-              <Rocket className="h-10 w-10 text-white" />
-            </div>
-            <h1 className="text-4xl font-bold text-white mb-4"><Link href={ROUTES.home} className="hover:underline">LevelUSP</Link></h1>
-            <p className="text-lg text-purple-200 leading-relaxed">
-              Aprenda programação de forma gamificada. Uma iniciativa gratuita da
-              Universidade de São Paulo para todo o Brasil.
-            </p>
-            <div className="mt-12 grid grid-cols-3 gap-6">
-              <div>
-                <div className="text-3xl font-bold text-white">50K+</div>
-                <div className="text-sm text-purple-200">Estudantes</div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold text-white">200+</div>
-                <div className="text-sm text-purple-200">Lições</div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold text-white">15</div>
-                <div className="text-sm text-purple-200">Trilhas</div>
-              </div>
-            </div>
-          </div>
-        </div>
+      <AuthSplitLayout brandPanel={<LoginBrandPanel />}>
+        <AuthHeading
+          as="h2"
+          title="Bem-vindo de volta!"
+          description="Entre na sua conta para continuar aprendendo"
+        />
+        <OAuthButtons mode="login" />
+        <AuthDivider label="ou entre com email" />
 
-        {/* Right side — Login Form */}
-        <div className="flex w-full lg:w-1/2 items-center justify-center p-8">
-          <div className="w-full max-w-md">
-            {/* Mobile logo */}
-            <Link href={ROUTES.home} aria-label="LevelUSP — página inicial" className="lg:hidden flex items-center justify-center gap-3 mb-8">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-level-purple">
-                <Rocket className="h-6 w-6 text-white" />
-              </div>
-              <span className="text-2xl font-bold text-level-purple-dark">LevelUSP</span>
-            </Link>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {errorMessage && <FormErrorAlert message={errorMessage} />}
 
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-level-purple-dark">Bem-vindo de volta!</h2>
-              <p className="mt-2 text-muted-foreground">
-                Entre na sua conta para continuar aprendendo
-              </p>
-            </div>
+          <AuthField
+            id="login-email"
+            label="Email"
+            icon={Mail}
+            type="email"
+            autoComplete="email"
+            value={email}
+            onValueChange={setEmail}
+            placeholder="seu@email.com"
+            required
+          />
 
-            {/* Login social: ainda não disponível na API nova */}
-            <OAuthButtons mode="login" />
-
-            {/* Divider */}
-            <div className="relative mb-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="bg-background px-4 text-muted-foreground">ou entre com email</span>
-              </div>
-            </div>
-
-            {/* Login Form */}
-            <form onSubmit={handleLogin} className="space-y-4">
-              {error && (
-                <div role="alert" className="flex items-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-red-700">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  {error}
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <label htmlFor="login-email" className="text-sm font-medium text-level-purple-dark">Email</label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    id="login-email"
-                    type="email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="seu@email.com"
-                    required
-                    className="w-full rounded-xl border-2 border-border bg-white pl-11 pr-4 py-3 text-foreground placeholder:text-muted-foreground focus:border-level-purple focus:outline-none transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label htmlFor="login-password" className="text-sm font-medium text-level-purple-dark">Senha</label>
-                  <Link
-                    href={ROUTES.forgotPassword}
-                    className="text-sm text-level-purple hover:text-level-purple-dark transition-colors"
-                  >
-                    Esqueci minha senha
-                  </Link>
-                </div>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    id="login-password"
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Sua senha"
-                    required
-                    className="w-full rounded-xl border-2 border-border bg-white pl-11 pr-12 py-3 text-foreground placeholder:text-muted-foreground focus:border-level-purple focus:outline-none transition-colors"
-                  />
-                  <button
-                    type="button"
-                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                    aria-pressed={showPassword}
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <LevelButton
-                variant="primary"
-                size="lg"
-                disabled={loading}
-                className="w-full"
+          <PasswordField
+            id="login-password"
+            label="Senha"
+            icon={Lock}
+            labelAction={
+              <Link
+                href={ROUTES.forgotPassword}
+                className="text-sm text-level-purple hover:text-level-purple-dark transition-colors"
               >
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    Entrando...
-                  </span>
-                ) : (
-                  "Entrar"
-                )}
-              </LevelButton>
-            </form>
-
-            <p className="mt-6 text-center text-sm text-muted-foreground">
-              Não tem uma conta?{" "}
-              <Link href={ROUTES.signup} className="font-semibold text-level-purple hover:text-level-purple-dark transition-colors">
-                Cadastre-se gratuitamente
+                Esqueci minha senha
               </Link>
-            </p>
-          </div>
-        </div>
-      </main>
+            }
+            autoComplete="current-password"
+            value={password}
+            onValueChange={setPassword}
+            placeholder="Sua senha"
+            required
+            isVisible={isPasswordVisible}
+            onToggleVisibility={() => setIsPasswordVisible((isVisible) => !isVisible)}
+          />
+
+          <AuthSubmitButton
+            isSubmitting={submitLock.isSubmitting}
+            submittingLabel="Entrando..."
+            hasSpinner
+          >
+            Entrar
+          </AuthSubmitButton>
+        </form>
+
+        <AuthFooterPrompt
+          prompt="Não tem uma conta?"
+          href={ROUTES.signup}
+          linkLabel="Cadastre-se gratuitamente"
+        />
+      </AuthSplitLayout>
     </>
   )
 }
