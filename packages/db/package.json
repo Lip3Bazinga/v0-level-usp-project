@@ -1,0 +1,45 @@
+{
+  "name": "@levelusp/db",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Schema PostgreSQL (Drizzle ORM), migrações versionadas, seed e importação do Supabase.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "migrations",
+    "seed"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean && tsup src/scripts/migrate.ts src/scripts/seed.ts src/scripts/import-supabase.ts --format esm --out-dir dist/scripts --no-dts --external @node-rs/argon2 --external pg --external drizzle-orm",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "generate": "drizzle-kit generate",
+    "migrate": "tsx src/scripts/migrate.ts",
+    "seed": "tsx src/scripts/seed.ts",
+    "import:supabase": "tsx src/scripts/import-supabase.ts"
+  },
+  "dependencies": {
+    "@levelusp/contracts": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "pg": "^8.23.1",
+    "@node-rs/argon2": "^2.2.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.11",
+    "tsup": "^9.0.0",
+    "tsx": "^4.23.15",
+    "typescript": "5.9.3"
+  }
+}

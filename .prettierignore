@@ -1,0 +1,6 @@
+legacy/
+**/dist/
+**/.next/
+**/coverage/
+pnpm-lock.yaml
+apps/web/public/

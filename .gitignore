@@ -22,3 +22,13 @@ api/__pycache__/
 # Artefatos de build/typecheck
 tsconfig.tsbuildinfo
 .pnpm-store/
+
+# Monorepo
+**/dist/
+**/coverage/
+.turbo/
+apps/api/data/
+infra/env/*.env
+!infra/env/*.env.example
+playwright-report/
+test-results/

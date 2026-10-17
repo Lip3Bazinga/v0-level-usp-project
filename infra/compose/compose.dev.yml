@@ -1,0 +1,30 @@
+# Desenvolvimento local: só o PostgreSQL (e, opcionalmente, o executor).
+#   docker compose -f infra/compose/compose.dev.yml up -d
+# Depois: pnpm dev (web :3000, api :4000) e o executor com `pnpm --filter @levelusp/runner dev`
+# (requer `pnpm --filter @levelusp/runner setup:python`) ou com o perfil "runner" abaixo.
+name: levelusp-dev
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: levelusp_dev
+      POSTGRES_USER: levelusp
+      POSTGRES_PASSWORD: levelusp
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: [pgdata-dev:/var/lib/postgresql/data, ./init-test-db.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U levelusp -d levelusp_dev"]
+      interval: 3s
+      retries: 20
+
+  runner:
+    profiles: ["runner"]
+    build: { context: ../.., dockerfile: infra/docker/runner.Dockerfile }
+    environment:
+      RUNNER_TOKEN: dev-runner-token-0123456789abcdef
+    ports: ["127.0.0.1:8081:8081"]
+    read_only: true
+    tmpfs: ["/tmp:size=256m,mode=1777"]
+
+volumes:
+  pgdata-dev:

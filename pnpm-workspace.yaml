@@ -1,2 +1,10 @@
-allowBuilds:
-  sharp: true
+packages:
+  - "apps/*"
+  - "packages/*"
+
+onlyBuiltDependencies:
+  - "@node-rs/argon2"
+  - "@swc/core"
+  - esbuild
+  - sharp
+  - unrs-resolver

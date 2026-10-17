@@ -1,88 +1,150 @@
 name: CI
 
+# Integração contínua: roda em todo PR e em push para develop/main.
+# O CD (cd.yml) só publica imagens quando este workflow passa.
 on:
-  push:
-    branches: [main]
   pull_request:
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: 22
+  PYTHON_WASI_DIR: /opt/levelusp-python
+  TEST_DATABASE_URL: postgres://levelusp:levelusp@localhost:5432/levelusp_test
 
 jobs:
-  # Valida os gabaritos das lições de Python (script autocontido, sem dependências)
-  gabaritos:
+  qualidade:
+    name: Lint, tipos, testes unitários e build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Verificar gabaritos das lições
-        run: python3 scripts/verify_lessons.py
-
-  typecheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
       - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Instalar dependências
-        run: pnpm install --no-frozen-lockfile
-
-      # O tsconfig inclui .next/types/**, mas em checkout limpo o .next não existe,
-      # então o tsc não varre artefatos de build aqui.
-      - name: Typecheck
-        run: pnpm exec tsc --noEmit
-
-  # continue-on-error: os envs abaixo são dummies e podem quebrar o prerender de
-  # páginas que consultam o Supabase em build time. Este job é um sinal antecipado;
-  # a validação definitiva de build é o deploy da Vercel (com envs reais).
-  build:
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Instalar dependências
-        run: pnpm install --no-frozen-lockfile
-
-      - name: Build (envs dummy)
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Build (contracts → db → api/runner/web)
         run: pnpm build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy
-          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: dummy
-          SUPABASE_SERVICE_ROLE_KEY: dummy
-          SUPABASE_SECRET_KEY: dummy
+        env: { API_INTERNAL_URL: "http://api:4000" }
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - name: Testes unitários (api, runner, web, contracts)
+        run: pnpm test
+        env: { SKIP_SANDBOX_TESTS: "1" }
 
-  # Informativo até zerarmos os avisos do codebase — depois vira bloqueante.
-  lint:
+  api-e2e:
+    name: API e2e (PostgreSQL real)
     runs-on: ubuntu-latest
-    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: { POSTGRES_USER: levelusp, POSTGRES_PASSWORD: levelusp, POSTGRES_DB: levelusp_test }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U levelusp" --health-interval 5s --health-timeout 3s --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
       - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @levelusp/contracts build && pnpm --filter @levelusp/db build
+      - run: pnpm --filter @levelusp/api test:e2e
+
+  sandbox:
+    name: Executor WASI (segurança + gabaritos)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Cache do CPython WASI
+        uses: actions/cache@v4
         with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --no-frozen-lockfile
-      - run: pnpm lint
+          path: /opt/levelusp-python
+          key: python-wasi-${{ hashFiles('apps/runner/scripts/fetch-python-wasi.sh') }}
+      - name: Wasmtime + CPython WASI (SHA-256 verificado)
+        run: sudo -E env "PATH=$PATH" bash apps/runner/scripts/fetch-python-wasi.sh && sudo chown -R "$USER" /opt/levelusp-python
+      - run: pnpm --filter @levelusp/contracts build && pnpm --filter @levelusp/runner build
+      - name: Testes do executor (inclui ataques da auditoria)
+        run: pnpm --filter @levelusp/runner test
+      - name: Gabaritos do seed (solução aprova, esqueleto reprova)
+        run: |
+          RUNNER_TOKEN=ci-runner-token-0123456789abcdef node apps/runner/dist/main.js &
+          sleep 2
+          RUNNER_TOKEN=ci-runner-token-0123456789abcdef pnpm --filter @levelusp/api verify:seed
+
+  e2e:
+    name: Ponta a ponta (Playwright)
+    runs-on: ubuntu-latest
+    needs: [qualidade]
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: { POSTGRES_USER: levelusp, POSTGRES_PASSWORD: levelusp, POSTGRES_DB: levelusp }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U levelusp" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgres://levelusp:levelusp@localhost:5432/levelusp
+      RUNNER_TOKEN: ci-runner-token-0123456789abcdef
+      SEED_ADMIN_EMAIL: admin@levelusp.dev
+      SEED_ADMIN_PASSWORD: ci-admin-password-123
+      SEED_DEMO_USERS: "true"
+      E2E_ADMIN_PASSWORD: ci-admin-password-123
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v4
+        with:
+          path: /opt/levelusp-python
+          key: python-wasi-${{ hashFiles('apps/runner/scripts/fetch-python-wasi.sh') }}
+      - run: sudo -E env "PATH=$PATH" bash apps/runner/scripts/fetch-python-wasi.sh && sudo chown -R "$USER" /opt/levelusp-python
+      - run: pnpm build
+        env: { API_INTERNAL_URL: "http://localhost:4000" }
+      - name: Banco (migrações + seed de homologação)
+        run: pnpm db:migrate && pnpm db:seed
+      - name: Sobe executor, API e front
+        run: |
+          node apps/runner/dist/main.js > "$GITHUB_WORKSPACE/runner.log" 2>&1 &
+          (cd apps/api && APP_ENV=test AUTH_THROTTLE_LIMIT=500 RUNNER_URL=http://localhost:8081 node dist/main.js > "$GITHUB_WORKSPACE/api.log" 2>&1 &)
+          cp -r apps/web/.next/static apps/web/.next/standalone/apps/web/.next/
+          cp -r apps/web/public apps/web/.next/standalone/apps/web/
+          (cd apps/web/.next/standalone/apps/web && PORT=3000 node server.js > "$GITHUB_WORKSPACE/web.log" 2>&1 &)
+          npx --yes wait-on@8 -t 60000 http://localhost:3000 http://localhost:4000/api/health/ready
+      - run: pnpm --filter @levelusp/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @levelusp/web test:e2e
+      - if: failure()
+        run: tail -n 100 runner.log api.log web.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: playwright-report, path: apps/web/playwright-report, retention-days: 7 }
+
+  docker:
+    name: Imagens Docker (build de validação)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    strategy:
+      matrix: { service: [api, runner, web] }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/${{ matrix.service }}.Dockerfile
+          push: false
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
