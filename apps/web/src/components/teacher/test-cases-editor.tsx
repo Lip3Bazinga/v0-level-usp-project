@@ -2,22 +2,23 @@
 
 import { useMemo, useState, type ReactNode } from "react"
 import {
-  AlertTriangle, ChevronDown, ChevronRight, ChevronUp, Code2, Eye, FlaskConical,
-  Plus, ShieldCheck, Terminal, Trash2, Variable, Workflow,
+  AlertTriangle, ChevronDown, ChevronRight, ChevronUp, Code2, Eye, FlaskConical, Plus, ShieldCheck, Terminal, Trash2,
+  Variable, Workflow, type LucideIcon,
 } from "lucide-react"
-import type { TestCase } from "@levelusp/contracts"
 import { cn } from "@/lib/utils"
+import { isOneOf } from "@/lib/utils/guards"
+import { moveItem, type MoveDirection } from "@/lib/utils/list-editing"
 import {
-  changeDraftKind, changeRuleType, compileDraft, compileDrafts, CONSTRUCT_LABELS, CREATABLE_KINDS, emptyDraft,
-  KIND_DESCRIPTIONS, KIND_LABELS, MATCH_LABELS, nextCaseId, NOT_USES_CONSTRUCTS, PY_TYPES, RULE_LABELS,
-  USES_CONSTRUCTS, type DraftErrors, type TestCaseDraft,
+  ALL_KINDS, CONSTRUCT_LABELS, CREATABLE_KINDS, KIND_DESCRIPTIONS, KIND_LABELS, MATCH_LABELS, MATCH_MODES, PY_TYPES, RULE_LABELS,
+  RULE_TYPES, changeDraftKind, changeRuleType, compileDraft, compileDrafts, constructsFor, emptyDraft, isConstructRule, isMatchMode,
+  nextCaseId, type DraftErrors, type TestCaseDraft, type TestCaseKind,
 } from "./test-cases/drafts"
 import { callSignature, failurePreview, pyRepr } from "./test-cases/preview"
 
 export type { TestCaseDraft } from "./test-cases/drafts"
 export { compileDrafts, draftsFromCases } from "./test-cases/drafts"
 
-const KIND_ICONS: Record<TestCase["kind"], typeof Code2> = {
+const KIND_ICONS: Record<TestCaseKind, LucideIcon> = {
   call: Workflow,
   io: Terminal,
   variable: Variable,
@@ -40,22 +41,16 @@ interface TestCasesEditorProps {
  */
 export function TestCasesEditor({ value, onChange, disabled }: TestCasesEditorProps) {
   const compiled = useMemo(() => compileDrafts(value), [value])
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-  const hasLegacy = value.some((d) => d.kind === "legacy")
+  const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set())
+  const hasLegacy = value.some((draft) => draft.kind === "legacy")
 
-  const update = (key: string, next: TestCaseDraft) => onChange(value.map((d) => (d.key === key ? next : d)))
-  const add = (kind: TestCase["kind"]) => onChange([...value, emptyDraft(kind, nextCaseId(value))])
-  const remove = (key: string) => onChange(value.filter((d) => d.key !== key))
-  const move = (index: number, dir: -1 | 1) => {
-    const target = index + dir
-    if (target < 0 || target >= value.length) return
-    const copy = [...value]
-    ;[copy[index], copy[target]] = [copy[target], copy[index]]
-    onChange(copy)
-  }
-  const toggleCollapsed = (key: string) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev)
+  const handleUpdate = (key: string, next: TestCaseDraft) => onChange(value.map((draft) => (draft.key === key ? next : draft)))
+  const handleAdd = (kind: TestCaseKind) => onChange([...value, emptyDraft(kind, nextCaseId(value))])
+  const handleRemove = (key: string) => onChange(value.filter((draft) => draft.key !== key))
+  const handleMove = (index: number, direction: MoveDirection) => onChange(moveItem(value, index, direction))
+  const handleToggleCollapsed = (key: string) =>
+    setCollapsedKeys((current) => {
+      const next = new Set(current)
       if (next.has(key)) next.delete(key)
       else next.add(key)
       return next
@@ -101,19 +96,19 @@ export function TestCasesEditor({ value, onChange, disabled }: TestCasesEditorPr
         </div>
       ) : (
         <ol className="space-y-3">
-          {value.map((d, i) => (
-            <li key={d.key}>
+          {value.map((draft, index) => (
+            <li key={draft.key}>
               <CaseCard
-                draft={d}
-                index={i}
+                draft={draft}
+                index={index}
                 total={value.length}
-                errors={compiled.errors[d.key] ?? {}}
-                collapsed={collapsed.has(d.key)}
+                errors={compiled.errors[draft.key] ?? {}}
+                isCollapsed={collapsedKeys.has(draft.key)}
                 disabled={disabled}
-                onToggle={() => toggleCollapsed(d.key)}
-                onChange={(next) => update(d.key, next)}
-                onRemove={() => remove(d.key)}
-                onMove={(dir) => move(i, dir)}
+                onToggle={() => handleToggleCollapsed(draft.key)}
+                onChange={(next) => handleUpdate(draft.key, next)}
+                onRemove={() => handleRemove(draft.key)}
+                onMove={(direction) => handleMove(index, direction)}
               />
             </li>
           ))}
@@ -128,7 +123,7 @@ export function TestCasesEditor({ value, onChange, disabled }: TestCasesEditorPr
               key={kind}
               type="button"
               disabled={disabled}
-              onClick={() => add(kind)}
+              onClick={() => handleAdd(kind)}
               aria-label={`Adicionar caso: ${KIND_LABELS[kind]}`}
               title={KIND_DESCRIPTIONS[kind]}
               className="flex items-center gap-1.5 rounded-xl border-2 border-level-purple bg-level-purple-subtle px-3 py-2 text-sm font-semibold text-level-purple transition-colors hover:bg-level-purple-light disabled:opacity-50"
@@ -152,50 +147,49 @@ export function TestCasesEditor({ value, onChange, disabled }: TestCasesEditorPr
   )
 }
 
-// ── Cartão de um caso ────────────────────────────────────────────────────────
-
 interface CaseCardProps {
   draft: TestCaseDraft
   index: number
   total: number
   errors: DraftErrors
-  collapsed: boolean
+  isCollapsed: boolean
   disabled?: boolean
   onToggle: () => void
-  onChange: (d: TestCaseDraft) => void
+  onChange: (draft: TestCaseDraft) => void
   onRemove: () => void
-  onMove: (dir: -1 | 1) => void
+  onMove: (direction: MoveDirection) => void
 }
 
-function CaseCard({ draft: d, index, total, errors, collapsed, disabled, onToggle, onChange, onRemove, onMove }: CaseCardProps) {
-  const set = (patch: Partial<TestCaseDraft>) => onChange({ ...d, ...patch })
+function CaseCard({ draft, index, total, errors, isCollapsed, disabled, onToggle, onChange, onRemove, onMove }: CaseCardProps) {
+  const set = (changes: Partial<TestCaseDraft>) => onChange({ ...draft, ...changes })
   const hasErrors = Object.keys(errors).length > 0
-  const Icon = KIND_ICONS[d.kind]
+  const Icon = KIND_ICONS[draft.kind]
   const label = `Caso ${index + 1}`
+  const kindOptions = draft.kind === "legacy" ? ALL_KINDS : CREATABLE_KINDS
 
   return (
     <section
       aria-label={label}
       className={cn(
         "rounded-xl border-2 bg-white",
-        hasErrors ? "border-destructive/50" : d.kind === "legacy" ? "border-warning/50" : "border-border",
+        hasErrors ? "border-destructive/50" : draft.kind === "legacy" ? "border-warning/50" : "border-border",
       )}
     >
       <header className="flex items-center gap-2 px-4 py-3">
         <button
           type="button"
           onClick={onToggle}
-          aria-expanded={!collapsed}
-          aria-label={collapsed ? `Expandir ${label}` : `Recolher ${label}`}
+          aria-expanded={!isCollapsed}
+          aria-label={isCollapsed ? `Expandir ${label}` : `Recolher ${label}`}
           className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
         >
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </button>
         <span className="text-xs font-bold uppercase tracking-wider text-level-purple">{label}</span>
         <span className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-          <Icon className="h-3 w-3" /> {KIND_LABELS[d.kind]}
+          <Icon className="h-3 w-3" /> {KIND_LABELS[draft.kind]}
         </span>
-        <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">{summarize(d)}</span>
+        <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">{summarizeDraft(draft)}</span>
         {hasErrors && <span className="text-[11px] font-semibold text-destructive">com erro</span>}
         <div className="flex items-center gap-1">
           <IconButton label={`Mover ${label} para cima`} onClick={() => onMove(-1)} disabled={disabled || index === 0}>
@@ -204,68 +198,70 @@ function CaseCard({ draft: d, index, total, errors, collapsed, disabled, onToggl
           <IconButton label={`Mover ${label} para baixo`} onClick={() => onMove(1)} disabled={disabled || index === total - 1}>
             <ChevronDown className="h-4 w-4" />
           </IconButton>
-          <IconButton label={`Remover ${label}`} onClick={onRemove} disabled={disabled} danger>
+          <IconButton label={`Remover ${label}`} onClick={onRemove} disabled={disabled} isDanger>
             <Trash2 className="h-4 w-4" />
           </IconButton>
         </div>
       </header>
 
-      {!collapsed && (
+      {!isCollapsed && (
         <div className="space-y-4 border-t border-border px-4 py-4">
           <div className="grid gap-3 sm:grid-cols-[1fr_1fr_160px]">
-            <Field label="Tipo do caso" htmlFor={`${d.key}-kind`}>
+            <Field label="Tipo do caso" htmlFor={`${draft.key}-kind`}>
               <select
-                id={`${d.key}-kind`}
-                value={d.kind}
+                id={`${draft.key}-kind`}
+                value={draft.kind}
                 disabled={disabled}
-                onChange={(e) => onChange(changeDraftKind(d, e.target.value as TestCase["kind"]))}
+                onChange={(event) => {
+                  if (isOneOf(kindOptions, event.target.value)) onChange(changeDraftKind(draft, event.target.value))
+                }}
                 className={inputClass()}
               >
-                {(d.kind === "legacy" ? [...CREATABLE_KINDS, "legacy" as const] : CREATABLE_KINDS).map((k) => (
-                  <option key={k} value={k}>{KIND_LABELS[k]}</option>
+                {kindOptions.map((kind) => (
+                  <option key={kind} value={kind}>{KIND_LABELS[kind]}</option>
                 ))}
               </select>
             </Field>
             <TextInput
-              id={`${d.key}-name`}
+              id={`${draft.key}-name`}
               label="Nome exibido ao aluno"
-              value={d.name}
+              value={draft.name}
               placeholder="Ex.: soma de números negativos"
               disabled={disabled}
               error={errors.name}
               onChange={(name) => set({ name })}
             />
             <TextInput
-              id={`${d.key}-id`}
+              id={`${draft.key}-id`}
               label="Identificador"
-              value={d.id}
+              value={draft.id}
               mono
               disabled={disabled}
               error={errors.id}
               onChange={(id) => set({ id })}
             />
           </div>
-          <p className="-mt-2 text-xs text-muted-foreground">{KIND_DESCRIPTIONS[d.kind]}</p>
+          <p className="-mt-2 text-xs text-muted-foreground">{KIND_DESCRIPTIONS[draft.kind]}</p>
 
-          <KindFields draft={d} errors={errors} disabled={disabled} set={set} onChange={onChange} />
+          <KindFields draft={draft} errors={errors} disabled={disabled} set={set} onChange={onChange} />
 
           <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
             <TextInput
-              id={`${d.key}-hint`}
+              id={`${draft.key}-hint`}
               label="Dica em caso de falha (opcional)"
-              value={d.hint}
+              value={draft.hint}
               placeholder="Ex.: lembre que a função deve usar return, não print"
               disabled={disabled}
               error={errors.hint}
               onChange={(hint) => set({ hint })}
             />
-            {d.kind !== "source" && d.kind !== "legacy" && (
+            {draft.kind !== "source" && draft.kind !== "legacy" && (
               <label className="flex items-center gap-2 pb-2.5 text-sm text-foreground">
                 <input
                   type="checkbox"
-                  checked={d.reveal}
+                  checked={draft.reveal}
                   disabled={disabled}
-                  onChange={(e) => set({ reveal: e.target.checked })}
+                  onChange={(event) => set({ reveal: event.target.checked })}
                   className="h-4 w-4 accent-level-purple"
                 />
                 Mostrar o valor esperado ao aluno
@@ -273,28 +269,30 @@ function CaseCard({ draft: d, index, total, errors, collapsed, disabled, onToggl
             )}
           </div>
 
-          <FailurePreview draft={d} hasErrors={hasErrors} />
+          <FailurePreview draft={draft} hasErrors={hasErrors} />
         </div>
       )}
     </section>
   )
 }
 
-function KindFields({ draft: d, errors, disabled, set, onChange }: {
+interface KindFieldsProps {
   draft: TestCaseDraft
   errors: DraftErrors
   disabled?: boolean
-  set: (patch: Partial<TestCaseDraft>) => void
-  onChange: (d: TestCaseDraft) => void
-}) {
-  switch (d.kind) {
+  set: (changes: Partial<TestCaseDraft>) => void
+  onChange: (draft: TestCaseDraft) => void
+}
+
+function KindFields({ draft, errors, disabled, set, onChange }: KindFieldsProps) {
+  switch (draft.kind) {
     case "call":
       return (
         <div className="space-y-3">
           <TextInput
-            id={`${d.key}-fn`}
+            id={`${draft.key}-fn`}
             label="Função"
-            value={d.fn}
+            value={draft.fn}
             mono
             placeholder="soma   ou   Conta.depositar"
             disabled={disabled}
@@ -303,25 +301,25 @@ function KindFields({ draft: d, errors, disabled, set, onChange }: {
           />
           <div className="grid gap-3 sm:grid-cols-2">
             <JsonInput
-              id={`${d.key}-args`}
+              id={`${draft.key}-args`}
               label="Argumentos (lista JSON)"
-              value={d.args}
+              value={draft.args}
               placeholder="[2, 3]"
               disabled={disabled}
               error={errors.args}
               onChange={(args) => set({ args })}
             />
             <JsonInput
-              id={`${d.key}-kwargs`}
+              id={`${draft.key}-kwargs`}
               label="Argumentos nomeados (objeto JSON, opcional)"
-              value={d.kwargs}
+              value={draft.kwargs}
               placeholder='{"arredondar": true}'
               disabled={disabled}
               error={errors.kwargs}
               onChange={(kwargs) => set({ kwargs })}
             />
           </div>
-          <ExpectedFields draft={d} errors={errors} disabled={disabled} set={set} expectedLabel="Retorno esperado (JSON)" />
+          <ExpectedFields draft={draft} errors={errors} disabled={disabled} set={set} expectedLabel="Retorno esperado (JSON)" />
         </div>
       )
     case "io":
@@ -329,34 +327,36 @@ function KindFields({ draft: d, errors, disabled, set, onChange }: {
         <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <TextArea
-              id={`${d.key}-stdin`}
+              id={`${draft.key}-stdin`}
               label="Entrada (stdin, uma linha por input())"
-              value={d.stdin}
+              value={draft.stdin}
               placeholder={"Ana\n20"}
               disabled={disabled}
               error={errors.stdin}
               onChange={(stdin) => set({ stdin })}
             />
             <TextArea
-              id={`${d.key}-stdout`}
+              id={`${draft.key}-stdout`}
               label="Saída esperada"
-              value={d.expectedStdout}
+              value={draft.expectedStdout}
               placeholder="Olá, Ana! Você tem 20 anos."
               disabled={disabled}
               error={errors.expectedStdout}
               onChange={(expectedStdout) => set({ expectedStdout })}
             />
           </div>
-          <Field label="Como comparar a saída" htmlFor={`${d.key}-match`}>
+          <Field label="Como comparar a saída" htmlFor={`${draft.key}-match`}>
             <select
-              id={`${d.key}-match`}
-              value={d.match}
+              id={`${draft.key}-match`}
+              value={draft.match}
               disabled={disabled}
-              onChange={(e) => set({ match: e.target.value as TestCaseDraft["match"] })}
+              onChange={(event) => {
+                if (isMatchMode(event.target.value)) set({ match: event.target.value })
+              }}
               className={inputClass()}
             >
-              {(Object.keys(MATCH_LABELS) as TestCaseDraft["match"][]).map((m) => (
-                <option key={m} value={m}>{MATCH_LABELS[m]}</option>
+              {MATCH_MODES.map((mode) => (
+                <option key={mode} value={mode}>{MATCH_LABELS[mode]}</option>
               ))}
             </select>
           </Field>
@@ -366,57 +366,58 @@ function KindFields({ draft: d, errors, disabled, set, onChange }: {
       return (
         <div className="space-y-3">
           <TextInput
-            id={`${d.key}-variable`}
+            id={`${draft.key}-variable`}
             label="Variável global"
-            value={d.variable}
+            value={draft.variable}
             mono
             placeholder="total"
             disabled={disabled}
             error={errors.variable}
             onChange={(variable) => set({ variable })}
           />
-          <ExpectedFields draft={d} errors={errors} disabled={disabled} set={set} expectedLabel="Valor esperado (JSON)" />
+          <ExpectedFields draft={draft} errors={errors} disabled={disabled} set={set} expectedLabel="Valor esperado (JSON)" />
         </div>
       )
     case "source": {
-      const constructRule = d.ruleType === "uses" || d.ruleType === "not_uses"
-      const constructs = d.ruleType === "not_uses" ? NOT_USES_CONSTRUCTS : USES_CONSTRUCTS
+      const constructs = isConstructRule(draft.ruleType) ? constructsFor(draft.ruleType) : null
       return (
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Regra" htmlFor={`${d.key}-rule`} error={errors.ruleType}>
+          <Field label="Regra" htmlFor={`${draft.key}-rule`} error={errors.ruleType}>
             <select
-              id={`${d.key}-rule`}
-              value={d.ruleType}
+              id={`${draft.key}-rule`}
+              value={draft.ruleType}
               disabled={disabled}
-              onChange={(e) => onChange(changeRuleType(d, e.target.value as TestCaseDraft["ruleType"]))}
+              onChange={(event) => {
+                if (isOneOf(RULE_TYPES, event.target.value)) onChange(changeRuleType(draft, event.target.value))
+              }}
               className={inputClass(!!errors.ruleType)}
             >
-              {(Object.keys(RULE_LABELS) as TestCaseDraft["ruleType"][]).map((r) => (
-                <option key={r} value={r}>{RULE_LABELS[r]}</option>
+              {RULE_TYPES.map((ruleType) => (
+                <option key={ruleType} value={ruleType}>{RULE_LABELS[ruleType]}</option>
               ))}
             </select>
           </Field>
-          {constructRule ? (
-            <Field label="Construção" htmlFor={`${d.key}-rule-value`} error={errors.ruleValue}>
+          {constructs ? (
+            <Field label="Construção" htmlFor={`${draft.key}-rule-value`} error={errors.ruleValue}>
               <select
-                id={`${d.key}-rule-value`}
-                value={d.ruleValue}
+                id={`${draft.key}-rule-value`}
+                value={draft.ruleValue}
                 disabled={disabled}
-                onChange={(e) => set({ ruleValue: e.target.value })}
+                onChange={(event) => set({ ruleValue: event.target.value })}
                 className={inputClass(!!errors.ruleValue)}
               >
-                {constructs.map((c) => (
-                  <option key={c} value={c}>{CONSTRUCT_LABELS[c] ?? c}</option>
+                {constructs.map((construct) => (
+                  <option key={construct} value={construct}>{CONSTRUCT_LABELS[construct] ?? construct}</option>
                 ))}
               </select>
             </Field>
           ) : (
             <TextInput
-              id={`${d.key}-rule-value`}
-              label={d.ruleType === "imports" ? "Módulo" : d.ruleType === "defines_class" ? "Classe" : "Função"}
-              value={d.ruleValue}
+              id={`${draft.key}-rule-value`}
+              label={draft.ruleType === "imports" ? "Módulo" : draft.ruleType === "defines_class" ? "Classe" : "Função"}
+              value={draft.ruleValue}
               mono
-              placeholder={d.ruleType === "imports" ? "math" : d.ruleType === "defines_class" ? "Conta" : "sorted"}
+              placeholder={draft.ruleType === "imports" ? "math" : draft.ruleType === "defines_class" ? "Conta" : "sorted"}
               disabled={disabled}
               error={errors.ruleValue}
               onChange={(ruleValue) => set({ ruleValue })}
@@ -428,9 +429,9 @@ function KindFields({ draft: d, errors, disabled, set, onChange }: {
     case "legacy":
       return (
         <TextArea
-          id={`${d.key}-code`}
+          id={`${draft.key}-code`}
           label="Código do teste (assert/unittest)"
-          value={d.code}
+          value={draft.code}
           mono
           rows={8}
           disabled={disabled}
@@ -441,40 +442,47 @@ function KindFields({ draft: d, errors, disabled, set, onChange }: {
   }
 }
 
-function ExpectedFields({ draft: d, errors, disabled, set, expectedLabel }: {
+interface ExpectedFieldsProps {
   draft: TestCaseDraft
   errors: DraftErrors
   disabled?: boolean
-  set: (patch: Partial<TestCaseDraft>) => void
+  set: (changes: Partial<TestCaseDraft>) => void
   expectedLabel: string
-}) {
+}
+
+function ExpectedFields({ draft, errors, disabled, set, expectedLabel }: ExpectedFieldsProps) {
   return (
     <div className="grid gap-3 sm:grid-cols-[1fr_150px_150px]">
       <JsonInput
-        id={`${d.key}-expected`}
+        id={`${draft.key}-expected`}
         label={expectedLabel}
-        value={d.expected}
+        value={draft.expected}
         placeholder="5"
         disabled={disabled}
         error={errors.expected}
         onChange={(expected) => set({ expected })}
       />
-      <Field label="Tipo Python (opcional)" htmlFor={`${d.key}-type`} error={errors.pyType}>
+      <Field label="Tipo Python (opcional)" htmlFor={`${draft.key}-type`} error={errors.pyType}>
         <select
-          id={`${d.key}-type`}
-          value={d.pyType}
+          id={`${draft.key}-type`}
+          value={draft.pyType}
           disabled={disabled}
-          onChange={(e) => set({ pyType: e.target.value as TestCaseDraft["pyType"] })}
+          onChange={(event) => {
+            const { value } = event.target
+            if (value === "" || isOneOf(PY_TYPES, value)) set({ pyType: value })
+          }}
           className={inputClass(!!errors.pyType)}
         >
           <option value="">Qualquer</option>
-          {PY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          {PY_TYPES.map((pyType) => (
+            <option key={pyType} value={pyType}>{pyType}</option>
+          ))}
         </select>
       </Field>
       <TextInput
-        id={`${d.key}-tolerance`}
+        id={`${draft.key}-tolerance`}
         label="Tolerância (floats)"
-        value={d.tolerance}
+        value={draft.tolerance}
         mono
         placeholder="0.001"
         disabled={disabled}
@@ -485,17 +493,23 @@ function ExpectedFields({ draft: d, errors, disabled, set, expectedLabel }: {
   )
 }
 
-function FailurePreview({ draft, hasErrors }: { draft: TestCaseDraft; hasErrors: boolean }) {
+interface FailurePreviewProps {
+  draft: TestCaseDraft
+  hasErrors: boolean
+}
+
+function FailurePreview({ draft, hasErrors }: FailurePreviewProps) {
   const compiled = hasErrors ? null : compileDraft(draft).testCase
+  const preview = compiled ? failurePreview(compiled) : null
   return (
     <div className="rounded-xl border border-dashed border-level-purple/30 bg-[#FCFBFF] px-4 py-3">
       <p className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
         <Eye className="h-3.5 w-3.5 text-level-purple" /> O que o aluno verá se este caso falhar
       </p>
-      {compiled ? (
+      {preview ? (
         <p className="text-sm text-foreground">
-          <span className="font-semibold text-destructive">✗ {failurePreview(compiled).title}:</span>{" "}
-          <span className="font-mono text-xs">{failurePreview(compiled).message}</span>
+          <span className="font-semibold text-destructive">✗ {preview.title}:</span>{" "}
+          <span className="font-mono text-xs">{preview.message}</span>
         </p>
       ) : (
         <p className="text-xs text-muted-foreground">Corrija os campos destacados para ver a prévia.</p>
@@ -504,21 +518,22 @@ function FailurePreview({ draft, hasErrors }: { draft: TestCaseDraft; hasErrors:
   )
 }
 
+const SUMMARY_VALUE_LENGTH = 40
+const SUMMARY_STDOUT_LENGTH = 50
+
 /** Resumo de uma linha mostrado no cabeçalho do cartão. */
-function summarize(d: TestCaseDraft): string {
-  const c = compileDraft(d).testCase
-  if (d.name.trim()) return d.name.trim()
-  if (!c) return ""
-  switch (c.kind) {
-    case "call": return `${callSignature(c)} == ${pyRepr(c.expected, 40)}`
-    case "io": return `stdin → ${JSON.stringify(c.expected_stdout).slice(0, 50)}`
-    case "variable": return `${c.variable} == ${pyRepr(c.expected, 40)}`
-    case "source": return failurePreview(c).message
-    case "legacy": return c.code.split("\n")[0] ?? ""
+function summarizeDraft(draft: TestCaseDraft): string {
+  if (draft.name.trim()) return draft.name.trim()
+  const testCase = compileDraft(draft).testCase
+  if (!testCase) return ""
+  switch (testCase.kind) {
+    case "call": return `${callSignature(testCase)} == ${pyRepr(testCase.expected, SUMMARY_VALUE_LENGTH)}`
+    case "io": return `stdin → ${JSON.stringify(testCase.expected_stdout).slice(0, SUMMARY_STDOUT_LENGTH)}`
+    case "variable": return `${testCase.variable} == ${pyRepr(testCase.expected, SUMMARY_VALUE_LENGTH)}`
+    case "source": return failurePreview(testCase).message
+    case "legacy": return testCase.code.split("\n")[0] ?? ""
   }
 }
-
-// ── Campos ───────────────────────────────────────────────────────────────────
 
 function inputClass(error?: boolean, mono?: boolean) {
   return cn(
@@ -528,7 +543,14 @@ function inputClass(error?: boolean, mono?: boolean) {
   )
 }
 
-function Field({ label, htmlFor, error, children }: { label: string; htmlFor: string; error?: string; children: ReactNode }) {
+interface FieldProps {
+  label: string
+  htmlFor: string
+  error?: string
+  children: ReactNode
+}
+
+function Field({ label, htmlFor, error, children }: FieldProps) {
   return (
     <div className="min-w-0">
       <label htmlFor={htmlFor} className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -540,7 +562,12 @@ function Field({ label, htmlFor, error, children }: { label: string; htmlFor: st
   )
 }
 
-function FieldError({ id, message }: { id: string; message: string }) {
+interface FieldErrorProps {
+  id: string
+  message: string
+}
+
+function FieldError({ id, message }: FieldErrorProps) {
   return (
     <p id={id} className="mt-1 text-xs font-medium text-destructive">
       {message}
@@ -552,7 +579,7 @@ interface InputProps {
   id: string
   label: string
   value: string
-  onChange: (v: string) => void
+  onChange: (value: string) => void
   placeholder?: string
   error?: string
   disabled?: boolean
@@ -569,7 +596,7 @@ function TextInput({ id, label, value, onChange, placeholder, error, disabled, m
         disabled={disabled}
         aria-invalid={!!error}
         aria-describedby={error ? `${id}-error` : undefined}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         className={inputClass(!!error, mono)}
       />
     </Field>
@@ -580,7 +607,11 @@ function JsonInput(props: InputProps) {
   return <TextInput {...props} mono />
 }
 
-function TextArea({ id, label, value, onChange, placeholder, error, disabled, mono, rows = 3 }: InputProps & { rows?: number }) {
+interface TextAreaProps extends InputProps {
+  rows?: number
+}
+
+function TextArea({ id, label, value, onChange, placeholder, error, disabled, mono, rows = 3 }: TextAreaProps) {
   return (
     <Field label={label} htmlFor={id} error={error}>
       <textarea
@@ -591,20 +622,22 @@ function TextArea({ id, label, value, onChange, placeholder, error, disabled, mo
         disabled={disabled}
         aria-invalid={!!error}
         aria-describedby={error ? `${id}-error` : undefined}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         className={cn(inputClass(!!error, true), "resize-y", !mono && "font-mono")}
       />
     </Field>
   )
 }
 
-function IconButton({ label, onClick, disabled, danger, children }: {
+interface IconButtonProps {
   label: string
   onClick: () => void
   disabled?: boolean
-  danger?: boolean
+  isDanger?: boolean
   children: ReactNode
-}) {
+}
+
+function IconButton({ label, onClick, disabled, isDanger, children }: IconButtonProps) {
   return (
     <button
       type="button"
@@ -614,7 +647,7 @@ function IconButton({ label, onClick, disabled, danger, children }: {
       title={label}
       className={cn(
         "flex h-7 w-7 items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-30",
-        danger ? "text-destructive hover:bg-destructive/10" : "text-muted-foreground hover:bg-muted",
+        isDanger ? "text-destructive hover:bg-destructive/10" : "text-muted-foreground hover:bg-muted",
       )}
     >
       {children}

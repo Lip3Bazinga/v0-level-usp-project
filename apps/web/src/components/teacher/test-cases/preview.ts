@@ -1,28 +1,31 @@
-import type { Json, SourceRule, TestCase } from "@levelusp/contracts"
+import type { CallCase, Json, SourceRule, TestCase } from "@levelusp/contracts"
 import { CONSTRUCT_LABELS } from "./drafts"
 
-/**
+/*
  * Prévia (no navegador do professor) da mensagem que o aluno verá quando o
  * caso falhar. Espelha as mensagens montadas pela API em
- * `apps/api/src/modules/grading/grading.domain.ts` — é só ilustrativa: o valor
+ * `apps/api/src/modules/grading/grading.domain.ts`; é só ilustrativa: o valor
  * "obtido" é um exemplo, pois depende do código de cada aluno.
  */
 
+const DEFAULT_REPR_LENGTH = 120
+const SHORT_REPR_LENGTH = 40
+
 /** Representação curta estilo Python (mesma regra da API). */
-export function pyRepr(v: Json | undefined, max = 120): string {
-  const s = render(v)
-  return s.length > max ? `${s.slice(0, max - 1)}…` : s
+export function pyRepr(value: Json | undefined, maxLength = DEFAULT_REPR_LENGTH): string {
+  const text = render(value)
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text
 }
 
-function render(v: Json | undefined): string {
-  if (v === undefined) return "?"
-  if (v === null) return "None"
-  if (v === true) return "True"
-  if (v === false) return "False"
-  if (typeof v === "string") return `'${v.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`
-  if (typeof v === "number") return String(v)
-  if (Array.isArray(v)) return `[${v.map(render).join(", ")}]`
-  return `{${Object.entries(v).map(([k, x]) => `'${k}': ${render(x)}`).join(", ")}}`
+function render(value: Json | undefined): string {
+  if (value === undefined) return "?"
+  if (value === null) return "None"
+  if (value === true) return "True"
+  if (value === false) return "False"
+  if (typeof value === "string") return `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`
+  if (typeof value === "number") return String(value)
+  if (Array.isArray(value)) return `[${value.map(render).join(", ")}]`
+  return `{${Object.entries(value).map(([key, item]) => `'${key}': ${render(item)}`).join(", ")}}`
 }
 
 function describeRule(rule: SourceRule): string {
@@ -37,46 +40,43 @@ function describeRule(rule: SourceRule): string {
   }
 }
 
-export function caseLabel(c: Pick<TestCase, "id" | "name">): string {
-  return c.name ?? `Teste ${c.id}`
+export function caseLabel(testCase: Pick<TestCase, "id" | "name">): string {
+  return testCase.name ?? `Teste ${testCase.id}`
 }
 
-export function callSignature(c: Extract<TestCase, { kind: "call" }>): string {
+export function callSignature(testCase: CallCase): string {
   const parts = [
-    ...(c.args ?? []).map((a) => pyRepr(a, 40)),
-    ...Object.entries(c.kwargs ?? {}).map(([k, v]) => `${k}=${pyRepr(v, 40)}`),
+    ...(testCase.args ?? []).map((argument) => pyRepr(argument, SHORT_REPR_LENGTH)),
+    ...Object.entries(testCase.kwargs ?? {}).map(([name, value]) => `${name}=${pyRepr(value, SHORT_REPR_LENGTH)}`),
   ]
-  return `${c.function}(${parts.join(", ")})`
+  return `${testCase.function}(${parts.join(", ")})`
+}
+
+function failureMessage(testCase: TestCase): string {
+  switch (testCase.kind) {
+    case "call": {
+      const call = callSignature(testCase)
+      return testCase.reveal
+        ? `${call} retornou <valor do aluno>; esperado ${pyRepr(testCase.expected)}`
+        : `${call} retornou <valor do aluno>, que não é o esperado`
+    }
+    case "io":
+      return testCase.reveal
+        ? `esperado ${JSON.stringify(testCase.expected_stdout)}, obtido "<saída do aluno>"`
+        : "a saída do programa não é a esperada"
+    case "variable":
+      return testCase.reveal
+        ? `${testCase.variable} = <valor do aluno>; esperado ${pyRepr(testCase.expected)}`
+        : `${testCase.variable} = <valor do aluno>, que não é o esperado`
+    case "source":
+      return describeRule(testCase.rule)
+    case "legacy":
+      return "mensagem do assert/unittest que falhou (ou \"Resposta incorreta.\")"
+  }
 }
 
 /** Mensagem de falha que o aluno veria (com um valor "obtido" fictício). */
-export function failurePreview(c: TestCase): { title: string; message: string } {
-  let message: string
-  switch (c.kind) {
-    case "call": {
-      const call = callSignature(c)
-      message = c.reveal
-        ? `${call} retornou <valor do aluno>; esperado ${pyRepr(c.expected)}`
-        : `${call} retornou <valor do aluno>, que não é o esperado`
-      break
-    }
-    case "io":
-      message = c.reveal
-        ? `esperado ${JSON.stringify(c.expected_stdout)}, obtido "<saída do aluno>"`
-        : "a saída do programa não é a esperada"
-      break
-    case "variable":
-      message = c.reveal
-        ? `${c.variable} = <valor do aluno>; esperado ${pyRepr(c.expected)}`
-        : `${c.variable} = <valor do aluno>, que não é o esperado`
-      break
-    case "source":
-      message = describeRule(c.rule)
-      break
-    case "legacy":
-      message = "mensagem do assert/unittest que falhou (ou \"Resposta incorreta.\")"
-      break
-  }
-  if (c.hint) message += ` — dica: ${c.hint}`
-  return { title: caseLabel(c), message }
+export function failurePreview(testCase: TestCase): { title: string; message: string } {
+  const message = failureMessage(testCase)
+  return { title: caseLabel(testCase), message: testCase.hint ? `${message} — dica: ${testCase.hint}` : message }
 }

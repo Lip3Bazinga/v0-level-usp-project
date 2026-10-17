@@ -1,39 +1,38 @@
 import { AlertCircle, CheckCircle2, ChevronDown, ChevronUp, HelpCircle, Plus, Trash2, X } from "lucide-react"
 import type { QuizQuestionFull } from "@levelusp/contracts"
-import { addButtonClass, EditorPanel, miniLabelClass, smallInputClass } from "./panel"
+import { cn } from "@/lib/utils"
+import { moveItem, removeChoiceAt, type MoveDirection } from "@/lib/utils/list-editing"
+import { ADD_BUTTON_CLASS, EditorPanel, MINI_LABEL_CLASS, SMALL_INPUT_CLASS } from "./panel"
 
-type Updater = (fn: (prev: QuizQuestionFull[]) => QuizQuestionFull[]) => void
+const MIN_OPTIONS = 2
+const MAX_OPTIONS = 8
+const ORDER_BUTTON_CLASS =
+  "flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-30"
 
-function moveItem<T>(list: T[], index: number, dir: -1 | 1): T[] {
-  const target = index + dir
-  if (index < 0 || target < 0 || target >= list.length) return list
-  const copy = [...list]
-  ;[copy[index], copy[target]] = [copy[target], copy[index]]
-  return copy
+type QuestionsUpdate = (update: (questions: QuizQuestionFull[]) => QuizQuestionFull[]) => void
+
+/** "A", "B", "C"… */
+function optionLetter(index: number): string {
+  return String.fromCharCode("A".charCodeAt(0) + index)
 }
 
-export function QuizTab({ questions, setQuestions, passingScore, loading }: {
+function newQuestion(position: number): QuizQuestionFull {
+  // Id provisório só para a chave do React; a API devolve os ids definitivos ao salvar.
+  return { id: `novo-${Date.now()}-${position}`, prompt: "", options: ["", ""], correct_index: 0, explanation: "", sort_order: position }
+}
+
+interface QuizTabProps {
   questions: QuizQuestionFull[]
-  setQuestions: Updater
+  onChange: QuestionsUpdate
   passingScore: number
-  loading: boolean
-}) {
-  const add = () =>
-    setQuestions((prev) => [
-      ...prev,
-      { id: `novo-${Date.now()}-${prev.length}`, prompt: "", options: ["", ""], correct_index: 0, explanation: "", sort_order: prev.length },
-    ])
-  const update = (id: string, patch: Partial<QuizQuestionFull>) =>
-    setQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q)))
-  const remove = (id: string) => setQuestions((prev) => prev.filter((q) => q.id !== id))
-  const move = (index: number, dir: -1 | 1) => setQuestions((prev) => moveItem(prev, index, dir))
-  const setOption = (q: QuizQuestionFull, i: number, value: string) =>
-    update(q.id, { options: q.options.map((o, j) => (j === i ? value : o)) })
-  const removeOption = (q: QuizQuestionFull, i: number) => {
-    if (q.options.length <= 2) return
-    const correct_index = q.correct_index === i ? 0 : q.correct_index > i ? q.correct_index - 1 : q.correct_index
-    update(q.id, { options: q.options.filter((_, j) => j !== i), correct_index })
-  }
+}
+
+export function QuizTab({ questions, onChange, passingScore }: QuizTabProps) {
+  const handleAdd = () => onChange((current) => [...current, newQuestion(current.length)])
+  const handleUpdate = (questionId: string, changes: Partial<QuizQuestionFull>) =>
+    onChange((current) => current.map((question) => (question.id === questionId ? { ...question, ...changes } : question)))
+  const handleRemove = (questionId: string) => onChange((current) => current.filter((question) => question.id !== questionId))
+  const handleMove = (index: number, direction: MoveDirection) => onChange((current) => moveItem(current, index, direction))
 
   return (
     <EditorPanel
@@ -41,7 +40,7 @@ export function QuizTab({ questions, setQuestions, passingScore, loading }: {
       title="Questões"
       subtitle={`Múltipla escolha · correção no servidor · nota mínima ${passingScore}%`}
       action={
-        <button type="button" onClick={add} className={addButtonClass}>
+        <button type="button" onClick={handleAdd} className={ADD_BUTTON_CLASS}>
           <Plus className="h-4 w-4" /> Adicionar questão
         </button>
       }
@@ -54,120 +53,147 @@ export function QuizTab({ questions, setQuestions, passingScore, loading }: {
         </p>
       </div>
 
-      {loading ? (
-        <div className="space-y-2">
-          {[0, 1].map((i) => <div key={i} className="h-28 animate-pulse rounded-xl bg-muted/50" />)}
-        </div>
-      ) : questions.length === 0 ? (
+      {questions.length === 0 ? (
         <div className="rounded-xl border-2 border-dashed border-border py-8 text-center">
           <HelpCircle className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
           <p className="text-sm text-muted-foreground">Nenhuma questão ainda. Adicione a primeira pergunta do questionário.</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {questions.map((q, idx) => (
-            <div key={q.id} className="rounded-xl border-2 border-border p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-level-purple">Questão {idx + 1}</span>
-                <div className="flex items-center gap-1">
-                  <button type="button" aria-label="Mover para cima" onClick={() => move(idx, -1)} disabled={idx === 0}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-30">
-                    <ChevronUp className="h-4 w-4" />
-                  </button>
-                  <button type="button" aria-label="Mover para baixo" onClick={() => move(idx, 1)} disabled={idx === questions.length - 1}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-30">
-                    <ChevronDown className="h-4 w-4" />
-                  </button>
-                  <button type="button" aria-label="Remover questão" onClick={() => remove(q.id)}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-destructive hover:bg-destructive/10">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label htmlFor={`quiz-prompt-${q.id}`} className={miniLabelClass}>Enunciado</label>
-                  <textarea
-                    id={`quiz-prompt-${q.id}`}
-                    value={q.prompt}
-                    onChange={(e) => update(q.id, { prompt: e.target.value })}
-                    rows={2}
-                    placeholder="Ex: Qual é o resultado de len('Python')?"
-                    className={`${smallInputClass} resize-none`}
-                  />
-                </div>
-
-                <div>
-                  <div className="mb-1 flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Alternativas — clique no círculo para marcar a correta
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => update(q.id, { options: [...q.options, ""] })}
-                      disabled={q.options.length >= 8}
-                      className="text-xs font-semibold text-level-purple hover:underline disabled:opacity-40"
-                    >
-                      + alternativa
-                    </button>
-                  </div>
-                  <div className="space-y-2">
-                    {q.options.map((opt, oi) => {
-                      const correct = q.correct_index === oi
-                      return (
-                        <div key={oi} className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => update(q.id, { correct_index: oi })}
-                            title="Marcar como correta"
-                            aria-label={`Marcar alternativa ${String.fromCharCode(65 + oi)} como correta`}
-                            aria-pressed={correct}
-                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-                              correct ? "border-success bg-success text-white" : "border-border text-transparent hover:border-success"
-                            }`}
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                          </button>
-                          <input
-                            value={opt}
-                            onChange={(e) => setOption(q, oi, e.target.value)}
-                            placeholder={`Alternativa ${String.fromCharCode(65 + oi)}`}
-                            aria-label={`Alternativa ${String.fromCharCode(65 + oi)}${correct ? " (correta)" : ""}`}
-                            className={`w-full rounded-xl border-2 px-3 py-2 text-sm focus:outline-none ${
-                              correct ? "border-success/50 bg-success/5 focus:border-success" : "border-border focus:border-level-purple"
-                            }`}
-                          />
-                          <button
-                            type="button"
-                            aria-label="Remover alternativa"
-                            onClick={() => removeOption(q, oi)}
-                            disabled={q.options.length <= 2}
-                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-30"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <label htmlFor={`quiz-expl-${q.id}`} className={miniLabelClass}>Explicação (mostrada após a correção)</label>
-                  <input
-                    id={`quiz-expl-${q.id}`}
-                    value={q.explanation}
-                    onChange={(e) => update(q.id, { explanation: e.target.value })}
-                    placeholder="Ex: len() conta os caracteres da string, e 'Python' tem 6."
-                    className={smallInputClass}
-                  />
-                </div>
-              </div>
-            </div>
+          {questions.map((question, index) => (
+            <QuestionCard
+              key={question.id}
+              question={question}
+              index={index}
+              isLast={index === questions.length - 1}
+              onChange={(changes) => handleUpdate(question.id, changes)}
+              onRemove={() => handleRemove(question.id)}
+              onMove={(direction) => handleMove(index, direction)}
+            />
           ))}
         </div>
       )}
     </EditorPanel>
+  )
+}
+
+interface QuestionCardProps {
+  question: QuizQuestionFull
+  index: number
+  isLast: boolean
+  onChange: (changes: Partial<QuizQuestionFull>) => void
+  onRemove: () => void
+  onMove: (direction: MoveDirection) => void
+}
+
+function QuestionCard({ question, index, isLast, onChange, onRemove, onMove }: QuestionCardProps) {
+  const setOption = (optionIndex: number, value: string) =>
+    onChange({ options: question.options.map((option, position) => (position === optionIndex ? value : option)) })
+
+  return (
+    <div className="rounded-xl border-2 border-border p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="text-xs font-bold uppercase tracking-wider text-level-purple">Questão {index + 1}</span>
+        <div className="flex items-center gap-1">
+          <button type="button" aria-label="Mover para cima" onClick={() => onMove(-1)} disabled={index === 0} className={ORDER_BUTTON_CLASS}>
+            <ChevronUp className="h-4 w-4" />
+          </button>
+          <button type="button" aria-label="Mover para baixo" onClick={() => onMove(1)} disabled={isLast} className={ORDER_BUTTON_CLASS}>
+            <ChevronDown className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Remover questão"
+            onClick={onRemove}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-destructive hover:bg-destructive/10"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <label htmlFor={`quiz-prompt-${question.id}`} className={MINI_LABEL_CLASS}>Enunciado</label>
+          <textarea
+            id={`quiz-prompt-${question.id}`}
+            value={question.prompt}
+            onChange={(event) => onChange({ prompt: event.target.value })}
+            rows={2}
+            placeholder="Ex: Qual é o resultado de len('Python')?"
+            className={`${SMALL_INPUT_CLASS} resize-none`}
+          />
+        </div>
+
+        <div>
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Alternativas — clique no círculo para marcar a correta
+            </span>
+            <button
+              type="button"
+              onClick={() => onChange({ options: [...question.options, ""] })}
+              disabled={question.options.length >= MAX_OPTIONS}
+              className="text-xs font-semibold text-level-purple hover:underline disabled:opacity-40"
+            >
+              + alternativa
+            </button>
+          </div>
+          <div className="space-y-2">
+            {question.options.map((option, optionIndex) => {
+              const isCorrect = question.correct_index === optionIndex
+              const letter = optionLetter(optionIndex)
+              return (
+                <div key={optionIndex} className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onChange({ correct_index: optionIndex })}
+                    title="Marcar como correta"
+                    aria-label={`Marcar alternativa ${letter} como correta`}
+                    aria-pressed={isCorrect}
+                    className={cn(
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                      isCorrect ? "border-success bg-success text-white" : "border-border text-transparent hover:border-success",
+                    )}
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                  </button>
+                  <input
+                    value={option}
+                    onChange={(event) => setOption(optionIndex, event.target.value)}
+                    placeholder={`Alternativa ${letter}`}
+                    aria-label={`Alternativa ${letter}${isCorrect ? " (correta)" : ""}`}
+                    className={cn(
+                      "w-full rounded-xl border-2 px-3 py-2 text-sm focus:outline-none",
+                      isCorrect ? "border-success/50 bg-success/5 focus:border-success" : "border-border focus:border-level-purple",
+                    )}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Remover alternativa"
+                    onClick={() => onChange(removeChoiceAt(question, optionIndex))}
+                    disabled={question.options.length <= MIN_OPTIONS}
+                    className={cn(ORDER_BUTTON_CLASS, "shrink-0")}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div>
+          <label htmlFor={`quiz-expl-${question.id}`} className={MINI_LABEL_CLASS}>Explicação (mostrada após a correção)</label>
+          <input
+            id={`quiz-expl-${question.id}`}
+            value={question.explanation}
+            onChange={(event) => onChange({ explanation: event.target.value })}
+            placeholder="Ex: len() conta os caracteres da string, e 'Python' tem 6."
+            className={SMALL_INPUT_CLASS}
+          />
+        </div>
+      </div>
+    </div>
   )
 }

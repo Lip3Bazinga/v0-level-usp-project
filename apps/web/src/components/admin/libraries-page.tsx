@@ -1,371 +1,169 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
-import { Package, CheckCircle2, X, Clock, ChevronDown, ChevronUp, AlertCircle, Search, Loader2 } from "lucide-react"
-import type { LibraryCatalog, LibraryRequest } from "@levelusp/contracts"
+import { useState } from "react"
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronUp, Clock, Loader2, Package, Search, X } from "lucide-react"
 import {
-  getErrorMessage, fetchAllLibraryRequests, fetchAdminLibraryCatalog, reviewLibraryRequest, setLibraryCatalogActive,
+  LIBRARY_CATEGORIES, type LibraryCatalog, type LibraryCategory, type LibraryRequest, type LibraryRequestStatus,
+} from "@levelusp/contracts"
+import { LoadErrorAlert } from "@/components/design-system/load-error-alert"
+import { useAsyncResource } from "@/hooks/use-async-resource"
+import {
+  fetchAdminLibraryCatalog, fetchAllLibraryRequests, getErrorMessage, reviewLibraryRequest, setLibraryCatalogActive,
 } from "@/lib/api"
+import { LIBRARY_CATEGORY_LABELS } from "@/lib/constants/library-categories"
 import type { OnToast } from "@/lib/types"
-import { formatDate } from "@/lib/utils"
+import { cn, formatDate } from "@/lib/utils"
+import { isOneOf } from "@/lib/utils/guards"
+import { PanelSpinner } from "./panel-spinner"
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-const STATUS_STYLE = {
-  pending:  "bg-amber-100 text-amber-700",
-  approved: "bg-emerald-100 text-emerald-700",
-  rejected: "bg-red-100 text-red-700",
+const STATUS_STYLES: Record<LibraryRequestStatus, { label: string; className: string }> = {
+  pending: { label: "Pendente", className: "bg-amber-100 text-amber-700" },
+  approved: { label: "Aprovado", className: "bg-emerald-100 text-emerald-700" },
+  rejected: { label: "Rejeitado", className: "bg-red-100 text-red-700" },
 }
-const STATUS_LABEL = { pending: "Pendente", approved: "Aprovado", rejected: "Rejeitado" }
 
-const CATEGORY_OPTIONS = [
-  { value: "data-science",  label: "Ciência de Dados" },
-  { value: "ml",            label: "Machine Learning" },
-  { value: "deep-learning", label: "Deep Learning" },
-  { value: "visualization", label: "Visualização" },
-  { value: "math",          label: "Matemática" },
-  { value: "general",       label: "Geral" },
+const PYODIDE_OPTIONS = [
+  { isNative: true, label: "Sim (nativo)" },
+  { isNative: false, label: "Não (micropip)" },
 ] as const
 
-// ── Linha de requisição ───────────────────────────────────────────────────────
+const LABEL_CLASS = "mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
 
-interface RequestRowProps {
-  req: LibraryRequest
-  onApprove: (req: LibraryRequest, opts: { category: LibraryCatalog["category"]; pyodide_native: boolean; notes: string }) => Promise<void>
-  onReject: (req: LibraryRequest, notes: string) => Promise<void>
+type LibrariesTab = "requests" | "catalog"
+
+interface LibrariesData {
+  requests: LibraryRequest[]
+  catalog: LibraryCatalog[]
 }
 
-function RequestRow({ req, onApprove, onReject }: RequestRowProps) {
-  const [open, setOpen] = useState(false)
-  const [notes, setNotes] = useState("")
-  const [category, setCategory] = useState<LibraryCatalog["category"]>("general")
-  const [pyodideNative, setPyodideNative] = useState(false)
-  const [loading, setLoading] = useState(false)
-
-  const handleApprove = async () => {
-    setLoading(true)
-    await onApprove(req, { category, pyodide_native: pyodideNative, notes })
-    setLoading(false)
-  }
-
-  const handleReject = async () => {
-    setLoading(true)
-    await onReject(req, notes)
-    setLoading(false)
-  }
-
-  return (
-    <div className="rounded-2xl border border-border bg-white overflow-hidden">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-start gap-4 p-4 text-left hover:bg-muted/30 transition-colors"
-      >
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-level-purple-subtle">
-          <Package className="h-5 w-5 text-level-purple" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold text-foreground">{req.library_name}</span>
-            {req.display_name && (
-              <span className="text-sm text-muted-foreground">({req.display_name})</span>
-            )}
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[req.status]}`}>
-              {STATUS_LABEL[req.status]}
-            </span>
-          </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Por {req.requester_name ?? "professor"} · {formatDate(req.created_at)}
-          </p>
-          {req.use_case && (
-            <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{req.use_case}</p>
-          )}
-        </div>
-        {req.status === "pending" && (
-          <span className="shrink-0 rounded-full bg-amber-100 p-1.5">
-            <Clock className="h-3.5 w-3.5 text-amber-600" />
-          </span>
-        )}
-        {open ? (
-          <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
-        ) : (
-          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-        )}
-      </button>
-
-      {open && (
-        <div className="border-t border-border px-4 pb-4 pt-3">
-          {req.use_case && (
-            <div className="mb-3 rounded-xl bg-muted/40 px-3 py-2.5 text-sm text-foreground">
-              <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Justificativa</p>
-              {req.use_case}
-            </div>
-          )}
-
-          {req.status === "pending" && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Categoria (se aprovar)
-                  </label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value as LibraryCatalog["category"])}
-                    className="w-full rounded-xl border-2 border-border px-3 py-2 text-sm focus:border-level-purple focus:outline-none"
-                  >
-                    {CATEGORY_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Suporte nativo Pyodide?
-                  </label>
-                  <div className="flex gap-2 pt-1">
-                    {[{ v: true, l: "Sim (nativo)" }, { v: false, l: "Não (micropip)" }].map(({ v, l }) => (
-                      <button
-                        key={String(v)}
-                        type="button"
-                        onClick={() => setPyodideNative(v)}
-                        className={`flex-1 rounded-xl border-2 px-2 py-1.5 text-xs font-medium transition-all ${
-                          pyodideNative === v
-                            ? "border-level-purple bg-level-purple text-white"
-                            : "border-border text-foreground hover:border-level-purple"
-                        }`}
-                      >
-                        {l}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Notas de revisão (opcional)
-                </label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                  placeholder="Ex: Aprovado — disponível no Pyodide 0.25 nativo"
-                  className="w-full rounded-xl border-2 border-border px-3 py-2 text-sm focus:border-level-purple focus:outline-none resize-none"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={handleReject}
-                  disabled={loading}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-destructive/30 py-2 text-sm font-semibold text-destructive hover:bg-destructive/10 disabled:opacity-50 transition-colors"
-                >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
-                  Rejeitar
-                </button>
-                <button
-                  onClick={handleApprove}
-                  disabled={loading}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-                >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                  Aprovar + adicionar ao catálogo
-                </button>
-              </div>
-            </div>
-          )}
-
-          {req.status !== "pending" && req.review_notes && (
-            <div className="rounded-xl bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-              <span className="font-bold">Nota: </span>{req.review_notes}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
+interface ApprovalOptions {
+  category: LibraryCategory
+  isPyodideNative: boolean
+  notes: string
 }
 
-// ── Catálogo tab ──────────────────────────────────────────────────────────────
-
-function CatalogView({ catalog, onToggle }: { catalog: LibraryCatalog[]; onToggle: (id: string, active: boolean) => void }) {
-  const [search, setSearch] = useState("")
-  const filtered = catalog.filter(
-    (l) =>
-      l.display_name.toLowerCase().includes(search.toLowerCase()) ||
-      l.name.toLowerCase().includes(search.toLowerCase())
-  )
-
-  return (
-    <div>
-      <div className="mb-4 relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar biblioteca..."
-          className="w-full rounded-xl border-2 border-border pl-9 pr-4 py-2.5 text-sm focus:border-level-purple focus:outline-none"
-        />
-      </div>
-
-      <div className="grid gap-2 sm:grid-cols-2">
-        {filtered.map((lib) => (
-          <div key={lib.id} className="flex items-center gap-3 rounded-xl border border-border bg-white p-3">
-            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${lib.active ? "bg-level-purple" : "bg-muted"}`}>
-              <Package className={`h-4 w-4 ${lib.active ? "text-white" : "text-muted-foreground"}`} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-foreground">{lib.display_name}</p>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="text-[10px] font-medium text-muted-foreground">{lib.name}</span>
-                {lib.pyodide_native && (
-                  <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">nativo</span>
-                )}
-              </div>
-            </div>
-            <button
-              onClick={() => onToggle(lib.id, !lib.active)}
-              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                lib.active
-                  ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              {lib.active ? "Ativo" : "Inativo"}
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {filtered.length === 0 && (
-        <div className="py-12 text-center text-muted-foreground">
-          <Package className="mx-auto mb-2 h-8 w-8 opacity-30" />
-          <p className="text-sm">Nenhuma biblioteca encontrada</p>
-        </div>
-      )}
-    </div>
-  )
+async function loadLibraries(): Promise<LibrariesData> {
+  const [requests, catalog] = await Promise.all([fetchAllLibraryRequests(), fetchAdminLibraryCatalog()])
+  return { requests, catalog }
 }
 
-// ── Página principal ──────────────────────────────────────────────────────────
+interface LibrariesAdminPageProps {
+  onToast: OnToast
+}
 
-export function LibrariesAdminPage({ onToast }: { onToast: OnToast }) {
-  const [tab, setTab] = useState<"requests" | "catalog">("requests")
-  const [requests, setRequests] = useState<LibraryRequest[]>([])
-  const [catalog, setCatalog] = useState<LibraryCatalog[]>([])
-  const [loading, setLoading] = useState(true)
+export function LibrariesAdminPage({ onToast }: LibrariesAdminPageProps) {
+  const [tab, setTab] = useState<LibrariesTab>("requests")
+  const libraries = useAsyncResource(loadLibraries, [], { errorMessage: "Erro ao carregar dados" })
+  const { requests, catalog } = libraries.status === "success" ? libraries.data : { requests: [], catalog: [] }
+  const pending = requests.filter((request) => request.status === "pending")
+  const reviewed = requests.filter((request) => request.status !== "pending")
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const [reqs, cat] = await Promise.all([fetchAllLibraryRequests(), fetchAdminLibraryCatalog()])
-      setRequests(reqs)
-      setCatalog(cat)
-    } catch (err) {
-      onToast(getErrorMessage(err, "Erro ao carregar dados"), "danger")
-    } finally {
-      setLoading(false)
-    }
-  }, [onToast])
+  const applyReview = (reviewedRequest: LibraryRequest) =>
+    libraries.setData((current) => ({
+      ...current,
+      requests: current.requests.map((request) =>
+        request.id === reviewedRequest.id ? { ...request, ...reviewedRequest, requester_name: request.requester_name } : request,
+      ),
+    }))
 
-  useEffect(() => { load() }, [load])
+  const setCatalogActive = (libraryId: string, active: boolean) =>
+    libraries.setData((current) => ({
+      ...current,
+      catalog: current.catalog.map((library) => (library.id === libraryId ? { ...library, active } : library)),
+    }))
 
-  const handleApprove = async (
-    req: LibraryRequest,
-    opts: { category: LibraryCatalog["category"]; pyodide_native: boolean; notes: string }
-  ) => {
+  const handleApprove = async (request: LibraryRequest, { category, isPyodideNative, notes }: ApprovalOptions) => {
     try {
       // A API aprova e inclui no catálogo na mesma operação.
-      const reviewed = await reviewLibraryRequest(req.id, {
+      const reviewedRequest = await reviewLibraryRequest(request.id, {
         status: "approved",
-        review_notes: opts.notes.trim() || undefined,
+        review_notes: notes.trim() || undefined,
         catalog: {
-          display_name: req.display_name || req.library_name,
-          description: req.description || null,
-          category: opts.category,
-          pyodide_native: opts.pyodide_native,
+          display_name: request.display_name || request.library_name,
+          description: request.description || null,
+          category,
+          pyodide_native: isPyodideNative,
         },
       })
-      setRequests((prev) => prev.map((r) => (r.id === req.id ? { ...r, ...reviewed, requester_name: r.requester_name } : r)))
-      onToast(`✓ ${req.library_name} aprovada e adicionada ao catálogo`)
-      fetchAdminLibraryCatalog().then(setCatalog).catch(() => {})
-    } catch (err) {
-      onToast(getErrorMessage(err, "Erro ao aprovar requisição"), "danger")
+      applyReview(reviewedRequest)
+      onToast(`✓ ${request.library_name} aprovada e adicionada ao catálogo`)
+      void libraries.reload()
+    } catch (error) {
+      onToast(getErrorMessage(error, "Erro ao aprovar requisição"), "danger")
     }
   }
 
-  const handleReject = async (req: LibraryRequest, notes: string) => {
+  const handleReject = async (request: LibraryRequest, notes: string) => {
     try {
-      const reviewed = await reviewLibraryRequest(req.id, { status: "rejected", review_notes: notes.trim() || undefined })
-      setRequests((prev) => prev.map((r) => (r.id === req.id ? { ...r, ...reviewed, requester_name: r.requester_name } : r)))
-      onToast(`Requisição de ${req.library_name} rejeitada`, "warning")
-    } catch (err) {
-      onToast(getErrorMessage(err, "Erro ao rejeitar requisição"), "danger")
+      applyReview(await reviewLibraryRequest(request.id, { status: "rejected", review_notes: notes.trim() || undefined }))
+      onToast(`Requisição de ${request.library_name} rejeitada`, "warning")
+    } catch (error) {
+      onToast(getErrorMessage(error, "Erro ao rejeitar requisição"), "danger")
     }
   }
 
-  const handleToggleCatalog = async (id: string, active: boolean) => {
-    // Optimistic update com rollback em caso de erro
-    setCatalog((prev) => prev.map((l) => l.id === id ? { ...l, active } : l))
+  const handleToggleCatalog = async (libraryId: string, active: boolean) => {
+    setCatalogActive(libraryId, active)
     try {
-      await setLibraryCatalogActive(id, active)
+      await setLibraryCatalogActive(libraryId, active)
       onToast(active ? "Biblioteca ativada" : "Biblioteca desativada")
-    } catch (err) {
-      setCatalog((prev) => prev.map((l) => l.id === id ? { ...l, active: !active } : l))
-      onToast(getErrorMessage(err, "Erro ao atualizar biblioteca"), "danger")
+    } catch (error) {
+      setCatalogActive(libraryId, !active)
+      onToast(getErrorMessage(error, "Erro ao atualizar biblioteca"), "danger")
     }
   }
 
-  const pending = requests.filter((r) => r.status === "pending")
-  const reviewed = requests.filter((r) => r.status !== "pending")
+  const tabs = [
+    { id: "requests", label: "Requisições", count: pending.length },
+    { id: "catalog", label: "Catálogo", count: catalog.length },
+  ] as const
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-level-purple-dark">Bibliotecas Python</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            Gerencie o catálogo de pacotes disponíveis e revise solicitações de professores
-          </p>
+          <p className="mt-0.5 text-sm text-muted-foreground">Gerencie o catálogo de pacotes disponíveis e revise solicitações de professores</p>
         </div>
         {pending.length > 0 && (
           <div className="flex items-center gap-2 rounded-2xl bg-amber-50 px-4 py-2 ring-1 ring-amber-200">
             <AlertCircle className="h-4 w-4 text-amber-600" />
-            <span className="text-sm font-semibold text-amber-700">{pending.length} pendente{pending.length > 1 ? "s" : ""}</span>
+            <span className="text-sm font-semibold text-amber-700">
+              {pending.length} pendente{pending.length > 1 ? "s" : ""}
+            </span>
           </div>
         )}
       </div>
 
-      {/* Tabs */}
       <div className="mb-6 flex gap-1 rounded-2xl border border-border bg-muted/30 p-1">
-        {([
-          { id: "requests", label: "Requisições", count: pending.length },
-          { id: "catalog",  label: "Catálogo",    count: catalog.length },
-        ] as const).map((t) => (
+        {tabs.map((item) => (
           <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-sm font-semibold transition-colors ${
-              tab === t.id ? "bg-white text-level-purple-dark shadow-sm" : "text-muted-foreground hover:text-foreground"
-            }`}
+            key={item.id}
+            onClick={() => setTab(item.id)}
+            className={cn(
+              "flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-sm font-semibold transition-colors",
+              tab === item.id ? "bg-white text-level-purple-dark shadow-sm" : "text-muted-foreground hover:text-foreground",
+            )}
           >
-            {t.label}
-            {t.count > 0 && (
-              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                tab === t.id && t.id === "requests" ? "bg-amber-100 text-amber-700" : "bg-muted text-muted-foreground"
-              }`}>
-                {t.count}
+            {item.label}
+            {item.count > 0 && (
+              <span
+                className={cn(
+                  "rounded-full px-1.5 py-0.5 text-[10px] font-bold",
+                  tab === item.id && item.id === "requests" ? "bg-amber-100 text-amber-700" : "bg-muted text-muted-foreground",
+                )}
+              >
+                {item.count}
               </span>
             )}
           </button>
         ))}
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-level-purple" />
-        </div>
+      {libraries.status === "loading" ? (
+        <PanelSpinner className="py-16" />
+      ) : libraries.status === "error" ? (
+        <LoadErrorAlert message={libraries.error} onRetry={() => void libraries.reload()} />
       ) : tab === "catalog" ? (
         <CatalogView catalog={catalog} onToggle={handleToggleCatalog} />
       ) : (
@@ -373,18 +171,16 @@ export function LibrariesAdminPage({ onToast }: { onToast: OnToast }) {
           {pending.length > 0 && (
             <>
               <p className="text-xs font-bold uppercase tracking-wider text-amber-600">Aguardando revisão</p>
-              {pending.map((r) => (
-                <RequestRow key={r.id} req={r} onApprove={handleApprove} onReject={handleReject} />
+              {pending.map((request) => (
+                <RequestRow key={request.id} request={request} onApprove={handleApprove} onReject={handleReject} />
               ))}
             </>
           )}
           {reviewed.length > 0 && (
             <>
-              <p className="mt-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Revisadas ({reviewed.length})
-              </p>
-              {reviewed.map((r) => (
-                <RequestRow key={r.id} req={r} onApprove={handleApprove} onReject={handleReject} />
+              <p className="mt-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Revisadas ({reviewed.length})</p>
+              {reviewed.map((request) => (
+                <RequestRow key={request.id} request={request} onApprove={handleApprove} onReject={handleReject} />
               ))}
             </>
           )}
@@ -395,6 +191,220 @@ export function LibrariesAdminPage({ onToast }: { onToast: OnToast }) {
               <p className="mt-1 text-xs text-muted-foreground">Professores podem solicitar bibliotecas no editor de lições</p>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+interface RequestRowProps {
+  request: LibraryRequest
+  onApprove: (request: LibraryRequest, options: ApprovalOptions) => Promise<void>
+  onReject: (request: LibraryRequest, notes: string) => Promise<void>
+}
+
+function RequestRow({ request, onApprove, onReject }: RequestRowProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const status = STATUS_STYLES[request.status]
+  const isPending = request.status === "pending"
+
+  return (
+    <div className="rounded-2xl border border-border bg-white overflow-hidden">
+      <button
+        onClick={() => setIsOpen((wasOpen) => !wasOpen)}
+        aria-expanded={isOpen}
+        className="flex w-full items-start gap-4 p-4 text-left hover:bg-muted/30 transition-colors"
+      >
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-level-purple-subtle">
+          <Package className="h-5 w-5 text-level-purple" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-foreground">{request.library_name}</span>
+            {request.display_name && <span className="text-sm text-muted-foreground">({request.display_name})</span>}
+            <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", status.className)}>{status.label}</span>
+          </div>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Por {request.requester_name ?? "professor"} · {formatDate(request.created_at)}
+          </p>
+          {request.use_case && <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{request.use_case}</p>}
+        </div>
+        {isPending && (
+          <span className="shrink-0 rounded-full bg-amber-100 p-1.5">
+            <Clock className="h-3.5 w-3.5 text-amber-600" />
+          </span>
+        )}
+        {isOpen ? <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />}
+      </button>
+
+      {isOpen && (
+        <div className="border-t border-border px-4 pb-4 pt-3">
+          {request.use_case && (
+            <div className="mb-3 rounded-xl bg-muted/40 px-3 py-2.5 text-sm text-foreground">
+              <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Justificativa</p>
+              {request.use_case}
+            </div>
+          )}
+
+          {isPending && <ReviewForm request={request} onApprove={onApprove} onReject={onReject} />}
+
+          {!isPending && request.review_notes && (
+            <div className="rounded-xl bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              <span className="font-bold">Nota: </span>
+              {request.review_notes}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ReviewForm({ request, onApprove, onReject }: RequestRowProps) {
+  const [notes, setNotes] = useState("")
+  const [category, setCategory] = useState<LibraryCategory>("general")
+  const [isPyodideNative, setIsPyodideNative] = useState(false)
+  const [isReviewing, setIsReviewing] = useState(false)
+  const fieldId = `library-request-${request.id}`
+
+  const review = async (action: () => Promise<void>) => {
+    setIsReviewing(true)
+    await action()
+    setIsReviewing(false)
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label htmlFor={`${fieldId}-category`} className={LABEL_CLASS}>Categoria (se aprovar)</label>
+          <select
+            id={`${fieldId}-category`}
+            value={category}
+            onChange={(event) => {
+              if (isOneOf(LIBRARY_CATEGORIES, event.target.value)) setCategory(event.target.value)
+            }}
+            className="w-full rounded-xl border-2 border-border px-3 py-2 text-sm focus:border-level-purple focus:outline-none"
+          >
+            {LIBRARY_CATEGORIES.map((option) => (
+              <option key={option} value={option}>{LIBRARY_CATEGORY_LABELS[option]}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <span className={LABEL_CLASS}>Suporte nativo Pyodide?</span>
+          <div className="flex gap-2 pt-1">
+            {PYODIDE_OPTIONS.map((option) => (
+              <button
+                key={String(option.isNative)}
+                type="button"
+                aria-pressed={isPyodideNative === option.isNative}
+                onClick={() => setIsPyodideNative(option.isNative)}
+                className={cn(
+                  "flex-1 rounded-xl border-2 px-2 py-1.5 text-xs font-medium transition-all",
+                  isPyodideNative === option.isNative
+                    ? "border-level-purple bg-level-purple text-white"
+                    : "border-border text-foreground hover:border-level-purple",
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label htmlFor={`${fieldId}-notes`} className={LABEL_CLASS}>Notas de revisão (opcional)</label>
+        <textarea
+          id={`${fieldId}-notes`}
+          value={notes}
+          onChange={(event) => setNotes(event.target.value)}
+          rows={2}
+          placeholder="Ex: Aprovado — disponível no Pyodide 0.25 nativo"
+          className="w-full rounded-xl border-2 border-border px-3 py-2 text-sm focus:border-level-purple focus:outline-none resize-none"
+        />
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          onClick={() => review(() => onReject(request, notes))}
+          disabled={isReviewing}
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-destructive/30 py-2 text-sm font-semibold text-destructive hover:bg-destructive/10 disabled:opacity-50 transition-colors"
+        >
+          {isReviewing ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+          Rejeitar
+        </button>
+        <button
+          onClick={() => review(() => onApprove(request, { category, isPyodideNative, notes }))}
+          disabled={isReviewing}
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+        >
+          {isReviewing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+          Aprovar + adicionar ao catálogo
+        </button>
+      </div>
+    </div>
+  )
+}
+
+interface CatalogViewProps {
+  catalog: LibraryCatalog[]
+  onToggle: (libraryId: string, active: boolean) => void
+}
+
+function CatalogView({ catalog, onToggle }: CatalogViewProps) {
+  const [search, setSearch] = useState("")
+  const term = search.toLowerCase()
+  const filtered = catalog.filter(
+    (library) => library.display_name.toLowerCase().includes(term) || library.name.toLowerCase().includes(term),
+  )
+
+  return (
+    <div>
+      <div className="mb-4 relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <input
+          aria-label="Buscar biblioteca"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Buscar biblioteca..."
+          className="w-full rounded-xl border-2 border-border pl-9 pr-4 py-2.5 text-sm focus:border-level-purple focus:outline-none"
+        />
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        {filtered.map((library) => (
+          <div key={library.id} className="flex items-center gap-3 rounded-xl border border-border bg-white p-3">
+            <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", library.active ? "bg-level-purple" : "bg-muted")}>
+              <Package className={cn("h-4 w-4", library.active ? "text-white" : "text-muted-foreground")} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground">{library.display_name}</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[10px] font-medium text-muted-foreground">{library.name}</span>
+                {library.pyodide_native && (
+                  <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">nativo</span>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => onToggle(library.id, !library.active)}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-semibold transition-colors",
+                library.active ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" : "bg-muted text-muted-foreground hover:bg-muted/80",
+              )}
+            >
+              {library.active ? "Ativo" : "Inativo"}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {filtered.length === 0 && (
+        <div className="py-12 text-center text-muted-foreground">
+          <Package className="mx-auto mb-2 h-8 w-8 opacity-30" />
+          <p className="text-sm">Nenhuma biblioteca encontrada</p>
         </div>
       )}
     </div>

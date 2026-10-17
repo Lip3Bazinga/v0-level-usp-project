@@ -1,147 +1,108 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import {
-  Search, Download, Plus, Eye, Edit3, Shield, Zap, Flame, Trophy, Users, BookOpen, Ban, X, ChevronRight,
-} from "lucide-react"
-import { RoleBadge } from "@/components/ui/badges"
-import { UserEditModal } from "./user-edit-modal"
-import { UserDetail } from "./user-detail"
+import { useMemo, useState } from "react"
+import { Ban, Download, Edit3, Eye, Flame, Plus, Search, Shield, Trophy, Users, Zap } from "lucide-react"
 import type { AdminUpdateUserInput, Profile, UserRole } from "@levelusp/contracts"
+import { RoleBadge } from "@/components/ui/badges"
 import {
   deleteUser, getErrorMessage, inviteUser, setUserSuspended, updateUserProfile, updateUserRole,
 } from "@/lib/api"
-import { cn, downloadCsv, formatNumber, getInitials } from "@/lib/utils"
 import type { OnToast } from "@/lib/types"
+import { cn, downloadCsv, formatNumber, indexBy, todayKey } from "@/lib/utils"
+import { isOneOf } from "@/lib/utils/guards"
+import type { ListUpdate } from "../use-admin-dashboard"
+import { BulkRoleModal } from "./bulk-role-modal"
+import { UserAvatar } from "./user-avatar"
+import { UserDetail } from "./user-detail"
+import { UserEditModal } from "./user-edit-modal"
+import {
+  USER_SORTS, USER_SORT_IDS, countByRole, filterUsers, runForEachUser, toUserCsvRows, type RoleFilter, type UserSortId,
+} from "./user-list"
 
-const ROLE_LABEL: Record<UserRole, string> = { student: "aluno", teacher: "professor", admin: "administrador" }
+const ROLE_LABELS: Record<UserRole, string> = { student: "aluno", teacher: "professor", admin: "administrador" }
 
-/** Executa a ação para cada id e separa sucessos de falhas (mensagem da 1ª falha). */
-async function forEachUser(ids: string[], action: (id: string) => Promise<Profile>) {
-  const results = await Promise.allSettled(ids.map(action))
-  const updated: Profile[] = []
-  let firstError: unknown = null
-  for (const r of results) {
-    if (r.status === "fulfilled") updated.push(r.value)
-    else firstError ??= r.reason
-  }
-  return { updated, failed: results.length - updated.length, firstError }
-}
+const ROLE_FILTERS: { id: RoleFilter; label: string }[] = [
+  { id: "all", label: "Todos" },
+  { id: "student", label: "Alunos" },
+  { id: "teacher", label: "Professores" },
+  { id: "admin", label: "Admins" },
+]
 
-
-function AvatarInitials({ name, role, size = 36 }: { name: string; role: string; size?: number }) {
-  const bg =
-    role === "admin"
-      ? "bg-destructive/10 text-destructive"
-      : role === "teacher"
-        ? "bg-level-purple-light text-level-purple-dark"
-        : "bg-level-purple-subtle text-level-purple"
-  return (
-    <div
-      className={cn("inline-flex shrink-0 items-center justify-center rounded-full font-bold", bg)}
-      style={{ width: size, height: size, fontSize: size * 0.35 }}
-    >
-      {getInitials(name)}
-    </div>
-  )
-}
+const ICON_ACTION_CLASS =
+  "flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-level-purple-light hover:text-level-purple transition-colors"
 
 interface UsersPageProps {
   users: Profile[]
-  setUsers: (u: Profile[] | ((p: Profile[]) => Profile[])) => void
+  updateUsers: ListUpdate<Profile>
   onToast: OnToast
   currentUserId?: string
 }
 
-export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: UsersPageProps) {
-  const [q, setQ] = useState("")
-  const [role, setRole] = useState("all")
-  const [sort, setSort] = useState("xp-desc")
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [showBulkRole, setShowBulkRole] = useState(false)
-  const [editUser, setEditUser] = useState<Profile | null>(null)
+export function UsersPage({ users, updateUsers, onToast, currentUserId }: UsersPageProps) {
+  const [search, setSearch] = useState("")
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all")
+  const [sort, setSort] = useState<UserSortId>("xp-desc")
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [isBulkRoleOpen, setIsBulkRoleOpen] = useState(false)
+  const [isBulkBusy, setIsBulkBusy] = useState(false)
+  const [editingUser, setEditingUser] = useState<Profile | null>(null)
   const [detailUser, setDetailUser] = useState<Profile | null>(null)
 
-  const filtered = useMemo(() => {
-    let list = users.filter((u) => {
-      const matchQ = !q || [u.full_name, u.email, u.username].some((x) => (x ?? "").toLowerCase().includes(q.toLowerCase()))
-      const matchR = role === "all" || u.role === role
-      return matchQ && matchR
-    })
-    if (sort === "xp-desc")   list = [...list].sort((a, b) => b.total_xp - a.total_xp)
-    if (sort === "xp-asc")    list = [...list].sort((a, b) => a.total_xp - b.total_xp)
-    if (sort === "name")      list = [...list].sort((a, b) => a.full_name.localeCompare(b.full_name))
-    if (sort === "recent")    list = [...list].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    if (sort === "lessons")   list = [...list].sort((a, b) => b.lessons_completed - a.lessons_completed)
-    return list
-  }, [users, q, role, sort])
+  const filtered = useMemo(() => filterUsers(users, { search, role: roleFilter, sort }), [users, search, roleFilter, sort])
+  const counts = countByRole(users)
+  const areAllSelected = filtered.length > 0 && filtered.every((user) => selectedIds.has(user.id))
+  const isPartiallySelected = selectedIds.size > 0 && !areAllSelected
+  const clearSelection = () => setSelectedIds(new Set())
 
-  const allSelected  = filtered.length > 0 && filtered.every((u) => selected.has(u.id))
-  const someSelected = selected.size > 0 && !allSelected
-
-  const toggleAll = () => {
-    if (allSelected) setSelected(new Set())
-    else setSelected(new Set(filtered.map((u) => u.id)))
+  const handleToggleAll = () => setSelectedIds(areAllSelected ? new Set() : new Set(filtered.map((user) => user.id)))
+  const handleToggleOne = (userId: string) => {
+    const next = new Set(selectedIds)
+    if (next.has(userId)) next.delete(userId)
+    else next.add(userId)
+    setSelectedIds(next)
   }
-  const toggleOne = (id: string) => {
-    const n = new Set(selected)
-    if (n.has(id)) n.delete(id)
-    else n.add(id)
-    setSelected(n)
-  }
-
-  const [bulkBusy, setBulkBusy] = useState(false)
 
   /** O próprio admin fica fora das ações em massa (evita se rebaixar/suspender sem querer). */
-  const bulkIds = () => {
-    const ids = [...selected].filter((id) => id !== currentUserId)
-    if (ids.length < selected.size) onToast("Sua própria conta foi ignorada na ação em massa", "info")
-    return ids
+  const bulkTargetIds = () => {
+    const targetIds = [...selectedIds].filter((userId) => userId !== currentUserId)
+    if (targetIds.length < selectedIds.size) onToast("Sua própria conta foi ignorada na ação em massa", "info")
+    return targetIds
   }
 
   const mergeUpdated = (updated: Profile[]) => {
-    const byId = new Map(updated.map((u) => [u.id, u]))
-    setUsers((prev) => prev.map((u) => byId.get(u.id) ?? u))
+    const updatedById = indexBy(updated, (user) => user.id)
+    updateUsers((current) => current.map((user) => updatedById.get(user.id) ?? user))
   }
 
-  const applyBulkRole = async (r: UserRole) => {
-    setBulkBusy(true)
-    const { updated, failed, firstError } = await forEachUser(bulkIds(), (id) => updateUserRole(id, r))
-    setBulkBusy(false)
+  const handleBulkRole = async (role: UserRole) => {
+    setIsBulkBusy(true)
+    const { updated, failedCount, firstError } = await runForEachUser(bulkTargetIds(), (userId) => updateUserRole(userId, role))
+    setIsBulkBusy(false)
     mergeUpdated(updated)
-    if (updated.length) onToast(`${updated.length} usuário(s) agora com papel de ${ROLE_LABEL[r]}`, "success")
-    if (failed) onToast(`${failed} não alterado(s): ${getErrorMessage(firstError)}`, "danger")
-    setSelected(new Set())
-    setShowBulkRole(false)
+    if (updated.length) onToast(`${updated.length} usuário(s) agora com papel de ${ROLE_LABELS[role]}`, "success")
+    if (failedCount) onToast(`${failedCount} não alterado(s): ${getErrorMessage(firstError)}`, "danger")
+    clearSelection()
+    setIsBulkRoleOpen(false)
   }
 
-  const applyBulkSuspend = async () => {
-    setBulkBusy(true)
-    const { updated, failed, firstError } = await forEachUser(bulkIds(), (id) => setUserSuspended(id, true))
-    setBulkBusy(false)
+  const handleBulkSuspend = async () => {
+    setIsBulkBusy(true)
+    const { updated, failedCount, firstError } = await runForEachUser(bulkTargetIds(), (userId) => setUserSuspended(userId, true))
+    setIsBulkBusy(false)
     mergeUpdated(updated)
     if (updated.length) onToast(`${updated.length} usuário(s) suspenso(s)`, "warning")
-    if (failed) onToast(`${failed} não suspenso(s): ${getErrorMessage(firstError)}`, "danger")
-    setSelected(new Set())
+    if (failedCount) onToast(`${failedCount} não suspenso(s): ${getErrorMessage(firstError)}`, "danger")
+    clearSelection()
   }
 
-  const exportUsers = (onlySelected: boolean) => {
-    const rows = (onlySelected ? filtered.filter((u) => selected.has(u.id)) : filtered).map((u) => ({
-      id: u.id,
-      nome: u.full_name,
-      username: u.username ?? "",
-      email: u.email,
-      papel: u.role,
-      nivel: u.level,
-      xp: u.total_xp,
-      licoes: u.lessons_completed,
-      streak: u.current_streak,
-      suspenso: u.suspended ? "sim" : "não",
-      criado_em: u.created_at,
-    }))
-    if (rows.length === 0) { onToast("Nenhum usuário para exportar", "warning"); return }
-    downloadCsv(rows, `usuarios-${new Date().toISOString().slice(0, 10)}.csv`)
-    if (onlySelected) setSelected(new Set())
+  const handleExport = (isOnlySelected: boolean) => {
+    const rows = toUserCsvRows(isOnlySelected ? filtered.filter((user) => selectedIds.has(user.id)) : filtered)
+    if (rows.length === 0) {
+      onToast("Nenhum usuário para exportar", "warning")
+      return
+    }
+    downloadCsv(rows, `usuarios-${todayKey()}.csv`)
+    if (isOnlySelected) clearSelection()
   }
 
   const handleInvite = async () => {
@@ -149,30 +110,41 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
     if (!email?.trim()) return
     try {
       const invited = await inviteUser(email.trim())
-      setUsers((prev) => (prev.some((u) => u.id === invited.id) ? prev : [invited, ...prev]))
+      updateUsers((current) => (current.some((user) => user.id === invited.id) ? current : [invited, ...current]))
       onToast("Convite enviado por e-mail", "success")
-    } catch (e) {
-      onToast(getErrorMessage(e, "Erro ao convidar"), "danger")
+    } catch (error) {
+      onToast(getErrorMessage(error, "Erro ao convidar"), "danger")
     }
   }
 
-  const counts = {
-    all:     users.length,
-    student: users.filter((u) => u.role === "student").length,
-    teacher: users.filter((u) => u.role === "teacher").length,
-    admin:   users.filter((u) => u.role === "admin").length,
+  const handleSaveUser = async (user: Profile, changes: AdminUpdateUserInput) => {
+    if (!Object.keys(changes).length) {
+      setEditingUser(null)
+      return
+    }
+    try {
+      const updated = await updateUserProfile(user.id, changes)
+      updateUsers((current) => current.map((item) => (item.id === updated.id ? updated : item)))
+      setEditingUser(null)
+      onToast("Usuário atualizado", "success")
+    } catch (error) {
+      onToast(getErrorMessage(error, "Erro ao salvar"), "danger")
+    }
+  }
+
+  const handleDeleteUser = async (user: Profile) => {
+    try {
+      await deleteUser(user.id)
+      updateUsers((current) => current.filter((item) => item.id !== user.id))
+      setEditingUser(null)
+      onToast("Conta excluída", "danger")
+    } catch (error) {
+      onToast(getErrorMessage(error, "Erro ao excluir"), "danger")
+    }
   }
 
   if (detailUser) {
-    return (
-      <UserDetail
-        user={detailUser}
-        users={users}
-        setUsers={setUsers}
-        onBack={() => setDetailUser(null)}
-        onToast={onToast}
-      />
-    )
+    return <UserDetail user={detailUser} users={users} updateUsers={updateUsers} onBack={() => setDetailUser(null)} onToast={onToast} />
   }
 
   return (
@@ -184,36 +156,37 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => exportUsers(false)}
+            onClick={() => handleExport(false)}
             className="flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted"
           >
             <Download className="h-3.5 w-3.5" /> Exportar CSV
           </button>
-          <button
-            onClick={handleInvite}
-            className="btn-3d flex items-center gap-2 rounded-xl bg-level-purple px-4 py-2 text-sm font-bold text-white"
-          >
+          <button onClick={handleInvite} className="btn-3d flex items-center gap-2 rounded-xl bg-level-purple px-4 py-2 text-sm font-bold text-white">
             <Plus className="h-4 w-4" /> Convidar usuário
           </button>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {(["all", "student", "teacher", "admin"] as const).map((r) => (
-          <button
-            key={r}
-            onClick={() => setRole(r)}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-all whitespace-nowrap",
-              role === r
-                ? r === "admin" ? "bg-destructive text-white shadow-sm" : "bg-level-purple text-white shadow-sm"
-                : r === "admin" ? "bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                                : "bg-muted text-muted-foreground hover:bg-level-purple-subtle hover:text-level-purple",
-            )}
-          >
-            {r === "all" ? `Todos · ${counts.all}` : r === "student" ? `Alunos · ${counts.student}` : r === "teacher" ? `Professores · ${counts.teacher}` : `Admins · ${counts.admin}`}
-          </button>
-        ))}
+        {ROLE_FILTERS.map((filter) => {
+          const isAdminFilter = filter.id === "admin"
+          return (
+            <button
+              key={filter.id}
+              onClick={() => setRoleFilter(filter.id)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-all whitespace-nowrap",
+                roleFilter === filter.id
+                  ? isAdminFilter ? "bg-destructive text-white shadow-sm" : "bg-level-purple text-white shadow-sm"
+                  : isAdminFilter
+                    ? "bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    : "bg-muted text-muted-foreground hover:bg-level-purple-subtle hover:text-level-purple",
+              )}
+            >
+              {filter.label} · {counts[filter.id]}
+            </button>
+          )
+        })}
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-border bg-white">
@@ -221,8 +194,9 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
           <div className="relative min-w-[240px] flex-1">
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
+              aria-label="Buscar usuários"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar por nome, email, username..."
               className="w-full rounded-xl border border-border bg-white py-2 pl-9 pr-3 text-sm focus:border-level-purple focus:outline-none"
             />
@@ -230,44 +204,43 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
           <select
             aria-label="Ordenar usuários"
             value={sort}
-            onChange={(e) => setSort(e.target.value)}
+            onChange={(event) => {
+              if (isOneOf(USER_SORT_IDS, event.target.value)) setSort(event.target.value)
+            }}
             className="rounded-xl border border-border bg-white px-3 py-2 text-sm font-semibold focus:border-level-purple focus:outline-none"
           >
-            <option value="xp-desc">Maior XP</option>
-            <option value="xp-asc">Menor XP</option>
-            <option value="name">Nome (A→Z)</option>
-            <option value="lessons">Mais lições</option>
-            <option value="recent">Mais recentes</option>
+            {USER_SORTS.map((option) => (
+              <option key={option.id} value={option.id}>{option.label}</option>
+            ))}
           </select>
         </div>
 
-        {selected.size > 0 && (
+        {selectedIds.size > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-level-purple-subtle px-4 py-2.5">
             <p className="text-sm font-bold text-level-purple-dark">
-              <span className="rounded-md bg-level-purple px-2 py-0.5 text-xs text-white">{selected.size}</span>{" "}
-              selecionado(s)
+              <span className="rounded-md bg-level-purple px-2 py-0.5 text-xs text-white">{selectedIds.size}</span> selecionado(s)
             </p>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setShowBulkRole(true)}
+                onClick={() => setIsBulkRoleOpen(true)}
                 className="flex items-center gap-1.5 rounded-lg border border-level-purple bg-white px-3 py-1.5 text-xs font-bold text-level-purple hover:bg-level-purple hover:text-white"
               >
                 <Shield className="h-3 w-3" /> Alterar role
               </button>
               <button
-                onClick={() => exportUsers(true)}
+                onClick={() => handleExport(true)}
                 className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-bold text-muted-foreground hover:text-foreground"
               >
                 <Download className="h-3 w-3" /> Exportar
               </button>
               <button
-                onClick={applyBulkSuspend}
-                disabled={bulkBusy}
+                onClick={handleBulkSuspend}
+                disabled={isBulkBusy}
                 className="flex items-center gap-1.5 rounded-lg border border-warning bg-white px-3 py-1.5 text-xs font-bold text-warning hover:bg-warning hover:text-white"
               >
                 <Ban className="h-3 w-3" /> Suspender
               </button>
-              <button onClick={() => setSelected(new Set())} className="ml-2 text-xs font-bold text-muted-foreground hover:text-destructive">
+              <button onClick={clearSelection} className="ml-2 text-xs font-bold text-muted-foreground hover:text-destructive">
                 Cancelar
               </button>
             </div>
@@ -280,10 +253,12 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
               <th className="w-10 px-4 py-2.5">
                 <input
                   type="checkbox"
-                  checked={allSelected}
+                  checked={areAllSelected}
                   aria-label="Selecionar todos"
-                  ref={(el) => { if (el) el.indeterminate = someSelected }}
-                  onChange={toggleAll}
+                  ref={(checkbox) => {
+                    if (checkbox) checkbox.indeterminate = isPartiallySelected
+                  }}
+                  onChange={handleToggleAll}
                   className="h-4 w-4 rounded border-border accent-level-purple"
                 />
               </th>
@@ -297,57 +272,16 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {filtered.map((u) => {
-              const isSel = selected.has(u.id)
-              return (
-                <tr key={u.id} className={cn("transition-colors hover:bg-level-purple-subtle/30", isSel && "bg-level-purple-subtle/20")}>
-                  <td className="px-4 py-3">
-                    <input type="checkbox" aria-label={`Selecionar ${u.full_name}`} checked={isSel} onChange={() => toggleOne(u.id)} className="h-4 w-4 rounded border-border accent-level-purple" />
-                  </td>
-                  <td className="px-2 py-3">
-                    <button onClick={() => setDetailUser(u)} className="flex items-center gap-3 text-left">
-                      <AvatarInitials name={u.full_name} role={u.role} size={36} />
-                      <div className="min-w-0">
-                        <p className="flex items-center gap-1.5 truncate text-sm font-bold text-level-purple-dark">
-                          {u.full_name}
-                          {u.suspended && (
-                            <span className="rounded-full bg-warning/10 px-1.5 py-0.5 text-[10px] font-bold text-warning">suspenso</span>
-                          )}
-                        </p>
-                        <p className="truncate text-[11px] text-muted-foreground">{u.username ? `@${u.username} · ` : ""}{u.email}</p>
-                      </div>
-                    </button>
-                  </td>
-                  <td className="hidden px-2 py-3 md:table-cell"><RoleBadge role={u.role} /></td>
-                  <td className="hidden px-2 py-3 text-right lg:table-cell">
-                    <span className="inline-flex items-center gap-1 text-sm font-bold text-level-purple-dark">
-                      <Trophy className="h-3 w-3 text-warning" /> {u.level}
-                    </span>
-                  </td>
-                  <td className="hidden px-2 py-3 text-right lg:table-cell">
-                    <span className="inline-flex items-center gap-1 text-sm font-bold text-level-purple">
-                      <Zap className="h-3 w-3" /> {formatNumber(u.total_xp)}
-                    </span>
-                  </td>
-                  <td className="hidden px-2 py-3 text-right font-bold text-foreground lg:table-cell">{u.lessons_completed}</td>
-                  <td className="hidden px-2 py-3 xl:table-cell">
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-warning">
-                      <Flame className="h-3 w-3" /> {u.current_streak}
-                    </span>
-                  </td>
-                  <td className="px-2 py-3">
-                    <div className="flex items-center justify-end gap-0.5">
-                      <button onClick={() => setDetailUser(u)} title="Ver perfil" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-level-purple-light hover:text-level-purple transition-colors">
-                        <Eye className="h-3.5 w-3.5" />
-                      </button>
-                      <button onClick={() => setEditUser(u)} title="Editar" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-level-purple-light hover:text-level-purple transition-colors">
-                        <Edit3 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
+            {filtered.map((user) => (
+              <UserRow
+                key={user.id}
+                user={user}
+                isSelected={selectedIds.has(user.id)}
+                onToggleSelected={() => handleToggleOne(user.id)}
+                onOpenDetail={() => setDetailUser(user)}
+                onEdit={() => setEditingUser(user)}
+              />
+            ))}
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={8} className="py-16 text-center">
@@ -362,92 +296,97 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
         {filtered.length > 0 && (
           <div className="flex items-center justify-between border-t border-border bg-muted/20 px-4 py-3 text-xs">
             <p className="text-muted-foreground">
-              Mostrando <b className="text-foreground">{filtered.length}</b> de{" "}
-              <b className="text-foreground">{users.length}</b>
+              Mostrando <b className="text-foreground">{filtered.length}</b> de <b className="text-foreground">{users.length}</b>
             </p>
           </div>
         )}
       </div>
 
-      {showBulkRole && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-level-purple-dark/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-border bg-level-purple-subtle/50 px-6 py-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-level-purple text-white">
-                  <Shield className="h-5 w-5" />
-                </div>
-                <p className="text-base font-extrabold text-level-purple-dark">Alterar papel de {selected.size} usuário(s)</p>
-              </div>
-              <button onClick={() => setShowBulkRole(false)} className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-level-purple-light">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="space-y-2 p-6">
-              <p className="mb-3 text-xs text-muted-foreground">Esta ação é registrada no log de auditoria.</p>
-              {(
-                [
-                  { r: "student" as const, label: "Aluno",          desc: "Acesso às lições publicadas", danger: false },
-                  { r: "teacher" as const, label: "Professor",       desc: "Criar e editar lições",       danger: false },
-                  { r: "admin"   as const, label: "Administrador",   desc: "Acesso total",                danger: true  },
-                ]
-              ).map((o) => (
-                <button
-                  key={o.r}
-                  disabled={bulkBusy}
-                  onClick={() => applyBulkRole(o.r)}
-                  className={cn(
-                    "flex w-full items-center gap-3 rounded-xl border-2 p-3 text-left transition-all",
-                    o.danger ? "border-border hover:border-destructive hover:bg-destructive/5" : "border-border hover:border-level-purple hover:bg-level-purple-subtle",
-                  )}
-                >
-                  <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl", o.danger ? "bg-destructive/10 text-destructive" : "bg-level-purple-light text-level-purple")}>
-                    {o.r === "admin" ? <Shield className="h-4 w-4" /> : o.r === "teacher" ? <BookOpen className="h-4 w-4" /> : <Users className="h-4 w-4" />}
-                  </div>
-                  <div>
-                    <p className="text-sm font-extrabold text-level-purple-dark">{o.label}</p>
-                    <p className="text-[11px] text-muted-foreground">{o.desc}</p>
-                  </div>
-                  <ChevronRight className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+      {isBulkRoleOpen && (
+        <BulkRoleModal
+          selectedCount={selectedIds.size}
+          isBusy={isBulkBusy}
+          onSelectRole={handleBulkRole}
+          onClose={() => setIsBulkRoleOpen(false)}
+        />
       )}
 
-      {editUser && (
+      {editingUser && (
         <UserEditModal
-          user={editUser}
-          isSelf={editUser.id === currentUserId}
-          onClose={() => setEditUser(null)}
-          onSave={async (changes: AdminUpdateUserInput) => {
-            const target = editUser
-            if (!Object.keys(changes).length) {
-              setEditUser(null)
-              return
-            }
-            try {
-              const updated = await updateUserProfile(target.id, changes)
-              setUsers((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
-              setEditUser(null)
-              onToast("Usuário atualizado", "success")
-            } catch (e) {
-              onToast(getErrorMessage(e, "Erro ao salvar"), "danger")
-            }
-          }}
-          onDelete={async (u) => {
-            try {
-              await deleteUser(u.id)
-              setUsers((prev) => prev.filter((x) => x.id !== u.id))
-              setEditUser(null)
-              onToast("Conta excluída", "danger")
-            } catch (e) {
-              onToast(getErrorMessage(e, "Erro ao excluir"), "danger")
-            }
-          }}
+          key={editingUser.id}
+          user={editingUser}
+          isSelf={editingUser.id === currentUserId}
+          onClose={() => setEditingUser(null)}
+          onSave={(changes) => handleSaveUser(editingUser, changes)}
+          onDelete={handleDeleteUser}
         />
       )}
     </div>
+  )
+}
+
+interface UserRowProps {
+  user: Profile
+  isSelected: boolean
+  onToggleSelected: () => void
+  onOpenDetail: () => void
+  onEdit: () => void
+}
+
+function UserRow({ user, isSelected, onToggleSelected, onOpenDetail, onEdit }: UserRowProps) {
+  return (
+    <tr className={cn("transition-colors hover:bg-level-purple-subtle/30", isSelected && "bg-level-purple-subtle/20")}>
+      <td className="px-4 py-3">
+        <input
+          type="checkbox"
+          aria-label={`Selecionar ${user.full_name}`}
+          checked={isSelected}
+          onChange={onToggleSelected}
+          className="h-4 w-4 rounded border-border accent-level-purple"
+        />
+      </td>
+      <td className="px-2 py-3">
+        <button onClick={onOpenDetail} className="flex items-center gap-3 text-left">
+          <UserAvatar name={user.full_name} role={user.role} />
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 truncate text-sm font-bold text-level-purple-dark">
+              {user.full_name}
+              {user.suspended && <span className="rounded-full bg-warning/10 px-1.5 py-0.5 text-[10px] font-bold text-warning">suspenso</span>}
+            </p>
+            <p className="truncate text-[11px] text-muted-foreground">
+              {user.username ? `@${user.username} · ` : ""}
+              {user.email}
+            </p>
+          </div>
+        </button>
+      </td>
+      <td className="hidden px-2 py-3 md:table-cell"><RoleBadge role={user.role} /></td>
+      <td className="hidden px-2 py-3 text-right lg:table-cell">
+        <span className="inline-flex items-center gap-1 text-sm font-bold text-level-purple-dark">
+          <Trophy className="h-3 w-3 text-warning" /> {user.level}
+        </span>
+      </td>
+      <td className="hidden px-2 py-3 text-right lg:table-cell">
+        <span className="inline-flex items-center gap-1 text-sm font-bold text-level-purple">
+          <Zap className="h-3 w-3" /> {formatNumber(user.total_xp)}
+        </span>
+      </td>
+      <td className="hidden px-2 py-3 text-right font-bold text-foreground lg:table-cell">{user.lessons_completed}</td>
+      <td className="hidden px-2 py-3 xl:table-cell">
+        <span className="inline-flex items-center gap-1 text-xs font-bold text-warning">
+          <Flame className="h-3 w-3" /> {user.current_streak}
+        </span>
+      </td>
+      <td className="px-2 py-3">
+        <div className="flex items-center justify-end gap-0.5">
+          <button onClick={onOpenDetail} title="Ver perfil" className={ICON_ACTION_CLASS}>
+            <Eye className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={onEdit} title="Editar" className={ICON_ACTION_CLASS}>
+            <Edit3 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </td>
+    </tr>
   )
 }

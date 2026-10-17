@@ -1,11 +1,15 @@
 import {
+  OUTPUT_MATCH_MODES,
   jsonSchema,
+  pyTypeSchema,
   testCaseSchema,
   type Json,
+  type OutputMatchMode,
   type PyType,
   type SourceRule,
   type TestCase,
 } from "@levelusp/contracts"
+import { isOneOf } from "@/lib/utils/guards"
 
 /**
  * Rascunho editável de um caso de teste.
@@ -21,7 +25,7 @@ import {
 export interface TestCaseDraft {
   /** Chave estável para o React (não vai para a API). */
   key: string
-  kind: TestCase["kind"]
+  kind: TestCaseKind
   id: string
   name: string
   hint: string
@@ -37,16 +41,18 @@ export interface TestCaseDraft {
   // io
   stdin: string
   expectedStdout: string
-  match: "exact" | "trimmed" | "contains" | "regex"
+  match: OutputMatchMode
   // variable
   variable: string
   // source
-  ruleType: SourceRule["type"]
+  ruleType: SourceRuleType
   ruleValue: string
   // legacy
   code: string
 }
 
+export type TestCaseKind = TestCase["kind"]
+export type SourceRuleType = SourceRule["type"]
 export type DraftField = Exclude<keyof TestCaseDraft, "key">
 export type DraftErrors = Partial<Record<DraftField, string>>
 
@@ -63,7 +69,9 @@ export interface CompiledDrafts {
   errorCount: number
 }
 
-export const KIND_LABELS: Record<TestCase["kind"], string> = {
+const MAX_CASES_PER_LESSON = 100
+
+export const KIND_LABELS: Record<TestCaseKind, string> = {
   call: "Chamar função",
   io: "Entrada e saída",
   variable: "Valor de variável",
@@ -71,7 +79,7 @@ export const KIND_LABELS: Record<TestCase["kind"], string> = {
   legacy: "Teste legado (assert/unittest)",
 }
 
-export const KIND_DESCRIPTIONS: Record<TestCase["kind"], string> = {
+export const KIND_DESCRIPTIONS: Record<TestCaseKind, string> = {
   call: "Chama uma função do aluno com argumentos e compara o valor retornado.",
   io: "Roda o main.py com uma entrada (stdin) e compara o que foi impresso.",
   variable: "Roda o main.py e confere o valor final de uma variável global.",
@@ -80,18 +88,26 @@ export const KIND_DESCRIPTIONS: Record<TestCase["kind"], string> = {
 }
 
 /** Tipos oferecidos ao criar um caso novo (legado só aparece em lições importadas). */
-export const CREATABLE_KINDS = ["call", "io", "variable", "source"] as const
+export const CREATABLE_KINDS = ["call", "io", "variable", "source"] as const satisfies readonly TestCaseKind[]
+export const ALL_KINDS = [...CREATABLE_KINDS, "legacy"] as const satisfies readonly TestCaseKind[]
 
-export const PY_TYPES: PyType[] = ["int", "float", "str", "bool", "list", "tuple", "dict", "set", "NoneType"]
+export const PY_TYPES: readonly PyType[] = pyTypeSchema.options
 
-export const MATCH_LABELS: Record<TestCaseDraft["match"], string> = {
+export const MATCH_LABELS: Record<OutputMatchMode, string> = {
   trimmed: "Igual (ignora espaços nas pontas e no fim das linhas)",
   exact: "Exatamente igual",
   contains: "Contém o texto",
   regex: "Expressão regular",
 }
 
-export const RULE_LABELS: Record<SourceRule["type"], string> = {
+/** Ordem do seletor: o modo mais tolerante (e padrão) primeiro. */
+export const MATCH_MODES = ["trimmed", "exact", "contains", "regex"] as const satisfies readonly OutputMatchMode[]
+
+export function isMatchMode(value: string): value is OutputMatchMode {
+  return isOneOf(OUTPUT_MATCH_MODES, value)
+}
+
+export const RULE_LABELS: Record<SourceRuleType, string> = {
   uses: "Deve usar",
   not_uses: "Não pode usar",
   calls: "Deve chamar a função",
@@ -100,6 +116,10 @@ export const RULE_LABELS: Record<SourceRule["type"], string> = {
   defines_class: "Deve definir a classe",
   imports: "Deve importar o módulo",
 }
+
+export const RULE_TYPES = [
+  "uses", "not_uses", "calls", "not_calls", "defines_function", "defines_class", "imports",
+] as const satisfies readonly SourceRuleType[]
 
 export const USES_CONSTRUCTS = [
   "for", "while", "if", "def", "class", "lambda", "list_comprehension", "dict_comprehension",
@@ -124,24 +144,34 @@ export const CONSTRUCT_LABELS: Record<string, string> = {
   recursion: "recursão",
 }
 
-let keySeq = 0
-function newKey(): string {
-  keySeq += 1
-  return `tc-${Date.now().toString(36)}-${keySeq}`
+/** Regras que escolhem uma construção da linguagem (as demais recebem um nome livre). */
+export function isConstructRule(ruleType: SourceRuleType): ruleType is "uses" | "not_uses" {
+  return ruleType === "uses" || ruleType === "not_uses"
+}
+
+/** Construções aceitas por uma regra `uses`/`not_uses`. */
+export function constructsFor(ruleType: "uses" | "not_uses"): readonly string[] {
+  return ruleType === "not_uses" ? NOT_USES_CONSTRUCTS : USES_CONSTRUCTS
+}
+
+let draftKeySequence = 0
+function newDraftKey(): string {
+  draftKeySequence += 1
+  return `tc-${Date.now().toString(36)}-${draftKeySequence}`
 }
 
 /** Próximo id livre no formato `caso-N`. */
 export function nextCaseId(drafts: Pick<TestCaseDraft, "id">[]): string {
-  const taken = new Set(drafts.map((d) => d.id))
-  for (let n = drafts.length + 1; ; n++) {
-    const id = `caso-${n}`
-    if (!taken.has(id)) return id
+  const takenIds = new Set(drafts.map((draft) => draft.id))
+  for (let number = drafts.length + 1; ; number++) {
+    const id = `caso-${number}`
+    if (!takenIds.has(id)) return id
   }
 }
 
-export function emptyDraft(kind: TestCase["kind"], id: string): TestCaseDraft {
+export function emptyDraft(kind: TestCaseKind, id: string): TestCaseDraft {
   return {
-    key: newKey(),
+    key: newDraftKey(),
     kind,
     id,
     name: "",
@@ -163,43 +193,49 @@ export function emptyDraft(kind: TestCase["kind"], id: string): TestCaseDraft {
   }
 }
 
-const pretty = (v: unknown) => JSON.stringify(v)
+const toJsonText = (value: unknown) => JSON.stringify(value)
+
+function ruleValueOf(rule: SourceRule): string {
+  if ("construct" in rule) return rule.construct
+  if ("module" in rule) return rule.module
+  return rule.name
+}
 
 /** Converte um caso salvo (vindo da API) em rascunho editável. */
-export function draftFromCase(c: TestCase): TestCaseDraft {
-  const d = emptyDraft(c.kind, c.id)
-  d.name = c.name ?? ""
-  d.hint = c.hint ?? ""
-  d.reveal = c.reveal ?? false
-  switch (c.kind) {
+export function draftFromCase(testCase: TestCase): TestCaseDraft {
+  const draft = emptyDraft(testCase.kind, testCase.id)
+  draft.name = testCase.name ?? ""
+  draft.hint = testCase.hint ?? ""
+  draft.reveal = testCase.reveal ?? false
+  switch (testCase.kind) {
     case "call":
-      d.fn = c.function
-      d.args = pretty(c.args ?? [])
-      d.kwargs = pretty(c.kwargs ?? {})
-      d.expected = pretty(c.expected)
-      d.pyType = c.type ?? ""
-      d.tolerance = c.tolerance === undefined ? "" : String(c.tolerance)
+      draft.fn = testCase.function
+      draft.args = toJsonText(testCase.args ?? [])
+      draft.kwargs = toJsonText(testCase.kwargs ?? {})
+      draft.expected = toJsonText(testCase.expected)
+      draft.pyType = testCase.type ?? ""
+      draft.tolerance = testCase.tolerance === undefined ? "" : String(testCase.tolerance)
       break
     case "io":
-      d.stdin = c.stdin ?? ""
-      d.expectedStdout = c.expected_stdout
-      d.match = c.match ?? "trimmed"
+      draft.stdin = testCase.stdin ?? ""
+      draft.expectedStdout = testCase.expected_stdout
+      draft.match = testCase.match ?? "trimmed"
       break
     case "variable":
-      d.variable = c.variable
-      d.expected = pretty(c.expected)
-      d.pyType = c.type ?? ""
-      d.tolerance = c.tolerance === undefined ? "" : String(c.tolerance)
+      draft.variable = testCase.variable
+      draft.expected = toJsonText(testCase.expected)
+      draft.pyType = testCase.type ?? ""
+      draft.tolerance = testCase.tolerance === undefined ? "" : String(testCase.tolerance)
       break
     case "source":
-      d.ruleType = c.rule.type
-      d.ruleValue = "construct" in c.rule ? c.rule.construct : "module" in c.rule ? c.rule.module : c.rule.name
+      draft.ruleType = testCase.rule.type
+      draft.ruleValue = ruleValueOf(testCase.rule)
       break
     case "legacy":
-      d.code = c.code
+      draft.code = testCase.code
       break
   }
-  return d
+  return draft
 }
 
 export function draftsFromCases(cases: TestCase[] | null | undefined): TestCaseDraft[] {
@@ -207,57 +243,64 @@ export function draftsFromCases(cases: TestCase[] | null | undefined): TestCaseD
 }
 
 /** Troca o tipo do caso mantendo id/nome/dica e os campos já preenchidos. */
-export function changeDraftKind(d: TestCaseDraft, kind: TestCase["kind"]): TestCaseDraft {
-  if (d.kind === kind) return d
-  const next = { ...d, kind }
-  if (kind === "source") {
-    // valor coerente com o tipo de regra atual
-    const constructs: readonly string[] = next.ruleType === "not_uses" ? NOT_USES_CONSTRUCTS : USES_CONSTRUCTS
-    if ((next.ruleType === "uses" || next.ruleType === "not_uses") && !constructs.includes(next.ruleValue)) {
-      next.ruleValue = constructs[0]
-    }
+export function changeDraftKind(draft: TestCaseDraft, kind: TestCaseKind): TestCaseDraft {
+  if (draft.kind === kind) return draft
+  const next = { ...draft, kind }
+  // Valor coerente com o tipo de regra atual.
+  if (kind === "source" && isConstructRule(next.ruleType)) {
+    const constructs = constructsFor(next.ruleType)
+    if (!constructs.includes(next.ruleValue)) next.ruleValue = constructs[0]
   }
   return next
 }
 
 /** Troca o tipo de regra de AST ajustando o valor padrão. */
-export function changeRuleType(d: TestCaseDraft, ruleType: SourceRule["type"]): TestCaseDraft {
-  let ruleValue = d.ruleValue
-  if (ruleType === "uses" && !(USES_CONSTRUCTS as readonly string[]).includes(ruleValue)) ruleValue = "for"
-  else if (ruleType === "not_uses" && !(NOT_USES_CONSTRUCTS as readonly string[]).includes(ruleValue)) ruleValue = "for"
-  else if ((ruleType !== "uses" && ruleType !== "not_uses") && (d.ruleType === "uses" || d.ruleType === "not_uses")) ruleValue = ""
-  return { ...d, ruleType, ruleValue }
+export function changeRuleType(draft: TestCaseDraft, ruleType: SourceRuleType): TestCaseDraft {
+  let ruleValue = draft.ruleValue
+  if (isConstructRule(ruleType)) {
+    if (!constructsFor(ruleType).includes(ruleValue)) ruleValue = "for"
+  } else if (isConstructRule(draft.ruleType)) {
+    ruleValue = ""
+  }
+  return { ...draft, ruleType, ruleValue }
 }
-
-// ── Validação ────────────────────────────────────────────────────────────────
 
 const PYTHON_LITERAL_HINT = /\b(True|False|None)\b|'/
 
 type JsonParse = { ok: true; value: Json } | { ok: false; error: string }
 
+interface JsonFieldOptions {
+  required?: boolean
+  expect?: "array" | "object"
+}
+
+function emptyJsonValue(expect: JsonFieldOptions["expect"]): Json {
+  if (expect === "array") return []
+  if (expect === "object") return {}
+  return null
+}
+
 /** Lê um valor JSON digitado pelo professor, com mensagem amigável em pt-BR. */
-export function parseJsonField(text: string, opts: { required?: boolean; expect?: "array" | "object" } = {}): JsonParse {
+export function parseJsonField(text: string, { required, expect }: JsonFieldOptions = {}): JsonParse {
   const trimmed = text.trim()
   if (!trimmed) {
-    if (opts.required) return { ok: false, error: "Informe um valor em JSON (ex.: 5, \"texto\", [1, 2], true, null)." }
-    return { ok: true, value: opts.expect === "array" ? [] : opts.expect === "object" ? {} : null }
+    if (required) return { ok: false, error: "Informe um valor em JSON (ex.: 5, \"texto\", [1, 2], true, null)." }
+    return { ok: true, value: emptyJsonValue(expect) }
   }
   let raw: unknown
   try {
     raw = JSON.parse(trimmed)
   } catch {
-    const tip = PYTHON_LITERAL_HINT.test(trimmed)
-      ? " Dica: em JSON use true/false/null (minúsculos) e aspas duplas em textos."
-      : ""
+    const tip = PYTHON_LITERAL_HINT.test(trimmed) ? " Dica: em JSON use true/false/null (minúsculos) e aspas duplas em textos." : ""
     return { ok: false, error: `JSON inválido.${tip}` }
   }
   const checked = jsonSchema.safeParse(raw)
   if (!checked.success) return { ok: false, error: "Valor não suportado: use apenas números, textos, listas, objetos, true/false ou null." }
   const value = checked.data
-  if (opts.expect === "array" && !Array.isArray(value)) {
+  if (expect === "array" && !Array.isArray(value)) {
     return { ok: false, error: "Os argumentos devem ser uma lista JSON, ex.: [2, 3] ou [\"ana\"]." }
   }
-  if (opts.expect === "object" && (value === null || typeof value !== "object" || Array.isArray(value))) {
+  if (expect === "object" && (value === null || typeof value !== "object" || Array.isArray(value))) {
     return { ok: false, error: "Os argumentos nomeados devem ser um objeto JSON, ex.: {\"base\": 2}." }
   }
   return { ok: true, value }
@@ -288,12 +331,12 @@ function fieldForIssue(path: PropertyKey[]): DraftField {
   }
 }
 
-const IDENT_MSG = "Use um nome Python válido (letras, números e _; sem começar por número)."
+const IDENTIFIER_MESSAGE = "Use um nome Python válido (letras, números e _; sem começar por número)."
 
 function friendlyIssue(field: DraftField, fallback: string): string {
   switch (field) {
-    case "fn": return `${IDENT_MSG} Para métodos, use ponto: Classe.metodo.`
-    case "variable": return IDENT_MSG
+    case "fn": return `${IDENTIFIER_MESSAGE} Para métodos, use ponto: Classe.metodo.`
+    case "variable": return IDENTIFIER_MESSAGE
     case "id": return "Identificador obrigatório (até 64 caracteres)."
     case "code": return "Escreva o código do teste."
     case "expectedStdout": return "Informe a saída esperada."
@@ -303,76 +346,77 @@ function friendlyIssue(field: DraftField, fallback: string): string {
   }
 }
 
-/** Converte e valida um rascunho; devolve o caso pronto ou os erros por campo. */
-export function compileDraft(d: TestCaseDraft): CompiledDraft {
-  const errors: DraftErrors = {}
-  const base: Record<string, unknown> = { id: d.id.trim(), kind: d.kind }
-  if (d.name.trim()) base.name = d.name.trim()
-  if (d.hint.trim()) base.hint = d.hint.trim()
-  if (d.reveal) base.reveal = true
+/** Monta a regra de AST no formato do contrato (o nome do campo depende do tipo). */
+function buildSourceRule(ruleType: SourceRuleType, value: string): Record<string, string> {
+  if (isConstructRule(ruleType)) return { type: ruleType, construct: value }
+  if (ruleType === "imports") return { type: ruleType, module: value }
+  return { type: ruleType, name: value }
+}
 
-  const json = (field: "args" | "kwargs" | "expected", opts: Parameters<typeof parseJsonField>[1]) => {
-    const r = parseJsonField(d[field], opts)
-    if (!r.ok) errors[field] = r.error
-    return r.ok ? r.value : undefined
+/** Converte e valida um rascunho; devolve o caso pronto ou os erros por campo. */
+export function compileDraft(draft: TestCaseDraft): CompiledDraft {
+  const errors: DraftErrors = {}
+  // Montado solto e validado por `testCaseSchema` logo abaixo (fonte única das regras).
+  const candidate: Record<string, unknown> = { id: draft.id.trim(), kind: draft.kind }
+  if (draft.name.trim()) candidate.name = draft.name.trim()
+  if (draft.hint.trim()) candidate.hint = draft.hint.trim()
+  if (draft.reveal) candidate.reveal = true
+
+  const readJson = (field: "args" | "kwargs" | "expected", options: JsonFieldOptions) => {
+    const parsed = parseJsonField(draft[field], options)
+    if (!parsed.ok) errors[field] = parsed.error
+    return parsed.ok ? parsed.value : undefined
   }
-  const tolerance = () => {
-    if (!d.tolerance.trim()) return undefined
-    const n = Number(d.tolerance.replace(",", "."))
-    if (!Number.isFinite(n)) {
+  const readTolerance = () => {
+    if (!draft.tolerance.trim()) return undefined
+    const tolerance = Number(draft.tolerance.replace(",", "."))
+    if (!Number.isFinite(tolerance)) {
       errors.tolerance = "Tolerância deve ser um número (ex.: 0.001)."
       return undefined
     }
-    return n
+    return tolerance
   }
 
-  switch (d.kind) {
-    case "call": {
-      base.function = d.fn.trim()
-      base.args = json("args", { expect: "array" })
-      base.kwargs = json("kwargs", { expect: "object" })
-      base.expected = json("expected", { required: true })
-      if (d.pyType) base.type = d.pyType
-      base.tolerance = tolerance()
+  switch (draft.kind) {
+    case "call":
+      candidate.function = draft.fn.trim()
+      candidate.args = readJson("args", { expect: "array" })
+      candidate.kwargs = readJson("kwargs", { expect: "object" })
+      candidate.expected = readJson("expected", { required: true })
+      if (draft.pyType) candidate.type = draft.pyType
+      candidate.tolerance = readTolerance()
       break
-    }
     case "io":
-      base.stdin = d.stdin
-      base.expected_stdout = d.expectedStdout
-      base.match = d.match
-      if (!d.expectedStdout.length) errors.expectedStdout = "Informe a saída esperada."
-      if (d.match === "regex" && d.expectedStdout) {
+      candidate.stdin = draft.stdin
+      candidate.expected_stdout = draft.expectedStdout
+      candidate.match = draft.match
+      if (!draft.expectedStdout.length) errors.expectedStdout = "Informe a saída esperada."
+      if (draft.match === "regex" && draft.expectedStdout) {
         try {
-          new RegExp(d.expectedStdout, "m")
+          new RegExp(draft.expectedStdout, "m")
         } catch {
           errors.expectedStdout = "Expressão regular inválida."
         }
       }
       break
     case "variable":
-      base.variable = d.variable.trim()
-      base.expected = json("expected", { required: true })
-      if (d.pyType) base.type = d.pyType
-      base.tolerance = tolerance()
+      candidate.variable = draft.variable.trim()
+      candidate.expected = readJson("expected", { required: true })
+      if (draft.pyType) candidate.type = draft.pyType
+      candidate.tolerance = readTolerance()
       break
-    case "source": {
-      const v = d.ruleValue.trim()
-      const rule: Record<string, string> = { type: d.ruleType }
-      if (d.ruleType === "uses" || d.ruleType === "not_uses") rule.construct = v
-      else if (d.ruleType === "imports") rule.module = v
-      else rule.name = v
-      base.rule = rule
+    case "source":
+      candidate.rule = buildSourceRule(draft.ruleType, draft.ruleValue.trim())
       break
-    }
     case "legacy":
-      base.code = d.code
+      candidate.code = draft.code
       break
   }
 
-  if (base.tolerance === undefined) delete base.tolerance
+  if (candidate.tolerance === undefined) delete candidate.tolerance
   if (Object.keys(errors).length) return { testCase: null, errors }
 
-  const parsed = testCaseSchema.safeParse(base)
+  const parsed = testCaseSchema.safeParse(candidate)
   if (!parsed.success) {
     for (const issue of parsed.error.issues) {
       const field = fieldForIssue(issue.path)
@@ -387,19 +431,20 @@ export function compileDraft(d: TestCaseDraft): CompiledDraft {
 export function compileDrafts(drafts: TestCaseDraft[]): CompiledDrafts {
   const errors: Record<string, DraftErrors> = {}
   const cases: TestCase[] = []
-  const seen = new Map<string, number>()
-  for (const d of drafts) seen.set(d.id.trim(), (seen.get(d.id.trim()) ?? 0) + 1)
+  const idCounts = new Map<string, number>()
+  for (const draft of drafts) idCounts.set(draft.id.trim(), (idCounts.get(draft.id.trim()) ?? 0) + 1)
 
-  for (const d of drafts) {
-    const { testCase, errors: e } = compileDraft(d)
-    if (!e.id && d.id.trim() && (seen.get(d.id.trim()) ?? 0) > 1) e.id = `Identificador repetido: ${d.id.trim()}`
-    if (Object.keys(e).length) errors[d.key] = e
+  for (const draft of drafts) {
+    const { testCase, errors: draftErrors } = compileDraft(draft)
+    const id = draft.id.trim()
+    if (!draftErrors.id && id && (idCounts.get(id) ?? 0) > 1) draftErrors.id = `Identificador repetido: ${id}`
+    if (Object.keys(draftErrors).length) errors[draft.key] = draftErrors
     else if (testCase) cases.push(testCase)
   }
-  if (drafts.length > 100) {
-    const last = drafts[drafts.length - 1]
-    errors[last.key] = { ...errors[last.key], id: "Limite de 100 casos por lição." }
+  if (drafts.length > MAX_CASES_PER_LESSON) {
+    const lastDraft = drafts[drafts.length - 1]
+    errors[lastDraft.key] = { ...errors[lastDraft.key], id: "Limite de 100 casos por lição." }
   }
-  const errorCount = Object.values(errors).reduce((n, e) => n + Object.keys(e).length, 0)
+  const errorCount = Object.values(errors).reduce((total, draftErrors) => total + Object.keys(draftErrors).length, 0)
   return { cases, errors, valid: errorCount === 0, errorCount }
 }

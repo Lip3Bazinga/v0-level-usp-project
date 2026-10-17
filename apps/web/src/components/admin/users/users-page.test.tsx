@@ -4,7 +4,8 @@ import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { Profile } from "@levelusp/contracts"
 import { ApiError, setUserSuspended, updateUserProfile, updateUserRole } from "@/lib/api"
-import { UsersPageEnhanced } from "./users-page"
+import type { OnToast } from "@/lib/types"
+import { UsersPage } from "./users-page"
 
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
@@ -15,12 +16,12 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   inviteUser: vi.fn(),
 }))
 
-function profile(over: Partial<Profile>): Profile {
+function profile(overrides: Partial<Profile>): Profile {
   return {
     id: "u", email: "u@usp.br", full_name: "Usuário", username: "usuario", avatar_url: null, bio: null, role: "student",
     level: 1, total_xp: 0, current_streak: 0, max_streak: 0, courses_completed: 0, lessons_completed: 0,
     last_login_date: null, suspended: false, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z",
-    ...over,
+    ...overrides,
   }
 }
 
@@ -28,14 +29,14 @@ const ANA = profile({ id: "ana", full_name: "Ana Souza", email: "ana@usp.br", us
 const BETO = profile({ id: "beto", full_name: "Beto Lima", email: "beto@usp.br", username: "beto", total_xp: 300 })
 const ADMIN = profile({ id: "adm", full_name: "Admin Root", email: "adm@usp.br", username: "adm", role: "admin", total_xp: 10 })
 
-function Harness({ onToast }: { onToast: (msg: string, kind?: string) => void }) {
+function Harness({ onToast }: { onToast: OnToast }) {
   const [users, setUsers] = useState<Profile[]>([ANA, BETO, ADMIN])
-  return <UsersPageEnhanced users={users} setUsers={setUsers} onToast={onToast} currentUserId="adm" />
+  return <UsersPage users={users} updateUsers={setUsers} onToast={onToast} currentUserId="adm" />
 }
 
 const rowOf = (name: string) => screen.getByText(name).closest("tr")!
 
-describe("UsersPageEnhanced (admin)", () => {
+describe("UsersPage (admin)", () => {
   beforeEach(() => vi.clearAllMocks())
 
   it("lista os usuários com papel e filtra pela busca", async () => {
@@ -55,7 +56,7 @@ describe("UsersPageEnhanced (admin)", () => {
   it("altera o papel em massa com updateUserRole e usa o perfil devolvido pela API", async () => {
     const user = userEvent.setup()
     const onToast = vi.fn()
-    vi.mocked(updateUserRole).mockImplementation(async (id, role) => ({ ...[ANA, BETO].find((u) => u.id === id)!, role }))
+    vi.mocked(updateUserRole).mockImplementation(async (id, role) => ({ ...(id === ANA.id ? ANA : BETO), role }))
     render(<Harness onToast={onToast} />)
 
     await user.click(screen.getByLabelText("Selecionar Ana Souza"))
