@@ -1,47 +1,75 @@
 "use client"
 
-import { useRef, useState } from "react"
-import Link from "next/link"
+import { useState, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
-import { passwordSchema } from "@levelusp/contracts"
-import { LevelButton } from "@/components/design-system/level-button"
+import { CheckCircle2, Lock, Mail, User } from "lucide-react"
 import { OAuthButtons } from "@/components/auth/oauth-buttons"
+import {
+  AuthField,
+  AuthSubmitButton,
+  FormErrorAlert,
+  PasswordField,
+} from "@/components/design-system/auth-form"
+import {
+  AuthBrandPanel,
+  AuthDivider,
+  AuthFooterPrompt,
+  AuthHeading,
+  AuthSplitLayout,
+} from "@/components/design-system/auth-layout"
 import { useAuth } from "@/contexts/auth-context"
-import { Rocket, Mail, Lock, Eye, EyeOff, User, AlertCircle, CheckCircle2 } from "lucide-react"
+import { useSubmitLock } from "@/hooks/use-submit-lock"
 import { ROUTES } from "@/lib/constants"
+import { PASSWORD_MIN_LENGTH, getPasswordPolicyError } from "@/lib/utils/password"
+
+const SIGNUP_BENEFITS = [
+  "Aprenda Python do zero ao avançado",
+  "Ganhe XP e suba de nível",
+  "IDE completa no navegador",
+  "Certificados reconhecidos pela USP",
+] as const
+
+function SignupBrandPanel() {
+  return (
+    <AuthBrandPanel description="Comece sua jornada na programação hoje. 100% gratuito, 100% gamificado.">
+      <div className="mt-12 space-y-4 text-left">
+        {SIGNUP_BENEFITS.map((benefit) => (
+          <div key={benefit} className="flex items-center gap-3">
+            <CheckCircle2 className="h-5 w-5 text-green-300 shrink-0" />
+            <span className="text-purple-100">{benefit}</span>
+          </div>
+        ))}
+      </div>
+    </AuthBrandPanel>
+  )
+}
 
 export default function SignupPage() {
   const router = useRouter()
   const { signUp } = useAuth()
+  const submitLock = useSubmitLock()
 
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
-  // Trava síncrona contra duplo clique (o estado `loading` só desabilita no próximo render).
-  const submittingRef = useRef(false)
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
+  const [errorMessage, setErrorMessage] = useState("")
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setErrorMessage("")
 
-    // Mesma política de senha da API (schema compartilhado em @levelusp/contracts).
-    const check = passwordSchema.safeParse(password)
-    if (!check.success) {
-      setError(check.error.issues[0]?.message ?? "Senha inválida.")
+    const passwordError = getPasswordPolicyError(password)
+    if (passwordError) {
+      setErrorMessage(passwordError)
       return
     }
 
-    if (submittingRef.current) return
-    submittingRef.current = true
-    setLoading(true)
+    if (!submitLock.acquire()) return
     const result = await signUp({ email: email.trim(), password, full_name: fullName.trim() })
     if (!result.ok) {
-      setError(result.error)
-      setLoading(false)
-      submittingRef.current = false
+      setErrorMessage(result.error)
+      submitLock.release()
       return
     }
 
@@ -51,163 +79,67 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="flex min-h-screen">
-      {/* Left side — Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-linear-to-br from-level-purple to-level-purple-dark items-center justify-center p-12">
-        <div className="max-w-md text-center">
-          <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 backdrop-blur">
-            <Rocket className="h-10 w-10 text-white" />
-          </div>
-          <h1 className="text-4xl font-bold text-white mb-4"><Link href={ROUTES.home} className="hover:underline">LevelUSP</Link></h1>
-          <p className="text-lg text-purple-200 leading-relaxed">
-            Comece sua jornada na programação hoje. 100% gratuito, 100% gamificado.
-          </p>
-          <div className="mt-12 space-y-4 text-left">
-            {[
-              "Aprenda Python do zero ao avançado",
-              "Ganhe XP e suba de nível",
-              "IDE completa no navegador",
-              "Certificados reconhecidos pela USP",
-            ].map((item) => (
-              <div key={item} className="flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-300 shrink-0" />
-                <span className="text-purple-100">{item}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+    <AuthSplitLayout brandPanel={<SignupBrandPanel />}>
+      <AuthHeading
+        as="h2"
+        title="Crie sua conta"
+        description="Comece a aprender programação gratuitamente"
+      />
+      <OAuthButtons mode="signup" />
+      <AuthDivider label="ou cadastre com email" />
 
-      {/* Right side — Signup Form */}
-      <div className="flex w-full lg:w-1/2 items-center justify-center p-8">
-        <div className="w-full max-w-md">
-          {/* Mobile logo */}
-          <Link href={ROUTES.home} aria-label="LevelUSP — página inicial" className="lg:hidden flex items-center justify-center gap-3 mb-8">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-level-purple">
-              <Rocket className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-2xl font-bold text-level-purple-dark">LevelUSP</span>
-          </Link>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {errorMessage && <FormErrorAlert message={errorMessage} />}
 
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-level-purple-dark">Crie sua conta</h2>
-            <p className="mt-2 text-muted-foreground">
-              Comece a aprender programação gratuitamente
-            </p>
-          </div>
+        <AuthField
+          id="signup-name"
+          label="Nome completo"
+          icon={User}
+          type="text"
+          autoComplete="name"
+          value={fullName}
+          onValueChange={setFullName}
+          placeholder="Seu nome completo"
+          required
+        />
 
-          {/* Cadastro social: ainda não disponível na API nova */}
-          <OAuthButtons mode="signup" />
+        <AuthField
+          id="signup-email"
+          label="Email"
+          icon={Mail}
+          type="email"
+          autoComplete="email"
+          value={email}
+          onValueChange={setEmail}
+          placeholder="seu@email.com"
+          required
+        />
 
-          {/* Divider */}
-          <div className="relative mb-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="bg-background px-4 text-muted-foreground">ou cadastre com email</span>
-            </div>
-          </div>
+        <PasswordField
+          id="signup-password"
+          label="Senha"
+          icon={Lock}
+          hint="Mínimo de 10 caracteres, com pelo menos uma letra e um número."
+          value={password}
+          onValueChange={setPassword}
+          placeholder="Mínimo 10 caracteres, com letra e número"
+          autoComplete="new-password"
+          required
+          minLength={PASSWORD_MIN_LENGTH}
+          isVisible={isPasswordVisible}
+          onToggleVisibility={() => setIsPasswordVisible((isVisible) => !isVisible)}
+        />
 
-          {/* Signup Form */}
-          <form onSubmit={handleSignup} className="space-y-4">
-            {error && (
-              <div role="alert" className="flex items-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-red-700">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                {error}
-              </div>
-            )}
+        <AuthSubmitButton
+          isSubmitting={submitLock.isSubmitting}
+          submittingLabel="Criando conta..."
+          hasSpinner
+        >
+          Criar Conta Gratuita
+        </AuthSubmitButton>
+      </form>
 
-            <div className="space-y-2">
-              <label htmlFor="signup-name" className="text-sm font-medium text-level-purple-dark">Nome completo</label>
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  id="signup-name"
-                  type="text"
-                  autoComplete="name"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Seu nome completo"
-                  required
-                  className="w-full rounded-xl border-2 border-border bg-white pl-11 pr-4 py-3 text-foreground placeholder:text-muted-foreground focus:border-level-purple focus:outline-none transition-colors"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="signup-email" className="text-sm font-medium text-level-purple-dark">Email</label>
-              <div className="relative">
-                <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  id="signup-email"
-                  type="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="seu@email.com"
-                  required
-                  className="w-full rounded-xl border-2 border-border bg-white pl-11 pr-4 py-3 text-foreground placeholder:text-muted-foreground focus:border-level-purple focus:outline-none transition-colors"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="signup-password" className="text-sm font-medium text-level-purple-dark">Senha</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  id="signup-password"
-                  aria-describedby="signup-password-hint"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Mínimo 10 caracteres, com letra e número"
-                  autoComplete="new-password"
-                  required
-                  minLength={10}
-                  className="w-full rounded-xl border-2 border-border bg-white pl-11 pr-12 py-3 text-foreground placeholder:text-muted-foreground focus:border-level-purple focus:outline-none transition-colors"
-                />
-                <button
-                  type="button"
-                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                  aria-pressed={showPassword}
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              <p id="signup-password-hint" className="text-xs text-muted-foreground">
-                Mínimo de 10 caracteres, com pelo menos uma letra e um número.
-              </p>
-            </div>
-
-            <LevelButton
-              variant="primary"
-              size="lg"
-              disabled={loading}
-              className="w-full"
-            >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  Criando conta...
-                </span>
-              ) : (
-                "Criar Conta Gratuita"
-              )}
-            </LevelButton>
-          </form>
-
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            Já tem uma conta?{" "}
-            <Link href={ROUTES.login} className="font-semibold text-level-purple hover:text-level-purple-dark transition-colors">
-              Fazer login
-            </Link>
-          </p>
-        </div>
-      </div>
-    </main>
+      <AuthFooterPrompt prompt="Já tem uma conta?" href={ROUTES.login} linkLabel="Fazer login" />
+    </AuthSplitLayout>
   )
 }

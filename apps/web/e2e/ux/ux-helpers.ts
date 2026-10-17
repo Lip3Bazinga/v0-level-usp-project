@@ -1,7 +1,15 @@
 import AxeBuilder from "@axe-core/playwright"
 import { expect, type Page } from "@playwright/test"
-import type { Course, LessonSummary } from "@levelusp/contracts"
-import { ADMIN, STUDENT, TEACHER, apiPost, type Credentials } from "../helpers"
+import { ROUTES } from "@/lib/constants"
+import {
+  ADMIN,
+  STUDENT,
+  TEACHER,
+  apiPost,
+  fetchFirstCourseId,
+  fetchLessonId,
+  type Credentials,
+} from "../helpers"
 
 /** Perfis percorridos pelos testes de UX; o valor aparece no título de cada teste. */
 export type Persona = "visitante" | "aluna" | "professora" | "admin"
@@ -11,8 +19,6 @@ const CREDENTIALS: Record<Exclude<Persona, "visitante">, Credentials> = {
   professora: TEACHER,
   admin: ADMIN,
 }
-
-const DEFAULT_LESSON_SLUG = "python-completo-02"
 
 /** Pausa para as animações de entrada terminarem antes de medir a tela. */
 const SETTLE_DELAY_MS = 600
@@ -24,17 +30,15 @@ export async function signInAs(page: Page, persona: Persona) {
   expect(response.ok(), `login de ${persona}`).toBeTruthy()
 }
 
-export async function fetchFirstCourseId(page: Page): Promise<string> {
-  const courses: Course[] = await (await page.request.get("/api/courses")).json()
-  return courses[0].id
+/** Rota fixa ou montada com ids do seed, consultados na API na hora do teste. */
+export type ScreenRoute = string | ((page: Page) => Promise<string>)
+
+export async function resolveScreenRoute(page: Page, route: ScreenRoute): Promise<string> {
+  return typeof route === "string" ? route : route(page)
 }
 
-export async function fetchLessonId(page: Page, slug = DEFAULT_LESSON_SLUG): Promise<string> {
-  const lessons: LessonSummary[] = await (await page.request.get("/api/lessons/summaries")).json()
-  const lesson = lessons.find((summary) => summary.slug === slug)
-  expect(lesson, `lição ${slug} do seed de homologação`).toBeTruthy()
-  return lesson?.id ?? ""
-}
+export const courseRoute = async (page: Page) => ROUTES.course(await fetchFirstCourseId(page))
+export const lessonRoute = async (page: Page) => ROUTES.lesson(await fetchLessonId(page))
 
 /** Espera a tela "assentar" (dados carregados, animações de entrada concluídas). */
 export async function waitForPageToSettle(page: Page) {
@@ -84,5 +88,7 @@ export async function findAxeViolations(page: Page, rules: string[]): Promise<st
 
 /** Largura do documento além da viewport: rolagem horizontal indesejada. */
 export async function measureHorizontalOverflow(page: Page): Promise<number> {
-  return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  return page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  )
 }

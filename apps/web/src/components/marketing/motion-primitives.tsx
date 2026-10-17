@@ -1,29 +1,51 @@
 "use client"
 
-import { motion, useInView, type Variants, type MotionProps } from "framer-motion"
+import { motion, useInView, type MotionProps, type Variants } from "framer-motion"
 import { useRef, type ReactNode } from "react"
 
-/* Shared easing curve for a smooth, premium feel */
-const EASE = [0.22, 1, 0.36, 1] as const
+/** Curva de desaceleração única das animações do site público. */
+export const EASE = [0.22, 1, 0.36, 1] as const
+
+const REVEAL_OFFSET_Y_PX = 28
+/** Começa a revelar um pouco antes de o bloco entrar inteiro na tela. */
+const REVEAL_VIEWPORT_MARGIN = "-80px"
+
+interface EntranceMotionOptions {
+  offsetY: number
+  durationSeconds?: number
+  delaySeconds?: number
+}
+
+/** Entrada ao montar (sobe e aparece), usada nos cabeçalhos das páginas. */
+export function entranceMotion({
+  offsetY,
+  durationSeconds = 0.8,
+  delaySeconds = 0,
+}: EntranceMotionOptions): MotionProps {
+  return {
+    initial: { opacity: 0, y: offsetY },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: durationSeconds, ease: EASE, delay: delaySeconds },
+  }
+}
 
 interface RevealProps {
   children: ReactNode
   className?: string
   delay?: number
-  y?: number
-  once?: boolean
 }
 
-/** Fade + rise into view when scrolled into the viewport. */
-export function Reveal({ children, className, delay = 0, y = 28, once = true }: RevealProps) {
-  const ref = useRef(null)
-  const inView = useInView(ref, { once, margin: "-80px" })
+/** Sobe e aparece quando o bloco entra na área visível (uma vez só). */
+export function Reveal({ children, className, delay = 0 }: RevealProps) {
+  const ref = useRef<HTMLDivElement>(null)
+  const isInView = useInView(ref, { once: true, margin: REVEAL_VIEWPORT_MARGIN })
+  const hidden = { opacity: 0, y: REVEAL_OFFSET_Y_PX }
 
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y }}
-      animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y }}
+      initial={hidden}
+      animate={isInView ? { opacity: 1, y: 0 } : hidden}
       transition={{ duration: 0.7, ease: EASE, delay }}
       className={className}
     >
@@ -32,14 +54,14 @@ export function Reveal({ children, className, delay = 0, y = 28, once = true }: 
   )
 }
 
-/* Stagger container + item for lists/grids */
-export const staggerContainer: Variants = {
+const staggerContainer: Variants = {
   hidden: {},
   show: {
     transition: { staggerChildren: 0.12, delayChildren: 0.1 },
   },
 }
 
+/** Variantes de um item de `<Stagger>` para quando o item precisa ser outro elemento `motion` (ex.: `motion.a`). */
 export const staggerItem: Variants = {
   hidden: { opacity: 0, y: 24 },
   show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: EASE } },
@@ -48,10 +70,11 @@ export const staggerItem: Variants = {
 interface StaggerProps {
   children: ReactNode
   className?: string
+  /** Fração do contêiner visível para disparar a animação. */
   amount?: number
 }
 
-/** Wrap a grid/list to stagger its direct `motion` children on scroll. */
+/** Grade ou lista cujos filhos `motion` diretos aparecem em sequência ao rolar. */
 export function Stagger({ children, className, amount = 0.2 }: StaggerProps) {
   return (
     <motion.div
@@ -66,16 +89,14 @@ export function Stagger({ children, className, amount = 0.2 }: StaggerProps) {
   )
 }
 
-/** A single staggered item — use as a direct child of <Stagger>. */
-export function StaggerItem({
-  children,
-  className,
-  whileHover,
-}: {
+interface StaggerItemProps {
   children: ReactNode
   className?: string
   whileHover?: MotionProps["whileHover"]
-}) {
+}
+
+/** Item de `<Stagger>`; precisa ser filho direto dele. */
+export function StaggerItem({ children, className, whileHover }: StaggerItemProps) {
   return (
     <motion.div variants={staggerItem} whileHover={whileHover} className={className}>
       {children}
@@ -83,12 +104,18 @@ export function StaggerItem({
   )
 }
 
-/** Animated horizontal bar that grows to `pct`% when scrolled into view. */
-export function GrowBar({ pct, delay = 0, className }: { pct: number; delay?: number; className?: string }) {
+interface GrowBarProps {
+  percent: number
+  delay?: number
+  className?: string
+}
+
+/** Barra horizontal que cresce até `percent`% ao entrar na tela. */
+export function GrowBar({ percent, delay = 0, className }: GrowBarProps) {
   return (
     <motion.div
       initial={{ width: 0 }}
-      whileInView={{ width: `${pct}%` }}
+      whileInView={{ width: `${percent}%` }}
       viewport={{ once: true }}
       transition={{ duration: 1, delay, ease: EASE }}
       className={className}
@@ -96,4 +123,4 @@ export function GrowBar({ pct, delay = 0, className }: { pct: number; delay?: nu
   )
 }
 
-export { motion, EASE }
+export { motion }

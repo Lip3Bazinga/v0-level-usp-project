@@ -1,9 +1,11 @@
 import type { Metadata } from "next"
-import { Mail, MapPin, MessageSquare, Github, Clock, HelpCircle } from "lucide-react"
+import type { ReactNode } from "react"
 import Link from "next/link"
-import { PageHero } from "@/components/marketing/page-hero"
+import { HelpCircle, MessageSquare } from "lucide-react"
 import { ContactForm } from "@/components/marketing/contact-form"
+import { CONTACT_CHANNELS } from "@/components/marketing/content/contact"
 import { Reveal } from "@/components/marketing/motion-primitives"
+import { PageHero } from "@/components/marketing/page-hero"
 import { ROUTES } from "@/lib/constants"
 
 export const metadata: Metadata = {
@@ -12,32 +14,56 @@ export const metadata: Metadata = {
     "Entre em contato com a equipe do LevelUSP. Tire dúvidas, proponha parcerias, seja voluntário ou fale com o suporte ao aluno.",
 }
 
-const CHANNELS = [
-  {
-    icon: Mail,
-    title: "E-mail",
-    value: "contato@levelusp.org.br",
-    href: "mailto:contato@levelusp.org.br",
-  },
-  {
-    icon: Github,
-    title: "GitHub",
-    value: "github.com/levelusp",
-    href: "https://github.com",
-  },
-  {
-    icon: MapPin,
-    title: "Localização",
-    value: "Cidade Universitária — São Paulo, SP",
-  },
-  {
-    icon: Clock,
-    title: "Atendimento",
-    value: "Seg. a sex., das 9h às 18h",
-  },
-]
+type ContactChannel = (typeof CONTACT_CHANNELS)[number]
 
-export default function ContatoPage() {
+function ChannelLink({ href, children }: { href: string; children: ReactNode }) {
+  const isExternal = href.startsWith("http")
+  return (
+    <a
+      href={href}
+      target={isExternal ? "_blank" : undefined}
+      rel={isExternal ? "noopener noreferrer" : undefined}
+      className="block"
+    >
+      {children}
+    </a>
+  )
+}
+
+function ChannelCard({ channel }: { channel: ContactChannel }) {
+  const card = (
+    <div className="flex items-start gap-4 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-level-purple-light">
+        <channel.icon className="h-6 w-6 text-level-purple" />
+      </div>
+      <div>
+        <h3 className="text-sm font-semibold text-level-purple-dark">{channel.title}</h3>
+        <p className="mt-1 text-sm text-gray-600">{channel.value}</p>
+      </div>
+    </div>
+  )
+  return channel.href ? <ChannelLink href={channel.href}>{card}</ChannelLink> : <div>{card}</div>
+}
+
+function FaqReminder() {
+  return (
+    <div className="rounded-2xl bg-level-purple-dark p-6">
+      <HelpCircle className="h-7 w-7 text-level-purple-medium" />
+      <h3 className="mt-3 font-semibold text-white">Antes de escrever</h3>
+      <p className="mt-2 text-sm leading-relaxed text-purple-100">
+        Muitas dúvidas já estão respondidas na nossa página de perguntas frequentes.
+      </p>
+      <Link
+        href={ROUTES.site.faq}
+        className="mt-4 inline-block text-sm font-semibold text-white underline-offset-4 hover:underline"
+      >
+        Ver perguntas frequentes →
+      </Link>
+    </div>
+  )
+}
+
+export default function ContactPage() {
   return (
     <>
       <PageHero
@@ -54,54 +80,16 @@ export default function ContatoPage() {
       <section className="pb-24">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-10 lg:grid-cols-5">
-            {/* Form */}
             <Reveal className="lg:col-span-3">
               <ContactForm />
             </Reveal>
 
-            {/* Channels */}
             <Reveal delay={0.1} className="lg:col-span-2">
               <div className="space-y-4">
-                {CHANNELS.map((c) => {
-                  const content = (
-                    <div className="flex items-start gap-4 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#F3E8FF]">
-                        <c.icon className="h-6 w-6 text-[#7C3AED]" />
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-semibold text-[#4C1D95]">{c.title}</h3>
-                        <p className="mt-1 text-sm text-gray-600">{c.value}</p>
-                      </div>
-                    </div>
-                  )
-                  return c.href ? (
-                    <a
-                      key={c.title}
-                      href={c.href}
-                      target={c.href.startsWith("http") ? "_blank" : undefined}
-                      rel={c.href.startsWith("http") ? "noopener noreferrer" : undefined}
-                      className="block"
-                    >
-                      {content}
-                    </a>
-                  ) : (
-                    <div key={c.title}>{content}</div>
-                  )
-                })}
-
-                <div className="rounded-2xl bg-[#4C1D95] p-6">
-                  <HelpCircle className="h-7 w-7 text-[#A78BFA]" />
-                  <h3 className="mt-3 font-semibold text-white">Antes de escrever</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-purple-100">
-                    Muitas dúvidas já estão respondidas na nossa página de perguntas frequentes.
-                  </p>
-                  <Link
-                    href={ROUTES.site.faq}
-                    className="mt-4 inline-block text-sm font-semibold text-white underline-offset-4 hover:underline"
-                  >
-                    Ver perguntas frequentes →
-                  </Link>
-                </div>
+                {CONTACT_CHANNELS.map((channel) => (
+                  <ChannelCard key={channel.title} channel={channel} />
+                ))}
+                <FaqReminder />
               </div>
             </Reveal>
           </div>
