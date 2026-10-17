@@ -39,7 +39,8 @@ legacy/        Código antigo (Supabase, avaliador Python da Vercel). Só refer�
 - Rotas sob o prefixo global `/api`. Recursos do usuário logado em `/me/...`; administração em `/admin/...`.
 - Registrar o módulo em `src/modules/index.ts`.
 - Auditoria de ações administrativas: `AuditService.log(user, acao, alvo, meta, severidade)`.
-- Limite por usuário: `RateLimitService.consume(chave, limite, janelaMs)`.
+- Limite por usuário: `RateLimitService.consume(RATE_LIMITS.<política>, sujeito)` (políticas em `common/rate-limit/rate-limit.policies.ts`).
+- Padrões de código (nomes, tipos, SOLID): `docs/v2/padroes-de-codigo.md`.
 - Testes: unitários `vitest --project unit` (domínio/serviços); e2e `vitest --project e2e`
   com PostgreSQL real (`test/e2e/harness.ts`: `createTestApp`, `signUp`, `agent`, `FakeRunner`).
 
