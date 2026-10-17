@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common"
 import { DEFAULT_ENTRY_FILE, DEFAULT_RUNNER_LIMITS, testCasesSchema, type GradeResult, type ProjectFile, type TestCase } from "@levelusp/contracts"
 import { Unprocessable } from "@/common/errors/app-error"
-import { SECOND_MS } from "@/common/time/time"
+import { MS_PER_SECOND } from "@/common/time/time"
 import { CODE_RUNNER, type CodeRunner } from "@/infra/runner/code-runner"
 import { buildProbes, grade } from "./grading.domain"
 
@@ -29,7 +29,7 @@ export class GradingService {
     const parsed = testCasesSchema.safeParse(rawCases)
     if (!parsed.success) throw Unprocessable("O gabarito desta lição está inválido. Avise o professor.", "INVALID_TESTS")
     const cases = parsed.data
-    const timeoutMs = Math.min(Math.max(timeoutSeconds, MIN_TIMEOUT_SECONDS), MAX_TIMEOUT_SECONDS) * SECOND_MS
+    const timeoutMs = Math.min(Math.max(timeoutSeconds, MIN_TIMEOUT_SECONDS), MAX_TIMEOUT_SECONDS) * MS_PER_SECOND
     const result = await this.runner.run({
       files,
       entry: DEFAULT_ENTRY_FILE,

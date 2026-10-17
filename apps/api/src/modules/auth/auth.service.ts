@@ -5,7 +5,7 @@ import { ENV } from "@/config/config.module"
 import type { Env } from "@/config/env"
 import { AppError, BadRequest, Conflict, Forbidden, Unauthorized } from "@/common/errors/app-error"
 import type { AuthUser } from "@/common/http/request"
-import { DAY_MS, HOUR_MS, isoAfter, MINUTE_MS } from "@/common/time/time"
+import { MS_PER_DAY, MS_PER_HOUR, isoAfter, MS_PER_MINUTE } from "@/common/time/time"
 import { MailService } from "@/infra/mail/mail.service"
 import { GamificationService } from "../gamification/gamification.service"
 import { toProfile } from "../users/profile.mapper"
@@ -20,7 +20,7 @@ const RESET_TTL_MINUTES = 60
 /** Convites valem mais que um pedido de redefinição comum. */
 const INVITE_TTL_HOURS = 72
 /** Renova a validade da sessão no máximo a cada 5 min (evita escrita por requisição). */
-const SESSION_TOUCH_INTERVAL_MS = 5 * MINUTE_MS
+const SESSION_TOUCH_INTERVAL_MS = 5 * MS_PER_MINUTE
 /** Tokens válidos têm 43 caracteres; algo muito maior nem é consultado. */
 const MAX_SESSION_TOKEN_LENGTH = 100
 const MAX_USER_AGENT_LENGTH = 300
@@ -115,7 +115,7 @@ export class AuthService {
   async requestPasswordReset(email: string): Promise<void> {
     const user = await this.repo.findUserByEmail(email)
     if (!user) return
-    const link = await this.createPasswordLink(user.id, RESET_TTL_MINUTES * MINUTE_MS)
+    const link = await this.createPasswordLink(user.id, RESET_TTL_MINUTES * MS_PER_MINUTE)
     // Envio fora da requisição: o tempo de resposta não revela se a conta existe
     // e uma falha de SMTP não vira erro 500 para quem pediu.
     void this.mail
@@ -155,7 +155,7 @@ export class AuthService {
       fullName: fullName?.trim() || displayNameFromEmail(email),
       username: await this.uniqueUsername(email),
     })
-    const link = await this.createPasswordLink(user.id, INVITE_TTL_HOURS * HOUR_MS)
+    const link = await this.createPasswordLink(user.id, INVITE_TTL_HOURS * MS_PER_HOUR)
     await this.mail.send({
       to: user.email,
       subject: "LevelUSP — você foi convidado(a)",
@@ -195,7 +195,7 @@ export class AuthService {
   }
 
   private sessionExpiry(): Date {
-    return new Date(Date.now() + this.env.SESSION_TTL_DAYS * DAY_MS)
+    return new Date(Date.now() + this.env.SESSION_TTL_DAYS * MS_PER_DAY)
   }
 
   private async issueSession(userId: string, client: ClientInfo): Promise<IssuedSession> {

@@ -3,7 +3,7 @@ import type { ActivityDay, Badge, Profile, PublicProfile, UpdateMyProfileInput, 
 import type { ProfileInsert } from "@levelusp/db"
 import { Conflict, NotFound } from "@/common/errors/app-error"
 import { buildPatch, type PatchMapping } from "@/common/mapping/patch"
-import { DAY_MS, saoPauloDate } from "@/common/time/time"
+import { MS_PER_DAY, saoPauloDate } from "@/common/time/time"
 import { StorageService } from "@/infra/storage/storage.service"
 import { toBadge, toUserBadge } from "../gamification/badge.mapper"
 import { toProfile, toPublicProfile } from "./profile.mapper"
@@ -54,11 +54,11 @@ export class UsersService {
 
   /** Um ano, do mais antigo ao mais recente, sem buracos. */
   async listActivity(userId: string, now = new Date()): Promise<ActivityDay[]> {
-    const since = new Date(now.getTime() - ACTIVITY_DAYS * DAY_MS)
+    const since = new Date(now.getTime() - ACTIVITY_DAYS * MS_PER_DAY)
     const activityByDay = new Map((await this.repo.listActivity(userId, since)).map((day) => [day.day, day]))
     const days: ActivityDay[] = []
     for (let daysAgo = ACTIVITY_DAYS - 1; daysAgo >= 0; daysAgo--) {
-      const date = saoPauloDate(new Date(now.getTime() - daysAgo * DAY_MS))
+      const date = saoPauloDate(new Date(now.getTime() - daysAgo * MS_PER_DAY))
       const activity = activityByDay.get(date)
       days.push({ date, xp: activity?.xp ?? 0, activities: activity?.completions ?? 0 })
     }

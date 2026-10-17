@@ -1,5 +1,6 @@
 import type { CertificateIssue, CertificateVerification, MyCertificate } from "@levelusp/contracts"
 import { toIsoTimestamp } from "@/common/time/time"
+import type { CertificateProjectStatus } from "@levelusp/db"
 
 export interface CertificateSummaryRow {
   verificationCode: string
@@ -15,7 +16,7 @@ export interface PublicCertificateRow {
   courseTitle: string
   issuedAt: string
   examScore: number | null
-  projectStatus: "passed" | "waived"
+  projectStatus: CertificateProjectStatus
 }
 
 export function toMyCertificate(certificate: CertificateSummaryRow): MyCertificate {

@@ -81,7 +81,7 @@ export interface IDERuntime {
   isInstalling: boolean
   stop: () => void
   run: () => void
-  reset: () => void
+  reset: () => Promise<void>
   verify: () => Promise<void>
 }
 
@@ -421,7 +421,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
       }
       if (event.altKey && event.key === "g") {
         event.preventDefault()
-        reset()
+        void reset()
       }
     }
     window.addEventListener("keydown", handleKeyDown)

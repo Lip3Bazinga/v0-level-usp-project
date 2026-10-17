@@ -1,7 +1,7 @@
 import { randomInt } from "node:crypto"
 import type { AnswerSheet, AnswerSheetResult } from "@levelusp/contracts"
 import { reviewAnswers, type GradableQuestion } from "@/common/scoring/answer-sheet"
-import { MINUTE_MS, SECOND_MS } from "@/common/time/time"
+import { MS_PER_MINUTE, MS_PER_SECOND } from "@/common/time/time"
 
 /**
  * Regras puras da prova final (porte de apps/web/src/lib/server/exam.ts e das
@@ -9,7 +9,7 @@ import { MINUTE_MS, SECOND_MS } from "@/common/time/time"
  */
 
 /** Tolerância além do tempo limite para latência de rede no envio. */
-export const SUBMIT_GRACE_MS = 30 * SECOND_MS
+export const SUBMIT_GRACE_MS = 30 * MS_PER_SECOND
 
 export interface ExamRules {
   passingScore: number
@@ -29,7 +29,7 @@ export interface AttemptLike {
 type TimeLimit = Pick<ExamRules, "timeLimitMinutes">
 
 export function attemptExpiresAt(attempt: Pick<AttemptLike, "startedAt">, exam: TimeLimit): Date {
-  return new Date(new Date(attempt.startedAt).getTime() + exam.timeLimitMinutes * MINUTE_MS)
+  return new Date(new Date(attempt.startedAt).getTime() + exam.timeLimitMinutes * MS_PER_MINUTE)
 }
 
 /** Tentativa aberta e dentro do tempo (pode ser retomada). */
@@ -44,7 +44,7 @@ export function acceptsSubmission(attempt: AttemptLike, exam: TimeLimit, now: Da
 
 /** Início mais antigo de uma tentativa aberta que ainda aceita envio; antes disso, está abandonada. */
 export function staleAttemptCutoff(exam: TimeLimit, now: Date): Date {
-  return new Date(now.getTime() - exam.timeLimitMinutes * MINUTE_MS - SUBMIT_GRACE_MS)
+  return new Date(now.getTime() - exam.timeLimitMinutes * MS_PER_MINUTE - SUBMIT_GRACE_MS)
 }
 
 /**
@@ -68,7 +68,7 @@ function newestFirst<T extends AttemptLike>(attempts: T[]): T[] {
 export function cooldownUntil(attempts: AttemptLike[], exam: Pick<ExamRules, "cooldownMinutes" | "timeLimitMinutes">, now: Date): Date | null {
   const lastSubmitted = newestFirst(closeExpired(attempts, exam, now)).find((attempt) => attempt.submittedAt !== null)
   if (!lastSubmitted?.submittedAt || lastSubmitted.passed) return null
-  const until = new Date(new Date(lastSubmitted.submittedAt).getTime() + exam.cooldownMinutes * MINUTE_MS)
+  const until = new Date(new Date(lastSubmitted.submittedAt).getTime() + exam.cooldownMinutes * MS_PER_MINUTE)
   return until.getTime() > now.getTime() ? until : null
 }
 

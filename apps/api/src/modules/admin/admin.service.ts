@@ -10,7 +10,7 @@ import type { AuthUser } from "@/common/http/request"
 import { buildPatch, presentFields, type PatchMapping } from "@/common/mapping/patch"
 import { RATE_LIMITS } from "@/common/rate-limit/rate-limit.policies"
 import { RateLimitService } from "@/common/rate-limit/rate-limit.service"
-import { DAY_MS } from "@/common/time/time"
+import { MS_PER_DAY } from "@/common/time/time"
 import { AccountRepository } from "../account/account.repository"
 import { AccountService } from "../account/account.service"
 import { AuditService } from "../audit/audit.service"
@@ -253,5 +253,5 @@ export class AdminService {
 
 /** Um dia de folga: garante que o dia mais antigo da série (no fuso de São Paulo) venha inteiro. */
 function seriesStart(now: Date): Date {
-  return new Date(now.getTime() - (SERIES_DAYS + 1) * DAY_MS)
+  return new Date(now.getTime() - (SERIES_DAYS + 1) * MS_PER_DAY)
 }

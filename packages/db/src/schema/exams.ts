@@ -4,7 +4,8 @@ import { profiles } from "./profiles"
 import { courses } from "./content"
 import { createdAt, id, isOneOf, timestampTz } from "./_helpers"
 
-const CERTIFICATE_PROJECT_STATUSES = ["passed", "waived"] as const
+export const CERTIFICATE_PROJECT_STATUSES = ["passed", "waived"] as const
+export type CertificateProjectStatus = (typeof CERTIFICATE_PROJECT_STATUSES)[number]
 
 export const exams = pgTable(
   "exams",

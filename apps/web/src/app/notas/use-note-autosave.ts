@@ -40,7 +40,9 @@ export function useNoteAutosave() {
   const scheduleSave = useCallback(
     (noteId: string, field: EditableNoteField, value: string) => {
       if (timerRef.current) clearTimeout(timerRef.current)
-      const previousPatch = pendingSaveRef.current?.noteId === noteId ? pendingSaveRef.current.patch : {}
+      // Trocar de nota antes do fim do debounce não pode descartar o que foi digitado na anterior.
+      if (pendingSaveRef.current && pendingSaveRef.current.noteId !== noteId) void flush()
+      const previousPatch = pendingSaveRef.current?.patch ?? {}
       pendingSaveRef.current = { noteId, patch: { ...previousPatch, [field]: value } }
       setIsSaving(true)
       timerRef.current = setTimeout(() => void flush(), NOTE_AUTOSAVE_DEBOUNCE_MS)

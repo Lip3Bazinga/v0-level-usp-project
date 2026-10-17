@@ -6,7 +6,7 @@ import type { Semaphore } from "./semaphore.js"
 
 export const ENGINE = { python: "3.14.0 (WASI)", runtime: "wasmtime 49" } as const
 
-const BYTES_PER_MB = 1e6
+const BYTES_PER_MEGABYTE = 1e6
 
 /** O que o executor precisa do sandbox: rodar um lote numa instância isolada. */
 export interface BatchRunner {
@@ -41,4 +41,4 @@ export class Executor implements JobExecutor {
   }
 }
 
-export const hostInfo = () => ({ cpus: os.availableParallelism(), memoryMb: Math.round(os.totalmem() / BYTES_PER_MB) })
+export const hostInfo = () => ({ cpus: os.availableParallelism(), memoryMb: Math.round(os.totalmem() / BYTES_PER_MEGABYTE) })

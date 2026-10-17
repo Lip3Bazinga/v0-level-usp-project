@@ -1,7 +1,7 @@
-import { MINUTE_MS } from "@/common/time/time"
+import { MS_PER_MINUTE } from "@/common/time/time"
 
 export const MAX_FAILED_LOGINS = 10
-export const LOCK_DURATION_MS = 15 * MINUTE_MS
+export const LOCK_DURATION_MS = 15 * MS_PER_MINUTE
 
 /** Estado de bloqueio da credencial, como está no banco. */
 export interface LoginLockState {

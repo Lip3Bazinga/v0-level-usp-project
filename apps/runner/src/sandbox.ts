@@ -39,7 +39,7 @@ const MAX_STDERR_CHARS = 256 * 1024
 const MAX_STDOUT_BYTES = 8 * 1024 * 1024
 /** Folga do backstop do host além do timeout interno do Wasmtime. */
 const HOST_KILL_GRACE_MS = 2_000
-const BYTES_PER_MB = 1024 * 1024
+const BYTES_PER_MIB = 1024 * 1024
 const NONCE_BYTES = 16
 const READ_ONLY_FILE = 0o444
 const READ_ONLY_DIR = 0o555
@@ -101,7 +101,7 @@ export class WasmtimeSandbox {
       "--allow-precompiled",
       "-W", [
         `fuel=${Math.round(FUEL_PER_SECOND * budgetSeconds)}`,
-        `max-memory-size=${limits.memoryMb * BYTES_PER_MB}`,
+        `max-memory-size=${limits.memoryMb * BYTES_PER_MIB}`,
         `timeout=${limits.timeoutMs}ms`,
       ].join(","),
       "-S", "inherit-env=n,inherit-network=n,tcp=n,udp=n",

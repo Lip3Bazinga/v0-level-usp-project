@@ -2,7 +2,8 @@ import type { QuizQuestionFull, QuizQuestionPublic } from "@levelusp/contracts"
 import type { LessonQuizQuestionRow } from "@levelusp/db"
 
 /** jsonb vindo de importação antiga pode não ser lista; o aluno recebe lista vazia. */
-const optionsOf = (options: unknown): string[] => (Array.isArray(options) ? options : [])
+const optionsOf = (options: unknown): string[] =>
+  Array.isArray(options) ? options.filter((option): option is string => typeof option === "string") : []
 
 /** Questão com gabarito — só para o professor dono (ou admin). */
 export function toQuizQuestionFull(question: LessonQuizQuestionRow): QuizQuestionFull {
