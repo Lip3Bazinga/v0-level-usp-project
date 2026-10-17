@@ -88,6 +88,12 @@ export default function NotasPage() {
       )
       // Autosave com debounce de 800ms
       if (saveTimer.current) clearTimeout(saveTimer.current)
+      // Trocar de nota antes do fim do debounce não pode descartar o que foi digitado na anterior.
+      const previousJob = pending.current
+      if (previousJob && previousJob.id !== activeId) {
+        pending.current = null
+        updateNote(previousJob.id, previousJob.patch).catch(() => setSaveError(true))
+      }
       const prevPatch = pending.current?.id === activeId ? pending.current.patch : {}
       pending.current = { id: activeId, patch: { ...prevPatch, [field]: value } }
       setSaving(true)
