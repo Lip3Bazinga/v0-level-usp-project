@@ -43,7 +43,9 @@ legacy/        Código antigo (Supabase, avaliador Python da Vercel). Só refer�
 - Verbos: `list`/`find` (pode faltar)/`get` (precisa existir)/`count`/`create`/`update`/`delete`/`upsert`;
   entidade no nome só se não for a principal da classe; `My` para `/me` (`listMyProgress`). Sem `insert`/`remove`/`save`.
   Handler do controller = nome do método do service. `@Controller()` recebe o maior prefixo comum das rotas.
-- Padrões de código (nomes, tipos, SOLID): `docs/v2/padroes-de-codigo.md`.
+- Padrões de código (nomes, tipos, SOLID, regras de lint): `docs/v2/padroes-de-codigo.md`.
+- Repositório que participa de transação recebe `executor: DbExecutor = this.db`; `lock…` exige
+  `tx: DbTransaction` (tipos de `@levelusp/db`). e2e leem respostas com `bodyOf<Dto>(response)`.
 - Testes: unitários `vitest --project unit` (domínio/serviços); e2e `vitest --project e2e`
   com PostgreSQL real (`test/e2e/harness.ts`: `createTestApp`, `signUp`, `agent`, `FakeRunner`).
 
@@ -63,6 +65,13 @@ legacy/        Código antigo (Supabase, avaliador Python da Vercel). Só refer�
   `StudentHeaderBar`), `admin/admin-modal.tsx` (`AdminModal`), `gamification/celebration-modal.tsx`.
 - Confirmação com `swalConfirm`; avisos com `swalToast` ou o toast do admin (`ToastKind` único). Classes
   condicionais com `cn()`. Modais recebem `isOpen`. ESLint `react-hooks/*` é erro.
+
+## Tipos e lint (valem para todos os pacotes)
+
+- tsconfig estrito (`exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noImplicitReturns`…) e ESLint
+  tipado com as regras únicas de `packages/eslint-config` — `pnpm lint` precisa de zero erros e zero avisos.
+- Tipo de retorno explícito em toda função; TSDoc (pt-BR, contrato e erros) em toda exportação da API,
+  runner, contracts, db e web `lib/` + `hooks/`. Detalhes e exemplos: `padroes-de-codigo.md` §3 e §9.
 
 ## Comandos
 
