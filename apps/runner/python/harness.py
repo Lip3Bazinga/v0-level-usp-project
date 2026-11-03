@@ -800,6 +800,13 @@ def _run_harness():
     }
 
     if is_strict:
+        # Formatação de falhas do unittest sem percorrer frames (tb_frame fica
+        # bloqueado): testes legados que rodam o próprio TextTestRunner continuam
+        # funcionando, com "Tipo: mensagem" no lugar do traceback.
+        def exc_info_text(result, err, test):
+            return "Traceback (indisponível na correção)\n%s\n" % error_text(err[1])
+
+        TestResult._exc_info_to_string = exc_info_text
         install_strict_guard()
 
     for index, probe in enumerate(probes):

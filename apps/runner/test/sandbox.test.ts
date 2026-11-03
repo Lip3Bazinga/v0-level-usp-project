@@ -147,6 +147,16 @@ describe.skipIf(!isPythonAvailable)("WasmtimeSandbox (integração)", () => {
     expect(detail).toContain("('arquivo', 'FileNotFoundError')")
   })
 
+  it("casos legados com unittest continuam funcionando no modo estrito (falhas sem traceback)", async () => {
+    const code = "def soma(a, b):\n    return a + b\n"
+    const suite = "import unittest\nclass T(unittest.TestCase):\n    def test_ok(self):\n        self.assertEqual(soma(2, 3), 5)\n    def test_falha(self):\n        self.assertEqual(soma(2, 2), 5, 'dois mais dois')\n    def test_erro(self):\n        raise KeyError('k')\n"
+    const ownRunner = "import unittest as _ut, io as _io\nclass _T(_ut.TestCase):\n    def test_x(self):\n        self.assertTrue(False)\n_r = _ut.TextTestRunner(stream=_io.StringIO()).run(_ut.TestLoader().loadTestsFromTestCase(_T))\nassert not _r.wasSuccessful()\nassert soma(1, 1) == 2\n"
+    const [classic, manual] = await run(mainFile(code), [{ id: "a", kind: "legacy", code: suite }, { id: "b", kind: "legacy", code: ownRunner }])
+    expect(classic?.legacy).toMatchObject({ testsRun: 3, failures: 1, errors: 1 })
+    expect(classic?.legacy?.details.join("\n")).toContain("test_falha")
+    expect(manual?.legacy).toMatchObject({ failures: 0, errors: 0 })
+  })
+
   it("o aluno recebe o próprio módulo como __main__ (o do harness não fica exposto)", async () => {
     const code = "import __main__, sys\nproprio = __main__.__dict__ is globals()\nnomes = sorted(n for n in vars(sys.modules['__main__']) if not n.startswith('__'))\n"
     const [observation] = await run(mainFile(code), [{ id: "g", kind: "globals", names: ["proprio"] }])
