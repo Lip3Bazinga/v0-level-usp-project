@@ -30,7 +30,7 @@ export function formatIssuedDate(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric", timeZone: SAO_PAULO_TIME_ZONE })
 }
 
-/** URL pública de verificação. */
-export function verificationUrl(appOrigin: string, code: string): string {
-  return `${appOrigin.replace(/\/+$/, "")}/certificado/${encodeURIComponent(code)}`
+/** URL pública de verificação (impressa e clicável no PDF). */
+export function verificationUrl(publicBaseUrl: string, code: string): string {
+  return `${publicBaseUrl.replace(/\/+$/, "")}/certificado/${encodeURIComponent(code)}`
 }

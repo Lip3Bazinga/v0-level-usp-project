@@ -1,4 +1,5 @@
 import type { ApiErrorBody } from "@levelusp/contracts"
+import { resolveServerApiBaseUrl } from "@/lib/config/server-urls"
 
 /*
  * Cliente HTTP da API. O navegador sempre chama a mesma origem (`/api/*`) e o
@@ -74,14 +75,10 @@ export interface RequestOptions<TBody = undefined> {
 
 type ReadOptions = Omit<RequestOptions, "body">
 
-/**
- * No navegador a URL é relativa; no servidor (SSR) é preciso a URL interna da API.
- * Sem `API_INTERNAL_URL` em tempo de execução, o SSR passa pelo próprio Next (o rewrite
- * de `/api/*` é resolvido no build): `localhost:4000` não existe dentro do contêiner web.
- */
+/** No navegador a URL é relativa; no servidor (SSR) é a URL interna da API (ver `resolveServerApiBaseUrl`). */
 function apiBaseUrl(): string {
   if (typeof window !== "undefined") return ""
-  return (process.env.API_INTERNAL_URL ?? `http://127.0.0.1:${process.env.PORT ?? 3000}`).replace(/\/+$/, "")
+  return resolveServerApiBaseUrl(process.env)
 }
 
 function buildUrl(path: string, query: QueryParams = {}): string {

@@ -1,0 +1,34 @@
+# Entrada (b) da produção na VM: HTTPS automático (Let's Encrypt) para PUBLIC_DOMAIN.
+# Usado pelo serviço "caddy" de infra/compose/compose.vm.yml (INGRESS=caddy).
+# Pré-requisitos: DNS de PUBLIC_DOMAIN apontando para o IP público da VM e portas
+# 80/tcp e 443/tcp (+443/udp para HTTP/3) liberadas até a VM.
+{
+	email {$ACME_EMAIL}
+	# API de administração só dentro do contêiner (usada pelo healthcheck).
+	admin 127.0.0.1:2019
+}
+
+{$PUBLIC_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		# HTTPS obrigatório no navegador por 1 ano (sem "preload": reversível).
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	# Uploads aceitos pela API vão até 2 MB; projetos de código são JSON pequenos.
+	request_body {
+		max_size 10MB
+	}
+
+	# O front (Next.js) repassa /api/* para a API na rede interna.
+	reverse_proxy web:3000
+
+	# Log de acesso em JSON na saída padrão (rotacionado pelo Docker: LOG_MAX_SIZE × LOG_MAX_FILE).
+	# Contém IPs (dado pessoal): não copie estes logs para fora da VM.
+	log {
+		output stdout
+		format json
+	}
+}

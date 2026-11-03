@@ -45,9 +45,10 @@ packages/
   db/          schema Drizzle, migrations/, seed/, tools/ (conversor de gabaritos)
 infra/
   docker/      Dockerfiles (api, runner, web)
-  compose/     compose.yml (homolog/prod), compose.dev.yml, compose.build.yml
+  compose/     compose.yml (homolog/prod), compose.vm.yml (produção na VM), compose.dev.yml, compose.build.yml
+  caddy/       Caddyfile (HTTPS automático na VM, opção ao túnel)
   env/         *.env.example (os .env reais não são versionados)
-  scripts/     levelusp.ps1 / levelusp.sh (operação no notebook)
+  scripts/     levelusp.ps1 / levelusp.sh (notebook), levelusp-vm.sh + backup.sh (VM)
 .github/workflows/  ci.yml, cd.yml
 legacy/        código da versão Supabase/Vercel (referência)
 ```
@@ -86,3 +87,4 @@ submissões), `grading` (motor de correção), `quizzes`, `gamification`
 | Gabarito declarativo | Comparação fora do sandbox: aluno não forja aprovação | Gabaritos antigos precisam de conversão |
 | Pyodide no navegador para "Executar" | CPU do aluno, resposta imediata, gráficos; mesmo Python 3.14 do executor, com paridade testada ([paridade-python.md](./paridade-python.md)) | Download inicial do runtime (~13 MB, servido pelo próprio front com cache de 1 ano) |
 | Notebook + Cloudflare Tunnel | Custo zero e controle total na fase de testes | Disponibilidade depende do notebook |
+| VM Linux + túnel nomeado ou Caddy ([producao-vm.md](./producao-vm.md)) | Dados de alunos em servidor institucional, endereço fixo, backups cifrados e monitorados | Operação (atualizações, backups, chaves) passa a ser responsabilidade da equipe |

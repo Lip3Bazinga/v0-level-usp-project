@@ -5,12 +5,12 @@ import type { ApiErrorBody, CertificateIssue, CertificateVerification, ExamStart
 import { agent, bodyOf, countRows, createLesson, createTestApp, signUp, type SignedUpUser, type TestContext } from "./harness"
 import { answersFor, completeLessons, drawnQuestionIds, missQuestions, seedCourseWithExam, type ExamFixture } from "./exam-fixtures"
 
-const APP_ORIGIN = "https://levelusp.teste.example"
+const PUBLIC_BASE_URL = "https://levelusp.teste.example"
 
 describe("Certificados (e2e)", () => {
   let ctx: TestContext
   beforeAll(async () => {
-    ctx = await createTestApp({ APP_ORIGIN })
+    ctx = await createTestApp({ PUBLIC_BASE_URL })
   })
   afterAll(() => ctx.close())
   beforeEach(() => ctx.reset())
@@ -80,6 +80,9 @@ describe("Certificados (e2e)", () => {
     const body = bodyOf<Buffer>(pdf)
     expect(body.subarray(0, 4).toString()).toBe("%PDF")
     expect(body.length).toBeGreaterThan(1000)
+    // Link de verificação (anotação clicável) aponta para a origem pública configurada (UX-02).
+    expect(body.toString("latin1")).toContain(`/URI (${PUBLIC_BASE_URL}/certificado/${code})`)
+    expect(body.toString("latin1")).not.toContain("localhost")
 
     // Auditoria e notificação da emissão.
     const audit = await ctx.db.execute(sql`select action, target from audit_log`)

@@ -43,9 +43,22 @@ export class FakeRunner implements CodeRunner, RunnerHealthProbe {
 
 export class FakeMail {
   sent: MailMessage[] = []
+  private failure: Error | null = null
+
+  /** Simula o SMTP fora do ar (já depois das novas tentativas) até `reset()`. */
+  failWith(error: Error): void {
+    this.failure = error
+  }
+
   send(message: MailMessage): Promise<void> {
+    if (this.failure) return Promise.reject(this.failure)
     this.sent.push(message)
     return Promise.resolve()
+  }
+
+  reset(): void {
+    this.sent = []
+    this.failure = null
   }
 }
 
@@ -69,6 +82,9 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
     SWAGGER_ENABLED: "false",
     TRUST_PROXY: "false",
     AUTH_THROTTLE_LIMIT: "1000",
+    // Vazio = não definido: cada suíte escolhe a origem pública que quer provar.
+    PUBLIC_BASE_URL: "",
+    APP_ORIGIN: "",
     ...env,
   })
   const runner = new FakeRunner()
@@ -96,7 +112,7 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
           exam_questions, exam_attempts, certificates, notifications, audit_log, platform_settings,
           teacher_approvals, library_catalog, library_requests, uploads cascade`)
       runner.jobs = []
-      mail.sent = []
+      mail.reset()
     },
   }
 }

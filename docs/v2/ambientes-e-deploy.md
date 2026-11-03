@@ -6,10 +6,22 @@
 |---|---|---|---|---|
 | **dev** | sua máquina (`pnpm dev`) | qualquer | — (código local) | Postgres do `compose.dev.yml` |
 | **homolog** | notebook, projeto `levelusp-homolog`, porta 3001 | `develop` | `ghcr.io/<dono>/levelusp/*:homolog` | banco próprio + seed demo |
-| **prod** | notebook (depois: VM/servidor), projeto `levelusp-prod`, porta 3000 | `main` | `…:prod` | banco próprio, dados reais |
+| **prod** | notebook hoje; **VM Linux** no lançamento ([producao-vm.md](./producao-vm.md)), projeto `levelusp-prod` | `main` | `…:prod` ou `…:sha-<commit>` | banco próprio, dados reais |
 
 Fluxo de branches: `feature/*` → PR para `develop` (homologação) → PR de
 `develop` para `main` (produção). Os PRs exigem o CI verde.
+
+> **Produção na VM**: arquitetura, o que providenciar (VM, domínio/túnel, SMTP, GHCR),
+> primeiro deploy, atualização/rollback, backups e restauração, monitoramento, LGPD e a lista
+> "antes de abrir para alunos reais" estão em **[producao-vm.md](./producao-vm.md)**.
+
+## URL pública e URL interna
+
+| Variável | Quem lê | Para quê |
+|---|---|---|
+| `PUBLIC_BASE_URL` | API e web, **em tempo de execução** | Origem pública única: links dos e-mails (senha, convite), texto e link do PDF do certificado, metadados Open Graph. Só a origem (`https://dominio`), sem caminho. Em `prod` precisa ser `https` e não pode ser `localhost` — a API e o front **não sobem** se estiver errada (mensagem em pt-BR no log). |
+| `APP_ORIGIN` | API e web | Nome antigo, usado se `PUBLIC_BASE_URL` estiver vazia. É o que os scripts do notebook preenchem com o endereço do Quick Tunnel. |
+| `API_INTERNAL_URL` | web (SSR) e build do Next | URL da API dentro da rede do compose (`http://api:4000`). O compose passa em tempo de execução; sem ela, o SSR passa pelo próprio Next (`127.0.0.1:$PORT`). |
 
 ## Pipeline
 
@@ -65,9 +77,10 @@ Outros comandos: `status`, `logs [-Service api]`, `update`, `backup`,
 ### Sobre o Quick Tunnel
 
 O endereço `*.trycloudflare.com` muda a cada reinício do túnel; `status`
-mostra o atual. Para endereço fixo: crie um túnel nomeado numa conta gratuita
-da Cloudflare com um domínio próprio e troque o comando do serviço `tunnel` por
-`tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN}`.
+mostra o atual. Como os links de e-mail e do certificado usam esse endereço
+(`APP_ORIGIN`), um reinício do túnel deixa links antigos quebrados: por isso a
+produção vai para a VM com túnel **nomeado** (endereço fixo) ou Caddy — ver
+[producao-vm.md](./producao-vm.md) (`compose.vm.yml`, serviço `cloudflared`).
 
 ### Construir as imagens localmente (sem GHCR)
 

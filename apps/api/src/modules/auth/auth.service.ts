@@ -3,7 +3,7 @@ import { nonEmpty, type SessionResponse, type SignInInput, type SignUpInput } fr
 import type { ProfileRow, UserRow } from "@levelusp/db"
 import { ENV } from "@/config/config.module"
 import type { Env } from "@/config/env"
-import { AppError, BadRequest, Conflict, Forbidden, Unauthorized } from "@/common/errors/app-error"
+import { AppError, BadRequest, Conflict, Forbidden, ServiceUnavailable, Unauthorized } from "@/common/errors/app-error"
 import type { AuthUser } from "@/common/http/request"
 import { MS_PER_DAY, MS_PER_HOUR, isoAfter, MS_PER_MINUTE } from "@/common/time/time"
 import { MailService } from "@/infra/mail/mail.service"
@@ -26,6 +26,8 @@ const MAX_SESSION_TOKEN_LENGTH = 100
 const MAX_USER_AGENT_LENGTH = 300
 const MAX_USERNAME_ATTEMPTS = 20
 const PASSWORD_LINK_PATH = "/redefinir-senha"
+const INVITE_MAIL_FAILED_MESSAGE =
+  "A conta foi criada, mas o e-mail de convite não pôde ser enviado agora. Peça para a pessoa usar \"Esqueci minha senha\" com este e-mail."
 
 /** De onde veio o login, guardado na sessão para o usuário revisar. */
 export interface ClientInfo {
@@ -186,12 +188,18 @@ export class AuthService {
       username: await this.uniqueUsername(email),
     })
     const link = await this.createPasswordLink(user.id, INVITE_TTL_HOURS * MS_PER_HOUR)
-    await this.mail.send({
-      to: user.email,
-      subject: "LevelUSP — você foi convidado(a)",
-      text: `Você foi convidado(a) para o LevelUSP.\n\nDefina sua senha em até ${INVITE_TTL_HOURS} horas:\n${link}\n\nSe não esperava este convite, ignore este e-mail.`,
-    })
     this.logger.log({ userId: user.id }, "conta criada por convite")
+    try {
+      await this.mail.send({
+        to: user.email,
+        subject: "LevelUSP — você foi convidado(a)",
+        text: `Você foi convidado(a) para o LevelUSP.\n\nDefina sua senha em até ${INVITE_TTL_HOURS} horas:\n${link}\n\nSe não esperava este convite, ignore este e-mail.`,
+      })
+    } catch (error) {
+      // O detalhe do SMTP (host, resposta do servidor) fica só no log.
+      this.logger.error({ err: error, userId: user.id }, "falha ao enviar e-mail de convite")
+      throw ServiceUnavailable(INVITE_MAIL_FAILED_MESSAGE, "MAIL_UNAVAILABLE")
+    }
     return profile
   }
 
@@ -223,7 +231,7 @@ export class AuthService {
   private async createPasswordLink(userId: string, ttlMs: number): Promise<string> {
     const token = newToken()
     await this.repo.createPasswordToken({ tokenHash: hashToken(token), userId, expiresAt: isoAfter(ttlMs) })
-    return `${this.env.APP_ORIGIN}${PASSWORD_LINK_PATH}?token=${encodeURIComponent(token)}`
+    return `${this.env.PUBLIC_BASE_URL}${PASSWORD_LINK_PATH}?token=${encodeURIComponent(token)}`
   }
 
   private sessionExpiry(): Date {

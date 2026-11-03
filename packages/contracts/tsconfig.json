@@ -3,6 +3,8 @@
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    // DOM só pela classe global URL (public-url.ts), presente no navegador e no Node.
+    "lib": ["ES2023", "DOM"],
     "outDir": "dist",
     "rootDir": "src"
   },

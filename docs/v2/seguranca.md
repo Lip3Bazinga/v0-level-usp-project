@@ -84,7 +84,12 @@ Riscos aceitos e conhecidos:
   wheels de pacotes extras vêm do CDN oficial (`connect-src`).
 - **Infra**: imagens não-root, `read_only`, `cap_drop: ALL`,
   `no-new-privileges`, redes internas sem rota para a internet para banco e
-  executor; só o front escuta em `127.0.0.1`; acesso público pelo túnel.
+  executor; só o front escuta em `127.0.0.1`; acesso público pelo túnel (na VM:
+  túnel nomeado ou Caddy com HTTPS, limites de CPU/memória e healthchecks em
+  todos os serviços — `infra/compose/compose.vm.yml`).
+- **Configuração**: API e front validam as variáveis na partida (Zod) e não sobem
+  com `PUBLIC_BASE_URL` ausente, `http` ou `localhost` em produção; SMTP exige
+  STARTTLS/TLS fora de dev e falhas de envio nunca chegam à resposta HTTP.
 - **Auditoria**: ações administrativas registradas em `audit_log`.
 - **LGPD**: exportação dos próprios dados e exclusão da conta pelo usuário.
 
@@ -95,3 +100,7 @@ Riscos aceitos e conhecidos:
 3. ~~Converter os gabaritos `legacy` para casos declarativos.~~ Feito no curso
    Python Completo; conteúdo importado do Supabase ainda precisa ser convertido.
 4. Mover produção para um servidor institucional (dados de alunos fora do notebook).
+
+O passo a passo de cada item (com comandos e caixas de seleção) está em
+[producao-vm.md § 11](./producao-vm.md#11-antes-de-abrir-para-alunos-reais); backups cifrados,
+retenção e o procedimento de eliminação ao final do estudo, na § 10.
