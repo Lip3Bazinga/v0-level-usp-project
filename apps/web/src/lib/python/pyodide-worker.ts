@@ -1,14 +1,12 @@
 "use client"
 
+import { pyodideIndexUrl, pyodidePackageBaseUrl } from "./runtime-config"
 import type { PyodideStatus, WorkerCommand, WorkerMessage } from "./worker-protocol"
 
 /*
  * Um único Web Worker por aba: todas as telas compartilham o mesmo runtime
  * Pyodide, que leva segundos para carregar, em vez de recarregá-lo a cada navegação.
  */
-
-const WORKER_SCRIPT_URL = "/pyodide-worker-v2.js"
-const DEFAULT_PYODIDE_INDEX_URL = "https://cdn.jsdelivr.net/pyodide/v0.25.1/full/"
 
 export interface WorkerListener {
   onMessage: (message: WorkerMessage) => void
@@ -20,29 +18,34 @@ let status: PyodideStatus = "idle"
 const listeners = new Set<WorkerListener>()
 const statusSubscribers = new Set<() => void>()
 
-function pyodideIndexUrl(): string {
-  return process.env.NEXT_PUBLIC_PYODIDE_INDEX_URL || DEFAULT_PYODIDE_INDEX_URL
-}
-
 function setStatus(nextStatus: PyodideStatus): void {
   if (status === nextStatus) return
   status = nextStatus
   statusSubscribers.forEach((notify) => notify())
 }
 
+function absoluteUrl(url: string): string {
+  return new URL(url, window.location.href).href
+}
+
 function ensureWorker(): Worker {
   if (worker) return worker
-  const created = new Worker(WORKER_SCRIPT_URL)
-  created.onmessage = (event: MessageEvent<WorkerMessage>) => {
+  // O bundler do Next empacota o worker (TypeScript) a partir deste `new URL` literal.
+  const created = new Worker(new URL("./python-worker.ts", import.meta.url), { type: "module", name: "python" })
+  created.onmessage = (event: MessageEvent<WorkerMessage>): void => {
     const message = event.data
     if (message.type === "status") setStatus(message.status)
     listeners.forEach((listener) => listener.onMessage(message))
   }
-  created.onerror = (event: ErrorEvent) => {
+  created.onerror = (event: ErrorEvent): void => {
     setStatus("error")
     listeners.forEach((listener) => listener.onCrash(event))
   }
-  created.postMessage({ type: "init", indexURL: pyodideIndexUrl() } satisfies WorkerCommand)
+  created.postMessage({
+    type: "init",
+    indexURL: absoluteUrl(pyodideIndexUrl()),
+    packageBaseUrl: absoluteUrl(pyodidePackageBaseUrl()),
+  } satisfies WorkerCommand)
   worker = created
   return created
 }

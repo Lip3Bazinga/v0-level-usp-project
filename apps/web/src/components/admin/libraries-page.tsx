@@ -11,6 +11,7 @@ import {
   fetchAdminLibraryCatalog, fetchAdminLibraryRequests, getErrorMessage, reviewLibraryRequest, setLibraryCatalogActive,
 } from "@/lib/api"
 import { LIBRARY_CATEGORY_LABELS } from "@/lib/constants"
+import { PYODIDE_VERSION } from "@/lib/python/runtime-config"
 import type { OnToast } from "@/lib/types"
 import { cn, formatDate, isOneOf } from "@/lib/utils"
 import { PanelSpinner } from "./panel-spinner"
@@ -291,7 +292,7 @@ function ReviewForm({ request, onApprove, onReject }: RequestRowProps) {
           </select>
         </div>
         <div>
-          <span className={LABEL_CLASS}>Suporte nativo Pyodide?</span>
+          <span className={LABEL_CLASS}>Nativo no Pyodide {PYODIDE_VERSION}?</span>
           <div className="flex gap-2 pt-1">
             {PYODIDE_OPTIONS.map((option) => (
               <button
@@ -320,7 +321,7 @@ function ReviewForm({ request, onApprove, onReject }: RequestRowProps) {
           value={notes}
           onChange={(event) => setNotes(event.target.value)}
           rows={2}
-          placeholder="Ex: Aprovado — disponível no Pyodide 0.25 nativo"
+          placeholder={`Ex: Aprovado — wheel nativo no Pyodide ${PYODIDE_VERSION}`}
           className="w-full rounded-xl border-2 border-border px-3 py-2 text-sm focus:border-level-purple focus:outline-none resize-none"
         />
       </div>

@@ -79,12 +79,12 @@ export function usePython({ packages, onStatusChange }: UsePythonOptions = {}) {
   useEffect(() => {
     let lastStatus = getWorkerStatus()
 
-    const finishExecution = () => {
+    const finishExecution = (): void => {
       clearExecutionTimeout()
       setIsExecuting(false)
     }
 
-    const handleMessage = (message: WorkerMessage) => {
+    const handleMessage = (message: WorkerMessage): void => {
       switch (message.type) {
         case "status":
           if (message.status === lastStatus) return
@@ -98,18 +98,11 @@ export function usePython({ packages, onStatusChange }: UsePythonOptions = {}) {
           return
         case "execution-result":
           finishExecution()
-          handlersRef.current?.onResult({
-            stdout: message.stdout ?? "",
-            stderr: message.stderr ?? "",
-            figures: message.figures ?? [],
-          })
+          handlersRef.current?.onResult(message.result)
           return
         case "execution-error":
           finishExecution()
           handlersRef.current?.onError(message.error || "Erro desconhecido")
-          return
-        case "error":
-          handlersRef.current?.onError(message.error || "Erro interno")
           return
         case "package-installed":
         case "package-error":

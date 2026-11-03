@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { ApiError } from "@/lib/api/client"
-import { pythonErrorLines, stdoutLines, verificationErrorLine } from "./ide-feedback"
+import { pythonErrorLines, stderrLines, stdoutLines, verificationErrorLine } from "./ide-feedback"
 
 describe("feedback do console da IDE", () => {
   it("separa o stdout em linhas e descarta as vazias", () => {
@@ -8,6 +8,10 @@ describe("feedback do console da IDE", () => {
       { type: "output", message: "a" },
       { type: "output", message: "b" },
     ])
+  })
+
+  it("mostra o stderr do programa como aviso, sem tratá-lo como erro", () => {
+    expect(stderrLines("cuidado\n")).toEqual([{ type: "warning", message: "cuidado" }])
   })
 
   it("explica o erro do Python em três linhas: explicação, original e dica", () => {

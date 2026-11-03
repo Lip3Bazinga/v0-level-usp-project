@@ -5,7 +5,7 @@ const config = [
   ...nextVitals,
   ...nextTs,
   {
-    ignores: [".next/**", "node_modules/**", "public/pyodide-worker*.js", "next-env.d.ts", "playwright-report/**", "test-results/**"],
+    ignores: [".next/**", "node_modules/**", "public/pyodide/**", "next-env.d.ts", "playwright-report/**", "test-results/**"],
   },
   {
     rules: {
