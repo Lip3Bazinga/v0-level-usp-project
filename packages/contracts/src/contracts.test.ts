@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
-  courseUpdateSchema, deleteAccountSchema, examQuestionUpdateSchema, lessonInputSchema, limitQuerySchema, optionalBodySchema,
+  courseUpdateSchema, deleteAccountSchema, examQuestionUpdateSchema, lessonInputSchema, limitQuerySchema, nonEmpty, optionalBodySchema,
   projectFileSchema, quizQuestionInputSchema, signUpSchema, testCasesSchema,
 } from "./index"
 
@@ -60,5 +60,15 @@ describe("contratos", () => {
     const schema = optionalBodySchema(deleteAccountSchema)
     expect(schema.safeParse(undefined).error?.issues[0]?.path).toEqual(["password"])
     expect(schema.parse({ password: "x" })).toEqual({ password: "x" })
+  })
+})
+
+describe("nonEmpty", () => {
+  it("texto vazio, null e undefined contam como ausentes", () => {
+    expect(nonEmpty("")).toBeUndefined()
+    expect(nonEmpty(null)).toBeUndefined()
+    expect(nonEmpty(undefined)).toBeUndefined()
+    expect(nonEmpty(" ")).toBe(" ")
+    expect(nonEmpty("Laços")).toBe("Laços")
   })
 })
