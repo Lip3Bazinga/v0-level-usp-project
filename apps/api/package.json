@@ -13,6 +13,7 @@
     "test:e2e": "vitest run --project e2e",
     "test:cov": "vitest run --project unit --coverage",
     "verify:seed": "tsx scripts/verify-seed.mts",
+    "test:attacks": "vitest run --config test/security/vitest.grading.config.mts",
     "mail:test": "tsx src/cli/mail-test.ts"
   },
   "dependencies": {

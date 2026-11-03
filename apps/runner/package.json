@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:attacks": "vitest run --config test/attacks/vitest.config.ts",
     "setup:python": "bash scripts/fetch-python-wasi.sh"
   },
   "dependencies": {

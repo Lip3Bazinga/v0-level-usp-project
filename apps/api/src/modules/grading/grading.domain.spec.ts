@@ -176,11 +176,15 @@ describe("grade (unittest)", () => {
       unittestCase("ref", { expect: "pass", target: "f", implementation: "def f(): ...", min_tests: 4 }),
       unittestCase("mut", { expect: "fail", target: "f", implementation: "def f(): ..." }),
     ]
-    expect(grade(cases, [suite("unittest:ref", 4, 0), suite("unittest:mut", 4, 1)]).allPassed).toBe(true)
-    const weak = grade(cases, [suite("unittest:ref", 4, 0), suite("unittest:mut", 4, 0)])
+    // Cada implementação do professor roda duas vezes (instâncias separadas).
+    const twice = (id: string, run: number, failures: number, errors = 0): ProbeObservation[] =>
+      [suite(`unittest:${id}`, run, failures, errors), suite(`unittest:${id}:repeticao`, run, failures, errors)]
+    expect(buildProbes(cases).map((probe) => probe.id)).toEqual(["unittest:ref", "unittest:ref:repeticao", "unittest:mut", "unittest:mut:repeticao"])
+    expect(grade(cases, [...twice("ref", 4, 0), ...twice("mut", 4, 1)]).allPassed).toBe(true)
+    const weak = grade(cases, [...twice("ref", 4, 0), ...twice("mut", 4, 0)])
     expect(weak.allPassed).toBe(false)
     expect(weak.failureDetails[0]).toContain("deveriam detectar")
-    const broken = grade(cases, [suite("unittest:ref", 4, 0, 1), suite("unittest:mut", 4, 1)])
+    const broken = grade(cases, [...twice("ref", 4, 0, 1), ...twice("mut", 4, 1)])
     expect(broken.failureDetails[0]).toContain("test_curta")
   })
 

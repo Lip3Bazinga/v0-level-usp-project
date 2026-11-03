@@ -77,6 +77,8 @@ jobs:
       - run: pnpm --filter @levelusp/contracts build && pnpm --filter @levelusp/runner build
       - name: Testes do executor (inclui ataques da auditoria)
         run: pnpm --filter @levelusp/runner test
+      - name: Catálogo de ataques ao executor (fuga, recursos, modo estrito, unittest)
+        run: pnpm --filter @levelusp/runner test:attacks
       - name: Sobe o executor
         run: |
           node apps/runner/dist/main.js > "$GITHUB_WORKSPACE/runner.log" 2>&1 &
@@ -84,6 +86,9 @@ jobs:
         env: { RUNNER_TOKEN: ci-runner-token-0123456789abcdef }
       - name: Gabaritos do seed (solução aprova, esqueleto reprova)
         run: pnpm --filter @levelusp/api verify:seed
+        env: { RUNNER_TOKEN: ci-runner-token-0123456789abcdef }
+      - name: Forja de veredito contra o executor real (todas as lições)
+        run: pnpm --filter @levelusp/api test:attacks
         env: { RUNNER_TOKEN: ci-runner-token-0123456789abcdef }
       - name: Paridade Executar × Verificar (Pyodide 314 × CPython WASI)
         run: pnpm --filter @levelusp/web test:paridade
