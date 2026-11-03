@@ -27,6 +27,7 @@ const BASE_OPTIONS = {
   hideClass: { popup: "animate__animated animate__fadeOutDown animate__faster" },
 } satisfies SweetAlertOptions
 
+/** Textos e aparência do diálogo de {@link swalConfirm}. */
 export interface ConfirmOptions {
   title: string
   text?: string

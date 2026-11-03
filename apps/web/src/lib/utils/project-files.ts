@@ -1,6 +1,7 @@
 import type { Lesson, ProjectFile } from "@levelusp/contracts"
 import { MAIN_FILE_PATH } from "@/lib/constants"
 
+/** Resultado de uma operação de arquivo que não produz nova lista. */
 export type FileOperationResult = { ok: true } | { ok: false; error: string }
 
 /** Resultado de uma operação que, se aprovada, produz a nova lista de arquivos. */
@@ -14,6 +15,7 @@ export function normalizePath(path: string): string {
   return path.trim().replace(/^\/+/, "").replace(/\/+/g, "/")
 }
 
+/** Caminho aceito no projeto: relativo, sem "..", com extensão permitida. */
 export function isValidPath(path: string): boolean {
   const normalized = normalizePath(path)
   if (!normalized || normalized.endsWith("/")) return false
@@ -53,14 +55,17 @@ export function resolveStarterFiles(lesson: Pick<Lesson, "starter_files" | "star
   return [{ path: MAIN_FILE_PATH, content: lesson.starter_code }]
 }
 
+/** Se o projeto tem um arquivo com esse caminho exato. */
 export function hasFile(files: readonly ProjectFile[], path: string): boolean {
   return files.some((file) => file.path === path)
 }
 
+/** Troca o conteúdo de um arquivo (os demais ficam iguais). */
 export function updateFileContent(files: readonly ProjectFile[], path: string, content: string): ProjectFile[] {
   return files.map((file) => (file.path === path ? { ...file, content } : file))
 }
 
+/** Cria um arquivo vazio; recusa caminho inválido ou repetido. */
 export function addFile(files: readonly ProjectFile[], rawPath: string): FilesChange {
   const path = normalizePath(rawPath)
   if (!isValidPath(path)) {
@@ -84,6 +89,7 @@ export function renamePath(path: string, oldPath: string, newPath: string): stri
   return path === oldPath ? newPath : path
 }
 
+/** Renomeia um arquivo ou uma pasta (com tudo dentro); o main.py não pode ser renomeado. */
 export function renameEntry(files: readonly ProjectFile[], oldPath: string, rawNewPath: string): FilesChange {
   if (oldPath === MAIN_FILE_PATH) return { ok: false, error: "main.py não pode ser renomeado." }
   const newPath = normalizePath(rawNewPath)
@@ -94,6 +100,7 @@ export function renameEntry(files: readonly ProjectFile[], oldPath: string, rawN
   return { ok: true, files: files.map((file) => ({ ...file, path: renamePath(file.path, oldPath, newPath) })) }
 }
 
+/** Remove um arquivo; o main.py não pode ser removido. */
 export function removeFile(files: readonly ProjectFile[], path: string): FilesChange {
   if (path === MAIN_FILE_PATH) return { ok: false, error: "main.py não pode ser excluído." }
   return { ok: true, files: files.filter((file) => file.path !== path) }

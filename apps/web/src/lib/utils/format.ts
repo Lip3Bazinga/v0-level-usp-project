@@ -44,8 +44,10 @@ const DATE_STYLES = {
   dayMonth: { day: "2-digit", month: "short" },
 } satisfies Record<string, Intl.DateTimeFormatOptions>
 
+/** Estilos de data aceitos por {@link formatDate}. */
 export type DateStyle = keyof typeof DATE_STYLES
 
+/** Data em pt-BR no estilo pedido. */
 export function formatDate(value: DateInput, style: DateStyle = "short"): string {
   return toDate(value).toLocaleDateString(LOCALE, DATE_STYLES[style])
 }

@@ -41,7 +41,6 @@ interface UseCommandHistoryResult {
   recallNewer: () => string
 }
 
-
 /** Histórico de comandos do console, navegado com as setas (o mais recente primeiro). */
 function useCommandHistory(): UseCommandHistoryResult {
   const [commands, setCommands] = useState<string[]>([])

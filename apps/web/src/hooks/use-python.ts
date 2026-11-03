@@ -15,17 +15,20 @@ import { nonEmpty } from "@levelusp/contracts"
 
 export type { ExecutionResult, PyodideStatus }
 
+/** Projeto a executar no navegador. */
 export interface ExecutionRequest {
   files: readonly ProjectFile[]
   /** Arquivo executado; os demais ficam disponíveis para `import`. */
   entryPath: string
 }
 
+/** Callbacks de uma execução: exatamente um deles é chamado (estouro de tempo chama `onError`). */
 export interface ExecutionHandlers {
   onResult: (result: ExecutionResult) => void
   onError: (message: string) => void
 }
 
+/** Ajustes de {@link usePython}. */
 export interface UsePythonOptions {
   /** Pacotes instalados sempre que o runtime fica pronto (inclusive depois de reiniciado). */
   packages?: readonly string[] | null
@@ -44,6 +47,7 @@ function withoutPackage(packages: ReadonlySet<string>, name: string): ReadonlySe
   next.delete(name)
   return next
 }
+/** Estado do runtime Python e as ações de executar e interromper (interromper reinicia o worker). */
 export interface UsePythonResult {
   status: PyodideStatus
   isExecuting: boolean
@@ -51,7 +55,6 @@ export interface UsePythonResult {
   execute: (executionRequest: ExecutionRequest, handlers: ExecutionHandlers) => void
   stop: () => void
 }
-
 
 /** Executa Python no navegador (Pyodide em Web Worker compartilhado entre telas). */
 export function usePython({ packages, onStatusChange }: UsePythonOptions = {}): UsePythonResult {

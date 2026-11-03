@@ -37,7 +37,6 @@ export interface UseCourseLessonsResult {
   add: (lesson: Lesson) => Promise<void>
 }
 
-
 /**
  * Lições de um curso: reordenar (salvo na hora, com volta atrás se falhar), remover
  * e anexar lições avulsas. Sem `courseId` (curso ainda não salvo) a lista fica vazia.

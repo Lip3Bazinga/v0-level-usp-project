@@ -18,7 +18,6 @@ export interface UseNoteAutosaveResult {
   scheduleSave: (noteId: string, field: EditableNoteField, value: string) => void
 }
 
-
 /**
  * Salva a nota alguns instantes depois da última alteração. O envio pendente não é
  * cancelado ao sair da página, para não perder o que acabou de ser digitado.

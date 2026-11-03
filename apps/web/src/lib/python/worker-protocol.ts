@@ -5,19 +5,23 @@ import type { ProjectFile } from "@levelusp/contracts"
  * então os formatos abaixo são o contrato entre os dois lados.
  */
 
+/** Ciclo de vida do runtime Pyodide no worker. */
 export type PyodideStatus = "idle" | "loading" | "ready" | "error"
 
+/** Saída de uma execução; `figures` são PNGs em base64 dos gráficos do matplotlib. */
 export interface ExecutionResult {
   stdout: string
   stderr: string
   figures: string[]
 }
 
+/** Comandos da página para o worker. */
 export type WorkerCommand =
   | { type: "init"; indexURL: string }
   | { type: "execute"; files: readonly ProjectFile[]; entryPath: string }
   | { type: "install"; packages: readonly string[] }
 
+/** Mensagens do worker para a página. */
 export type WorkerMessage =
   | { type: "status"; status: PyodideStatus; error?: string }
   | { type: "execution-start" }

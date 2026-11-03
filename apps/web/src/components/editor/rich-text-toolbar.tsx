@@ -67,7 +67,6 @@ interface UseDropdownResult {
   close: () => void
 }
 
-
 /** Estado de abrir/fechar de um menu suspenso que se fecha ao clicar fora de `containerRef`. */
 function useDropdown(containerRef: RefObject<HTMLElement | null>): UseDropdownResult {
   const [isOpen, setIsOpen] = useState(false)

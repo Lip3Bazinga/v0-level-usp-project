@@ -36,7 +36,6 @@ interface UseMenuOpenOnRouteResult {
   toggle: () => void
 }
 
-
 /**
  * Menu que fecha sozinho ao trocar de página: guarda em qual rota foi aberto em vez
  * de sincronizar um booleano com a rota por efeito.

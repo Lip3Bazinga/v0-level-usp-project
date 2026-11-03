@@ -44,6 +44,7 @@ export function isApiError(error: unknown, status?: number): error is ApiError {
   return status === undefined || error.status === status
 }
 
+/** Se o erro é o cancelamento de um fetch (o `AbortError` do `signal`). */
 export function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError"
 }
@@ -53,13 +54,16 @@ export function getErrorMessage(error: unknown, fallback = DEFAULT_FALLBACK_MESS
   return error instanceof ApiError ? error.message : fallback
 }
 
+/** Métodos HTTP usados pelo cliente. */
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
+/** Query string; valores `null` e `undefined` são omitidos da URL. */
 export type QueryParams = Record<string, string | number | boolean | null | undefined>
 
 /** Corpo enviado nas mutações sem dados: a API espera sempre um objeto JSON. */
 type EmptyBody = Record<string, never>
 const EMPTY_BODY: EmptyBody = {}
 
+/** Corpo, query, cancelamento e cabeçalhos extras de uma chamada. */
 export interface RequestOptions<TBody = undefined> {
   body?: TBody | undefined
   query?: QueryParams | undefined
@@ -161,13 +165,18 @@ export async function request<TResponse, TBody = undefined>(
  * do argumento ou informado para amarrar o corpo ao schema do contrato.
  */
 export const api = {
+  /** `GET` com o tipo de resposta informado. */
   get: <TResponse>(path: string, options?: ReadOptions): Promise<TResponse> => request<TResponse>("GET", path, options),
+  /** `POST` com o cabeçalho anti-CSRF; sem corpo, envia `{}`. */
   post: <TResponse, TBody extends object = object>(path: string, body?: TBody, options?: ReadOptions): Promise<TResponse> =>
     request<TResponse, TBody | EmptyBody>("POST", path, { ...options, body: body ?? EMPTY_BODY }),
+  /** `PUT` com o cabeçalho anti-CSRF; sem corpo, envia `{}`. */
   put: <TResponse, TBody extends object = object>(path: string, body?: TBody, options?: ReadOptions): Promise<TResponse> =>
     request<TResponse, TBody | EmptyBody>("PUT", path, { ...options, body: body ?? EMPTY_BODY }),
+  /** `PATCH` com o cabeçalho anti-CSRF; sem corpo, envia `{}`. */
   patch: <TResponse, TBody extends object = object>(path: string, body?: TBody, options?: ReadOptions): Promise<TResponse> =>
     request<TResponse, TBody | EmptyBody>("PATCH", path, { ...options, body: body ?? EMPTY_BODY }),
+  /** `DELETE` com o cabeçalho anti-CSRF; o corpo é opcional. */
   delete: <TResponse = void, TBody extends object = object>(path: string, body?: TBody, options?: ReadOptions): Promise<TResponse> =>
     request<TResponse, TBody>("DELETE", path, { ...options, body }),
 }
@@ -182,6 +191,7 @@ export async function nullOnStatus<T>(promise: Promise<T>, status: number): Prom
   }
 }
 
+/** Resultado de uma chamada sem exceção: os dados ou o `ApiError` (ver {@link toApiResult}). */
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: ApiError }
 
 /** Para telas que tratam o erro como dado (ex.: mostrar a mensagem no lugar do conteúdo). */

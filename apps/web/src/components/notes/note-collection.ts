@@ -38,7 +38,6 @@ export interface UseNoteCollectionResult {
   remove: (noteId: string) => Promise<void>
 }
 
-
 /**
  * Caderno do aluno: lista, nota aberta, criação e exclusão. Usado pela página
  * /notas e pelo caderno flutuante. Sem nota escolhida, a primeira da lista fica aberta.

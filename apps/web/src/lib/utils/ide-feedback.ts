@@ -10,6 +10,7 @@ export interface ConsoleLine {
   figureB64?: string
 }
 
+/** Linha do console com id e horário. */
 export function toConsoleOutput({ type, message, figureB64 }: ConsoleLine): ConsoleOutput {
   return { id: crypto.randomUUID(), type, message, timestamp: new Date(), ...(figureB64 ? { figureB64 } : {}) }
 }
@@ -62,6 +63,7 @@ export function verificationErrorLine(error: unknown): ConsoleLine {
   return { type: "error", message: error.message }
 }
 
+/** Mensagem de aprovação no "Verificar"; avisa quando a lição já estava concluída (sem XP novo). */
 export function verificationSuccessLine(result: SubmissionResult): ConsoleLine {
   return {
     type: "success",

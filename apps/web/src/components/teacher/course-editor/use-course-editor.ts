@@ -29,7 +29,6 @@ export interface UseCourseEditorResult {
   removeCover: () => Promise<void>
 }
 
-
 /**
  * Estado e ações do editor de curso: parte do curso carregado (ou de um novo), salva
  * com POST/PATCH (só campos alterados), publica/despublica e cuida da capa.

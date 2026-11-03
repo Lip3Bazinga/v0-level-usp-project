@@ -69,7 +69,6 @@ export interface UseLessonEditorResult {
   save: (publish?: boolean) => Promise<SaveResult>
 }
 
-
 /**
  * Estado e ações do editor de lição: parte da lição carregada (ou de uma nova),
  * salva com POST/PATCH (só campos alterados), grava o questionário e

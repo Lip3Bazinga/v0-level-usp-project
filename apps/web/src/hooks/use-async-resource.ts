@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type DependencyList } from "react"
 import { getErrorMessage, isAbortError } from "@/lib/api"
 
+/** Estado de uma busca: carregando, falhou (mensagem pronta para a tela) ou com os dados. */
 export type AsyncResourceState<T> =
   | { status: "loading" }
   | { status: "error"; error: string }
   | { status: "success"; data: T }
 
+/** Estado da busca mais as ações de recarregar e de atualizar os dados localmente. */
 export type AsyncResource<T> = AsyncResourceState<T> & {
   /**
    * Busca de novo sem voltar para "loading": a tela continua mostrando os dados
@@ -19,6 +21,7 @@ export type AsyncResource<T> = AsyncResourceState<T> & {
   setData: (update: (current: T) => T) => void
 }
 
+/** Ajustes de {@link useAsyncResource}. */
 export interface AsyncResourceOptions {
   /**
    * Texto do estado de erro. Uma string é o fallback para erros que não vêm da API
@@ -27,6 +30,7 @@ export interface AsyncResourceOptions {
   errorMessage?: string | ((error: unknown) => string)
 }
 
+/** Função que busca os dados; deve repassar o `signal` ao fetch para a busca ser cancelável. */
 export type AsyncLoader<T> = (signal: AbortSignal) => Promise<T>
 
 interface Snapshot<T> {

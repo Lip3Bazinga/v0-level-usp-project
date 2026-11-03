@@ -112,7 +112,6 @@ interface UseConsoleOutputsResult {
   clearConsole: () => void
 }
 
-
 function useConsoleOutputs(): UseConsoleOutputsResult {
   const [consoleOutputs, setConsoleOutputs] = useState<ConsoleOutput[]>([])
   const appendLines = useCallback(

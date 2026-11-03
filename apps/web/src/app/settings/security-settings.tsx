@@ -29,7 +29,6 @@ export interface UseSecuritySettingsResult {
   deleteAccount: () => Promise<void>
 }
 
-
 /** Troca de senha, exportação LGPD e exclusão da conta. Fica acima das abas, como o perfil. */
 export function useSecuritySettings(): UseSecuritySettingsResult {
   const { setProfile } = useAuth()

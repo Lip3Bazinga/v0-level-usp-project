@@ -60,7 +60,6 @@ interface UseDisplayedProfileResult {
   currentUserId: string | undefined
 }
 
-
 /** Perfil exibido: o do usuário logado vem da sessão; o de outra pessoa, da API. */
 function useDisplayedProfile(username: string): UseDisplayedProfileResult {
   const router = useRouter()

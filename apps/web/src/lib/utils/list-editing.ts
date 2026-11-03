@@ -1,3 +1,4 @@
+/** Direção de um movimento na lista: anterior (-1) ou próximo (+1). */
 export type MoveDirection = -1 | 1
 
 /** Troca o item `index` com o vizinho na direção pedida; fora dos limites devolve a mesma lista. */

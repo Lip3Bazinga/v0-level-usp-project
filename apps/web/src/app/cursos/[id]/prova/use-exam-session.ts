@@ -34,7 +34,6 @@ export interface UseExamSessionResult {
   backToStatus: () => void
 }
 
-
 /** Uma prova por vez: status → em andamento (com cronômetro) → resultado. */
 export function useExamSession(courseId: string): UseExamSessionResult {
   const router = useRouter()

@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react"
 
+/** Trava de envio e o estado para desabilitar o botão. */
 export interface SubmitLock {
   isSubmitting: boolean
   /** Trava o envio; devolve `false` se já havia um em andamento (o chamador deve desistir). */

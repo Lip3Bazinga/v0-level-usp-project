@@ -11,6 +11,7 @@ import { nonEmpty } from "@levelusp/contracts"
 const WORKER_SCRIPT_URL = "/pyodide-worker-v2.js"
 const DEFAULT_PYODIDE_INDEX_URL = "https://cdn.jsdelivr.net/pyodide/v0.25.1/full/"
 
+/** Quem escuta o worker: as mensagens e uma falha do próprio worker. */
 export interface WorkerListener {
   onMessage: (message: WorkerMessage) => void
   onCrash: (event: ErrorEvent) => void
@@ -48,6 +49,7 @@ function ensureWorker(): Worker {
   return created
 }
 
+/** Envia um comando ao worker, criando-o na primeira vez. */
 export function postToWorker(command: WorkerCommand): void {
   ensureWorker().postMessage(command)
 }
@@ -60,6 +62,7 @@ export function restartWorker(): void {
   ensureWorker()
 }
 
+/** Status atual do runtime (para `useSyncExternalStore`). */
 export function getWorkerStatus(): PyodideStatus {
   return status
 }

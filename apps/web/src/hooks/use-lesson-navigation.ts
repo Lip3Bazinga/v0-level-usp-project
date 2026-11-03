@@ -46,6 +46,7 @@ export function getLessonPosition(
   }
 }
 
+/** Posição da lição no curso e as ações de ir para a anterior, a próxima ou sair. */
 export interface LessonNavigation extends LessonPosition {
   hasPreviousLesson: boolean
   hasNextLesson: boolean

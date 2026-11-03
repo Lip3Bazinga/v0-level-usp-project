@@ -5,6 +5,7 @@ function xpForLevel(level: number): number {
   return level * XP_PER_LEVEL
 }
 
+/** Onde o XP total cai dentro do nível atual (para barras de progresso). */
 export interface LevelProgress {
   /** XP total no início do nível atual. */
   xpFloor: number

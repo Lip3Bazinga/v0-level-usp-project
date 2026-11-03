@@ -44,7 +44,6 @@ interface UseCourseCompletionModalResult {
   close: () => void
 }
 
-
 /**
  * Abre o modal de curso concluído quando o aluno matriculado passa a ter todas as
  * lições concluídas, inclusive na primeira carga da página. Acompanha a transição
@@ -78,7 +77,6 @@ export interface UseCourseDetailResult {
   toggleEnrollment: () => Promise<void>
   downloadCertificate: () => Promise<void>
 }
-
 
 /** Dados da página do curso, matrícula e emissão do certificado. */
 export function useCourseDetail(courseId: string): UseCourseDetailResult {

@@ -52,7 +52,6 @@ export interface UseProfileFormResult {
   changeAvatar: (file: File) => Promise<void>
 }
 
-
 /**
  * Estado do formulário de perfil. Fica acima das abas para que trocar de aba não
  * descarte o que o aluno digitou e ainda não salvou.

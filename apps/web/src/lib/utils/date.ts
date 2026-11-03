@@ -10,6 +10,7 @@ export function localDateKey(value: string | Date): string {
   return date.toLocaleDateString("sv-SE", { timeZone: PLATFORM_TIMEZONE })
 }
 
+/** Chave `yyyy-mm-dd` de hoje no fuso da plataforma. */
 export function todayKey(): string {
   return localDateKey(new Date())
 }

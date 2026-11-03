@@ -1,5 +1,6 @@
 import type { Lesson, LessonProgress } from "@levelusp/contracts"
 
+/** Situação de uma lição na trilha do curso. */
 export type TrailStatus = "completed" | "in-progress" | "locked"
 
 /**
