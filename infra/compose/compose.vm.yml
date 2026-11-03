@@ -1,0 +1,181 @@
+# LevelUSP — produção numa VM Linux (sobreposição de compose.yml).
+# Use pelo script, que escolhe o perfil de entrada e o arquivo de ambiente:
+#   infra/scripts/levelusp-vm.sh deploy
+# Equivale a:
+#   docker compose -p levelusp-prod --env-file infra/env/vm.env \
+#     -f infra/compose/compose.yml -f infra/compose/compose.vm.yml --profile cloudflare up -d
+#
+# Entrada pública (INGRESS no vm.env):
+#   cloudflare → serviço "cloudflared": túnel NOMEADO por token. Nenhuma porta aberta na VM.
+#   caddy      → serviço "caddy": proxy reverso com HTTPS automático (Let's Encrypt), portas 80/443.
+#   none       → só 127.0.0.1:WEB_PORT (ex.: atrás de um proxy institucional já existente).
+# O Quick Tunnel do notebook (serviço "tunnel", perfil "tunnel") não é usado aqui.
+#
+# Limites padrão dimensionados para 2 vCPU / 4 GB (somam mais que a VM porque são
+# tetos, não reservas). Para 4 vCPU / 8 GB, veja a tabela em docs/v2/producao-vm.md.
+
+x-logging: &logging
+  logging:
+    driver: json-file
+    options: { max-size: "${LOG_MAX_SIZE:-10m}", max-file: "${LOG_MAX_FILE:-5}" }
+
+x-hardening: &hardening
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+
+services:
+  postgres:
+    <<: *logging
+    # Os backups saem por `pg_dump` via `docker compose exec` (infra/scripts/backup.sh):
+    # o banco não precisa enxergar a pasta de backups do host.
+    volumes: !override
+      - pgdata:/var/lib/postgresql/data
+    command:
+      - postgres
+      - -c
+      - shared_buffers=${PG_SHARED_BUFFERS:-256MB}
+      - -c
+      - effective_cache_size=${PG_EFFECTIVE_CACHE_SIZE:-768MB}
+      - -c
+      - work_mem=${PG_WORK_MEM:-8MB}
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - max_connections=${PG_MAX_CONNECTIONS:-50}
+      - -c
+      - idle_in_transaction_session_timeout=60s
+    shm_size: 256m
+    # O entrypoint oficial ajusta dono/permissões do PGDATA e troca para o usuário
+    # postgres: precisa só destas capacidades.
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    security_opt: ["no-new-privileges:true"]
+    cpus: ${POSTGRES_CPUS:-1.0}
+    mem_limit: ${POSTGRES_MEMORY:-1g}
+    pids_limit: 200
+    stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U levelusp -d levelusp"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  migrate:
+    <<: *logging
+    cpus: 0.5
+    mem_limit: 512m
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  runner:
+    <<: *logging
+    cpus: ${RUNNER_CPUS:-1.5}
+    mem_limit: ${RUNNER_MEMORY:-1g}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8081/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  api:
+    <<: *logging
+    environment:
+      PUBLIC_BASE_URL: "${PUBLIC_BASE_URL:?defina PUBLIC_BASE_URL no vm.env, ex. https://levelusp.exemplo.usp.br}"
+      SMTP_URL: ${SMTP_URL:-}
+      SMTP_REQUIRE_TLS: ${SMTP_REQUIRE_TLS:-true}
+      SMTP_TIMEOUT_MS: ${SMTP_TIMEOUT_MS:-15000}
+      MAIL_MAX_ATTEMPTS: ${MAIL_MAX_ATTEMPTS:-3}
+      MAIL_FROM: "${MAIL_FROM:?defina MAIL_FROM no vm.env, ex. LevelUSP <nao-responda@levelusp.exemplo.usp.br>}"
+      DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-10}
+      NODE_OPTIONS: --max-old-space-size=${API_HEAP_MB:-512}
+    cpus: ${API_CPUS:-1.0}
+    mem_limit: ${API_MEMORY:-768m}
+    pids_limit: 256
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  web:
+    <<: *logging
+    environment:
+      PUBLIC_BASE_URL: "${PUBLIC_BASE_URL:?defina PUBLIC_BASE_URL no vm.env}"
+      NODE_OPTIONS: --max-old-space-size=${WEB_HEAP_MB:-384}
+    cpus: ${WEB_CPUS:-1.0}
+    mem_limit: ${WEB_MEMORY:-512m}
+    pids_limit: 256
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # Entrada (a): túnel nomeado da Cloudflare. O token vem do painel Zero Trust
+  # (Networks → Tunnels); o hostname público aponta para http://web:3000.
+  cloudflared:
+    <<: [*logging, *hardening]
+    image: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2025.9.1}
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "--metrics", "127.0.0.1:20241", "run"]
+    environment:
+      # Pela variável (e não por --token) o segredo não aparece em `ps` nem em `docker inspect … Args`.
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    tmpfs: [/tmp]
+    depends_on:
+      web: { condition: service_healthy }
+    networks: [app]
+    cpus: 0.5
+    mem_limit: 256m
+    pids_limit: 64
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "--metrics", "127.0.0.1:20241", "ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    profiles: ["cloudflare"]
+
+  # Entrada (b): Caddy com HTTPS automático para PUBLIC_DOMAIN (DNS apontando para a VM,
+  # portas 80 e 443 liberadas no firewall da VM e no da instituição).
+  caddy:
+    <<: [*logging, *hardening]
+    image: ${CADDY_IMAGE:-caddy:2.10.2-alpine}
+    restart: unless-stopped
+    # Só NET_BIND_SERVICE: o binário do Caddy tem essa capacidade de arquivo para ouvir 80/443.
+    cap_add: [NET_BIND_SERVICE]
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    tmpfs: [/tmp]
+    depends_on:
+      web: { condition: service_healthy }
+    networks: [app]
+    cpus: 0.5
+    mem_limit: 256m
+    pids_limit: 128
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    profiles: ["caddy"]
+
+volumes:
+  caddy_data:
+  caddy_config:
