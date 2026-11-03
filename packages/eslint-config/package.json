@@ -1,0 +1,21 @@
+{
+  "name": "@levelusp/eslint-config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Regras de ESLint compartilhadas por todos os pacotes (lint tipado, tipos explícitos e TSDoc).",
+  "type": "module",
+  "main": "./index.mjs",
+  "exports": {
+    ".": "./index.mjs"
+  },
+  "files": ["index.mjs"],
+  "dependencies": {
+    "eslint-plugin-jsdoc": "^65.4.2"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  },
+  "peerDependencies": {
+    "eslint": "^9.0.0"
+  }
+}
