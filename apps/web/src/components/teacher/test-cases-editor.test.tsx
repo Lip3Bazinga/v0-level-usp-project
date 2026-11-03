@@ -139,6 +139,93 @@ describe("TestCasesEditor", () => {
     expect(screen.getByText(/correção é mais fraca/)).toBeInTheDocument()
   })
 
+  it("cria um caso de expressão com preparação e exceção esperada", async () => {
+    const user = userEvent.setup()
+    const onSave = vi.fn()
+    render(<Harness onSave={onSave} />)
+    await user.click(screen.getByRole("button", { name: "Adicionar caso: Avaliar expressão" }))
+
+    const card = screen.getByRole("region", { name: "Caso 1" })
+    await user.click(within(card).getByLabelText("Preparação (opcional, roda depois do main.py)"))
+    await user.paste('conta = ContaBancaria("Ana", 100)')
+    await user.type(within(card).getByLabelText("Expressão avaliada"), "conta.sacar(999)")
+    await user.selectOptions(within(card).getByLabelText("O que verificar"), "raises")
+    expect(within(card).getByText("Informe a exceção esperada (ex.: ValueError ou NomeCurtoError).")).toBeInTheDocument()
+    await user.type(within(card).getByLabelText("Exceção esperada (subclasses valem)"), "ValueError")
+    await user.type(within(card).getByLabelText("A mensagem contém (opcional)"), "insuficiente")
+
+    expect(within(card).getByText(/conta.sacar\(999\) deveria levantar ValueError/)).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Salvar lição" }))
+    expect(onSave).toHaveBeenCalledWith([{
+      kind: "expr", id: "caso-1", expr: "conta.sacar(999)", setup: 'conta = ContaBancaria("Ana", 100)', stdin: "",
+      match: "trimmed", raises: "ValueError", message_contains: "insuficiente",
+    }])
+  })
+
+  it("caso de expressão sem nada a verificar bloqueia o salvamento", async () => {
+    const user = userEvent.setup()
+    render(<Harness onSave={vi.fn()} />)
+    await user.click(screen.getByRole("button", { name: "Adicionar caso: Avaliar expressão" }))
+    const card = screen.getByRole("region", { name: "Caso 1" })
+    await user.type(within(card).getByLabelText("Expressão avaliada"), "pares_ate(4)")
+    expect(within(card).getByText(/informe o valor, o tipo, a exceção ou a saída esperada/)).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Salvar lição" })).toBeDisabled()
+    await user.type(within(card).getByLabelText("Tipo (opcional)"), "generator")
+    expect(screen.getByRole("button", { name: "Salvar lição" })).toBeEnabled()
+  })
+
+  it("cria um caso de testes do aluno contra um mutante", async () => {
+    const user = userEvent.setup()
+    const onSave = vi.fn()
+    render(<Harness onSave={onSave} />)
+    await user.click(screen.getByRole("button", { name: "Adicionar caso: Testes do aluno (unittest)" }))
+
+    const card = screen.getByRole("region", { name: "Caso 1" })
+    expect(within(card).getByText("Escreva o código que define a função ou classe substituída.")).toBeInTheDocument()
+    await user.type(within(card).getByLabelText("Nome substituído no main.py do aluno"), "validar_senha")
+    await user.click(within(card).getByLabelText("Implementação (deve definir o nome acima)"))
+    await user.paste("def validar_senha(senha):\n    return True\n")
+    await user.selectOptions(within(card).getByLabelText("Resultado esperado"), "fail")
+    await user.type(within(card).getByLabelText("Mínimo de testes (opcional)"), "4")
+
+    expect(within(card).queryByLabelText("Mostrar o valor esperado ao aluno")).not.toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Salvar lição" }))
+    expect(onSave).toHaveBeenCalledWith([{
+      kind: "unittest", id: "caso-1", expect: "fail", target: "validar_senha", min_tests: 4,
+      implementation: "def validar_senha(senha):\n    return True\n",
+    }])
+  })
+
+  it("testes do aluno contra a própria implementação dispensam código do professor", async () => {
+    const user = userEvent.setup()
+    const onSave = vi.fn()
+    render(<Harness onSave={onSave} />)
+    await user.click(screen.getByRole("button", { name: "Adicionar caso: Testes do aluno (unittest)" }))
+    const card = screen.getByRole("region", { name: "Caso 1" })
+    await user.selectOptions(within(card).getByLabelText("Rodar os testes do aluno contra"), "student")
+    expect(within(card).queryByLabelText("Implementação (deve definir o nome acima)")).not.toBeInTheDocument()
+    await user.type(within(card).getByLabelText("Mínimo de testes (opcional)"), "x")
+    expect(within(card).getByText("Informe um número inteiro.")).toBeInTheDocument()
+    await user.clear(within(card).getByLabelText("Mínimo de testes (opcional)"))
+    await user.click(screen.getByRole("button", { name: "Salvar lição" }))
+    expect(onSave).toHaveBeenCalledWith([{ kind: "unittest", id: "caso-1", expect: "pass" }])
+  })
+
+  it("regra de estrutura pode ser restrita a uma função", async () => {
+    const user = userEvent.setup()
+    const onSave = vi.fn()
+    render(<Harness onSave={onSave} />)
+    await user.click(screen.getByRole("button", { name: "Adicionar caso: Estrutura do código" }))
+    const card = screen.getByRole("region", { name: "Caso 1" })
+    await user.selectOptions(within(card).getByLabelText("Construção"), "list_comprehension")
+    await user.type(within(card).getByLabelText("Só dentro da função (opcional)"), "achatar")
+    expect(within(card).getAllByText("use list comprehension na função achatar").length).toBeGreaterThan(0)
+    await user.selectOptions(within(card).getByLabelText("Regra"), "catches")
+    await user.type(within(card).getByLabelText("Exceção"), "KeyError")
+    await user.click(screen.getByRole("button", { name: "Salvar lição" }))
+    expect(onSave).toHaveBeenCalledWith([{ kind: "source", id: "caso-1", rule: { type: "catches", exception: "KeyError" } }])
+  })
+
   it("aponta identificadores repetidos", () => {
     const { errors, valid } = compileDrafts(draftsFromCases([CALL, { ...IO, id: "a" }]))
     expect(valid).toBe(false)
@@ -154,6 +241,14 @@ describe("rascunhos de casos", () => {
       { kind: "variable", id: "v", variable: "total", expected: [1, "a", null] },
       { kind: "source", id: "s", rule: { type: "not_uses", construct: "for" } },
       { kind: "source", id: "s2", rule: { type: "imports", module: "math" } },
+      { kind: "source", id: "s3", rule: { type: "uses", construct: "yield", function: "pares" } },
+      { kind: "source", id: "s4", rule: { type: "decorator", name: "property" } },
+      { kind: "source", id: "s5", rule: { type: "catches", exception: "ValueError" } },
+      { kind: "expr", id: "e1", setup: "c = Conta(1)", expr: "c.saldo", stdin: "", match: "trimmed", expected: 1, type: "int", tolerance: 0.1 },
+      { kind: "expr", id: "e2", setup: "", expr: "f()", stdin: "1\n", match: "contains", raises: "ValueError", message_contains: "x", expected_stdout: "oi" },
+      { kind: "expr", id: "e3", setup: "", expr: "g()", stdin: "", match: "trimmed", expected: null },
+      { kind: "unittest", id: "u1", expect: "pass", target: "f", implementation: "def f(): ...", test_class: "T", min_tests: 3 },
+      { kind: "unittest", id: "u2", expect: "fail" },
       { kind: "legacy", id: "l", code: "assert True" },
     ]
     expect(compileDrafts(draftsFromCases(cases)).cases).toEqual(cases)
@@ -169,5 +264,11 @@ describe("rascunhos de casos", () => {
     expect(failurePreview(CALL).message).not.toContain("esperado 5")
     expect(failurePreview({ kind: "source", id: "s", rule: { type: "uses", construct: "recursion" }, hint: "chame a si mesma" }).message)
       .toBe("use recursão — dica: chame a si mesma")
+  })
+
+  it("prévia de expressão revela o esperado somente com reveal", () => {
+    const exprCase: TestCase = { kind: "expr", id: "e", setup: "", expr: "conta.saldo", stdin: "", match: "trimmed", expected: 150 }
+    expect(failurePreview(exprCase).message).toBe("conta.saldo → <valor do aluno>, que não é o esperado")
+    expect(failurePreview({ ...exprCase, reveal: true }).message).toContain("esperado 150")
   })
 })

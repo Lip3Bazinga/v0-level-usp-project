@@ -2,7 +2,8 @@
 
 | Item | Impacto | Próximo passo |
 |---|---|---|
-| 19 das 22 lições do seed ainda têm um caso `legacy` | Correção mais fraca nessas lições | Reescrever os blocos com preparação (setup) como casos `call`/`io` |
+| Lições importadas do Supabase chegam com um caso `legacy` | Correção mais fraca nessas lições (o seed já não tem nenhum) | Reescrever como casos `expr`/`unittest`, como em `packages/db/tools/manual_conversions.py` |
+| Modo estrito do executor (lições com `unittest`/`legacy`) bloqueia frames | `logging`, `inspect.stack()` e tracebacks não funcionam no código do aluno nessas lições | Aceito; documentado em `motor-de-correcao.md` |
 | Pyodide do navegador em 0.25.1 (Python 3.11) | "Executar" pode divergir do "Verificar" (3.14) | Testar `NEXT_PUBLIC_PYODIDE_INDEX_URL` com a versão 314.x e trocar o padrão |
 | `input()` e botão Parar no navegador | Parar recarrega o runtime; sem `input()` interativo | `SharedArrayBuffer` + cabeçalhos COOP/COEP + `setInterruptBuffer` |
 | Login com Google/GitHub | Botões desabilitados ("em breve") | Tabela `oauth_accounts` pronta; implementar fluxo OAuth na API |

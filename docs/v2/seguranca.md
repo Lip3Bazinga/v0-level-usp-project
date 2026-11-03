@@ -12,7 +12,21 @@
 | Python diferente entre Executar e Verificar | **Parcial**: servidor em 3.14; navegador ainda 3.11 (Pyodide 0.25.1) até testar o 314.x | ver dívida técnica |
 
 Casos `legacy` (gabaritos antigos importados) continuam rodando junto do
-código do aluno e são marcados como correção fraca (`strength: "legacy"`).
+código do aluno e são marcados como correção fraca (`strength: "legacy"`). O
+curso Python Completo não tem mais nenhum: as 22 lições são corrigidas com
+casos declarativos (`call`, `io`, `variable`, `source`, `expr`, `unittest`),
+verificadas contra 72 soluções erradas plausíveis (ver
+[motor-de-correcao.md](motor-de-correcao.md)).
+
+## Endurecimento do executor (03/11/2026)
+
+| Achado | Correção | Teste |
+|---|---|---|
+| Nonce e escritor de observações eram globais do `__main__` do harness, `probes.json` legível e o nonce em `sys.orig_argv`: forja trivial de caso `legacy` | Lote pelo stdin (esgotado antes do código do aluno); estado só no fecho de `_run_harness`; aluno recebe o próprio `__main__`; builtins/`os.write`/codificador JSON capturados | `sandbox.test.ts` ("não é forjável pelos caminhos óbvios") |
+| Introspecção (frames, gc, trace, `_testcapi` via `_imp.create_builtin`) alcançava o estado do harness | Modo estrito com audit hook nas instâncias `legacy`/`unittest` | `sandbox.test.ts` |
+| Serialização chamava `__iter__`/`isinstance` do aluno | Só tipos embutidos, checagem por `type()` e métodos C da classe base; limites de tamanho/profundidade | `sandbox.test.ts` (objetos hostis) |
+| Classe do aluno chamada `ValueError`/`generator` se passava pelo embutido | Tipo embutido identificado por identidade; classes do aluno qualificadas (`__main__.X`) | `grading.domain.spec.ts`, `sandbox.test.ts` |
+| Estado vazava entre sondas da mesma instância (arquivos, builtins, módulos) | Restauração entre sondas; `unittest` em instâncias separadas | `sandbox.test.ts`, `plan.test.ts` |
 
 ## Revisão independente (16/10/2026)
 
@@ -34,9 +48,14 @@ Uma revisão adversarial da v2 encontrou e corrigimos:
 
 Riscos aceitos e conhecidos:
 
-- **Casos `legacy`** dividem o interpretador com o aluno: com o nonce, a forja
-  exige inspecionar a memória do Python — difícil, mas possível. A correção
-  definitiva é converter os gabaritos (ver dívida técnica).
+- **Casos `legacy`** dividem o interpretador com o aluno e recebem os valores
+  esperados: `__eq__` trapaceiro ou monkeypatch do `unittest` aprovam. Só
+  aparecem em conteúdo importado; converta-os (o editor avisa).
+- **Casos declarativos** (`call`, `io`, `variable`, `expr`, `unittest`): o aluno
+  pode alterar o que é observado (objetos hostis, builtins trocados e, por
+  introspecção profunda fora do modo estrito, o próprio nonce), mas forjar a
+  aprovação exige conhecer o valor esperado, que nunca entra no sandbox. Em
+  `unittest`, exige saber se a suíte roda contra a referência ou um mutante.
 - **Disco do executor**: o aluno pode gravar no próprio diretório do projeto
   dentro do tmpfs de 256 MB do container durante até 10 s.
 - **Cadastro** responde "e-mail já cadastrado" (escolha de usabilidade).
@@ -71,5 +90,6 @@ Riscos aceitos e conhecidos:
 
 1. Rotacionar a chave `service_role` do Supabase antigo (já exposta) e desligar o projeto após o corte.
 2. Configurar SMTP para confirmação e redefinição de senha.
-3. Converter os gabaritos `legacy` para casos declarativos.
+3. ~~Converter os gabaritos `legacy` para casos declarativos.~~ Feito no curso
+   Python Completo; conteúdo importado do Supabase ainda precisa ser convertido.
 4. Mover produção para um servidor institucional (dados de alunos fora do notebook).

@@ -7,6 +7,8 @@ const probeOf: { [K in Probe["kind"]]: (id: string) => Extract<Probe, { kind: K 
   call: (id) => ({ id, kind: "call", function: "f", args: [], kwargs: {} }),
   globals: (id) => ({ id, kind: "globals", names: [] }),
   ast: (id) => ({ id, kind: "ast" }),
+  expr: (id) => ({ id, kind: "expr", setup: "", expr: "1", stdin: "" }),
+  unittest: (id) => ({ id, kind: "unittest" }),
   legacy: (id) => ({ id, kind: "legacy", code: "assert True" }),
 }
 
@@ -22,8 +24,13 @@ describe("planBatches", () => {
     expect(batches.map((batch) => batch.map((probe) => probe.id))).toEqual([["a"], ["l1", "l2"]])
   })
 
-  it("agrupa run/call/globals numa única instância", () => {
-    const batches = planBatches([probeOf.call("a"), probeOf.globals("b"), probeOf.run("c")])
+  it("agrupa run/call/globals/expr numa única instância", () => {
+    const batches = planBatches([probeOf.call("a"), probeOf.globals("b"), probeOf.run("c"), probeOf.expr("d")])
     expect(batches).toHaveLength(1)
+  })
+
+  it("roda cada sonda unittest numa instância própria (sem estado entre implementações)", () => {
+    const batches = planBatches([probeOf.unittest("ref"), probeOf.expr("e"), probeOf.unittest("mutante")])
+    expect(batches.map((batch) => batch.map((probe) => probe.id))).toEqual([["e"], ["ref"], ["mutante"]])
   })
 })

@@ -1,5 +1,7 @@
-import type {
-  AstFeatures, CaseResult, GradeResult, LegacyCase, OutputMatchMode, Probe, ProbeObservation, SourceRule, TestCase,
+import {
+  PY_BUILTIN_TYPE_NAMES,
+  type AstFeatures, type CaseResult, type GradeResult, type LegacyCase, type OutputMatchMode, type Probe,
+  type ProbeObservation, type RaisedException, type SourceRule, type TestCase,
 } from "@levelusp/contracts"
 import { jsonEquals, normalizeOutput, pyRepr } from "./compare"
 
@@ -23,10 +25,15 @@ const AST_PROBE_ID = "ast"
 const callProbeId = (caseId: string): string => `call:${caseId}`
 const runProbeId = (caseId: string): string => `run:${caseId}`
 const legacyProbeId = (caseId: string): string => `legacy:${caseId}`
+const exprProbeId = (caseId: string): string => `expr:${caseId}`
+const unittestProbeId = (caseId: string): string => `unittest:${caseId}`
 
 /** Argumentos ficam curtos na mensagem para não esconder o que importa. */
 const MAX_ARGUMENT_REPR = 40
 const MAX_REVEALED_STDOUT = 200
+const MAX_EXPRESSION_REPR = 60
+const MAX_EXCEPTION_MESSAGE = 120
+const MAX_FAILED_TEST_NAMES = 5
 
 type ObservationIndex = ReadonlyMap<string, ProbeObservation>
 
@@ -54,6 +61,18 @@ const PROBE_PLANNERS: { [Kind in CaseKind]: (testCase: CaseOf<Kind>, plan: Probe
   },
   source: (_testCase, plan) => {
     plan.needsAst = true
+  },
+  expr: (testCase, plan) => {
+    plan.probes.push({ id: exprProbeId(testCase.id), kind: "expr", setup: testCase.setup, expr: testCase.expr, stdin: testCase.stdin })
+  },
+  unittest: (testCase, plan) => {
+    const { test_class: testClass, target, implementation } = testCase
+    plan.probes.push({
+      id: unittestProbeId(testCase.id),
+      kind: "unittest",
+      ...(testClass === undefined ? {} : { test_class: testClass }),
+      ...(target === undefined || implementation === undefined ? {} : { target, implementation }),
+    })
   },
   legacy: (testCase, plan) => {
     plan.probes.push({ id: legacyProbeId(testCase.id), kind: "legacy", code: testCase.code })
@@ -136,6 +155,8 @@ const CASE_GRADERS: { [Kind in DeclarativeKind]: (testCase: CaseOf<Kind>, observ
   io: gradeOutput,
   variable: gradeVariable,
   source: gradeSource,
+  expr: gradeExpression,
+  unittest: gradeTestSuite,
 }
 
 function gradeDeclarative<Kind extends DeclarativeKind>(kind: Kind, testCase: CaseOf<Kind>, observations: ObservationIndex): CaseVerdict {
@@ -200,6 +221,105 @@ function gradeSource(testCase: CaseOf<"source">, observations: ObservationIndex)
   return checkRule(testCase.rule, observation.features) ? passed(testCase) : failed(testCase, describeRule(testCase.rule))
 }
 
+/**
+ * O executor só escreve um nome puro (`int`, `ValueError`) quando o tipo É o
+ * embutido; classes do aluno chegam como `modulo.Classe`. Nome embutido exige
+ * igualdade exata; nome de classe do aluno casa pelo sufixo `.Classe`.
+ */
+export function typeMatches(expected: string, observed: string | undefined): boolean {
+  if (observed === undefined) return false
+  if (observed === expected) return true
+  return !PY_BUILTIN_TYPE_NAMES.has(expected) && observed.endsWith(`.${expected}`)
+}
+
+/** Nome legível para o aluno: `__main__.Tarefa` → `Tarefa`. */
+function displayType(observed: string | undefined): string {
+  if (observed === undefined) return "?"
+  return observed.startsWith("__main__.") ? observed.slice("__main__.".length) : observed
+}
+
+function describeExpression(testCase: CaseOf<"expr">): string {
+  const expression = testCase.expr.replace(/\s+/g, " ")
+  return expression.length > MAX_EXPRESSION_REPR ? `${expression.slice(0, MAX_EXPRESSION_REPR - 1)}…` : expression
+}
+
+function describeRaised(raised: RaisedException): string {
+  const message = raised.message.length > MAX_EXCEPTION_MESSAGE ? `${raised.message.slice(0, MAX_EXCEPTION_MESSAGE - 1)}…` : raised.message
+  return message ? `${displayType(raised.type)}: ${message}` : displayType(raised.type)
+}
+
+function gradeExpression(testCase: CaseOf<"expr">, observations: ObservationIndex): CaseVerdict {
+  const observation = observations.get(exprProbeId(testCase.id))
+  const subject = describeExpression(testCase)
+  if (!observation?.ok) return crashed(testCase, `${subject} → ${describeError(observation)}`)
+  if (testCase.raises !== undefined) return gradeExpectedException(testCase, observation, subject)
+  if (observation.raised) return crashed(testCase, `${subject} levantou ${describeRaised(observation.raised)}`)
+  const valueProblem = describeValueProblem(testCase, observation, subject)
+  if (valueProblem) return failed(testCase, valueProblem)
+  return checkExpressionOutput(testCase, observation)
+}
+
+function describeValueProblem(testCase: CaseOf<"expr">, observation: ProbeObservation, subject: string): string | null {
+  if (testCase.type !== undefined && !typeMatches(testCase.type, observation.type)) {
+    return `${subject} deveria ser do tipo ${testCase.type}, mas é ${displayType(observation.type)}`
+  }
+  if (testCase.expected === undefined) return null
+  if (observation.value !== undefined && jsonEquals(testCase.expected, observation.value, testCase.tolerance)) return null
+  const obtained = pyRepr(observation.value)
+  return testCase.reveal ? `${subject} → ${obtained}; esperado ${pyRepr(testCase.expected)}` : `${subject} → ${obtained}, que não é o esperado`
+}
+
+function gradeExpectedException(testCase: CaseOf<"expr">, observation: ProbeObservation, subject: string): CaseVerdict {
+  const expected = testCase.raises ?? ""
+  const { raised } = observation
+  if (!raised) return failed(testCase, `${subject} deveria levantar ${expected}, mas não levantou nenhuma exceção`)
+  if (!raised.mro.some((entry) => typeMatches(expected, entry))) {
+    return failed(testCase, `${subject} deveria levantar ${expected}, mas levantou ${describeRaised(raised)}`)
+  }
+  const fragment = testCase.message_contains
+  if (fragment !== undefined && !raised.message.includes(fragment)) {
+    return failed(
+      testCase,
+      testCase.reveal
+        ? `a mensagem de ${expected} deveria conter ${JSON.stringify(fragment)}; obtida ${JSON.stringify(raised.message)}`
+        : `a mensagem de ${expected} (${JSON.stringify(raised.message)}) não é a esperada`,
+    )
+  }
+  return checkExpressionOutput(testCase, observation)
+}
+
+function checkExpressionOutput(testCase: CaseOf<"expr">, observation: ProbeObservation): CaseVerdict {
+  if (testCase.expected_stdout === undefined) return passed(testCase)
+  const stdout = observation.stdout ?? ""
+  if (matchOutput(testCase.match, testCase.expected_stdout, stdout)) return passed(testCase)
+  return failed(
+    testCase,
+    testCase.reveal
+      ? `saída esperada ${JSON.stringify(testCase.expected_stdout)}, obtida ${JSON.stringify(stdout.slice(0, MAX_REVEALED_STDOUT))}`
+      : "o que foi impresso não é o esperado",
+  )
+}
+
+/** A suíte do aluno contra uma implementação: a API decide se passar era o certo. */
+function gradeTestSuite(testCase: CaseOf<"unittest">, observations: ObservationIndex): CaseVerdict {
+  const observation = observations.get(unittestProbeId(testCase.id))
+  const tests = observation?.tests
+  if (!observation?.ok || !tests) return crashed(testCase, describeError(observation))
+  const target = testCase.implementation === undefined ? "a sua implementação" : "esta implementação"
+  if (testCase.min_tests !== undefined && tests.run < testCase.min_tests) {
+    return failed(testCase, `sua suíte rodou ${tests.run} teste(s); são necessários pelo menos ${testCase.min_tests}`)
+  }
+  if (tests.run === 0) return failed(testCase, "nenhum teste foi encontrado na sua suíte")
+  const hasDetectedDefect = tests.failures + tests.errors > 0
+  if (testCase.expect === "pass") {
+    if (!hasDetectedDefect) return passed(testCase)
+    const names = tests.failed.slice(0, MAX_FAILED_TEST_NAMES).join(", ")
+    return failed(testCase, `seus testes falharam contra ${target}${names ? ` (${names})` : ""}`)
+  }
+  if (hasDetectedDefect) return passed(testCase)
+  return failed(testCase, `seus testes passaram contra ${target}, mas ela tem um defeito que eles deveriam detectar`)
+}
+
 const OUTPUT_MATCHERS: Record<OutputMatchMode, (expected: string, actual: string) => boolean> = {
   exact: (expected, actual) => actual === expected,
   trimmed: (expected, actual) => normalizeOutput(actual) === normalizeOutput(expected),
@@ -222,10 +342,20 @@ const CONSTRUCT_NAMES: Record<string, string> = {
   lambda: "uma função lambda", for: "um laço for", while: "um laço while", if: "um if", def: "uma função (def)",
   class: "uma classe", list_comprehension: "uma list comprehension", dict_comprehension: "uma dict comprehension",
   f_string: "uma f-string", try: "um bloco try/except", with: "um bloco with", return: "return", import: "import",
-  recursion: "recursão",
+  recursion: "recursão", yield: "yield (generator)",
 }
 
 const constructName = (construct: string): string => CONSTRUCT_NAMES[construct] ?? construct
+
+/** Construções do projeto inteiro, ou só do corpo da função (vazio se ela não existe). */
+function constructsIn(features: AstFeatures, functionName: string | undefined): string[] {
+  if (functionName === undefined) return features.constructs
+  return features.function_constructs[functionName] ?? []
+}
+
+function inFunction(functionName: string | undefined): string {
+  return functionName === undefined ? "" : ` na função ${functionName}`
+}
 
 interface SourceRuleStrategy<Type extends RuleType> {
   check(rule: RuleOf<Type>, features: AstFeatures): boolean
@@ -234,13 +364,21 @@ interface SourceRuleStrategy<Type extends RuleType> {
 }
 
 const SOURCE_RULES: { [Type in RuleType]: SourceRuleStrategy<Type> } = {
-  uses: { check: (rule, features) => features.constructs.includes(rule.construct), describe: (rule) => `use ${constructName(rule.construct)}` },
-  not_uses: { check: (rule, features) => !features.constructs.includes(rule.construct), describe: (rule) => `não use ${constructName(rule.construct)}` },
+  uses: {
+    check: (rule, features) => constructsIn(features, rule.function).includes(rule.construct),
+    describe: (rule) => `use ${constructName(rule.construct)}${inFunction(rule.function)}`,
+  },
+  not_uses: {
+    check: (rule, features) => !constructsIn(features, rule.function).includes(rule.construct),
+    describe: (rule) => `não use ${constructName(rule.construct)}${inFunction(rule.function)}`,
+  },
   calls: { check: (rule, features) => features.calls.includes(rule.name), describe: (rule) => `use a função ${rule.name}()` },
   not_calls: { check: (rule, features) => !features.calls.includes(rule.name), describe: (rule) => `não use a função ${rule.name}()` },
   defines_function: { check: (rule, features) => features.functions.includes(rule.name), describe: (rule) => `defina a função ${rule.name}` },
   defines_class: { check: (rule, features) => features.classes.includes(rule.name), describe: (rule) => `defina a classe ${rule.name}` },
   imports: { check: (rule, features) => features.imports.includes(rule.module), describe: (rule) => `importe o módulo ${rule.module}` },
+  decorator: { check: (rule, features) => features.decorators.includes(rule.name), describe: (rule) => `use o decorator @${rule.name}` },
+  catches: { check: (rule, features) => features.handlers.includes(rule.exception), describe: (rule) => `capture ${rule.exception} com except` },
 }
 
 function ruleStrategy<Type extends RuleType>(type: Type): SourceRuleStrategy<Type> {
