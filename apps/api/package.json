@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "test": "vitest run --project unit",
     "test:e2e": "vitest run --project e2e",
+    "test:security": "vitest run --project security",
     "test:cov": "vitest run --project unit --coverage",
     "verify:seed": "tsx scripts/verify-seed.mts",
     "mail:test": "tsx src/cli/mail-test.ts"

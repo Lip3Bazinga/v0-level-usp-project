@@ -69,6 +69,9 @@ export const envSchema = z
       return z.NEVER
     }
     const isDeployed = env.APP_ENV === "homolog" || env.APP_ENV === "prod"
+    if (isDeployed) {
+      for (const problem of publicSecretProblems(env)) ctx.addIssue({ code: "custom", path: [problem.variable], message: problem.message })
+    }
     return {
       ...rest,
       PUBLIC_BASE_URL: publicBaseUrl.origin,
@@ -94,6 +97,45 @@ function resolvePublicBaseUrl(appEnv: Env["APP_ENV"], raw: string | undefined): 
   if (!parsed.ok) return parsed
   const problem = appEnv === "prod" ? productionOriginProblem(parsed.origin) : null
   return problem ? { ok: false, reason: problem } : parsed
+}
+
+/**
+ * Segredos que estão publicados no repositório (compose de dev, CI, testes, placeholders
+ * dos `.env.example`) ou senhas de banco triviais. Em homologação e produção a API não
+ * sobe com eles: quem lê o repositório público não pode conhecer o token do executor.
+ */
+const PUBLIC_SECRET_MARKERS = ["__gerar__", "runner-token", "0123456789", "changeme", "trocar"] as const
+const WEAK_DATABASE_PASSWORDS: ReadonlySet<string> = new Set(["", "levelusp", "postgres", "password", "senha", "admin", "__gerar__"])
+
+interface SecretProblem {
+  variable: "RUNNER_TOKEN" | "DATABASE_URL" | "SMTP_URL"
+  message: string
+}
+
+function hasPublicMarker(value: string): boolean {
+  const lowered = value.toLowerCase()
+  return PUBLIC_SECRET_MARKERS.some((marker) => lowered.includes(marker))
+}
+
+function databasePassword(databaseUrl: string): string | null {
+  try {
+    return decodeURIComponent(new URL(databaseUrl).password)
+  } catch {
+    return null
+  }
+}
+
+function publicSecretProblems(env: { RUNNER_TOKEN: string; DATABASE_URL: string; SMTP_URL?: string | undefined }): SecretProblem[] {
+  const problems: SecretProblem[] = []
+  if (hasPublicMarker(env.RUNNER_TOKEN)) {
+    problems.push({ variable: "RUNNER_TOKEN", message: "parece o valor de exemplo/dev publicado no repositório; gere um novo (openssl rand -hex 24)" })
+  }
+  const password = databasePassword(env.DATABASE_URL)
+  if (password !== null && WEAK_DATABASE_PASSWORDS.has(password.toLowerCase())) {
+    problems.push({ variable: "DATABASE_URL", message: "senha do banco trivial ou de exemplo; gere uma (openssl rand -hex 24)" })
+  }
+  if (env.SMTP_URL?.includes("__gerar__")) problems.push({ variable: "SMTP_URL", message: "ainda tem o placeholder __gerar__" })
+  return problems
 }
 
 /** Mensagens padrão do Zod em português (as regras acima já têm as suas). */

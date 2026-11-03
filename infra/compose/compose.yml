@@ -47,6 +47,7 @@ services:
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
       SEED_DEMO_USERS: ${SEED_DEMO_USERS:-false}
+      SEED_DEMO_PASSWORD: ${SEED_DEMO_PASSWORD:-}
       SEED_CONTENT: ${SEED_CONTENT:-true}
     depends_on:
       migrate: { condition: service_completed_successfully }

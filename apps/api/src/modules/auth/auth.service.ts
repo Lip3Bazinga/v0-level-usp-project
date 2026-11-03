@@ -1,8 +1,9 @@
 import { Inject, Injectable, Logger } from "@nestjs/common"
 import { nonEmpty, type SessionResponse, type SignInInput, type SignUpInput } from "@levelusp/contracts"
-import type { ProfileRow, UserRow } from "@levelusp/db"
+import type { ProfileRow } from "@levelusp/db"
 import { ENV } from "@/config/config.module"
 import type { Env } from "@/config/env"
+import { isUniqueViolation } from "@/common/database/pg-errors"
 import { AppError, BadRequest, Conflict, Forbidden, ServiceUnavailable, Unauthorized } from "@/common/errors/app-error"
 import type { AuthUser } from "@/common/http/request"
 import { MS_PER_DAY, MS_PER_HOUR, isoAfter, MS_PER_MINUTE } from "@/common/time/time"
@@ -10,13 +11,14 @@ import { MailService } from "@/infra/mail/mail.service"
 import { GamificationService } from "../gamification/gamification.service"
 import { toProfile } from "../users/profile.mapper"
 import { UsersRepository } from "../users/users.repository"
-import { displayNameFromEmail, isLocked, registerFailedLogin, usernameBaseFromEmail, usernameWithSuffix } from "./auth.domain"
-import { AuthRepository } from "./auth.repository"
+import { displayNameFromEmail, isLocked, LOCK_DURATION_MS, MAX_FAILED_LOGINS, usernameBaseFromEmail, usernameWithSuffix } from "./auth.domain"
+import { AuthRepository, type CreatedAccount, type LockoutPolicy, type NewAccount } from "./auth.repository"
 import { PasswordService } from "./password.service"
 import type { SessionCookie } from "./session.cookie"
 import { hashToken, newToken } from "./tokens"
 
 const RESET_TTL_MINUTES = 60
+const LOGIN_LOCKOUT: LockoutPolicy = { maxFailures: MAX_FAILED_LOGINS, lockMs: LOCK_DURATION_MS }
 /** Convites valem mais que um pedido de redefinição comum. */
 const INVITE_TTL_HOURS = 72
 /** Renova a validade da sessão no máximo a cada 5 min (evita escrita por requisição). */
@@ -25,6 +27,7 @@ const SESSION_TOUCH_INTERVAL_MS = 5 * MS_PER_MINUTE
 const MAX_SESSION_TOKEN_LENGTH = 100
 const MAX_USER_AGENT_LENGTH = 300
 const MAX_USERNAME_ATTEMPTS = 20
+const MAX_ACCOUNT_CREATION_ATTEMPTS = 3
 const PASSWORD_LINK_PATH = "/redefinir-senha"
 const INVITE_MAIL_FAILED_MESSAGE =
   "A conta foi criada, mas o e-mail de convite não pôde ser enviado agora. Peça para a pessoa usar \"Esqueci minha senha\" com este e-mail."
@@ -39,6 +42,8 @@ export interface ClientInfo {
 export interface IssuedSession extends SessionCookie {
   response: SessionResponse
 }
+
+const emailTaken = (): AppError => Conflict("Já existe uma conta com este e-mail.", "EMAIL_TAKEN")
 
 /** Mesma resposta para senha errada, conta inexistente e conta bloqueada: não revela quais e-mails existem. */
 const invalidCredentials = (): AppError =>
@@ -65,13 +70,8 @@ export class AuthService {
    */
   async signUp(input: SignUpInput, client: ClientInfo): Promise<IssuedSession> {
     if (!this.env.SIGNUP_ENABLED) throw Forbidden("O cadastro está fechado neste ambiente. Peça um convite.")
-    if (await this.repo.findUserByEmail(input.email)) throw Conflict("Já existe uma conta com este e-mail.", "EMAIL_TAKEN")
-    const { user } = await this.repo.createUserWithProfile({
-      email: input.email,
-      passwordHash: await this.passwords.hash(input.password),
-      fullName: input.full_name,
-      username: await this.uniqueUsername(input.email),
-    })
+    if (await this.repo.findUserByEmail(input.email)) throw emailTaken()
+    const { user } = await this.createAccount({ email: input.email, passwordHash: await this.passwords.hash(input.password), fullName: input.full_name })
     this.logger.log({ userId: user.id }, "conta criada")
     return this.issueSession(user.id, client)
   }
@@ -88,9 +88,13 @@ export class AuthService {
     const locked = user ? isLocked(user, now) : false
     const isPasswordValid = await this.passwords.verify(user?.passwordHash, input.password) // custo constante
     if (!user || !isPasswordValid || locked) {
-      if (user && !locked) await this.recordFailure(user, now)
+      if (user && !locked) await this.repo.recordFailedLogin(user.id, LOGIN_LOCKOUT)
       throw invalidCredentials()
     }
+    // A leitura acima pode ser anterior a uma rajada paralela que acabou de bloquear a conta:
+    // confere de novo antes de abrir a sessão (a senha certa no meio da rajada não entra).
+    const current = await this.repo.findUserById(user.id)
+    if (!current || isLocked(current, Date.now())) throw invalidCredentials()
     const profile = await this.users.findById(user.id)
     if (!profile) throw invalidCredentials()
     if (profile.suspended) throw Forbidden("Sua conta está suspensa. Fale com a coordenação.")
@@ -150,7 +154,7 @@ export class AuthService {
   }
 
   /**
-   * Troca a senha pelo link (token de uso único) e encerra todas as sessões.
+   * Troca a senha pelo link (token de uso único), invalida os outros links pendentes e encerra todas as sessões.
    *
    * @throws AppError 400 `INVALID_TOKEN` (inexistente, usado ou expirado).
    */
@@ -158,11 +162,12 @@ export class AuthService {
     const userId = await this.repo.consumePasswordToken(hashToken(token))
     if (!userId) throw BadRequest("Link inválido ou expirado. Peça um novo.", "INVALID_TOKEN")
     await this.repo.updatePassword(userId, await this.passwords.hash(password))
+    await this.repo.revokePasswordTokens(userId)
     await this.repo.revokeAllSessions(userId)
   }
 
   /**
-   * Troca a senha confirmando a atual; as outras sessões são encerradas, a atual continua.
+   * Troca a senha confirmando a atual; links de redefinição pendentes e as outras sessões são encerrados, a atual continua.
    *
    * @throws AppError 400 `INVALID_PASSWORD`.
    */
@@ -172,6 +177,7 @@ export class AuthService {
       throw new AppError(400, "INVALID_PASSWORD", "Senha atual incorreta.")
     }
     await this.repo.updatePassword(user.id, await this.passwords.hash(newPassword))
+    await this.repo.revokePasswordTokens(user.id)
     await this.repo.revokeAllSessions(user.id, user.sessionId)
   }
 
@@ -180,13 +186,8 @@ export class AuthService {
    * pessoa definir a senha (mesmo fluxo/tokens da redefinição).
    */
   async inviteUser(email: string, fullName?: string): Promise<ProfileRow> {
-    if (await this.repo.findUserByEmail(email)) throw Conflict("Já existe uma conta com este e-mail.", "EMAIL_TAKEN")
-    const { user, profile } = await this.repo.createUserWithProfile({
-      email,
-      passwordHash: null,
-      fullName: nonEmpty(fullName?.trim()) ?? displayNameFromEmail(email),
-      username: await this.uniqueUsername(email),
-    })
+    if (await this.repo.findUserByEmail(email)) throw emailTaken()
+    const { user, profile } = await this.createAccount({ email, passwordHash: null, fullName: nonEmpty(fullName?.trim()) ?? displayNameFromEmail(email) })
     const link = await this.createPasswordLink(user.id, INVITE_TTL_HOURS * MS_PER_HOUR)
     this.logger.log({ userId: user.id }, "conta criada por convite")
     try {
@@ -213,6 +214,23 @@ export class AuthService {
     return this.repo.revokeEverySession()
   }
 
+  /**
+   * Cria credencial + perfil. Dois cadastros simultâneos passam juntos pela checagem de e-mail;
+   * o índice único do banco decide, e quem perde recebe o mesmo 409 (nunca um 500 com erro do banco).
+   * Colisão só de username (base igual no mesmo instante) tenta de novo com outro sufixo.
+   */
+  private async createAccount(account: Omit<NewAccount, "username">): Promise<CreatedAccount> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await this.repo.createUserWithProfile({ ...account, username: await this.uniqueUsername(account.email) })
+      } catch (error) {
+        if (!isUniqueViolation(error)) throw error
+        if (await this.repo.findUserByEmail(account.email)) throw emailTaken()
+        if (attempt >= MAX_ACCOUNT_CREATION_ATTEMPTS) throw error
+      }
+    }
+  }
+
   private async uniqueUsername(email: string): Promise<string> {
     const base = usernameBaseFromEmail(email)
     let candidate = base
@@ -220,11 +238,6 @@ export class AuthService {
       candidate = usernameWithSuffix(base)
     }
     return candidate
-  }
-
-  private async recordFailure(user: UserRow, now: number): Promise<void> {
-    const { failures, lockedUntil } = registerFailedLogin(user, now)
-    await this.repo.recordFailedLogin(user.id, failures, lockedUntil)
   }
 
   /** Link de definição de senha (redefinição ou convite) com token de uso único. */
