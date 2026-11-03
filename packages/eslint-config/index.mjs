@@ -55,7 +55,9 @@ export const TYPED_RULES = {
 
   // Condições e fallbacks coerentes com os tipos
   "@typescript-eslint/no-unnecessary-condition": "error",
-  "@typescript-eslint/prefer-nullish-coalescing": "error",
+  // `||` entre booleanos é OU lógico, não fallback. Para texto em que "" conta como ausente,
+  // use `nonEmpty(texto) ?? padrão` (@levelusp/contracts) e deixe a intenção explícita.
+  "@typescript-eslint/prefer-nullish-coalescing": ["error", { ignorePrimitives: { boolean: true } }],
 
   // Higiene
   "@typescript-eslint/no-unused-vars": [
@@ -118,6 +120,7 @@ export const DOCUMENTATION_RULES = {
  * @param options.documented Camadas que exigem TSDoc nas exportações (`files`) e exceções (`ignores`).
  * @param options.allowDefaultProject Arquivos TS fora do tsconfig (configs) que ainda recebem lint tipado.
  * @param options.ignores Globs ignorados além de `dist/` e `coverage/`.
+ * @param options.cliScripts Scripts de linha de comando, cuja saída é o próprio console.
  */
 export function createTypeScriptConfig({
   tseslint,
@@ -125,6 +128,7 @@ export function createTypeScriptConfig({
   documented = { files: [], ignores: [] },
   allowDefaultProject = [],
   ignores = [],
+  cliScripts = [],
 }) {
   const documentedIgnores = ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", ...(documented.ignores ?? [])]
   return [
@@ -151,5 +155,6 @@ export function createTypeScriptConfig({
       files: JAVASCRIPT_FILES,
       ...tseslint.configs.disableTypeChecked,
     },
+    ...(cliScripts.length > 0 ? [{ files: cliScripts, rules: { "no-console": "off" } }] : []),
   ]
 }

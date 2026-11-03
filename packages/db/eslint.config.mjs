@@ -6,6 +6,7 @@ export default tseslint.config(
     tseslint,
     tsconfigRootDir: import.meta.dirname,
     ignores: ["migrations/**", "seed/**", "tools/**"],
+    cliScripts: ["src/scripts/**"],
     documented: { files: ["src/**/*.ts"] },
   }),
 )

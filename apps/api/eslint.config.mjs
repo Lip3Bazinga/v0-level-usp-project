@@ -6,6 +6,7 @@ export default tseslint.config(
     tseslint,
     tsconfigRootDir: import.meta.dirname,
     allowDefaultProject: ["vitest.config.mts", "scripts/*.mts"],
+    cliScripts: ["scripts/**"],
     documented: {
       files: ["src/**/*.ts"],
       ignores: ["src/main.ts", "src/**/*.controller.ts", "src/**/*.module.ts", "src/modules/index.ts"],
