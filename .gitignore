@@ -32,3 +32,6 @@ infra/env/*.env
 !infra/env/*.env.example
 playwright-report/
 test-results/
+
+# Núcleo do Pyodide copiado do pacote npm no build (apps/web/scripts/copy-pyodide.mts)
+apps/web/public/pyodide/

@@ -59,7 +59,7 @@ jobs:
       - run: pnpm --filter @levelusp/api test:e2e
 
   sandbox:
-    name: Executor WASI (segurança + gabaritos)
+    name: Executor WASI (segurança, gabaritos e paridade com o navegador)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -77,11 +77,22 @@ jobs:
       - run: pnpm --filter @levelusp/contracts build && pnpm --filter @levelusp/runner build
       - name: Testes do executor (inclui ataques da auditoria)
         run: pnpm --filter @levelusp/runner test
-      - name: Gabaritos do seed (solução aprova, esqueleto reprova)
+      - name: Sobe o executor
         run: |
-          RUNNER_TOKEN=ci-runner-token-0123456789abcdef node apps/runner/dist/main.js &
-          sleep 2
-          RUNNER_TOKEN=ci-runner-token-0123456789abcdef pnpm --filter @levelusp/api verify:seed
+          node apps/runner/dist/main.js > "$GITHUB_WORKSPACE/runner.log" 2>&1 &
+          npx --yes wait-on@8 -t 30000 tcp:127.0.0.1:8081
+        env: { RUNNER_TOKEN: ci-runner-token-0123456789abcdef }
+      - name: Gabaritos do seed (solução aprova, esqueleto reprova)
+        run: pnpm --filter @levelusp/api verify:seed
+        env: { RUNNER_TOKEN: ci-runner-token-0123456789abcdef }
+      - name: Paridade Executar × Verificar (Pyodide 314 × CPython WASI)
+        run: pnpm --filter @levelusp/web test:paridade
+        env: { RUNNER_TOKEN: ci-runner-token-0123456789abcdef, PARITY_REPORT: "${{ github.workspace }}/paridade-python.md" }
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: paridade-python, path: paridade-python.md, if-no-files-found: ignore, retention-days: 7 }
+      - if: failure()
+        run: tail -n 100 runner.log
 
   e2e:
     name: Ponta a ponta (Playwright)

@@ -1,37 +1,35 @@
 import type { ProjectFile } from "@levelusp/contracts"
+import type { ProjectRunResult } from "./project-execution"
 
 /*
- * Mensagens trocadas com public/pyodide-worker-v2.js. O worker é código nosso,
- * então os formatos abaixo são o contrato entre os dois lados.
+ * Mensagens trocadas entre a página (pyodide-worker.ts) e o Web Worker
+ * (python-worker.ts). Os dois lados são código nosso: estes tipos são o contrato.
  */
 
-/** Ciclo de vida do runtime Pyodide no worker. */
+/** Ciclo de vida do runtime no worker. */
 export type PyodideStatus = "idle" | "loading" | "ready" | "error"
 
-/** Saída de uma execução; `figures` são PNGs em base64 dos gráficos do matplotlib. */
-export interface ExecutionResult {
-  stdout: string
-  stderr: string
-  figures: string[]
-}
+/** Resultado de uma execução (mesmo formato produzido pelo harness do navegador). */
+export type ExecutionResult = ProjectRunResult
 
-/** Comandos da página para o worker. */
+/** Comandos que a página envia ao worker. */
 export type WorkerCommand =
-  | { type: "init"; indexURL: string }
+  | {
+      type: "init"
+      /** URL absoluta da pasta do núcleo do Pyodide (com "/" no fim). */
+      indexURL: string
+      /** URL absoluta de onde vêm os wheels dos pacotes extras (numpy, matplotlib…). */
+      packageBaseUrl: string
+    }
   | { type: "execute"; files: readonly ProjectFile[]; entryPath: string }
   | { type: "install"; packages: readonly string[] }
 
-/** Mensagens do worker para a página. */
+/** Mensagens que o worker envia à página. */
 export type WorkerMessage =
-  | { type: "status"; status: PyodideStatus; error?: string }
+  | { type: "status"; status: PyodideStatus; error?: string; pythonVersion?: string }
   | { type: "execution-start" }
-  | { type: "execution-result"; stdout?: string; stderr?: string; figures?: string[] }
-  | { type: "execution-error"; error?: string }
-  | { type: "figure"; index: number; data: string }
-  | { type: "error"; error?: string }
+  | { type: "execution-result"; result: ExecutionResult }
+  | { type: "execution-error"; error: string }
   | { type: "packages-loading"; packages: string[] }
   | { type: "package-installed"; package: string }
-  | { type: "package-error"; package: string; error?: string }
-  | { type: "test-start" }
-  | { type: "test-result" }
-  | { type: "test-error"; error?: string }
+  | { type: "package-error"; package: string; error: string }

@@ -9,7 +9,7 @@
 | Aprovação forjada (JSON de resultado, `__eq__`, patch no unittest) | **Eliminado** para casos declarativos: comparação na API sobre valores serializados | `grading.domain.spec.ts` |
 | Gabarito lido via `sys.modules` | **Eliminado**: o sandbox não recebe valores esperados | `grading.domain.spec.ts` (buildProbes) |
 | Sem limite de memória/rede/processos | **Eliminado**: fuel, timeout, 128 MB, sem sockets; container sem rede externa, FS somente leitura, sem capabilities | `sandbox.test.ts`, `infra/compose/compose.yml` |
-| Python diferente entre Executar e Verificar | **Parcial**: servidor em 3.14; navegador ainda 3.11 (Pyodide 0.25.1) até testar o 314.x | ver dívida técnica |
+| Python diferente entre Executar e Verificar | **Eliminado**: os dois em Python 3.14 (Pyodide 314.0.7 servido pelo próprio front, sem CDN de terceiros no `script-src`); divergências restantes documentadas | `pnpm --filter @levelusp/web test:paridade` (CI, job `sandbox`), [paridade-python.md](./paridade-python.md) |
 
 Casos `legacy` (gabaritos antigos importados) continuam rodando junto do
 código do aluno e são marcados como correção fraca (`strength: "legacy"`). O
@@ -79,7 +79,9 @@ Riscos aceitos e conhecidos:
   para correlação.
 - **Logs**: pino estruturado com redação de cookie, `authorization` e senha.
 - **Cabeçalhos**: helmet na API (CSP `default-src 'none'`), cabeçalhos de
-  segurança no Next.
+  segurança no Next. O núcleo do Pyodide é servido pelo próprio front, com
+  SHA-256 conferido no build; `script-src` não libera outra origem e só os
+  wheels de pacotes extras vêm do CDN oficial (`connect-src`).
 - **Infra**: imagens não-root, `read_only`, `cap_drop: ALL`,
   `no-new-privileges`, redes internas sem rota para a internet para banco e
   executor; só o front escuta em `127.0.0.1`; acesso público pelo túnel.

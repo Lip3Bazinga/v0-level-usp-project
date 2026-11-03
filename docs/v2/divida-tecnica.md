@@ -4,7 +4,8 @@
 |---|---|---|
 | Lições importadas do Supabase chegam com um caso `legacy` | Correção mais fraca nessas lições (o seed já não tem nenhum) | Reescrever como casos `expr`/`unittest`, como em `packages/db/tools/manual_conversions.py` |
 | Modo estrito do executor (lições com `unittest`/`legacy`) bloqueia frames | `logging`, `inspect.stack()` e tracebacks não funcionam no código do aluno nessas lições | Aceito; documentado em `motor-de-correcao.md` |
-| Pyodide do navegador em 0.25.1 (Python 3.11) | "Executar" pode divergir do "Verificar" (3.14) | Testar `NEXT_PUBLIC_PYODIDE_INDEX_URL` com a versão 314.x e trocar o padrão |
+| Patch do Python: navegador 3.14.2 (Pyodide 314.0.7), executor 3.14.0 (WASI) | Nenhuma lição afetada; o teste de paridade documenta as diferenças restantes (`sqlite3` só no navegador, mensagens de `zoneinfo`/`subprocess`) | Atualizar o CPython WASI do executor para 3.14.2 e rodar `test:paridade` ([paridade-python.md](./paridade-python.md)) |
+| Pacotes via `micropip` (fora do `pyodide-lock.json`) | A CSP não libera o PyPI: só os pacotes do lock instalam no navegador | Espelhar os wheels necessários em `NEXT_PUBLIC_PYODIDE_PACKAGE_BASE_URL` ou liberar o PyPI na CSP |
 | `input()` e botão Parar no navegador | Parar recarrega o runtime; sem `input()` interativo | `SharedArrayBuffer` + cabeçalhos COOP/COEP + `setInterruptBuffer` |
 | Login com Google/GitHub | Botões desabilitados ("em breve") | Tabela `oauth_accounts` pronta; implementar fluxo OAuth na API |
 | SMTP | Links de redefinição vão para o log da API | Configurar `SMTP_URL` |

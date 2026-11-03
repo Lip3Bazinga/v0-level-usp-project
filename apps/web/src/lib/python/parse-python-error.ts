@@ -1,5 +1,3 @@
-import { nonEmpty } from "@levelusp/contracts"
-
 /** Erro do Python traduzido para quem está começando, com a mensagem original preservada. */
 export interface ParsedPythonError {
   title: string
@@ -25,7 +23,7 @@ const ERROR_PATTERNS: readonly ErrorPattern[] = [
       "Verifique se todas as aspas e parenteses estao fechados corretamente e se ha dois-pontos apos if, for, def, etc.",
   },
   {
-    pattern: /SyntaxError: EOL while scanning string literal/,
+    pattern: /SyntaxError: (?:unterminated (?:triple-quoted )?string literal|EOL while scanning string literal)/,
     title: "String nao fechada",
     explanation: () =>
       "Voce comecou uma string (texto) com aspas mas esqueceu de fecha-la.",
@@ -33,12 +31,34 @@ const ERROR_PATTERNS: readonly ErrorPattern[] = [
       'Certifique-se de que toda string tenha aspas de abertura e fechamento: "texto" ou \'texto\'.',
   },
   {
-    pattern: /NameError: name '(\w+)' is not defined/,
+    pattern: /SyntaxError: expected ':'/,
+    title: "Faltou dois-pontos",
+    explanation: () =>
+      "Linhas que abrem um bloco (if, elif, else, for, while, def, class, try, with) terminam com dois-pontos (:).",
+    hint: () => "Coloque ':' no fim da linha indicada, por exemplo: if idade >= 18:",
+  },
+  {
+    pattern: /SyntaxError: '([([{])' was never closed/,
+    title: "Simbolo aberto e nao fechado",
+    explanation: (match) => `Voce abriu '${match[1]}' e nao fechou antes do fim do codigo.`,
+    hint: () => "Confira se cada '(' tem um ')', cada '[' tem um ']' e cada '{' tem um '}'.",
+  },
+  {
+    pattern: /NameError: name '(exit|quit)' is not defined/,
+    title: "exit() nao disponivel",
+    explanation: (match) =>
+      `Aqui o Python roda sem o modulo site, entao ${match[1]}() nao existe (nem no Executar, nem no Verificar).`,
+    hint: () => "Para encerrar o programa use sys.exit() (depois de import sys), ou reorganize o codigo com return/break.",
+  },
+  {
+    pattern: /NameError: name '(\w+)' is not defined(?:\. Did you mean: '(\w+)'\?)?/,
     title: "Variavel nao encontrada",
     explanation: (match) =>
       `O Python nao reconhece '${match[1]}'. Isso significa que essa variavel ou funcao ainda nao foi criada.`,
     hint: (match) =>
-      `Verifique se voce escreveu '${match[1]}' corretamente (incluindo maiusculas e minusculas) e se a variavel foi criada antes de ser usada.`,
+      match[2]
+        ? `Voce quis dizer '${match[2]}'? Confira maiusculas, minusculas e a grafia do nome.`
+        : `Verifique se voce escreveu '${match[1]}' corretamente (incluindo maiusculas e minusculas) e se a variavel foi criada antes de ser usada.`,
   },
   {
     pattern: /TypeError: unsupported operand type\(s\) for (.+): '(\w+)' and '(\w+)'/,
@@ -65,7 +85,7 @@ const ERROR_PATTERNS: readonly ErrorPattern[] = [
       "Use 4 espacos para indentar o codigo dentro de if, for, def e outros blocos. Nao misture espacos com tabs.",
   },
   {
-    pattern: /IndexError: list index out of range/,
+    pattern: /IndexError: (?:list|string|tuple|range object) index out of range/,
     title: "Indice fora do alcance",
     explanation: () =>
       "Voce tentou acessar uma posicao da lista que nao existe. Lembre-se: listas comecam na posicao 0.",
@@ -105,7 +125,7 @@ const ERROR_PATTERNS: readonly ErrorPattern[] = [
       `Verifique a documentacao do tipo '${match[1]}' para ver os metodos disponiveis. Pode ser um erro de digitacao.`,
   },
   {
-    pattern: /ImportError: No module named '(\w+)'/,
+    pattern: /(?:ModuleNotFoundError|ImportError): No module named '([\w.]+)'/,
     title: "Modulo nao encontrado",
     explanation: (match) =>
       `O modulo '${match[1]}' nao esta disponivel neste ambiente.`,
@@ -121,26 +141,44 @@ const ERROR_PATTERNS: readonly ErrorPattern[] = [
       "Verifique se sua funcao recursiva tem um caso base (condicao de parada) correto.",
   },
   {
-    pattern: /TypeError: (\w+)\(\) takes (\d+) positional argument[s]? but (\d+) (?:was|were) given/,
+    pattern: /TypeError: ([\w.]+)\(\) takes (\d+) positional argument[s]? but (\d+) (?:was|were) given/,
     title: "Numero errado de argumentos",
     explanation: (match) =>
       `A funcao '${match[1]}' espera ${match[2]} argumento(s), mas voce passou ${match[3]}.`,
     hint: (match) =>
       `Verifique a definicao da funcao '${match[1]}' e passe exatamente ${match[2]} argumento(s).`,
   },
+  {
+    pattern: /EOFError: EOF when reading a line/,
+    title: "input() sem entrada",
+    explanation: () =>
+      "O programa chamou input(), mas nao havia nenhuma linha de entrada para ler. O botao Executar roda o programa sem teclado: todo input() recebe 'fim da entrada'.",
+    hint: () =>
+      "Para testar no Executar, troque temporariamente o input() por um valor fixo (ex.: nome = \"Ana\"). No Verificar, as entradas vem dos casos de teste.",
+  },
 ]
 
+function matchPattern(text: string): { errorPattern: ErrorPattern; match: RegExpMatchArray } | null {
+  for (const errorPattern of ERROR_PATTERNS) {
+    const match = text.match(errorPattern.pattern)
+    if (match) return { errorPattern, match }
+  }
+  return null
+}
+
 /**
- * Procura o padrão primeiro na última linha do traceback (onde o Python põe o
- * tipo do erro) e só depois no texto inteiro.
+ * Procura os padrões primeiro na última linha do traceback (onde o Python põe o
+ * tipo do erro) e só depois no texto inteiro: assim uma linha de código citada
+ * no traceback não "rouba" a explicação do erro de verdade.
  */
 export function parsePythonError(rawError: string): ParsedPythonError {
   const lines = rawError.trim().split("\n")
-  const errorLine = nonEmpty(lines.at(-1)) ?? rawError
+  const errorLine = lines.at(-1) ?? rawError
 
-  for (const { pattern, title, explanation, hint } of ERROR_PATTERNS) {
-    const match = errorLine.match(pattern) ?? rawError.match(pattern)
-    if (match) return { title, explanation: explanation(match), hint: hint(match), original: rawError }
+  const found = matchPattern(errorLine) ?? matchPattern(rawError)
+  if (found) {
+    const { errorPattern, match } = found
+    return { title: errorPattern.title, explanation: errorPattern.explanation(match), hint: errorPattern.hint(match), original: rawError }
   }
 
   return {

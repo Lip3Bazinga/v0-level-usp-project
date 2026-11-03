@@ -11,11 +11,12 @@ const config = [
     ignores: [
       ".next/**",
       "node_modules/**",
-      "public/pyodide-worker*.js",
+      "public/pyodide/**",
       "next-env.d.ts",
       "playwright-report/**",
       "test-results/**",
     ],
+    cliScripts: ["scripts/**"],
     documented: { files: ["src/lib/**/*.ts", "src/hooks/**/*.ts"] },
   }),
   { rules: REACT_RULES },

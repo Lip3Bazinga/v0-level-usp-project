@@ -27,6 +27,7 @@ import {
 } from "@/lib/utils"
 import {
   pythonErrorLines,
+  stderrLines,
   stdoutLines,
   toConsoleOutput,
   verificationErrorLine,
@@ -277,17 +278,18 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
   }, [lesson, commitFiles, replaceWithLine])
 
   const handleRunResult = useCallback(
-    (entryPath: string, result: ExecutionResult) => {
+    (entryPath: string, result: ExecutionResult): void => {
       const outputLines = stdoutLines(result.stdout)
       const figureLines: ConsoleLine[] = result.figures.map((figureB64, index) => ({
         type: "figure",
         message: `Figura ${index + 1}`,
         figureB64,
       }))
-      appendLines([...outputLines, ...figureLines])
+      appendLines([...outputLines, ...figureLines, ...stderrLines(result.stderr)])
+      if (result.truncated) addOutput("warning", "A saída foi cortada por ser grande demais.")
 
-      if (result.stderr) {
-        appendLines(pythonErrorLines(result.stderr))
+      if (result.error) {
+        appendLines(pythonErrorLines(result.error.traceback))
         setHasOutput(false)
         setRunSucceeded(false)
         return
@@ -308,7 +310,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
   )
 
   const handleRunError = useCallback(
-    (rawError: string) => {
+    (rawError: string): void => {
       appendLines(pythonErrorLines(rawError))
       setHasOutput(false)
       setRunSucceeded(false)
@@ -409,9 +411,9 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
       execute(
         { files: [...files, { path: CONSOLE_COMMAND_FILE_PATH, content: command }], entryPath: CONSOLE_COMMAND_FILE_PATH },
         {
-          onResult: (result) => {
-            if (result.stdout) appendLines(stdoutLines(result.stdout))
-            if (result.stderr) addOutput("error", result.stderr.trim())
+          onResult: (result: ExecutionResult): void => {
+            appendLines([...stdoutLines(result.stdout), ...stderrLines(result.stderr)])
+            if (result.error) addOutput("error", result.error.traceback.trim())
           },
           onError: (message) => addOutput("error", message),
         },

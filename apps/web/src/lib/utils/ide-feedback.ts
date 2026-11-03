@@ -23,6 +23,17 @@ export function stdoutLines(stdout: string): ConsoleLine[] {
     .map((line) => ({ type: "output", message: line }))
 }
 
+/**
+ * O que o programa escreveu em sys.stderr (avisos, `print(..., file=sys.stderr)`).
+ * É exibido, mas não reprova a execução: o "Verificar" também só reprova por exceção.
+ */
+export function stderrLines(stderr: string): ConsoleLine[] {
+  return stderr
+    .split("\n")
+    .filter((line) => line.length > 0)
+    .map((line) => ({ type: "warning", message: line }))
+}
+
 /** Erro do Python explicado para iniciantes, seguido da mensagem original e de uma dica. */
 export function pythonErrorLines(rawError: string): ConsoleLine[] {
   const parsed = parsePythonError(rawError)
