@@ -58,6 +58,33 @@ jobs:
       - run: pnpm --filter @levelusp/contracts build && pnpm --filter @levelusp/db build
       - run: pnpm --filter @levelusp/api test:e2e
 
+  seguranca:
+    name: Suíte de ataques (API, cadeia de suprimentos e bundle da web)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: { POSTGRES_USER: levelusp, POSTGRES_PASSWORD: levelusp, POSTGRES_DB: levelusp_test }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U levelusp" --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @levelusp/contracts build && pnpm --filter @levelusp/db build
+      - name: Ataques à API (autorização, BOLA, mass assignment, injeção, sessão, lógica de negócio)
+        run: pnpm --filter @levelusp/api test:security
+      - name: Regras das verificações (unitários do pacote de segurança)
+        run: pnpm --filter @levelusp/security test
+      - name: Cadeia de suprimentos (pacotes alucinados, typosquatting, lockfile, pnpm audit)
+        run: pnpm security:deps
+      - name: Segredos e source maps no bundle da web (build com canários)
+        run: pnpm security:web-bundle
+        env: { API_INTERNAL_URL: "http://api:4000" }
+
   sandbox:
     name: Executor WASI (segurança, gabaritos e paridade com o navegador)
     runs-on: ubuntu-latest

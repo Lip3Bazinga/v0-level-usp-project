@@ -50,6 +50,12 @@
         "^build"
       ],
       "cache": false
+    },
+    "test:security": {
+      "dependsOn": [
+        "^build"
+      ],
+      "cache": false
     }
   },
   "envMode": "loose"
