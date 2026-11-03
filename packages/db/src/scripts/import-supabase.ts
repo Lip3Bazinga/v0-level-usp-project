@@ -39,7 +39,7 @@ const TABLE_NAME_COLUMN_WIDTH = 22
 const COUNT_COLUMN_WIDTH = 5
 
 /** hidden_tests (texto) vira um único caso "legacy" no formato declarativo. */
-const legacyTests = (code: unknown) => {
+const legacyTests = (code: unknown): string => {
   const text = typeof code === "string" ? code.trim() : ""
   return JSON.stringify(text ? [{ id: "legado1", kind: "legacy", name: "Testes do gabarito original", code: text }] : [])
 }
@@ -120,7 +120,7 @@ async function importStep(source: pg.Client, target: pg.Client, step: ImportStep
   console.log(`${step.table.padEnd(TABLE_NAME_COLUMN_WIDTH)} origem=${String(rows.length).padStart(COUNT_COLUMN_WIDTH)}  importadas=${insertedCount}`)
 }
 
-async function main(source: pg.Client, target: pg.Client) {
+async function main(source: pg.Client, target: pg.Client): Promise<void> {
   await source.connect()
   await target.connect()
   try {

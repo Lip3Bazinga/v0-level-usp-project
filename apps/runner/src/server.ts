@@ -26,7 +26,7 @@ export function buildServer({ executor, token, log }: ServerDeps): Server {
     return authorization.length === expectedAuthorization.length && timingSafeEqual(authorization, expectedAuthorization)
   }
 
-  const runJob = async (request: IncomingMessage, response: ServerResponse) => {
+  const runJob = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     const parsed = runnerJobSchema.safeParse(await readJsonBody(request))
     if (!parsed.success) return sendJson(response, 400, { error: "invalid_job", issues: parsed.error.issues.slice(0, MAX_REPORTED_ISSUES) })
 
@@ -40,7 +40,8 @@ export function buildServer({ executor, token, log }: ServerDeps): Server {
     return sendJson(response, 200, result)
   }
 
-  return createServer(async (request, response) => {
+  // Toda falha vira resposta HTTP dentro do try/catch: a promessa nunca rejeita.
+  const handleRequest = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     try {
       if (request.method === "GET" && request.url === "/healthz") return sendJson(response, 200, { status: "ok" })
       if (request.method !== "POST" || request.url !== "/v1/run") return sendJson(response, 404, { error: "not_found" })
@@ -54,7 +55,9 @@ export function buildServer({ executor, token, log }: ServerDeps): Server {
       log("error", "falha no executor", { error: String(error) })
       return sendJson(response, 500, { error: "internal" })
     }
-  })
+  }
+
+  return createServer((request, response) => void handleRequest(request, response))
 }
 
 async function readJsonBody(request: IncomingMessage): Promise<unknown> {

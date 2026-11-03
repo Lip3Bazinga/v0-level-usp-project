@@ -30,6 +30,11 @@ export function nonEmpty(text: string | null | undefined): string | undefined {
   return text === null || text === undefined || text === "" ? undefined : text
 }
 
+/** Confirmação de uma ação sem dados de retorno (ex.: e-mail de redefinição enviado). */
+export interface OkResponse {
+  ok: true
+}
+
 /** Imagem enviada (`POST /uploads/images`): URL pública servida pela própria API. */
 export interface UploadedImage {
   url: string
@@ -40,11 +45,14 @@ export interface LimitQueryOptions {
   maxLimit: number
 }
 
+/** Schema de `?limit=`: inteiro entre 1 e o máximo da listagem, com padrão. */
+export type LimitQuerySchema = z.ZodObject<{ limit: z.ZodDefault<z.ZodCoercedNumber> }>
+
 /** Query string `?limit=` das listagens (o valor chega como texto e é convertido). */
-export function limitQuerySchema({ defaultLimit, maxLimit }: LimitQueryOptions) {
+export function limitQuerySchema({ defaultLimit, maxLimit }: LimitQueryOptions): LimitQuerySchema {
   return z.object({ limit: z.coerce.number().int().min(1).max(maxLimit).default(defaultLimit) })
 }
-export type LimitQuery = z.infer<ReturnType<typeof limitQuerySchema>>
+export type LimitQuery = z.infer<LimitQuerySchema>
 
 export const DIFFICULTIES = ["iniciante", "intermediario", "avancado"] as const
 export const difficultySchema = z.enum(DIFFICULTIES)

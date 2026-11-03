@@ -29,6 +29,6 @@ function withoutDefault(key: string, field: z.core.$ZodType): z.ZodType {
  * Corpo opcional em métodos como DELETE/POST sem payload: ausente vira `{}`
  * e a validação do schema decide o que é obrigatório.
  */
-export function optionalBodySchema<T extends z.ZodType>(schema: T) {
+export function optionalBodySchema<T extends z.ZodType>(schema: T): z.ZodPreprocess<T> {
   return z.preprocess((body) => body ?? {}, schema)
 }

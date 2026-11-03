@@ -8,7 +8,7 @@ import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { beforeAll, describe, expect, it } from "vitest"
-import type { Probe, ProjectFile, RunnerLimits } from "@levelusp/contracts"
+import type { Probe, ProbeObservation, ProjectFile, RunnerLimits } from "@levelusp/contracts"
 import { WasmtimeSandbox } from "../src/sandbox"
 import { resolveBinary } from "../src/config"
 
@@ -31,7 +31,7 @@ describe.skipIf(!isPythonAvailable)("WasmtimeSandbox (integração)", () => {
     })
   })
 
-  const run = (files: ProjectFile[], probes: Probe[], batchLimits = limits) => sandbox.runBatch({ files, entry: "main.py", probes, limits: batchLimits })
+  const run = (files: ProjectFile[], probes: Probe[], batchLimits = limits): Promise<ProbeObservation[]> => sandbox.runBatch({ files, entry: "main.py", probes, limits: batchLimits })
 
   it("chama funções e devolve valor e tipo canônicos", async () => {
     const [observation] = await run(mainFile("def soma(a, b):\n    return a + b\n"), [{ id: "c", kind: "call", function: "soma", args: [2, 3], kwargs: {} }])

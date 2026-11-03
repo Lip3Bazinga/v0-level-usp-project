@@ -41,4 +41,10 @@ export class Executor implements JobExecutor {
   }
 }
 
-export const hostInfo = () => ({ cpus: os.availableParallelism(), memoryMb: Math.round(os.totalmem() / BYTES_PER_MEGABYTE) })
+/** Capacidade da máquina, registrada no log de inicialização para dimensionar a concorrência. */
+export interface HostInfo {
+  cpus: number
+  memoryMb: number
+}
+
+export const hostInfo = (): HostInfo => ({ cpus: os.availableParallelism(), memoryMb: Math.round(os.totalmem() / BYTES_PER_MEGABYTE) })
