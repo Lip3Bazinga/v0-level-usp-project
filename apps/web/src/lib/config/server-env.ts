@@ -10,7 +10,7 @@ import type { RuntimeEnv } from "./server-urls"
 
 const emptyAsUndefined = (value: unknown): unknown => (typeof value === "string" && value.trim() === "" ? undefined : value)
 const HTTP_URL_PATTERN = /^https?:\/\/[^\s/]+/
-type OptionalHttpUrl = z.ZodEffects<z.ZodOptional<z.ZodString>, string | undefined, unknown>
+type OptionalHttpUrl = z.ZodType<string | undefined, unknown>
 const optionalHttpUrl = (message: string): OptionalHttpUrl => z.preprocess(emptyAsUndefined, z.string().url(message).regex(HTTP_URL_PATTERN, message).optional())
 
 const serverEnvSchema = z
@@ -25,13 +25,13 @@ const serverEnvSchema = z
     const raw = env.PUBLIC_BASE_URL ?? env.APP_ORIGIN
     if (raw === undefined) {
       if (env.APP_ENV === "prod") {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["PUBLIC_BASE_URL"], message: "obrigatória em prod (ex.: https://levelusp.exemplo.usp.br)" })
+        ctx.addIssue({ code: "custom", path: ["PUBLIC_BASE_URL"], message: "obrigatória em prod (ex.: https://levelusp.exemplo.usp.br)" })
       }
       return
     }
     const parsed = parsePublicOrigin(raw)
     const problem = !parsed.ok ? parsed.reason : env.APP_ENV === "prod" ? productionOriginProblem(parsed.origin) : null
-    if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["PUBLIC_BASE_URL"], message: problem })
+    if (problem) ctx.addIssue({ code: "custom", path: ["PUBLIC_BASE_URL"], message: problem })
   })
 
 /** Configuração do servidor do front já validada. */
