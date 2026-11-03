@@ -8,6 +8,7 @@
 | [ambientes-e-deploy.md](./ambientes-e-deploy.md) | dev/homolog/prod, CI/CD, notebook + Cloudflare Tunnel, passo a passo |
 | [migracao-dados.md](./migracao-dados.md) | Importação do Supabase e conversão de gabaritos |
 | [testes.md](./testes.md) | Pirâmide de testes e como rodar cada camada |
+| [paridade-python.md](./paridade-python.md) | Python do "Executar" (Pyodide) × "Verificar" (WASI): versões, origem do runtime, teste diferencial |
 | [api-rotas.md](./api-rotas.md) | Mapa de rotas da API (contrato) |
 | [divida-tecnica.md](./divida-tecnica.md) | Pendências conhecidas e próximos passos |
 

@@ -7,7 +7,7 @@ não confiável** em processos distintos. O navegador nunca fala com o banco.
 flowchart LR
   subgraph Navegador
     UI[Next.js — telas e IDE]
-    PY[Pyodide em Web Worker<br/>botão Executar]
+    PY[Pyodide 314 / Python 3.14<br/>em Web Worker — botão Executar]
   end
   subgraph Servidor["Servidor (Docker Compose)"]
     WEB[web<br/>Next.js standalone]
@@ -84,5 +84,5 @@ submissões), `grading` (motor de correção), `quizzes`, `gamification`
 | Front e API na mesma origem (rewrite) | Cookie de primeira parte, sem CORS | O Next precisa conhecer a URL interna da API no build |
 | Executor separado, em WASI | Isolamento por capacidades; sem segredos no processo | ~3× mais lento que CPython nativo; sem numpy no servidor |
 | Gabarito declarativo | Comparação fora do sandbox: aluno não forja aprovação | Gabaritos antigos precisam de conversão |
-| Pyodide no navegador para "Executar" | CPU do aluno, resposta imediata, gráficos | Download inicial do runtime |
+| Pyodide no navegador para "Executar" | CPU do aluno, resposta imediata, gráficos; mesmo Python 3.14 do executor, com paridade testada ([paridade-python.md](./paridade-python.md)) | Download inicial do runtime (~13 MB, servido pelo próprio front com cache de 1 ano) |
 | Notebook + Cloudflare Tunnel | Custo zero e controle total na fase de testes | Disponibilidade depende do notebook |
