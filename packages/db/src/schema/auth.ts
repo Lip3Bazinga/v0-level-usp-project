@@ -40,6 +40,7 @@ export const sessions = pgTable(
 )
 
 export type UserRow = typeof users.$inferSelect
+export type SessionRow = typeof sessions.$inferSelect
 
 export const passwordResetTokens = pgTable("password_reset_tokens", {
   tokenHash: text("token_hash").primaryKey(),

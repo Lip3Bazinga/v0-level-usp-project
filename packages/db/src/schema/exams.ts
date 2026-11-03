@@ -86,3 +86,5 @@ export const certificates = pgTable(
     check("certificates_project_status_check", isOneOf(table.projectStatus, CERTIFICATE_PROJECT_STATUSES)),
   ],
 )
+
+export type CertificateRow = typeof certificates.$inferSelect

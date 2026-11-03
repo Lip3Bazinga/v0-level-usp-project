@@ -17,6 +17,8 @@ export const enrollments = pgTable(
   (table) => [unique("enrollments_user_id_course_id_key").on(table.userId, table.courseId), index("enrollments_course_idx").on(table.courseId)],
 )
 
+export type EnrollmentRow = typeof enrollments.$inferSelect
+
 export const lessonProgress = pgTable(
   "lesson_progress",
   {

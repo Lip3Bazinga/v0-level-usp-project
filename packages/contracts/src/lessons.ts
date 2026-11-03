@@ -4,16 +4,13 @@ import { testCasesSchema, type TestCase } from "./grading"
 import { answerSheetSchema, CORRECT_INDEX_OUT_OF_RANGE, correctIndexWithinOptions, multipleChoiceFields, type AnswerSheetResult } from "./questions"
 import { patchSchemaOf } from "./schema"
 
-export interface Checkpoint {
-  id: number
-  instruction: string
-  hint?: string
-}
 export const checkpointSchema = z.object({
   id: z.number().int(),
   instruction: z.string().max(2000),
   hint: z.string().max(2000).optional(),
 })
+/** Etapa guiada de uma lição prática: instrução exibida ao aluno e dica opcional. */
+export type Checkpoint = z.infer<typeof checkpointSchema>
 
 /** Arquivo de entrada executado pelo corretor e pelo botão Executar. */
 export const DEFAULT_ENTRY_FILE = "main.py"
@@ -122,6 +119,10 @@ export interface LessonProgress {
 }
 
 export const saveSnapshotSchema = z.object({ files: projectFilesSchema })
+/** Rascunho salvo do aluno numa lição; `files` é null quando nunca salvou (a IDE usa o código inicial). */
+export interface LessonSnapshot {
+  files: ProjectFile[] | null
+}
 export type SaveSnapshotInput = z.infer<typeof saveSnapshotSchema>
 
 export const submitCodeSchema = z.object({ files: projectFilesSchema })

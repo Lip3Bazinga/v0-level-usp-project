@@ -53,6 +53,8 @@ export const platformSettings = pgTable("platform_settings", {
   updatedAt: updatedAt(),
 })
 
+export type PlatformSettingRow = typeof platformSettings.$inferSelect
+
 export const teacherApprovals = pgTable(
   "teacher_approvals",
   {
@@ -130,3 +132,5 @@ export const uploads = pgTable(
   },
   (table) => [index("uploads_owner_idx").on(table.ownerId, table.createdAt)],
 )
+
+export type UploadRow = typeof uploads.$inferSelect

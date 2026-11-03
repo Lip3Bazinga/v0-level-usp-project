@@ -21,6 +21,20 @@ export interface ApiErrorBody {
   requestId?: string
 }
 
+/**
+ * O texto, ou `undefined` quando ele é vazio ou ausente. Deixa explícito que "" conta
+ * como "não informado": `nonEmpty(note.title) ?? "Sem título"` (em vez de `||`, que
+ * esconde essa decisão e também engoliria outros valores falsy).
+ */
+export function nonEmpty(text: string | null | undefined): string | undefined {
+  return text === null || text === undefined || text === "" ? undefined : text
+}
+
+/** Imagem enviada (`POST /uploads/images`): URL pública servida pela própria API. */
+export interface UploadedImage {
+  url: string
+}
+
 export interface LimitQueryOptions {
   defaultLimit: number
   maxLimit: number

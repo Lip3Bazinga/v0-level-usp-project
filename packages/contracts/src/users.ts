@@ -1,4 +1,9 @@
 import { z } from "zod"
+import type { GradeResult } from "./grading"
+import type { LessonProgress, ProjectFile } from "./lessons"
+import type { LibraryRequest } from "./library"
+import type { Note } from "./notes"
+import type { Notification, TeacherApproval } from "./platform"
 
 export const USER_ROLES = ["student", "teacher", "admin"] as const
 export const userRoleSchema = z.enum(USER_ROLES)
@@ -67,10 +72,87 @@ export type AdminUpdateUserInput = z.infer<typeof adminUpdateUserSchema>
 export const deleteAccountSchema = z.object({ password: z.string().min(1, "Informe sua senha").max(128) })
 export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>
 
+/** Credencial na exportação LGPD: só metadados, nunca o hash da senha. */
+export interface AccountExport {
+  email: string
+  email_verified_at: string | null
+  last_sign_in_at: string | null
+  created_at: string
+}
+
+/** Submissão de código na exportação LGPD (arquivos enviados e o veredito guardado). */
+export interface SubmissionExport {
+  id: string
+  lesson_id: string
+  files: ProjectFile[]
+  status: "graded" | "error"
+  passed: boolean
+  result: GradeResult | null
+  engine: string | null
+  duration_ms: number | null
+  created_at: string
+}
+
+/** Matrícula na exportação LGPD; o título é null se o curso já foi apagado. */
+export interface EnrollmentExport {
+  course_id: string
+  course_title: string | null
+  enrolled_at: string
+}
+
+/** Badge conquistado na exportação LGPD. */
+export interface BadgeEarnedExport {
+  badge_id: string
+  earned_at: string
+}
+
+/** Certificado emitido na exportação LGPD. */
+export interface CertificateExport {
+  id: string
+  course_id: string
+  course_title: string | null
+  verification_code: string
+  exam_score: number | null
+  project_status: "passed" | "waived"
+  issued_at: string
+}
+
+/** Tentativa de prova na exportação LGPD (respostas do aluno, sem gabarito). */
+export interface ExamAttemptExport {
+  id: string
+  exam_id: string
+  answers: Record<string, number>
+  score: number | null
+  passed: boolean | null
+  started_at: string
+  submitted_at: string | null
+}
+
+/** Sessão de login na exportação LGPD: metadados, nunca o token nem o seu hash. */
+export interface SessionExport {
+  created_at: string
+  last_seen_at: string
+  expires_at: string
+  revoked_at: string | null
+  ip: string | null
+  user_agent: string | null
+  active: boolean
+}
+
 /** Exportação dos dados pessoais (LGPD). Nunca inclui hashes de senha ou tokens. */
 export interface UserDataExport {
   exported_at: string
   profile: Profile
-  account: { email: string; email_verified_at: string | null; last_sign_in_at: string | null; created_at: string }
-  [section: string]: unknown
+  account: AccountExport
+  lesson_progress: LessonProgress[]
+  submissions: SubmissionExport[]
+  notes: Note[]
+  enrollments: EnrollmentExport[]
+  badges: BadgeEarnedExport[]
+  certificates: CertificateExport[]
+  exam_attempts: ExamAttemptExport[]
+  notifications: Notification[]
+  teacher_requests: TeacherApproval[]
+  library_requests: LibraryRequest[]
+  sessions: SessionExport[]
 }
