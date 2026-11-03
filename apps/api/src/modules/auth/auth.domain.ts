@@ -1,5 +1,11 @@
 import { MS_PER_MINUTE } from "@/common/time/time"
 
+/**
+ * Bloqueio por senhas erradas: ao atingir `MAX_FAILED_LOGINS`, a conta fica
+ * bloqueada por `LOCK_DURATION_MS`; bloqueio vencido recomeça a contagem (senão
+ * 1 erro a cada 15 min bloquearia para sempre). A contagem é feita no banco, num
+ * UPDATE atômico (`AuthRepository.recordFailedLogin`), para valer sob tentativas paralelas.
+ */
 export const MAX_FAILED_LOGINS = 10
 export const LOCK_DURATION_MS = 15 * MS_PER_MINUTE
 
@@ -9,25 +15,9 @@ export interface LoginLockState {
   lockedUntil: string | null
 }
 
-/** Novo estado do contador de falhas de login e do bloqueio temporário. */
-export interface FailedLoginUpdate {
-  failures: number
-  lockedUntil: string | null
-}
-
 /** Se a conta está bloqueada por falhas de login no instante `now` (ms). */
 export function isLocked(state: LoginLockState, now: number): boolean {
   return state.lockedUntil !== null && new Date(state.lockedUntil).getTime() > now
-}
-
-/**
- * Próximo estado após uma senha errada (numa conta não bloqueada). Bloqueio
- * vencido zera a contagem — senão 1 erro a cada 15 min bloquearia para sempre.
- */
-export function registerFailedLogin(state: LoginLockState, now: number): FailedLoginUpdate {
-  const priorFailures = state.lockedUntil ? 0 : state.failedLoginCount
-  const failures = priorFailures + 1
-  return { failures, lockedUntil: failures >= MAX_FAILED_LOGINS ? new Date(now + LOCK_DURATION_MS).toISOString() : null }
 }
 
 const MAX_USERNAME_BASE_LENGTH = 24

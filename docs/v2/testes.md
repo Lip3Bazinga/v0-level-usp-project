@@ -4,6 +4,9 @@
 |---|---|---|---|
 | Domínio e serviços da API (inclui config/env e SMTP real contra servidor falso) | Vitest | `apps/api/src/**/*.spec.ts` | 133 |
 | API ponta a ponta (HTTP + PostgreSQL real; links públicos em `public-links.e2e.ts`) | Vitest + Supertest | `apps/api/test/e2e` | 119 |
+| Suíte de ataques à API (autorização gerada das rotas, BOLA, mass assignment, injeção, sessão, lógica de negócio, uploads, padrões inseguros) | Vitest + Supertest | `apps/api/test/security` | 99 |
+| Ataques à web (cabeçalhos, CVEs do Next/React, open redirect, CSRF, XSS renderizado) | Playwright | `apps/web/e2e/security` | 12 |
+| Cadeia de suprimentos e bundle da web (regras) | Vitest | `packages/security/src` | 15 |
 | Executor (inclui ataques da auditoria) | Vitest + Wasmtime real | `apps/runner/test` | 17 |
 | Gabaritos do seed | `verify:seed` | `apps/api/scripts` | 22 lições: referência aprovada, esqueleto e 72 soluções erradas reprovadas, correção forte |
 | Paridade Executar × Verificar (Pyodide × WASI) | `test:paridade` | `apps/web/scripts/python-parity.mts` | 44 execuções de lições + 29 casos de borda |
@@ -14,6 +17,8 @@
 ```bash
 pnpm test                                             # unitários de tudo
 TEST_DATABASE_URL=... pnpm --filter @levelusp/api test:e2e
+TEST_DATABASE_URL=... pnpm --filter @levelusp/api test:security   # suíte de ataques (seguranca.md)
+pnpm security:deps && pnpm security:web-bundle                     # cadeia de suprimentos e bundle
 pnpm --filter @levelusp/runner test                   # requer setup:python
 RUNNER_TOKEN=... pnpm --filter @levelusp/web test:paridade   # requer o executor rodando
 E2E_BASE_URL=http://localhost:3000 pnpm --filter @levelusp/web test:e2e

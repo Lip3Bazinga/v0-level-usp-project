@@ -2,7 +2,8 @@
  * Seed idempotente para dev e homologação.
  *
  *   DATABASE_URL=...  SEED_ADMIN_EMAIL=... SEED_ADMIN_PASSWORD=...  pnpm db:seed
- *   SEED_DEMO_USERS=true  → cria professor(a) e aluno(a) de demonstração
+ *   SEED_DEMO_USERS=true  → cria professor(a) e aluno(a) de demonstração (fora de banco local,
+ *                           exige SEED_DEMO_PASSWORD: a senha padrão é pública)
  *
  * Cria badges padrão, módulos, o curso "Python Completo" (22 exercícios com
  * gabarito declarativo, verificado contra soluções de referência) e uma prova
@@ -16,10 +17,12 @@ import { Algorithm, hash } from "@node-rs/argon2"
 import { eq, sql } from "drizzle-orm"
 import { DEFAULT_ENTRY_FILE, type ProjectFile, type TestCase, type UserRole } from "@levelusp/contracts"
 import { createDb } from "../index"
+import { resolveDemoPassword } from "../seed-policy"
 import { badges, courses, exams, examQuestions, lessons, modules, profiles, users } from "../schema/index"
 
-const databaseUrl = process.env.DATABASE_URL
-if (!databaseUrl) throw new Error("DATABASE_URL não definida")
+const configuredDatabaseUrl = process.env.DATABASE_URL
+if (!configuredDatabaseUrl) throw new Error("DATABASE_URL não definida")
+const databaseUrl: string = configuredDatabaseUrl
 const scriptDir = path.dirname(fileURLToPath(import.meta.url))
 const shouldSeedContent = process.env.SEED_CONTENT !== "false"
 const { db, close } = createDb(databaseUrl, { max: 1, applicationName: "levelusp-seed" })
@@ -27,7 +30,6 @@ const { db, close } = createDb(databaseUrl, { max: 1, applicationName: "levelusp
 /** Mesmos parâmetros OWASP do PasswordService da API (argon2id, 19 MiB, 2 iterações). */
 const PASSWORD_HASH_OPTIONS = { algorithm: Algorithm.Argon2id, memoryCost: 19_456, timeCost: 2, parallelism: 1 } as const
 const MIN_ADMIN_PASSWORD_LENGTH = 12
-const DEFAULT_DEMO_PASSWORD = "demonstracao123"
 
 const COURSE_TITLE = "Python Completo"
 const FINAL_PROJECT_ORDER = 24
@@ -186,7 +188,7 @@ async function seedContent(authorId: string | null): Promise<void> {
 }
 
 async function seedDemoUsers(): Promise<string> {
-  const password = process.env.SEED_DEMO_PASSWORD ?? DEFAULT_DEMO_PASSWORD
+  const password = resolveDemoPassword(databaseUrl, process.env.SEED_DEMO_PASSWORD)
   const teacherId = await ensureUser({ email: "professora@levelusp.dev", password, fullName: "Professora Demo", username: "professora_demo", role: "teacher" })
   await ensureUser({ email: "aluna@levelusp.dev", password, fullName: "Aluna Demo", username: "aluna_demo", role: "student" })
   return teacherId

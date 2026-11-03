@@ -30,7 +30,7 @@ export class UsersService {
   /**
    * Atualiza o próprio perfil; trocar o avatar apaga a imagem antiga enviada pelo usuário.
    *
-   * @throws AppError 409 `USERNAME_TAKEN`, 400/403 avatar inválido ou de outra pessoa, 404 perfil inexistente.
+   * @throws AppError 409 `USERNAME_TAKEN`, 400 avatar externo/inválido, 403 avatar de outra pessoa, 404 perfil inexistente.
    */
   async updateMyProfile(userId: string, input: UpdateMyProfileInput): Promise<Profile> {
     if (input.username && (await this.repo.isUsernameTaken(input.username, userId))) {
@@ -38,7 +38,7 @@ export class UsersService {
     }
     const isChangingAvatar = input.avatar_url !== undefined
     const previousProfile = isChangingAvatar ? await this.repo.findById(userId) : undefined
-    if (isChangingAvatar) await this.storage.assertUsableUrl(input.avatar_url, userId)
+    if (isChangingAvatar) await this.storage.assertOwnUpload(input.avatar_url, userId)
     const profile = await this.repo.update(userId, buildPatch(input, MY_PROFILE_PATCH))
     if (!profile) throw NotFound("Perfil")
     // Avatar trocado: remove o arquivo antigo (só se foi enviado por este usuário).

@@ -23,6 +23,7 @@ Tipos em `packages/contracts`. Respostas em snake_case.
 | GET | /users/:id/activity | 🔓 | → ActivityDay[] (365 dias) |
 | GET | /users/:id/badges | 🔓 | → UserBadge[] |
 | GET | /badges | 🔓 | → Badge[] |
+| GET | /admin/badges | 🛡️ | → Badge[] (inclui inativos) |
 | POST/PATCH/DELETE | /admin/badges[/:id] | 🛡️ | BadgeInput / BadgeUpdateInput |
 
 ## Catálogo (módulos, cursos, lições)

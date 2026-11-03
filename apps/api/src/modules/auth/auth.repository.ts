@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common"
 import { and, eq, gt, isNull, ne, sql } from "drizzle-orm"
 import { passwordResetTokens, profiles, sessions, users } from "@levelusp/db"
 import { requireRow } from "@/common/database/rows"
+import { MS_PER_SECOND } from "@/common/time/time"
 import { InjectDb, type Database } from "@/infra/database/database.module"
 import type { DbTransaction, ProfileRow, SessionRow, UserRow } from "@levelusp/db"
 
@@ -11,6 +12,12 @@ export interface NewAccount {
   passwordHash: string | null
   fullName: string
   username: string
+}
+
+/** Regra de bloqueio por senhas erradas (ver `auth.domain.ts`). */
+export interface LockoutPolicy {
+  maxFailures: number
+  lockMs: number
 }
 
 /** Sessão a gravar; o token em si só existe no cookie. */
@@ -67,8 +74,25 @@ export class AuthRepository {
     })
   }
 
-  async recordFailedLogin(userId: string, failures: number, lockedUntil: string | null): Promise<void> {
-    await this.db.update(users).set({ failedLoginCount: failures, lockedUntil }).where(eq(users.id, userId))
+  /**
+   * Conta uma senha errada de forma atômica (um único UPDATE, que trava a linha):
+   * tentativas em paralelo não leem o mesmo contador e todas contam. Bloqueio
+   * vencido recomeça a contagem; bloqueio vigente não é estendido; ao atingir
+   * `policy.maxFailures`, bloqueia por `policy.lockMs`.
+   */
+  async recordFailedLogin(userId: string, policy: LockoutPolicy): Promise<void> {
+    const isLockExpired = sql`(${users.lockedUntil} is not null and ${users.lockedUntil} <= now())`
+    const nextCount = sql`case when ${isLockExpired} then 1 else ${users.failedLoginCount} + 1 end`
+    await this.db
+      .update(users)
+      .set({
+        failedLoginCount: nextCount,
+        lockedUntil: sql`case
+          when ${users.lockedUntil} > now() then ${users.lockedUntil}
+          when ${nextCount} >= ${policy.maxFailures} then now() + make_interval(secs => ${policy.lockMs / MS_PER_SECOND})
+          else null end`,
+      })
+      .where(eq(users.id, userId))
   }
 
   /** `upgradedHash`: hash legado (bcrypt) trocado por argon2id neste login. */
@@ -120,6 +144,14 @@ export class AuthRepository {
 
   async createPasswordToken(token: NewPasswordToken): Promise<void> {
     await this.db.insert(passwordResetTokens).values(token)
+  }
+
+  /** Invalida todos os links de senha ainda não usados do usuário (a senha mudou: links antigos morrem). */
+  async revokePasswordTokens(userId: string): Promise<void> {
+    await this.db
+      .update(passwordResetTokens)
+      .set({ usedAt: sql`now()` })
+      .where(and(eq(passwordResetTokens.userId, userId), isNull(passwordResetTokens.usedAt)))
   }
 
   /** Consome o token atomicamente: só um uso, dentro da validade. */

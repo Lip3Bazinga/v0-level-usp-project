@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest"
 import { loadEnv } from "./env"
 
 const BASE: NodeJS.ProcessEnv = {
-  DATABASE_URL: "postgres://levelusp:levelusp@localhost:5432/levelusp",
-  RUNNER_TOKEN: "token-de-teste-com-24-caracteres",
+  DATABASE_URL: "postgres://levelusp:Xk3v9QmLp2Rt7Wz@localhost:5432/levelusp",
+  RUNNER_TOKEN: "f3a9c1d7e2b84a6c9d0e1f2a3b4c5d6e",
 }
 
 function load(overrides: NodeJS.ProcessEnv): ReturnType<typeof loadEnv> {
@@ -70,5 +70,26 @@ describe("SMTP", () => {
 
   it("mensagens padrão do Zod saem em português", () => {
     expect(() => load({ SMTP_TIMEOUT_MS: "10" })).toThrow(/SMTP_TIMEOUT_MS: .*(pequeno|menor)/i)
+  })
+})
+
+describe("segredos publicados no repositório", () => {
+  const prod = { APP_ENV: "prod", PUBLIC_BASE_URL: "https://levelusp.usp.br" }
+
+  it("homolog/prod recusam o token do executor de dev/CI/teste e placeholders", () => {
+    for (const token of ["dev-runner-token-0123456789abcdef", "ci-runner-token-0123456789abcdef", "levelusp-dev-runner-token-0123456789", "__gerar____gerar____gerar__"]) {
+      expect(() => load({ ...prod, RUNNER_TOKEN: token })).toThrow(/RUNNER_TOKEN: parece o valor de exemplo/)
+      expect(() => load({ APP_ENV: "homolog", PUBLIC_BASE_URL: "https://abc.trycloudflare.com", RUNNER_TOKEN: token })).toThrow(/RUNNER_TOKEN/)
+    }
+  })
+
+  it("homolog/prod recusam senha de banco trivial ou de exemplo", () => {
+    for (const password of ["levelusp", "postgres", "__gerar__"]) {
+      expect(() => load({ ...prod, DATABASE_URL: `postgres://levelusp:${password}@postgres:5432/levelusp` })).toThrow(/DATABASE_URL: senha do banco trivial/)
+    }
+  })
+
+  it("dev e test continuam aceitando os valores de desenvolvimento", () => {
+    expect(load({ APP_ENV: "dev", RUNNER_TOKEN: "dev-runner-token-0123456789abcdef", DATABASE_URL: "postgres://levelusp:levelusp@localhost:5432/levelusp" }).APP_ENV).toBe("dev")
   })
 })

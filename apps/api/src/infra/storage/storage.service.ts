@@ -69,6 +69,19 @@ export class StorageService {
     if (!(await this.uploads.isOwnedBy(name, ownerId))) throw Forbidden("Use uma imagem enviada por você.")
   }
 
+  /**
+   * Avatar: só imagem enviada pelo próprio usuário (ou nenhuma). URL externa fica de fora:
+   * o avatar aparece no ranking público, e uma imagem num servidor do aluno registraria o
+   * IP (dado pessoal) de cada visitante — rastreamento que a CSP `img-src https:` não impede.
+   *
+   * @throws AppError 400 `INVALID_IMAGE_URL` (externa ou malformada), 403 imagem de outra pessoa.
+   */
+  async assertOwnUpload(url: string | null | undefined, ownerId: string): Promise<void> {
+    if (!url) return
+    if (!localFileName(url)) throw BadRequest("Envie a imagem pelo LevelUSP (endereços externos não são aceitos).", "INVALID_IMAGE_URL")
+    await this.assertUsableUrl(url, ownerId)
+  }
+
   /** Apaga a imagem só se ela pertence a `ownerId` (nunca arquivos de terceiros). */
   async delete(url: string | null | undefined, ownerId: string | null): Promise<void> {
     const name = localFileName(url)

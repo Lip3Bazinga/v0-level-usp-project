@@ -3,6 +3,7 @@ import pg from "pg"
 import * as schema from "./schema/index"
 
 export * from "./schema/index"
+export { isLocalDatabaseUrl, MIN_DEMO_PASSWORD_LENGTH, PUBLIC_DEMO_PASSWORD, resolveDemoPassword } from "./seed-policy"
 export { schema }
 
 /** Instância Drizzle tipada com o schema completo (consultas relacionais em `db.query.*`). */

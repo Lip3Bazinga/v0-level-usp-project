@@ -8,3 +8,8 @@ onlyBuiltDependencies:
   - esbuild
   - sharp
   - unrs-resolver
+
+# Versões corrigidas de dependências transitivas (advisories em docs/v2/seguranca.md).
+overrides:
+  body-parser@>=2.0.0 <2.4.0: ^2.4.0
+  multer@>=2.0.0 <2.5.0: ^2.5.0
