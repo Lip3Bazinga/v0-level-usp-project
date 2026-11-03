@@ -101,6 +101,16 @@ describe("Uploads sob ataque", () => {
     expect(statuses[30]).toBe(429)
   })
 
+  it("avatar não aceita URL externa (rastreador de IP de quem vê o ranking público)", async () => {
+    for (const avatarUrl of ["https://rastreador.example/pixel.png?aluno=1", "https://169.254.169.254/latest/meta-data/", "http://evil.example/a.png", "//evil.example/a.png", "javascript:alert(1)", "data:image/svg+xml,<svg onload=alert(1)>"]) {
+      const response = await user.agent.patch("/api/me/profile", { avatar_url: avatarUrl })
+      expect(response.status).toBe(400)
+    }
+    const own = bodyOf<UploadedImage>(await upload(user.agent, PNG, "a.png", "image/png")).url
+    expect((await user.agent.patch("/api/me/profile", { avatar_url: own })).status).toBe(200)
+    expect((await user.agent.patch("/api/me/profile", { avatar_url: null })).status).toBe(200)
+  })
+
   it("upload exige sessão e o cabeçalho anti-CSRF (formulário multipart de outro site)", async () => {
     const withoutCsrf = await user.agent.raw.post("/api/uploads/images").attach("file", PNG, "a.png")
     expect(withoutCsrf.status).toBe(403)

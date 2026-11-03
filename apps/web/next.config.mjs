@@ -42,6 +42,11 @@ const CSP = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Sem "X-Powered-By: Next.js": não anunciar o framework facilita menos a escolha de exploits.
+  poweredByHeader: false,
+  // Source maps do cliente nunca são publicados (o código-fonte não vai para o navegador).
+  productionBrowserSourceMaps: false,
+
   // Imagem Docker enxuta (server.js + dependências mínimas em .next/standalone).
   output: "standalone",
   // Monorepo: o rastreamento de arquivos parte da raiz para incluir packages/*.
@@ -65,7 +70,9 @@ const nextConfig = {
         headers: [
           { key: "X-Content-Type-Options",   value: "nosniff" },
           { key: "X-Frame-Options",           value: "DENY" },
-          { key: "X-XSS-Protection",          value: "1; mode=block" },
+          // O filtro XSS legado dos navegadores foi removido e já serviu de canal de vazamento;
+          // a recomendação atual (OWASP) é desligá-lo e confiar na CSP.
+          { key: "X-XSS-Protection",          value: "0" },
           { key: "Referrer-Policy",           value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy",        value: "camera=(), microphone=(), geolocation=()" },
           // CSP: impede exfiltração para domínios externos e plugins. 'unsafe-eval' e
