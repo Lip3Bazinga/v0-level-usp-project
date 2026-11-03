@@ -94,7 +94,7 @@ export class CertificatesService {
       issuedAt: toIsoTimestamp(certificate.issuedAt),
       examScore: Number(certificate.examScore ?? 0),
       projectStatus: certificate.projectStatus,
-      verifyUrl: verificationUrl(this.env.APP_ORIGIN, certificate.verificationCode),
+      verifyUrl: verificationUrl(this.env.PUBLIC_BASE_URL, certificate.verificationCode),
     })
     return { code: certificate.verificationCode, buffer }
   }
