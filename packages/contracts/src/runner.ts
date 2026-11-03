@@ -21,9 +21,33 @@ export const probeSchema = z.discriminatedUnion("kind", [
   }),
   z.object({ id: z.string(), kind: z.literal("globals"), names: z.array(z.string().max(64)).max(50) }),
   z.object({ id: z.string(), kind: z.literal("ast") }),
+  /** Preparação + expressão do professor no namespace do aluno (casos `expr`). */
+  z.object({
+    id: z.string(),
+    kind: z.literal("expr"),
+    setup: z.string().max(20_000).default(""),
+    expr: z.string().max(2_000),
+    stdin: z.string().max(100_000).default(""),
+  }),
+  /** Suíte unittest do aluno contra uma implementação (casos `unittest`). */
+  z.object({
+    id: z.string(),
+    kind: z.literal("unittest"),
+    test_class: z.string().max(64).optional(),
+    target: z.string().max(64).optional(),
+    implementation: z.string().max(50_000).optional(),
+  }),
   z.object({ id: z.string(), kind: z.literal("legacy"), code: z.string().max(100_000) }),
 ])
 export type Probe = z.infer<typeof probeSchema>
+export type ProbeKind = Probe["kind"]
+
+/**
+ * Sondas que exigem o modo estrito do harness (instância própria, introspecção
+ * de frames/gc bloqueada): o veredito delas depende de algo que nasce dentro
+ * do sandbox (resultado de asserts legados, contagem de testes do aluno).
+ */
+export const STRICT_PROBE_KINDS: ReadonlySet<ProbeKind> = new Set<ProbeKind>(["legacy", "unittest"])
 
 export const runnerJobSchema = z.object({
   files: z.array(projectFileSchema).min(1).max(30),
@@ -46,6 +70,32 @@ export interface AstFeatures {
   classes: string[]
   imports: string[]
   recursive_functions: string[]
+  /** Nomes dos decorators usados (`property`, `wraps`, `setter`...). */
+  decorators: string[]
+  /** Nomes das exceções capturadas em `except`. */
+  handlers: string[]
+  /** Construções usadas dentro de cada função (inclui funções aninhadas). */
+  function_constructs: Record<string, string[]>
+}
+
+/** Exceção levantada pela preparação ou pela expressão de um caso `expr`. */
+export interface RaisedException {
+  /** Tipo da exceção: nome puro se embutido, `modulo.Classe` se do aluno. */
+  type: string
+  /** Tipos da hierarquia (MRO), no mesmo formato de `type`. */
+  mro: string[]
+  message: string
+  stage: "setup" | "expr"
+}
+
+/** Resultado da suíte unittest do aluno contra uma implementação. */
+export interface UnittestOutcome {
+  run: number
+  failures: number
+  errors: number
+  skipped: number
+  /** Nomes (truncados) dos testes que falharam ou deram erro. */
+  failed: string[]
 }
 
 export interface ProbeObservation {
@@ -63,6 +113,10 @@ export interface ProbeObservation {
   /** Variáveis pedidas que não existem (globals). */
   missing?: string[]
   features?: AstFeatures
+  /** Exceção levantada (expr). */
+  raised?: RaisedException
+  /** Resultado da suíte do aluno (unittest). */
+  tests?: UnittestOutcome
   /** Resultado de teste legado. */
   legacy?: { testsRun: number; failures: number; errors: number; details: string[] }
   /** Erro do código do aluno (tipo + mensagem), sem traceback do executor. */

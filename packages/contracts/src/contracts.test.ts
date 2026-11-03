@@ -22,6 +22,46 @@ describe("contratos", () => {
     expect(io).toMatchObject({ stdin: "", match: "trimmed" })
   })
 
+  it("caso expr exige alguma expectativa e não mistura valor com exceção", () => {
+    const parse = (extra: Record<string, unknown>): boolean =>
+      testCasesSchema.safeParse([{ id: "e", kind: "expr", expr: "conta.saldo", ...extra }]).success
+    expect(parse({})).toBe(false)
+    expect(parse({ expected: 100 })).toBe(true)
+    expect(parse({ expected: null })).toBe(true)
+    expect(parse({ type: "generator" })).toBe(true)
+    expect(parse({ raises: "ValueError", message_contains: "insuficiente" })).toBe(true)
+    expect(parse({ raises: "ValueError", expected: 1 })).toBe(false)
+    expect(parse({ expected: 1, message_contains: "x" })).toBe(false)
+    expect(parse({ expected_stdout: "oi" })).toBe(true)
+    expect(parse({ type: "não é nome" })).toBe(false)
+  })
+
+  it("caso expr recebe defaults de preparação, stdin e comparação", () => {
+    const [exprCase] = testCasesSchema.parse([{ id: "e", kind: "expr", expr: "x", expected: 1 }])
+    expect(exprCase).toMatchObject({ setup: "", stdin: "", match: "trimmed" })
+  })
+
+  it("caso unittest exige implementação e nome substituído juntos", () => {
+    const parse = (extra: Record<string, unknown>): boolean =>
+      testCasesSchema.safeParse([{ id: "u", kind: "unittest", expect: "fail", ...extra }]).success
+    expect(parse({})).toBe(true)
+    expect(parse({ target: "validar", implementation: "def validar(s):\n    return True\n" })).toBe(true)
+    expect(parse({ target: "validar" })).toBe(false)
+    expect(parse({ implementation: "def validar(s): ..." })).toBe(false)
+    expect(parse({ expect: "talvez" })).toBe(false)
+    expect(parse({ min_tests: 0 })).toBe(false)
+  })
+
+  it("novas regras de estrutura: decorator, catches e yield", () => {
+    const rules = [
+      { type: "decorator", name: "property" },
+      { type: "catches", exception: "ValueError" },
+      { type: "uses", construct: "yield" },
+    ]
+    const parsed = testCasesSchema.safeParse(rules.map((rule, index) => ({ id: `s${index}`, kind: "source", rule })))
+    expect(parsed.success).toBe(true)
+  })
+
   it("PATCH parcial não preenche defaults (não apaga campos não enviados)", () => {
     expect(courseUpdateSchema.parse({ title: "Novo título" })).toEqual({ title: "Novo título" })
     expect(examQuestionUpdateSchema.parse({ topic: "Laços" })).toEqual({ topic: "Laços" })
