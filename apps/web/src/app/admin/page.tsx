@@ -11,7 +11,7 @@ import { ROUTES } from "@/lib/constants"
 
 const NOT_ADMIN_MESSAGE = "Sua conta não tem permissão para acessar o painel administrativo."
 
-export default function AdminPage() {
+export default function AdminPage(): React.JSX.Element {
   // "Tentar novamente" remonta a tela: a busca recomeça do estado de carregamento.
   const [attempt, setAttempt] = useState(0)
   return <AdminScreen key={attempt} onRetry={() => setAttempt((previous) => previous + 1)} />
@@ -21,7 +21,7 @@ interface AdminScreenProps {
   onRetry: () => void
 }
 
-function AdminScreen({ onRetry }: AdminScreenProps) {
+function AdminScreen({ onRetry }: AdminScreenProps): React.JSX.Element {
   const router = useRouter()
   const { profile, isLoading: isAuthLoading } = useAuth()
   const profileId = profile?.id
@@ -53,7 +53,7 @@ interface RestrictedAccessProps {
   message: string
 }
 
-function RestrictedAccess({ message }: RestrictedAccessProps) {
+function RestrictedAccess({ message }: RestrictedAccessProps): React.JSX.Element {
   return (
     <div className="flex h-screen flex-col items-center justify-center gap-4 bg-white px-6 text-center">
       <ShieldAlert className="h-16 w-16 text-muted-foreground/30" />
@@ -74,7 +74,7 @@ interface DashboardLoadErrorProps {
   onRetry: () => void
 }
 
-function DashboardLoadError({ message, onRetry }: DashboardLoadErrorProps) {
+function DashboardLoadError({ message, onRetry }: DashboardLoadErrorProps): React.JSX.Element {
   return (
     <div className="flex h-screen flex-col items-center justify-center gap-4 px-6 text-center">
       <AlertTriangle className="h-10 w-10 text-amber-500" />
@@ -90,7 +90,7 @@ function DashboardLoadError({ message, onRetry }: DashboardLoadErrorProps) {
   )
 }
 
-function DashboardLoading() {
+function DashboardLoading(): React.JSX.Element {
   return (
     <div className="flex h-screen flex-col items-center justify-center gap-4">
       <Loader2 className="h-10 w-10 animate-spin text-level-purple" />

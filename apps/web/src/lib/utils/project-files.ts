@@ -50,7 +50,7 @@ export function parseProjectFiles(raw: unknown, fallback: ProjectFile[] = []): P
 export function resolveStarterFiles(lesson: Pick<Lesson, "starter_files" | "starter_code">): ProjectFile[] {
   const seeded = parseProjectFiles(lesson.starter_files)
   if (seeded.length) return seeded
-  return [{ path: MAIN_FILE_PATH, content: lesson.starter_code ?? "" }]
+  return [{ path: MAIN_FILE_PATH, content: lesson.starter_code }]
 }
 
 export function hasFile(files: readonly ProjectFile[], path: string): boolean {

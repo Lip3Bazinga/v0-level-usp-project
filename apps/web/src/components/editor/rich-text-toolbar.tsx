@@ -19,7 +19,7 @@ interface ToolbarButtonProps {
   children: ReactNode
 }
 
-export function ToolbarButton({ isActive, isDisabled, onClick, title, children }: ToolbarButtonProps) {
+export function ToolbarButton({ isActive, isDisabled, onClick, title, children }: ToolbarButtonProps): React.JSX.Element {
   return (
     <button
       type="button"
@@ -37,12 +37,12 @@ export function ToolbarButton({ isActive, isDisabled, onClick, title, children }
   )
 }
 
-export function ToolbarDivider() {
+export function ToolbarDivider(): React.JSX.Element {
   return <div className="mx-0.5 h-5 w-px bg-border" />
 }
 
 /** Ícone de traço da barra de ferramentas, a partir de um caminho SVG 24×24. */
-export function StrokeIcon({ path }: { path: string }) {
+export function StrokeIcon({ path }: { path: string }): React.JSX.Element {
   return (
     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={path} />
@@ -51,9 +51,9 @@ export function StrokeIcon({ path }: { path: string }) {
 }
 
 /** Fecha um menu suspenso quando o usuário clica fora dele. */
-function useCloseOnOutsideClick(containerRef: RefObject<HTMLElement | null>, onClose: () => void) {
+function useCloseOnOutsideClick(containerRef: RefObject<HTMLElement | null>, onClose: () => void): void {
   useEffect(() => {
-    const handleMouseDown = (event: MouseEvent) => {
+    const handleMouseDown = (event: MouseEvent): void => {
       const container = containerRef.current
       if (container && event.target instanceof Node && !container.contains(event.target)) onClose()
     }
@@ -61,16 +61,22 @@ function useCloseOnOutsideClick(containerRef: RefObject<HTMLElement | null>, onC
     return () => document.removeEventListener("mousedown", handleMouseDown)
   }, [containerRef, onClose])
 }
+interface UseDropdownResult {
+  isOpen: boolean
+  toggle: () => void
+  close: () => void
+}
+
 
 /** Estado de abrir/fechar de um menu suspenso que se fecha ao clicar fora de `containerRef`. */
-function useDropdown(containerRef: RefObject<HTMLElement | null>) {
+function useDropdown(containerRef: RefObject<HTMLElement | null>): UseDropdownResult {
   const [isOpen, setIsOpen] = useState(false)
   const close = useCallback(() => setIsOpen(false), [])
   useCloseOnOutsideClick(containerRef, close)
   return { isOpen, toggle: () => setIsOpen((current) => !current), close }
 }
 
-export function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }) {
+export function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const dropdown = useDropdown(containerRef)
   return (
@@ -99,7 +105,7 @@ export function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }) {
   )
 }
 
-export function FontSizePicker({ value, onChange }: { value: string; onChange: (size: string) => void }) {
+export function FontSizePicker({ value, onChange }: { value: string; onChange: (size: string) => void }): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const dropdown = useDropdown(containerRef)
   return (
@@ -144,7 +150,7 @@ interface ColorPickerProps {
   title: string
 }
 
-export function ColorPicker({ value, onChange, title }: ColorPickerProps) {
+export function ColorPicker({ value, onChange, title }: ColorPickerProps): React.JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null)
   return (
     <div className="relative">
@@ -173,7 +179,7 @@ interface UrlPopoverProps {
 }
 
 /** Campo de URL que aparece sob o botão da barra (link e imagem); Enter confirma. */
-export function UrlPopover({ value, onChange, onConfirm, placeholder, inputClassName, children }: UrlPopoverProps) {
+export function UrlPopover({ value, onChange, onConfirm, placeholder, inputClassName, children }: UrlPopoverProps): React.JSX.Element {
   return (
     <div className="absolute left-0 top-9 z-50 flex gap-1 rounded-xl border border-border bg-white p-2 shadow-lg">
       <input

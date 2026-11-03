@@ -10,7 +10,7 @@ interface StatCardProps {
   label: string
 }
 
-function StatCard({ icon: Icon, iconClassName, value, label }: StatCardProps) {
+function StatCard({ icon: Icon, iconClassName, value, label }: StatCardProps): React.JSX.Element {
   return (
     <div className="rounded-2xl border border-border bg-white p-5">
       <div className="flex items-center gap-3">
@@ -31,7 +31,7 @@ interface TeacherStatsProps {
   summary: MetricsSummary
 }
 
-export function TeacherStats({ lessons, summary }: TeacherStatsProps) {
+export function TeacherStats({ lessons, summary }: TeacherStatsProps): React.JSX.Element {
   const publishedCount = lessons.filter((lesson) => lesson.published).length
   return (
     <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

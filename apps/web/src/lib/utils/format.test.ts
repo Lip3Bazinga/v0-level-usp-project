@@ -38,7 +38,7 @@ describe("tempo relativo", () => {
   })
   afterEach(() => vi.useRealTimers())
 
-  const minutesAgo = (minutes: number) => new Date(now.getTime() - minutes * 60_000)
+  const minutesAgo = (minutes: number): Date => new Date(now.getTime() - minutes * 60_000)
 
   it("formatTimeAgo em minutos, horas e dias", () => {
     expect(formatTimeAgo(minutesAgo(0))).toBe("há 0min")

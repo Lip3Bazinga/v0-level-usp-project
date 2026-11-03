@@ -5,6 +5,7 @@ import type { ExamResult, ExamStart, ExamStatus } from "@levelusp/contracts"
 import * as api from "@/lib/api"
 import { swalConfirm } from "@/lib/swal"
 import ProvaPage from "./page"
+import type * as LibApi from "@/lib/api"
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ id: "curso-1" }),
@@ -16,7 +17,7 @@ vi.mock("@/contexts/auth-context", () => ({
 }))
 
 vi.mock("@/lib/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api")>()),
+  ...(await importOriginal<typeof LibApi>()),
   fetchExamStatus: vi.fn(),
   startExam: vi.fn(),
   submitExam: vi.fn(),
@@ -81,7 +82,7 @@ describe("prova final", () => {
     await user.click(screen.getByRole("button", { name: /Entregar prova/ }))
 
     await waitFor(() =>
-      expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining("1 questão sem resposta") })),
+      expect(confirm.mock.lastCall?.[0].text).toContain("1 questão sem resposta"),
     )
     expect(submitExam).not.toHaveBeenCalled()
     expect(screen.getByRole("radiogroup", { name: /Tipo de 3 \/ 2/ })).toBeInTheDocument()

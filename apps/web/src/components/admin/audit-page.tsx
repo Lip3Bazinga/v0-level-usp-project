@@ -21,7 +21,7 @@ function matchesQuery(log: AuditLog, query: string): boolean {
   return [log.actor_name, log.target, log.action].some((field) => field.toLowerCase().includes(term))
 }
 
-function exportAuditLog(logs: AuditLog[]) {
+function exportAuditLog(logs: AuditLog[]): void {
   downloadCsv(
     logs.map((log) => ({
       data: log.created_at,
@@ -34,7 +34,7 @@ function exportAuditLog(logs: AuditLog[]) {
   )
 }
 
-export function AuditPage() {
+export function AuditPage(): React.JSX.Element {
   const [query, setQuery] = useState("")
   const auditLog = useAsyncResource(() => fetchAuditLog(AUDIT_PAGE_SIZE), [], {
     errorMessage: "Não foi possível carregar o log de auditoria.",
@@ -96,7 +96,7 @@ interface AuditLogRowProps {
   log: AuditLog
 }
 
-function AuditLogRow({ log }: AuditLogRowProps) {
+function AuditLogRow({ log }: AuditLogRowProps): React.JSX.Element {
   const { icon: Icon, toneClass } = SEVERITY_STYLES[log.severity]
   return (
     <div className="flex items-center gap-4 p-3 hover:bg-muted/20">

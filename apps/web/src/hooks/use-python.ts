@@ -11,6 +11,7 @@ import {
   subscribeToWorkerStatus,
 } from "@/lib/python/pyodide-worker"
 import type { ExecutionResult, PyodideStatus, WorkerMessage } from "@/lib/python/worker-protocol"
+import { nonEmpty } from "@levelusp/contracts"
 
 export type { ExecutionResult, PyodideStatus }
 
@@ -43,9 +44,17 @@ function withoutPackage(packages: ReadonlySet<string>, name: string): ReadonlySe
   next.delete(name)
   return next
 }
+export interface UsePythonResult {
+  status: PyodideStatus
+  isExecuting: boolean
+  isInstalling: boolean
+  execute: (executionRequest: ExecutionRequest, handlers: ExecutionHandlers) => void
+  stop: () => void
+}
+
 
 /** Executa Python no navegador (Pyodide em Web Worker compartilhado entre telas). */
-export function usePython({ packages, onStatusChange }: UsePythonOptions = {}) {
+export function usePython({ packages, onStatusChange }: UsePythonOptions = {}): UsePythonResult {
   const status = useSyncExternalStore(subscribeToWorkerStatus, getWorkerStatus, getServerStatus)
   const [isExecuting, setIsExecuting] = useState(false)
   const [pendingPackages, setPendingPackages] = useState<ReadonlySet<string>>(() => new Set())
@@ -79,12 +88,12 @@ export function usePython({ packages, onStatusChange }: UsePythonOptions = {}) {
   useEffect(() => {
     let lastStatus = getWorkerStatus()
 
-    const finishExecution = () => {
+    const finishExecution = (): void => {
       clearExecutionTimeout()
       setIsExecuting(false)
     }
 
-    const handleMessage = (message: WorkerMessage) => {
+    const handleMessage = (message: WorkerMessage): void => {
       switch (message.type) {
         case "status":
           if (message.status === lastStatus) return
@@ -106,14 +115,17 @@ export function usePython({ packages, onStatusChange }: UsePythonOptions = {}) {
           return
         case "execution-error":
           finishExecution()
-          handlersRef.current?.onError(message.error || "Erro desconhecido")
+          handlersRef.current?.onError(nonEmpty(message.error) ?? "Erro desconhecido")
           return
         case "error":
-          handlersRef.current?.onError(message.error || "Erro interno")
+          handlersRef.current?.onError(nonEmpty(message.error) ?? "Erro interno")
           return
         case "package-installed":
         case "package-error":
           setPendingPackages((current) => withoutPackage(current, message.package))
+          return
+        default:
+          // Figuras, pacotes em carregamento e testes chegam pelos handlers de cada fluxo.
           return
       }
     }

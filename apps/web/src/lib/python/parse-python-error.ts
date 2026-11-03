@@ -1,3 +1,5 @@
+import { nonEmpty } from "@levelusp/contracts"
+
 /** Erro do Python traduzido para quem está começando, com a mensagem original preservada. */
 export interface ParsedPythonError {
   title: string
@@ -134,10 +136,10 @@ const ERROR_PATTERNS: readonly ErrorPattern[] = [
  */
 export function parsePythonError(rawError: string): ParsedPythonError {
   const lines = rawError.trim().split("\n")
-  const errorLine = lines[lines.length - 1] || rawError
+  const errorLine = nonEmpty(lines.at(-1)) ?? rawError
 
   for (const { pattern, title, explanation, hint } of ERROR_PATTERNS) {
-    const match = errorLine.match(pattern) || rawError.match(pattern)
+    const match = errorLine.match(pattern) ?? rawError.match(pattern)
     if (match) return { title, explanation: explanation(match), hint: hint(match), original: rawError }
   }
 

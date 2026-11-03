@@ -26,12 +26,12 @@ interface QuizTabProps {
   passingScore: number
 }
 
-export function QuizTab({ questions, onChange, passingScore }: QuizTabProps) {
-  const handleAdd = () => onChange((current) => [...current, newQuestion(current.length)])
-  const handleUpdate = (questionId: string, changes: Partial<QuizQuestionFull>) =>
+export function QuizTab({ questions, onChange, passingScore }: QuizTabProps): React.JSX.Element {
+  const handleAdd = (): void => onChange((current) => [...current, newQuestion(current.length)])
+  const handleUpdate = (questionId: string, changes: Partial<QuizQuestionFull>): void =>
     onChange((current) => current.map((question) => (question.id === questionId ? { ...question, ...changes } : question)))
-  const handleRemove = (questionId: string) => onChange((current) => current.filter((question) => question.id !== questionId))
-  const handleMove = (index: number, direction: MoveDirection) => onChange((current) => moveItem(current, index, direction))
+  const handleRemove = (questionId: string): void => onChange((current) => current.filter((question) => question.id !== questionId))
+  const handleMove = (index: number, direction: MoveDirection): void => onChange((current) => moveItem(current, index, direction))
 
   return (
     <EditorPanel
@@ -85,8 +85,8 @@ interface QuestionCardProps {
   onMove: (direction: MoveDirection) => void
 }
 
-function QuestionCard({ question, index, isLast, onChange, onRemove, onMove }: QuestionCardProps) {
-  const setOption = (optionIndex: number, value: string) =>
+function QuestionCard({ question, index, isLast, onChange, onRemove, onMove }: QuestionCardProps): React.JSX.Element {
+  const setOption = (optionIndex: number, value: string): void =>
     onChange({ options: question.options.map((option, position) => (position === optionIndex ? value : option)) })
 
   return (

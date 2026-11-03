@@ -55,7 +55,7 @@ async function loadProgressData(profileId: string | undefined): Promise<Progress
   return { lessons, progress }
 }
 
-export function ProgressProvider({ children }: { children: ReactNode }) {
+export function ProgressProvider({ children }: { children: ReactNode }): React.JSX.Element {
   const { profile, refreshProfile } = useAuth()
   const { refresh: refreshNotifications } = useNotifications()
   const [badgeQueue, setBadgeQueue] = useState<GrantedBadge[]>([])

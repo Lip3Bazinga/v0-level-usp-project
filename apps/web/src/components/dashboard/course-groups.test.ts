@@ -13,7 +13,7 @@ describe("groupLessonsByCourse", () => {
       ],
     )
     expect(groups.map((group) => group.course.id)).toEqual(["b", "a"])
-    expect(groups[1].lessons.map((lesson) => lesson.id)).toEqual(["a1", "a2"])
+    expect(groups[1]?.lessons.map((lesson) => lesson.id)).toEqual(["a1", "a2"])
   })
 })
 
@@ -25,7 +25,7 @@ describe("groupLessonsByModule", () => {
       { id: "z", module: "Laços", order: 1 },
     ])
     expect(modules.map((group) => group.name)).toEqual(["Laços", "Módulo 1"])
-    expect(modules[0].lessons.map((lesson) => lesson.id)).toEqual(["z", "x"])
+    expect(modules[0]?.lessons.map((lesson) => lesson.id)).toEqual(["z", "x"])
   })
 })
 

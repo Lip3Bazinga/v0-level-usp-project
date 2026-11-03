@@ -12,7 +12,7 @@ interface PageHeroProps {
 }
 
 /** Cabeçalho padrão das páginas institucionais, com fundo aurora e grade. */
-export function PageHero({ eyebrow, title, description, icon }: PageHeroProps) {
+export function PageHero({ eyebrow, title, description, icon }: PageHeroProps): React.JSX.Element {
   return (
     <section className="relative overflow-hidden pt-36 pb-16 lg:pt-44 lg:pb-20">
       <div className="aurora-bg" aria-hidden />

@@ -37,7 +37,7 @@ interface LessonContentPreviewProps {
  * lição (mesma classe prose-lesson, mesmo tratamento HTML/Markdown). É a fonte
  * única usada tanto pelo LessonPanel quanto pela pré-visualização do professor.
  */
-export function LessonContentPreview({ content, className = "prose-lesson text-sm" }: LessonContentPreviewProps) {
+export function LessonContentPreview({ content, className = "prose-lesson text-sm" }: LessonContentPreviewProps): React.JSX.Element {
   if (!content.trim()) {
     return (
       <p className="text-sm italic text-muted-foreground">

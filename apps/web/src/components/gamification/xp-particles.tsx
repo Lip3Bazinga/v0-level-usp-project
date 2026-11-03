@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from "react"
+import { cycleItem, type NonEmptyArray } from "@/lib/utils"
 
 interface Particle {
   x: number
@@ -26,7 +27,7 @@ interface XpParticlesProps {
   onComplete?: () => void
 }
 
-const COLORS = ["#FACC15", "#FDE68A", "#FEF08A", "#FCD34D", "#F59E0B", "#FFFFFF"]
+const COLORS: NonEmptyArray<string> = ["#FACC15", "#FDE68A", "#FEF08A", "#FCD34D", "#F59E0B", "#FFFFFF"]
 const GLOW_COLOR = "#FACC15"
 /** Quadros de "explosão" antes de as partículas seguirem para o alvo. */
 const EXPLODE_FRAMES = 20
@@ -52,7 +53,7 @@ function spawnParticles(count: number, source: Point): Particle[] {
       velocityY: Math.sin(angle) * speed,
       opacity: 1,
       size: 3 + Math.random() * 4,
-      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      color: cycleItem(COLORS, Math.floor(Math.random() * COLORS.length)),
       phase: "explode",
     }
   })
@@ -90,7 +91,7 @@ function drawParticle(context: CanvasRenderingContext2D, particle: Particle): vo
 }
 
 /** Partículas de XP que saem do card de sucesso e voam até o selo de XP do cabeçalho. */
-export function XpParticles({ trigger, count = 80, sourceRef, targetRef, onComplete }: XpParticlesProps) {
+export function XpParticles({ trigger, count = 80, sourceRef, targetRef, onComplete }: XpParticlesProps): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animationFrameRef = useRef<number | null>(null)
   const onCompleteRef = useRef(onComplete)
@@ -110,7 +111,7 @@ export function XpParticles({ trigger, count = 80, sourceRef, targetRef, onCompl
     const particles = spawnParticles(count, centerOf(sourceRef.current))
     let frame = 0
 
-    const animate = () => {
+    const animate = (): void => {
       context.clearRect(0, 0, canvas.width, canvas.height)
       let visibleCount = 0
       for (const particle of particles) {

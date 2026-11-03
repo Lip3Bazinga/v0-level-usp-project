@@ -23,7 +23,7 @@ interface ContentTabProps {
   onError: (message: string) => void
 }
 
-export function ContentTab({ title, moduleTitle, content, onChange, onError }: ContentTabProps) {
+export function ContentTab({ title, moduleTitle, content, onChange, onError }: ContentTabProps): React.JSX.Element {
   const [isPreviewVisible, setIsPreviewVisible] = useState(true)
 
   return (

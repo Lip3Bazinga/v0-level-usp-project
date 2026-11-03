@@ -23,14 +23,14 @@ async function loadAllCourses(): Promise<Course[]> {
 
 function matchesSearch(course: Course, search: string): boolean {
   const term = search.toLowerCase()
-  return course.title.toLowerCase().includes(term) || (course.description ?? "").toLowerCase().includes(term)
+  return course.title.toLowerCase().includes(term) || course.description.toLowerCase().includes(term)
 }
 
 interface CoursesPageProps {
   onToast: OnToast
 }
 
-export function CoursesPage({ onToast }: CoursesPageProps) {
+export function CoursesPage({ onToast }: CoursesPageProps): React.JSX.Element {
   const courses = useAsyncResource(loadAllCourses, [], { errorMessage: "Não foi possível carregar os cursos." })
   const [search, setSearch] = useState("")
   const [togglingId, setTogglingId] = useState<string | null>(null)
@@ -40,7 +40,7 @@ export function CoursesPage({ onToast }: CoursesPageProps) {
   const filtered = allCourses.filter((course) => matchesSearch(course, search))
   const publishedCount = allCourses.filter((course) => course.published).length
 
-  const handleTogglePublished = async (course: Course) => {
+  const handleTogglePublished = async (course: Course): Promise<void> => {
     setTogglingId(course.id)
     try {
       const updated = await setCoursePublished(course.id, !course.published)
@@ -53,7 +53,7 @@ export function CoursesPage({ onToast }: CoursesPageProps) {
     }
   }
 
-  const handleDelete = async (course: Course) => {
+  const handleDelete = async (course: Course): Promise<void> => {
     const isConfirmed = await swalConfirm({ title: `Excluir "${course.title}" permanentemente?`, confirmText: "Excluir", danger: true })
     if (!isConfirmed) return
     setDeletingId(course.id)
@@ -108,8 +108,8 @@ export function CoursesPage({ onToast }: CoursesPageProps) {
                 course={course}
                 isToggling={togglingId === course.id}
                 isDeleting={deletingId === course.id}
-                onTogglePublished={() => handleTogglePublished(course)}
-                onDelete={() => handleDelete(course)}
+                onTogglePublished={() => void handleTogglePublished(course)}
+                onDelete={() => void handleDelete(course)}
               />
             ))}
           </div>
@@ -127,7 +127,7 @@ interface CourseRowProps {
   onDelete: () => void
 }
 
-function CourseRow({ course, isToggling, isDeleting, onTogglePublished, onDelete }: CourseRowProps) {
+function CourseRow({ course, isToggling, isDeleting, onTogglePublished, onDelete }: CourseRowProps): React.JSX.Element {
   const toggleLabel = course.published ? "Despublicar" : "Publicar"
   return (
     <div className="flex items-center gap-4 p-4 hover:bg-muted/20 transition-colors">

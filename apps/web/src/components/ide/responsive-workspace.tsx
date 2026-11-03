@@ -35,7 +35,7 @@ export function ResponsiveWorkspace({
   editor,
   console: consolePanel,
   fileExplorer,
-}: ResponsiveWorkspaceProps) {
+}: ResponsiveWorkspaceProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<MobileTab>("lesson")
 
   return (

@@ -3,7 +3,7 @@ import { filterNotes, sortByRecentUpdate } from "./note-collection"
 
 const notes = [
   { title: "Laços", content: "<p>for e while</p>", lesson_title: "Repetição", course_title: "Python Básico", updated_at: "2026-10-01T10:00:00Z" },
-  { title: null, content: "listas", lesson_title: undefined, course_title: undefined, updated_at: "2026-10-03T10:00:00Z" },
+  { title: null, content: "listas", updated_at: "2026-10-03T10:00:00Z" },
 ]
 
 describe("filterNotes", () => {

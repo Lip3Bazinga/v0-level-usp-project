@@ -12,7 +12,7 @@ import { ROUTES } from "@/lib/constants"
 /** Segmento da rota de criação (`/teacher/curso/new`). */
 const NEW_COURSE_ID = "new"
 
-export default function TeacherCourseEditPage() {
+export default function TeacherCourseEditPage(): React.JSX.Element {
   const { id: routeId } = useParams<{ id: string }>()
   // Depois do primeiro salvamento a URL ganha o id do curso criado; o editor aberto
   // continua o mesmo, sem recarregar.
@@ -40,7 +40,7 @@ interface CourseLoadErrorProps {
   message: string
 }
 
-function CourseLoadError({ message }: CourseLoadErrorProps) {
+function CourseLoadError({ message }: CourseLoadErrorProps): React.JSX.Element {
   return (
     <div className="flex h-screen flex-col items-center justify-center gap-4 px-6 text-center">
       <AlertCircle className="h-10 w-10 text-destructive/60" />

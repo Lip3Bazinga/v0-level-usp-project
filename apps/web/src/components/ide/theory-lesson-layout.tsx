@@ -28,7 +28,7 @@ interface TheoryCompletion {
   levelBefore: number | null
 }
 
-export function TheoryLessonLayout({ lesson, allLessons, currentIndex }: TheoryLessonLayoutProps) {
+export function TheoryLessonLayout({ lesson, allLessons, currentIndex }: TheoryLessonLayoutProps): React.JSX.Element {
   const router = useRouter()
   const { profile } = useAuth()
   const { isCompleted, applyCompletion } = useProgress()
@@ -38,12 +38,12 @@ export function TheoryLessonLayout({ lesson, allLessons, currentIndex }: TheoryL
   const [completion, setCompletion] = useState<TheoryCompletion | null>(null)
   const [isSuccessOpen, setIsSuccessOpen] = useState(false)
 
-  const handleNext = () => {
+  const handleNext = (): void => {
     setIsSuccessOpen(false)
     navigation.goToNext()
   }
 
-  const handleMarkDone = async () => {
+  const handleMarkDone = async (): Promise<void> => {
     if (isCompleting) return
     setIsCompleting(true)
     const levelBefore = profile?.level ?? null
@@ -81,7 +81,7 @@ export function TheoryLessonLayout({ lesson, allLessons, currentIndex }: TheoryL
           </div>
         ) : (
           <button
-            onClick={handleMarkDone}
+            onClick={() => void handleMarkDone()}
             disabled={isCompleting}
             className="btn-3d flex w-full items-center justify-center gap-2 rounded-xl bg-level-purple py-3 text-sm font-semibold text-white transition-colors hover:bg-level-purple-dark disabled:opacity-60"
           >
@@ -110,7 +110,7 @@ export function TheoryLessonLayout({ lesson, allLessons, currentIndex }: TheoryL
 }
 
 /** Checkpoints da lição teórica, só para leitura (não há execução para marcá-los). */
-function KeyPoints({ checkpoints }: { checkpoints: readonly Checkpoint[] }) {
+function KeyPoints({ checkpoints }: { checkpoints: readonly Checkpoint[] }): React.JSX.Element {
   return (
     <div className="mt-8">
       <h3 className="mb-3 text-sm font-bold text-level-purple-dark">Pontos-chave</h3>

@@ -4,7 +4,7 @@ import { Github } from "lucide-react"
 const BUTTON_CLASS =
   "flex w-full cursor-not-allowed items-center justify-center gap-3 rounded-xl border-2 border-border px-4 py-3 text-sm font-medium text-muted-foreground opacity-60"
 
-function GoogleIcon() {
+function GoogleIcon(): React.JSX.Element {
   return (
     <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden>
       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
@@ -15,7 +15,7 @@ function GoogleIcon() {
   )
 }
 
-function ComingSoonButton({ icon, label }: { icon: ReactNode; label: string }) {
+function ComingSoonButton({ icon, label }: { icon: ReactNode; label: string }): React.JSX.Element {
   return (
     <button type="button" disabled aria-disabled="true" title="Em breve" className={BUTTON_CLASS}>
       {icon}
@@ -26,7 +26,7 @@ function ComingSoonButton({ icon, label }: { icon: ReactNode; label: string }) {
 }
 
 /** Login social: a API ainda não tem OAuth, então os botões aparecem desabilitados com "em breve". */
-export function OAuthButtons({ mode }: { mode: "login" | "signup" }) {
+export function OAuthButtons({ mode }: { mode: "login" | "signup" }): React.JSX.Element {
   const verb = mode === "login" ? "Continuar" : "Cadastrar"
   return (
     <div className="space-y-3 mb-6">

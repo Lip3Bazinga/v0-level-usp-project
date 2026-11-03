@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils"
 import { Shield, BookOpen } from "lucide-react"
 
-export function DiffBadge({ d }: { d: string }) {
+export function DiffBadge({ d }: { d: string }): React.JSX.Element {
   const map: Record<string, string> = {
     iniciante:     "bg-success/10 text-success",
     intermediario: "bg-warning/10 text-warning",
@@ -18,7 +18,7 @@ export function DiffBadge({ d }: { d: string }) {
   )
 }
 
-export function PubBadge({ published }: { published: boolean }) {
+export function PubBadge({ published }: { published: boolean }): React.JSX.Element {
   if (published)
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-semibold text-success">
@@ -34,7 +34,7 @@ export function PubBadge({ published }: { published: boolean }) {
   )
 }
 
-export function RoleBadge({ role, size = "md" }: { role: string; size?: "sm" | "md" }) {
+export function RoleBadge({ role, size = "md" }: { role: string; size?: "sm" | "md" }): React.JSX.Element {
   const sz = size === "sm" ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-[11px]"
   if (role === "admin")
     return (

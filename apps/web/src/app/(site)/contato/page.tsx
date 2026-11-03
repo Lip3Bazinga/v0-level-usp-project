@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 
 type ContactChannel = (typeof CONTACT_CHANNELS)[number]
 
-function ChannelLink({ href, children }: { href: string; children: ReactNode }) {
+function ChannelLink({ href, children }: { href: string; children: ReactNode }): React.JSX.Element {
   const isExternal = href.startsWith("http")
   return (
     <a
@@ -30,7 +30,7 @@ function ChannelLink({ href, children }: { href: string; children: ReactNode }) 
   )
 }
 
-function ChannelCard({ channel }: { channel: ContactChannel }) {
+function ChannelCard({ channel }: { channel: ContactChannel }): React.JSX.Element {
   const card = (
     <div className="flex items-start gap-4 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-level-purple-light">
@@ -45,7 +45,7 @@ function ChannelCard({ channel }: { channel: ContactChannel }) {
   return channel.href ? <ChannelLink href={channel.href}>{card}</ChannelLink> : <div>{card}</div>
 }
 
-function FaqReminder() {
+function FaqReminder(): React.JSX.Element {
   return (
     <div className="rounded-2xl bg-level-purple-dark p-6">
       <HelpCircle className="h-7 w-7 text-level-purple-medium" />
@@ -63,7 +63,7 @@ function FaqReminder() {
   )
 }
 
-export default function ContactPage() {
+export default function ContactPage(): React.JSX.Element {
   return (
     <>
       <PageHero

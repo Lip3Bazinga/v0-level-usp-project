@@ -20,7 +20,7 @@ test("caderno de notas: abre pelo teclado, prende o foco, Esc fecha e devolve o 
   await page.keyboard.press("Enter")
   const dialog = page.getByRole("dialog", { name: "Caderno de anotações" })
   await expect(dialog).toBeVisible()
-  const isFocusInsideDialog = () =>
+  const isFocusInsideDialog = (): Promise<boolean> =>
     dialog.evaluate((element) => element.contains(document.activeElement))
   // O foco entra no diálogo…
   await expect.poll(isFocusInsideDialog).toBe(true)

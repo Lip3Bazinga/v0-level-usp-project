@@ -8,7 +8,7 @@ interface TestsTabProps {
   isPublished: boolean
 }
 
-export function TestsTab({ drafts, onChange, isPublished }: TestsTabProps) {
+export function TestsTab({ drafts, onChange, isPublished }: TestsTabProps): React.JSX.Element {
   return (
     <EditorPanel icon={FlaskConical} title="Casos de teste" subtitle="Como a resposta do aluno é corrigida">
       {drafts.length === 0 && (

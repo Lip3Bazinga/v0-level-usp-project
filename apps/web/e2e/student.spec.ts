@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test"
 import { ROUTES } from "@/lib/constants"
-import { NAVIGATION_TIMEOUT_MS, STUDENT, fetchLessonId, login, submitLessonCode } from "./helpers"
+import { NAVIGATION_TIMEOUT_MS, STUDENT, fetchLessonId, login, submitLessonCode, readJson } from "./helpers"
+import type { Lesson, SessionResponse, SubmissionResult } from "@levelusp/contracts"
 
 /** Lição de funções do seed: `dobro_mais_um`, `eh_par` e `esta_no_intervalo`. */
 const FUNCTIONS_LESSON_SLUG = "python-completo-03"
@@ -21,7 +22,7 @@ test("cadastro cria a conta e abre o painel", async ({ page }) => {
   await page.getByRole("button", { name: /Criar Conta/i }).click()
   await expect(page).toHaveURL(/\/dashboard/, { timeout: NAVIGATION_TIMEOUT_MS })
   const me = await page.request.get("/api/auth/me")
-  expect((await me.json()).user.email).toBe(email)
+  expect((await readJson<SessionResponse>(me)).user.email).toBe(email)
 })
 
 test("login com senha errada mostra o erro da API", async ({ page }) => {
@@ -44,25 +45,25 @@ test("correção no servidor: errado reprova, certo aprova e credita XP uma vez"
   await login(page, STUDENT)
   const lessonId = await fetchLessonId(page, FUNCTIONS_LESSON_SLUG)
   // O gabarito nunca vem para o navegador
-  const lesson = await (await page.request.get(`/api/lessons/${lessonId}`)).json()
+  const lesson = await readJson<Lesson>(await page.request.get(`/api/lessons/${lessonId}`))
   expect(JSON.stringify(lesson)).not.toContain("test_cases")
 
   const wrong = await submitLessonCode(page, lessonId, WRONG_SOLUTION)
   expect(wrong.ok()).toBeTruthy()
   expect(await wrong.json()).toMatchObject({ allPassed: false, xp_awarded: 0 })
 
-  const right = await (await submitLessonCode(page, lessonId, RIGHT_SOLUTION)).json()
+  const right = await readJson<SubmissionResult>(await submitLessonCode(page, lessonId, RIGHT_SOLUTION))
   expect(right.allPassed).toBe(true)
   expect(right.strength).toBe("strong")
 
-  const again = await (await submitLessonCode(page, lessonId, RIGHT_SOLUTION)).json()
+  const again = await readJson<SubmissionResult>(await submitLessonCode(page, lessonId, RIGHT_SOLUTION))
   expect(again.xp_awarded).toBe(0)
 })
 
 test("sandbox: código malicioso não acessa o servidor", async ({ page }) => {
   await login(page, STUDENT)
   const lessonId = await fetchLessonId(page, FUNCTIONS_LESSON_SLUG)
-  const result = await (await submitLessonCode(page, lessonId, ENVIRONMENT_LEAK_ATTEMPT)).json()
+  const result = await readJson<SubmissionResult>(await submitLessonCode(page, lessonId, ENVIRONMENT_LEAK_ATTEMPT))
   expect(result.allPassed).toBe(false)
   expect(JSON.stringify(result)).toMatch(/FileNotFoundError|No such file/)
 })

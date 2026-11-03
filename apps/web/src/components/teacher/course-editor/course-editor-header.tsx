@@ -16,7 +16,7 @@ interface CourseEditorHeaderProps {
 
 export function CourseEditorHeader({
   courseId, title, isPublished, isSaving, isReordering, hasJustSaved, onSave, onPublish, onUnpublish,
-}: CourseEditorHeaderProps) {
+}: CourseEditorHeaderProps): React.JSX.Element {
   const canSave = !isSaving && title.trim().length > 0
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-white/95 backdrop-blur">

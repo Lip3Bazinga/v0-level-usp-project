@@ -4,9 +4,9 @@ import { describe, expect, it } from "vitest"
 import { PROTECTED_ROUTE_PREFIXES, SESSION_COOKIE_NAME } from "@/lib/constants"
 import { config, isProtectedPath, middleware } from "./middleware"
 
-function buildRequest(path: string, cookie?: string) {
+function buildRequest(path: string, cookie?: string): NextRequest {
   return new NextRequest(new URL(path, "http://localhost:3000"), {
-    headers: cookie ? { cookie } : undefined,
+    ...(cookie && { headers: { cookie } }),
   })
 }
 

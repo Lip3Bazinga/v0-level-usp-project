@@ -6,7 +6,7 @@ import { BrandLogo } from "@/components/design-system/brand-logo"
 import { ROUTES } from "@/lib/constants"
 import { CAMPUS_ADDRESS, CONTACT_EMAIL_HREF, FOOTER_LINK_GROUPS, GITHUB_URL } from "./content/site"
 
-export function SiteFooter() {
+export function SiteFooter(): React.JSX.Element {
   return (
     <footer className="border-t border-gray-100 bg-white py-16">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">

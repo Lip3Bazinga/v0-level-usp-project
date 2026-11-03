@@ -29,12 +29,19 @@ function useIsScrolledPast(thresholdPx: number): boolean {
     () => false,
   )
 }
+interface UseMenuOpenOnRouteResult {
+  isOpen: boolean
+  open: () => void
+  close: () => void
+  toggle: () => void
+}
+
 
 /**
  * Menu que fecha sozinho ao trocar de página: guarda em qual rota foi aberto em vez
  * de sincronizar um booleano com a rota por efeito.
  */
-function useMenuOpenOnRoute(pathname: string) {
+function useMenuOpenOnRoute(pathname: string): UseMenuOpenOnRouteResult {
   const [openedOnPath, setOpenedOnPath] = useState<string | null>(null)
   const isOpen = openedOnPath === pathname
   return {
@@ -45,7 +52,7 @@ function useMenuOpenOnRoute(pathname: string) {
   }
 }
 
-function SiteLogo() {
+function SiteLogo(): React.JSX.Element {
   return (
     <BrandLogo
       href={ROUTES.home}
@@ -57,7 +64,7 @@ function SiteLogo() {
   )
 }
 
-function PrimaryLinks({ pathname }: { pathname: string }) {
+function PrimaryLinks({ pathname }: { pathname: string }): React.JSX.Element[] {
   return PRIMARY_NAV_LINKS.map((link) => {
     const isActive = pathname === link.href
     return (
@@ -82,14 +89,14 @@ function PrimaryLinks({ pathname }: { pathname: string }) {
   })
 }
 
-function MoreMenu({ pathname }: { pathname: string }) {
+function MoreMenu({ pathname }: { pathname: string }): React.JSX.Element {
   const menu = useMenuOpenOnRoute(pathname)
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     if (event.key === "Escape") menu.close()
   }
 
-  const handleBlur = (event: FocusEvent<HTMLDivElement>) => {
+  const handleBlur = (event: FocusEvent<HTMLDivElement>): void => {
     const isFocusStayingInside =
       event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)
     if (!isFocusStayingInside) menu.close()
@@ -142,7 +149,7 @@ function MoreMenu({ pathname }: { pathname: string }) {
   )
 }
 
-function MobileMenu({ pathname }: { pathname: string }) {
+function MobileMenu({ pathname }: { pathname: string }): React.JSX.Element {
   return (
     <motion.div
       initial={{ opacity: 0, height: 0 }}
@@ -181,7 +188,7 @@ function MobileMenu({ pathname }: { pathname: string }) {
   )
 }
 
-export function SiteNav() {
+export function SiteNav(): React.JSX.Element {
   const pathname = usePathname()
   const isScrolled = useIsScrolledPast(SCROLLED_THRESHOLD_PX)
   const mobileMenu = useMenuOpenOnRoute(pathname)

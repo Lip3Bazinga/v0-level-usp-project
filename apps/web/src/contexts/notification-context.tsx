@@ -39,7 +39,7 @@ function markAsRead(notification: Notification): Notification {
   return { ...notification, read: true }
 }
 
-export function NotificationProvider({ children }: { children: ReactNode }) {
+export function NotificationProvider({ children }: { children: ReactNode }): React.JSX.Element {
   const { user } = useAuth()
   const userId = user?.id
   const resource = useAsyncResource(() => loadNotifications(userId), [userId])

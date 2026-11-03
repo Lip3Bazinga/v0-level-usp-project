@@ -11,7 +11,7 @@ interface StreakModalProps {
   onClose: () => void
 }
 
-export function StreakModal({ isOpen, streakDays, isNewStreak = true, onClose }: StreakModalProps) {
+export function StreakModal({ isOpen, streakDays, isNewStreak = true, onClose }: StreakModalProps): React.JSX.Element {
   return (
     <CelebrationModal
       isOpen={isOpen}

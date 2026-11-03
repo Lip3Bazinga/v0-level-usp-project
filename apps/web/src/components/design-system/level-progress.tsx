@@ -18,7 +18,7 @@ const HEIGHT_CLASS: Record<LevelProgressSize, string> = {
   lg: "h-6",
 }
 
-export function LevelProgress({ value, max = 100, size = "md", hasLabel = false, className }: LevelProgressProps) {
+export function LevelProgress({ value, max = 100, size = "md", hasLabel = false, className }: LevelProgressProps): React.JSX.Element {
   const percentage = Math.min(Math.max((value / max) * 100, 0), 100)
 
   return (

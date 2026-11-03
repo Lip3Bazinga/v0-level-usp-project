@@ -101,7 +101,7 @@ interface UserDetailProps {
   onToast: OnToast
 }
 
-export function UserDetail({ user, users, updateUsers, onBack, onToast }: UserDetailProps) {
+export function UserDetail({ user, users, updateUsers, onBack, onToast }: UserDetailProps): React.JSX.Element {
   const [tab, setTab] = useState<"overview" | "actions">("overview")
   const [pendingAction, setPendingAction] = useState<UserAction | null>(null)
   const [isBusy, setIsBusy] = useState(false)
@@ -109,7 +109,7 @@ export function UserDetail({ user, users, updateUsers, onBack, onToast }: UserDe
   const current = users.find((item) => item.id === user.id) ?? user
   const actions = userActions(current.suspended)
 
-  const replaceUser = (updated: Profile) => updateUsers((list) => list.map((item) => (item.id === updated.id ? updated : item)))
+  const replaceUser = (updated: Profile): void => updateUsers((list) => list.map((item) => (item.id === updated.id ? updated : item)))
 
   const actionHandlers: Record<UserActionId, () => Promise<void>> = {
     "reset-password": async () => {
@@ -146,7 +146,7 @@ export function UserDetail({ user, users, updateUsers, onBack, onToast }: UserDe
     },
   }
 
-  const handleConfirm = async (action: UserAction) => {
+  const handleConfirm = async (action: UserAction): Promise<void> => {
     setIsBusy(true)
     try {
       await actionHandlers[action.id]()
@@ -226,7 +226,7 @@ export function UserDetail({ user, users, updateUsers, onBack, onToast }: UserDe
             <>
               <ModalCancelButton onClick={() => setPendingAction(null)} disabled={isBusy} />
               <button
-                onClick={() => handleConfirm(pendingAction)}
+                onClick={() => void handleConfirm(pendingAction)}
                 disabled={isBusy}
                 className={cn(
                   "flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-white disabled:opacity-50",
@@ -253,7 +253,7 @@ interface UserProfileCardProps {
   user: Profile
 }
 
-function UserProfileCard({ user }: UserProfileCardProps) {
+function UserProfileCard({ user }: UserProfileCardProps): React.JSX.Element {
   const stats = [
     { icon: Trophy, label: "Nível", value: String(user.level), colorClass: "bg-warning/10 text-warning" },
     { icon: Zap, label: "XP", value: formatNumber(user.total_xp), colorClass: "bg-level-purple-light text-level-purple" },
@@ -311,7 +311,7 @@ interface EarnedBadgesCardProps {
   earnedBadges: EarnedBadge[] | null
 }
 
-function EarnedBadgesCard({ earnedBadges }: EarnedBadgesCardProps) {
+function EarnedBadgesCard({ earnedBadges }: EarnedBadgesCardProps): React.JSX.Element {
   return (
     <div className="rounded-2xl border border-border bg-white p-5">
       <p className="mb-3 text-sm font-extrabold text-level-purple-dark">Conquistas</p>
@@ -348,7 +348,7 @@ interface ActionButtonProps {
   onSelect: () => void
 }
 
-function RegularActionButton({ action, onSelect }: ActionButtonProps) {
+function RegularActionButton({ action, onSelect }: ActionButtonProps): React.JSX.Element {
   const Icon = action.icon
   const tone = ACTION_TONE_CLASSES[action.tone]
   return (
@@ -365,7 +365,7 @@ function RegularActionButton({ action, onSelect }: ActionButtonProps) {
   )
 }
 
-function DangerActionButton({ action, onSelect }: ActionButtonProps) {
+function DangerActionButton({ action, onSelect }: ActionButtonProps): React.JSX.Element {
   const Icon = action.icon
   return (
     <button

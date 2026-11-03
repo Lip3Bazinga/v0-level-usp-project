@@ -10,7 +10,7 @@ interface EditorPanelProps {
   children: ReactNode
 }
 
-export function EditorPanel({ icon: Icon, title, subtitle, action, children }: EditorPanelProps) {
+export function EditorPanel({ icon: Icon, title, subtitle, action, children }: EditorPanelProps): React.JSX.Element {
   return (
     <div className="mx-auto max-w-3xl">
       <div className="rounded-2xl border-2 border-border bg-white p-6">

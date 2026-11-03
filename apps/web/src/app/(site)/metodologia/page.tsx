@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     "Conheça a metodologia do LevelUSP: aprendizagem ativa, prática deliberada numa IDE no navegador e gamificação, tudo fundamentado em ciência cognitiva.",
 }
 
-function PillarsSection() {
+function PillarsSection(): React.JSX.Element {
   return (
     <section className="py-12">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -44,7 +44,7 @@ function PillarsSection() {
   )
 }
 
-function ComparisonSection() {
+function ComparisonSection(): React.JSX.Element {
   return (
     <section className="py-24">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
@@ -80,7 +80,7 @@ function ComparisonSection() {
   )
 }
 
-export default function MethodologyPage() {
+export default function MethodologyPage(): React.JSX.Element {
   return (
     <>
       <PageHero

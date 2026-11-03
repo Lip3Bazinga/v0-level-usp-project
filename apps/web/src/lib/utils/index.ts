@@ -1,5 +1,6 @@
 export { cn } from "./cn"
-export { indexBy } from "./collections"
+export { cycleItem, indexBy, isNonEmpty, lastOf, type NonEmptyArray } from "./collections"
+export { definedProps, type DefinedProps } from "./defined-props"
 export { toCsv, downloadCsv } from "./csv"
 export { downloadBlob, downloadText, downloadJson } from "./download"
 export { PLATFORM_TIMEZONE, localDateKey, todayKey } from "./date"

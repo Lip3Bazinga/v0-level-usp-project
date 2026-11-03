@@ -65,8 +65,23 @@ export async function runForEachUser(userIds: string[], action: (userId: string)
   return { updated, failedCount: results.length - updated.length, firstError }
 }
 
+/** Linha da planilha de usuários; as chaves viram os cabeçalhos do CSV (`type`: o CSV exige assinatura de índice). */
+export type UserCsvRow = {
+  id: string
+  nome: string
+  username: string
+  email: string
+  papel: Profile["role"]
+  nivel: number
+  xp: number
+  licoes: number
+  streak: number
+  suspenso: "sim" | "não"
+  criado_em: string
+}
+
 /** Linhas da exportação CSV (cabeçalhos em pt-BR, sem acento, como as planilhas antigas). */
-export function toUserCsvRows(users: Profile[]) {
+export function toUserCsvRows(users: Profile[]): UserCsvRow[] {
   return users.map((user) => ({
     id: user.id,
     nome: user.full_name,

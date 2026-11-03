@@ -10,7 +10,7 @@ import { HTTP_STATUS, getErrorMessage, isApiError, requestPasswordReset } from "
 import { ROUTES } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 
-function ResetLinkSentNotice({ email }: { email: string }) {
+function ResetLinkSentNotice({ email }: { email: string }): React.JSX.Element {
   return (
     <div
       role="status"
@@ -25,13 +25,13 @@ function ResetLinkSentNotice({ email }: { email: string }) {
   )
 }
 
-export default function ForgotPasswordPage() {
+export default function ForgotPasswordPage(): React.JSX.Element {
   const submitLock = useSubmitLock()
   const [email, setEmail] = useState("")
   const [isSent, setIsSent] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
     if (!submitLock.acquire()) return
     setErrorMessage("")
@@ -57,7 +57,7 @@ export default function ForgotPasswordPage() {
       {isSent ? (
         <ResetLinkSentNotice email={email} />
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
           {errorMessage && <FormErrorAlert message={errorMessage} />}
           <AuthField
             id="forgot-email"

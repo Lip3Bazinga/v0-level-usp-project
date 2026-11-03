@@ -49,7 +49,7 @@ export function AdminModal({
   footerAlign = "end",
   onClose,
   children,
-}: AdminModalProps) {
+}: AdminModalProps): React.JSX.Element {
   const titleId = useId()
   const dialogRef = useModalA11y<HTMLDivElement>(true, onClose)
 
@@ -109,7 +109,7 @@ interface ModalCancelButtonProps {
 }
 
 /** Botão "Cancelar" do rodapé dos diálogos do admin. */
-export function ModalCancelButton({ onClick, disabled }: ModalCancelButtonProps) {
+export function ModalCancelButton({ onClick, disabled }: ModalCancelButtonProps): React.JSX.Element {
   return (
     <button
       type="button"
@@ -129,7 +129,7 @@ interface ModalSubmitButtonProps {
 }
 
 /** Botão principal do rodapé, com indicador enquanto a ação roda. */
-export function ModalSubmitButton({ onClick, isBusy, children }: ModalSubmitButtonProps) {
+export function ModalSubmitButton({ onClick, isBusy, children }: ModalSubmitButtonProps): React.JSX.Element {
   return (
     <button
       type="button"

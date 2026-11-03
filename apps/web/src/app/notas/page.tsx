@@ -11,10 +11,11 @@ import { formatRelativeDay, truncatePlainText, cn } from "@/lib/utils"
 import { LazyRichTextEditor } from "@/components/editor/lazy-rich-text-editor"
 import { filterNotes, useNoteCollection, type NoteSearchField } from "@/components/notes/note-collection"
 import { useNoteAutosave, type EditableNoteField } from "./use-note-autosave"
+import { nonEmpty } from "@levelusp/contracts"
 
 const SEARCH_FIELDS: readonly NoteSearchField[] = ["title", "content", "lesson_title", "course_title"]
 
-export default function NotasPage() {
+export default function NotasPage(): React.JSX.Element {
   const router = useRouter()
   const { profile, isLoading: isAuthLoading } = useAuth()
   const collection = useNoteCollection(Boolean(profile))
@@ -26,7 +27,7 @@ export default function NotasPage() {
     if (!isAuthLoading && !profile) router.push(ROUTES.loginWithNext(ROUTES.notes))
   }, [isAuthLoading, profile, router])
 
-  const handleChange = (field: EditableNoteField, value: string) => {
+  const handleChange = (field: EditableNoteField, value: string): void => {
     if (!activeNote) return
     collection.updateNoteLocally(activeNote.id, (note) => ({ ...note, [field]: value, updated_at: new Date().toISOString() }))
     autosave.scheduleSave(activeNote.id, field, value)
@@ -84,7 +85,7 @@ export default function NotasPage() {
               />
             </div>
             <button
-              onClick={collection.create}
+              onClick={() => void collection.create()}
               className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-level-purple py-1.5 text-xs font-semibold text-white transition-colors hover:bg-level-purple-dark"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -118,7 +119,7 @@ export default function NotasPage() {
                   isActive={activeNote?.id === note.id}
                   isDeleting={collection.deletingNoteId === note.id}
                   onSelect={collection.selectNote}
-                  onDelete={collection.remove}
+                  onDelete={(noteId) => void collection.remove(noteId)}
                 />
               ))
             )}
@@ -136,7 +137,7 @@ export default function NotasPage() {
                 <p className="mt-1 text-sm text-muted-foreground">Crie uma nova anotação ou selecione uma existente.</p>
               </div>
               <button
-                onClick={collection.create}
+                onClick={() => void collection.create()}
                 className="flex items-center gap-2 rounded-xl bg-level-purple px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-level-purple-dark"
               >
                 <Plus className="h-4 w-4" />
@@ -158,7 +159,7 @@ interface NoteListItemProps {
   onDelete: (noteId: string) => void
 }
 
-function NoteListItem({ note, isActive, isDeleting, onSelect, onDelete }: NoteListItemProps) {
+function NoteListItem({ note, isActive, isDeleting, onSelect, onDelete }: NoteListItemProps): React.JSX.Element {
   return (
     <div
       role="button"
@@ -177,13 +178,13 @@ function NoteListItem({ note, isActive, isDeleting, onSelect, onDelete }: NoteLi
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="truncate text-xs font-semibold text-level-purple-dark">{note.title || "Sem título"}</p>
+        <p className="truncate text-xs font-semibold text-level-purple-dark">{nonEmpty(note.title) ?? "Sem título"}</p>
         <button
           onClick={(event) => {
             event.stopPropagation()
             onDelete(note.id)
           }}
-          aria-label={`Excluir anotação ${note.title || "sem título"}`}
+          aria-label={`Excluir anotação ${nonEmpty(note.title) ?? "sem título"}`}
           className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:text-destructive"
           disabled={isDeleting}
         >
@@ -218,7 +219,7 @@ interface ActiveNoteEditorProps {
   onChange: (field: EditableNoteField, value: string) => void
 }
 
-function ActiveNoteEditor({ note, onChange }: ActiveNoteEditorProps) {
+function ActiveNoteEditor({ note, onChange }: ActiveNoteEditorProps): React.JSX.Element {
   return (
     <>
       <div className="border-b border-border px-6 py-3">

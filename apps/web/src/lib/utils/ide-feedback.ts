@@ -35,7 +35,7 @@ export function pythonErrorLines(rawError: string): ConsoleLine[] {
 /** Feedback de "Verificar" quando a correção foi concluída mas reprovou. */
 export function verificationFailureLines(result: SubmissionResult): ConsoleLine[] {
   const failedCount = result.failures + result.errors
-  const failedCases = (result.cases ?? []).filter((testCase) => !testCase.passed)
+  const failedCases = result.cases.filter((testCase) => !testCase.passed)
   const details: ConsoleLine[] = failedCases.length
     ? failedCases.map((testCase) => ({
         type: "warning",

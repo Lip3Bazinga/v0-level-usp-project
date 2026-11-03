@@ -16,12 +16,12 @@ interface CheckpointsTabProps {
   onChange: (next: Checkpoint[]) => void
 }
 
-export function CheckpointsTab({ checkpoints, onChange }: CheckpointsTabProps) {
-  const handleAdd = () => onChange([...checkpoints, { id: nextCheckpointId(checkpoints), instruction: "", hint: "" }])
-  const handleUpdate = (checkpointId: number, changes: Partial<Checkpoint>) =>
+export function CheckpointsTab({ checkpoints, onChange }: CheckpointsTabProps): React.JSX.Element {
+  const handleAdd = (): void => onChange([...checkpoints, { id: nextCheckpointId(checkpoints), instruction: "", hint: "" }])
+  const handleUpdate = (checkpointId: number, changes: Partial<Checkpoint>): void =>
     onChange(checkpoints.map((checkpoint) => (checkpoint.id === checkpointId ? { ...checkpoint, ...changes } : checkpoint)))
-  const handleRemove = (checkpointId: number) => onChange(checkpoints.filter((checkpoint) => checkpoint.id !== checkpointId))
-  const handleMove = (index: number, direction: MoveDirection) => onChange(moveItem(checkpoints, index, direction))
+  const handleRemove = (checkpointId: number): void => onChange(checkpoints.filter((checkpoint) => checkpoint.id !== checkpointId))
+  const handleMove = (index: number, direction: MoveDirection): void => onChange(moveItem(checkpoints, index, direction))
 
   return (
     <EditorPanel

@@ -5,7 +5,7 @@ import type { Request, Response } from "express"
 import {
   changePasswordSchema, requestPasswordResetSchema, resetPasswordSchema, signInSchema, signUpSchema,
   type ChangePasswordInput, type RequestPasswordResetInput, type ResetPasswordInput, type SessionResponse,
-  type SignInInput, type SignUpInput,
+  type SignInInput, type SignUpInput, type OkResponse,
 } from "@levelusp/contracts"
 import { ENV } from "@/config/config.module"
 import type { Env } from "@/config/env"
@@ -63,7 +63,7 @@ export class AuthController {
   @Throttle(PASSWORD_FORGOT_THROTTLE)
   @HttpCode(202)
   @Post("password/forgot")
-  async requestPasswordReset(@Body(new ZodPipe(requestPasswordResetSchema)) body: RequestPasswordResetInput): Promise<{ ok: true }> {
+  async requestPasswordReset(@Body(new ZodPipe(requestPasswordResetSchema)) body: RequestPasswordResetInput): Promise<OkResponse> {
     await this.auth.requestPasswordReset(body.email)
     return { ok: true }
   }
@@ -72,7 +72,7 @@ export class AuthController {
   @Throttle(CREDENTIAL_THROTTLE)
   @HttpCode(200)
   @Post("password/reset")
-  async resetPassword(@Body(new ZodPipe(resetPasswordSchema)) body: ResetPasswordInput): Promise<{ ok: true }> {
+  async resetPassword(@Body(new ZodPipe(resetPasswordSchema)) body: ResetPasswordInput): Promise<OkResponse> {
     await this.auth.resetPassword(body.token, body.password)
     return { ok: true }
   }
@@ -80,7 +80,7 @@ export class AuthController {
   @Throttle(CREDENTIAL_THROTTLE)
   @HttpCode(200)
   @Post("password/change")
-  async changePassword(@CurrentUser() user: AuthUser, @Body(new ZodPipe(changePasswordSchema)) body: ChangePasswordInput): Promise<{ ok: true }> {
+  async changePassword(@CurrentUser() user: AuthUser, @Body(new ZodPipe(changePasswordSchema)) body: ChangePasswordInput): Promise<OkResponse> {
     await this.auth.changePassword(user, body.current_password, body.new_password)
     return { ok: true }
   }

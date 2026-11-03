@@ -73,7 +73,7 @@ const PALETTE_SWATCHES = [
   { name: "Background", hex: "#FFFFFF", swatchClass: "border border-border bg-white" },
 ] as const
 
-function ShowcaseHeader() {
+function ShowcaseHeader(): React.JSX.Element {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -97,7 +97,7 @@ function ShowcaseHeader() {
   )
 }
 
-function ShowcaseHero() {
+function ShowcaseHero(): React.JSX.Element {
   return (
     <section className="relative overflow-hidden bg-linear-to-b from-level-purple-light to-white py-16 sm:py-24">
       <div className={cn("absolute inset-0", DOT_PATTERN_CLASS, "opacity-50")} />
@@ -150,7 +150,7 @@ interface ShowcaseSectionProps {
   children: ReactNode
 }
 
-function ShowcaseSection({ title, children }: ShowcaseSectionProps) {
+function ShowcaseSection({ title, children }: ShowcaseSectionProps): React.JSX.Element {
   return (
     <div>
       <h3 className="mb-6 text-lg font-semibold text-level-purple-dark">{title}</h3>
@@ -159,7 +159,7 @@ function ShowcaseSection({ title, children }: ShowcaseSectionProps) {
   )
 }
 
-function ProgressBarsDemo() {
+function ProgressBarsDemo(): React.JSX.Element {
   const [progressPercent, setProgressPercent] = useState(INITIAL_PROGRESS_PERCENT)
   return (
     <div className="rounded-2xl border border-border bg-white p-8 space-y-8">
@@ -191,7 +191,7 @@ function ProgressBarsDemo() {
   )
 }
 
-function DesignSystemSection() {
+function DesignSystemSection(): React.JSX.Element {
   return (
     <section className="py-16 sm:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -306,7 +306,7 @@ function DesignSystemSection() {
   )
 }
 
-function ShowcaseCallToAction() {
+function ShowcaseCallToAction(): React.JSX.Element {
   return (
     <section className="bg-level-purple py-16">
       <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
@@ -330,7 +330,7 @@ function ShowcaseCallToAction() {
   )
 }
 
-function ShowcaseFooter() {
+function ShowcaseFooter(): React.JSX.Element {
   return (
     <footer className="border-t border-border bg-white py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -351,7 +351,7 @@ function ShowcaseFooter() {
 }
 
 /** Vitrine do design system: todos os componentes base em uma página. */
-export default function DesignSystemShowcasePage() {
+export default function DesignSystemShowcasePage(): React.JSX.Element {
   return (
     <div className="min-h-screen bg-background">
       <ShowcaseHeader />

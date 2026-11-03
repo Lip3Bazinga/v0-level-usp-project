@@ -2,6 +2,7 @@
 
 import { motion, useInView, type MotionProps, type Variants } from "framer-motion"
 import { useRef, type ReactNode } from "react"
+import { definedProps } from "@/lib/utils"
 
 /** Curva de desaceleração única das animações do site público. */
 export const EASE = [0.22, 1, 0.36, 1] as const
@@ -36,7 +37,7 @@ interface RevealProps {
 }
 
 /** Sobe e aparece quando o bloco entra na área visível (uma vez só). */
-export function Reveal({ children, className, delay = 0 }: RevealProps) {
+export function Reveal({ children, className, delay = 0 }: RevealProps): React.JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   const isInView = useInView(ref, { once: true, margin: REVEAL_VIEWPORT_MARGIN })
   const hidden = { opacity: 0, y: REVEAL_OFFSET_Y_PX }
@@ -75,7 +76,7 @@ interface StaggerProps {
 }
 
 /** Grade ou lista cujos filhos `motion` diretos aparecem em sequência ao rolar. */
-export function Stagger({ children, className, amount = 0.2 }: StaggerProps) {
+export function Stagger({ children, className, amount = 0.2 }: StaggerProps): React.JSX.Element {
   return (
     <motion.div
       variants={staggerContainer}
@@ -96,9 +97,9 @@ interface StaggerItemProps {
 }
 
 /** Item de `<Stagger>`; precisa ser filho direto dele. */
-export function StaggerItem({ children, className, whileHover }: StaggerItemProps) {
+export function StaggerItem({ children, className, whileHover }: StaggerItemProps): React.JSX.Element {
   return (
-    <motion.div variants={staggerItem} whileHover={whileHover} className={className}>
+    <motion.div variants={staggerItem} {...definedProps({ whileHover, className })}>
       {children}
     </motion.div>
   )
@@ -111,7 +112,7 @@ interface GrowBarProps {
 }
 
 /** Barra horizontal que cresce até `percent`% ao entrar na tela. */
-export function GrowBar({ percent, delay = 0, className }: GrowBarProps) {
+export function GrowBar({ percent, delay = 0, className }: GrowBarProps): React.JSX.Element {
   return (
     <motion.div
       initial={{ width: 0 }}

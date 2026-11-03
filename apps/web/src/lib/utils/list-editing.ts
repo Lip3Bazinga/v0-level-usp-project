@@ -5,7 +5,8 @@ export function moveItem<TItem>(items: readonly TItem[], index: number, directio
   const target = index + direction
   if (index < 0 || index >= items.length || target < 0 || target >= items.length) return [...items]
   const reordered = [...items]
-  ;[reordered[index], reordered[target]] = [reordered[target], reordered[index]]
+  // Vizinhos: tirar o item e reinseri-lo na posição do vizinho é a troca dos dois.
+  reordered.splice(target, 0, ...reordered.splice(index, 1))
   return reordered
 }
 

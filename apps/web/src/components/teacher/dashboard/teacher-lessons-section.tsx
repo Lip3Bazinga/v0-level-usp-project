@@ -43,7 +43,7 @@ interface TeacherLessonsSectionProps {
 
 export function TeacherLessonsSection({
   lessons, isLoading, metricsByLesson, togglingLessonId, deletingLessonId, onTogglePublished, onDelete,
-}: TeacherLessonsSectionProps) {
+}: TeacherLessonsSectionProps): React.JSX.Element {
   const [search, setSearch] = useState("")
   const [publication, setPublication] = useState<PublicationFilter>("all")
   const filtered = lessons.filter((lesson) => matchesFilters(lesson, search, publication))
@@ -127,7 +127,7 @@ interface TeacherLessonRowProps {
   onDelete: () => void
 }
 
-function TeacherLessonRow({ lesson, metrics, isToggling, isDeleting, onTogglePublished, onDelete }: TeacherLessonRowProps) {
+function TeacherLessonRow({ lesson, metrics, isToggling, isDeleting, onTogglePublished, onDelete }: TeacherLessonRowProps): React.JSX.Element {
   return (
     <div className="flex items-center gap-4 p-4 hover:bg-muted/30 transition-colors">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-level-purple-light">

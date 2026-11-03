@@ -46,7 +46,9 @@ export function caseLabel(testCase: Pick<TestCase, "id" | "name">): string {
 
 export function callSignature(testCase: CallCase): string {
   const parts = [
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- casos do seed/importação são gravados sem passar pelo schema (campos com default podem faltar)
     ...(testCase.args ?? []).map((argument) => pyRepr(argument, SHORT_REPR_LENGTH)),
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- casos do seed/importação são gravados sem passar pelo schema (campos com default podem faltar)
     ...Object.entries(testCase.kwargs ?? {}).map(([name, value]) => `${name}=${pyRepr(value, SHORT_REPR_LENGTH)}`),
   ]
   return `${testCase.function}(${parts.join(", ")})`

@@ -20,7 +20,7 @@ const TABS: readonly { id: SettingsTab; label: string; icon: LucideIcon }[] = [
   { id: "security", label: "Segurança", icon: Shield },
 ]
 
-export default function SettingsPage() {
+export default function SettingsPage(): React.JSX.Element {
   const router = useRouter()
   const { profile, isLoading: isAuthLoading } = useAuth()
 
@@ -39,7 +39,7 @@ export default function SettingsPage() {
   return <SettingsContent key={profile.id} profile={profile} />
 }
 
-function SettingsContent({ profile }: { profile: Profile }) {
+function SettingsContent({ profile }: { profile: Profile }): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile")
   const profileForm = useProfileForm(profile)
   const security = useSecuritySettings()

@@ -65,17 +65,22 @@ interface AlertOptions {
   text?: string
 }
 
-export function swalError({ title = "Erro", text = "Algo deu errado. Tente novamente." }: Partial<AlertOptions>) {
-  return Swal.fire({ ...BASE_OPTIONS, icon: "error", title, text, confirmButtonText: "Fechar" })
+/** Alerta de erro com um botão de fechar; resolve quando o usuário o fecha. */
+export async function swalError({ title = "Erro", text = "Algo deu errado. Tente novamente." }: Partial<AlertOptions>): Promise<void> {
+  await Swal.fire({ ...BASE_OPTIONS, icon: "error", title, text, confirmButtonText: "Fechar" })
 }
 
-export function swalWarning({ title, text }: AlertOptions) {
-  return Swal.fire({ ...BASE_OPTIONS, icon: "warning", title, text, confirmButtonText: "Entendido" })
+/** Alerta de aviso com um botão de ciência; resolve quando o usuário o fecha. */
+export async function swalWarning({ title, text }: AlertOptions): Promise<void> {
+  await Swal.fire({ ...BASE_OPTIONS, icon: "warning", title, text, confirmButtonText: "Entendido" })
 }
 
-/** Toast discreto no canto superior direito, que some sozinho. */
-export function swalToast({ title, icon = "success" }: { title: string; icon?: ToastKind }) {
-  return Swal.mixin({
+/**
+ * Toast discreto no canto superior direito, que some sozinho. Não bloqueia nem
+ * devolve promessa: quem chama segue o fluxo sem esperar o toast fechar.
+ */
+export function swalToast({ title, icon = "success" }: { title: string; icon?: ToastKind }): void {
+  void Swal.mixin({
     toast: true,
     position: "top-end",
     showConfirmButton: false,

@@ -85,13 +85,13 @@ interface BadgesPageProps {
   onToast: OnToast
 }
 
-export function BadgesPage({ onToast }: BadgesPageProps) {
+export function BadgesPage({ onToast }: BadgesPageProps): React.JSX.Element {
   const badges = useAsyncResource(() => fetchAdminBadges(), [], { errorMessage: "Não foi possível carregar as badges." })
   const [editor, setEditor] = useState<BadgeEditor | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<void> => {
     if (!editor) return
     const invalid = validateBadgeForm(editor)
     if (invalid) {
@@ -117,7 +117,7 @@ export function BadgesPage({ onToast }: BadgesPageProps) {
     }
   }
 
-  const handleDelete = async (badgeId: string) => {
+  const handleDelete = async (badgeId: string): Promise<void> => {
     const isConfirmed = await swalConfirm({
       title: "Excluir esta badge?",
       text: "Quem já a conquistou deixará de exibi-la.",
@@ -161,7 +161,7 @@ export function BadgesPage({ onToast }: BadgesPageProps) {
           badges={badges.data}
           deletingId={deletingId}
           onEdit={(badge) => setEditor({ mode: "edit", form: toBadgeInput(badge) })}
-          onDelete={handleDelete}
+          onDelete={(badgeId) => void handleDelete(badgeId)}
         />
       )}
 
@@ -171,7 +171,7 @@ export function BadgesPage({ onToast }: BadgesPageProps) {
           isSaving={isSaving}
           onChange={(form) => setEditor({ ...editor, form })}
           onClose={() => setEditor(null)}
-          onSave={handleSave}
+          onSave={() => void handleSave()}
         />
       )}
     </div>
@@ -185,7 +185,7 @@ interface BadgesTableProps {
   onDelete: (badgeId: string) => void
 }
 
-function BadgesTable({ badges, deletingId, onEdit, onDelete }: BadgesTableProps) {
+function BadgesTable({ badges, deletingId, onEdit, onDelete }: BadgesTableProps): React.JSX.Element {
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-white">
       <table className="w-full text-sm">
@@ -264,8 +264,8 @@ interface BadgeEditModalProps {
   onSave: () => void
 }
 
-function BadgeEditModal({ editor: { mode, form }, isSaving, onChange, onClose, onSave }: BadgeEditModalProps) {
-  const patch = (changes: Partial<BadgeInput>) => onChange({ ...form, ...changes })
+function BadgeEditModal({ editor: { mode, form }, isSaving, onChange, onClose, onSave }: BadgeEditModalProps): React.JSX.Element {
+  const patch = (changes: Partial<BadgeInput>): void => onChange({ ...form, ...changes })
   const isCreating = mode === "create"
 
   return (
@@ -396,7 +396,7 @@ interface FieldProps {
   children: ReactNode
 }
 
-function Field({ label, htmlFor, children }: FieldProps) {
+function Field({ label, htmlFor, children }: FieldProps): React.JSX.Element {
   return (
     <div>
       <label htmlFor={htmlFor} className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">

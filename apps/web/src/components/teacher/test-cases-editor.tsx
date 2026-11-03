@@ -37,16 +37,16 @@ interface TestCasesEditorProps {
  * e usa `compileDrafts` para obter os `TestCase[]` válidos na hora de salvar —
  * se houver qualquer erro, o salvamento deve ser bloqueado.
  */
-export function TestCasesEditor({ value, onChange, disabled }: TestCasesEditorProps) {
+export function TestCasesEditor({ value, onChange, disabled }: TestCasesEditorProps): React.JSX.Element {
   const compiled = useMemo(() => compileDrafts(value), [value])
   const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set())
   const hasLegacy = value.some((draft) => draft.kind === "legacy")
 
-  const handleUpdate = (key: string, next: TestCaseDraft) => onChange(value.map((draft) => (draft.key === key ? next : draft)))
-  const handleAdd = (kind: TestCaseKind) => onChange([...value, emptyDraft(kind, nextCaseId(value))])
-  const handleRemove = (key: string) => onChange(value.filter((draft) => draft.key !== key))
-  const handleMove = (index: number, direction: MoveDirection) => onChange(moveItem(value, index, direction))
-  const handleToggleCollapsed = (key: string) =>
+  const handleUpdate = (key: string, next: TestCaseDraft): void => onChange(value.map((draft) => (draft.key === key ? next : draft)))
+  const handleAdd = (kind: TestCaseKind): void => onChange([...value, emptyDraft(kind, nextCaseId(value))])
+  const handleRemove = (key: string): void => onChange(value.filter((draft) => draft.key !== key))
+  const handleMove = (index: number, direction: MoveDirection): void => onChange(moveItem(value, index, direction))
+  const handleToggleCollapsed = (key: string): void =>
     setCollapsedKeys((current) => {
       const next = new Set(current)
       if (next.has(key)) next.delete(key)
@@ -151,15 +151,15 @@ interface CaseCardProps {
   total: number
   errors: DraftErrors
   isCollapsed: boolean
-  disabled?: boolean
+  disabled?: boolean | undefined
   onToggle: () => void
   onChange: (draft: TestCaseDraft) => void
   onRemove: () => void
   onMove: (direction: MoveDirection) => void
 }
 
-function CaseCard({ draft, index, total, errors, isCollapsed, disabled, onToggle, onChange, onRemove, onMove }: CaseCardProps) {
-  const set = (changes: Partial<TestCaseDraft>) => onChange({ ...draft, ...changes })
+function CaseCard({ draft, index, total, errors, isCollapsed, disabled, onToggle, onChange, onRemove, onMove }: CaseCardProps): React.JSX.Element {
+  const set = (changes: Partial<TestCaseDraft>): void => onChange({ ...draft, ...changes })
   const hasErrors = Object.keys(errors).length > 0
   const Icon = KIND_ICONS[draft.kind]
   const label = `Caso ${index + 1}`
@@ -277,12 +277,12 @@ function CaseCard({ draft, index, total, errors, isCollapsed, disabled, onToggle
 interface KindFieldsProps {
   draft: TestCaseDraft
   errors: DraftErrors
-  disabled?: boolean
+  disabled?: boolean | undefined
   set: (changes: Partial<TestCaseDraft>) => void
   onChange: (draft: TestCaseDraft) => void
 }
 
-function KindFields({ draft, errors, disabled, set, onChange }: KindFieldsProps) {
+function KindFields({ draft, errors, disabled, set, onChange }: KindFieldsProps): React.JSX.Element {
   switch (draft.kind) {
     case "call":
       return (
@@ -443,12 +443,12 @@ function KindFields({ draft, errors, disabled, set, onChange }: KindFieldsProps)
 interface ExpectedFieldsProps {
   draft: TestCaseDraft
   errors: DraftErrors
-  disabled?: boolean
+  disabled?: boolean | undefined
   set: (changes: Partial<TestCaseDraft>) => void
   expectedLabel: string
 }
 
-function ExpectedFields({ draft, errors, disabled, set, expectedLabel }: ExpectedFieldsProps) {
+function ExpectedFields({ draft, errors, disabled, set, expectedLabel }: ExpectedFieldsProps): React.JSX.Element {
   return (
     <div className="grid gap-3 sm:grid-cols-[1fr_150px_150px]">
       <JsonInput
@@ -496,7 +496,7 @@ interface FailurePreviewProps {
   hasErrors: boolean
 }
 
-function FailurePreview({ draft, hasErrors }: FailurePreviewProps) {
+function FailurePreview({ draft, hasErrors }: FailurePreviewProps): React.JSX.Element {
   const compiled = hasErrors ? null : compileDraft(draft).testCase
   const preview = compiled ? failurePreview(compiled) : null
   return (
@@ -533,7 +533,7 @@ function summarizeDraft(draft: TestCaseDraft): string {
   }
 }
 
-function inputClass(error?: boolean, mono?: boolean) {
+function inputClass(error?: boolean, mono?: boolean): string {
   return cn(
     "w-full rounded-xl border-2 bg-white px-3 py-2 text-sm focus:outline-none disabled:bg-muted",
     error ? "border-destructive focus:border-destructive" : "border-border focus:border-level-purple",
@@ -544,11 +544,11 @@ function inputClass(error?: boolean, mono?: boolean) {
 interface FieldProps {
   label: string
   htmlFor: string
-  error?: string
+  error?: string | undefined
   children: ReactNode
 }
 
-function Field({ label, htmlFor, error, children }: FieldProps) {
+function Field({ label, htmlFor, error, children }: FieldProps): React.JSX.Element {
   return (
     <div className="min-w-0">
       <label htmlFor={htmlFor} className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -565,7 +565,7 @@ interface FieldErrorProps {
   message: string
 }
 
-function FieldError({ id, message }: FieldErrorProps) {
+function FieldError({ id, message }: FieldErrorProps): React.JSX.Element {
   return (
     <p id={id} className="mt-1 text-xs font-medium text-destructive">
       {message}
@@ -579,12 +579,12 @@ interface InputProps {
   value: string
   onChange: (value: string) => void
   placeholder?: string
-  error?: string
-  disabled?: boolean
+  error?: string | undefined
+  disabled?: boolean | undefined
   mono?: boolean
 }
 
-function TextInput({ id, label, value, onChange, placeholder, error, disabled, mono }: InputProps) {
+function TextInput({ id, label, value, onChange, placeholder, error, disabled, mono }: InputProps): React.JSX.Element {
   return (
     <Field label={label} htmlFor={id} error={error}>
       <input
@@ -601,7 +601,7 @@ function TextInput({ id, label, value, onChange, placeholder, error, disabled, m
   )
 }
 
-function JsonInput(props: InputProps) {
+function JsonInput(props: InputProps): React.JSX.Element {
   return <TextInput {...props} mono />
 }
 
@@ -609,7 +609,7 @@ interface TextAreaProps extends InputProps {
   rows?: number
 }
 
-function TextArea({ id, label, value, onChange, placeholder, error, disabled, mono, rows = 3 }: TextAreaProps) {
+function TextArea({ id, label, value, onChange, placeholder, error, disabled, mono, rows = 3 }: TextAreaProps): React.JSX.Element {
   return (
     <Field label={label} htmlFor={id} error={error}>
       <textarea
@@ -630,12 +630,12 @@ function TextArea({ id, label, value, onChange, placeholder, error, disabled, mo
 interface IconButtonProps {
   label: string
   onClick: () => void
-  disabled?: boolean
+  disabled?: boolean | undefined
   isDanger?: boolean
   children: ReactNode
 }
 
-function IconButton({ label, onClick, disabled, isDanger, children }: IconButtonProps) {
+function IconButton({ label, onClick, disabled, isDanger, children }: IconButtonProps): React.JSX.Element {
   return (
     <button
       type="button"

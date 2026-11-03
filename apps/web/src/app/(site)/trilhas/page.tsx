@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 
 type LearningTrack = (typeof LEARNING_TRACKS)[number]
 
-function FeaturesStrip() {
+function FeaturesStrip(): React.JSX.Element {
   return (
     <section className="pb-8">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
@@ -45,7 +45,7 @@ function FeaturesStrip() {
   )
 }
 
-function TrackCard({ track }: { track: LearningTrack }) {
+function TrackCard({ track }: { track: LearningTrack }): React.JSX.Element {
   return (
     <StaggerItem
       whileHover={{ y: -6 }}
@@ -90,7 +90,7 @@ function TrackCard({ track }: { track: LearningTrack }) {
   )
 }
 
-export default function TracksPage() {
+export default function TracksPage(): React.JSX.Element {
   return (
     <>
       <PageHero

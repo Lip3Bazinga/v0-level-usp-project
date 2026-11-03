@@ -9,7 +9,7 @@ import { METHOD_STEPS } from "./content/home"
 const STEP_REVEAL_STAGGER_SECONDS = 0.12
 
 /** Seta animada entre uma etapa e a próxima, só no desktop. */
-function StepConnector() {
+function StepConnector(): React.JSX.Element {
   return (
     <motion.div
       animate={{ y: [0, 6, 0] }}
@@ -23,7 +23,7 @@ function StepConnector() {
   )
 }
 
-export function MethodSection() {
+export function MethodSection(): React.JSX.Element {
   return (
     <section id="metodo" className="relative overflow-hidden py-24 lg:py-32">
       <div className="aurora-bg opacity-60" aria-hidden />

@@ -14,7 +14,7 @@ const TONE_CLASS: Record<SpinnerTone, string> = {
 }
 
 /** Anel girando de 16px usado dentro de botões e linhas de status enquanto algo processa. */
-export function Spinner({ tone = "light", className }: SpinnerProps) {
+export function Spinner({ tone = "light", className }: SpinnerProps): React.JSX.Element {
   // A cor do anel vem antes de `border-t-transparent`: no `cn` a última classe de borda vence.
   return (
     <span

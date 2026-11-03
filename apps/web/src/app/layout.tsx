@@ -66,7 +66,7 @@ interface RootLayoutProps {
   children: ReactNode
 }
 
-export default function RootLayout({ children }: Readonly<RootLayoutProps>) {
+export default function RootLayout({ children }: Readonly<RootLayoutProps>): React.JSX.Element {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body className="font-sans antialiased" suppressHydrationWarning>

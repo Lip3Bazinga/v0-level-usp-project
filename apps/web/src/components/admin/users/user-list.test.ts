@@ -34,10 +34,9 @@ describe("lista de usuários do admin", () => {
   })
 
   it("separa sucessos e falhas da ação em massa", async () => {
-    const outcome = await runForEachUser(["ana", "beto"], async (userId) => {
-      if (userId === "beto") throw new Error("recusado")
-      return ANA
-    })
+    const outcome = await runForEachUser(["ana", "beto"], (userId) =>
+      userId === "beto" ? Promise.reject(new Error("recusado")) : Promise.resolve(ANA),
+    )
     expect(outcome.updated).toEqual([ANA])
     expect(outcome.failedCount).toBe(1)
     expect(outcome.firstError).toBeInstanceOf(Error)

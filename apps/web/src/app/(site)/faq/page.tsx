@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     "Tire suas dúvidas sobre o LevelUSP: gratuidade, pré-requisitos, certificados, funcionamento da IDE no navegador e muito mais.",
 }
 
-function ContactCallout() {
+function ContactCallout(): React.JSX.Element {
   return (
     <section className="pb-24">
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
@@ -38,7 +38,7 @@ function ContactCallout() {
   )
 }
 
-export default function FaqPage() {
+export default function FaqPage(): React.JSX.Element {
   return (
     <>
       <PageHero

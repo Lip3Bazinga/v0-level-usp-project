@@ -12,6 +12,6 @@ export function toDisplayBadges(catalog: readonly Badge[], earnedBadges: readonl
   const earnedByBadgeId = indexBy(earnedBadges, (earned) => earned.badge_id)
   return catalog.map((badge) => {
     const earned = earnedByBadgeId.get(badge.id)
-    return { ...badge, isEarned: Boolean(earned), earnedAt: earned ? new Date(earned.earned_at) : undefined }
+    return { ...badge, isEarned: Boolean(earned), ...(earned && { earnedAt: new Date(earned.earned_at) }) }
   })
 }

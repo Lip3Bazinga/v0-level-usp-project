@@ -73,7 +73,7 @@ interface AdminSidebarProps {
   profileEmail: string
 }
 
-export function AdminSidebar({ current, onNavigate, counts, profileName, profileEmail }: AdminSidebarProps) {
+export function AdminSidebar({ current, onNavigate, counts, profileName, profileEmail }: AdminSidebarProps): React.JSX.Element {
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-border bg-white">
       <div className="flex h-16 items-center gap-2.5 border-b border-border px-5">
@@ -136,7 +136,7 @@ interface SidebarItemProps {
   onSelect: () => void
 }
 
-function SidebarItem({ item, count, isActive, onSelect }: SidebarItemProps) {
+function SidebarItem({ item, count, isActive, onSelect }: SidebarItemProps): React.JSX.Element {
   const Icon = item.icon
   // Aprovações pendentes chamam atenção mesmo fora da seção ativa.
   const isUrgent = item.countKey === "approvals" && count !== undefined && count > 0

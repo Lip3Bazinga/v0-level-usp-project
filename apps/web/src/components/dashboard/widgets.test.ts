@@ -18,7 +18,8 @@ describe("pickNextBadge", () => {
       new Set(),
       profile,
     )
-    expect(next).toEqual({ badge: expect.objectContaining({ id: "licoes-10" }), current: 9 })
+    expect(next?.badge.id).toBe("licoes-10")
+    expect(next?.current).toBe(9)
   })
 
   it("ignora conquistadas, inativas, manuais e critério zerado", () => {

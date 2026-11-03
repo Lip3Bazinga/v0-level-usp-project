@@ -9,7 +9,7 @@ import {
   type SourceRule,
   type TestCase,
 } from "@levelusp/contracts"
-import { isOneOf } from "@/lib/utils"
+import { isNonEmpty, isOneOf, lastOf } from "@/lib/utils"
 
 /**
  * Rascunho editável de um caso de teste.
@@ -193,7 +193,7 @@ export function emptyDraft(kind: TestCaseKind, id: string): TestCaseDraft {
   }
 }
 
-const toJsonText = (value: unknown) => JSON.stringify(value)
+const toJsonText = (value: unknown): string => JSON.stringify(value)
 
 function ruleValueOf(rule: SourceRule): string {
   if ("construct" in rule) return rule.construct
@@ -210,15 +210,19 @@ export function draftFromCase(testCase: TestCase): TestCaseDraft {
   switch (testCase.kind) {
     case "call":
       draft.fn = testCase.function
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- casos do seed/importação são gravados sem passar pelo schema (campos com default podem faltar)
       draft.args = toJsonText(testCase.args ?? [])
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- casos do seed/importação são gravados sem passar pelo schema (campos com default podem faltar)
       draft.kwargs = toJsonText(testCase.kwargs ?? {})
       draft.expected = toJsonText(testCase.expected)
       draft.pyType = testCase.type ?? ""
       draft.tolerance = testCase.tolerance === undefined ? "" : String(testCase.tolerance)
       break
     case "io":
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- casos do seed/importação são gravados sem passar pelo schema (campos com default podem faltar)
       draft.stdin = testCase.stdin ?? ""
       draft.expectedStdout = testCase.expected_stdout
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- casos do seed/importação são gravados sem passar pelo schema (campos com default podem faltar)
       draft.match = testCase.match ?? "trimmed"
       break
     case "variable":
@@ -249,7 +253,8 @@ export function changeDraftKind(draft: TestCaseDraft, kind: TestCaseKind): TestC
   // Valor coerente com o tipo de regra atual.
   if (kind === "source" && isConstructRule(next.ruleType)) {
     const constructs = constructsFor(next.ruleType)
-    if (!constructs.includes(next.ruleValue)) next.ruleValue = constructs[0]
+    const [firstConstruct] = constructs
+    if (firstConstruct !== undefined && !constructs.includes(next.ruleValue)) next.ruleValue = firstConstruct
   }
   return next
 }
@@ -362,12 +367,12 @@ export function compileDraft(draft: TestCaseDraft): CompiledDraft {
   if (draft.hint.trim()) candidate.hint = draft.hint.trim()
   if (draft.reveal) candidate.reveal = true
 
-  const readJson = (field: "args" | "kwargs" | "expected", options: JsonFieldOptions) => {
+  const readJson = (field: "args" | "kwargs" | "expected", options: JsonFieldOptions): Json | undefined => {
     const parsed = parseJsonField(draft[field], options)
     if (!parsed.ok) errors[field] = parsed.error
     return parsed.ok ? parsed.value : undefined
   }
-  const readTolerance = () => {
+  const readTolerance = (): number | undefined => {
     if (!draft.tolerance.trim()) return undefined
     const tolerance = Number(draft.tolerance.replace(",", "."))
     if (!Number.isFinite(tolerance)) {
@@ -441,8 +446,8 @@ export function compileDrafts(drafts: TestCaseDraft[]): CompiledDrafts {
     if (Object.keys(draftErrors).length) errors[draft.key] = draftErrors
     else if (testCase) cases.push(testCase)
   }
-  if (drafts.length > MAX_CASES_PER_LESSON) {
-    const lastDraft = drafts[drafts.length - 1]
+  if (drafts.length > MAX_CASES_PER_LESSON && isNonEmpty(drafts)) {
+    const lastDraft = lastOf(drafts)
     errors[lastDraft.key] = { ...errors[lastDraft.key], id: "Limite de 100 casos por lição." }
   }
   const errorCount = Object.values(errors).reduce((total, draftErrors) => total + Object.keys(draftErrors).length, 0)

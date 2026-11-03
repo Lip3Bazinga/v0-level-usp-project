@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 
 const TIMELINE_REVEAL_STAGGER_SECONDS = 0.05
 
-function IntroSection() {
+function IntroSection(): React.JSX.Element {
   return (
     <section className="pb-8">
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
@@ -57,7 +57,7 @@ function IntroSection() {
   )
 }
 
-function MissionVisionSection() {
+function MissionVisionSection(): React.JSX.Element {
   return (
     <section className="py-20">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -95,7 +95,7 @@ function MissionVisionSection() {
   )
 }
 
-function ValuesSection() {
+function ValuesSection(): React.JSX.Element {
   return (
     <section className="py-12">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -125,7 +125,7 @@ function ValuesSection() {
   )
 }
 
-function TimelineSection() {
+function TimelineSection(): React.JSX.Element {
   return (
     <section className="py-20">
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
@@ -171,7 +171,7 @@ function TimelineSection() {
   )
 }
 
-export default function AboutPage() {
+export default function AboutPage(): React.JSX.Element {
   return (
     <>
       <PageHero

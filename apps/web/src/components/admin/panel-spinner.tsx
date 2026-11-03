@@ -7,7 +7,7 @@ interface PanelSpinnerProps {
 }
 
 /** Indicador de carregamento centralizado das seções do painel. */
-export function PanelSpinner({ className = "h-64" }: PanelSpinnerProps) {
+export function PanelSpinner({ className = "h-64" }: PanelSpinnerProps): React.JSX.Element {
   return (
     <div className={cn("flex items-center justify-center", className)}>
       <Loader2 className="h-8 w-8 animate-spin text-level-purple" />

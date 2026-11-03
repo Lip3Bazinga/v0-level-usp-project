@@ -20,7 +20,7 @@ interface TeacherCoursesSectionProps {
 
 export function TeacherCoursesSection({
   courses, isLoading, togglingCourseId, deletingCourseId, onTogglePublished, onDelete,
-}: TeacherCoursesSectionProps) {
+}: TeacherCoursesSectionProps): React.JSX.Element {
   return (
     <div className="mb-8">
       <div className="mb-4 flex items-center justify-between">
@@ -81,7 +81,7 @@ interface TeacherCourseCardProps {
   onDelete: () => void
 }
 
-function TeacherCourseCard({ course, isToggling, isDeleting, onTogglePublished, onDelete }: TeacherCourseCardProps) {
+function TeacherCourseCard({ course, isToggling, isDeleting, onTogglePublished, onDelete }: TeacherCourseCardProps): React.JSX.Element {
   return (
     <div className="group relative overflow-hidden rounded-2xl border border-border bg-white p-5 transition-shadow hover:shadow-md">
       {course.cover_image_url ? (

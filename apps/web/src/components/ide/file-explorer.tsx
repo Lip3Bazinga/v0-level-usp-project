@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { MAIN_FILE_PATH } from "@/lib/constants"
-import { buildTree, type FileOperationResult, type TreeNode, cn } from "@/lib/utils"
+import { buildTree, definedProps, type FileOperationResult, type TreeNode, cn } from "@/lib/utils"
 import { swalConfirm, swalWarning } from "@/lib/swal"
 import { toNewFilePath, toNewFolderPlaceholderPath, toRenamedPath } from "./file-explorer-paths"
 
@@ -41,7 +41,7 @@ const DIALOG_COPY: Record<FileDialogMode, { title: string; icon: ReactNode; plac
   },
 }
 
-function FileIcon({ name }: { name: string }) {
+function FileIcon({ name }: { name: string }): React.JSX.Element {
   const extension = name.split(".").pop()?.toLowerCase() ?? ""
   const emoji = FILE_EMOJIS[extension]
   return emoji ? <span className="text-xs">{emoji}</span> : <FileText className="h-4 w-4 text-muted-foreground" />
@@ -54,7 +54,7 @@ interface FileDialogProps {
   onClose: () => void
 }
 
-function FileDialog({ mode, initialValue, onConfirm, onClose }: FileDialogProps) {
+function FileDialog({ mode, initialValue, onConfirm, onClose }: FileDialogProps): React.JSX.Element {
   const [value, setValue] = useState(initialValue)
   const inputRef = useRef<HTMLInputElement>(null)
   const copy = DIALOG_COPY[mode]
@@ -64,7 +64,7 @@ function FileDialog({ mode, initialValue, onConfirm, onClose }: FileDialogProps)
     inputRef.current?.select()
   }, [])
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = (event: FormEvent): void => {
     event.preventDefault()
     const trimmedValue = value.trim()
     if (trimmedValue) onConfirm(trimmedValue)
@@ -134,7 +134,7 @@ interface TreeItemProps {
   onDelete: (path: string) => void
 }
 
-function TreeItem({ node, depth, activePath, isReadOnly, onSelect, onRename, onDelete }: TreeItemProps) {
+function TreeItem({ node, depth, activePath, isReadOnly, onSelect, onRename, onDelete }: TreeItemProps): React.JSX.Element {
   const [isOpen, setIsOpen] = useState(true)
   const isFolder = node.type === "folder"
   const isActive = node.path === activePath
@@ -224,7 +224,7 @@ interface OpenDialog {
   node?: TreeNode
 }
 
-export function FileExplorer({ files, activePath, onSelect, onCreate, onRename, onDelete, isReadOnly = false }: FileExplorerProps) {
+export function FileExplorer({ files, activePath, onSelect, onCreate, onRename, onDelete, isReadOnly = false }: FileExplorerProps): React.JSX.Element {
   const [searchText, setSearchText] = useState("")
   const [dialog, setDialog] = useState<OpenDialog | null>(null)
   const [operationError, setOperationError] = useState<string | null>(null)
@@ -234,13 +234,13 @@ export function FileExplorer({ files, activePath, onSelect, onCreate, onRename, 
     return buildTree(query ? files.filter((file) => file.path.toLowerCase().includes(query)) : files)
   }, [files, searchText])
 
-  const openDialog = (mode: FileDialogMode, node?: TreeNode) => {
+  const openDialog = (mode: FileDialogMode, node?: TreeNode): void => {
     setOperationError(null)
-    setDialog({ mode, node })
+    setDialog({ mode, ...definedProps({ node }) })
   }
 
   /** Fecha o diálogo, ou mostra o motivo da recusa e o mantém aberto. */
-  const finishOperation = (result: FileOperationResult | undefined) => {
+  const finishOperation = (result: FileOperationResult | undefined): void => {
     if (result && !result.ok) {
       setOperationError(result.error)
       return
@@ -248,7 +248,7 @@ export function FileExplorer({ files, activePath, onSelect, onCreate, onRename, 
     setDialog(null)
   }
 
-  const handleDialogConfirm = (value: string) => {
+  const handleDialogConfirm = (value: string): void => {
     if (!dialog) return
     const { mode, node } = dialog
     if (mode === "create-file") {
@@ -261,7 +261,7 @@ export function FileExplorer({ files, activePath, onSelect, onCreate, onRename, 
     }
   }
 
-  const handleDelete = async (path: string) => {
+  const handleDelete = async (path: string): Promise<void> => {
     if (!onDelete) return
     const isConfirmed = await swalConfirm({
       title: `Excluir "${path}"?`,
@@ -328,7 +328,7 @@ export function FileExplorer({ files, activePath, onSelect, onCreate, onRename, 
                 isReadOnly={isReadOnly}
                 onSelect={onSelect}
                 onRename={(renamedNode) => openDialog("rename", renamedNode)}
-                onDelete={handleDelete}
+                onDelete={(path) => void handleDelete(path)}
               />
             ))
           )}

@@ -25,7 +25,7 @@ interface CourseEditorScreenProps {
   onCreated: (courseId: string) => void
 }
 
-export function CourseEditorScreen({ initial, onCreated }: CourseEditorScreenProps) {
+export function CourseEditorScreen({ initial, onCreated }: CourseEditorScreenProps): React.JSX.Element {
   const router = useRouter()
   const editor = useCourseEditor(initial, { onCreated })
   const { form, patchForm, courseId, setError } = editor
@@ -39,7 +39,7 @@ export function CourseEditorScreen({ initial, onCreated }: CourseEditorScreenPro
     if (isNewCourse && courseId) window.history.replaceState(null, "", ROUTES.teacherCourse(courseId))
   }, [isNewCourse, courseId])
 
-  const handleSave = async (publish?: boolean) => {
+  const handleSave = async (publish?: boolean): Promise<void> => {
     const invalid = validateCourseForm(form)
     if (invalid) {
       await swalError({ title: "Verifique os dados do curso", text: invalid })
@@ -85,9 +85,9 @@ export function CourseEditorScreen({ initial, onCreated }: CourseEditorScreenPro
         isSaving={editor.isSaving}
         isReordering={lessons.isReordering}
         hasJustSaved={savedFeedback.isActive}
-        onSave={() => handleSave()}
-        onPublish={() => handleSave(true)}
-        onUnpublish={() => handleSave(false)}
+        onSave={() => void handleSave()}
+        onPublish={() => void handleSave(true)}
+        onUnpublish={() => void handleSave(false)}
       />
 
       <main className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6">
@@ -107,8 +107,8 @@ export function CourseEditorScreen({ initial, onCreated }: CourseEditorScreenPro
             <CourseCoverSection
               coverPreview={editor.coverPreview}
               isUploading={editor.isUploading}
-              onSelectFile={editor.uploadCover}
-              onRemove={editor.removeCover}
+              onSelectFile={(file) => void editor.uploadCover(file)}
+              onRemove={() => void editor.removeCover()}
             />
 
             <EditorSection icon={BookOpen} title="Lições do Curso" subtitle="Arraste para reordenar · a ordem é salva automaticamente">

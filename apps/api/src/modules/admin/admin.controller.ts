@@ -3,7 +3,8 @@ import { ApiTags } from "@nestjs/swagger"
 import type { Response } from "express"
 import {
   adminUpdateUserSchema, invalidateSessionsSchema, inviteUserSchema, limitQuerySchema, optionalBodySchema, platformSettingsSchema,
-  type AdminUpdateUserInput, type InvalidateSessionsInput, type InviteUserInput, type LimitQuery, type PlatformSettings, type Profile, type UserDataExport, type PlatformMetrics, type RecentActivity, type AnalyticsMetrics, type Lesson, type AuditLog } from "@levelusp/contracts"
+  type AdminUpdateUserInput, type InvalidateSessionsInput, type InviteUserInput, type LimitQuery, type PlatformSettings, type Profile, type UserDataExport, type PlatformMetrics, type RecentActivity, type AnalyticsMetrics, type Lesson, type AuditLog, type OkResponse,
+} from "@levelusp/contracts"
 import { CurrentUser, Roles } from "@/common/decorators/auth.decorators"
 import type { AuthUser } from "@/common/http/request"
 import { UuidPipe } from "@/common/pipes/uuid.pipe"
@@ -50,7 +51,7 @@ export class AdminController {
 
   @HttpCode(202)
   @Post("users/:id/password-reset")
-  async sendPasswordReset(@CurrentUser() actor: AuthUser, @Param("id", UuidPipe) id: string): Promise<{ ok: true }> {
+  async sendPasswordReset(@CurrentUser() actor: AuthUser, @Param("id", UuidPipe) id: string): Promise<OkResponse> {
     await this.admin.sendPasswordReset(actor, id)
     return { ok: true }
   }

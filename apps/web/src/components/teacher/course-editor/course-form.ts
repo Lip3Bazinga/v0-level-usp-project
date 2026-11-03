@@ -36,11 +36,11 @@ export const EMPTY_COURSE_FORM: CourseFormState = {
 export function formFromCourse(course: Course): CourseFormState {
   return {
     title: course.title,
-    description: course.description ?? "",
-    long_description: course.long_description ?? "",
+    description: course.description,
+    long_description: course.long_description,
     level: course.level,
-    tags: course.tags ?? [],
-    estimated_hours: course.estimated_hours ?? 0,
+    tags: course.tags,
+    estimated_hours: course.estimated_hours,
     final_project_title: course.final_project_title ?? "",
     final_project_description: course.final_project_description ?? "",
     final_project_starter_code: course.final_project_starter_code ?? "",

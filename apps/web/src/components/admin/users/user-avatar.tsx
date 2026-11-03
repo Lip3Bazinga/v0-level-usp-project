@@ -17,7 +17,7 @@ interface UserAvatarProps {
 }
 
 /** Iniciais do usuário num círculo com a cor do papel. */
-export function UserAvatar({ name, role, sizePx = 36 }: UserAvatarProps) {
+export function UserAvatar({ name, role, sizePx = 36 }: UserAvatarProps): React.JSX.Element {
   return (
     <div
       className={cn("inline-flex shrink-0 items-center justify-center rounded-full font-bold", ROLE_AVATAR_CLASSES[role])}

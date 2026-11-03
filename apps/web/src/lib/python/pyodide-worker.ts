@@ -1,6 +1,7 @@
 "use client"
 
 import type { PyodideStatus, WorkerCommand, WorkerMessage } from "./worker-protocol"
+import { nonEmpty } from "@levelusp/contracts"
 
 /*
  * Um único Web Worker por aba: todas as telas compartilham o mesmo runtime
@@ -21,7 +22,7 @@ const listeners = new Set<WorkerListener>()
 const statusSubscribers = new Set<() => void>()
 
 function pyodideIndexUrl(): string {
-  return process.env.NEXT_PUBLIC_PYODIDE_INDEX_URL || DEFAULT_PYODIDE_INDEX_URL
+  return nonEmpty(process.env.NEXT_PUBLIC_PYODIDE_INDEX_URL) ?? DEFAULT_PYODIDE_INDEX_URL
 }
 
 function setStatus(nextStatus: PyodideStatus): void {

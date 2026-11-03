@@ -29,7 +29,7 @@ export function ReadingLessonShell({
   primaryAction,
   overlay,
   children,
-}: ReadingLessonShellProps) {
+}: ReadingLessonShellProps): React.JSX.Element {
   return (
     <div className="flex h-screen flex-col bg-white">
       <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
@@ -72,7 +72,7 @@ export function ReadingLessonShell({
   )
 }
 
-function LessonStepButtons({ navigation }: { navigation: LessonNavigation }) {
+function LessonStepButtons({ navigation }: { navigation: LessonNavigation }): React.JSX.Element {
   const { hasPreviousLesson, hasNextLesson, isCourseEnd, goToPrevious, goToNext } = navigation
   return (
     <div className="flex gap-3">

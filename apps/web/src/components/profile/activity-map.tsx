@@ -26,7 +26,7 @@ const WEEK_COLUMN_WIDTH_PX = 14
 const DAY_LABELS_WIDTH_PX = 32
 const GRID_HEIGHT_PX = 98
 
-export function ActivityMap({ data, className }: ActivityMapProps) {
+export function ActivityMap({ data, className }: ActivityMapProps): React.JSX.Element {
   const cells = useMemo(() => toActivityCells(data), [data])
   const weeks = groupIntoWeeks(cells)
   const totalXp = cells.reduce((sum, cell) => sum + cell.xp, 0)
@@ -113,7 +113,7 @@ export function ActivityMap({ data, className }: ActivityMapProps) {
   )
 }
 
-function DaySquare({ cell }: { cell: DayCell }) {
+function DaySquare({ cell }: { cell: DayCell }): React.JSX.Element {
   return (
     <Tooltip>
       <TooltipTrigger asChild>

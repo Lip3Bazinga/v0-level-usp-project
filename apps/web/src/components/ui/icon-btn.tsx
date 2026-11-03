@@ -25,7 +25,7 @@ interface IconBtnProps {
   disabled?: boolean
 }
 
-export function IconBtn({ title, onClick, children, tone = "neutral", size = "md", disabled }: IconBtnProps) {
+export function IconBtn({ title, onClick, children, tone = "neutral", size = "md", disabled }: IconBtnProps): React.JSX.Element {
   return (
     <button
       onClick={onClick}

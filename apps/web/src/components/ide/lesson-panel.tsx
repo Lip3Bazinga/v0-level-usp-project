@@ -43,7 +43,7 @@ interface LessonPanelProps {
   isVerified?: boolean
 }
 
-function HintAccordion({ hint }: { hint: string }) {
+function HintAccordion({ hint }: { hint: string }): React.JSX.Element {
   const [isOpen, setIsOpen] = useState(false)
 
   return (
@@ -74,7 +74,7 @@ interface StepItemProps {
   sublabel?: string
 }
 
-function StepItem({ isDone, label, sublabel }: StepItemProps) {
+function StepItem({ isDone, label, sublabel }: StepItemProps): React.JSX.Element {
   return (
     <div
       className={cn(
@@ -109,7 +109,7 @@ export function LessonPanel({
   isVerifying,
   canVerify = true,
   isVerified,
-}: LessonPanelProps) {
+}: LessonPanelProps): React.JSX.Element {
   // Sem checkpoints, `[].every` seria true e a lição apareceria como verificada de cara.
   const areCheckpointsDone = isVerified ?? (checkpoints.length > 0 && checkpoints.every((checkpoint) => checkpoint.isCompleted))
 

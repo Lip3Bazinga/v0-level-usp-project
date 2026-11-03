@@ -37,7 +37,7 @@ export function CourseHero({
   onStart,
   onToggleEnrollment,
   onDownloadCertificate,
-}: CourseHeroProps) {
+}: CourseHeroProps): React.JSX.Element {
   return (
     <div className={cn("relative bg-linear-to-br", COURSE_GRADIENTS[course.level], "text-white")}>
       {course.cover_image_url && (
@@ -124,7 +124,7 @@ function EnrollmentCard({
   onStart,
   onToggleEnrollment,
   onDownloadCertificate,
-}: EnrollmentCardProps) {
+}: EnrollmentCardProps): React.JSX.Element {
   const progressPercent = lessonCount > 0 ? toClampedPercent(completedCount, lessonCount) : 0
   const startLabel = progressPercent === 100 ? "Revisar curso" : progressPercent > 0 ? "Continuar" : "Começar"
   const perks = hasFinalProject ? [...BASE_PERKS, FINAL_PROJECT_PERK] : BASE_PERKS
@@ -195,7 +195,7 @@ interface EnrollButtonProps {
   className: string
 }
 
-export function EnrollButton({ isEnrolling, onEnroll, className }: EnrollButtonProps) {
+export function EnrollButton({ isEnrolling, onEnroll, className }: EnrollButtonProps): React.JSX.Element {
   return (
     <button
       onClick={onEnroll}

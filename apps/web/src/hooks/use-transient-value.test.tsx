@@ -10,18 +10,26 @@ describe("useTransientValue", () => {
     const { result } = renderHook(() => useTransientValue<string>(1_000))
     act(() => result.current.show("Salvo"))
     expect(result.current.value).toBe("Salvo")
-    act(() => vi.advanceTimersByTime(1_000))
+    act(() => {
+      vi.advanceTimersByTime(1_000)
+    })
     expect(result.current.value).toBeNull()
   })
 
   it("reinicia o prazo quando mostrado de novo", () => {
     const { result } = renderHook(() => useTransientValue<string>(1_000))
     act(() => result.current.show("primeiro"))
-    act(() => vi.advanceTimersByTime(800))
+    act(() => {
+      vi.advanceTimersByTime(800)
+    })
     act(() => result.current.show("segundo"))
-    act(() => vi.advanceTimersByTime(800))
+    act(() => {
+      vi.advanceTimersByTime(800)
+    })
     expect(result.current.value).toBe("segundo")
-    act(() => vi.advanceTimersByTime(200))
+    act(() => {
+      vi.advanceTimersByTime(200)
+    })
     expect(result.current.value).toBeNull()
   })
 
@@ -50,7 +58,9 @@ describe("useTransientFlag", () => {
     expect(result.current.isActive).toBe(false)
     act(() => result.current.activate())
     expect(result.current.isActive).toBe(true)
-    act(() => vi.advanceTimersByTime(500))
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
     expect(result.current.isActive).toBe(false)
   })
 })

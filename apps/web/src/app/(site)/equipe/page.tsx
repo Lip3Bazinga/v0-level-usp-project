@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     "Conheça a equipe de docentes, pesquisadores, desenvolvedores e estudantes da USP que constroem o LevelUSP, a plataforma gratuita de ensino de programação.",
 }
 
-function SquadsSection() {
+function SquadsSection(): React.JSX.Element {
   return (
     <section className="pb-12">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -29,7 +29,7 @@ function SquadsSection() {
   )
 }
 
-function LeadershipSection() {
+function LeadershipSection(): React.JSX.Element {
   return (
     <section className="py-16">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -62,7 +62,7 @@ function LeadershipSection() {
   )
 }
 
-function CoreTeamSection() {
+function CoreTeamSection(): React.JSX.Element {
   return (
     <section className="bg-[#FAFAFA] py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -113,7 +113,7 @@ function CoreTeamSection() {
   )
 }
 
-export default function TeamPage() {
+export default function TeamPage(): React.JSX.Element {
   return (
     <>
       <PageHero

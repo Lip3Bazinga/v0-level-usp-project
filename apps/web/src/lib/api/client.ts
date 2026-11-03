@@ -61,11 +61,11 @@ type EmptyBody = Record<string, never>
 const EMPTY_BODY: EmptyBody = {}
 
 export interface RequestOptions<TBody = undefined> {
-  body?: TBody
-  query?: QueryParams
-  signal?: AbortSignal
+  body?: TBody | undefined
+  query?: QueryParams | undefined
+  signal?: AbortSignal | undefined
   /** Cabeçalhos extras (ex.: cookie repassado na renderização no servidor). */
-  headers?: Record<string, string>
+  headers?: Record<string, string> | undefined
 }
 
 type ReadOptions = Omit<RequestOptions, "body">
@@ -89,7 +89,7 @@ function buildUrl(path: string, query: QueryParams = {}): string {
   return `${apiBaseUrl()}/api${path}${queryString ? `?${queryString}` : ""}`
 }
 
-function buildHeaders(method: HttpMethod, hasJsonBody: boolean, extraHeaders: Record<string, string> = {}) {
+function buildHeaders(method: HttpMethod, hasJsonBody: boolean, extraHeaders: Record<string, string> = {}): Record<string, string> {
   const headers: Record<string, string> = { accept: "application/json", ...extraHeaders }
   if (method !== "GET") headers[CSRF_HEADER] = "1"
   if (hasJsonBody) headers["content-type"] = "application/json"
@@ -138,10 +138,10 @@ export async function request<TResponse, TBody = undefined>(
     response = await fetch(buildUrl(path, query), {
       method,
       headers: buildHeaders(method, hasJsonBody, headers),
-      body: isFormData ? body : hasJsonBody ? JSON.stringify(body) : undefined,
+      body: isFormData ? body : hasJsonBody ? JSON.stringify(body) : null,
       credentials: "same-origin",
       cache: "no-store",
-      signal,
+      signal: signal ?? null,
     })
   } catch (error) {
     if (isAbortError(error)) throw error
@@ -161,14 +161,14 @@ export async function request<TResponse, TBody = undefined>(
  * do argumento ou informado para amarrar o corpo ao schema do contrato.
  */
 export const api = {
-  get: <TResponse>(path: string, options?: ReadOptions) => request<TResponse>("GET", path, options),
-  post: <TResponse, TBody extends object = object>(path: string, body?: TBody, options?: ReadOptions) =>
+  get: <TResponse>(path: string, options?: ReadOptions): Promise<TResponse> => request<TResponse>("GET", path, options),
+  post: <TResponse, TBody extends object = object>(path: string, body?: TBody, options?: ReadOptions): Promise<TResponse> =>
     request<TResponse, TBody | EmptyBody>("POST", path, { ...options, body: body ?? EMPTY_BODY }),
-  put: <TResponse, TBody extends object = object>(path: string, body?: TBody, options?: ReadOptions) =>
+  put: <TResponse, TBody extends object = object>(path: string, body?: TBody, options?: ReadOptions): Promise<TResponse> =>
     request<TResponse, TBody | EmptyBody>("PUT", path, { ...options, body: body ?? EMPTY_BODY }),
-  patch: <TResponse, TBody extends object = object>(path: string, body?: TBody, options?: ReadOptions) =>
+  patch: <TResponse, TBody extends object = object>(path: string, body?: TBody, options?: ReadOptions): Promise<TResponse> =>
     request<TResponse, TBody | EmptyBody>("PATCH", path, { ...options, body: body ?? EMPTY_BODY }),
-  delete: <TResponse = void, TBody extends object = object>(path: string, body?: TBody, options?: ReadOptions) =>
+  delete: <TResponse = void, TBody extends object = object>(path: string, body?: TBody, options?: ReadOptions): Promise<TResponse> =>
     request<TResponse, TBody>("DELETE", path, { ...options, body }),
 }
 

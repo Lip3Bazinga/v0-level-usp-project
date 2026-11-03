@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 import type { Profile, SignUpInput, StreakResult } from "@levelusp/contracts"
 import { fetchSession, getErrorMessage, signIn as requestSignIn, signOut as requestSignOut, signUp as requestSignUp } from "@/lib/api"
+import { definedProps } from "@/lib/utils"
 
 /**
  * O mínimo derivado do perfil para identificar quem está logado. A sessão em si
@@ -60,7 +61,7 @@ function toAuthUser(profile: Profile | null): AuthUser | null {
   return profile ? { id: profile.id, email: profile.email } : null
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }): React.JSX.Element {
   const [session, setSession] = useState<SessionState>({ status: "loading" })
 
   const setProfile = useCallback((profile: Profile | null) => setSession({ status: "ready", profile }), [])
@@ -80,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const response = await requestSignIn({ email: email.trim(), password })
         setProfile(response.user)
-        return { ok: true, streak: response.streak }
+        return { ok: true, ...definedProps({ streak: response.streak }) }
       } catch (error) {
         return { ok: false, error: getErrorMessage(error, "Não foi possível entrar. Tente novamente.") }
       }

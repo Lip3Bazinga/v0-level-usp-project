@@ -8,7 +8,7 @@ import { compileDraft, emptyDraft } from "./test-cases/drafts"
 import { failurePreview } from "./test-cases/preview"
 
 /** Reproduz o uso no editor de lição: o botão salvar fica bloqueado se houver erro. */
-function Harness({ initial = [], onSave }: { initial?: TestCase[]; onSave: (cases: TestCase[]) => void }) {
+function Harness({ initial = [], onSave }: { initial?: TestCase[]; onSave: (cases: TestCase[]) => void }): React.JSX.Element {
   const [drafts, setDrafts] = useState<TestCaseDraft[]>(() => draftsFromCases(initial))
   const compiled = compileDrafts(drafts)
   return (

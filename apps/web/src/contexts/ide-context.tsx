@@ -104,8 +104,16 @@ export interface IDELessonState {
 export type IDEContextValue = IDEFilesState & IDEFileActions & IDEConsole & IDERuntime & IDELessonState
 
 const IDEContext = createContext<IDEContextValue | null>(null)
+interface UseConsoleOutputsResult {
+  consoleOutputs: ConsoleOutput[]
+  appendLines: (lines: readonly ConsoleLine[]) => void
+  replaceWithLine: (line: ConsoleLine) => void
+  addOutput: (type: ConsoleOutputType, message: string) => void
+  clearConsole: () => void
+}
 
-function useConsoleOutputs() {
+
+function useConsoleOutputs(): UseConsoleOutputsResult {
   const [consoleOutputs, setConsoleOutputs] = useState<ConsoleOutput[]>([])
   const appendLines = useCallback(
     (lines: readonly ConsoleLine[]) => setConsoleOutputs((current) => [...current, ...lines.map(toConsoleOutput)]),
@@ -125,7 +133,7 @@ function useConsoleOutputs() {
  * feitas na tela disparam o salvamento (marcadas por `markEdited`): carregar o
  * snapshot ou os arquivos iniciais não grava nada.
  */
-function useSnapshotAutosave(lessonId: string, userId: string | undefined, files: ProjectFile[]) {
+function useSnapshotAutosave(lessonId: string, userId: string | undefined, files: ProjectFile[]): () => void {
   const hasLocalEditsRef = useRef(false)
   useEffect(() => {
     if (!userId || !hasLocalEditsRef.current) return
@@ -143,7 +151,7 @@ function useSnapshotAutosave(lessonId: string, userId: string | undefined, files
  * Estado da IDE de uma lição: projeto multi-arquivo, console, execução no
  * navegador (Pyodide) e verificação no servidor. A página só cuida do layout.
  */
-export function IDEProvider({ lesson, children }: { lesson: Lesson; children: ReactNode }) {
+export function IDEProvider({ lesson, children }: { lesson: Lesson; children: ReactNode }): React.JSX.Element {
   const router = useRouter()
   const { applyCompletion } = useProgress()
   const { user, profile } = useAuth()
@@ -414,7 +422,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
   )
 
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
       if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
         event.preventDefault()
         run()

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import type { ExamResult, ExamStart, ExamSubmitInput } from "@levelusp/contracts"
+import type { ExamResult, ExamStart, ExamStatus, ExamSubmitInput } from "@levelusp/contracts"
 import { useAuth } from "@/contexts/auth-context"
 import { useAsyncResource } from "@/hooks/use-async-resource"
 import { fetchExamStatus, HTTP_STATUS, issueCertificate, nullOnStatus, startExam, submitExam, toApiResult } from "@/lib/api"
@@ -17,9 +17,26 @@ export type ExamPhase =
 
 /** Prazo esgotado ou tentativa já encerrada no servidor: a tela volta ao resumo atualizado. */
 const ATTEMPT_CLOSED_STATUSES: readonly number[] = [HTTP_STATUS.REQUEST_TIMEOUT, HTTP_STATUS.CONFLICT]
+export interface UseExamSessionResult {
+  isInitialLoading: boolean
+  phase: ExamPhase
+  status: ExamStatus | null
+  errorMessage: string | null
+  answers: Record<string, number>
+  answerQuestion: (questionId: string, optionIndex: number) => void
+  remainingMs: number | null
+  certificateCode: string | null
+  isSubmitting: boolean
+  isBusy: boolean
+  start: () => Promise<void>
+  submit: () => Promise<void>
+  requestCertificate: () => Promise<void>
+  backToStatus: () => void
+}
+
 
 /** Uma prova por vez: status → em andamento (com cronômetro) → resultado. */
-export function useExamSession(courseId: string) {
+export function useExamSession(courseId: string): UseExamSessionResult {
   const router = useRouter()
   const { profile, isLoading: isAuthLoading } = useAuth()
   const profileId = profile?.id
@@ -97,7 +114,7 @@ export function useExamSession(courseId: string) {
   useEffect(() => {
     if (!runningExam) return
     const expiresAtMs = new Date(runningExam.expiresAt).getTime()
-    const tick = () => {
+    const tick = (): void => {
       const remaining = expiresAtMs - Date.now()
       setRemainingMs(remaining)
       if (remaining <= 0 && !hasSubmittedRef.current) void submitRef.current()

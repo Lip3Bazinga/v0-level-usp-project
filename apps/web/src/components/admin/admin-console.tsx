@@ -38,13 +38,13 @@ interface AdminConsoleProps {
 }
 
 /** Casca do painel do admin: navegação lateral, barra do topo, seção ativa, busca ⌘K e avisos. */
-export function AdminConsole({ dashboard, courses, profile, updateUsers, updateLessons }: AdminConsoleProps) {
+export function AdminConsole({ dashboard, courses, profile, updateUsers, updateLessons }: AdminConsoleProps): React.JSX.Element {
   const [page, setPage] = useState<AdminPageId>(readStoredAdminPage)
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
   const { toast, showToast } = useAdminToast()
   const { metrics } = dashboard
 
-  const handleNavigate = (nextPage: AdminPageId) => {
+  const handleNavigate = (nextPage: AdminPageId): void => {
     setPage(nextPage)
     storeAdminPage(nextPage)
   }

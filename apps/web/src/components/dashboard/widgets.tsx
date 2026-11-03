@@ -27,7 +27,7 @@ function useCountUp(target: number, durationMs = XP_COUNT_UP_DURATION_MS): numbe
   useEffect(() => {
     let animationFrame = 0
     let startTime: number | null = null
-    const tick = (now: number) => {
+    const tick = (now: number): void => {
       startTime ??= now
       const progress = Math.min(1, (now - startTime) / durationMs)
       setValue(Math.round(target * (1 - Math.pow(1 - progress, 3))))
@@ -55,7 +55,7 @@ interface StatItem {
   ringClassName: string
 }
 
-export function StatCards({ streak, totalXp, lessonsCompleted, level }: StatCardsProps) {
+export function StatCards({ streak, totalXp, lessonsCompleted, level }: StatCardsProps): React.JSX.Element {
   const animatedXp = useCountUp(totalXp)
   const animatedLessons = useCountUp(lessonsCompleted, LESSONS_COUNT_UP_DURATION_MS)
   const items: StatItem[] = [
@@ -98,7 +98,7 @@ const DAILY_GOAL = 1
 const GOAL_RING_RADIUS = 30
 const GOAL_RING_CIRCUMFERENCE = 2 * Math.PI * GOAL_RING_RADIUS
 
-export function DailyGoalRing({ studyDays }: { studyDays: Set<string> }) {
+export function DailyGoalRing({ studyDays }: { studyDays: Set<string> }): React.JSX.Element {
   const doneToday = studyDays.has(todayKey()) ? DAILY_GOAL : 0
   const goalFraction = Math.min(1, doneToday / DAILY_GOAL)
   const isGoalMet = goalFraction >= 1
@@ -166,7 +166,7 @@ function lastSevenDays(now = new Date()): WeekDay[] {
   })
 }
 
-export function WeeklyActivity({ studyDays }: { studyDays: Set<string> }) {
+export function WeeklyActivity({ studyDays }: { studyDays: Set<string> }): React.JSX.Element {
   const days = useMemo(() => lastSevenDays(), [])
 
   return (
@@ -227,7 +227,7 @@ export function pickNextBadge(catalog: readonly Badge[], ownedBadgeIds: Readonly
     if (!badge.active || criteriaType === "manual" || ownedBadgeIds.has(badge.id) || badge.criteria_value <= 0) return []
     return [{ badge, current: Math.min(CRITERIA_PROGRESS[criteriaType](profile), badge.criteria_value) }]
   })
-  const fraction = ({ badge, current }: BadgeProgress) => current / badge.criteria_value
+  const fraction = ({ badge, current }: BadgeProgress): number => current / badge.criteria_value
   return candidates.sort((first, second) => fraction(second) - fraction(first))[0] ?? null
 }
 
@@ -241,7 +241,7 @@ async function loadBadgeCatalogState(userId: string): Promise<BadgeCatalogState>
   return { catalog, ownedBadgeIds: new Set(ownedBadges.map((owned) => owned.badge_id)) }
 }
 
-export function NextBadge({ profile }: { profile: Profile | null }) {
+export function NextBadge({ profile }: { profile: Profile | null }): React.JSX.Element | null {
   const profileId = profile?.id
   // O progresso vem do perfil na renderização; só o catálogo e as conquistas vêm da API.
   const badgeState = useAsyncResource(
@@ -259,7 +259,7 @@ export function NextBadge({ profile }: { profile: Profile | null }) {
   return <NextBadgeCard badge={next.badge} current={next.current} />
 }
 
-function NextBadgeCard({ badge, current }: BadgeProgress) {
+function NextBadgeCard({ badge, current }: BadgeProgress): React.JSX.Element {
   const progressPercent = toClampedPercent(current, badge.criteria_value)
   const remaining = badge.criteria_value - current
 

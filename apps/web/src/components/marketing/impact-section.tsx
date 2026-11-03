@@ -25,7 +25,7 @@ function useCountUp(
     if (!hasStarted) return
     let frameId = 0
     const startedAt = performance.now()
-    const tick = (now: number) => {
+    const tick = (now: number): void => {
       const progress = Math.min((now - startedAt) / durationMs, 1)
       setValue(Math.round(target * easeOutCubic(progress)))
       if (progress < 1) frameId = requestAnimationFrame(tick)
@@ -40,7 +40,7 @@ interface CounterItemProps extends CountUpStat {
   hasStarted: boolean
 }
 
-function CounterItem({ icon: Icon, target, suffix, label, hasStarted }: CounterItemProps) {
+function CounterItem({ icon: Icon, target, suffix, label, hasStarted }: CounterItemProps): React.JSX.Element {
   const value = useCountUp(target, hasStarted)
   return (
     <div className="text-center">
@@ -56,7 +56,7 @@ function CounterItem({ icon: Icon, target, suffix, label, hasStarted }: CounterI
   )
 }
 
-export function ImpactSection() {
+export function ImpactSection(): React.JSX.Element {
   const panelRef = useRef<HTMLDivElement>(null)
   const isInView = useInView(panelRef, { once: true, margin: IN_VIEW_MARGIN })
 

@@ -58,7 +58,7 @@ function buildKpis(metrics: AnalyticsMetrics): EngagementKpi[] {
   ]
 }
 
-export function AnalyticsPage() {
+export function AnalyticsPage(): React.JSX.Element {
   const analytics = useAsyncResource(() => fetchAnalyticsMetrics(), [], {
     errorMessage: "Não foi possível carregar as métricas.",
   })
@@ -136,7 +136,7 @@ interface DailyChartProps {
   color: string
 }
 
-function DailyChart({ title, subtitle, data, color }: DailyChartProps) {
+function DailyChart({ title, subtitle, data, color }: DailyChartProps): React.JSX.Element {
   const peak = Math.max(0, ...data)
   return (
     <div className="rounded-2xl border border-border bg-white p-5">
@@ -163,7 +163,7 @@ interface FunnelBarProps {
   step: FunnelStep
 }
 
-function FunnelBar({ step }: FunnelBarProps) {
+function FunnelBar({ step }: FunnelBarProps): React.JSX.Element {
   return (
     <div>
       <div className="mb-1 flex items-center justify-between">
@@ -188,7 +188,7 @@ interface TopLessonsProps {
   lessons: AnalyticsMetrics["topLessons"]
 }
 
-function TopLessons({ lessons }: TopLessonsProps) {
+function TopLessons({ lessons }: TopLessonsProps): React.JSX.Element {
   const maxCompletions = Math.max(1, ...lessons.map((lesson) => lesson.completions))
   return (
     <div className="rounded-2xl border border-border bg-white p-5">

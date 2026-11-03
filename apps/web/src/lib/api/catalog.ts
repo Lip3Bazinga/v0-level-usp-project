@@ -4,15 +4,15 @@ import type {
 } from "@levelusp/contracts"
 import { api, HTTP_STATUS, nullOnStatus } from "./client"
 
-export const fetchModules = () => api.get<Module[]>("/modules")
-export const createModule = (input: ModuleInput) => api.post<Module>("/modules", input)
-export const updateModule = (moduleId: string, input: ModuleUpdateInput) => api.patch<Module>(`/modules/${moduleId}`, input)
-export const deleteModule = (moduleId: string) => api.delete(`/modules/${moduleId}`)
+export const fetchModules = (): Promise<Module[]> => api.get<Module[]>("/modules")
+export const createModule = (input: ModuleInput): Promise<Module> => api.post<Module>("/modules", input)
+export const updateModule = (moduleId: string, input: ModuleUpdateInput): Promise<Module> => api.patch<Module>(`/modules/${moduleId}`, input)
+export const deleteModule = (moduleId: string): Promise<void> => api.delete(`/modules/${moduleId}`)
 
-export const fetchPublishedCourses = () => api.get<Course[]>("/courses")
+export const fetchPublishedCourses = (): Promise<Course[]> => api.get<Course[]>("/courses")
 /** Curso pelo id; `null` quando não existe ou o usuário não pode vê-lo. */
-export const fetchCourse = (courseId: string) => nullOnStatus(api.get<Course>(`/courses/${courseId}`), HTTP_STATUS.NOT_FOUND)
-export const fetchCourseLessons = (courseId: string) => api.get<Lesson[]>(`/courses/${courseId}/lessons`)
+export const fetchCourse = (courseId: string): Promise<Course | null> => nullOnStatus(api.get<Course>(`/courses/${courseId}`), HTTP_STATUS.NOT_FOUND)
+export const fetchCourseLessons = (courseId: string): Promise<Lesson[]> => api.get<Lesson[]>(`/courses/${courseId}/lessons`)
 
 export interface CourseWithLessons {
   course: Course
@@ -28,34 +28,34 @@ export async function fetchCourseWithLessons(courseId: string): Promise<CourseWi
   return { course, lessons, enrolled: Boolean(course.enrolled) }
 }
 
-export const fetchTeacherCourses = () => api.get<Course[]>("/teacher/courses")
-export const fetchMyEnrollments = () => api.get<string[]>("/me/enrollments")
-export const createCourse = (input: CourseInput) => api.post<Course>("/courses", input)
-export const updateCourse = (courseId: string, input: CourseUpdateInput) => api.patch<Course>(`/courses/${courseId}`, input)
-export const deleteCourse = (courseId: string) => api.delete(`/courses/${courseId}`)
-export const setCoursePublished = (courseId: string, published: boolean) =>
+export const fetchTeacherCourses = (): Promise<Course[]> => api.get<Course[]>("/teacher/courses")
+export const fetchMyEnrollments = (): Promise<string[]> => api.get<string[]>("/me/enrollments")
+export const createCourse = (input: CourseInput): Promise<Course> => api.post<Course>("/courses", input)
+export const updateCourse = (courseId: string, input: CourseUpdateInput): Promise<Course> => api.patch<Course>(`/courses/${courseId}`, input)
+export const deleteCourse = (courseId: string): Promise<void> => api.delete(`/courses/${courseId}`)
+export const setCoursePublished = (courseId: string, published: boolean): Promise<Course> =>
   api.patch<Course, PublishInput>(`/courses/${courseId}/publish`, { published })
-export const enrollInCourse = (courseId: string) => api.post<void>(`/courses/${courseId}/enrollment`)
-export const unenrollFromCourse = (courseId: string) => api.delete(`/courses/${courseId}/enrollment`)
-export const reorderCourseLessons = (courseId: string, lessonIds: string[]) =>
+export const enrollInCourse = (courseId: string): Promise<void> => api.post<void>(`/courses/${courseId}/enrollment`)
+export const unenrollFromCourse = (courseId: string): Promise<void> => api.delete(`/courses/${courseId}/enrollment`)
+export const reorderCourseLessons = (courseId: string, lessonIds: string[]): Promise<void> =>
   api.put<void, ReorderLessonsInput>(`/courses/${courseId}/lessons/order`, { lesson_ids: lessonIds })
-export const addLessonToCourse = (courseId: string, lessonId: string, order?: number) =>
+export const addLessonToCourse = (courseId: string, lessonId: string, order?: number): Promise<void> =>
   api.post<void, AttachLessonInput>(`/courses/${courseId}/lessons`, { lesson_id: lessonId, order })
-export const removeLessonFromCourse = (courseId: string, lessonId: string) =>
+export const removeLessonFromCourse = (courseId: string, lessonId: string): Promise<void> =>
   api.delete(`/courses/${courseId}/lessons/${lessonId}`)
 
-export const fetchPublishedLessonSummaries = () => api.get<LessonSummary[]>("/lessons/summaries")
-export const fetchPublishedLessons = () => api.get<Lesson[]>("/lessons")
+export const fetchPublishedLessonSummaries = (): Promise<LessonSummary[]> => api.get<LessonSummary[]>("/lessons/summaries")
+export const fetchPublishedLessons = (): Promise<Lesson[]> => api.get<Lesson[]>("/lessons")
 /** Lição pelo id; `null` quando não existe ou não está publicada para o aluno. */
-export const fetchLesson = (lessonId: string) => nullOnStatus(api.get<Lesson>(`/lessons/${lessonId}`), HTTP_STATUS.NOT_FOUND)
+export const fetchLesson = (lessonId: string): Promise<Lesson | null> => nullOnStatus(api.get<Lesson>(`/lessons/${lessonId}`), HTTP_STATUS.NOT_FOUND)
 /** Lição com gabarito: só o professor dono ou um admin recebem. */
-export const fetchLessonForAuthoring = (lessonId: string) =>
+export const fetchLessonForAuthoring = (lessonId: string): Promise<LessonWithTests | null> =>
   nullOnStatus(api.get<LessonWithTests>(`/lessons/${lessonId}/authoring`), HTTP_STATUS.NOT_FOUND)
-export const fetchTeacherLessons = () => api.get<Lesson[]>("/teacher/lessons")
-export const fetchTeacherMetrics = () => api.get<LessonMetrics[]>("/teacher/metrics")
-export const createLesson = (input: LessonInput) => api.post<LessonWithTests>("/lessons", input)
-export const updateLesson = (lessonId: string, input: LessonUpdateInput) =>
+export const fetchTeacherLessons = (): Promise<Lesson[]> => api.get<Lesson[]>("/teacher/lessons")
+export const fetchTeacherMetrics = (): Promise<LessonMetrics[]> => api.get<LessonMetrics[]>("/teacher/metrics")
+export const createLesson = (input: LessonInput): Promise<LessonWithTests> => api.post<LessonWithTests>("/lessons", input)
+export const updateLesson = (lessonId: string, input: LessonUpdateInput): Promise<LessonWithTests> =>
   api.patch<LessonWithTests>(`/lessons/${lessonId}`, input)
-export const deleteLesson = (lessonId: string) => api.delete(`/lessons/${lessonId}`)
-export const setLessonPublished = (lessonId: string, published: boolean) =>
+export const deleteLesson = (lessonId: string): Promise<void> => api.delete(`/lessons/${lessonId}`)
+export const setLessonPublished = (lessonId: string, published: boolean): Promise<Lesson> =>
   api.patch<Lesson, PublishInput>(`/lessons/${lessonId}/publish`, { published })

@@ -48,7 +48,7 @@ interface LessonEditorScreenProps {
   onCreated: (lessonId: string) => void
 }
 
-export function LessonEditorScreen({ initial, onCreated }: LessonEditorScreenProps) {
+export function LessonEditorScreen({ initial, onCreated }: LessonEditorScreenProps): React.JSX.Element {
   const router = useRouter()
   const editor = useLessonEditor(initial, { onCreated })
   const { form, patchForm, lessonId } = editor
@@ -69,7 +69,7 @@ export function LessonEditorScreen({ initial, onCreated }: LessonEditorScreenPro
     if (isNewLesson && lessonId) window.history.replaceState(null, "", ROUTES.teacherLesson(lessonId))
   }, [isNewLesson, lessonId])
 
-  const handleSave = async (publish?: boolean) => {
+  const handleSave = async (publish?: boolean): Promise<void> => {
     if (publish !== undefined) {
       const confirmation = PUBLISH_CONFIRMATIONS[publish ? "publish" : "unpublish"]
       if (!(await swalConfirm({ ...confirmation, icon: "question" }))) return
@@ -96,7 +96,7 @@ export function LessonEditorScreen({ initial, onCreated }: LessonEditorScreenPro
     else swalToast({ title: publish === false ? "Lição despublicada." : "Alterações salvas.", icon: "success" })
   }
 
-  const showError = (message: string) => swalError({ text: message })
+  const showError = (message: string): void => void swalError({ text: message })
   const testErrorCount = editor.compiled.errorCount
   const alertMessage = inlineError ?? editor.loadError
 
@@ -118,9 +118,9 @@ export function LessonEditorScreen({ initial, onCreated }: LessonEditorScreenPro
         isSaving={editor.isSaving}
         isDirty={editor.isDirty}
         hasJustSaved={savedFeedback.isActive}
-        onSave={() => handleSave()}
-        onPublish={() => handleSave(true)}
-        onUnpublish={() => handleSave(false)}
+        onSave={() => void handleSave()}
+        onPublish={() => void handleSave(true)}
+        onUnpublish={() => void handleSave(false)}
       />
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
@@ -139,7 +139,7 @@ export function LessonEditorScreen({ initial, onCreated }: LessonEditorScreenPro
             testes: testErrorCount
               ? { text: `${testErrorCount} erro(s)`, isDanger: true }
               : { text: String(editor.drafts.length), isDanger: editor.drafts.length === 0 },
-            questoes: form.lesson_type === "quiz" ? { text: String(editor.quiz.length) } : undefined,
+            ...(form.lesson_type === "quiz" && { questoes: { text: String(editor.quiz.length) } }),
           }}
         />
 

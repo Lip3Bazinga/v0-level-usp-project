@@ -14,6 +14,6 @@ interface CourseIconProps {
 }
 
 /** Componente estático (tabela fixa), para não criar um componente novo a cada renderização. */
-export function CourseIcon({ courseTitle, className }: CourseIconProps) {
+export function CourseIcon({ courseTitle, className }: CourseIconProps): React.JSX.Element {
   return createElement(COURSE_ICONS[courseTitle] ?? BookOpen, { className })
 }

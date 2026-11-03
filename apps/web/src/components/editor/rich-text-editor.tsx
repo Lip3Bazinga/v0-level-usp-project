@@ -123,7 +123,7 @@ const ALIGN_ACTIONS: readonly ToggleAction[] = [
   },
 ]
 
-function ToggleActions({ editor, actions }: { editor: Editor; actions: readonly ToggleAction[] }) {
+function ToggleActions({ editor, actions }: { editor: Editor; actions: readonly ToggleAction[] }): React.JSX.Element[] {
   return actions.map((action) => (
     <ToolbarButton key={action.title} title={action.title} isActive={action.isActive(editor)} onClick={() => action.run(editor)}>
       {action.label}
@@ -145,7 +145,7 @@ interface RichTextEditorProps {
   onUploadError?: (message: string) => void
 }
 
-function useLessonEditor({ value, onChange, placeholder }: Pick<RichTextEditorProps, "value" | "onChange"> & { placeholder: string }) {
+function useLessonEditor({ value, onChange, placeholder }: Pick<RichTextEditorProps, "value" | "onChange"> & { placeholder: string }): Editor {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -190,7 +190,7 @@ function useLessonEditor({ value, onChange, placeholder }: Pick<RichTextEditorPr
 
   // Conteúdo trocado por fora (ex.: lição carregada depois de montar o editor).
   useEffect(() => {
-    if (!editor || editor.getHTML() === value) return
+    if (editor.getHTML() === value) return
     // TipTap v3: o 2º argumento é um objeto de opções; sem emitir update, o onChange não volta em laço.
     editor.commands.setContent(value, { emitUpdate: false })
   }, [value, editor])
@@ -205,7 +205,7 @@ export function RichTextEditor({
   minHeight = 320,
   onUploadImage,
   onUploadError,
-}: RichTextEditorProps) {
+}: RichTextEditorProps): React.JSX.Element | null {
   const editor = useLessonEditor({ value, onChange, placeholder })
   const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE)
   const [textColor, setTextColor] = useState(DEFAULT_TEXT_COLOR)
@@ -216,20 +216,19 @@ export function RichTextEditor({
   const [isLinkInputOpen, setIsLinkInputOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  if (!editor) return null
 
-  const applyFontSize = (size: string) => {
+  const applyFontSize = (size: string): void => {
     setFontSize(size)
     editor.chain().focus().setMark("textStyle", { fontSize: size }).run()
   }
 
-  const applyColor = (color: string) => {
+  const applyColor = (color: string): void => {
     setTextColor(color)
     editor.chain().focus().setColor(color).run()
   }
 
 
-  const insertImage = () => {
+  const insertImage = (): void => {
     const url = imageUrl.trim()
     if (!url) return
     editor.chain().focus().setImage({ src: url }).run()
@@ -237,7 +236,7 @@ export function RichTextEditor({
     setIsImageInputOpen(false)
   }
 
-  const uploadAndInsertImage = async (file: File | undefined) => {
+  const uploadAndInsertImage = async (file: File | undefined): Promise<void> => {
     if (!file || !onUploadImage) return
     setIsUploadingImage(true)
     try {
@@ -252,7 +251,7 @@ export function RichTextEditor({
     }
   }
 
-  const insertLink = () => {
+  const insertLink = (): void => {
     const url = linkUrl.trim()
     setIsLinkInputOpen(false)
     if (!url) {
@@ -327,7 +326,7 @@ export function RichTextEditor({
                     type="file"
                     accept={ACCEPTED_IMAGE_TYPES}
                     className="hidden"
-                    onChange={(event) => uploadAndInsertImage(event.target.files?.[0])}
+                    onChange={(event) => void uploadAndInsertImage(event.target.files?.[0])}
                   />
                   <button
                     type="button"

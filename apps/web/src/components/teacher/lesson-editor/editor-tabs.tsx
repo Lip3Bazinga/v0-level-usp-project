@@ -40,7 +40,7 @@ interface EditorTabsNavProps {
   badges?: Partial<Record<EditorTabId, TabBadge>>
 }
 
-export function EditorTabsNav({ current, lessonType, onChange, badges }: EditorTabsNavProps) {
+export function EditorTabsNav({ current, lessonType, onChange, badges }: EditorTabsNavProps): React.JSX.Element {
   return (
     <div className="sticky top-16 z-40 -mx-4 mb-8 border-b border-border bg-white/95 px-4 backdrop-blur sm:-mx-6 sm:px-6">
       <div role="tablist" className="flex items-center gap-1 overflow-x-auto">

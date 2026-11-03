@@ -13,7 +13,7 @@ interface LibraryRequestModalProps {
   onCreated: (request: LibraryRequest) => void
 }
 
-export function LibraryRequestModal({ onClose, onCreated }: LibraryRequestModalProps) {
+export function LibraryRequestModal({ onClose, onCreated }: LibraryRequestModalProps): React.JSX.Element {
   const [name, setName] = useState("")
   const [displayName, setDisplayName] = useState("")
   const [useCase, setUseCase] = useState("")
@@ -21,7 +21,7 @@ export function LibraryRequestModal({ onClose, onCreated }: LibraryRequestModalP
   const [error, setError] = useState<string | null>(null)
   const dialogRef = useModalA11y<HTMLDivElement>(true, onClose)
 
-  const handleSend = async () => {
+  const handleSend = async (): Promise<void> => {
     if (!name.trim()) return
     setIsSending(true)
     setError(null)
@@ -85,7 +85,7 @@ export function LibraryRequestModal({ onClose, onCreated }: LibraryRequestModalP
           </button>
           <button
             type="button"
-            onClick={handleSend}
+            onClick={() => void handleSend()}
             disabled={isSending || !name.trim()}
             className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-level-purple py-2.5 text-sm font-semibold text-white transition-colors hover:bg-level-purple-dark disabled:opacity-50"
           >

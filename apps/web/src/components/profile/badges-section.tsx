@@ -54,11 +54,11 @@ const RARITY_PILL_ON_LIGHT: Record<BadgeRarity, string> = {
   legendary: "bg-yellow-100 text-yellow-700",
 }
 
-function RarityPill({ rarity, className }: { rarity: BadgeRarity; className: string }) {
+function RarityPill({ rarity, className }: { rarity: BadgeRarity; className: string }): React.JSX.Element {
   return <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", className)}>{RARITY_LABELS[rarity]}</span>
 }
 
-export function BadgesSection({ badges, className }: BadgesSectionProps) {
+export function BadgesSection({ badges, className }: BadgesSectionProps): React.JSX.Element {
   const earnedBadges = badges.filter((badge) => badge.isEarned)
   const lockedBadges = badges.filter((badge) => !badge.isEarned)
 
@@ -101,7 +101,7 @@ export function BadgesSection({ badges, className }: BadgesSectionProps) {
   )
 }
 
-function EarnedBadge({ badge }: { badge: DisplayBadge }) {
+function EarnedBadge({ badge }: { badge: DisplayBadge }): React.JSX.Element {
   const styles = RARITY_STYLES[badge.rarity]
   return (
     <Tooltip>
@@ -141,7 +141,7 @@ function EarnedBadge({ badge }: { badge: DisplayBadge }) {
   )
 }
 
-function LockedBadge({ badge }: { badge: DisplayBadge }) {
+function LockedBadge({ badge }: { badge: DisplayBadge }): React.JSX.Element {
   return (
     <Tooltip>
       <TooltipTrigger asChild>

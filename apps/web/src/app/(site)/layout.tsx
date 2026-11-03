@@ -2,7 +2,7 @@ import type { ReactNode } from "react"
 import { SiteNav } from "@/components/marketing/site-nav"
 import { SiteFooter } from "@/components/marketing/site-footer"
 
-export default function SiteLayout({ children }: { children: ReactNode }) {
+export default function SiteLayout({ children }: { children: ReactNode }): React.JSX.Element {
   return (
     <div className="min-h-screen overflow-x-clip bg-white">
       <SiteNav />

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { CheckCircle2, Package, Plus, X } from "lucide-react"
-import { LIBRARY_CATEGORIES, type LibraryCatalog, type LibraryRequest } from "@levelusp/contracts"
+import { LIBRARY_CATEGORIES, type LibraryCatalog, type LibraryCategory, type LibraryRequest } from "@levelusp/contracts"
 import { Badge } from "@/components/ui/badge"
 import { useAsyncResource } from "@/hooks/use-async-resource"
 import { fetchLibraryCatalog, fetchMyLibraryRequests } from "@/lib/api"
@@ -21,7 +21,12 @@ async function loadMyRequests(): Promise<LibraryRequest[]> {
   }
 }
 
-function groupByCategory(catalog: LibraryCatalog[]) {
+interface LibraryGroup {
+  category: LibraryCategory
+  libraries: LibraryCatalog[]
+}
+
+function groupByCategory(catalog: LibraryCatalog[]): LibraryGroup[] {
   return LIBRARY_CATEGORIES.map((category) => ({
     category,
     libraries: catalog.filter((library) => library.category === category),
@@ -34,7 +39,7 @@ interface LibrariesTabProps {
   onToast: (message: string) => void
 }
 
-export function LibrariesTab({ selected, onChange, onToast }: LibrariesTabProps) {
+export function LibrariesTab({ selected, onChange, onToast }: LibrariesTabProps): React.JSX.Element {
   const catalog = useAsyncResource(() => fetchLibraryCatalog(), [], { errorMessage: "Não foi possível carregar o catálogo." })
   const requests = useAsyncResource(loadMyRequests, [])
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false)
@@ -43,9 +48,9 @@ export function LibrariesTab({ selected, onChange, onToast }: LibrariesTabProps)
   const groups = useMemo(() => groupByCategory(libraries), [libraries])
   const pendingRequests = requests.status === "success" ? requests.data.filter((request) => request.status === "pending") : []
 
-  const handleToggle = (name: string) => onChange(selected.includes(name) ? selected.filter((item) => item !== name) : [...selected, name])
+  const handleToggle = (name: string): void => onChange(selected.includes(name) ? selected.filter((item) => item !== name) : [...selected, name])
 
-  const handleRequestCreated = (created: LibraryRequest) => {
+  const handleRequestCreated = (created: LibraryRequest): void => {
     requests.setData((current) => [created, ...current])
     setIsRequestModalOpen(false)
     onToast("Solicitação enviada ao admin.")
@@ -136,7 +141,7 @@ interface LibraryOptionProps {
   onToggle: () => void
 }
 
-function LibraryOption({ library, isSelected, onToggle }: LibraryOptionProps) {
+function LibraryOption({ library, isSelected, onToggle }: LibraryOptionProps): React.JSX.Element {
   return (
     <button
       type="button"

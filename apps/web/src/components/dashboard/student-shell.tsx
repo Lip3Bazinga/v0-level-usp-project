@@ -95,7 +95,7 @@ interface StudentShellProps {
 }
 
 /** Cabeçalho, barra inferior móvel e menu da conta das telas do aluno (painel, cursos, ranking). */
-export function StudentShell({ screen, children }: StudentShellProps) {
+export function StudentShell({ screen, children }: StudentShellProps): React.JSX.Element {
   const layout = SCREEN_LAYOUTS[screen]
   const { profile } = useAuth()
   const username = profile?.username
@@ -134,7 +134,7 @@ export function StudentShell({ screen, children }: StudentShellProps) {
 }
 
 /** Faixa fixa no topo, comum às telas do aluno (inclusive as que não usam o shell completo). */
-export function StudentHeaderBar({ children, className }: { children: ReactNode; className?: string }) {
+export function StudentHeaderBar({ children, className }: { children: ReactNode; className?: string }): React.JSX.Element {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-sm">
       <div className={cn("mx-auto flex h-16 max-w-6xl items-center justify-between px-4", className)}>{children}</div>
@@ -148,7 +148,7 @@ interface NavLinkProps {
   username: string | null | undefined
 }
 
-function DesktopNavLink({ itemId, layout, username }: NavLinkProps) {
+function DesktopNavLink({ itemId, layout, username }: NavLinkProps): React.JSX.Element {
   const item = NAV_ITEMS[itemId]
   const Icon = layout.iconOverrides?.[itemId] ?? item.icon
   const isActive = itemId === layout.activeItem
@@ -165,7 +165,7 @@ function DesktopNavLink({ itemId, layout, username }: NavLinkProps) {
   )
 }
 
-function MobileNavLink({ itemId, layout, username }: NavLinkProps) {
+function MobileNavLink({ itemId, layout, username }: NavLinkProps): React.JSX.Element {
   const item = NAV_ITEMS[itemId]
   const Icon = layout.iconOverrides?.[itemId] ?? item.icon
   const isActive = itemId === layout.activeItem
@@ -185,7 +185,7 @@ function MobileNavLink({ itemId, layout, username }: NavLinkProps) {
   )
 }
 
-export function XpChip({ totalXp }: { totalXp: number }) {
+export function XpChip({ totalXp }: { totalXp: number }): React.JSX.Element {
   return (
     <div className="hidden items-center gap-1.5 rounded-full bg-level-purple px-3 py-1.5 text-white sm:flex">
       <Zap className="h-4 w-4 text-yellow-300" />
@@ -194,7 +194,7 @@ export function XpChip({ totalXp }: { totalXp: number }) {
   )
 }
 
-export function StreakChip({ streak }: { streak: number }) {
+export function StreakChip({ streak }: { streak: number }): React.JSX.Element {
   return (
     <div className="hidden items-center gap-1.5 rounded-full bg-linear-to-r from-orange-500 to-red-500 px-3 py-1.5 text-white sm:flex">
       <Flame className="h-4 w-4 text-yellow-300" />
@@ -203,7 +203,7 @@ export function StreakChip({ streak }: { streak: number }) {
   )
 }
 
-function StudentAccountMenu() {
+function StudentAccountMenu(): React.JSX.Element {
   const { profile, isLoading } = useAuth()
   const initials = profile?.full_name ? getInitials(profile.full_name) : "?"
   return (
@@ -233,7 +233,7 @@ interface AccountMenuContentProps {
 }
 
 /** Itens do menu da conta, compartilhados pelo cabeçalho do aluno e pelo da IDE. */
-export function AccountMenuContent({ hasDashboardLink = false, hasRoleLinks = false }: AccountMenuContentProps) {
+export function AccountMenuContent({ hasDashboardLink = false, hasRoleLinks = false }: AccountMenuContentProps): React.JSX.Element {
   const router = useRouter()
   const { profile } = useAuth()
   const signOut = useSignOut()

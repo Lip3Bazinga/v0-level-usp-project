@@ -12,6 +12,6 @@ interface BadgeIconProps {
  * renderização, que o React Compiler acusa como componente criado durante o render;
  * aqui o ícone vem de uma tabela fixa, então não há estado a perder.
  */
-export function BadgeIcon({ name, className }: BadgeIconProps) {
+export function BadgeIcon({ name, className }: BadgeIconProps): React.JSX.Element {
   return createElement(badgeIcon(name), { className })
 }

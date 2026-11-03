@@ -40,7 +40,7 @@ export function AuthField({
   trailing,
   hasTrailingSpace = Boolean(trailing),
   ...inputProps
-}: AuthFieldProps) {
+}: AuthFieldProps): React.JSX.Element {
   const hintId = hint ? `${id}-hint` : undefined
   const labelElement = (
     <label htmlFor={id} className="text-sm font-medium text-level-purple-dark">
@@ -84,7 +84,7 @@ interface PasswordVisibilityToggleProps {
   onToggle: () => void
 }
 
-function PasswordVisibilityToggle({ isVisible, onToggle }: PasswordVisibilityToggleProps) {
+function PasswordVisibilityToggle({ isVisible, onToggle }: PasswordVisibilityToggleProps): React.JSX.Element {
   return (
     <button
       type="button"
@@ -112,7 +112,7 @@ export function PasswordField({
   isVisible,
   onToggleVisibility,
   ...fieldProps
-}: PasswordFieldProps) {
+}: PasswordFieldProps): React.JSX.Element {
   return (
     <AuthField
       {...fieldProps}
@@ -127,7 +127,7 @@ export function PasswordField({
   )
 }
 
-export function FormErrorAlert({ message }: { message: string }) {
+export function FormErrorAlert({ message }: { message: string }): React.JSX.Element {
   return (
     <div
       role="alert"
@@ -151,7 +151,7 @@ export function AuthSubmitButton({
   submittingLabel,
   children,
   hasSpinner = false,
-}: AuthSubmitButtonProps) {
+}: AuthSubmitButtonProps): React.JSX.Element {
   const label = isSubmitting ? submittingLabel : children
   return (
     <LevelButton variant="primary" size="lg" disabled={isSubmitting} className="w-full">

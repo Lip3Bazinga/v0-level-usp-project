@@ -19,7 +19,7 @@ import { TheoryLessonLayout } from "@/components/ide/theory-lesson-layout"
 import { QuizLessonLayout } from "@/components/ide/quiz-lesson-layout"
 import { ROUTES } from "@/lib/constants"
 
-function LessonWorkspace({ lesson, allLessons, currentIndex }: LessonPageData) {
+function LessonWorkspace({ lesson, allLessons, currentIndex }: LessonPageData): React.JSX.Element {
   const {
     files, activePath, openPaths, setActivePath, openFile, closeTab, updateFileContent,
     createFile, renameFile, deleteFile,
@@ -48,7 +48,7 @@ function LessonWorkspace({ lesson, allLessons, currentIndex }: LessonPageData) {
               checkpoints={lesson.checkpoints.map((checkpoint) => ({ ...checkpoint, isCompleted: allPassed }))}
               hasRun={hasRun}
               hasOutput={hasOutput}
-              onVerify={verify}
+              onVerify={() => void verify()}
               isVerifying={isVerifying}
               canVerify={canVerify || allPassed}
               isVerified={allPassed}
@@ -62,7 +62,7 @@ function LessonWorkspace({ lesson, allLessons, currentIndex }: LessonPageData) {
               onTabClose={closeTab}
               onContentChange={updateFileContent}
               onRun={run}
-              onReset={reset}
+              onReset={() => void reset()}
               onStop={stop}
               isRunning={isExecuting}
               isInstalling={isInstalling}
@@ -130,7 +130,7 @@ const LESSON_MISSING_MESSAGE = "Esta lição não existe ou não está disponív
 const LESSON_LOAD_ERROR_MESSAGE = "Não foi possível carregar a lição. Verifique sua conexão e tente novamente."
 
 /** Falha de rede (com nova tentativa) é diferente de lição inexistente. */
-function LessonUnavailable({ onRetry }: { onRetry?: () => void }) {
+function LessonUnavailable({ onRetry }: { onRetry?: () => void }): React.JSX.Element {
   const router = useRouter()
   const isLoadError = Boolean(onRetry)
   return (
@@ -162,7 +162,7 @@ function LessonUnavailable({ onRetry }: { onRetry?: () => void }) {
   )
 }
 
-export default function LessonPage() {
+export default function LessonPage(): React.JSX.Element {
   const { id: lessonId } = useParams<{ id: string }>()
   const page = useAsyncResource(() => loadLessonPage(lessonId), [lessonId])
 

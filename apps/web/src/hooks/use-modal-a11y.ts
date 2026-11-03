@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useLayoutEffect, useRef, type RefObject } from "react"
+import { isNonEmpty, lastOf } from "@/lib/utils"
 
 const FOCUSABLE_SELECTOR = [
   "a[href]",
@@ -27,7 +28,7 @@ function getTabbableItems(dialog: HTMLElement): HTMLElement[] {
 }
 
 /** Foca `[data-autofocus]`, senão o primeiro item focável, senão o próprio diálogo. */
-function focusInitialElement(dialog: HTMLElement) {
+function focusInitialElement(dialog: HTMLElement): void {
   if (dialog.contains(document.activeElement)) return
   const initial = dialog.querySelector<HTMLElement>(AUTOFOCUS_SELECTOR) ?? dialog.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
   if (initial) {
@@ -45,14 +46,14 @@ function isInsideAnotherModal(target: EventTarget | null, dialog: HTMLElement): 
 }
 
 /** Leva o foco do fim para o começo (e vice-versa) para o Tab não sair do diálogo. */
-function trapTabKey(event: KeyboardEvent, dialog: HTMLElement) {
+function trapTabKey(event: KeyboardEvent, dialog: HTMLElement): void {
   const items = getTabbableItems(dialog)
-  if (items.length === 0) {
+  if (!isNonEmpty(items)) {
     event.preventDefault()
     return
   }
   const firstItem = items[0]
-  const lastItem = items[items.length - 1]
+  const lastItem = lastOf(items)
   const activeElement = getActiveElement()
   const isFocusOutside = !dialog.contains(activeElement)
   if (event.shiftKey && (activeElement === firstItem || isFocusOutside)) {
@@ -89,7 +90,7 @@ export function useModalA11y<TElement extends HTMLElement>(isOpen: boolean, onCl
       if (dialogRef.current) focusInitialElement(dialogRef.current)
     })
 
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
       const dialog = dialogRef.current
       if (!dialog || isInsideAnotherModal(event.target, dialog)) return
       const close = onCloseRef.current

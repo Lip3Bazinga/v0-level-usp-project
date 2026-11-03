@@ -14,7 +14,7 @@ import { ProgressProvider } from "@/contexts/progress-context"
  * páginas de lição. O `MotionConfig` faz o framer-motion respeitar o "reduzir
  * movimento" do sistema (WCAG 2.3.3).
  */
-export function Providers({ children }: { children: ReactNode }) {
+export function Providers({ children }: { children: ReactNode }): React.JSX.Element {
   return (
     <ThemeProvider attribute="class" defaultTheme="light" disableTransitionOnChange>
       <MotionConfig reducedMotion="user">

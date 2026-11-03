@@ -23,11 +23,11 @@ const WORDMARK_SIZE_CLASS: Record<Exclude<BrandSize, "hero">, string> = {
 interface BrandMarkProps {
   size?: BrandSize
   /** Ajustes do quadrado (sombra, cantos, fundo translúcido). */
-  className?: string
+  className?: string | undefined
 }
 
 /** Quadrado roxo com o foguete: o símbolo da marca, sozinho ou ao lado do nome. */
-export function BrandMark({ size = "md", className }: BrandMarkProps) {
+export function BrandMark({ size = "md", className }: BrandMarkProps): React.JSX.Element {
   const { tile, icon } = MARK_SIZE_CLASS[size]
   return (
     <div className={cn("flex items-center justify-center rounded-xl bg-level-purple", tile, className)}>
@@ -59,7 +59,7 @@ export function BrandLogo({
   markClassName,
   wordmarkClassName,
   taglineClassName,
-}: BrandLogoProps) {
+}: BrandLogoProps): React.JSX.Element {
   const wordmarkClass = cn("font-bold text-level-purple-dark", WORDMARK_SIZE_CLASS[size], wordmarkClassName)
   const content = (
     <>

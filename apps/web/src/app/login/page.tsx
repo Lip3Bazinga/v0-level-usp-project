@@ -30,7 +30,7 @@ const PLATFORM_HIGHLIGHTS = [
   { value: "15", label: "Trilhas" },
 ] as const
 
-function LoginBrandPanel() {
+function LoginBrandPanel(): React.JSX.Element {
   return (
     <AuthBrandPanel description="Aprenda programação de forma gamificada. Uma iniciativa gratuita da Universidade de São Paulo para todo o Brasil.">
       <div className="mt-12 grid grid-cols-3 gap-6">
@@ -45,7 +45,7 @@ function LoginBrandPanel() {
   )
 }
 
-function LoginForm() {
+function LoginForm(): React.JSX.Element {
   const searchParams = useSearchParams()
   // `next` é o parâmetro do middleware novo; `redirect` mantém links antigos.
   const redirectPath = safeRedirectPath(searchParams.get("next") ?? searchParams.get("redirect"))
@@ -60,9 +60,9 @@ function LoginForm() {
   const [streakDays, setStreakDays] = useState<number | null>(null)
 
   // Navegação completa: os providers recarregam com a sessão nova.
-  const goToRedirectPath = () => window.location.assign(redirectPath)
+  const goToRedirectPath = (): void => window.location.assign(redirectPath)
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
     if (!submitLock.acquire()) return
     setErrorMessage("")
@@ -83,7 +83,7 @@ function LoginForm() {
     goToRedirectPath()
   }
 
-  const handleStreakClose = () => {
+  const handleStreakClose = (): void => {
     setStreakDays(null)
     goToRedirectPath()
   }
@@ -106,7 +106,7 @@ function LoginForm() {
         <OAuthButtons mode="login" />
         <AuthDivider label="ou entre com email" />
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
           {errorMessage && <FormErrorAlert message={errorMessage} />}
 
           <AuthField
@@ -161,7 +161,7 @@ function LoginForm() {
   )
 }
 
-export default function LoginPage() {
+export default function LoginPage(): React.JSX.Element {
   return (
     <Suspense>
       <LoginForm />

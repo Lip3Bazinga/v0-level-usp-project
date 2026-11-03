@@ -5,7 +5,7 @@ import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
 import { ChevronDown, Check, Lock, Play, Star, BookOpen, Clock, Zap, GraduationCap, ChevronRight } from "lucide-react"
 import type { Course, Lesson, LessonProgress } from "@levelusp/contracts"
-import { computeTrailStatuses, formatNumber, formatXp, toClampedPercent, type TrailStatus, cn } from "@/lib/utils"
+import { computeTrailStatuses, cycleItem, formatNumber, formatXp, toClampedPercent, type NonEmptyArray, type TrailStatus, cn } from "@/lib/utils"
 import { ROUTES } from "@/lib/constants"
 import { groupLessonsByModule, sumEarnedXp } from "./course-groups"
 
@@ -17,7 +17,7 @@ interface ModuleColor {
 }
 
 /** Cores dos módulos na ordem em que aparecem; depois do quinto, recomeça. */
-const MODULE_COLORS: readonly ModuleColor[] = [
+const MODULE_COLORS: NonEmptyArray<ModuleColor> = [
   { background: "bg-violet-500", text: "text-violet-700", ring: "ring-violet-100", bar: "from-violet-400 to-purple-500" },
   { background: "bg-sky-500", text: "text-sky-700", ring: "ring-sky-100", bar: "from-sky-400 to-blue-500" },
   { background: "bg-emerald-500", text: "text-emerald-700", ring: "ring-emerald-100", bar: "from-emerald-400 to-teal-500" },
@@ -45,7 +45,7 @@ interface LessonNodeProps {
   side: "left" | "right"
 }
 
-function LessonNode({ lesson, status, index, side }: LessonNodeProps) {
+function LessonNode({ lesson, status, index, side }: LessonNodeProps): React.JSX.Element {
   const isDone = status === "completed"
   const isActive = status === "in-progress"
   const isLocked = status === "locked"
@@ -126,7 +126,7 @@ interface ModuleSectionProps {
   color: ModuleColor
 }
 
-function ModuleSection({ name, lessons, statuses, color }: ModuleSectionProps) {
+function ModuleSection({ name, lessons, statuses, color }: ModuleSectionProps): React.JSX.Element {
   const completedCount = statuses.filter((status) => status === "completed").length
   const percent = progressPercent(completedCount, lessons.length)
 
@@ -157,7 +157,7 @@ function ModuleSection({ name, lessons, statuses, color }: ModuleSectionProps) {
 
       <div className="flex flex-col gap-5 pl-2">
         {lessons.map((lesson, index) => (
-          <LessonNode key={lesson.id} lesson={lesson} status={statuses[index]} index={index} side={index % 2 === 0 ? "left" : "right"} />
+          <LessonNode key={lesson.id} lesson={lesson} status={statuses[index] ?? "locked"} index={index} side={index % 2 === 0 ? "left" : "right"} />
         ))}
       </div>
     </div>
@@ -172,7 +172,7 @@ interface CourseCardProps {
 }
 
 /** Curso no painel: resumo do progresso que abre a trilha de lições por módulo. */
-export function CourseCard({ course, lessons, progressMap, defaultOpen = false }: CourseCardProps) {
+export function CourseCard({ course, lessons, progressMap, defaultOpen = false }: CourseCardProps): React.JSX.Element {
   const [isOpen, setIsOpen] = useState(defaultOpen)
   const modules = useMemo(() => groupLessonsByModule(lessons), [lessons])
   // O cadeado depende da ordem do curso inteiro, então os status são calculados antes de separar por módulo.
@@ -269,7 +269,7 @@ export function CourseCard({ course, lessons, progressMap, defaultOpen = false }
                   name={module.name}
                   lessons={module.lessons}
                   statuses={module.lessons.map((lesson) => statusByLessonId.get(lesson.id) ?? "locked")}
-                  color={MODULE_COLORS[moduleIndex % MODULE_COLORS.length]}
+                  color={cycleItem(MODULE_COLORS, moduleIndex)}
                 />
               ))}
             </div>

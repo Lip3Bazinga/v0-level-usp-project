@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     "Conheça as instituições de ensino, empresas e organizações que apoiam o LevelUSP e saiba como sua organização pode fazer parte dessa rede.",
 }
 
-function CategoriesSection() {
+function CategoriesSection(): React.JSX.Element {
   return (
     <section className="pb-12">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -33,7 +33,7 @@ function CategoriesSection() {
   )
 }
 
-function PartnerWallSection() {
+function PartnerWallSection(): React.JSX.Element {
   return (
     <section className="py-16">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -63,7 +63,7 @@ function PartnerWallSection() {
   )
 }
 
-function BecomePartnerSection() {
+function BecomePartnerSection(): React.JSX.Element {
   return (
     <section className="py-16">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -105,7 +105,7 @@ function BecomePartnerSection() {
   )
 }
 
-export default function PartnersPage() {
+export default function PartnersPage(): React.JSX.Element {
   return (
     <>
       <PageHero

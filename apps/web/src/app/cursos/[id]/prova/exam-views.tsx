@@ -20,7 +20,7 @@ interface ExamStatusCardProps {
   onIssueCertificate: () => void
 }
 
-export function ExamStatusCard({ status, certificateCode, isBusy, onStart, onIssueCertificate }: ExamStatusCardProps) {
+export function ExamStatusCard({ status, certificateCode, isBusy, onStart, onIssueCertificate }: ExamStatusCardProps): React.JSX.Element {
   const { exam } = status
   const facts = [
     { label: "Questões", value: String(exam.questionCount) },
@@ -66,7 +66,7 @@ function activeCooldownEnd({ cooldownUntil }: ExamStatus): string | null {
   return cooldownUntil && new Date(cooldownUntil) > new Date() ? cooldownUntil : null
 }
 
-function ExamStatusAction({ status, certificateCode, isBusy, onStart, onIssueCertificate }: ExamStatusCardProps) {
+function ExamStatusAction({ status, certificateCode, isBusy, onStart, onIssueCertificate }: ExamStatusCardProps): React.JSX.Element {
   if (status.passed) {
     return (
       <div className="space-y-4">
@@ -140,7 +140,7 @@ interface NoticeProps {
   children: ReactNode
 }
 
-function Notice({ icon, title, children }: NoticeProps) {
+function Notice({ icon, title, children }: NoticeProps): React.JSX.Element {
   return (
     <div className="flex items-center gap-3 rounded-2xl bg-amber-50 p-5 ring-1 ring-amber-200">
       {icon}
@@ -160,11 +160,11 @@ interface ExamQuestionsFormProps {
   onSubmit: () => void
 }
 
-export function ExamQuestionsForm({ exam, answers, isSubmitting, onAnswer, onSubmit }: ExamQuestionsFormProps) {
+export function ExamQuestionsForm({ exam, answers, isSubmitting, onAnswer, onSubmit }: ExamQuestionsFormProps): React.JSX.Element {
   const answeredCount = Object.keys(answers).length
   const questionCount = exam.questions.length
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (): Promise<void> => {
     const missingCount = questionCount - answeredCount
     if (missingCount > 0) {
       const isConfirmed = await swalConfirm({
@@ -219,7 +219,7 @@ export function ExamQuestionsForm({ exam, answers, isSubmitting, onAnswer, onSub
       ))}
 
       <button
-        onClick={handleSubmit}
+        onClick={() => void handleSubmit()}
         disabled={isSubmitting}
         className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-700 py-4 text-sm font-bold text-white transition-colors hover:bg-green-800 disabled:opacity-50"
       >
@@ -236,7 +236,7 @@ interface ExamResultViewProps {
   onBackToStatus: () => void
 }
 
-export function ExamResultView({ courseId, result, onBackToStatus }: ExamResultViewProps) {
+export function ExamResultView({ courseId, result, onBackToStatus }: ExamResultViewProps): React.JSX.Element {
   const { passed } = result
   return (
     <div className="space-y-6">

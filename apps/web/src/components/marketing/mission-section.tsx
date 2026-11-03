@@ -4,7 +4,7 @@ import { Stagger, motion, staggerItem } from "./motion-primitives"
 import { SectionIntro } from "./section-heading"
 import { MISSIONS } from "./content/home"
 
-export function MissionSection() {
+export function MissionSection(): React.JSX.Element {
   return (
     <section id="missao" className="relative py-24 lg:py-32">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
