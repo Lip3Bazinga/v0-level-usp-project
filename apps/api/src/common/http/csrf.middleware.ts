@@ -11,7 +11,7 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"])
  */
 @Injectable()
 export class CsrfMiddleware implements NestMiddleware {
-  use(request: Request, response: Response, next: NextFunction) {
+  use(request: Request, response: Response, next: NextFunction): void {
     if (SAFE_METHODS.has(request.method) || request.headers[CSRF_HEADER] === "1") return next()
     response.status(403).json({ statusCode: 403, code: "CSRF", message: "Requisição bloqueada por segurança. Recarregue a página." })
   }

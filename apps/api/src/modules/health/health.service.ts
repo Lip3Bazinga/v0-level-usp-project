@@ -5,6 +5,11 @@ import type { Env } from "@/config/env"
 import { InjectDb, type Database } from "@/infra/database/database.module"
 import { RUNNER_HEALTH, type RunnerHealthProbe } from "@/infra/runner/code-runner"
 
+/** Resposta do liveness: o processo está de pé (não verifica dependências). */
+export interface Liveness {
+  status: "ok"
+}
+
 export interface Readiness {
   status: "ok" | "degraded"
   env: Env["APP_ENV"]

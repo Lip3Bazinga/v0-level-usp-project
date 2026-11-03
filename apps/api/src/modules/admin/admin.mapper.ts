@@ -1,4 +1,4 @@
-import type { AnalyticsMetrics, RecentActivity } from "@levelusp/contracts"
+import type { AnalyticsMetrics, RecentActivity, UserRole } from "@levelusp/contracts"
 import { percentage } from "./admin.domain"
 
 export interface RecentCompletionRow {
@@ -21,6 +21,19 @@ export type AnalyticsTotalsRow = {
   streak7: number
   started: number
   completed5: number
+}
+
+/** Agregado por dia civil (São Paulo, `yyyy-mm-dd`): conclusões e alunos distintos. */
+export interface CompletionsPerDayRow {
+  day: string
+  completions: number
+  users: number
+}
+
+/** Quantidade de perfis por papel. */
+export interface RoleCountRow {
+  role: UserRole
+  count: number
 }
 
 export interface TopLessonRow {

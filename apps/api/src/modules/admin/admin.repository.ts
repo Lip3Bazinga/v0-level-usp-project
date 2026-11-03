@@ -6,7 +6,8 @@ import { requireRow } from "@/common/database/rows"
 import { SAO_PAULO_TIME_ZONE } from "@/common/time/time"
 import { InjectDb, type Database } from "@/infra/database/database.module"
 import { publicLessonColumns, type PublicLessonRow } from "../catalog/lesson-columns"
-import type { AnalyticsTotalsRow, RecentCompletionRow } from "./admin.mapper"
+import type { AnalyticsTotalsRow, CompletionsPerDayRow, RecentCompletionRow, RoleCountRow, TopLessonRow } from "./admin.mapper"
+import type { DbTransaction, BadgeRow } from "@levelusp/db"
 
 const saoPauloZone = sql.raw(`'${SAO_PAULO_TIME_ZONE}'`)
 
@@ -25,7 +26,7 @@ export class AdminRepository {
    * à regra "só o GamificationService mexe em XP": aqui só se ZERA, nunca credita.)
    */
   resetProgress(userId: string): Promise<boolean> {
-    return this.db.transaction(async (tx) => {
+    return this.db.transaction(async (tx: DbTransaction) => {
       await tx.delete(lessonProgress).where(eq(lessonProgress.userId, userId))
       await tx.delete(submissions).where(eq(submissions.userId, userId))
       await tx.delete(userBadges).where(eq(userBadges.userId, userId))
@@ -75,7 +76,7 @@ export class AdminRepository {
   }
 
   /** Conclusões e usuários distintos por dia civil (São Paulo) desde `since`. */
-  listCompletionsPerDay(since: Date) {
+  listCompletionsPerDay(since: Date): Promise<CompletionsPerDayRow[]> {
     return this.db
       .select({
         day: sql<string>`to_char(${lessonProgress.completedAt} at time zone ${saoPauloZone}, 'YYYY-MM-DD')`,
@@ -111,7 +112,7 @@ export class AdminRepository {
     return requireRow(result.rows, "analytics")
   }
 
-  listTopLessons(limit: number) {
+  listTopLessons(limit: number): Promise<TopLessonRow[]> {
     return this.db
       .select({ lessonId: lessons.id, title: lessons.title, completions: sql<number>`count(*)::int` })
       .from(lessonProgress)
@@ -122,7 +123,7 @@ export class AdminRepository {
       .limit(limit)
   }
 
-  listRoleDistribution() {
+  listRoleDistribution(): Promise<RoleCountRow[]> {
     return this.db
       .select({ role: profiles.role, count: sql<number>`count(*)::int` })
       .from(profiles)
@@ -135,7 +136,7 @@ export class AdminRepository {
     return this.db.select(publicLessonColumns).from(lessons).orderBy(asc(lessons.module), asc(lessons.order), asc(lessons.title))
   }
 
-  listSettings() {
+  listSettings(): Promise<SettingEntry[]> {
     return this.db.select({ key: platformSettings.key, value: platformSettings.value }).from(platformSettings).orderBy(asc(platformSettings.key))
   }
 
@@ -147,15 +148,15 @@ export class AdminRepository {
       .onConflictDoUpdate({ target: platformSettings.key, set: { value: sql`excluded.value` } })
   }
 
-  findBadge(id: string) {
+  findBadge(id: string): Promise<BadgeRow | undefined> {
     return this.db.query.badges.findFirst({ where: eq(badges.id, id) })
   }
 
-  async createBadge(badge: BadgeInsert) {
+  async createBadge(badge: BadgeInsert): Promise<BadgeRow> {
     return requireRow(await this.db.insert(badges).values(badge).returning(), "badges")
   }
 
-  async updateBadge(id: string, patch: Partial<BadgeInsert>) {
+  async updateBadge(id: string, patch: Partial<BadgeInsert>): Promise<BadgeRow | undefined> {
     const [badge] = await this.db.update(badges).set(patch).where(eq(badges.id, id)).returning()
     return badge
   }

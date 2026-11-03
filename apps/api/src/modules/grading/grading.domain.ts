@@ -20,9 +20,9 @@ type RuleOf<Type extends RuleType> = Extract<SourceRule, { type: Type }>
 /** Todas as variáveis vão numa única sonda; a análise de AST também é única. */
 const GLOBALS_PROBE_ID = "globals"
 const AST_PROBE_ID = "ast"
-const callProbeId = (caseId: string) => `call:${caseId}`
-const runProbeId = (caseId: string) => `run:${caseId}`
-const legacyProbeId = (caseId: string) => `legacy:${caseId}`
+const callProbeId = (caseId: string): string => `call:${caseId}`
+const runProbeId = (caseId: string): string => `run:${caseId}`
+const legacyProbeId = (caseId: string): string => `legacy:${caseId}`
 
 /** Argumentos ficam curtos na mensagem para não esconder o que importa. */
 const MAX_ARGUMENT_REPR = 40
@@ -215,7 +215,7 @@ const CONSTRUCT_NAMES: Record<string, string> = {
   recursion: "recursão",
 }
 
-const constructName = (construct: string) => CONSTRUCT_NAMES[construct] ?? construct
+const constructName = (construct: string): string => CONSTRUCT_NAMES[construct] ?? construct
 
 interface SourceRuleStrategy<Type extends RuleType> {
   check(rule: RuleOf<Type>, features: AstFeatures): boolean

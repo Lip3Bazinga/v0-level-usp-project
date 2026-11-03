@@ -1,6 +1,6 @@
 import type {
   ChangePasswordInput, DeleteAccountInput, Profile, RequestPasswordResetInput, ResetPasswordInput, SessionResponse,
-  SignInInput, SignUpInput, UpdateMyProfileInput, UserDataExport,
+  SignInInput, SignUpInput, UpdateMyProfileInput, UploadedImage, UserDataExport,
 } from "@levelusp/contracts"
 import { api, HTTP_STATUS, nullOnStatus } from "./client"
 
@@ -31,6 +31,6 @@ export const fetchMyDataExport = () => api.get<UserDataExport>("/me/export")
 export async function uploadImage(file: File): Promise<string> {
   const form = new FormData()
   form.append("file", file)
-  const { url } = await api.post<{ url: string }, FormData>("/uploads/images", form)
+  const { url } = await api.post<UploadedImage, FormData>("/uploads/images", form)
   return url
 }

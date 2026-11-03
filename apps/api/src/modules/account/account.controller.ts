@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, Inject, Res } from "@nestjs/co
 import { ApiTags } from "@nestjs/swagger"
 import { Throttle } from "@nestjs/throttler"
 import type { Response } from "express"
-import { deleteAccountSchema, optionalBodySchema, type DeleteAccountInput } from "@levelusp/contracts"
+import { deleteAccountSchema, optionalBodySchema, type DeleteAccountInput, type UserDataExport } from "@levelusp/contracts"
 import { ENV } from "@/config/config.module"
 import type { Env } from "@/config/env"
 import { CurrentUser } from "@/common/decorators/auth.decorators"
@@ -32,7 +32,7 @@ export class AccountController {
   }
 
   @Get("export")
-  async getMyDataExport(@CurrentUser() user: AuthUser, @Res({ passthrough: true }) response: Response) {
+  async getMyDataExport(@CurrentUser() user: AuthUser, @Res({ passthrough: true }) response: Response): Promise<UserDataExport> {
     const data = await this.account.getMyDataExport(user)
     response.setHeader("Content-Disposition", `attachment; filename="levelusp-meus-dados.json"`)
     response.setHeader("Cache-Control", "no-store")

@@ -1,11 +1,12 @@
 import { Injectable } from "@nestjs/common"
 import type { GrantedBadge, StreakResult } from "@levelusp/contracts"
 import { saoPauloDate } from "@/common/time/time"
-import { TransactionRunner, type DbOrTx } from "@/infra/database/database.module"
+import { TransactionRunner } from "@/infra/database/database.module"
 import { NotificationsService } from "../notifications/notifications.service"
 import { toGrantedBadge } from "./badge.mapper"
 import { eligibleBadges, levelForXp, nextStreak, type PlayerStats } from "./gamification.domain"
 import { GamificationRepository } from "./gamification.repository"
+import type { DbTransaction, DbExecutor } from "@levelusp/db"
 
 export interface CompletionOutcome {
   /** false quando a lição já estava concluída (XP não é creditado de novo). */
@@ -37,12 +38,12 @@ export class GamificationService {
   ) {}
 
   /** Registra atividade do dia (login ou conclusão) e atualiza a sequência. */
-  async touchStreak(userId: string, tx?: DbOrTx): Promise<StreakResult> {
-    const current = await this.repo.lockStreak(userId, tx)
+  async touchStreak(userId: string, executor?: DbExecutor): Promise<StreakResult> {
+    const current = await this.repo.lockStreak(userId, executor)
     if (!current) return { ...NO_STREAK }
     const today = saoPauloDate()
     const result = nextStreak(current.lastActivityDate, today, current.currentStreak)
-    if (current.lastActivityDate !== today) await this.repo.updateStreak({ userId, streak: result.streak, today }, tx)
+    if (current.lastActivityDate !== today) await this.repo.updateStreak({ userId, streak: result.streak, today }, executor)
     return result
   }
 
@@ -51,7 +52,7 @@ export class GamificationService {
    * Deve ser chamada SOMENTE depois de um veredito do servidor.
    */
   completeLesson(userId: string, lessonId: string, options: CompletionOptions = {}): Promise<CompletionOutcome> {
-    return this.transactions.run(async (tx) => {
+    return this.transactions.run(async (tx: DbTransaction) => {
       const lesson = await this.repo.findLessonReward(lessonId, tx)
       if (!lesson) throw new Error(`lição ${lessonId} inexistente`)
 
@@ -77,10 +78,10 @@ export class GamificationService {
   }
 
   /** Concede badges automáticos elegíveis; devolve só os novos. */
-  private async grantBadges(userId: string, tx: DbOrTx): Promise<GrantedBadge[]> {
-    const profile = await this.repo.findProfile(userId, tx)
+  private async grantBadges(userId: string, executor: DbExecutor): Promise<GrantedBadge[]> {
+    const profile = await this.repo.findProfile(userId, executor)
     if (!profile) return []
-    const rules = await this.repo.listBadgeRules(tx)
+    const rules = await this.repo.listBadgeRules(executor)
     const stats: PlayerStats = {
       total_xp: profile.totalXp,
       current_streak: profile.currentStreak,
@@ -88,25 +89,25 @@ export class GamificationService {
       lessons_completed: profile.lessonsCompleted,
       courses_completed: profile.coursesCompleted,
     }
-    const earnedIds = eligibleBadges(stats, rules, await this.repo.listOwnedBadgeIds(userId, tx))
+    const earnedIds = eligibleBadges(stats, rules, await this.repo.listOwnedBadgeIds(userId, executor))
     if (!earnedIds.length) return []
-    await this.repo.grantBadges(userId, earnedIds, tx)
+    await this.repo.grantBadges(userId, earnedIds, executor)
     const earned = rules.filter((rule) => earnedIds.includes(rule.id))
     await this.notifications.notifyMany(
       userId,
       earned.map((badge) => ({ title: `Nova conquista: ${badge.name}`, body: badge.description, kind: "success", href: "/perfil" })),
-      tx,
+      executor,
     )
     return earned.map(toGrantedBadge)
   }
 
   /** Conta o curso como concluído quando todas as lições publicadas estão feitas. */
-  private async markCourseIfCompleted(userId: string, courseId: string, tx: DbOrTx): Promise<boolean> {
-    const publishedIds = (await this.repo.listPublishedLessonIds(courseId, tx)).map((lesson) => lesson.id)
+  private async markCourseIfCompleted(userId: string, courseId: string, executor: DbExecutor): Promise<boolean> {
+    const publishedIds = (await this.repo.listPublishedLessonIds(courseId, executor)).map((lesson) => lesson.id)
     if (!publishedIds.length) return false
-    if ((await this.repo.countCompleted(userId, publishedIds, tx)) < publishedIds.length) return false
-    await this.repo.incrementCoursesCompleted(userId, tx)
-    const courseTitle = await this.repo.findCourseTitle(courseId, tx)
+    if ((await this.repo.countCompleted(userId, publishedIds, executor)) < publishedIds.length) return false
+    await this.repo.incrementCoursesCompleted(userId, executor)
+    const courseTitle = await this.repo.findCourseTitle(courseId, executor)
     await this.notifications.notify(
       userId,
       {
@@ -115,7 +116,7 @@ export class GamificationService {
         kind: "success",
         href: `/cursos/${courseId}`,
       },
-      tx,
+      executor,
     )
     return true
   }

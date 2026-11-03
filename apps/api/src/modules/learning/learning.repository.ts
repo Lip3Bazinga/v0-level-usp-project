@@ -4,20 +4,27 @@ import { lessonProgress, lessons, submissions, type SubmissionInsert } from "@le
 import type { ProjectFile } from "@levelusp/contracts"
 import { requireRow } from "@/common/database/rows"
 import { InjectDb, type Database } from "@/infra/database/database.module"
+import type { LessonProgressRow, LessonRow } from "@levelusp/db"
+
+/** Lição com o gabarito (`testCases`) e o que a correção e o crédito de XP precisam. */
+export type GradableLessonRow = Pick<
+  LessonRow,
+  "id" | "lessonType" | "published" | "createdBy" | "testCases" | "timeLimit" | "xpReward" | "courseId"
+>
 
 @Injectable()
 export class LearningRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
   /** Lição para correção: inclui test_cases (nunca serializar para o cliente). */
-  findLessonForGrading(id: string) {
+  findLessonForGrading(id: string): Promise<GradableLessonRow | undefined> {
     return this.db.query.lessons.findFirst({
       where: eq(lessons.id, id),
       columns: { id: true, lessonType: true, published: true, createdBy: true, testCases: true, timeLimit: true, xpReward: true, courseId: true },
     })
   }
 
-  listProgress(userId: string) {
+  listProgress(userId: string): Promise<LessonProgressRow[]> {
     return this.db.select().from(lessonProgress).where(eq(lessonProgress.userId, userId))
   }
 

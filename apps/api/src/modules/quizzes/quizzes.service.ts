@@ -8,7 +8,7 @@ import { RateLimitService } from "@/common/rate-limit/rate-limit.service"
 import { GamificationService } from "../gamification/gamification.service"
 import { gradeQuiz } from "./quizzes.domain"
 import { toQuizQuestionFull, toQuizQuestionPublic } from "./quizzes.mapper"
-import { QuizzesRepository } from "./quizzes.repository"
+import { QuizzesRepository, type QuizLessonRow } from "./quizzes.repository"
 
 @Injectable()
 export class QuizzesService {
@@ -70,14 +70,14 @@ export class QuizzesService {
   }
 
   /** Lição de quiz visível ao usuário (publicada, ou rascunho do dono/admin). */
-  private async findVisibleQuiz(user: AuthUser, lessonId: string) {
+  private async findVisibleQuiz(user: AuthUser, lessonId: string): Promise<QuizLessonRow> {
     const lesson = await this.repo.findLesson(lessonId)
     if (!lesson || !canViewContent(user, lesson)) throw NotFound("Lição")
     if (lesson.lessonType !== "quiz") throw Unprocessable("Esta lição não é um questionário.", "NOT_A_QUIZ")
     return lesson
   }
 
-  private async findManageableLesson(user: AuthUser, lessonId: string) {
+  private async findManageableLesson(user: AuthUser, lessonId: string): Promise<QuizLessonRow> {
     const lesson = await this.repo.findLesson(lessonId)
     if (!lesson || !canViewContent(user, lesson)) throw NotFound("Lição")
     if (!canManage(user, lesson.createdBy)) throw Forbidden("Só o autor da lição (ou um admin) pode ver o gabarito.")

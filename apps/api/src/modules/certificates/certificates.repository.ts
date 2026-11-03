@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common"
 import { and, desc, eq } from "drizzle-orm"
-import { certificates, courses, profiles } from "@levelusp/db"
+import { certificates, courses, profiles, type CertificateRow } from "@levelusp/db"
 import { InjectDb, type Database } from "@/infra/database/database.module"
 import type { CertificateSummaryRow, PublicCertificateRow } from "./certificates.mapper"
 
@@ -18,6 +18,9 @@ export interface NewCertificate {
   verificationCode: string
   examScore: number
 }
+
+/** O que a emissão devolve para montar a resposta (código, data e nota). */
+export type IssuedCertificateRow = Pick<CertificateRow, "verificationCode" | "issuedAt" | "examScore">
 
 @Injectable()
 export class CertificatesRepository {
@@ -46,7 +49,7 @@ export class CertificatesRepository {
    * Insere o certificado. Em conflito (código repetido ou já emitido para o
    * par aluno+curso) não insere e devolve null — o service decide o que fazer.
    */
-  async create(certificate: NewCertificate) {
+  async create(certificate: NewCertificate): Promise<IssuedCertificateRow | null> {
     const [inserted] = await this.db
       .insert(certificates)
       .values({ ...certificate, projectStatus: "passed" })

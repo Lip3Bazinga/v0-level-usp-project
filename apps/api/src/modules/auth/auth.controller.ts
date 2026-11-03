@@ -17,7 +17,7 @@ import { AuthService, type ClientInfo, type IssuedSession } from "./auth.service
 import { clearSessionCookie, setSessionCookie } from "./session.cookie"
 
 /** AUTH_THROTTLE_LIMIT permite afrouxar o limite por IP nos testes automatizados. */
-const credentialThrottleLimit = () => Number(process.env.AUTH_THROTTLE_LIMIT ?? IP_THROTTLE.credentialLimit)
+const credentialThrottleLimit = (): number => Number(process.env.AUTH_THROTTLE_LIMIT ?? IP_THROTTLE.credentialLimit)
 const CREDENTIAL_THROTTLE = { default: { limit: credentialThrottleLimit, ttl: IP_THROTTLE.windowMs } }
 /** "Esqueci a senha" dispara e-mail: metade do limite das demais rotas de credencial. */
 const PASSWORD_FORGOT_THROTTLE = { default: { limit: () => Math.ceil(credentialThrottleLimit() / 2), ttl: IP_THROTTLE.windowMs } }

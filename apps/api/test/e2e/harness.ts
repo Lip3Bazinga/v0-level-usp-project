@@ -1,11 +1,12 @@
+import { Server } from "node:http"
 import { Test } from "@nestjs/testing"
 import type { NestExpressApplication } from "@nestjs/platform-express"
 import type { INestApplication } from "@nestjs/common"
 import type { QueryResultRow } from "pg"
-import request from "supertest"
-import { eq, sql, type SQL } from "drizzle-orm"
+import request, { type Response, type Test as HttpTest } from "supertest"
+import { eq, sql, type Assume, type SQL } from "drizzle-orm"
 import { lessons, profiles, type LessonInsert, type LessonRow } from "@levelusp/db"
-import type { ProbeObservation, RunnerJob, RunnerResult, UserRole } from "@levelusp/contracts"
+import type { ProbeObservation, RunnerJob, RunnerResult, SessionResponse, UserRole } from "@levelusp/contracts"
 import { AppModule } from "@/app.module"
 import { configureApp } from "@/bootstrap"
 import { requireRow } from "@/common/database/rows"
@@ -26,24 +27,25 @@ export class FakeRunner implements CodeRunner, RunnerHealthProbe {
   jobs: RunnerJob[] = []
   private responder: Responder = (job) => job.probes.map((probe) => ({ id: probe.id, ok: true }))
 
-  respond(responder: Responder) {
+  respond(responder: Responder): void {
     this.responder = responder
   }
 
-  async run(job: RunnerJob): Promise<RunnerResult> {
+  run(job: RunnerJob): Promise<RunnerResult> {
     this.jobs.push(job)
-    return { observations: this.responder(job), engine: { python: "fake", runtime: "fake" }, durationMs: 1 }
+    return Promise.resolve({ observations: this.responder(job), engine: { python: "fake", runtime: "fake" }, durationMs: 1 })
   }
 
-  async healthy() {
-    return true
+  healthy(): Promise<boolean> {
+    return Promise.resolve(true)
   }
 }
 
 export class FakeMail {
   sent: MailMessage[] = []
-  async send(message: MailMessage) {
+  send(message: MailMessage): Promise<void> {
     this.sent.push(message)
+    return Promise.resolve()
   }
 }
 
@@ -100,8 +102,22 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
 }
 
 /** Agente HTTP com cookies e o cabeçalho anti-CSRF que o front envia. */
-export function agent(app: INestApplication) {
-  const httpAgent = request.agent(app.getHttpServer())
+export interface Agent {
+  /** Agente supertest sem o cabeçalho anti-CSRF (para testar a proteção e enviar multipart). */
+  raw: ReturnType<typeof request.agent>
+  get: (url: string) => HttpTest
+  post: (url: string, body?: object) => HttpTest
+  put: (url: string, body?: object) => HttpTest
+  patch: (url: string, body?: object) => HttpTest
+  delete: (url: string) => HttpTest
+}
+
+/** Agente HTTP com cookies e o cabeçalho anti-CSRF que o front envia. */
+export function agent(app: INestApplication): Agent {
+  // getHttpServer() é `any` no Nest; com a plataforma Express é sempre um http.Server.
+  const server: unknown = app.getHttpServer()
+  if (!(server instanceof Server)) throw new Error("servidor HTTP inesperado")
+  const httpAgent = request.agent(server)
   return {
     raw: httpAgent,
     get: (url: string) => httpAgent.get(url),
@@ -111,15 +127,32 @@ export function agent(app: INestApplication) {
     delete: (url: string) => httpAgent.delete(url).set(CSRF_HEADER_NAME, "1"),
   }
 }
-export type Agent = ReturnType<typeof agent>
+
+/**
+ * Corpo JSON da resposta tipado pelo contrato. O supertest entrega `any`; a afirmação
+ * de tipo fica concentrada aqui para os testes acessarem os campos pelos DTOs de
+ * `@levelusp/contracts` (um campo renomeado no contrato quebra a compilação do teste).
+ */
+export function bodyOf<T>(response: Response): T {
+  const body: unknown = response.body
+  return body as T
+}
+
+/** Usuário criado por {@link signUp}, já com sessão no agente. */
+export interface SignedUpUser {
+  agent: Agent
+  id: string
+  email: string
+  password: string
+}
 
 let signUpCounter = 0
-export async function signUp(app: INestApplication, role: UserRole = "student", db?: Database) {
+export async function signUp(app: INestApplication, role: UserRole = "student", db?: Database): Promise<SignedUpUser> {
   const userAgent = agent(app)
   const email = `user${++signUpCounter}_${Date.now()}@usp.br`
   const response = await userAgent.post("/api/auth/sign-up", { email, password: TEST_PASSWORD, full_name: `Usuário ${signUpCounter}` })
   if (response.status !== 201) throw new Error(`sign-up falhou: ${response.status} ${JSON.stringify(response.body)}`)
-  const id: string = response.body.user.id
+  const { id } = bodyOf<SessionResponse>(response).user
   if (role !== "student" && db) await db.update(profiles).set({ role }).where(eq(profiles.id, id))
   return { agent: userAgent, id, email, password: TEST_PASSWORD }
 }
@@ -133,7 +166,7 @@ export async function createLesson(db: Database, values: Partial<LessonInsert> =
 }
 
 /** Linhas de uma consulta SQL crua, com o formato que o teste espera. */
-export async function queryRows<Row extends QueryResultRow>(db: Database, query: SQL) {
+export async function queryRows<Row extends QueryResultRow>(db: Database, query: SQL): Promise<Assume<Row, QueryResultRow>[]> {
   const result = await db.execute<Row>(query)
   return result.rows
 }

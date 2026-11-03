@@ -7,7 +7,7 @@ const CODE_BLOCK_LENGTH = 4
 
 /** Código de verificação legível: LVL-XXXX-XXXX (31^8 ≈ 2^39,6 combinações). */
 export function generateVerificationCode(randomBelow: (max: number) => number = randomInt): string {
-  const block = () => Array.from({ length: CODE_BLOCK_LENGTH }, () => CODE_ALPHABET.charAt(randomBelow(CODE_ALPHABET.length))).join("")
+  const block = (): string => Array.from({ length: CODE_BLOCK_LENGTH }, () => CODE_ALPHABET.charAt(randomBelow(CODE_ALPHABET.length))).join("")
   return `LVL-${block()}-${block()}`
 }
 

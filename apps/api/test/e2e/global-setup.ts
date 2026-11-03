@@ -9,7 +9,7 @@ import { migrate } from "drizzle-orm/node-postgres/migrator"
 
 export const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL ?? "postgres://levelusp:levelusp@127.0.0.1:5432/levelusp_test"
 
-export default async function setup() {
+export default async function setup(): Promise<void> {
   const pool = new pg.Pool({ connectionString: TEST_DATABASE_URL, max: 1 })
   try {
     await pool.query("drop schema if exists public cascade; drop schema if exists drizzle cascade; create schema public;")

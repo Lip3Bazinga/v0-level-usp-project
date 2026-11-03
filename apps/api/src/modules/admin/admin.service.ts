@@ -5,7 +5,7 @@ import type {
 } from "@levelusp/contracts"
 import type { BadgeInsert, ProfileInsert, ProfileRow } from "@levelusp/db"
 import { isUniqueViolation } from "@/common/database/pg-errors"
-import { BadRequest, Conflict, Forbidden, NotFound } from "@/common/errors/app-error"
+import { BadRequest, Conflict, Forbidden, NotFound, type AppError } from "@/common/errors/app-error"
 import type { AuthUser } from "@/common/http/request"
 import { buildPatch, presentFields, type PatchMapping } from "@/common/mapping/patch"
 import { RATE_LIMITS } from "@/common/rate-limit/rate-limit.policies"
@@ -55,7 +55,7 @@ interface UserUpdateAudit {
   fields: string[]
 }
 
-const badgeExists = () => Conflict("Já existe uma badge com este identificador.", "BADGE_EXISTS")
+const badgeExists = (): AppError => Conflict("Já existe uma badge com este identificador.", "BADGE_EXISTS")
 
 @Injectable()
 export class AdminService {

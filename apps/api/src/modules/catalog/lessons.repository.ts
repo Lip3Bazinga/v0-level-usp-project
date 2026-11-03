@@ -4,7 +4,8 @@ import { lessonQuizQuestions, lessons, type LessonInsert } from "@levelusp/db"
 import { requireRow } from "@/common/database/rows"
 import { InjectDb, type Database } from "@/infra/database/database.module"
 import type { LessonMetricsRow } from "./catalog.mapper"
-import { lessonSummaryColumns, publicLessonColumns } from "./lesson-columns"
+import { lessonSummaryColumns, publicLessonColumns, type LessonSummaryRow, type PublicLessonRow } from "./lesson-columns"
+import type { LessonRow } from "@levelusp/db"
 
 /** Coluna externa qualificada para subconsultas correlacionadas (ver courses.repository). */
 const outerLessonId = sql.raw(`"lessons"."id"`)
@@ -16,26 +17,26 @@ const catalogOrder = [asc(lessons.courseId), asc(lessons.order), asc(lessons.cre
 export class LessonsRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
-  listPublishedSummaries() {
+  listPublishedSummaries(): Promise<LessonSummaryRow[]> {
     return this.db.select(lessonSummaryColumns).from(lessons).where(eq(lessons.published, true)).orderBy(...catalogOrder)
   }
 
-  listPublished() {
+  listPublished(): Promise<PublicLessonRow[]> {
     return this.db.select(publicLessonColumns).from(lessons).where(eq(lessons.published, true)).orderBy(...catalogOrder)
   }
 
-  async findPublic(id: string) {
+  async findPublic(id: string): Promise<PublicLessonRow | undefined> {
     const [lesson] = await this.db.select(publicLessonColumns).from(lessons).where(eq(lessons.id, id)).limit(1)
     return lesson
   }
 
   /** Linha completa, COM gabarito — só para autoria (dono/admin). */
-  findFull(id: string) {
+  findFull(id: string): Promise<LessonRow | undefined> {
     return this.db.query.lessons.findFirst({ where: eq(lessons.id, id) })
   }
 
   /** `ownerId` null = todas (admin). */
-  listByOwner(ownerId: string | null) {
+  listByOwner(ownerId: string | null): Promise<PublicLessonRow[]> {
     return this.db
       .select(publicLessonColumns)
       .from(lessons)
@@ -67,11 +68,11 @@ export class LessonsRepository {
     return colliding.flatMap((lesson) => (lesson.slug ? [lesson.slug] : []))
   }
 
-  async create(values: LessonInsert) {
+  async create(values: LessonInsert): Promise<LessonRow> {
     return requireRow(await this.db.insert(lessons).values(values).returning(), "lessons")
   }
 
-  async update(id: string, patch: Partial<LessonInsert>) {
+  async update(id: string, patch: Partial<LessonInsert>): Promise<LessonRow | undefined> {
     const [lesson] = await this.db.update(lessons).set(patch).where(eq(lessons.id, id)).returning()
     return lesson
   }

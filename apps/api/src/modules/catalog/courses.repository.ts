@@ -4,7 +4,8 @@ import { courses, enrollments, lessons, type CourseInsert } from "@levelusp/db"
 import { requireRow } from "@/common/database/rows"
 import { InjectDb, type Database } from "@/infra/database/database.module"
 import type { CourseWithAggregatesRow } from "./catalog.mapper"
-import { publicLessonColumns } from "./lesson-columns"
+import { publicLessonColumns, type PublicLessonRow } from "./lesson-columns"
+import type { DbTransaction, CourseRow, LessonRow } from "@levelusp/db"
 
 /**
  * Referência qualificada à coluna externa nas subconsultas correlacionadas
@@ -14,7 +15,7 @@ import { publicLessonColumns } from "./lesson-columns"
 const outerCourseId = sql.raw(`"courses"."id"`)
 /** Lições publicadas do curso (o número que o aluno vê no card). */
 const publishedLessonCount = sql<number>`(select count(*)::int from lessons l where l.course_id = ${outerCourseId} and l.published = true)`
-const isEnrolled = (userId: string) =>
+const isEnrolled = (userId: string): SQL<boolean> =>
   sql<boolean>`exists(select 1 from enrollments e where e.course_id = ${outerCourseId} and e.user_id = ${userId})`
 
 export interface LessonPlacement {
@@ -28,32 +29,35 @@ export class CoursesRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
   /** Cursos com contagem de lições e, se houver usuário, a matrícula dele. */
-  private selectWithAggregates(userId: string | undefined, where: SQL | undefined) {
-    return this.db
+  private listWithAggregates(userId: string | undefined, where: SQL | undefined, orderBy?: SQL): Promise<CourseWithAggregatesRow[]> {
+    const query = this.db
       .select({ course: courses, lessonCount: publishedLessonCount, enrolled: userId ? isEnrolled(userId) : sql<null>`null` })
       .from(courses)
       .where(where)
+      .$dynamic()
+    return orderBy ? query.orderBy(orderBy) : query
   }
 
   listPublished(userId?: string): Promise<CourseWithAggregatesRow[]> {
-    return this.selectWithAggregates(userId, eq(courses.published, true)).orderBy(asc(courses.title))
+    return this.listWithAggregates(userId, eq(courses.published, true), asc(courses.title))
   }
 
   /** `ownerId` null = todos (admin). */
   listByOwner(ownerId: string | null): Promise<CourseWithAggregatesRow[]> {
-    return this.selectWithAggregates(undefined, ownerId ? eq(courses.createdBy, ownerId) : undefined).orderBy(desc(courses.createdAt))
+    return this.listWithAggregates(undefined, ownerId ? eq(courses.createdBy, ownerId) : undefined, desc(courses.createdAt))
   }
 
+  /** O filtro é pela chave primária: no máximo uma linha. */
   async findWithAggregates(id: string, userId?: string): Promise<CourseWithAggregatesRow | undefined> {
-    const [course] = await this.selectWithAggregates(userId, eq(courses.id, id)).limit(1)
+    const [course] = await this.listWithAggregates(userId, eq(courses.id, id))
     return course
   }
 
-  findById(id: string) {
+  findById(id: string): Promise<CourseRow | undefined> {
     return this.db.query.courses.findFirst({ where: eq(courses.id, id) })
   }
 
-  async create(values: CourseInsert) {
+  async create(values: CourseInsert): Promise<CourseRow> {
     return requireRow(await this.db.insert(courses).values(values).returning(), "courses")
   }
 
@@ -66,7 +70,7 @@ export class CoursesRepository {
   }
 
   /** Lições do curso sem gabarito, na ordem do curso. */
-  listLessons(courseId: string, onlyPublished: boolean) {
+  listLessons(courseId: string, onlyPublished: boolean): Promise<PublicLessonRow[]> {
     return this.db
       .select(publicLessonColumns)
       .from(lessons)
@@ -74,12 +78,12 @@ export class CoursesRepository {
       .orderBy(asc(lessons.order), asc(lessons.createdAt))
   }
 
-  listLessonOrders(courseId: string) {
+  listLessonOrders(courseId: string): Promise<Pick<LessonRow, "id" | "order">[]> {
     return this.db.select({ id: lessons.id, order: lessons.order }).from(lessons).where(eq(lessons.courseId, courseId))
   }
 
   /** Dados mínimos de uma lição para checar dono ao anexar/desanexar. */
-  findLessonRef(lessonId: string) {
+  findLessonRef(lessonId: string): Promise<Pick<LessonRow, "id" | "courseId" | "published" | "createdBy"> | undefined> {
     return this.db.query.lessons.findFirst({
       where: eq(lessons.id, lessonId),
       columns: { id: true, courseId: true, createdBy: true, published: true },
@@ -88,7 +92,7 @@ export class CoursesRepository {
 
   /** Grava a ordem 1..n numa única transação (tudo ou nada). */
   async reorder(courseId: string, lessonIds: string[]): Promise<void> {
-    await this.db.transaction(async (tx) => {
+    await this.db.transaction(async (tx: DbTransaction) => {
       for (const [index, lessonId] of lessonIds.entries()) {
         await tx.update(lessons).set({ order: index + 1 }).where(and(eq(lessons.id, lessonId), eq(lessons.courseId, courseId)))
       }

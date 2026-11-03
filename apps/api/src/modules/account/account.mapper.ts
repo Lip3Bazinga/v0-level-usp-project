@@ -1,8 +1,10 @@
-import type { UserDataExport } from "@levelusp/contracts"
+import type {
+  AccountExport, BadgeEarnedExport, CertificateExport, EnrollmentExport, ExamAttemptExport, SessionExport, SubmissionExport,
+} from "@levelusp/contracts"
 import type { ExamAttemptRow, SubmissionRow, UserBadgeRow } from "@levelusp/db"
 import type { AccountRow, CertificateExportRow, EnrollmentExportRow, SessionExportRow } from "./account.repository"
 
-export function toAccountExport(account: AccountRow): UserDataExport["account"] {
+export function toAccountExport(account: AccountRow): AccountExport {
   return {
     email: account.email,
     email_verified_at: account.emailVerifiedAt,
@@ -11,7 +13,7 @@ export function toAccountExport(account: AccountRow): UserDataExport["account"] 
   }
 }
 
-export function toSubmissionExport(submission: SubmissionRow) {
+export function toSubmissionExport(submission: SubmissionRow): SubmissionExport {
   return {
     id: submission.id,
     lesson_id: submission.lessonId,
@@ -25,15 +27,15 @@ export function toSubmissionExport(submission: SubmissionRow) {
   }
 }
 
-export function toEnrollmentExport(enrollment: EnrollmentExportRow) {
+export function toEnrollmentExport(enrollment: EnrollmentExportRow): EnrollmentExport {
   return { course_id: enrollment.courseId, course_title: enrollment.courseTitle, enrolled_at: enrollment.enrolledAt }
 }
 
-export function toBadgeExport(userBadge: UserBadgeRow) {
+export function toBadgeExport(userBadge: UserBadgeRow): BadgeEarnedExport {
   return { badge_id: userBadge.badgeId, earned_at: userBadge.earnedAt }
 }
 
-export function toCertificateExport({ certificate, courseTitle }: CertificateExportRow) {
+export function toCertificateExport({ certificate, courseTitle }: CertificateExportRow): CertificateExport {
   return {
     id: certificate.id,
     course_id: certificate.courseId,
@@ -45,7 +47,7 @@ export function toCertificateExport({ certificate, courseTitle }: CertificateExp
   }
 }
 
-export function toExamAttemptExport(attempt: ExamAttemptRow) {
+export function toExamAttemptExport(attempt: ExamAttemptRow): ExamAttemptExport {
   return {
     id: attempt.id,
     exam_id: attempt.examId,
@@ -57,7 +59,7 @@ export function toExamAttemptExport(attempt: ExamAttemptRow) {
   }
 }
 
-export function toSessionExport(session: SessionExportRow) {
+export function toSessionExport(session: SessionExportRow): SessionExport {
   return {
     created_at: session.createdAt,
     last_seen_at: session.lastSeenAt,

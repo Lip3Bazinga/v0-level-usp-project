@@ -2,9 +2,8 @@ import { Body, Controller, Get, HttpCode, Param, Post, Query, Res } from "@nestj
 import { ApiTags } from "@nestjs/swagger"
 import type { Response } from "express"
 import {
-  optionalBodySchema, reviewTeacherSchema, teacherApprovalStatusQuerySchema, teacherRequestSchema,
-  type ReviewTeacherInput, type TeacherApprovalStatusQuery, type TeacherRequestInput,
-} from "@levelusp/contracts"
+  nonEmpty, optionalBodySchema, reviewTeacherSchema, teacherApprovalStatusQuerySchema, teacherRequestSchema,
+  type ReviewTeacherInput, type TeacherApprovalStatusQuery, type TeacherRequestInput, type TeacherApproval } from "@levelusp/contracts"
 import { CurrentUser, Roles } from "@/common/decorators/auth.decorators"
 import type { AuthUser } from "@/common/http/request"
 import { UuidPipe } from "@/common/pipes/uuid.pipe"
@@ -19,7 +18,7 @@ export class TeacherRequestsController {
   constructor(private readonly requests: TeacherRequestsService) {}
 
   @Post("me/teacher-request")
-  submit(@CurrentUser() user: AuthUser, @Body(new ZodPipe(teacherRequestSchema)) body: TeacherRequestInput) {
+  submit(@CurrentUser() user: AuthUser, @Body(new ZodPipe(teacherRequestSchema)) body: TeacherRequestInput): Promise<TeacherApproval> {
     return this.requests.submit(user, body)
   }
 
@@ -31,7 +30,7 @@ export class TeacherRequestsController {
 
   @Roles("admin")
   @Get("admin/teacher-approvals")
-  list(@Query(new ZodPipe(teacherApprovalStatusQuerySchema)) query: TeacherApprovalStatusQuery) {
+  list(@Query(new ZodPipe(teacherApprovalStatusQuerySchema)) query: TeacherApprovalStatusQuery): Promise<TeacherApproval[]> {
     return this.requests.list(query.status)
   }
 
@@ -39,13 +38,13 @@ export class TeacherRequestsController {
   @HttpCode(204)
   @Post("admin/teacher-approvals/:id/approve")
   async approve(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(reviewBody)) body: ReviewTeacherInput): Promise<void> {
-    await this.requests.approve(user, id, body.note || undefined)
+    await this.requests.approve(user, id, nonEmpty(body.note))
   }
 
   @Roles("admin")
   @HttpCode(204)
   @Post("admin/teacher-approvals/:id/reject")
   async reject(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(reviewBody)) body: ReviewTeacherInput): Promise<void> {
-    await this.requests.reject(user, id, body.note || undefined)
+    await this.requests.reject(user, id, nonEmpty(body.note))
   }
 }

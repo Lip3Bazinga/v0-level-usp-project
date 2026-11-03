@@ -39,7 +39,7 @@ function requestIdFrom(header: string | string[] | undefined): string {
           redact: ["req.headers.cookie", "req.headers.authorization", 'res.headers["set-cookie"]', "req.body.password"],
           customProps: () => ({ env: env.APP_ENV }),
           autoLogging: { ignore: (request) => request.url?.startsWith("/api/health") ?? false },
-          transport: env.APP_ENV === "dev" ? { target: "pino-pretty", options: { singleLine: true } } : undefined,
+          ...(env.APP_ENV === "dev" ? { transport: { target: "pino-pretty", options: { singleLine: true } } } : {}),
         },
       }),
     }),
@@ -57,7 +57,7 @@ function requestIdFrom(header: string | string[] | undefined): string {
   ],
 })
 export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
+  configure(consumer: MiddlewareConsumer): void {
     consumer.apply(CsrfMiddleware).forRoutes("*path")
   }
 }

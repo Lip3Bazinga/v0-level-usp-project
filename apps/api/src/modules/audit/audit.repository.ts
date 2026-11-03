@@ -3,6 +3,7 @@ import { desc } from "drizzle-orm"
 import { auditLog } from "@levelusp/db"
 import type { AuditSeverity } from "@levelusp/contracts"
 import { InjectDb, type Database } from "@/infra/database/database.module"
+import type { AuditLogRow } from "@levelusp/db"
 
 export interface AuditEntry {
   actorId: string | null
@@ -21,7 +22,7 @@ export class AuditRepository {
     await this.db.insert(auditLog).values(entry)
   }
 
-  list(limit: number) {
+  list(limit: number): Promise<AuditLogRow[]> {
     return this.db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(limit)
   }
 }

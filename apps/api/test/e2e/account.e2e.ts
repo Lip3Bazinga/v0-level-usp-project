@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { sql } from "drizzle-orm"
 import { badges, enrollments, courses, lessonProgress, submissions, userBadges } from "@levelusp/db"
-import { agent, countRows, CSRF_HEADER_NAME, createLesson, createTestApp, queryRows, signUp, type TestContext } from "./harness"
+import type { ApiErrorBody, UserDataExport } from "@levelusp/contracts"
+import { agent, bodyOf, countRows, CSRF_HEADER_NAME, createLesson, createTestApp, queryRows, signUp, type TestContext } from "./harness"
 import { requireRow } from "@/common/database/rows"
 
 describe("Conta e LGPD (e2e)", () => {
@@ -29,12 +30,12 @@ describe("Conta e LGPD (e2e)", () => {
     const response = await user.agent.get("/api/me/export")
     expect(response.status).toBe(200)
     expect(response.headers["content-disposition"]).toMatch(/attachment/)
-    const body = response.body
+    const body = bodyOf<UserDataExport>(response)
     expect(body.profile).toMatchObject({ id: user.id, email: user.email })
     expect(body.account).toMatchObject({ email: user.email })
     expect(body.lesson_progress).toHaveLength(1)
     expect(body.submissions).toHaveLength(1)
-    expect(body.submissions[0].files[0].content).toBe("print(1)")
+    expect(body.submissions[0]?.files[0]?.content).toBe("print(1)")
     expect(body.notes).toEqual([expect.objectContaining({ title: "Minha nota" })])
     expect(body.enrollments).toEqual([expect.objectContaining({ course_id: course.id, course_title: "Curso A" })])
     expect(body.badges).toEqual([expect.objectContaining({ badge_id: "b1" })])
@@ -63,7 +64,7 @@ describe("Conta e LGPD (e2e)", () => {
     const user = await signUp(ctx.app)
     const wrong = await user.agent.raw.delete("/api/me").set(CSRF_HEADER_NAME, "1").send({ password: "senhaErrada999" })
     expect(wrong.status).toBe(400)
-    expect(wrong.body.code).toBe("INVALID_PASSWORD")
+    expect(bodyOf<ApiErrorBody>(wrong).code).toBe("INVALID_PASSWORD")
     const missing = await user.agent.delete("/api/me")
     expect(missing.status).toBe(400)
     expect(await countRows(ctx.db, sql`select count(*)::int as n from users where id = ${user.id}`)).toBe(1)
@@ -99,7 +100,7 @@ describe("Conta e LGPD (e2e)", () => {
     const admin = await signUp(ctx.app, "admin", ctx.db)
     const response = await admin.agent.raw.delete("/api/me").set(CSRF_HEADER_NAME, "1").send({ password: admin.password })
     expect(response.status).toBe(409)
-    expect(response.body.code).toBe("LAST_ADMIN")
+    expect(bodyOf<ApiErrorBody>(response).code).toBe("LAST_ADMIN")
     await signUp(ctx.app, "admin", ctx.db)
     expect((await admin.agent.raw.delete("/api/me").set(CSRF_HEADER_NAME, "1").send({ password: admin.password })).status).toBe(204)
   })

@@ -45,12 +45,12 @@ function bodyParserStatus(exception: unknown): 400 | 413 | null {
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger("HTTP")
 
-  catch(exception: unknown, host: ArgumentsHost) {
+  catch(exception: unknown, host: ArgumentsHost): void {
     const http = host.switchToHttp()
     const response = http.getResponse<Response>()
     const request = http.getRequest<Request>()
     const body = this.toBody(exception)
-    body.requestId = typeof request.id === "string" ? request.id : undefined
+    if (typeof request.id === "string") body.requestId = request.id
     if (body.statusCode >= 500) {
       this.logger.error({ err: exception, path: request.url, requestId: body.requestId }, "erro não tratado")
     }
@@ -59,7 +59,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
   private toBody(exception: unknown): ApiErrorBody {
     if (exception instanceof AppError) {
-      return { statusCode: exception.statusCode, code: exception.code, message: exception.message, issues: exception.issues }
+      return {
+        statusCode: exception.statusCode,
+        code: exception.code,
+        message: exception.message,
+        ...(exception.issues ? { issues: exception.issues } : {}),
+      }
     }
     if (exception instanceof ThrottlerException) return { statusCode: 429, ...HTTP_ERRORS[429] }
     if (exception instanceof HttpException) {

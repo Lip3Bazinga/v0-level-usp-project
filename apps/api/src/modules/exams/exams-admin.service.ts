@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common"
 import {
   CORRECT_INDEX_OUT_OF_RANGE, type AdminExamQuestion, type AdminExamSummary, type ExamQuestionInput, type ExamQuestionUpdateInput,
 } from "@levelusp/contracts"
-import type { ExamQuestionInsert } from "@levelusp/db"
+import type { ExamQuestionInsert, ExamRow } from "@levelusp/db"
 import { NotFound, ValidationFailed } from "@/common/errors/app-error"
 import type { AuthUser } from "@/common/http/request"
 import { buildPatch, type PatchMapping } from "@/common/mapping/patch"
@@ -68,7 +68,7 @@ export class ExamsAdminService {
     return toAdminQuestion(question)
   }
 
-  private async findExam(examId: string) {
+  private async findExam(examId: string): Promise<Pick<ExamRow, "id" | "title">> {
     const exam = await this.repo.findExam(examId)
     if (!exam) throw NotFound("Prova")
     return exam

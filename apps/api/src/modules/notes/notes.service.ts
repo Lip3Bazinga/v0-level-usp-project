@@ -34,7 +34,7 @@ export class NotesService {
       lessonId: input.lesson_id ?? null,
       courseId: input.course_id ?? null,
     })
-    return toNote(note, { lessonTitle: lesson?.title, courseTitle: course?.title })
+    return toNote(note, { lessonTitle: lesson?.title ?? null, courseTitle: course?.title ?? null })
   }
 
   async update(user: AuthUser, id: string, input: NoteUpdateInput): Promise<Note> {

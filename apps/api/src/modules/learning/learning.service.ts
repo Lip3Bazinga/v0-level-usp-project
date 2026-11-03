@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common"
-import type { LessonCompletion, LessonProgress, ProjectFile, SubmissionResult } from "@levelusp/contracts"
+import type { LessonCompletion, LessonProgress, LessonSnapshot, ProjectFile, SubmissionResult } from "@levelusp/contracts"
 import { canViewContent } from "@/common/authorization/ownership"
 import { BadRequest, NotFound, Unprocessable } from "@/common/errors/app-error"
 import type { AuthUser } from "@/common/http/request"
@@ -9,7 +9,7 @@ import { GamificationService } from "../gamification/gamification.service"
 import { GradingService } from "../grading/grading.service"
 import { hasEntryFile, parseSnapshot } from "./learning.domain"
 import { toLessonCompletion, toLessonProgress } from "./learning.mapper"
-import { LearningRepository } from "./learning.repository"
+import { LearningRepository, type GradableLessonRow } from "./learning.repository"
 
 /** Exercício aprovado pelo corretor vale nota cheia (a nota parcial é só do quiz). */
 const FULL_SCORE = 100
@@ -34,7 +34,7 @@ export class LearningService {
     return progress.filter((lesson) => lesson.status === "completed").map((lesson) => lesson.lessonId)
   }
 
-  async getSnapshot(user: AuthUser, lessonId: string): Promise<{ files: ProjectFile[] | null }> {
+  async getSnapshot(user: AuthUser, lessonId: string): Promise<LessonSnapshot> {
     await this.findAccessibleLesson(user, lessonId)
     return { files: parseSnapshot(await this.repo.findSnapshot(user.id, lessonId)) }
   }
@@ -86,7 +86,7 @@ export class LearningService {
   }
 
   /** Publicada para todos; rascunho só para o autor e admins. */
-  private async findAccessibleLesson(user: AuthUser, lessonId: string) {
+  private async findAccessibleLesson(user: AuthUser, lessonId: string): Promise<GradableLessonRow> {
     const lesson = await this.repo.findLessonForGrading(lessonId)
     if (!lesson || !canViewContent(user, lesson)) throw NotFound("Lição")
     return lesson

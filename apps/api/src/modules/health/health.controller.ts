@@ -1,7 +1,7 @@
 import { Controller, Get } from "@nestjs/common"
 import { ApiTags } from "@nestjs/swagger"
 import { Public } from "@/common/decorators/auth.decorators"
-import { HealthService, type Readiness } from "./health.service"
+import { HealthService, type Liveness, type Readiness } from "./health.service"
 
 @ApiTags("health")
 @Controller("health")
@@ -11,7 +11,7 @@ export class HealthController {
   /** Liveness: o processo responde. */
   @Public()
   @Get("live")
-  live() {
+  live(): Liveness {
     return { status: "ok" }
   }
 

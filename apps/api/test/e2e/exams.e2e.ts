@@ -1,8 +1,17 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { eq, sql } from "drizzle-orm"
 import { examAttempts, notifications } from "@levelusp/db"
-import { agent, countRows, createTestApp, queryRows, signUp, type TestContext } from "./harness"
-import { answersFor, completeLessons, drawnQuestionIds, missQuestions, seedCourseWithExam } from "./exam-fixtures"
+import type { AdminExamQuestion, ApiErrorBody, ExamResult, ExamStart, ExamStatus } from "@levelusp/contracts"
+import { agent, bodyOf, countRows, createTestApp, queryRows, required, signUp, type SignedUpUser, type TestContext } from "./harness"
+import {
+  answersFor, completeLessons, drawnQuestionIds, missQuestions, seedCourseWithExam, type ExamFixture, type ExamFixtureOptions,
+} from "./exam-fixtures"
+
+/** Aluno que concluiu todas as lições do curso da prova. */
+interface EligibleStudent {
+  fixture: ExamFixture
+  student: SignedUpUser
+}
 
 describe("Prova final (e2e)", () => {
   let ctx: TestContext
@@ -12,7 +21,7 @@ describe("Prova final (e2e)", () => {
   afterAll(() => ctx.close())
   beforeEach(() => ctx.reset())
 
-  async function eligibleStudent(opts: Parameters<typeof seedCourseWithExam>[1] = {}) {
+  async function eligibleStudent(opts: ExamFixtureOptions = {}): Promise<EligibleStudent> {
     const fixture = await seedCourseWithExam(ctx, opts)
     const student = await signUp(ctx.app)
     await completeLessons(ctx, student.id, fixture.lessonIds)
@@ -43,7 +52,7 @@ describe("Prova final (e2e)", () => {
 
     const start = await a.post(`/api/courses/${fixture.courseId}/exam/attempts`)
     expect(start.status).toBe(403)
-    expect(start.body.code).toBe("NOT_ELIGIBLE")
+    expect(bodyOf<ApiErrorBody>(start).code).toBe("NOT_ELIGIBLE")
   })
 
   it("curso sem prova responde 404", async () => {
@@ -55,8 +64,9 @@ describe("Prova final (e2e)", () => {
     const { fixture, student } = await eligibleStudent()
     const response = await student.agent.post(`/api/courses/${fixture.courseId}/exam/attempts`)
     expect(response.status).toBe(200)
-    expect(response.body.questions).toHaveLength(4)
-    for (const question of response.body.questions) expect(Object.keys(question).sort()).toEqual(["id", "options", "prompt"])
+    const { questions } = bodyOf<ExamStart>(response)
+    expect(questions).toHaveLength(4)
+    for (const question of questions) expect(Object.keys(question).sort()).toEqual(["id", "options", "prompt"])
     const raw = JSON.stringify(response.body)
     expect(raw).not.toMatch(/correct|explanation|Explicação/i)
     const status = JSON.stringify((await student.agent.get(`/api/courses/${fixture.courseId}/exam`)).body)
@@ -66,18 +76,22 @@ describe("Prova final (e2e)", () => {
   it("fluxo completo: inicia, envia, aprova e notifica", async () => {
     const { fixture, student } = await eligibleStudent()
     const start = await student.agent.post(`/api/courses/${fixture.courseId}/exam/attempts`)
+    const started = bodyOf<ExamStart>(start)
     expect(start.body).toMatchObject({ resumed: false, timeLimitMinutes: 45 })
-    const ids = drawnQuestionIds(start.body)
-    expect(new Date(start.body.expiresAt).getTime()).toBeGreaterThan(Date.now() + 44 * 60_000)
+    const ids = drawnQuestionIds(started)
+    expect(new Date(started.expiresAt).getTime()).toBeGreaterThan(Date.now() + 44 * 60_000)
 
     const statusDuring = await student.agent.get(`/api/courses/${fixture.courseId}/exam`)
-    expect(statusDuring.body).toMatchObject({ eligible: true, inProgressAttemptId: start.body.attemptId, inProgressExpiresAt: start.body.expiresAt })
+    expect(statusDuring.body).toMatchObject({ eligible: true, inProgressAttemptId: started.attemptId, inProgressExpiresAt: started.expiresAt })
 
-    const response = await student.agent.post(`/api/courses/${fixture.courseId}/exam/submit`, { attemptId: start.body.attemptId, answers: answersFor(ids, fixture.answerKey, true) })
+    const response = await student.agent.post(`/api/courses/${fixture.courseId}/exam/submit`, { attemptId: started.attemptId, answers: answersFor(ids, fixture.answerKey, true) })
     expect(response.status).toBe(200)
     expect(response.body).toMatchObject({ score: 100, passed: true, passingScore: 70, correctCount: 4, total: 4 })
-    expect(response.body.review).toHaveLength(4)
-    expect(response.body.review[0]).toEqual({ questionId: ids[0], correct: true, explanation: expect.stringContaining("Explicação") })
+    const { review } = bodyOf<ExamResult>(response)
+    expect(review).toHaveLength(4)
+    const [firstReview] = review
+    expect(firstReview?.explanation).toContain("Explicação")
+    expect(firstReview).toEqual({ questionId: ids[0], correct: true, explanation: firstReview?.explanation })
 
     const status = await student.agent.get(`/api/courses/${fixture.courseId}/exam`)
     expect(status.body).toMatchObject({ passed: true, passedScore: 100, bestScore: 100, attemptsCount: 1, cooldownUntil: null, inProgressAttemptId: null })
@@ -93,42 +107,44 @@ describe("Prova final (e2e)", () => {
   it("corrige só as questões sorteadas e grava respostas saneadas", async () => {
     const { fixture, student } = await eligibleStudent({ questions: 6, questionsPerAttempt: 3 })
     const status = await student.agent.get(`/api/courses/${fixture.courseId}/exam`)
-    expect(status.body.exam.questionCount).toBe(3)
+    expect(bodyOf<ExamStatus>(status).exam.questionCount).toBe(3)
     const start = await student.agent.post(`/api/courses/${fixture.courseId}/exam/attempts`)
-    const ids = drawnQuestionIds(start.body)
+    const started = bodyOf<ExamStart>(start)
+    const ids = drawnQuestionIds(started)
     expect(ids).toHaveLength(3)
     const others = [...fixture.answerKey.keys()].filter((id) => !ids.includes(id))
     // Responde certo as questões que NÃO foram sorteadas: não contam.
     const answers = { ...answersFor(ids, fixture.answerKey, false), ...answersFor(others, fixture.answerKey, true) }
-    const response = await student.agent.post(`/api/courses/${fixture.courseId}/exam/submit`, { attemptId: start.body.attemptId, answers })
+    const response = await student.agent.post(`/api/courses/${fixture.courseId}/exam/submit`, { attemptId: started.attemptId, answers })
     expect(response.body).toMatchObject({ score: 0, passed: false, correctCount: 0, total: 3 })
-    const [attempt] = await ctx.db.select().from(examAttempts).where(eq(examAttempts.id, start.body.attemptId))
+    const [attempt] = await ctx.db.select().from(examAttempts).where(eq(examAttempts.id, started.attemptId))
     expect(Object.keys(attempt?.answers ?? {}).sort()).toEqual([...ids].sort())
   })
 
   it("reprovação gera cooldown", async () => {
     const { fixture, student } = await eligibleStudent()
     const start = await student.agent.post(`/api/courses/${fixture.courseId}/exam/attempts`)
-    const ids = drawnQuestionIds(start.body)
+    const started = bodyOf<ExamStart>(start)
+    const ids = drawnQuestionIds(started)
     const answers = missQuestions(answersFor(ids, fixture.answerKey, true), fixture.answerKey, ids.slice(0, 2))
-    const response = await student.agent.post(`/api/courses/${fixture.courseId}/exam/submit`, { attemptId: start.body.attemptId, answers })
+    const response = await student.agent.post(`/api/courses/${fixture.courseId}/exam/submit`, { attemptId: started.attemptId, answers })
     expect(response.body).toMatchObject({ score: 50, passed: false, correctCount: 2 })
 
     const status = await student.agent.get(`/api/courses/${fixture.courseId}/exam`)
     expect(status.body).toMatchObject({ passed: false, bestScore: 50, attemptsCount: 1 })
-    const until = new Date(status.body.cooldownUntil).getTime()
+    const until = new Date(required(bodyOf<ExamStatus>(status).cooldownUntil, "fim do intervalo entre tentativas")).getTime()
     expect(until).toBeGreaterThan(Date.now() + 59 * 60_000)
 
     const retry = await student.agent.post(`/api/courses/${fixture.courseId}/exam/attempts`)
     expect(retry.status).toBe(429)
-    expect(retry.body.code).toBe("COOLDOWN")
-    expect(retry.body.message).toContain(status.body.cooldownUntil)
+    expect(bodyOf<ApiErrorBody>(retry).code).toBe("COOLDOWN")
+    expect(bodyOf<ApiErrorBody>(retry).message).toContain(bodyOf<ExamStatus>(status).cooldownUntil)
 
     // Passado o intervalo, libera nova tentativa.
-    await ctx.db.execute(sql`update exam_attempts set submitted_at = submitted_at - interval '61 minutes' where id = ${start.body.attemptId}`)
+    await ctx.db.execute(sql`update exam_attempts set submitted_at = submitted_at - interval '61 minutes' where id = ${started.attemptId}`)
     const later = await student.agent.post(`/api/courses/${fixture.courseId}/exam/attempts`)
     expect(later.status).toBe(200)
-    expect(later.body.resumed).toBe(false)
+    expect(bodyOf<ExamStart>(later).resumed).toBe(false)
   })
 
   it("retoma a tentativa em andamento com as mesmas questões", async () => {
@@ -136,19 +152,21 @@ describe("Prova final (e2e)", () => {
     const first = await student.agent.post(`/api/courses/${fixture.courseId}/exam/attempts`)
     const second = await student.agent.post(`/api/courses/${fixture.courseId}/exam/attempts`)
     expect(second.status).toBe(200)
-    expect(second.body).toMatchObject({ attemptId: first.body.attemptId, resumed: true, expiresAt: first.body.expiresAt })
-    expect(second.body.questions).toEqual(first.body.questions)
+    const firstStart = bodyOf<ExamStart>(first)
+    expect(second.body).toMatchObject({ attemptId: firstStart.attemptId, resumed: true, expiresAt: firstStart.expiresAt })
+    expect(bodyOf<ExamStart>(second).questions).toEqual(firstStart.questions)
     expect(await countRows(ctx.db, sql`select count(*)::int as n from exam_attempts`)).toBe(1)
   })
 
   it("tentativa de outro usuário responde 404", async () => {
     const { fixture, student } = await eligibleStudent()
     const start = await student.agent.post(`/api/courses/${fixture.courseId}/exam/attempts`)
+    const started = bodyOf<ExamStart>(start)
     const intruder = await signUp(ctx.app)
     await completeLessons(ctx, intruder.id, fixture.lessonIds)
-    const response = await intruder.agent.post(`/api/courses/${fixture.courseId}/exam/submit`, { attemptId: start.body.attemptId, answers: {} })
+    const response = await intruder.agent.post(`/api/courses/${fixture.courseId}/exam/submit`, { attemptId: started.attemptId, answers: {} })
     expect(response.status).toBe(404)
-    const [attempt] = await ctx.db.select().from(examAttempts).where(eq(examAttempts.id, start.body.attemptId))
+    const [attempt] = await ctx.db.select().from(examAttempts).where(eq(examAttempts.id, started.attemptId))
     expect(attempt).toBeDefined()
     expect(attempt?.submittedAt).toBeNull()
   })
@@ -156,21 +174,23 @@ describe("Prova final (e2e)", () => {
   it("submissão dupla responde 409 e não altera a nota", async () => {
     const { fixture, student } = await eligibleStudent()
     const start = await student.agent.post(`/api/courses/${fixture.courseId}/exam/attempts`)
-    const ids = drawnQuestionIds(start.body)
-    const wrong = await student.agent.post(`/api/courses/${fixture.courseId}/exam/submit`, { attemptId: start.body.attemptId, answers: answersFor(ids, fixture.answerKey, false) })
-    expect(wrong.body.passed).toBe(false)
-    const again = await student.agent.post(`/api/courses/${fixture.courseId}/exam/submit`, { attemptId: start.body.attemptId, answers: answersFor(ids, fixture.answerKey, true) })
+    const started = bodyOf<ExamStart>(start)
+    const ids = drawnQuestionIds(started)
+    const wrong = await student.agent.post(`/api/courses/${fixture.courseId}/exam/submit`, { attemptId: started.attemptId, answers: answersFor(ids, fixture.answerKey, false) })
+    expect(bodyOf<ExamResult>(wrong).passed).toBe(false)
+    const again = await student.agent.post(`/api/courses/${fixture.courseId}/exam/submit`, { attemptId: started.attemptId, answers: answersFor(ids, fixture.answerKey, true) })
     expect(again.status).toBe(409)
-    expect(again.body.code).toBe("ALREADY_SUBMITTED")
-    const [row] = await ctx.db.select().from(examAttempts).where(eq(examAttempts.id, start.body.attemptId))
+    expect(bodyOf<ApiErrorBody>(again).code).toBe("ALREADY_SUBMITTED")
+    const [row] = await ctx.db.select().from(examAttempts).where(eq(examAttempts.id, started.attemptId))
     expect(row).toMatchObject({ score: 0, passed: false })
   })
 
   it("envios simultâneos gravam uma única nota", async () => {
     const { fixture, student } = await eligibleStudent()
     const start = await student.agent.post(`/api/courses/${fixture.courseId}/exam/attempts`)
-    const ids = drawnQuestionIds(start.body)
-    const body = { attemptId: start.body.attemptId, answers: answersFor(ids, fixture.answerKey, true) }
+    const started = bodyOf<ExamStart>(start)
+    const ids = drawnQuestionIds(started)
+    const body = { attemptId: started.attemptId, answers: answersFor(ids, fixture.answerKey, true) }
     const results = await Promise.all([1, 2, 3].map(() => student.agent.post(`/api/courses/${fixture.courseId}/exam/submit`, body)))
     expect(results.filter((r) => r.status === 200)).toHaveLength(1)
     expect(results.filter((r) => r.status === 409)).toHaveLength(2)
@@ -179,35 +199,38 @@ describe("Prova final (e2e)", () => {
   it("tentativa expirada vira nota 0 e entra em cooldown", async () => {
     const { fixture, student } = await eligibleStudent()
     const start = await student.agent.post(`/api/courses/${fixture.courseId}/exam/attempts`)
-    const ids = drawnQuestionIds(start.body)
-    await ctx.db.execute(sql`update exam_attempts set started_at = now() - interval '46 minutes' where id = ${start.body.attemptId}`)
-    const response = await student.agent.post(`/api/courses/${fixture.courseId}/exam/submit`, { attemptId: start.body.attemptId, answers: answersFor(ids, fixture.answerKey, true) })
+    const started = bodyOf<ExamStart>(start)
+    const ids = drawnQuestionIds(started)
+    await ctx.db.execute(sql`update exam_attempts set started_at = now() - interval '46 minutes' where id = ${started.attemptId}`)
+    const response = await student.agent.post(`/api/courses/${fixture.courseId}/exam/submit`, { attemptId: started.attemptId, answers: answersFor(ids, fixture.answerKey, true) })
     expect(response.status).toBe(409)
-    expect(response.body.code).toBe("EXAM_EXPIRED")
-    const [row] = await ctx.db.select().from(examAttempts).where(eq(examAttempts.id, start.body.attemptId))
+    expect(bodyOf<ApiErrorBody>(response).code).toBe("EXAM_EXPIRED")
+    const [row] = await ctx.db.select().from(examAttempts).where(eq(examAttempts.id, started.attemptId))
     expect(row).toMatchObject({ score: 0, passed: false })
     const status = await student.agent.get(`/api/courses/${fixture.courseId}/exam`)
-    expect(status.body.cooldownUntil).not.toBeNull()
+    expect(bodyOf<ExamStatus>(status).cooldownUntil).not.toBeNull()
     expect((await student.agent.post(`/api/courses/${fixture.courseId}/exam/attempts`)).status).toBe(429)
   })
 
   it("aceita envio dentro da tolerância de 30 s", async () => {
     const { fixture, student } = await eligibleStudent()
     const start = await student.agent.post(`/api/courses/${fixture.courseId}/exam/attempts`)
-    const ids = drawnQuestionIds(start.body)
-    await ctx.db.execute(sql`update exam_attempts set started_at = now() - interval '45 minutes 10 seconds' where id = ${start.body.attemptId}`)
-    const response = await student.agent.post(`/api/courses/${fixture.courseId}/exam/submit`, { attemptId: start.body.attemptId, answers: answersFor(ids, fixture.answerKey, true) })
+    const started = bodyOf<ExamStart>(start)
+    const ids = drawnQuestionIds(started)
+    await ctx.db.execute(sql`update exam_attempts set started_at = now() - interval '45 minutes 10 seconds' where id = ${started.attemptId}`)
+    const response = await student.agent.post(`/api/courses/${fixture.courseId}/exam/submit`, { attemptId: started.attemptId, answers: answersFor(ids, fixture.answerKey, true) })
     expect(response.status).toBe(200)
-    expect(response.body.passed).toBe(true)
+    expect(bodyOf<ExamResult>(response).passed).toBe(true)
   })
 
   it("abandonar a prova (deixar expirar sem enviar) também gera cooldown", async () => {
     const { fixture, student } = await eligibleStudent()
     const start = await student.agent.post(`/api/courses/${fixture.courseId}/exam/attempts`)
-    await ctx.db.execute(sql`update exam_attempts set started_at = now() - interval '50 minutes' where id = ${start.body.attemptId}`)
+    const started = bodyOf<ExamStart>(start)
+    await ctx.db.execute(sql`update exam_attempts set started_at = now() - interval '50 minutes' where id = ${started.attemptId}`)
     const status = await student.agent.get(`/api/courses/${fixture.courseId}/exam`)
     expect(status.body).toMatchObject({ inProgressAttemptId: null, attemptsCount: 1, bestScore: 0 })
-    expect(status.body.cooldownUntil).not.toBeNull()
+    expect(bodyOf<ExamStatus>(status).cooldownUntil).not.toBeNull()
     expect((await student.agent.post(`/api/courses/${fixture.courseId}/exam/attempts`)).status).toBe(429)
   })
 
@@ -242,7 +265,7 @@ describe("Prova final (e2e)", () => {
 
       const questions = await admin.agent.get(`/api/admin/exams/${fixture.examId}/questions`)
       expect(questions.body).toHaveLength(4)
-      expect(questions.body[0]).toHaveProperty("correct_index")
+      expect(bodyOf<AdminExamQuestion[]>(questions)[0]).toHaveProperty("correct_index")
 
       const created = await admin.agent.post(`/api/admin/exams/${fixture.examId}/questions`, { prompt: "Nova?", options: ["x", "y"], correct_index: 1 })
       expect(created.status).toBe(201)
@@ -251,11 +274,11 @@ describe("Prova final (e2e)", () => {
       const bad = await admin.agent.post(`/api/admin/exams/${fixture.examId}/questions`, { prompt: "Ruim", options: ["x", "y"], correct_index: 5 })
       expect(bad.status).toBe(400)
 
-      const patched = await admin.agent.patch(`/api/admin/exam-questions/${created.body.id}`, { active: false, explanation: "porque sim" })
+      const patched = await admin.agent.patch(`/api/admin/exam-questions/${bodyOf<AdminExamQuestion>(created).id}`, { active: false, explanation: "porque sim" })
       expect(patched.status).toBe(200)
       expect(patched.body).toMatchObject({ active: false, explanation: "porque sim", correct_index: 1 })
 
-      const outOfRange = await admin.agent.patch(`/api/admin/exam-questions/${created.body.id}`, { correct_index: 2 })
+      const outOfRange = await admin.agent.patch(`/api/admin/exam-questions/${bodyOf<AdminExamQuestion>(created).id}`, { correct_index: 2 })
       expect(outOfRange.status).toBe(400)
 
       expect((await admin.agent.patch(`/api/admin/exam-questions/00000000-0000-4000-8000-000000000000`, { active: true })).status).toBe(404)
@@ -266,7 +289,7 @@ describe("Prova final (e2e)", () => {
 
       // Questão desativada não entra no sorteio.
       const status = await (await signUp(ctx.app)).agent.get(`/api/courses/${fixture.courseId}/exam`)
-      expect(status.body.exam.questionCount).toBe(4)
+      expect(bodyOf<ExamStatus>(status).exam.questionCount).toBe(4)
     })
   })
 })

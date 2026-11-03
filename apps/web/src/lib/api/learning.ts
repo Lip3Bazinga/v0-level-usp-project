@@ -1,5 +1,5 @@
 import type {
-  ActivityDay, LessonProgress, ProjectFile, QuizQuestionFull, QuizQuestionInput, QuizQuestionPublic, QuizResult,
+  ActivityDay, LessonProgress, LessonSnapshot, ProjectFile, QuizQuestionFull, QuizQuestionInput, QuizQuestionPublic, QuizResult,
   QuizSubmitInput, SaveSnapshotInput, SubmissionResult, SubmitCodeInput,
 } from "@levelusp/contracts"
 import { api } from "./client"
@@ -16,7 +16,7 @@ export async function fetchMyCompletedLessonIds(): Promise<Set<string>> {
 }
 
 export async function fetchProgressSnapshot(lessonId: string): Promise<ProjectFile[] | null> {
-  const { files } = await api.get<{ files: ProjectFile[] | null }>(`/lessons/${lessonId}/snapshot`)
+  const { files } = await api.get<LessonSnapshot>(`/lessons/${lessonId}/snapshot`)
   return files
 }
 export const updateProgressSnapshot = (lessonId: string, files: ProjectFile[]) =>

@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from "@nestjs/common"
-import type { SessionResponse, SignInInput, SignUpInput } from "@levelusp/contracts"
+import { nonEmpty, type SessionResponse, type SignInInput, type SignUpInput } from "@levelusp/contracts"
 import type { ProfileRow, UserRow } from "@levelusp/db"
 import { ENV } from "@/config/config.module"
 import type { Env } from "@/config/env"
@@ -37,7 +37,7 @@ export interface IssuedSession extends SessionCookie {
 }
 
 /** Mesma resposta para senha errada, conta inexistente e conta bloqueada: não revela quais e-mails existem. */
-const invalidCredentials = () =>
+const invalidCredentials = (): AppError =>
   new AppError(401, "INVALID_CREDENTIALS", "E-mail ou senha incorretos (ou muitas tentativas: aguarde alguns minutos).")
 
 @Injectable()
@@ -152,7 +152,7 @@ export class AuthService {
     const { user, profile } = await this.repo.createUserWithProfile({
       email,
       passwordHash: null,
-      fullName: fullName?.trim() || displayNameFromEmail(email),
+      fullName: nonEmpty(fullName?.trim()) ?? displayNameFromEmail(email),
       username: await this.uniqueUsername(email),
     })
     const link = await this.createPasswordLink(user.id, INVITE_TTL_HOURS * MS_PER_HOUR)

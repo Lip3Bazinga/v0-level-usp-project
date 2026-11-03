@@ -1,6 +1,6 @@
 import { Controller, Get, HttpCode, Param, Post, Query } from "@nestjs/common"
 import { ApiTags } from "@nestjs/swagger"
-import { limitQuerySchema, type LimitQuery } from "@levelusp/contracts"
+import { limitQuerySchema, type LimitQuery, type Notification } from "@levelusp/contracts"
 import { CurrentUser } from "@/common/decorators/auth.decorators"
 import type { AuthUser } from "@/common/http/request"
 import { UuidPipe } from "@/common/pipes/uuid.pipe"
@@ -15,7 +15,7 @@ export class NotificationsController {
   constructor(private readonly notifications: NotificationsService) {}
 
   @Get()
-  list(@CurrentUser() user: AuthUser, @Query(new ZodPipe(notificationsQuery)) query: LimitQuery) {
+  list(@CurrentUser() user: AuthUser, @Query(new ZodPipe(notificationsQuery)) query: LimitQuery): Promise<Notification[]> {
     return this.notifications.list(user.id, query.limit)
   }
 

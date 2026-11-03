@@ -3,8 +3,7 @@ import { ApiTags } from "@nestjs/swagger"
 import type { Response } from "express"
 import {
   adminUpdateUserSchema, invalidateSessionsSchema, inviteUserSchema, limitQuerySchema, optionalBodySchema, platformSettingsSchema,
-  type AdminUpdateUserInput, type InvalidateSessionsInput, type InviteUserInput, type LimitQuery, type PlatformSettings,
-} from "@levelusp/contracts"
+  type AdminUpdateUserInput, type InvalidateSessionsInput, type InviteUserInput, type LimitQuery, type PlatformSettings, type Profile, type UserDataExport, type PlatformMetrics, type RecentActivity, type AnalyticsMetrics, type Lesson, type AuditLog } from "@levelusp/contracts"
 import { CurrentUser, Roles } from "@/common/decorators/auth.decorators"
 import type { AuthUser } from "@/common/http/request"
 import { UuidPipe } from "@/common/pipes/uuid.pipe"
@@ -23,17 +22,17 @@ export class AdminController {
   constructor(private readonly admin: AdminService) {}
 
   @Get("users")
-  listUsers() {
+  listUsers(): Promise<Profile[]> {
     return this.admin.listUsers()
   }
 
   @Post("users/invite")
-  inviteUser(@CurrentUser() actor: AuthUser, @Body(new ZodPipe(inviteUserSchema)) body: InviteUserInput) {
+  inviteUser(@CurrentUser() actor: AuthUser, @Body(new ZodPipe(inviteUserSchema)) body: InviteUserInput): Promise<Profile> {
     return this.admin.inviteUser(actor, body.email, body.full_name)
   }
 
   @Patch("users/:id")
-  updateUser(@CurrentUser() actor: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(adminUpdateUserSchema)) body: AdminUpdateUserInput) {
+  updateUser(@CurrentUser() actor: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(adminUpdateUserSchema)) body: AdminUpdateUserInput): Promise<Profile> {
     return this.admin.updateUser(actor, id, body)
   }
 
@@ -57,7 +56,7 @@ export class AdminController {
   }
 
   @Get("users/:id/export")
-  async getUserDataExport(@CurrentUser() actor: AuthUser, @Param("id", UuidPipe) id: string, @Res({ passthrough: true }) response: Response) {
+  async getUserDataExport(@CurrentUser() actor: AuthUser, @Param("id", UuidPipe) id: string, @Res({ passthrough: true }) response: Response): Promise<UserDataExport> {
     const data = await this.admin.getUserDataExport(actor, id)
     response.setHeader("Content-Disposition", `attachment; filename="usuario-${id}-lgpd.json"`)
     response.setHeader("Cache-Control", "no-store")
@@ -71,42 +70,42 @@ export class AdminController {
   }
 
   @Get("metrics")
-  getMetrics() {
+  getMetrics(): Promise<PlatformMetrics> {
     return this.admin.getMetrics()
   }
 
   @Get("activity/recent")
-  listRecentActivity(@Query(new ZodPipe(recentActivityQuery)) query: LimitQuery) {
+  listRecentActivity(@Query(new ZodPipe(recentActivityQuery)) query: LimitQuery): Promise<RecentActivity[]> {
     return this.admin.listRecentActivity(query.limit)
   }
 
   @Get("activity/daily")
-  listDailyActivity() {
+  listDailyActivity(): Promise<number[]> {
     return this.admin.listDailyActivity()
   }
 
   @Get("analytics")
-  getAnalytics() {
+  getAnalytics(): Promise<AnalyticsMetrics> {
     return this.admin.getAnalytics()
   }
 
   @Get("lessons")
-  listLessons() {
+  listLessons(): Promise<Lesson[]> {
     return this.admin.listLessons()
   }
 
   @Get("settings")
-  getSettings() {
+  getSettings(): Promise<PlatformSettings> {
     return this.admin.getSettings()
   }
 
   @Put("settings")
-  updateSettings(@CurrentUser() actor: AuthUser, @Body(new ZodPipe(platformSettingsSchema)) body: PlatformSettings) {
+  updateSettings(@CurrentUser() actor: AuthUser, @Body(new ZodPipe(platformSettingsSchema)) body: PlatformSettings): Promise<PlatformSettings> {
     return this.admin.updateSettings(actor, body)
   }
 
   @Get("audit")
-  listAudits(@Query(new ZodPipe(auditQuery)) query: LimitQuery) {
+  listAudits(@Query(new ZodPipe(auditQuery)) query: LimitQuery): Promise<AuditLog[]> {
     return this.admin.listAudits(query.limit)
   }
 }

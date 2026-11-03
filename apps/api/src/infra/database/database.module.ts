@@ -1,19 +1,17 @@
 import { Global, Inject, Injectable, Module, type OnApplicationShutdown } from "@nestjs/common"
-import { createDb, type Database, type DbHandle } from "@levelusp/db"
+import { createDb, type Database, type DbHandle, type DbTransaction } from "@levelusp/db"
 import { ENV } from "@/config/config.module"
 import type { Env } from "@/config/env"
 
+/** Token do {@link DbHandle} (pool + Drizzle); só o módulo o usa para fechar o pool. */
 export const DB_HANDLE = Symbol("DB_HANDLE")
+/** Token da instância {@link Database} injetada nos repositórios. */
 export const DB = Symbol("DB")
 
 /** Injeta o Drizzle: `constructor(@InjectDb() private readonly db: Database)`. */
-export const InjectDb = () => Inject(DB)
+export const InjectDb = (): ParameterDecorator => Inject(DB)
 
-export type { Database }
-/** Transação Drizzle (mesma interface de consulta do `db`). */
-export type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0]
-/** Executor de consultas: o banco ou uma transação em andamento. */
-export type DbOrTx = Database | Tx
+export type { Database, DbExecutor, DbTransaction } from "@levelusp/db"
 
 /**
  * Abre transações para services que coordenam vários repositórios: cada
@@ -23,7 +21,11 @@ export type DbOrTx = Database | Tx
 export class TransactionRunner {
   constructor(@InjectDb() private readonly db: Database) {}
 
-  run<T>(work: (tx: Tx) => Promise<T>): Promise<T> {
+  /**
+   * Executa `work` numa transação: confirma quando a promessa resolve e desfaz
+   * tudo (e repassa o erro) quando ela rejeita.
+   */
+  run<T>(work: (tx: DbTransaction) => Promise<T>): Promise<T> {
     return this.db.transaction(work)
   }
 }
@@ -44,7 +46,7 @@ export class TransactionRunner {
 export class DatabaseModule implements OnApplicationShutdown {
   constructor(@Inject(DB_HANDLE) private readonly handle: DbHandle) {}
 
-  async onApplicationShutdown() {
+  async onApplicationShutdown(): Promise<void> {
     await this.handle.close()
   }
 }

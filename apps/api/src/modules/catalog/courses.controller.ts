@@ -2,8 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put } from
 import { ApiTags } from "@nestjs/swagger"
 import {
   attachLessonSchema, courseInputSchema, courseUpdateSchema, publishSchema, reorderLessonsSchema,
-  type AttachLessonInput, type CourseInput, type CourseUpdateInput, type PublishInput, type ReorderLessonsInput,
-} from "@levelusp/contracts"
+  type AttachLessonInput, type CourseInput, type CourseUpdateInput, type PublishInput, type ReorderLessonsInput, type Course, type Lesson } from "@levelusp/contracts"
 import { CurrentUser, OptionalAuth, Public, Roles } from "@/common/decorators/auth.decorators"
 import type { AuthUser } from "@/common/http/request"
 import { UuidPipe } from "@/common/pipes/uuid.pipe"
@@ -18,90 +17,90 @@ export class CoursesController {
   @Public()
   @OptionalAuth()
   @Get("courses")
-  listPublished(@CurrentUser() user: AuthUser | undefined) {
+  listPublished(@CurrentUser() user: AuthUser | undefined): Promise<Course[]> {
     return this.courses.listPublished(user)
   }
 
   @Public()
   @OptionalAuth()
   @Get("courses/:id")
-  get(@CurrentUser() user: AuthUser | undefined, @Param("id", UuidPipe) id: string) {
+  get(@CurrentUser() user: AuthUser | undefined, @Param("id", UuidPipe) id: string): Promise<Course> {
     return this.courses.get(user, id)
   }
 
   @Public()
   @OptionalAuth()
   @Get("courses/:id/lessons")
-  listLessons(@CurrentUser() user: AuthUser | undefined, @Param("id", UuidPipe) id: string) {
+  listLessons(@CurrentUser() user: AuthUser | undefined, @Param("id", UuidPipe) id: string): Promise<Lesson[]> {
     return this.courses.listLessons(user, id)
   }
 
   @Roles("teacher", "admin")
   @Get("teacher/courses")
-  listOwned(@CurrentUser() user: AuthUser) {
+  listOwned(@CurrentUser() user: AuthUser): Promise<Course[]> {
     return this.courses.listOwned(user)
   }
 
   @Roles("teacher", "admin")
   @Post("courses")
-  create(@CurrentUser() user: AuthUser, @Body(new ZodPipe(courseInputSchema)) body: CourseInput) {
+  create(@CurrentUser() user: AuthUser, @Body(new ZodPipe(courseInputSchema)) body: CourseInput): Promise<Course> {
     return this.courses.create(user, body)
   }
 
   @Roles("teacher", "admin")
   @Patch("courses/:id")
-  update(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(courseUpdateSchema)) body: CourseUpdateInput) {
+  update(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(courseUpdateSchema)) body: CourseUpdateInput): Promise<Course> {
     return this.courses.update(user, id, body)
   }
 
   @Roles("teacher", "admin")
   @HttpCode(204)
   @Delete("courses/:id")
-  async delete(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string) {
+  async delete(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string): Promise<void> {
     await this.courses.delete(user, id)
   }
 
   @Roles("teacher", "admin")
   @Patch("courses/:id/publish")
-  setPublished(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(publishSchema)) body: PublishInput) {
+  setPublished(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(publishSchema)) body: PublishInput): Promise<Course> {
     return this.courses.setPublished(user, id, body.published)
   }
 
   @Roles("teacher", "admin")
   @HttpCode(204)
   @Put("courses/:id/lessons/order")
-  async reorder(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(reorderLessonsSchema)) body: ReorderLessonsInput) {
+  async reorder(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(reorderLessonsSchema)) body: ReorderLessonsInput): Promise<void> {
     await this.courses.reorder(user, id, body.lesson_ids)
   }
 
   @Roles("teacher", "admin")
   @HttpCode(204)
   @Post("courses/:id/lessons")
-  async attachLesson(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(attachLessonSchema)) body: AttachLessonInput) {
+  async attachLesson(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(attachLessonSchema)) body: AttachLessonInput): Promise<void> {
     await this.courses.attachLesson(user, id, body)
   }
 
   @Roles("teacher", "admin")
   @HttpCode(204)
   @Delete("courses/:id/lessons/:lessonId")
-  async detachLesson(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Param("lessonId", UuidPipe) lessonId: string) {
+  async detachLesson(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Param("lessonId", UuidPipe) lessonId: string): Promise<void> {
     await this.courses.detachLesson(user, id, lessonId)
   }
 
   @HttpCode(204)
   @Post("courses/:id/enrollment")
-  async enroll(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string) {
+  async enroll(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string): Promise<void> {
     await this.courses.enroll(user, id)
   }
 
   @HttpCode(204)
   @Delete("courses/:id/enrollment")
-  async unenroll(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string) {
+  async unenroll(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string): Promise<void> {
     await this.courses.unenroll(user, id)
   }
 
   @Get("me/enrollments")
-  listMyEnrollments(@CurrentUser() user: AuthUser) {
+  listMyEnrollments(@CurrentUser() user: AuthUser): Promise<string[]> {
     return this.courses.listMyEnrollments(user)
   }
 }

@@ -1,11 +1,11 @@
 import { Injectable } from "@nestjs/common"
 import type { LibraryCatalog, LibraryRequest, LibraryRequestInput, ReviewLibraryRequestInput } from "@levelusp/contracts"
-import type { LibraryRequestRow } from "@levelusp/db"
+import type { LibraryRequestRow, DbTransaction } from "@levelusp/db"
 import { Conflict, NotFound } from "@/common/errors/app-error"
 import type { AuthUser } from "@/common/http/request"
 import { RATE_LIMITS } from "@/common/rate-limit/rate-limit.policies"
 import { RateLimitService } from "@/common/rate-limit/rate-limit.service"
-import { TransactionRunner, type Tx } from "@/infra/database/database.module"
+import { TransactionRunner } from "@/infra/database/database.module"
 import { AuditService } from "../audit/audit.service"
 import { NotificationsService } from "../notifications/notifications.service"
 import { toLibraryCatalog, toLibraryRequest } from "./library.mapper"
@@ -60,7 +60,7 @@ export class LibraryService {
   async reviewRequest(actor: AuthUser, id: string, input: ReviewLibraryRequestInput): Promise<LibraryRequest> {
     const isApproved = input.status === "approved"
     const catalogEntry = isApproved ? input.catalog : undefined
-    const reviewed = await this.transactions.run(async (tx) => {
+    const reviewed = await this.transactions.run(async (tx: DbTransaction) => {
       const pending = await this.repo.lockRequest(id, tx)
       if (!pending) throw NotFound("Solicitação")
       if (pending.status !== "pending") throw Conflict("Esta solicitação já foi revisada.", "ALREADY_REVIEWED")
@@ -84,7 +84,7 @@ export class LibraryService {
     return toLibraryRequest(reviewed)
   }
 
-  private addToCatalog(request: LibraryRequestRow, entry: CatalogEntry, actor: AuthUser, tx: Tx): Promise<void> {
+  private addToCatalog(request: LibraryRequestRow, entry: CatalogEntry, actor: AuthUser, tx: DbTransaction): Promise<void> {
     return this.repo.upsertCatalog(
       {
         name: request.libraryName,

@@ -3,6 +3,7 @@ import { and, eq, gt, isNull, ne, sql } from "drizzle-orm"
 import { passwordResetTokens, profiles, sessions, users } from "@levelusp/db"
 import { requireRow } from "@/common/database/rows"
 import { InjectDb, type Database } from "@/infra/database/database.module"
+import type { DbTransaction, ProfileRow, SessionRow, UserRow } from "@levelusp/db"
 
 export interface NewAccount {
   email: string
@@ -20,6 +21,18 @@ export interface NewSession {
   userAgent: string | null
 }
 
+/** Credencial e perfil criados juntos no cadastro. */
+export interface CreatedAccount {
+  user: UserRow
+  profile: ProfileRow
+}
+
+/** Sessão ainda válida (não revogada nem expirada) com o perfil do dono. */
+export interface ActiveSession {
+  session: SessionRow
+  profile: ProfileRow
+}
+
 export interface NewPasswordToken {
   tokenHash: string
   userId: string
@@ -31,17 +44,17 @@ export interface NewPasswordToken {
 export class AuthRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
-  findUserByEmail(email: string) {
+  findUserByEmail(email: string): Promise<UserRow | undefined> {
     return this.db.query.users.findFirst({ where: sql`lower(${users.email}) = ${email.toLowerCase()}` })
   }
 
-  findUserById(id: string) {
+  findUserById(id: string): Promise<UserRow | undefined> {
     return this.db.query.users.findFirst({ where: eq(users.id, id) })
   }
 
   /** Cria credencial + perfil na mesma transação. */
-  createUserWithProfile(account: NewAccount) {
-    return this.db.transaction(async (tx) => {
+  createUserWithProfile(account: NewAccount): Promise<CreatedAccount> {
+    return this.db.transaction(async (tx: DbTransaction) => {
       const user = requireRow(await tx.insert(users).values({ email: account.email, passwordHash: account.passwordHash }).returning(), "users")
       const profile = requireRow(
         await tx.insert(profiles).values({ id: user.id, email: account.email, fullName: account.fullName, username: account.username }).returning(),
@@ -72,7 +85,7 @@ export class AuthRepository {
   }
 
   /** Sessão válida + perfil do dono, numa consulta (caminho quente de toda requisição). */
-  async findActiveSession(id: string) {
+  async findActiveSession(id: string): Promise<ActiveSession | undefined> {
     const [active] = await this.db
       .select({ session: sessions, profile: profiles })
       .from(sessions)

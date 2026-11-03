@@ -18,7 +18,7 @@ export class AuditService {
 
   constructor(private readonly repo: AuditRepository) {}
 
-  async log(actor: AuthUser | null, action: string, target: string, meta: Record<string, unknown> = {}, severity: AuditSeverity = "info") {
+  async log(actor: AuthUser | null, action: string, target: string, meta: Record<string, unknown> = {}, severity: AuditSeverity = "info"): Promise<void> {
     try {
       await this.repo.create({ actorId: actor?.id ?? null, actorName: actor?.fullName ?? SYSTEM_ACTOR_NAME, action, target, meta, severity })
     } catch (error) {

@@ -3,14 +3,19 @@ import { and, asc, count, desc, eq, inArray, isNotNull, isNull, lt, sql } from "
 import { courses, examAttempts, examQuestions, exams, lessonProgress, lessons, modules, type ExamQuestionInsert } from "@levelusp/db"
 import type { AnswerSheet } from "@levelusp/contracts"
 import { requireRow } from "@/common/database/rows"
-import { InjectDb, type Database, type DbOrTx } from "@/infra/database/database.module"
+import { InjectDb, type Database } from "@/infra/database/database.module"
+import type { LessonForEligibility } from "./exams.domain"
 import type { ExamSummaryRow, PublicExamQuestionRow } from "./exams.mapper"
+import type { DbTransaction, DbExecutor, CourseRow, ExamRow, ExamAttemptRow, ExamQuestionRow } from "@levelusp/db"
 
 /** Só o que o aluno pode ver de uma questão (sem gabarito nem explicação). */
 const publicQuestionColumns = { id: examQuestions.id, prompt: examQuestions.prompt, options: examQuestions.options }
 const questionOrder = [asc(examQuestions.sortOrder), asc(examQuestions.createdAt)]
 /** Histórico suficiente para cooldown e melhor nota; ninguém faz centenas de tentativas. */
 const MAX_LISTED_ATTEMPTS = 50
+
+/** O mínimo do curso para checar visibilidade e titular o certificado. */
+export type ExamCourseRow = Pick<CourseRow, "id" | "title" | "published" | "createdBy">
 
 export interface AttemptOwner {
   examId: string
@@ -40,23 +45,23 @@ export class ExamsRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
   /** Serializa início de tentativa por aluno+prova (evita duas tentativas paralelas). */
-  async lockAttempts({ examId, userId }: AttemptOwner, tx: DbOrTx): Promise<void> {
+  async lockAttempts({ examId, userId }: AttemptOwner, tx: DbTransaction): Promise<void> {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`exam:${examId}:${userId}`}, 0))`)
   }
 
-  findCourse(id: string) {
+  findCourse(id: string): Promise<ExamCourseRow | undefined> {
     return this.db.query.courses.findFirst({
       where: eq(courses.id, id),
       columns: { id: true, title: true, published: true, createdBy: true },
     })
   }
 
-  findActiveExamByCourse(courseId: string) {
+  findActiveExamByCourse(courseId: string): Promise<ExamRow | undefined> {
     return this.db.query.exams.findFirst({ where: and(eq(exams.courseId, courseId), eq(exams.active, true)) })
   }
 
   /** Lições publicadas do curso com o nome do módulo (texto legado e tabela de módulos). */
-  listPublishedLessons(courseId: string) {
+  listPublishedLessons(courseId: string): Promise<LessonForEligibility[]> {
     return this.db
       .select({ id: lessons.id, module: lessons.module, moduleTitle: modules.title })
       .from(lessons)
@@ -73,8 +78,8 @@ export class ExamsRepository {
     return new Set(completed.map((progress) => progress.lessonId))
   }
 
-  listAttempts({ examId, userId }: AttemptOwner, tx: DbOrTx = this.db) {
-    return tx
+  listAttempts({ examId, userId }: AttemptOwner, executor: DbExecutor = this.db): Promise<ExamAttemptRow[]> {
+    return executor
       .select()
       .from(examAttempts)
       .where(and(eq(examAttempts.examId, examId), eq(examAttempts.userId, userId)))
@@ -82,7 +87,7 @@ export class ExamsRepository {
       .limit(MAX_LISTED_ATTEMPTS)
   }
 
-  findAttempt(id: string, { examId, userId }: AttemptOwner) {
+  findAttempt(id: string, { examId, userId }: AttemptOwner): Promise<ExamAttemptRow | undefined> {
     return this.db.query.examAttempts.findFirst({
       where: and(eq(examAttempts.id, id), eq(examAttempts.userId, userId), eq(examAttempts.examId, examId)),
     })
@@ -96,8 +101,8 @@ export class ExamsRepository {
     return active?.total ?? 0
   }
 
-  async listActiveQuestionIds(examId: string, tx: DbOrTx = this.db): Promise<string[]> {
-    const active = await tx
+  async listActiveQuestionIds(examId: string, executor: DbExecutor = this.db): Promise<string[]> {
+    const active = await executor
       .select({ id: examQuestions.id })
       .from(examQuestions)
       .where(and(eq(examQuestions.examId, examId), eq(examQuestions.active, true)))
@@ -106,14 +111,14 @@ export class ExamsRepository {
   }
 
   /** Questões da tentativa, sem gabarito, na ordem sorteada. */
-  async listPublicQuestions(examId: string, ids: string[], tx: DbOrTx = this.db): Promise<PublicExamQuestionRow[]> {
+  async listPublicQuestions(examId: string, ids: string[], executor: DbExecutor = this.db): Promise<PublicExamQuestionRow[]> {
     if (!ids.length) return []
-    const questions = await tx.select(publicQuestionColumns).from(examQuestions).where(and(eq(examQuestions.examId, examId), inArray(examQuestions.id, ids)))
+    const questions = await executor.select(publicQuestionColumns).from(examQuestions).where(and(eq(examQuestions.examId, examId), inArray(examQuestions.id, ids)))
     return orderByIds(questions, ids)
   }
 
   /** Questões da tentativa COM gabarito — uso exclusivo da correção no servidor. */
-  async listQuestionsForGrading(examId: string, ids: string[]) {
+  async listQuestionsForGrading(examId: string, ids: string[]): Promise<Pick<ExamQuestionRow, "id" | "correctIndex" | "explanation">[]> {
     if (!ids.length) return []
     const questions = await this.db
       .select({ id: examQuestions.id, correctIndex: examQuestions.correctIndex, explanation: examQuestions.explanation })
@@ -122,16 +127,16 @@ export class ExamsRepository {
     return orderByIds(questions, ids)
   }
 
-  async createAttempt(attempt: NewAttempt, tx: DbOrTx) {
-    return requireRow(await tx.insert(examAttempts).values(attempt).returning(), "exam_attempts")
+  async createAttempt(attempt: NewAttempt, executor: DbExecutor): Promise<ExamAttemptRow> {
+    return requireRow(await executor.insert(examAttempts).values(attempt).returning(), "exam_attempts")
   }
 
   /**
    * Encerra (nota 0, reprovada) tentativas abertas cujo prazo de envio já
    * passou, com submitted_at = instante em que expiraram.
    */
-  async closeStaleAttempts({ examId, userId, timeLimitMinutes, startedBefore }: StaleAttemptsFilter, tx: DbOrTx): Promise<void> {
-    await tx
+  async closeStaleAttempts({ examId, userId, timeLimitMinutes, startedBefore }: StaleAttemptsFilter, executor: DbExecutor): Promise<void> {
+    await executor
       .update(examAttempts)
       .set({ submittedAt: sql`${examAttempts.startedAt} + make_interval(mins => ${timeLimitMinutes})`, score: 0, passed: false, answers: {} })
       .where(
@@ -155,7 +160,7 @@ export class ExamsRepository {
   }
 
   /** Melhor tentativa aprovada do aluno na prova (null se não aprovado). */
-  async findPassedAttempt({ examId, userId }: AttemptOwner) {
+  async findPassedAttempt({ examId, userId }: AttemptOwner): Promise<Pick<ExamAttemptRow, "id" | "score"> | null> {
     const [best] = await this.db
       .select({ id: examAttempts.id, score: examAttempts.score })
       .from(examAttempts)
@@ -173,23 +178,23 @@ export class ExamsRepository {
       .orderBy(asc(courses.title))
   }
 
-  findExam(id: string) {
+  findExam(id: string): Promise<Pick<ExamRow, "id" | "title"> | undefined> {
     return this.db.query.exams.findFirst({ where: eq(exams.id, id), columns: { id: true, title: true } })
   }
 
-  listQuestions(examId: string) {
+  listQuestions(examId: string): Promise<ExamQuestionRow[]> {
     return this.db.select().from(examQuestions).where(eq(examQuestions.examId, examId)).orderBy(...questionOrder)
   }
 
-  findQuestion(id: string) {
+  findQuestion(id: string): Promise<ExamQuestionRow | undefined> {
     return this.db.query.examQuestions.findFirst({ where: eq(examQuestions.id, id) })
   }
 
-  async createQuestion(values: ExamQuestionInsert) {
+  async createQuestion(values: ExamQuestionInsert): Promise<ExamQuestionRow> {
     return requireRow(await this.db.insert(examQuestions).values(values).returning(), "exam_questions")
   }
 
-  async updateQuestion(id: string, patch: Partial<ExamQuestionInsert>) {
+  async updateQuestion(id: string, patch: Partial<ExamQuestionInsert>): Promise<ExamQuestionRow | undefined> {
     const [question] = await this.db.update(examQuestions).set(patch).where(eq(examQuestions.id, id)).returning()
     return question
   }
