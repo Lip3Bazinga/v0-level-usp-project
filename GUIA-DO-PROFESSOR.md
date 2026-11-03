@@ -81,7 +81,9 @@ pelas ferramentas do navegador — a menos que você marque "mostrar o esperado"
 | **Chamar função** | o aluno escreve uma função | `somar(2, 3)` deve retornar `5` |
 | **Entrada e saída** | o programa usa `input()`/`print()` | entrada `3\n4` → saída `7` |
 | **Valor de variável** | o aluno deve criar variáveis | `linguagem` deve ser `"Python"` (tipo `str`) |
-| **Estrutura do código** | você quer exigir/proibir uma construção | "use lambda", "não use `sum()`", "defina a classe `Conta`" |
+| **Estrutura do código** | você quer exigir/proibir uma construção | "use lambda", "não use `sum()`", "use `@property`", "capture `KeyError`", "`achatar` usa list comprehension" |
+| **Avaliar expressão** | classes, métodos, exceções, arquivos, generators, decorators, pacotes | preparação `c = Conta("Ana", 100)`, expressão `c.sacar(999)` deve levantar `ValueError` com "insuficiente" |
+| **Testes do aluno (unittest)** | o aluno escreve os testes | a suíte dele deve passar com a sua implementação correta e reprovar cada versão com defeito (mutante) |
 | **Legado** | gabaritos antigos em `assert`/`unittest` | só para conteúdo migrado — converta quando puder |
 
 Dicas:
@@ -90,6 +92,13 @@ Dicas:
   aspas duplas em textos, listas `[1, 2]`.
 - Para números com casas decimais, informe uma **tolerância** (ex.: `0.001`).
 - Para diferenciar `3` de `3.0` ou lista de tupla, preencha o **tipo Python**.
+- Em **Avaliar expressão**, a preparação roda depois do `main.py` do aluno e
+  pode criar objetos e arquivos; a expressão é o que será comparado (ex.:
+  `list(pares_ate(8))`, `str(carrinho)`, `open("saida.txt").read()`). O tipo
+  aceita nomes embutidos (`int`, `generator`) ou de classes (`Tarefa`).
+- Em **Testes do aluno**, cadastre um caso com a implementação correta (deve
+  passar, com mínimo de testes) e um caso por mutante (deve reprovar). Cada
+  mutante deve ter um defeito que um bom teste pegaria.
 - O campo **dica** aparece para o aluno quando o caso falha — capriche nela.
 - A **prévia** ao lado de cada caso mostra exatamente a mensagem que o aluno verá.
 - Cubra casos normais, casos-limite (lista vazia, zero, negativo) e erros.

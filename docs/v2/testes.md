@@ -5,7 +5,7 @@
 | Domínio da API (regras puras) | Vitest | `apps/api/src/**/*.spec.ts` | 108 |
 | API ponta a ponta (HTTP + PostgreSQL real) | Vitest + Supertest | `apps/api/test/e2e` | 115 |
 | Executor (inclui ataques da auditoria) | Vitest + Wasmtime real | `apps/runner/test` | 17 |
-| Gabaritos do seed | `verify:seed` | `apps/api/scripts` | 22 lições |
+| Gabaritos do seed | `verify:seed` | `apps/api/scripts` | 22 lições: referência aprovada, esqueleto e 72 soluções erradas reprovadas, correção forte |
 | Contratos | Vitest | `packages/contracts/src` | 9 |
 | Front (componentes, contextos, middleware) | Vitest + Testing Library | `apps/web/src/**/*.test.ts(x)` | 162 |
 | Navegador real | Playwright | `apps/web/e2e` | 73 |
