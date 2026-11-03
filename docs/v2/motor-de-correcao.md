@@ -67,7 +67,8 @@ num namespace próprio e o nome `target` do aluno é **substituído** por ela; a
 classes `TestCase` do aluno (ou só `test_class`) rodam e o executor devolve só
 `{run, failures, errors, skipped, failed[]}`. A API decide:
 
-- `expect: "pass"`: nenhuma falha/erro, ao menos 1 teste e `run >= min_tests`;
+- `expect: "pass"`: nenhuma falha/erro e ao menos 1 teste **não pulado**
+  (`run - skipped >= min_tests`);
 - `expect: "fail"`: ao menos uma falha ou erro (a suíte "matou" o mutante).
 
 A lição 22 usa: a referência deve passar (mínimo 4 testes), a própria
@@ -76,6 +77,21 @@ implementação do aluno deve passar, e cinco mutantes devem ser reprovados
 `TypeError`). Cada sonda `unittest` roda numa instância própria, então a suíte
 não consegue carregar estado de uma implementação para a outra.
 
+Contra a implementação do professor (`implementation` presente):
+
+- ela é executada **antes** do código do aluno (um audit hook do aluno não vê o
+  `compile`/`exec` dela) e os módulos que ela importou saem de `sys.modules`;
+- uma **função** chega à suíte dentro de um invólucro em C
+  (`functools._lru_cache_wrapper` sem cache e sem `__wrapped__`): a suíte chama
+  a implementação, mas não lê `__code__`, docstring, `__globals__`, fecho,
+  defaults nem as linhas do traceback (as exceções saem sem os frames da
+  implementação). Há ruído aleatório no alocador, então `id()` e
+  `sys.getallocatedblocks()` não identificam a implementação;
+- a suíte roda **duas vezes**, em instâncias separadas (`unittest:<id>` e
+  `unittest:<id>:repeticao`); resultados diferentes reprovam o caso ("testes não
+  determinísticos"). Uma suíte que "chuta" passa com chance 2^-2k por envio
+  (k = casos com implementação; lição 22: 2^-12), e não 2^-k.
+
 ### Regras de estrutura (`source`)
 
 `uses`/`not_uses` (construções, inclusive `yield`; com `function` opcional a
@@ -83,6 +99,19 @@ regra vale só no corpo daquela função), `calls`/`not_calls`, `defines_functio
 `defines_class`, `imports`, `decorator` (`@property`, `@functools.wraps(f)` →
 `wraps`) e `catches` (`except ValueError`, `except (A, B)`). A análise roda numa
 instância em que o código do aluno não executa.
+
+As regras são **sintáticas**. Para que as negativas não se contornem:
+
+- `not_calls X` falha se `X` for **citado** em qualquer lugar (`maior = max`,
+  `junta = lista.append`), não só chamado;
+- `not_calls`/`not_uses` falham se o código usar busca ou execução dinâmica
+  (`eval`, `exec`, `compile`, `__import__`, `importlib`, `getattr`, `setattr`,
+  `vars`, `globals`, `locals`, `__builtins__`, `builtins`, `__dict__`,
+  `operator.attrgetter/methodcaller`...): a AST não vê o que
+  `getattr(builtins, "m" + "ax")` ou `exec("for ...")` executam.
+
+As positivas (`uses`, `calls`, `decorator`...) aceitam código morto
+(`if False: for ...`): use-as junto com casos de comportamento.
 
 ## Sondas (`packages/contracts/src/runner.ts`)
 
@@ -97,8 +126,11 @@ instância em que o código do aluno não executa.
 | `legacy` | roda asserts/unittest antigos no namespace do aluno | própria (lote), **modo estrito** |
 
 Entre sondas da mesma instância o harness restaura `sys.modules`, `sys.path`,
-os builtins, os ganchos de `sys`, o diretório atual e os arquivos do projeto
-(arquivos criados são apagados, alterados são regravados).
+os builtins, os ganchos de `sys`, o limite de recursão, o diretório atual e os
+arquivos do projeto (arquivos criados são apagados, alterados são regravados).
+O **conteúdo** de módulos já importados não é restaurado (um `json.marca = 1`
+persiste); como o `main.py` roda de novo antes de cada sonda, isso não dá ao
+aluno nada além do que ele já faz em cada sonda.
 
 ## Segurança da correção
 
@@ -130,30 +162,76 @@ falhas do unittest são formatadas como `Tipo: mensagem`, sem traceback.
 `apps/runner/test/sandbox.test.ts` prova que um aluno não forja uma observação
 `legacy` pelos caminhos óbvios (arquivo de sondas, argv, stdin, `__main__`,
 `sys.modules`, frames, traceback, gc, trace, `_testcapi`, `create_builtin`,
-monkeypatch de `json`/`os.write`/builtins).
+monkeypatch de `json`/`os.write`/builtins). Também ficam fechados, sem evento
+de auditoria próprio, os dois caminhos até um frame achados na revisão de
+03/11/2026: `gc.DEBUG_SAVEALL` (ciclos com frames iam para `gc.garbage`) e
+handlers de sinal (recebem o frame corrente) — `gc.set_debug` e
+`_signal.signal` são trocados por versões que recusam e não guardam a
+original, e recriar `gc`/`_signal` por `create_builtin` é recusado. `__code__`,
+`gi_code`, `cr_code` e `ag_code` também são bloqueados.
+O catálogo completo de rotas tentadas está em
+`apps/runner/test/attacks/strict-mode.attack.ts` (inclui uma varredura de tudo
+o que é alcançável por atributos a partir de `sys.modules`, builtins e de todas
+as classes vivas, sem achar o nonce).
 
-### Garantia residual (precisa)
+**Comparação na API:** a saída do aluno (até 64 000 caracteres por campo) é
+normalizada em tempo linear; a regex do professor (`match: "regex"`) roda num
+contexto `vm` com teto de 50 ms por comparação e 250 ms por correção (estourou =
+não casou), e no cadastro precisa compilar, ter até 1 000 caracteres e não ter
+quantificador aninhado (`(a+)+`). `jsonEquals` só lê chaves próprias
+(`__proto__`/`constructor` não vêm do protótipo), limita a profundidade a 128 e
+aplica tolerância a floats acima de 2^53. `\u0000` vindo do aluno é trocado por
+`U+FFFD` nas mensagens (o `jsonb` recusaria a submissão inteira).
+
+### Garantias por tipo de caso (precisas)
 
 O código do aluno divide o interpretador com a preparação do professor e com o
-harness. Ele pode, portanto, alterar o que é **observado**: devolver objetos
-hostis, trocar builtins ou módulos da stdlib usados pela preparação, e até — por
-introspecção profunda do interpretador — descobrir o nonce e emitir
-observações. O que ele **não** consegue é ver o valor esperado ou mudar a
-comparação, que acontece na API. Então:
+harness. Ele pode alterar o que é **observado**; não vê o valor esperado nem a
+comparação, que acontece na API. Em cada tipo de caso:
 
-- **`call`/`io`/`variable`/`expr`**: forjar a aprovação exige produzir
-  exatamente a observação esperada, ou seja, **conhecer a resposta**. Para
-  valores que o enunciado já entrega (ex.: "deve ser subclasse de Exception" →
-  `True`), saber a resposta é saber o que o código deve fazer — o mesmo que um
-  aluno faria escrevendo `return True`. Prefira expectativas ricas (listas,
-  textos) a booleanos quando possível.
-- **`unittest`**: forjar exige saber em qual implementação a suíte está rodando
-  (referência ou mutante). Isso não entra no sandbox (ids posicionais, uma
-  instância por implementação, frames e gc bloqueados); distinguir pelo
-  comportamento é exatamente escrever um bom teste. Atenção: a implementação
-  de referência fica disponível ao código do aluno naquela sonda — não use a
-  mesma função em casos `call` com valores secretos.
-- **`source`**: roda sem executar o código do aluno; não é forjável.
+- **`call`, `io`, `variable`, `expr`** (instância compartilhada, **sem** modo
+  estrito): o aluno controla a observação por completo — objetos hostis,
+  builtins e módulos da stdlib trocados (inclusive os que a preparação/expressão
+  do professor usa) e, por introspecção, até o nonce (frames são livres aqui;
+  `forgery.attack.ts` mostra isso). **Garantia:** a aprovação de um caso exige
+  que a observação seja **igual ao valor esperado**, que nunca entra no
+  sandbox; o valor é serializado só a partir de tipos embutidos (`type()` e
+  métodos C da classe base, nunca `__eq__`/`__iter__`/`__repr__` do aluno, salvo
+  em `{"$repr"}`), e tipos embutidos são identificados por identidade
+  (`ValueError` do aluno é `__main__.ValueError`). Portanto: forjar = conhecer a
+  resposta. Consequências que o professor precisa conhecer:
+  - comparações feitas **dentro** da expressão (`f(5) == 120`, `isinstance(x, C)`,
+    `issubclass(E, Exception)`, `bool(a == b)` com `expected: true`) são
+    decididas pelo aluno (`__eq__`, builtins trocados): a resposta `True` está no
+    próprio enunciado. Prefira `expected` rico (`f(5)` → `120`);
+  - expectativas booleanas ou pequenas são "chutáveis" caso a caso; o teste
+    `grading-forgery.e2e.ts` garante que **nenhuma lição do seed** é aprovada por
+    três forjadores universais (objeto igual a tudo + builtins trocados; exceção
+    de todos os tipos; `None`);
+  - `io` com `contains`/`regex`: imprimir todas as respostas possíveis passa
+    (`print(*range(101))` contém "42"); use `trimmed`/`exact` quando o espaço de
+    respostas for pequeno;
+  - texto é comparado sem normalização Unicode (NFC ≠ NFD) e `trimmed` só tira
+    espaço à direita de cada linha e linhas vazias nas pontas; `int` × `float`
+    só se distingue com `type`; inteiros acima de 2^53 chegam como `{"$int"}`.
+- **`source`**: a análise roda numa instância em que o código do aluno não
+  executa — não é forjável por execução. **Garantia:** reflete a sintaxe do
+  projeto; regras negativas falham com apelidos e com código dinâmico; regras
+  positivas aceitam código morto.
+- **`unittest`** (instância própria, modo estrito, duas execuções por
+  implementação do professor): **garantia:** o aluno não alcança o nonce nem as
+  sondas (catálogo de rotas fechado e varredura de alcançabilidade), não lê a
+  implementação **função** do professor (invólucro opaco) nem a identifica pelo
+  alocador. Logo a suíte só separa referência de mutante pelo **comportamento**.
+  Limites: (a) comparar o alvo com uma implementação própria correta (teste
+  diferencial) é comportamento e passa; (b) `target` que é **classe** não é
+  embrulhado (métodos e `vars()` ficam visíveis — prefira funções); (c)
+  importações feitas pela implementação durante a chamada e o tempo de execução
+  são observáveis; (d) `min_tests` conta testes não pulados, inclusive vazios —
+  quem garante qualidade são os mutantes; (e) uma suíte aleatória passa com
+  chance 2^-2k por envio; (f) o modo estrito depende de uma lista de bloqueio
+  do CPython 3.14: um novo caminho de introspecção numa versão futura precisa
+  entrar no catálogo.
 - **`legacy`**: continua **fraco**. Os asserts rodam no namespace do aluno com
   os valores esperados; `__eq__` trapaceiro ou monkeypatch do `unittest`
   aprovam. A API marca a correção como `strength: "legacy"` e o editor avisa.
@@ -166,10 +244,11 @@ comparação, que acontece na API. Então:
 | Tempo de parede | 10 s (2–25 s configurável) | `-W timeout` do Wasmtime + kill do processo pelo host |
 | CPU | 1,5×10¹⁰ unidades de fuel por segundo de orçamento | `-W fuel` |
 | Memória | 128 MB de memória linear | `-W max-memory-size` (→ `MemoryError`) |
-| Rede, ambiente, processos | inexistentes | WASI só recebe `/lib`, `/harness`, `/work`; `inherit-env=n`; sem sockets |
+| Rede, ambiente, processos | inexistentes | WASI só recebe `/lib`, `/harness`, `/work`; `inherit-env=n`; sem sockets nem DNS (`allow-ip-name-lookup=n`) |
 | Concorrência | `CONCURRENCY` (padrão: CPUs − 1) e fila máx. 20 | semáforo no executor (503 quando cheio; job abandonado pela API é cancelado) |
-| Saída | 8 MB por execução | o host mata o processo ao exceder |
-| Arquivos | harness somente leitura; projeto em `/work`, restaurado entre sondas | permissões do sistema de arquivos (executor sem root) |
+| Saída | 8 MB por execução; linha de observação até 4 MB e profundidade 256 | o host mata o processo ao exceder; linhas maiores são descartadas |
+| Disco | 32 MB e 2 000 arquivos/pastas no projeto por lote (`MAX_JOB_DISK_MB`) | o host mede `/work` a cada 100 ms e mata o processo ("Disco excedido") |
+| Arquivos | harness somente leitura; projeto em `/work`, restaurado entre sondas; stdlib em `/lib` | permissões do sistema de arquivos: o executor **recusa partir** em produção se puder gravar na stdlib (o convidado herdaria a permissão) |
 
 ## Medições (máquina de 2 vCPUs, `CONCURRENCY=1`)
 
@@ -177,7 +256,7 @@ comparação, que acontece na API. Então:
 |---|---|
 | Lição típica (`call` + `source`) | 130–280 ms |
 | Lição com 6–17 casos `expr` | 140–400 ms |
-| Lição 22 (7 casos `unittest` = 7 instâncias) | ~1,6 s |
+| Lição 22 (7 casos `unittest` = 13 instâncias: 6 implementações × 2 + a do aluno) | ~2,8 s |
 | Laço infinito | interrompido em 10 s |
 
 ## Gabaritos verificados
