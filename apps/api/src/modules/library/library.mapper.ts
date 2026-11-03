@@ -3,6 +3,7 @@ import type { LibraryCatalogRow, LibraryRequestRow } from "@levelusp/db"
 
 const UNKNOWN_REQUESTER = "Desconhecido"
 
+/** Biblioteca do catálogo no formato do contrato. */
 export function toLibraryCatalog(library: LibraryCatalogRow): LibraryCatalog {
   return {
     id: library.id,

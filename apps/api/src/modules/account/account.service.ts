@@ -19,6 +19,7 @@ import {
 } from "./account.mapper"
 import { AccountRepository } from "./account.repository"
 
+/** Direitos do titular (LGPD) sobre a própria conta: exportar os dados e excluí-la. */
 @Injectable()
 export class AccountService {
   constructor(
@@ -78,6 +79,11 @@ export class AccountService {
     }
   }
 
+  /**
+   * Exportação do próprio usuário (`GET /me/export`).
+   *
+   * @throws AppError 429 quando passa do limite de exportações por usuário.
+   */
   getMyDataExport(user: AuthUser): Promise<UserDataExport> {
     this.rateLimit.consume(RATE_LIMITS.dataExport, user.id)
     return this.getDataExport(user.id)

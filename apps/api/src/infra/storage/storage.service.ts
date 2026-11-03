@@ -14,6 +14,7 @@ const STORED_NAME_PATTERN = /^[0-9a-f-]{36}\.(png|jpg|webp)$/
 const LOCAL_URL_PATTERN = /^\/api\/files\/([0-9a-f-]{36}\.(png|jpg|webp))$/
 const IMAGE_FILE_MODE = 0o640
 
+/** Arquivo lido do volume de uploads, com o tipo derivado da extensão gravada. */
 export interface StoredFile {
   data: Buffer
   mime: string

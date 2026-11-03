@@ -12,6 +12,7 @@ const summaryColumns = {
   courseTitle: courses.title,
 }
 
+/** Certificado a emitir; o código é gerado pelo service. */
 export interface NewCertificate {
   userId: string
   courseId: string
@@ -22,10 +23,12 @@ export interface NewCertificate {
 /** O que a emissão devolve para montar a resposta (código, data e nota). */
 export type IssuedCertificateRow = Pick<CertificateRow, "verificationCode" | "issuedAt" | "examScore">
 
+/** Certificados emitidos e a busca pública por código. */
 @Injectable()
 export class CertificatesRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
+  /** Certificado do aluno num curso, ou null. */
   async findByUserCourse(userId: string, courseId: string): Promise<CertificateSummaryRow | null> {
     const [certificate] = await this.db
       .select(summaryColumns)
@@ -36,6 +39,7 @@ export class CertificatesRepository {
     return certificate ?? null
   }
 
+  /** Certificados do aluno, mais recentes primeiro. */
   listByUser(userId: string): Promise<CertificateSummaryRow[]> {
     return this.db
       .select(summaryColumns)

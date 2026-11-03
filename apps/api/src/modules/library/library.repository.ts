@@ -5,6 +5,7 @@ import { requireRow } from "@/common/database/rows"
 import { InjectDb, type Database } from "@/infra/database/database.module"
 import type { DbTransaction, DbExecutor, LibraryCatalogRow, LibraryRequestRow } from "@levelusp/db"
 
+/** Decisão do admin sobre um pedido de biblioteca. */
 export interface LibraryReview {
   status: "approved" | "rejected"
   reviewedBy: string
@@ -17,10 +18,12 @@ export interface LibraryRequestWithRequesterRow {
   requesterName: string | null
 }
 
+/** Catálogo de bibliotecas e pedidos dos professores. */
 @Injectable()
 export class LibraryRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
+  /** Catálogo por categoria e nome; `onlyActive` esconde as desativadas. */
   listCatalog(onlyActive: boolean): Promise<LibraryCatalogRow[]> {
     return this.db
       .select()
@@ -29,6 +32,7 @@ export class LibraryRepository {
       .orderBy(asc(libraryCatalog.category), asc(libraryCatalog.displayName))
   }
 
+  /** Ativa ou desativa uma biblioteca; `undefined` quando não existe. */
   async setCatalogActive(id: string, active: boolean): Promise<LibraryCatalogRow | undefined> {
     const [library] = await this.db.update(libraryCatalog).set({ active }).where(eq(libraryCatalog.id, id)).returning()
     return library
@@ -45,10 +49,12 @@ export class LibraryRepository {
       })
   }
 
+  /** Grava um pedido de biblioteca. */
   async createRequest(request: LibraryRequestInsert): Promise<LibraryRequestRow> {
     return requireRow(await this.db.insert(libraryRequests).values(request).returning(), "library_requests")
   }
 
+  /** Pedido pendente do mesmo professor para a mesma biblioteca (nome sem diferenciar maiúsculas). */
   findPendingRequest(userId: string, libraryName: string): Promise<Pick<LibraryRequestRow, "id"> | undefined> {
     return this.db.query.libraryRequests.findFirst({
       where: and(
@@ -60,10 +66,12 @@ export class LibraryRepository {
     })
   }
 
+  /** Pedidos do professor, mais recentes primeiro. */
   listRequestsByUser(userId: string): Promise<LibraryRequestRow[]> {
     return this.db.select().from(libraryRequests).where(eq(libraryRequests.requestedBy, userId)).orderBy(desc(libraryRequests.createdAt))
   }
 
+  /** Todos os pedidos com o nome de quem pediu, mais recentes primeiro. */
   listRequests(): Promise<LibraryRequestWithRequesterRow[]> {
     return this.db
       .select({ request: libraryRequests, requesterName: profiles.fullName })
@@ -72,11 +80,13 @@ export class LibraryRepository {
       .orderBy(desc(libraryRequests.createdAt))
   }
 
+  /** Lê o pedido com `FOR UPDATE`, travando-o até o fim da transação da revisão. */
   async lockRequest(id: string, tx: DbTransaction): Promise<LibraryRequestRow | undefined> {
     const [request] = await tx.select().from(libraryRequests).where(eq(libraryRequests.id, id)).for("update")
     return request
   }
 
+  /** Grava a decisão e a data da revisão. */
   async reviewRequest(id: string, review: LibraryReview, executor: DbExecutor): Promise<LibraryRequestRow> {
     return requireRow(
       await executor.update(libraryRequests).set({ ...review, reviewedAt: sql`now()` }).where(eq(libraryRequests.id, id)).returning(),

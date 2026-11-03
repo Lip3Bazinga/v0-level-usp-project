@@ -39,6 +39,7 @@ export function withRandomSuffix(slug: string, random: () => number = Math.rando
   return `${slug}-${random().toString(36).slice(2, 8)}`
 }
 
+/** Resultado de {@link checkReorder}: válido ou o motivo da recusa. */
 export type ReorderCheck = { ok: true } | { ok: false; reason: "DUPLICATE" | "FOREIGN" }
 
 /** A nova ordem só pode conter lições do curso, cada uma uma única vez. */
@@ -53,11 +54,13 @@ export function nextOrder(orders: readonly number[]): number {
   return orders.length ? Math.max(...orders) + 1 : 1
 }
 
+/** Por que uma lição ainda não pode ser publicada (o `code` vai na resposta 422). */
 export interface PublishBlocker {
   code: "NO_TESTS" | "NO_QUESTIONS"
   message: string
 }
 
+/** O que {@link publishBlocker} precisa saber da lição. */
 export interface PublishCandidate {
   lessonType: LessonType
   testCaseCount: number

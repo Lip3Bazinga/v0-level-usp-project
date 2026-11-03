@@ -15,6 +15,7 @@ import {
 import { toAttemptLike, toExamStart, toRules } from "./exams.mapper"
 import { ExamsRepository, type ExamCourseRow } from "./exams.repository"
 
+/** O que o certificado exige: lições concluídas e prova aprovada (com a nota). */
 export interface CertificateRequirements {
   course: { id: string; title: string }
   lessonsTotal: number
@@ -29,6 +30,9 @@ interface CourseCompletion {
   completed: Set<string>
 }
 
+/**
+ * Prova final: elegibilidade, sorteio e retomada de tentativas, correção no servidor e intervalo entre tentativas.
+ */
 @Injectable()
 export class ExamsService {
   private readonly logger = new Logger(ExamsService.name)

@@ -10,10 +10,12 @@ const quizOrder = [asc(lessonQuizQuestions.sortOrder), asc(lessonQuizQuestions.c
 /** O que o questionário precisa da lição: visibilidade, tipo e nota mínima. */
 export type QuizLessonRow = Pick<LessonRow, "id" | "published" | "createdBy" | "lessonType" | "quizPassingScore">
 
+/** Questões dos quizzes de lição (com gabarito); a troca do conjunto é feita numa transação. */
 @Injectable()
 export class QuizzesRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
+  /** Lição com o que o quiz precisa (visibilidade, tipo e nota mínima). */
   findLesson(id: string): Promise<QuizLessonRow | undefined> {
     return this.db.query.lessons.findFirst({
       where: eq(lessons.id, id),

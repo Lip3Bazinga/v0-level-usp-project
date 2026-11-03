@@ -16,6 +16,7 @@ const MODULE_PATCH: PatchMapping<ModuleUpdateInput, ModuleInsert> = {
   sort_order: (sortOrder) => ({ sortOrder }),
 }
 
+/** Módulos temáticos (escrita só por admins, auditada). */
 @Injectable()
 export class ModulesService {
   constructor(
@@ -23,6 +24,7 @@ export class ModulesService {
     private readonly audit: AuditService,
   ) {}
 
+  /** Módulos pela ordem de exibição. */
   async list(): Promise<Module[]> {
     return (await this.repo.list()).map(toModule)
   }
@@ -36,6 +38,7 @@ export class ModulesService {
     return counts
   }
 
+  /** Cria o módulo. */
   async create(actor: AuthUser, input: ModuleInput): Promise<Module> {
     const module = await this.repo.create({
       title: input.title,
@@ -48,6 +51,11 @@ export class ModulesService {
     return toModule(module)
   }
 
+  /**
+   * Atualiza os campos enviados.
+   *
+   * @throws AppError 404 módulo inexistente.
+   */
   async update(actor: AuthUser, id: string, input: ModuleUpdateInput): Promise<Module> {
     const patch = buildPatch(input, MODULE_PATCH)
     const module = Object.keys(patch).length ? await this.repo.update(id, patch) : await this.repo.findById(id)
@@ -56,6 +64,11 @@ export class ModulesService {
     return toModule(module)
   }
 
+  /**
+   * Apaga o módulo; as lições continuam, sem módulo.
+   *
+   * @throws AppError 404 módulo inexistente.
+   */
   async delete(actor: AuthUser, id: string): Promise<void> {
     if (!(await this.repo.delete(id))) throw NotFound("Módulo")
     await this.audit.log(actor, "module.delete", `module:${id}`, {}, "warning")

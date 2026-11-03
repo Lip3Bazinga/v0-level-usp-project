@@ -108,7 +108,8 @@ export const DOCUMENTATION_RULES = {
   "jsdoc/require-description": ["error", { contexts: ["any"] }],
   "jsdoc/no-blank-blocks": "error",
   "jsdoc/no-types": "error",
-  "jsdoc/check-param-names": ["error", { checkDestructured: false }],
+  // @param só quando o parâmetro precisa de explicação (não exige documentar todos).
+  "jsdoc/check-param-names": ["error", { checkDestructured: false, disableMissingParamChecks: true }],
   "jsdoc/check-tag-names": ["error", { typed: true }],
 }
 

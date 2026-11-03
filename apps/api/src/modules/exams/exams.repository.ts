@@ -17,21 +17,25 @@ const MAX_LISTED_ATTEMPTS = 50
 /** O mínimo do curso para checar visibilidade e titular o certificado. */
 export type ExamCourseRow = Pick<CourseRow, "id" | "title" | "published" | "createdBy">
 
+/** Identifica as tentativas de um aluno numa prova. */
 export interface AttemptOwner {
   examId: string
   userId: string
 }
 
+/** Tentativa a criar, com as questões já sorteadas. */
 export interface NewAttempt extends AttemptOwner {
   questionIds: string[]
 }
 
+/** Tentativas abertas que passaram do prazo (com a tolerância de envio). */
 export interface StaleAttemptsFilter extends AttemptOwner {
   timeLimitMinutes: number
   /** Tentativas abertas iniciadas antes disso já não aceitam envio. */
   startedBefore: Date
 }
 
+/** Nota e respostas gravadas ao fechar uma tentativa. */
 export interface AttemptResult {
   answers: AnswerSheet
   score: number
@@ -40,6 +44,7 @@ export interface AttemptResult {
   submittedAt?: string
 }
 
+/** Provas, banco de questões e tentativas. Só `listQuestionsForGrading` lê o gabarito. */
 @Injectable()
 export class ExamsRepository {
   constructor(@InjectDb() private readonly db: Database) {}
@@ -49,6 +54,7 @@ export class ExamsRepository {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`exam:${examId}:${userId}`}, 0))`)
   }
 
+  /** Curso da prova, com o mínimo para checar visibilidade. */
   findCourse(id: string): Promise<ExamCourseRow | undefined> {
     return this.db.query.courses.findFirst({
       where: eq(courses.id, id),
@@ -56,6 +62,7 @@ export class ExamsRepository {
     })
   }
 
+  /** Prova ativa do curso (no máximo uma por curso). */
   findActiveExamByCourse(courseId: string): Promise<ExamRow | undefined> {
     return this.db.query.exams.findFirst({ where: and(eq(exams.courseId, courseId), eq(exams.active, true)) })
   }
@@ -69,6 +76,7 @@ export class ExamsRepository {
       .where(and(eq(lessons.courseId, courseId), eq(lessons.published, true)))
   }
 
+  /** Quais das lições informadas o aluno já concluiu. */
   async listCompletedLessonIds(userId: string, lessonIds: string[]): Promise<Set<string>> {
     if (!lessonIds.length) return new Set()
     const completed = await this.db
@@ -78,6 +86,7 @@ export class ExamsRepository {
     return new Set(completed.map((progress) => progress.lessonId))
   }
 
+  /** Tentativas mais recentes do aluno na prova (até o limite da listagem). */
   listAttempts({ examId, userId }: AttemptOwner, executor: DbExecutor = this.db): Promise<ExamAttemptRow[]> {
     return executor
       .select()
@@ -87,12 +96,14 @@ export class ExamsRepository {
       .limit(MAX_LISTED_ATTEMPTS)
   }
 
+  /** Tentativa pelo id, só se for do aluno nesta prova (senão `undefined`). */
   findAttempt(id: string, { examId, userId }: AttemptOwner): Promise<ExamAttemptRow | undefined> {
     return this.db.query.examAttempts.findFirst({
       where: and(eq(examAttempts.id, id), eq(examAttempts.userId, userId), eq(examAttempts.examId, examId)),
     })
   }
 
+  /** Questões ativas no banco da prova. */
   async countActiveQuestions(examId: string): Promise<number> {
     const [active] = await this.db
       .select({ total: count() })
@@ -101,6 +112,7 @@ export class ExamsRepository {
     return active?.total ?? 0
   }
 
+  /** Ids das questões ativas, para o sorteio. */
   async listActiveQuestionIds(examId: string, executor: DbExecutor = this.db): Promise<string[]> {
     const active = await executor
       .select({ id: examQuestions.id })
@@ -127,6 +139,7 @@ export class ExamsRepository {
     return orderByIds(questions, ids)
   }
 
+  /** Grava a tentativa (chamado dentro da transação que travou as tentativas do aluno). */
   async createAttempt(attempt: NewAttempt, executor: DbExecutor): Promise<ExamAttemptRow> {
     return requireRow(await executor.insert(examAttempts).values(attempt).returning(), "exam_attempts")
   }
@@ -170,6 +183,7 @@ export class ExamsRepository {
     return best ?? null
   }
 
+  /** Provas com o título do curso, para o admin. */
   listExams(): Promise<ExamSummaryRow[]> {
     return this.db
       .select({ id: exams.id, courseId: exams.courseId, courseTitle: courses.title, title: exams.title })
@@ -178,22 +192,27 @@ export class ExamsRepository {
       .orderBy(asc(courses.title))
   }
 
+  /** Id e título da prova, para checar existência e auditar. */
   findExam(id: string): Promise<Pick<ExamRow, "id" | "title"> | undefined> {
     return this.db.query.exams.findFirst({ where: eq(exams.id, id), columns: { id: true, title: true } })
   }
 
+  /** Banco de questões da prova, com gabarito, na ordem de exibição. */
   listQuestions(examId: string): Promise<ExamQuestionRow[]> {
     return this.db.select().from(examQuestions).where(eq(examQuestions.examId, examId)).orderBy(...questionOrder)
   }
 
+  /** Questão pelo id, com gabarito. */
   findQuestion(id: string): Promise<ExamQuestionRow | undefined> {
     return this.db.query.examQuestions.findFirst({ where: eq(examQuestions.id, id) })
   }
 
+  /** Insere uma questão no banco da prova. */
   async createQuestion(values: ExamQuestionInsert): Promise<ExamQuestionRow> {
     return requireRow(await this.db.insert(examQuestions).values(values).returning(), "exam_questions")
   }
 
+  /** Atualiza os campos enviados; `undefined` quando a questão não existe. */
   async updateQuestion(id: string, patch: Partial<ExamQuestionInsert>): Promise<ExamQuestionRow | undefined> {
     const [question] = await this.db.update(examQuestions).set(patch).where(eq(examQuestions.id, id)).returning()
     return question

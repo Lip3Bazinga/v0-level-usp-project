@@ -15,14 +15,17 @@ export interface ActivityDayRow {
   completions: number
 }
 
+/** Perfis, ranking e badges do catálogo. */
 @Injectable()
 export class UsersRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
+  /** Perfil pelo id. */
   findById(id: string): Promise<ProfileRow | undefined> {
     return this.db.query.profiles.findFirst({ where: eq(profiles.id, id) })
   }
 
+  /** Perfil pelo username (comparado em minúsculas). */
   findByUsername(username: string): Promise<ProfileRow | undefined> {
     return this.db.query.profiles.findFirst({ where: eq(profiles.username, username.toLowerCase()) })
   }
@@ -36,15 +39,18 @@ export class UsersRepository {
     return Boolean(owner)
   }
 
+  /** Atualiza os campos enviados; `undefined` quando o perfil não existe. */
   async update(id: string, patch: Partial<ProfileInsert>): Promise<ProfileRow | undefined> {
     const [profile] = await this.db.update(profiles).set(patch).where(eq(profiles.id, id)).returning()
     return profile
   }
 
+  /** Todos os perfis, mais recentes primeiro. */
   list(): Promise<ProfileRow[]> {
     return this.db.select().from(profiles).orderBy(desc(profiles.createdAt))
   }
 
+  /** Alunos não suspensos por XP (empate: quem chegou antes). */
   listLeaderboard(limit: number): Promise<ProfileRow[]> {
     return this.db
       .select()
@@ -67,10 +73,12 @@ export class UsersRepository {
       .groupBy(sql`1`)
   }
 
+  /** Badges do catálogo na ordem de exibição; inativos só quando pedido. */
   listBadges(includeInactive: boolean): Promise<BadgeRow[]> {
     return this.db.select().from(badges).where(includeInactive ? undefined : eq(badges.active, true)).orderBy(asc(badges.sortOrder))
   }
 
+  /** Conquistas do usuário, mais recentes primeiro. */
   listUserBadges(userId: string): Promise<UserBadgeRow[]> {
     return this.db.select().from(userBadges).where(eq(userBadges.userId, userId)).orderBy(desc(userBadges.earnedAt))
   }

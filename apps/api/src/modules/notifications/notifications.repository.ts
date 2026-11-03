@@ -5,6 +5,7 @@ import type { NotificationKind } from "@levelusp/contracts"
 import { InjectDb, type Database } from "@/infra/database/database.module"
 import type { DbExecutor, NotificationRow } from "@levelusp/db"
 
+/** Notificação a criar; sem `kind`, é `info`, e sem `body`, texto vazio. */
 export interface NewNotification {
   title: string
   body?: string
@@ -16,14 +17,17 @@ function toInsert(userId: string, notification: NewNotification): NotificationIn
   return { userId, title: notification.title, body: notification.body ?? "", kind: notification.kind ?? "info", href: notification.href ?? null }
 }
 
+/** Notificações dos usuários; leitura e escrita sempre filtradas pelo dono. */
 @Injectable()
 export class NotificationsRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
+  /** Notificações do usuário, mais recentes primeiro. */
   list(userId: string, limit: number): Promise<NotificationRow[]> {
     return this.db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt)).limit(limit)
   }
 
+  /** Cria várias notificações de uma vez (nada a fazer com lista vazia). */
   async createMany(userId: string, newNotifications: NewNotification[], executor: DbExecutor = this.db): Promise<void> {
     if (!newNotifications.length) return
     await executor.insert(notifications).values(newNotifications.map((notification) => toInsert(userId, notification)))
@@ -39,6 +43,7 @@ export class NotificationsRepository {
     return updated.length > 0
   }
 
+  /** Marca todas as notificações do usuário como lidas. */
   async markAllRead(userId: string): Promise<void> {
     await this.db.update(notifications).set({ read: true }).where(and(eq(notifications.userId, userId), eq(notifications.read, false)))
   }

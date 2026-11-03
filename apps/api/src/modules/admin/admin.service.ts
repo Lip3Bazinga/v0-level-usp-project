@@ -57,6 +57,7 @@ interface UserUpdateAudit {
 
 const badgeExists = (): AppError => Conflict("Já existe uma badge com este identificador.", "BADGE_EXISTS")
 
+/** Administração de usuários, métricas, configurações e badges. Toda escrita grava auditoria. */
 @Injectable()
 export class AdminService {
   constructor(
@@ -69,10 +70,17 @@ export class AdminService {
     private readonly rateLimit: RateLimitService,
   ) {}
 
+  /** Todos os perfis, inclusive suspensos. */
   async listUsers(): Promise<Profile[]> {
     return (await this.users.list()).map(toProfile)
   }
 
+  /**
+   * Edita papel, suspensão e dados básicos; suspender derruba as sessões do usuário na hora.
+   *
+   * @throws AppError 400 sem campos, 403 quando o admin tenta se rebaixar ou se suspender,
+   * 404 usuário inexistente, 409 `USERNAME_TAKEN`.
+   */
   async updateUser(actor: AuthUser, id: string, input: AdminUpdateUserInput): Promise<Profile> {
     const fields = presentFields(input)
     if (!fields.length) throw BadRequest("Nada para atualizar.")
@@ -92,6 +100,11 @@ export class AdminService {
     return toProfile(updated)
   }
 
+  /**
+   * Exclui a conta e, em cascata, todos os dados do usuário (auditado como `danger`).
+   *
+   * @throws AppError 403 quando o admin tenta excluir a si mesmo, 404 usuário inexistente.
+   */
   async deleteUser(actor: AuthUser, id: string): Promise<void> {
     const violation = selfActionViolation(actor.id, id, { kind: "delete" })
     if (violation) throw Forbidden(violation)
@@ -100,12 +113,22 @@ export class AdminService {
     await this.audit.log(actor, "user.delete", target.email, { user_id: id, role: target.role }, "danger")
   }
 
+  /**
+   * Zera XP, nível, sequência, progresso, submissões e badges do usuário (auditado com o XP anterior).
+   *
+   * @throws AppError 404 usuário inexistente.
+   */
   async resetProgress(actor: AuthUser, id: string): Promise<void> {
     const target = await this.findUser(id)
     await this.repo.resetProgress(id)
     await this.audit.log(actor, "user.reset_progress", target.email, { user_id: id, previous_xp: target.totalXp }, "danger")
   }
 
+  /**
+   * Envia o link de redefinição de senha ao usuário.
+   *
+   * @throws AppError 404 usuário inexistente, 429 pedidos demais para o mesmo usuário.
+   */
   async sendPasswordReset(actor: AuthUser, id: string): Promise<void> {
     const target = await this.findUser(id)
     this.rateLimit.consume(RATE_LIMITS.adminPasswordReset, id)
@@ -113,6 +136,11 @@ export class AdminService {
     await this.audit.log(actor, "user.password_reset", target.email, { user_id: id }, "warning")
   }
 
+  /**
+   * Cria a conta sem senha e envia o convite para defini-la.
+   *
+   * @throws AppError 409 `EMAIL_TAKEN` (inclusive na corrida entre dois convites), 429 convites demais.
+   */
   async inviteUser(actor: AuthUser, email: string, fullName?: string): Promise<Profile> {
     this.rateLimit.consume(RATE_LIMITS.adminInvite, actor.id)
     try {
@@ -125,12 +153,22 @@ export class AdminService {
     }
   }
 
+  /**
+   * Exportação LGPD de outro usuário (auditada).
+   *
+   * @throws AppError 404 usuário inexistente.
+   */
   async getUserDataExport(actor: AuthUser, id: string): Promise<UserDataExport> {
     const data = await this.accounts.getDataExport(id)
     await this.audit.log(actor, "user.export", data.profile.email, { user_id: id }, "warning")
     return data
   }
 
+  /**
+   * Revoga as sessões de um usuário ou, sem `userId`, de todos (inclusive a do próprio admin).
+   *
+   * @throws AppError 404 quando `userId` não existe.
+   */
   async invalidateSessions(actor: AuthUser, userId?: string): Promise<void> {
     if (userId) {
       const target = await this.findUser(userId)
@@ -143,19 +181,23 @@ export class AdminService {
     await this.audit.log(actor, "sessions.invalidate_all", "todas as sessões", {}, "danger")
   }
 
+  /** Totais do painel. */
   getMetrics(): Promise<PlatformMetrics> {
     return this.repo.getMetrics()
   }
 
+  /** Conclusões recentes para o feed do painel. */
   async listRecentActivity(limit = 20): Promise<RecentActivity[]> {
     return (await this.repo.listRecentCompletions(limit)).flatMap(toRecentActivity)
   }
 
+  /** Conclusões por dia nos últimos 30 dias (fuso de São Paulo), sem buracos. */
   async listDailyActivity(now = new Date()): Promise<number[]> {
     const perDay = await this.repo.listCompletionsPerDay(seriesStart(now))
     return dailySeries(perDay.map(({ day, completions }) => ({ day, count: completions })), SERIES_DAYS, now)
   }
 
+  /** Indicadores de engajamento do painel (séries de 30 dias, ranking, papéis e funil). */
   async getAnalytics(now = new Date()): Promise<AnalyticsMetrics> {
     const [perDay, totals, topLessons, roles] = await Promise.all([
       this.repo.listCompletionsPerDay(seriesStart(now)),
@@ -172,15 +214,22 @@ export class AdminService {
     }
   }
 
+  /** Todas as lições, publicadas ou não, sem o gabarito. */
   async listLessons(): Promise<Lesson[]> {
     return (await this.repo.listLessons()).map(toLesson)
   }
 
+  /** Configurações como um objeto chave → valor. */
   async getSettings(): Promise<PlatformSettings> {
     const settings = await this.repo.listSettings()
     return Object.fromEntries(settings.map((setting) => [setting.key, setting.value]))
   }
 
+  /**
+   * Grava as chaves enviadas (as demais não mudam) e devolve todas as configurações.
+   *
+   * @throws AppError 400 com mais chaves que o limite por requisição.
+   */
   async updateSettings(actor: AuthUser, input: PlatformSettings): Promise<PlatformSettings> {
     const entries = Object.entries(input).map(([key, value]) => ({ key, value }))
     if (entries.length > MAX_SETTINGS_PER_REQUEST) throw BadRequest(`Envie no máximo ${MAX_SETTINGS_PER_REQUEST} configurações por vez.`)
@@ -191,10 +240,16 @@ export class AdminService {
     return this.getSettings()
   }
 
+  /** Trilha de auditoria, mais recentes primeiro. */
   listAudits(limit: number): Promise<AuditLog[]> {
     return this.audit.list(limit)
   }
 
+  /**
+   * Cria um badge no catálogo.
+   *
+   * @throws AppError 409 `BADGE_EXISTS` quando o id já existe.
+   */
   async createBadge(actor: AuthUser, input: BadgeInput): Promise<Badge> {
     if (await this.repo.findBadge(input.id)) throw badgeExists()
     try {
@@ -217,6 +272,11 @@ export class AdminService {
     }
   }
 
+  /**
+   * Atualiza os campos enviados de um badge.
+   *
+   * @throws AppError 400 sem campos, 404 badge inexistente.
+   */
   async updateBadge(actor: AuthUser, id: string, input: BadgeUpdateInput): Promise<Badge> {
     const patch = buildPatch(input, BADGE_PATCH)
     if (!Object.keys(patch).length) throw BadRequest("Nada para atualizar.")
@@ -226,6 +286,11 @@ export class AdminService {
     return toBadge(badge)
   }
 
+  /**
+   * Remove o badge do catálogo e de quem o conquistou.
+   *
+   * @throws AppError 404 badge inexistente.
+   */
   async deleteBadge(actor: AuthUser, id: string): Promise<void> {
     if (!(await this.repo.deleteBadge(id))) throw NotFound("Badge")
     await this.audit.log(actor, "badge.delete", id, {}, "danger")

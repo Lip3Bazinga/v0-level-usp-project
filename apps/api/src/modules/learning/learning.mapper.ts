@@ -2,6 +2,7 @@ import type { LessonCompletion, LessonProgress } from "@levelusp/contracts"
 import type { LessonProgressRow } from "@levelusp/db"
 import type { CompletionOutcome } from "../gamification/gamification.service"
 
+/** Progresso no formato do contrato. */
 export function toLessonProgress(progress: LessonProgressRow): LessonProgress {
   return {
     id: progress.id,

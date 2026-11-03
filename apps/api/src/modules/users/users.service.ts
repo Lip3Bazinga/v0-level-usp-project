@@ -19,6 +19,7 @@ const MY_PROFILE_PATCH: PatchMapping<UpdateMyProfileInput, ProfileInsert> = {
   avatar_url: (avatarUrl) => ({ avatarUrl }),
 }
 
+/** Perfis públicos, edição do próprio perfil, ranking, atividade e badges. */
 @Injectable()
 export class UsersService {
   constructor(
@@ -26,6 +27,11 @@ export class UsersService {
     private readonly storage: StorageService,
   ) {}
 
+  /**
+   * Atualiza o próprio perfil; trocar o avatar apaga a imagem antiga enviada pelo usuário.
+   *
+   * @throws AppError 409 `USERNAME_TAKEN`, 400/403 avatar inválido ou de outra pessoa, 404 perfil inexistente.
+   */
   async updateMyProfile(userId: string, input: UpdateMyProfileInput): Promise<Profile> {
     if (input.username && (await this.repo.isUsernameTaken(input.username, userId))) {
       throw Conflict("Este nome de usuário já está em uso.", "USERNAME_TAKEN")
@@ -42,12 +48,18 @@ export class UsersService {
     return toProfile(profile)
   }
 
+  /**
+   * Perfil público pelo username.
+   *
+   * @throws AppError 404 perfil inexistente.
+   */
   async getByUsername(username: string): Promise<PublicProfile> {
     const profile = await this.repo.findByUsername(username)
     if (!profile || profile.suspended) throw NotFound("Perfil")
     return toPublicProfile(profile)
   }
 
+  /** Ranking de alunos por XP. */
   async listLeaderboard(limit: number): Promise<PublicProfile[]> {
     return (await this.repo.listLeaderboard(limit)).map(toPublicProfile)
   }
@@ -65,10 +77,12 @@ export class UsersService {
     return days
   }
 
+  /** Catálogo de badges (inativos só para o admin). */
   async listBadges(includeInactive = false): Promise<Badge[]> {
     return (await this.repo.listBadges(includeInactive)).map(toBadge)
   }
 
+  /** Badges conquistados pelo usuário. */
   async listUserBadges(userId: string): Promise<UserBadge[]> {
     return (await this.repo.listUserBadges(userId)).map(toUserBadge)
   }

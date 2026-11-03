@@ -1,6 +1,7 @@
 import PDFDocument from "pdfkit"
 import { formatIssuedDate, formatScore } from "./certificates.domain"
 
+/** Dados impressos no PDF do certificado (data ISO; nota de 0 a 100). */
 export interface CertificatePdfData {
   code: string
   studentName: string

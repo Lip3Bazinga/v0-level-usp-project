@@ -11,11 +11,13 @@ import type { DbTransaction, BadgeRow } from "@levelusp/db"
 
 const saoPauloZone = sql.raw(`'${SAO_PAULO_TIME_ZONE}'`)
 
+/** Configuração da plataforma: chave e valor JSON (`null` é gravado como jsonb `null`). */
 export interface SettingEntry {
   key: string
   value: unknown
 }
 
+/** Consultas exclusivas do painel administrativo: métricas agregadas, configurações e badges. */
 @Injectable()
 export class AdminRepository {
   constructor(@InjectDb() private readonly db: Database) {}
@@ -39,6 +41,7 @@ export class AdminRepository {
     })
   }
 
+  /** Totais da plataforma numa única consulta. */
   async getMetrics(): Promise<PlatformMetrics> {
     const result = await this.db.execute<Record<keyof PlatformMetrics, number>>(sql`
       select
@@ -58,6 +61,7 @@ export class AdminRepository {
     return requireRow(result.rows, "metrics")
   }
 
+  /** Conclusões mais recentes com nomes do aluno e da lição (só as que têm data de conclusão). */
   listRecentCompletions(limit: number): Promise<RecentCompletionRow[]> {
     return this.db
       .select({
@@ -88,6 +92,7 @@ export class AdminRepository {
       .groupBy(sql`1`)
   }
 
+  /** DAU/WAU/MAU, retenção de 7 dias e funil de engajamento, numa única consulta. */
   async getAnalyticsTotals(): Promise<AnalyticsTotalsRow> {
     const result = await this.db.execute<AnalyticsTotalsRow>(sql`
       with done as (
@@ -112,6 +117,7 @@ export class AdminRepository {
     return requireRow(result.rows, "analytics")
   }
 
+  /** Lições com mais conclusões (empate: ordem alfabética). */
   listTopLessons(limit: number): Promise<TopLessonRow[]> {
     return this.db
       .select({ lessonId: lessons.id, title: lessons.title, completions: sql<number>`count(*)::int` })
@@ -123,6 +129,7 @@ export class AdminRepository {
       .limit(limit)
   }
 
+  /** Quantidade de perfis por papel. */
   listRoleDistribution(): Promise<RoleCountRow[]> {
     return this.db
       .select({ role: profiles.role, count: sql<number>`count(*)::int` })
@@ -136,10 +143,12 @@ export class AdminRepository {
     return this.db.select(publicLessonColumns).from(lessons).orderBy(asc(lessons.module), asc(lessons.order), asc(lessons.title))
   }
 
+  /** Todas as configurações, por chave. */
   listSettings(): Promise<SettingEntry[]> {
     return this.db.select({ key: platformSettings.key, value: platformSettings.value }).from(platformSettings).orderBy(asc(platformSettings.key))
   }
 
+  /** Grava as chaves enviadas (insere ou substitui); as demais não mudam. */
   async upsertSettings(entries: SettingEntry[]): Promise<void> {
     await this.db
       .insert(platformSettings)
@@ -148,19 +157,23 @@ export class AdminRepository {
       .onConflictDoUpdate({ target: platformSettings.key, set: { value: sql`excluded.value` } })
   }
 
+  /** Badge pelo id (slug). */
   findBadge(id: string): Promise<BadgeRow | undefined> {
     return this.db.query.badges.findFirst({ where: eq(badges.id, id) })
   }
 
+  /** Insere o badge. O id é chave primária: id repetido lança o erro de unicidade do Postgres. */
   async createBadge(badge: BadgeInsert): Promise<BadgeRow> {
     return requireRow(await this.db.insert(badges).values(badge).returning(), "badges")
   }
 
+  /** Atualiza os campos enviados; `undefined` quando o badge não existe. */
   async updateBadge(id: string, patch: Partial<BadgeInsert>): Promise<BadgeRow | undefined> {
     const [badge] = await this.db.update(badges).set(patch).where(eq(badges.id, id)).returning()
     return badge
   }
 
+  /** Apaga o badge (e as conquistas, em cascata); devolve se havia o que apagar. */
   async deleteBadge(id: string): Promise<boolean> {
     const deleted = await this.db.delete(badges).where(eq(badges.id, id)).returning({ id: badges.id })
     return deleted.length > 0

@@ -13,6 +13,7 @@ import { LibraryRepository } from "./library.repository"
 
 type CatalogEntry = NonNullable<ReviewLibraryRequestInput["catalog"]>
 
+/** Catálogo de bibliotecas Python e o fluxo de pedido (professor) e revisão (admin). */
 @Injectable()
 export class LibraryService {
   constructor(
@@ -23,16 +24,27 @@ export class LibraryService {
     private readonly rateLimit: RateLimitService,
   ) {}
 
+  /** Catálogo; por padrão só as bibliotecas ativas. */
   async listCatalog(onlyActive = true): Promise<LibraryCatalog[]> {
     return (await this.repo.listCatalog(onlyActive)).map(toLibraryCatalog)
   }
 
+  /**
+   * Liga ou desliga uma biblioteca do catálogo (auditado).
+   *
+   * @throws AppError 404 biblioteca inexistente.
+   */
   async setCatalogActive(actor: AuthUser, id: string, active: boolean): Promise<void> {
     const library = await this.repo.setCatalogActive(id, active)
     if (!library) throw NotFound("Biblioteca")
     await this.audit.log(actor, active ? "library.activate" : "library.deactivate", library.name, { id }, "info")
   }
 
+  /**
+   * Registra o pedido do professor.
+   *
+   * @throws AppError 409 `REQUEST_PENDING` quando já há pedido pendente da mesma biblioteca, 429 pedidos demais.
+   */
   async createRequest(user: AuthUser, input: LibraryRequestInput): Promise<LibraryRequest> {
     this.rateLimit.consume(RATE_LIMITS.libraryRequest, user.id)
     if (await this.repo.findPendingRequest(user.id, input.library_name)) {
@@ -48,10 +60,12 @@ export class LibraryService {
     return toLibraryRequest(request)
   }
 
+  /** Pedidos do próprio professor. */
   async listMyRequests(user: AuthUser): Promise<LibraryRequest[]> {
     return (await this.repo.listRequestsByUser(user.id)).map((request) => toLibraryRequest(request))
   }
 
+  /** Todos os pedidos, com o nome de quem pediu (para o admin). */
   async listRequests(): Promise<LibraryRequest[]> {
     return (await this.repo.listRequests()).map(({ request, requesterName }) => toLibraryRequest(request, requesterName))
   }

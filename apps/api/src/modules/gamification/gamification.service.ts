@@ -8,6 +8,7 @@ import { eligibleBadges, levelForXp, nextStreak, type PlayerStats } from "./gami
 import { GamificationRepository } from "./gamification.repository"
 import type { DbTransaction, DbExecutor } from "@levelusp/db"
 
+/** Efeito de uma conclusão (zerado quando a lição já estava concluída). */
 export interface CompletionOutcome {
   /** false quando a lição já estava concluída (XP não é creditado de novo). */
   newlyCompleted: boolean
@@ -18,6 +19,7 @@ export interface CompletionOutcome {
   courseCompleted: boolean
 }
 
+/** Dados extras da conclusão; `score` é a nota do questionário. */
 export interface CompletionOptions {
   score?: number | null
 }

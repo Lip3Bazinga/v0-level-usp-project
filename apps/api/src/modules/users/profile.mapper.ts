@@ -1,6 +1,7 @@
 import type { Profile, PublicProfile } from "@levelusp/contracts"
 import type { ProfileRow } from "@levelusp/db"
 
+/** Perfil completo (com e-mail), para o próprio usuário e admins. */
 export function toProfile(profile: ProfileRow): Profile {
   return {
     id: profile.id,
@@ -23,6 +24,7 @@ export function toProfile(profile: ProfileRow): Profile {
   }
 }
 
+/** Perfil para terceiros: sem e-mail nem a marca de suspensão. */
 export function toPublicProfile(profile: ProfileRow): PublicProfile {
   const { email: _email, suspended: _suspended, ...publicFields } = toProfile(profile)
   return publicFields

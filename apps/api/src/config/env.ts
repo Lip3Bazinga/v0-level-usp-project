@@ -38,8 +38,14 @@ export const envSchema = z
     SWAGGER_ENABLED: env.SWAGGER_ENABLED ?? env.APP_ENV === "dev",
   }))
 
+/** Configuração da API já validada e com os padrões aplicados. */
 export type Env = z.infer<typeof envSchema>
 
+/**
+ * Valida as variáveis de ambiente uma vez, na inicialização.
+ *
+ * @throws Error listando cada variável inválida; a API não sobe com configuração inválida.
+ */
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   const parsed = envSchema.safeParse(source)
   if (!parsed.success) {

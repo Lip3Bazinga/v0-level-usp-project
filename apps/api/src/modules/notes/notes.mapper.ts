@@ -1,11 +1,13 @@
 import type { Note } from "@levelusp/contracts"
 import type { NoteRow } from "@levelusp/db"
 
+/** Títulos dos conteúdos vinculados à nota; ausentes ou null não aparecem na resposta. */
 export interface NoteLinks {
   lessonTitle?: string | null
   courseTitle?: string | null
 }
 
+/** Nota no formato do contrato, com os títulos vinculados quando houver. */
 export function toNote(note: NoteRow, links: NoteLinks = {}): Note {
   return {
     id: note.id,

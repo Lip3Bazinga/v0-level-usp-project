@@ -9,11 +9,13 @@ export interface LoginLockState {
   lockedUntil: string | null
 }
 
+/** Novo estado do contador de falhas de login e do bloqueio temporário. */
 export interface FailedLoginUpdate {
   failures: number
   lockedUntil: string | null
 }
 
+/** Se a conta está bloqueada por falhas de login no instante `now` (ms). */
 export function isLocked(state: LoginLockState, now: number): boolean {
   return state.lockedUntil !== null && new Date(state.lockedUntil).getTime() > now
 }

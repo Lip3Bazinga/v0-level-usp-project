@@ -27,11 +27,13 @@ const MAX_USER_AGENT_LENGTH = 300
 const MAX_USERNAME_ATTEMPTS = 20
 const PASSWORD_LINK_PATH = "/redefinir-senha"
 
+/** De onde veio o login, guardado na sessão para o usuário revisar. */
 export interface ClientInfo {
   ip: string | null
   userAgent: string | null
 }
 
+/** Sessão criada: o cookie a gravar e o corpo da resposta. */
 export interface IssuedSession extends SessionCookie {
   response: SessionResponse
 }
@@ -40,6 +42,7 @@ export interface IssuedSession extends SessionCookie {
 const invalidCredentials = (): AppError =>
   new AppError(401, "INVALID_CREDENTIALS", "E-mail ou senha incorretos (ou muitas tentativas: aguarde alguns minutos).")
 
+/** Cadastro, login, sessões e senhas. Senhas em argon2id; tokens só como hash SHA-256 no banco. */
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name)
@@ -53,6 +56,11 @@ export class AuthService {
     private readonly mail: MailService,
   ) {}
 
+  /**
+   * Cria a conta (com username derivado do e-mail) e já abre a sessão.
+   *
+   * @throws AppError 403 com o cadastro fechado no ambiente, 409 `EMAIL_TAKEN`.
+   */
   async signUp(input: SignUpInput, client: ClientInfo): Promise<IssuedSession> {
     if (!this.env.SIGNUP_ENABLED) throw Forbidden("O cadastro está fechado neste ambiente. Peça um convite.")
     if (await this.repo.findUserByEmail(input.email)) throw Conflict("Já existe uma conta com este e-mail.", "EMAIL_TAKEN")
@@ -66,6 +74,12 @@ export class AuthService {
     return this.issueSession(user.id, client)
   }
 
+  /**
+   * Autentica e abre a sessão. Senha errada e conta bloqueada respondem igual (sem revelar qual),
+   * com custo constante; falhas contam para o bloqueio temporário e hashes bcrypt viram argon2id.
+   *
+   * @throws AppError 401 `INVALID_CREDENTIALS`, 403 conta suspensa.
+   */
   async signIn(input: SignInInput, client: ClientInfo): Promise<IssuedSession> {
     const user = await this.repo.findUserByEmail(input.email)
     const now = Date.now()
@@ -84,6 +98,7 @@ export class AuthService {
     return this.issueSession(user.id, client)
   }
 
+  /** Revoga a sessão atual. */
   async signOut(sessionId: string): Promise<void> {
     await this.repo.revokeSession(sessionId)
   }
@@ -105,6 +120,11 @@ export class AuthService {
     return { id: profile.id, email: profile.email, role: profile.role, fullName: profile.fullName, sessionId }
   }
 
+  /**
+   * Perfil da sessão para `GET /auth/me`.
+   *
+   * @throws AppError 401 se o perfil não existe mais.
+   */
   async getSession(userId: string): Promise<SessionResponse> {
     const profile = await this.users.findById(userId)
     if (!profile) throw Unauthorized()
@@ -127,6 +147,11 @@ export class AuthService {
       .catch((error: unknown) => this.logger.error({ err: error, userId: user.id }, "falha ao enviar e-mail de redefinição"))
   }
 
+  /**
+   * Troca a senha pelo link (token de uso único) e encerra todas as sessões.
+   *
+   * @throws AppError 400 `INVALID_TOKEN` (inexistente, usado ou expirado).
+   */
   async resetPassword(token: string, password: string): Promise<void> {
     const userId = await this.repo.consumePasswordToken(hashToken(token))
     if (!userId) throw BadRequest("Link inválido ou expirado. Peça um novo.", "INVALID_TOKEN")
@@ -134,6 +159,11 @@ export class AuthService {
     await this.repo.revokeAllSessions(userId)
   }
 
+  /**
+   * Troca a senha confirmando a atual; as outras sessões são encerradas, a atual continua.
+   *
+   * @throws AppError 400 `INVALID_PASSWORD`.
+   */
   async changePassword(user: AuthUser, currentPassword: string, newPassword: string): Promise<void> {
     const credentials = await this.repo.findUserById(user.id)
     if (!(await this.passwords.verify(credentials?.passwordHash, currentPassword))) {
@@ -165,10 +195,12 @@ export class AuthService {
     return profile
   }
 
+  /** Encerra todas as sessões de um usuário (suspensão, ação administrativa). */
   revokeAllSessions(userId: string): Promise<void> {
     return this.repo.revokeAllSessions(userId)
   }
 
+  /** Encerra as sessões de todos os usuários. */
   revokeEverySession(): Promise<void> {
     return this.repo.revokeEverySession()
   }

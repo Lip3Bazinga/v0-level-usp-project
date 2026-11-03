@@ -3,6 +3,7 @@ import nodemailer, { type Transporter } from "nodemailer"
 import { ENV } from "@/config/config.module"
 import type { Env } from "@/config/env"
 
+/** E-mail em texto puro (os links de senha vão no corpo). */
 export interface MailMessage {
   to: string
   subject: string

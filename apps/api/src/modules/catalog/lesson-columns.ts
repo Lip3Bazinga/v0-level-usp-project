@@ -25,4 +25,5 @@ export const lessonSummaryColumns = {
   published: lessons.published,
 }
 
+/** Lição resumida, como {@link lessonSummaryColumns} seleciona. */
 export type LessonSummaryRow = Pick<PublicLessonRow, keyof typeof lessonSummaryColumns>

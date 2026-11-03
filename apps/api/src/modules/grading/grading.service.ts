@@ -10,6 +10,7 @@ export const GRADING_TIMEOUT_SECONDS = 10
 const MIN_TIMEOUT_SECONDS = 2
 const MAX_TIMEOUT_SECONDS = 25
 
+/** Veredito da correção com a versão do motor (gravada na submissão). */
 export interface GradedSubmission extends GradeResult {
   /** Versão do Python e do runtime que corrigiram (gravada na submissão). */
   engine: string
@@ -21,8 +22,12 @@ export class GradingService {
   constructor(@Inject(CODE_RUNNER) private readonly runner: CodeRunner) {}
 
   /**
+   * Corrige o projeto contra o gabarito: normaliza os casos, roda as sondas no executor e
+   * compara aqui (o executor nunca vê os valores esperados).
+   *
    * @param timeoutSeconds orçamento de execução da correção (2–25 s). Não confundir
    *        com `lessons.time_limit`, que é o tempo ESTIMADO de estudo, em minutos.
+   * @throws AppError 422 `INVALID_TESTS` quando o gabarito gravado não passa no schema.
    */
   async grade(files: ProjectFile[], rawCases: TestCase[], timeoutSeconds = GRADING_TIMEOUT_SECONDS): Promise<GradedSubmission> {
     // Normaliza (defaults do schema) e recusa gabaritos corrompidos no banco.

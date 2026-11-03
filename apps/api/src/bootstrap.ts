@@ -9,6 +9,7 @@ import { SESSION_COOKIE } from "./common/http/request"
 
 const JSON_BODY_LIMIT = "1mb"
 
+/** Opções de {@link configureApp}; os testes e2e desligam o logger pino (`useLogger: false`). */
 export interface ConfigureAppOptions {
   useLogger?: boolean
 }

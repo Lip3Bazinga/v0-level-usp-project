@@ -5,6 +5,7 @@ import { requireRow } from "@/common/database/rows"
 import { InjectDb, type Database } from "@/infra/database/database.module"
 import type { DbTransaction, ProfileRow, SessionRow, UserRow } from "@levelusp/db"
 
+/** Credencial e perfil a criar no cadastro; `passwordHash` null nos convites (a senha vem pelo link). */
 export interface NewAccount {
   email: string
   passwordHash: string | null
@@ -12,6 +13,7 @@ export interface NewAccount {
   username: string
 }
 
+/** Sessão a gravar; o token em si só existe no cookie. */
 export interface NewSession {
   /** SHA-256 do token do cookie. */
   id: string
@@ -33,6 +35,7 @@ export interface ActiveSession {
   profile: ProfileRow
 }
 
+/** Token de redefinição de senha (só o hash é gravado) e sua validade. */
 export interface NewPasswordToken {
   tokenHash: string
   userId: string

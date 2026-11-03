@@ -14,6 +14,7 @@ import { LearningRepository, type GradableLessonRow } from "./learning.repositor
 /** Exercício aprovado pelo corretor vale nota cheia (a nota parcial é só do quiz). */
 const FULL_SCORE = 100
 
+/** Submissão de código (correção no servidor), conclusão de lições teóricas, progresso e rascunhos. */
 @Injectable()
 export class LearningService {
   private readonly logger = new Logger(LearningService.name)
@@ -25,20 +26,32 @@ export class LearningService {
     private readonly rateLimit: RateLimitService,
   ) {}
 
+  /** Progresso do usuário em todas as lições. */
   async listMyProgress(userId: string): Promise<LessonProgress[]> {
     return (await this.repo.listProgress(userId)).map(toLessonProgress)
   }
 
+  /** Ids das lições que o usuário concluiu. */
   async listMyCompletedLessonIds(userId: string): Promise<string[]> {
     const progress = await this.repo.listProgress(userId)
     return progress.filter((lesson) => lesson.status === "completed").map((lesson) => lesson.lessonId)
   }
 
+  /**
+   * Rascunho do usuário na lição; null quando nunca salvou (rascunho legado em texto vira o main.py).
+   *
+   * @throws AppError 404 quando a lição não existe ou não é visível.
+   */
   async getSnapshot(user: AuthUser, lessonId: string): Promise<LessonSnapshot> {
     await this.findAccessibleLesson(user, lessonId)
     return { files: parseSnapshot(await this.repo.findSnapshot(user.id, lessonId)) }
   }
 
+  /**
+   * Salva o rascunho sem rebaixar uma lição já concluída.
+   *
+   * @throws AppError 404 quando a lição não existe ou não é visível.
+   */
   async updateSnapshot(user: AuthUser, lessonId: string, files: ProjectFile[]): Promise<void> {
     await this.findAccessibleLesson(user, lessonId)
     await this.repo.upsertSnapshot(user.id, lessonId, files)

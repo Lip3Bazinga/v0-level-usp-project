@@ -15,6 +15,7 @@ import { type ApprovalReview, type ApprovalStatusFilter, TeacherRequestsReposito
 const PENDING_REQUEST_MESSAGE = "Você já tem uma solicitação em análise. Aguarde a resposta da coordenação."
 const ALREADY_REVIEWED = (): AppError => Conflict("Esta solicitação já foi revisada.", "ALREADY_REVIEWED")
 
+/** Pedido de acesso de professor: o aluno solicita, o admin aprova (promove o papel) ou rejeita. */
 @Injectable()
 export class TeacherRequestsService {
   constructor(
@@ -25,6 +26,11 @@ export class TeacherRequestsService {
     private readonly rateLimit: RateLimitService,
   ) {}
 
+  /**
+   * Registra a solicitação com o nome e o e-mail da conta.
+   *
+   * @throws AppError 409 `ALREADY_TEACHER` (quem não é aluno) ou `REQUEST_PENDING`, 429 pedidos demais.
+   */
   async submit(user: AuthUser, input: TeacherRequestInput): Promise<TeacherApproval> {
     if (user.role !== "student") throw Conflict("Sua conta já tem acesso de professor.", "ALREADY_TEACHER")
     this.rateLimit.consume(RATE_LIMITS.teacherRequest, user.id)
@@ -44,15 +50,22 @@ export class TeacherRequestsService {
     }
   }
 
+  /** Solicitação mais recente do usuário, ou null. */
   async findMyRequest(user: AuthUser): Promise<TeacherApproval | null> {
     const approval = await this.repo.findLatest(user.id)
     return approval ? toTeacherApproval(approval) : null
   }
 
+  /** Solicitações por situação: pendentes em ordem de chegada, as demais mais recentes primeiro. */
   async list(status: ApprovalStatusFilter): Promise<TeacherApproval[]> {
     return (await this.repo.list(status)).map(toTeacherApproval)
   }
 
+  /**
+   * Aprova, promove o usuário a professor e o notifica numa transação; depois audita.
+   *
+   * @throws AppError 404 solicitação inexistente, 409 `ALREADY_REVIEWED`.
+   */
   async approve(actor: AuthUser, id: string, note?: string): Promise<void> {
     const approval = await this.transactions.run(async (tx: DbTransaction) => {
       const reviewed = await this.reviewPending(id, { status: "approved", reviewedBy: actor.id, reviewNote: note ?? null }, tx)
@@ -67,6 +80,11 @@ export class TeacherRequestsService {
     await this.audit.log(actor, "teacher.approve", approval.email, { approval_id: id, user_id: approval.userId }, "warning")
   }
 
+  /**
+   * Rejeita e notifica o usuário numa transação (o papel não muda); depois audita.
+   *
+   * @throws AppError 404 solicitação inexistente, 409 `ALREADY_REVIEWED`.
+   */
   async reject(actor: AuthUser, id: string, note?: string): Promise<void> {
     const approval = await this.transactions.run(async (tx: DbTransaction) => {
       const reviewed = await this.reviewPending(id, { status: "rejected", reviewedBy: actor.id, reviewNote: note ?? null }, tx)

@@ -64,6 +64,11 @@ function planCase<Kind extends CaseKind>(kind: Kind, testCase: CaseOf<Kind>, pla
   PROBE_PLANNERS[kind](testCase, plan)
 }
 
+/**
+ * Sondas que o executor roda para os casos: uma por caso de chamada/E/S/legado, mais uma
+ * única de globais (todas as variáveis) e uma única de AST, quando algum caso precisa delas.
+ * Nenhuma sonda leva o valor esperado.
+ */
 export function buildProbes(cases: TestCase[]): Probe[] {
   const plan: ProbePlan = { probes: [], variables: new Set(), needsAst: false }
   for (const testCase of cases) planCase(testCase.kind, testCase, plan)
@@ -79,6 +84,10 @@ interface GradeTally {
   errors: number
 }
 
+/**
+ * Compara as observações do executor com o gabarito. Sonda ausente conta como erro do caso;
+ * `strength` é `legacy` quando algum caso é legado.
+ */
 export function grade(cases: TestCase[], observations: ProbeObservation[], durationMs = 0): GradeResult {
   const observationById: ObservationIndex = new Map(observations.map((observation) => [observation.id, observation]))
   const tally: GradeTally = { results: [], testsRun: 0, failedTests: 0, errors: 0 }
@@ -204,6 +213,7 @@ const OUTPUT_MATCHERS: Record<OutputMatchMode, (expected: string, actual: string
   },
 }
 
+/** Se a saída produzida atende à esperada no modo de comparação do caso. */
 export function matchOutput(mode: OutputMatchMode, expected: string, actual: string): boolean {
   return OUTPUT_MATCHERS[mode](expected, actual)
 }
@@ -237,6 +247,7 @@ function ruleStrategy<Type extends RuleType>(type: Type): SourceRuleStrategy<Typ
   return SOURCE_RULES[type]
 }
 
+/** Se as construções da AST satisfazem a regra estrutural. */
 export function checkRule(rule: SourceRule, features: AstFeatures): boolean {
   return ruleStrategy(rule.type).check(rule, features)
 }

@@ -1,4 +1,5 @@
 export const IMAGE_EXTENSIONS = ["png", "jpg", "webp"] as const
+/** Extensões de imagem aceitas no upload. */
 export type ImageExtension = (typeof IMAGE_EXTENSIONS)[number]
 
 export const IMAGE_MIME: Record<ImageExtension, string> = { png: "image/png", jpg: "image/jpeg", webp: "image/webp" }
@@ -14,6 +15,7 @@ export function sniffImage(bytes: Buffer): ImageExtension | null {
   return null
 }
 
+/** Estreita um nome vindo da URL para uma extensão aceita. */
 export function isImageExtension(value: string): value is ImageExtension {
   return IMAGE_EXTENSIONS.some((extension) => extension === value)
 }

@@ -13,18 +13,22 @@ const outerLessonId = sql.raw(`"lessons"."id"`)
 /** Ordem do catálogo: por curso (avulsas por último) e posição no curso. */
 const catalogOrder = [asc(lessons.courseId), asc(lessons.order), asc(lessons.createdAt)]
 
+/** Lições e quizzes vinculados. Leituras para o aluno selecionam só as colunas públicas (sem gabarito). */
 @Injectable()
 export class LessonsRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
+  /** Resumo das lições publicadas, na ordem do catálogo. */
   listPublishedSummaries(): Promise<LessonSummaryRow[]> {
     return this.db.select(lessonSummaryColumns).from(lessons).where(eq(lessons.published, true)).orderBy(...catalogOrder)
   }
 
+  /** Lições publicadas sem gabarito, na ordem do catálogo. */
   listPublished(): Promise<PublicLessonRow[]> {
     return this.db.select(publicLessonColumns).from(lessons).where(eq(lessons.published, true)).orderBy(...catalogOrder)
   }
 
+  /** Lição sem gabarito, publicada ou não (a visibilidade é decidida no service). */
   async findPublic(id: string): Promise<PublicLessonRow | undefined> {
     const [lesson] = await this.db.select(publicLessonColumns).from(lessons).where(eq(lessons.id, id)).limit(1)
     return lesson
@@ -68,19 +72,23 @@ export class LessonsRepository {
     return colliding.flatMap((lesson) => (lesson.slug ? [lesson.slug] : []))
   }
 
+  /** Insere a lição. Slug repetido lança o erro de unicidade do Postgres. */
   async create(values: LessonInsert): Promise<LessonRow> {
     return requireRow(await this.db.insert(lessons).values(values).returning(), "lessons")
   }
 
+  /** Atualiza os campos enviados; `undefined` quando a lição não existe. */
   async update(id: string, patch: Partial<LessonInsert>): Promise<LessonRow | undefined> {
     const [lesson] = await this.db.update(lessons).set(patch).where(eq(lessons.id, id)).returning()
     return lesson
   }
 
+  /** Apaga a lição: progresso, submissões e questões saem em cascata; anotações perdem o vínculo. */
   async delete(id: string): Promise<void> {
     await this.db.delete(lessons).where(eq(lessons.id, id))
   }
 
+  /** Quantas questões o quiz da lição tem. */
   async countQuizQuestions(lessonId: string): Promise<number> {
     const [questions] = await this.db.select({ total: count() }).from(lessonQuizQuestions).where(eq(lessonQuizQuestions.lessonId, lessonId))
     return questions?.total ?? 0

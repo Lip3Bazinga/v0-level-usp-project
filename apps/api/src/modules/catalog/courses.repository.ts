@@ -18,12 +18,14 @@ const publishedLessonCount = sql<number>`(select count(*)::int from lessons l wh
 const isEnrolled = (userId: string): SQL<boolean> =>
   sql<boolean>`exists(select 1 from enrollments e where e.course_id = ${outerCourseId} and e.user_id = ${userId})`
 
+/** Onde a lição fica: curso (null = avulsa) e posição. */
 export interface LessonPlacement {
   courseId: string | null
   /** Posição no curso; ausente mantém a atual. */
   order?: number
 }
 
+/** Cursos, matrículas e a posição das lições dentro de cada curso. */
 @Injectable()
 export class CoursesRepository {
   constructor(@InjectDb() private readonly db: Database) {}
@@ -38,6 +40,7 @@ export class CoursesRepository {
     return orderBy ? query.orderBy(orderBy) : query
   }
 
+  /** Cursos publicados por título, com agregados (e a matrícula de `userId`, se informado). */
   listPublished(userId?: string): Promise<CourseWithAggregatesRow[]> {
     return this.listWithAggregates(userId, eq(courses.published, true), asc(courses.title))
   }
@@ -53,18 +56,22 @@ export class CoursesRepository {
     return course
   }
 
+  /** Curso pelo id, publicado ou não. */
   findById(id: string): Promise<CourseRow | undefined> {
     return this.db.query.courses.findFirst({ where: eq(courses.id, id) })
   }
 
+  /** Insere o curso. */
   async create(values: CourseInsert): Promise<CourseRow> {
     return requireRow(await this.db.insert(courses).values(values).returning(), "courses")
   }
 
+  /** Atualiza só os campos enviados. */
   async update(id: string, patch: Partial<CourseInsert>): Promise<void> {
     await this.db.update(courses).set(patch).where(eq(courses.id, id))
   }
 
+  /** Apaga o curso; as lições ficam avulsas e matrículas, prova e certificados saem em cascata. */
   async delete(id: string): Promise<void> {
     await this.db.delete(courses).where(eq(courses.id, id))
   }
@@ -78,6 +85,7 @@ export class CoursesRepository {
       .orderBy(asc(lessons.order), asc(lessons.createdAt))
   }
 
+  /** Id e posição de todas as lições do curso. */
   listLessonOrders(courseId: string): Promise<Pick<LessonRow, "id" | "order">[]> {
     return this.db.select({ id: lessons.id, order: lessons.order }).from(lessons).where(eq(lessons.courseId, courseId))
   }
@@ -99,6 +107,7 @@ export class CoursesRepository {
     })
   }
 
+  /** Move a lição para outro curso (ou a deixa avulsa); sem `order`, mantém a posição atual. */
   async placeLesson(lessonId: string, { courseId, order }: LessonPlacement): Promise<void> {
     await this.db
       .update(lessons)
@@ -106,14 +115,17 @@ export class CoursesRepository {
       .where(eq(lessons.id, lessonId))
   }
 
+  /** Matricula o aluno; repetir não faz nada. */
   async enroll(userId: string, courseId: string): Promise<void> {
     await this.db.insert(enrollments).values({ userId, courseId }).onConflictDoNothing()
   }
 
+  /** Cancela a matrícula; sem matrícula não faz nada. */
   async unenroll(userId: string, courseId: string): Promise<void> {
     await this.db.delete(enrollments).where(and(eq(enrollments.userId, userId), eq(enrollments.courseId, courseId)))
   }
 
+  /** Ids dos cursos em que o usuário está matriculado. */
   async listEnrolledCourseIds(userId: string): Promise<string[]> {
     const enrolled = await this.db
       .select({ courseId: enrollments.courseId })

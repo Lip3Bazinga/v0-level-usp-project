@@ -9,10 +9,12 @@ const ARGON2_PREFIX = "$argon2"
 const ARGON2ID_PREFIX = "$argon2id$"
 const BCRYPT_PATTERN = /^\$2[aby]\$/
 
+/** Hash e verificação de senhas: argon2id para novas, bcrypt aceito só na verificação (contas importadas). */
 @Injectable()
 export class PasswordService {
   private dummyHash?: Promise<string>
 
+  /** Hash argon2id da senha. */
   hash(password: string): Promise<string> {
     return hash(password, ARGON2_OPTIONS)
   }
