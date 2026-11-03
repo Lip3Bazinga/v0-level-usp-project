@@ -1,9 +1,10 @@
 import {
   PY_BUILTIN_TYPE_NAMES,
   type AstFeatures, type CaseResult, type GradeResult, type LegacyCase, type OutputMatchMode, type Probe,
-  type ProbeObservation, type RaisedException, type SourceRule, type TestCase,
+  type ProbeObservation, type RaisedException, type SourceRule, type TestCase, type UnittestOutcome,
 } from "@levelusp/contracts"
 import { jsonEquals, normalizeOutput, pyRepr } from "./compare"
+import { createRegexBudget, testRegexWithinBudget, type RegexBudget } from "./regex-guard"
 
 /**
  * Motor de correção (domínio puro, sem I/O):
@@ -27,6 +28,8 @@ const runProbeId = (caseId: string): string => `run:${caseId}`
 const legacyProbeId = (caseId: string): string => `legacy:${caseId}`
 const exprProbeId = (caseId: string): string => `expr:${caseId}`
 const unittestProbeId = (caseId: string): string => `unittest:${caseId}`
+/** Segunda execução, em outra instância, da suíte contra a implementação do professor. */
+const unittestRepeatProbeId = (caseId: string): string => `unittest:${caseId}:repeticao`
 
 /** Argumentos ficam curtos na mensagem para não esconder o que importa. */
 const MAX_ARGUMENT_REPR = 40
@@ -34,8 +37,17 @@ const MAX_REVEALED_STDOUT = 200
 const MAX_EXPRESSION_REPR = 60
 const MAX_EXCEPTION_MESSAGE = 120
 const MAX_FAILED_TEST_NAMES = 5
+/** Caractere que o PostgreSQL recusa em `jsonb`/`text` (vem de saída/exceção do aluno). */
+const NUL_CHARACTER = "\u0000"
+const NUL_REPLACEMENT = "\uFFFD"
 
 type ObservationIndex = ReadonlyMap<string, ProbeObservation>
+
+/** O que cada caso consulta: as observações e o orçamento de tempo das regex desta correção. */
+interface GradingContext {
+  observations: ObservationIndex
+  regexBudget: RegexBudget
+}
 
 interface CaseVerdict {
   result: CaseResult
@@ -67,12 +79,16 @@ const PROBE_PLANNERS: { [Kind in CaseKind]: (testCase: CaseOf<Kind>, plan: Probe
   },
   unittest: (testCase, plan) => {
     const { test_class: testClass, target, implementation } = testCase
-    plan.probes.push({
-      id: unittestProbeId(testCase.id),
-      kind: "unittest",
+    const probe = {
+      kind: "unittest" as const,
       ...(testClass === undefined ? {} : { test_class: testClass }),
       ...(target === undefined || implementation === undefined ? {} : { target, implementation }),
-    })
+    }
+    plan.probes.push({ id: unittestProbeId(testCase.id), ...probe })
+    // Contra a implementação do professor a suíte roda DUAS vezes, em instâncias
+    // separadas: uma suíte que "chuta" (aleatória) acerta a referência e os m
+    // mutantes com chance 2^-2(m+1) por envio, em vez de 2^-(m+1).
+    if (implementation !== undefined) plan.probes.push({ id: unittestRepeatProbeId(testCase.id), ...probe })
   },
   legacy: (testCase, plan) => {
     plan.probes.push({ id: legacyProbeId(testCase.id), kind: "legacy", code: testCase.code })
@@ -108,11 +124,14 @@ interface GradeTally {
  * `strength` é `legacy` quando algum caso é legado.
  */
 export function grade(cases: TestCase[], observations: ProbeObservation[], durationMs = 0): GradeResult {
-  const observationById: ObservationIndex = new Map(observations.map((observation) => [observation.id, observation]))
+  const context: GradingContext = {
+    observations: new Map(observations.map((observation) => [observation.id, observation])),
+    regexBudget: createRegexBudget(),
+  }
   const tally: GradeTally = { results: [], testsRun: 0, failedTests: 0, errors: 0 }
   for (const testCase of cases) {
-    if (testCase.kind === "legacy") tallyLegacy(tally, testCase, observationById.get(legacyProbeId(testCase.id)))
-    else tallyVerdict(tally, gradeDeclarative(testCase.kind, testCase, observationById))
+    if (testCase.kind === "legacy") tallyLegacy(tally, testCase, context.observations.get(legacyProbeId(testCase.id)))
+    else tallyVerdict(tally, gradeDeclarative(testCase.kind, testCase, context))
   }
 
   const failed = tally.results.filter((result) => !result.passed)
@@ -150,7 +169,7 @@ function tallyLegacy(tally: GradeTally, testCase: LegacyCase, observation: Probe
   tally.results.push({ id: testCase.id, name: label(testCase), passed, message: passed ? null : legacy.details.join("\n") || "Resposta incorreta." })
 }
 
-const CASE_GRADERS: { [Kind in DeclarativeKind]: (testCase: CaseOf<Kind>, observations: ObservationIndex) => CaseVerdict } = {
+const CASE_GRADERS: { [Kind in DeclarativeKind]: (testCase: CaseOf<Kind>, context: GradingContext) => CaseVerdict } = {
   call: gradeCall,
   io: gradeOutput,
   variable: gradeVariable,
@@ -159,8 +178,8 @@ const CASE_GRADERS: { [Kind in DeclarativeKind]: (testCase: CaseOf<Kind>, observ
   unittest: gradeTestSuite,
 }
 
-function gradeDeclarative<Kind extends DeclarativeKind>(kind: Kind, testCase: CaseOf<Kind>, observations: ObservationIndex): CaseVerdict {
-  return CASE_GRADERS[kind](testCase, observations)
+function gradeDeclarative<Kind extends DeclarativeKind>(kind: Kind, testCase: CaseOf<Kind>, context: GradingContext): CaseVerdict {
+  return CASE_GRADERS[kind](testCase, context)
 }
 
 const passed = (testCase: TestCase): CaseVerdict => ({ result: pass(testCase), isExecutionError: false })
@@ -173,7 +192,7 @@ function describeCall(testCase: CaseOf<"call">): string {
   return `${testCase.function}(${[...positional, ...named].join(", ")})`
 }
 
-function gradeCall(testCase: CaseOf<"call">, observations: ObservationIndex): CaseVerdict {
+function gradeCall(testCase: CaseOf<"call">, { observations }: GradingContext): CaseVerdict {
   const observation = observations.get(callProbeId(testCase.id))
   const call = describeCall(testCase)
   if (!observation?.ok) return crashed(testCase, `${call} → ${describeError(observation)}`)
@@ -187,11 +206,11 @@ function gradeCall(testCase: CaseOf<"call">, observations: ObservationIndex): Ca
   return passed(testCase)
 }
 
-function gradeOutput(testCase: CaseOf<"io">, observations: ObservationIndex): CaseVerdict {
+function gradeOutput(testCase: CaseOf<"io">, { observations, regexBudget }: GradingContext): CaseVerdict {
   const observation = observations.get(runProbeId(testCase.id))
   if (!observation?.ok) return crashed(testCase, describeError(observation))
   const stdout = observation.stdout ?? ""
-  if (matchOutput(testCase.match, testCase.expected_stdout, stdout)) return passed(testCase)
+  if (matchOutput(testCase.match, testCase.expected_stdout, stdout, regexBudget)) return passed(testCase)
   return failed(
     testCase,
     testCase.reveal
@@ -200,7 +219,7 @@ function gradeOutput(testCase: CaseOf<"io">, observations: ObservationIndex): Ca
   )
 }
 
-function gradeVariable(testCase: CaseOf<"variable">, observations: ObservationIndex): CaseVerdict {
+function gradeVariable(testCase: CaseOf<"variable">, { observations }: GradingContext): CaseVerdict {
   const observation = observations.get(GLOBALS_PROBE_ID)
   if (!observation?.ok) return crashed(testCase, describeError(observation))
   const { variable } = testCase
@@ -215,7 +234,7 @@ function gradeVariable(testCase: CaseOf<"variable">, observations: ObservationIn
   return passed(testCase)
 }
 
-function gradeSource(testCase: CaseOf<"source">, observations: ObservationIndex): CaseVerdict {
+function gradeSource(testCase: CaseOf<"source">, { observations }: GradingContext): CaseVerdict {
   const observation = observations.get(AST_PROBE_ID)
   if (!observation?.ok || !observation.features) return crashed(testCase, describeError(observation))
   return checkRule(testCase.rule, observation.features) ? passed(testCase) : failed(testCase, describeRule(testCase.rule))
@@ -248,15 +267,15 @@ function describeRaised(raised: RaisedException): string {
   return message ? `${displayType(raised.type)}: ${message}` : displayType(raised.type)
 }
 
-function gradeExpression(testCase: CaseOf<"expr">, observations: ObservationIndex): CaseVerdict {
+function gradeExpression(testCase: CaseOf<"expr">, { observations, regexBudget }: GradingContext): CaseVerdict {
   const observation = observations.get(exprProbeId(testCase.id))
   const subject = describeExpression(testCase)
   if (!observation?.ok) return crashed(testCase, `${subject} → ${describeError(observation)}`)
-  if (testCase.raises !== undefined) return gradeExpectedException(testCase, observation, subject)
+  if (testCase.raises !== undefined) return gradeExpectedException(testCase, observation, subject, regexBudget)
   if (observation.raised) return crashed(testCase, `${subject} levantou ${describeRaised(observation.raised)}`)
   const valueProblem = describeValueProblem(testCase, observation, subject)
   if (valueProblem) return failed(testCase, valueProblem)
-  return checkExpressionOutput(testCase, observation)
+  return checkExpressionOutput(testCase, observation, regexBudget)
 }
 
 function describeValueProblem(testCase: CaseOf<"expr">, observation: ProbeObservation, subject: string): string | null {
@@ -269,7 +288,7 @@ function describeValueProblem(testCase: CaseOf<"expr">, observation: ProbeObserv
   return testCase.reveal ? `${subject} → ${obtained}; esperado ${pyRepr(testCase.expected)}` : `${subject} → ${obtained}, que não é o esperado`
 }
 
-function gradeExpectedException(testCase: CaseOf<"expr">, observation: ProbeObservation, subject: string): CaseVerdict {
+function gradeExpectedException(testCase: CaseOf<"expr">, observation: ProbeObservation, subject: string, regexBudget: RegexBudget): CaseVerdict {
   const expected = testCase.raises ?? ""
   const { raised } = observation
   if (!raised) return failed(testCase, `${subject} deveria levantar ${expected}, mas não levantou nenhuma exceção`)
@@ -285,13 +304,13 @@ function gradeExpectedException(testCase: CaseOf<"expr">, observation: ProbeObse
         : `a mensagem de ${expected} (${JSON.stringify(raised.message)}) não é a esperada`,
     )
   }
-  return checkExpressionOutput(testCase, observation)
+  return checkExpressionOutput(testCase, observation, regexBudget)
 }
 
-function checkExpressionOutput(testCase: CaseOf<"expr">, observation: ProbeObservation): CaseVerdict {
+function checkExpressionOutput(testCase: CaseOf<"expr">, observation: ProbeObservation, regexBudget: RegexBudget): CaseVerdict {
   if (testCase.expected_stdout === undefined) return passed(testCase)
   const stdout = observation.stdout ?? ""
-  if (matchOutput(testCase.match, testCase.expected_stdout, stdout)) return passed(testCase)
+  if (matchOutput(testCase.match, testCase.expected_stdout, stdout, regexBudget)) return passed(testCase)
   return failed(
     testCase,
     testCase.reveal
@@ -301,16 +320,25 @@ function checkExpressionOutput(testCase: CaseOf<"expr">, observation: ProbeObser
 }
 
 /** A suíte do aluno contra uma implementação: a API decide se passar era o certo. */
-function gradeTestSuite(testCase: CaseOf<"unittest">, observations: ObservationIndex): CaseVerdict {
+function gradeTestSuite(testCase: CaseOf<"unittest">, { observations }: GradingContext): CaseVerdict {
   const observation = observations.get(unittestProbeId(testCase.id))
   const tests = observation?.tests
   if (!observation?.ok || !tests) return crashed(testCase, describeError(observation))
-  const target = testCase.implementation === undefined ? "a sua implementação" : "esta implementação"
-  if (testCase.min_tests !== undefined && tests.run < testCase.min_tests) {
-    return failed(testCase, `sua suíte rodou ${tests.run} teste(s); são necessários pelo menos ${testCase.min_tests}`)
+  if (testCase.implementation !== undefined) {
+    const repeated = observations.get(unittestRepeatProbeId(testCase.id))
+    if (!repeated?.ok || !repeated.tests) return crashed(testCase, describeError(repeated))
+    if (hasDefect(repeated.tests) !== hasDefect(tests) || repeated.tests.run !== tests.run) {
+      return failed(testCase, "sua suíte deu resultados diferentes em duas execuções iguais (testes não determinísticos)")
+    }
   }
-  if (tests.run === 0) return failed(testCase, "nenhum teste foi encontrado na sua suíte")
-  const hasDetectedDefect = tests.failures + tests.errors > 0
+  const target = testCase.implementation === undefined ? "a sua implementação" : "esta implementação"
+  // Teste pulado (skipTest) não conta: ele não verifica nada.
+  const effectiveRun = tests.run - tests.skipped
+  if (testCase.min_tests !== undefined && effectiveRun < testCase.min_tests) {
+    return failed(testCase, `sua suíte rodou ${effectiveRun} teste(s) sem pular; são necessários pelo menos ${testCase.min_tests}`)
+  }
+  if (effectiveRun <= 0) return failed(testCase, "nenhum teste (sem pular) foi encontrado na sua suíte")
+  const hasDetectedDefect = hasDefect(tests)
   if (testCase.expect === "pass") {
     if (!hasDetectedDefect) return passed(testCase)
     const names = tests.failed.slice(0, MAX_FAILED_TEST_NAMES).join(", ")
@@ -320,22 +348,24 @@ function gradeTestSuite(testCase: CaseOf<"unittest">, observations: ObservationI
   return failed(testCase, `seus testes passaram contra ${target}, mas ela tem um defeito que eles deveriam detectar`)
 }
 
-const OUTPUT_MATCHERS: Record<OutputMatchMode, (expected: string, actual: string) => boolean> = {
+function hasDefect(tests: UnittestOutcome): boolean {
+  return tests.failures + tests.errors > 0
+}
+
+const OUTPUT_MATCHERS: Record<OutputMatchMode, (expected: string, actual: string, regexBudget: RegexBudget) => boolean> = {
   exact: (expected, actual) => actual === expected,
   trimmed: (expected, actual) => normalizeOutput(actual) === normalizeOutput(expected),
   contains: (expected, actual) => normalizeOutput(actual).includes(normalizeOutput(expected)),
-  regex: (pattern, actual) => {
-    try {
-      return new RegExp(pattern, "m").test(actual)
-    } catch {
-      return false
-    }
-  },
+  // Padrão do professor contra saída do aluno: tempo limitado (ver regex-guard.ts).
+  regex: (pattern, actual, regexBudget) => testRegexWithinBudget(pattern, actual, regexBudget),
 }
 
-/** Se a saída produzida atende à esperada no modo de comparação do caso. */
-export function matchOutput(mode: OutputMatchMode, expected: string, actual: string): boolean {
-  return OUTPUT_MATCHERS[mode](expected, actual)
+/**
+ * Se a saída produzida atende à esperada no modo de comparação do caso.
+ * `regexBudget`: tempo de regex ainda disponível nesta correção (padrão: um orçamento novo).
+ */
+export function matchOutput(mode: OutputMatchMode, expected: string, actual: string, regexBudget = createRegexBudget()): boolean {
+  return OUTPUT_MATCHERS[mode](expected, actual, regexBudget)
 }
 
 const CONSTRUCT_NAMES: Record<string, string> = {
@@ -357,6 +387,14 @@ function inFunction(functionName: string | undefined): string {
   return functionName === undefined ? "" : ` na função ${functionName}`
 }
 
+/** Regras negativas falham com código dinâmico: a AST não vê o que `exec("for...")` ou `getattr(b, "m" + "ax")` executam. */
+const DYNAMIC_CODE_NOTE = "; sem eval/exec/getattr e afins, que escondem o que o código usa"
+
+/** O código monta nomes ou código em tempo de execução (ver `AstFeatures.dynamic`). */
+function usesDynamicCode(features: AstFeatures): boolean {
+  return (features.dynamic ?? []).length > 0
+}
+
 interface SourceRuleStrategy<Type extends RuleType> {
   check(rule: RuleOf<Type>, features: AstFeatures): boolean
   /** O que o aluno precisa fazer, mostrado quando a regra falha. */
@@ -369,11 +407,14 @@ const SOURCE_RULES: { [Type in RuleType]: SourceRuleStrategy<Type> } = {
     describe: (rule) => `use ${constructName(rule.construct)}${inFunction(rule.function)}`,
   },
   not_uses: {
-    check: (rule, features) => !constructsIn(features, rule.function).includes(rule.construct),
-    describe: (rule) => `não use ${constructName(rule.construct)}${inFunction(rule.function)}`,
+    check: (rule, features) => !constructsIn(features, rule.function).includes(rule.construct) && !usesDynamicCode(features),
+    describe: (rule) => `não use ${constructName(rule.construct)}${inFunction(rule.function)}${DYNAMIC_CODE_NOTE}`,
   },
   calls: { check: (rule, features) => features.calls.includes(rule.name), describe: (rule) => `use a função ${rule.name}()` },
-  not_calls: { check: (rule, features) => !features.calls.includes(rule.name), describe: (rule) => `não use a função ${rule.name}()` },
+  not_calls: {
+    check: (rule, features) => !features.calls.includes(rule.name) && !(features.names ?? []).includes(rule.name) && !usesDynamicCode(features),
+    describe: (rule) => `não use a função ${rule.name}() (nem por outro nome)${DYNAMIC_CODE_NOTE}`,
+  },
   defines_function: { check: (rule, features) => features.functions.includes(rule.name), describe: (rule) => `defina a função ${rule.name}` },
   defines_class: { check: (rule, features) => features.classes.includes(rule.name), describe: (rule) => `defina a classe ${rule.name}` },
   imports: { check: (rule, features) => features.imports.includes(rule.module), describe: (rule) => `importe o módulo ${rule.module}` },
@@ -410,5 +451,6 @@ function pass(testCase: TestCase): CaseResult {
 
 function fail(testCase: TestCase, message: string): CaseResult {
   const hint = testCase.hint ? ` — dica: ${testCase.hint}` : ""
-  return { id: testCase.id, name: label(testCase), passed: false, message: `${message}${hint}` }
+  // A mensagem leva texto do aluno (valor, saída, exceção); \u0000 derrubaria a gravação em jsonb.
+  return { id: testCase.id, name: label(testCase), passed: false, message: `${message}${hint}`.replaceAll(NUL_CHARACTER, NUL_REPLACEMENT) }
 }

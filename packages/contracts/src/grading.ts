@@ -91,14 +91,69 @@ export const outputMatchModeSchema = z.enum(OUTPUT_MATCH_MODES)
 /** Como a saída do programa é comparada com a esperada. */
 export type OutputMatchMode = z.infer<typeof outputMatchModeSchema>
 
+/** Padrões `regex` são curtos: a validação abaixo e o guarda da API medem o padrão inteiro. */
+export const MAX_REGEX_PATTERN_LENGTH = 1_000
+
+/**
+ * Heurística (linear) para padrões com backtracking catastrófico: um grupo
+ * que contém quantificador e é repetido de novo (`(a+)+`, `(\d+\s*)*`,
+ * `(.*,){2,}`). Não pega tudo (ex.: alternativas sobrepostas `(a|a)*`) — a API
+ * ainda limita o tempo de cada comparação.
+ */
+export function isLikelyCatastrophicRegex(pattern: string): boolean {
+  const enclosing: boolean[] = []
+  let hasQuantifier = false
+  let isInClass = false
+  for (let index = 0; index < pattern.length; index++) {
+    const char = pattern[index]
+    if (char === "\\") {
+      index++
+    } else if (isInClass) {
+      if (char === "]") isInClass = false
+    } else if (char === "[") {
+      isInClass = true
+    } else if (char === "(") {
+      enclosing.push(hasQuantifier)
+      hasQuantifier = false
+    } else if (char === ")") {
+      const next = pattern[index + 1]
+      if (hasQuantifier && (next === "*" || next === "+" || next === "{")) return true
+      hasQuantifier = (enclosing.pop() ?? false) || hasQuantifier
+    } else if (char === "*" || char === "+" || char === "{") {
+      hasQuantifier = true
+    }
+  }
+  return false
+}
+
+/** Problema de um padrão `regex` do professor, ou `null` se ele é aceitável. */
+export function describeRegexProblem(pattern: string): string | null {
+  if (pattern.length > MAX_REGEX_PATTERN_LENGTH) return `expressão regular longa demais (máx. ${MAX_REGEX_PATTERN_LENGTH} caracteres)`
+  try {
+    new RegExp(pattern, "m")
+  } catch {
+    return "expressão regular inválida"
+  }
+  if (isLikelyCatastrophicRegex(pattern)) return "quantificador aninhado (ex.: (a+)+) pode travar a correção; reescreva sem repetir um grupo que já se repete"
+  return null
+}
+
+function checkOutputPattern(match: OutputMatchMode, pattern: string | undefined, ctx: z.RefinementCtx): void {
+  if (match !== "regex" || pattern === undefined) return
+  const problem = describeRegexProblem(pattern)
+  if (problem) ctx.addIssue({ code: "custom", path: ["expected_stdout"], message: problem })
+}
+
 /** Executa o programa (main.py) com uma entrada e compara a saída padrão. */
-export const ioCaseSchema = z.object({
-  ...baseCase,
-  kind: z.literal("io"),
-  stdin: z.string().max(100_000).default(""),
-  expected_stdout: z.string().max(100_000),
-  match: outputMatchModeSchema.default("trimmed"),
-})
+export const ioCaseSchema = z
+  .object({
+    ...baseCase,
+    kind: z.literal("io"),
+    stdin: z.string().max(100_000).default(""),
+    expected_stdout: z.string().max(100_000),
+    match: outputMatchModeSchema.default("trimmed"),
+  })
+  .superRefine((ioCase, ctx) => checkOutputPattern(ioCase.match, ioCase.expected_stdout, ctx))
 
 /** Lê variáveis globais após executar main.py. */
 export const variableCaseSchema = z.object({
@@ -192,6 +247,7 @@ export const exprCaseSchema = z
     if (!checksValue && exprCase.raises === undefined && exprCase.expected_stdout === undefined) {
       ctx.addIssue({ code: "custom", path: ["expected"], message: "informe o valor, o tipo, a exceção ou a saída esperada" })
     }
+    checkOutputPattern(exprCase.match, exprCase.expected_stdout, ctx)
   })
 
 export const UNITTEST_EXPECTATIONS = ["pass", "fail"] as const
