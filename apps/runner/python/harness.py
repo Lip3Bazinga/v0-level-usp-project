@@ -23,9 +23,17 @@ Modelo de confiança (este arquivo divide o interpretador com o aluno):
     observação só aprova quem já sabe a resposta.
   * Modo estrito (lotes com `legacy`/`unittest`, cada um em instância própria):
     um audit hook bloqueia o acesso a frames (sys._getframe, tb_frame,
-    gi_frame...), ao gc (get_objects/referrers/referents), a trace/profile/
-    monitoring e aos módulos de teste da C-API (_testcapi & cia., inclusive via
-    _imp.create_builtin). Sem isso o aluno não alcança o nonce nem as sondas.
+    gi_frame...) e a código compilado (__code__, gi_code...), ao gc
+    (get_objects/referrers/referents), a trace/profile/monitoring e aos módulos
+    de teste da C-API (_testcapi & cia., inclusive via _imp.create_builtin).
+    Os dois caminhos até um frame sem evento de auditoria — gc.DEBUG_SAVEALL
+    (ciclos com frames vão para gc.garbage) e handlers de sinal (recebem o
+    frame corrente) — são fechados trocando gc.set_debug e _signal.signal (e
+    impedindo recriar esses módulos). Sem isso o aluno não alcança o nonce.
+  * `unittest` contra a implementação do professor: ela roda ANTES do código
+    do aluno e uma função chega à suíte embrulhada num invólucro em C (sem
+    código, docstring, globais, fecho ou traceback visíveis), com ruído no
+    alocador: a suíte só distingue referência de mutante pelo comportamento.
     Resíduo conhecido: um caso `legacy` continua fraco (os asserts rodam no
     namespace do aluno e podem ser enganados por `__eq__`, monkeypatch do
     unittest etc.) — por isso a API o marca como correção "legacy".
@@ -77,6 +85,11 @@ def _run_harness():
     max_mro_entries = 20
     max_failed_names = 10
     max_test_name_chars = 80
+    max_exception_chain = 50
+    # Inteiros com mais de ~4 300 dígitos (o limite padrão do CPython) viram marcador.
+    max_int_digits = 4_300
+    max_int_bits = 14_300
+    allocator_noise_objects = 4096
     infinity = math.inf
 
     os_write, os_read, os_chdir, os_scandir = os.write, os.read, os.chdir, os.scandir
@@ -88,6 +101,7 @@ def _run_harness():
     encode_json_string = _json.encode_basestring_ascii
     str_copy, int_copy, float_copy = str.__str__, int.__index__, float.__float__
     int_repr, float_repr = int.__repr__, float.__repr__
+    get_bit_length = int.bit_length
     list_iter, tuple_iter, set_iter, frozenset_iter = list.__iter__, tuple.__iter__, set.__iter__, frozenset.__iter__
     dict_items = dict.items
     get_type_name = type.__dict__["__name__"].__get__
@@ -122,9 +136,20 @@ def _run_harness():
             builtin_type_names.setdefault(id(value), value.__name__)
 
     TestCase = TestSuite = TestLoader = TestResult = unittest = None
+    opaque_function_type = types.FunctionType
     if is_strict:
+        import gc
         import traceback
         import unittest
+        import _functools
+        import _signal
+
+        import functools
+
+        lru_cache_wrapper, cache_info_type = _functools._lru_cache_wrapper, functools._CacheInfo
+        get_traceback_slot = BaseException.__dict__["__traceback__"]
+        set_traceback, get_context, get_cause = get_traceback_slot.__set__, BaseException.__dict__["__context__"].__get__, BaseException.__dict__["__cause__"].__get__
+        urandom = os.urandom
 
         # Capturadas: o aluno pode trocar os atributos do módulo unittest.
         TestCase, TestSuite, TestLoader, TestResult = unittest.TestCase, unittest.TestSuite, unittest.TestLoader, unittest.TestResult
@@ -237,10 +262,17 @@ def _run_harness():
             number = int_copy(value)
             if -max_safe_integer < number < max_safe_integer:
                 return number
+            # O aluno pode desligar o limite de dígitos (sys.set_int_max_str_digits(0)):
+            # o tamanho é conferido aqui, antes de gerar o texto, e entra no orçamento.
+            if get_bit_length(number) > max_int_bits or budget[1] < max_int_digits:
+                budget[2] = True
+                return {"$int": "<inteiro grande demais>"}
             try:
-                return {"$int": int_repr(number)}
+                text = int_repr(number)
             except ValueError:
                 return {"$int": "<inteiro grande demais>"}
+            budget[1] -= len(text)
+            return {"$int": text}
         if issubclass(value_type, float):
             number = float_copy(value)
             if number != number:
@@ -579,16 +611,92 @@ def _run_harness():
                 selected.append(value)
         return selected
 
+    def strip_tracebacks(exc):
+        """Tira os tracebacks (linhas e offsets da implementação) da exceção e da cadeia dela."""
+        pending, visited = [exc], 0
+        while pending and visited < max_exception_chain:
+            current = pending.pop()
+            visited += 1
+            if not isinstance(current, BaseException):
+                continue
+            try:
+                set_traceback(current, None)
+            except BaseException:  # noqa: BLE001
+                pass
+            pending.append(get_context(current))
+            pending.append(get_cause(current))
+
+    def make_opaque(function, name):
+        """
+        Invólucro em C (lru_cache sem cache) para a função do professor: a suíte do
+        aluno chama a implementação, mas não lê o código, a docstring, os globais,
+        o fecho nem os tracebacks dela — só o COMPORTAMENTO distingue a referência
+        de um mutante. `uncached_lru_cache_wrapper` não guarda nem compara os
+        argumentos e não expõe a função interna.
+        """
+
+        def call(*args, **kwargs):
+            try:
+                return function(*args, **kwargs)
+            except BaseException as exc:  # noqa: BLE001 — a exceção segue para o teste
+                strip_tracebacks(exc)
+                raise exc
+
+        wrapper = lru_cache_wrapper(call, 0, False, cache_info_type)
+        wrapper.__name__ = wrapper.__qualname__ = name
+        wrapper.__module__ = "main"
+        wrapper.__doc__ = None
+        return wrapper
+
+    def scramble_allocator():
+        """
+        Ruído aleatório no alocador (blocos vivos e endereços): `id()`,
+        `sys.getallocatedblocks()` e afins não viram impressão digital da
+        implementação compilada antes do código do aluno.
+        """
+        noise = urandom(4)
+        count = (noise[0] << 8 | noise[1]) % allocator_noise_objects
+        return [bytearray(noise[2] + index % 7) for index in range(count)] + [bytearray(noise[3] << 6)]
+
+    def prepare_implementation(implementation_code, target):
+        """
+        Executa a implementação ANTES do código do aluno (um audit hook dele não vê
+        o código nem o `exec`), desfaz importações feitas por ela e embrulha funções.
+        Devolve (objeto, erro).
+        """
+        implementation_namespace = {"__builtins__": builtins, "__name__": "implementacao"}
+        known_modules = set(modules)
+        sys.stdout, sys.stderr = StringIO(), StringIO()
+        try:
+            exec(implementation_code, implementation_namespace)
+        except BaseException as exc:  # noqa: BLE001
+            return None, invalid_case("a implementação levantou %s" % error_text(exc))
+        finally:
+            sys.stdout, sys.stderr = real_stdout, real_stderr
+            for name in list(modules):
+                if name not in known_modules:
+                    del modules[name]
+        if target not in implementation_namespace:
+            return None, invalid_case("a implementação não define '%s'" % target)
+        value = implementation_namespace[target]
+        if type(value) is opaque_function_type:
+            value = make_opaque(value, target)
+        return value, None
+
     def probe_unittest(probe):
         """Suíte do aluno contra uma implementação. Só contagens saem daqui; a API decide."""
         implementation = probe.get("implementation")
         target = probe.get("target")
-        implementation_code = None
+        injected = padding = None
         if implementation is not None:
             try:
                 implementation_code = compile(implementation, "<implementação>", "exec")
             except SyntaxError as exc:
                 return invalid_case("SyntaxError: %s" % safe_message(exc))
+            injected, problem = prepare_implementation(implementation_code, target)
+            if problem is not None:
+                return problem
+            padding = scramble_allocator()
         # Carregado como módulo `main` (como `python -m unittest main`): um
         # `if __name__ == "__main__": unittest.main()` do aluno não dispara.
         namespace, _, _, error = load_project("", "main")
@@ -596,12 +704,8 @@ def _run_harness():
             return {"ok": False, "error": error}
         sys.stdout, sys.stderr = StringIO(), StringIO()
         try:
-            if implementation_code is not None:
-                implementation_namespace = {"__builtins__": builtins, "__name__": "implementacao"}
-                exec(implementation_code, implementation_namespace)
-                if target not in implementation_namespace:
-                    return invalid_case("a implementação não define '%s'" % target)
-                namespace[target] = implementation_namespace[target]
+            if implementation is not None:
+                namespace[target] = injected
             test_classes = select_test_classes(namespace, probe.get("test_class"), "main")
             if test_classes is None:
                 return {"ok": False, "error": "NameError: a classe de testes '%s' não foi definida" % probe.get("test_class")}
@@ -681,7 +785,14 @@ def _run_harness():
         ast.Yield: "yield", ast.YieldFrom: "yield",
     }
     feature_keys = ("constructs", "calls", "functions", "classes", "imports", "recursive_functions",
-                    "decorators", "handlers")
+                    "decorators", "handlers", "names", "dynamic")
+    # Com estes, "não use X" deixa de ser verificável pela AST: o código monta o
+    # nome em tempo de execução (`getattr(builtins, "so" + "rted")`, `exec("for...")`).
+    dynamic_names = frozenset({
+        "eval", "exec", "compile", "__import__", "getattr", "setattr", "delattr", "vars", "globals", "locals",
+        "__builtins__", "__dict__", "__getattribute__", "__getattr__", "import_module", "methodcaller",
+        "attrgetter", "builtins", "importlib", "breakpoint", "__loader__", "__spec__",
+    })
 
     def node_name(node):
         if isinstance(node, ast.Call):
@@ -720,8 +831,18 @@ def _run_harness():
                 features["handlers"].update(filter(None, (node_name(item) for item in caught)))
             if isinstance(node, ast.Import):
                 features["imports"].update(alias.name.split(".")[0] for alias in node.names)
-            if isinstance(node, ast.ImportFrom) and node.module:
-                features["imports"].add(node.module.split(".")[0])
+                features["names"].update(alias.name.split(".")[0] for alias in node.names)
+                features["names"].update(alias.asname for alias in node.names if alias.asname)
+            if isinstance(node, ast.ImportFrom):
+                if node.module:
+                    features["imports"].add(node.module.split(".")[0])
+                    features["names"].add(node.module.split(".")[0])
+                features["names"].update(alias.name for alias in node.names)
+            if isinstance(node, ast.Name):
+                features["names"].add(node.id)
+            if isinstance(node, ast.Attribute):
+                features["names"].add(node.attr)
+        features["dynamic"].update(features["names"] & dynamic_names)
 
     def probe_ast(probe):
         """Analisa a estrutura de TODOS os .py do projeto. Não executa nada."""
@@ -748,8 +869,15 @@ def _run_harness():
             "sys.settrace", "sys.setprofile", "sys._settraceallthreads", "sys._setprofileallthreads",
             "sys.monitoring.register_callback",
         })
-        frame_attributes = frozenset({"tb_frame", "gi_frame", "cr_frame", "ag_frame"})
+        # Frames (levam ao estado do harness por f_back) e código compilado
+        # (impressão digital da implementação de referência/mutante).
+        frame_attributes = frozenset({
+            "tb_frame", "gi_frame", "cr_frame", "ag_frame", "__code__", "gi_code", "cr_code", "ag_code",
+        })
         blocked_modules = frozenset({"_imp", "xxsubtype", "_remote_debugging"})
+        # Não podem ser RECRIADOS (create_builtin devolveria as funções originais
+        # que o harness trocou abaixo); `import gc`/`import signal` continuam valendo.
+        not_recreatable = frozenset({"gc", "_signal"})
         blocked_prefixes = ("_test", "_xx")
         create_event = "levelusp.create_builtin"
         original_create_builtin = _imp.create_builtin
@@ -780,7 +908,7 @@ def _run_harness():
                 if type(box) is not list or len(box) != 1:
                     raise RuntimeError(refused)
                 name = getattr(box[0], "name", None)
-                if is_blocked_module(name):
+                if is_blocked_module(name) or name in not_recreatable:
                     raise ImportError("módulo indisponível na correção: %s" % safe_text(name))
                 box.append(original_create_builtin(Namespace(name=name)))
 
@@ -791,8 +919,24 @@ def _run_harness():
             audit("levelusp.create_builtin", box)
             return box[1]
 
+        # Sem evento de auditoria nestes dois caminhos até um frame:
+        #   * gc.DEBUG_SAVEALL guarda em gc.garbage os ciclos coletados — um frame
+        #     num ciclo (frame → exceção → traceback → frame) sai de lá e o f_back
+        #     dele chega a _run_harness;
+        #   * um handler de sinal recebe o frame corrente (signal.raise_signal).
+        # As substitutas não guardam as originais (um fecho seria legível via
+        # __closure__): o modo de depuração já é 0 e nada aqui o liga.
+        def set_debug(flags):
+            if flags:
+                raise RuntimeError(refused)
+
+        def refuse_signal_handler(signalnum, handler):
+            raise RuntimeError(refused)
+
         sys.addaudithook(guard)
         _imp.create_builtin = create_builtin
+        gc.set_debug = set_debug
+        _signal.signal = refuse_signal_handler
 
     handlers = {
         "run": probe_run, "call": probe_call, "globals": probe_globals, "ast": probe_ast,

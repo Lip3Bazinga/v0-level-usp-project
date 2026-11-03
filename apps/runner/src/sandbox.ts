@@ -1,15 +1,17 @@
 import { spawn } from "node:child_process"
 import { randomBytes } from "node:crypto"
-import { chmod, copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { chmod, copyFile, lstat, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { STRICT_PROBE_KINDS, type Probe, type ProbeObservation, type ProjectFile, type RunnerLimits } from "@levelusp/contracts"
 
-/** Caminhos do Wasmtime, do CPython WASI e do harness, e a pasta de trabalho temporária. */
+/** Caminhos do Wasmtime, do CPython WASI e do harness, a pasta de trabalho temporária e a cota de disco. */
 export interface SandboxOptions {
   wasmtimeBin: string
   pythonDir: string
   harnessPath: string
   workDir: string
+  /** Teto de bytes gravados no projeto por um lote (padrão: `DEFAULT_JOB_DISK_BYTES`). */
+  maxJobDiskBytes?: number
 }
 
 /** Um lote de sondas rodado numa única instância isolada do interpretador. */
@@ -26,6 +28,8 @@ interface GuestRun {
   timedOut: boolean
   /** O host matou o processo por excesso de saída. */
   overflowed: boolean
+  /** O host matou o processo por excesso de disco (bytes ou arquivos no projeto). */
+  diskExceeded: boolean
 }
 
 interface JobDirectories {
@@ -48,6 +52,19 @@ const READ_ONLY_DIR = 0o555
 const WRITABLE_DIR = 0o755
 const HARNESS_FILE = "harness.py"
 const TIMEOUT_STDERR_PATTERN = /fuel|interrupt|timed out|deadline/i
+/** Cota padrão de disco por lote: com 2 lotes simultâneos cabe folgado no tmpfs de 256 MB do container. */
+export const DEFAULT_JOB_DISK_BYTES = 32 * BYTES_PER_MIB
+/** Arquivos + pastas no projeto: acima disso o lote é morto (criação em massa de arquivos). */
+const MAX_JOB_ENTRIES = 2_000
+/** Intervalo da medição do disco do lote (o convidado grava ~250 MB/s: estouro máximo ≈ 25 MB). */
+const DISK_POLL_MS = 100
+/**
+ * Uma observação legítima tem no máximo ~1,2 MB (valor + stdout + stderr, 64 000
+ * caracteres cada, escapados em ASCII) e profundidade ~70 (20 níveis de valor,
+ * pares de `$dict`). Linhas maiores ou mais fundas só vêm de quem forjou o nonce.
+ */
+const MAX_OBSERVATION_LINE_CHARS = 4 * 1024 * 1024
+const MAX_OBSERVATION_DEPTH = 256
 
 /** O que o harness lê da entrada padrão (antes de qualquer código do aluno). */
 interface GuestJob {
@@ -113,27 +130,9 @@ export class WasmtimeSandbox {
     await chmod(harnessDir, READ_ONLY_DIR)
   }
 
-  private wasmtimeArgs({ harnessDir, workDir }: JobDirectories, limits: RunnerLimits): string[] {
-    const budgetSeconds = limits.timeoutMs / 1000
-    return [
-      "run",
-      "--allow-precompiled",
-      "-W", [
-        `fuel=${Math.round(FUEL_PER_SECOND * budgetSeconds)}`,
-        `max-memory-size=${limits.memoryMb * BYTES_PER_MIB}`,
-        `timeout=${limits.timeoutMs}ms`,
-      ].join(","),
-      "-S", "inherit-env=n,inherit-network=n,tcp=n,udp=n",
-      "--dir", `${path.join(this.options.pythonDir, "lib")}::/lib`,
-      "--dir", `${harnessDir}::/harness`,
-      "--dir", `${workDir}::/work`,
-      path.join(this.options.pythonDir, "python.cwasm"),
-      "-I", "-S", `/harness/${HARNESS_FILE}`,
-    ]
-  }
-
   private spawnWasmtime(directories: JobDirectories, guestJob: GuestJob, limits: RunnerLimits): Promise<GuestRun> {
-    const args = this.wasmtimeArgs(directories, limits)
+    const args = buildWasmtimeArgs({ pythonDir: this.options.pythonDir, harnessDir: directories.harnessDir, workDir: directories.workDir }, limits)
+    const maxDiskBytes = this.options.maxJobDiskBytes ?? DEFAULT_JOB_DISK_BYTES
     return new Promise((resolve, reject) => {
       // Ambiente vazio: nada do processo do executor chega ao convidado.
       const child = spawn(this.options.wasmtimeBin, args, { env: {}, stdio: ["pipe", "pipe", "pipe"] })
@@ -145,6 +144,8 @@ export class WasmtimeSandbox {
       let stderr = ""
       let killedByHost = false
       let overflowed = false
+      let diskExceeded = false
+      let isMeasuringDisk = false
       child.stdout.on("data", (chunk: Buffer) => {
         stdoutBytes += chunk.length
         if (stdoutBytes > MAX_STDOUT_BYTES) {
@@ -163,17 +164,85 @@ export class WasmtimeSandbox {
         killedByHost = true
         child.kill("SIGKILL")
       }, limits.timeoutMs + HOST_KILL_GRACE_MS)
-      child.on("error", (error) => {
+      // Cota de disco do lote: o WASI não limita o tamanho dos arquivos, e o tmpfs é
+      // dividido com os lotes simultâneos de outros alunos.
+      const diskTimer = setInterval(() => {
+        if (isMeasuringDisk) return
+        isMeasuringDisk = true
+        void isWithinDiskQuota(directories.workDir, maxDiskBytes).then((isWithin) => {
+          isMeasuringDisk = false
+          if (isWithin) return
+          diskExceeded = true
+          child.kill("SIGKILL")
+        })
+      }, DISK_POLL_MS)
+      const stopTimers = (): void => {
         clearTimeout(hostTimer)
+        clearInterval(diskTimer)
+      }
+      child.on("error", (error) => {
+        stopTimers()
         reject(error)
       })
       child.on("close", () => {
-        clearTimeout(hostTimer)
+        stopTimers()
         const timedOut = killedByHost || TIMEOUT_STDERR_PATTERN.test(stderr)
-        resolve({ timedOut, stderr, stdout: Buffer.concat(stdoutChunks).toString("utf8"), overflowed })
+        resolve({ timedOut, stderr, stdout: Buffer.concat(stdoutChunks).toString("utf8"), overflowed, diskExceeded })
       })
     })
   }
+}
+
+/** Caminhos que o convidado recebe: stdlib, harness (somente leitura) e projeto. */
+export interface GuestMounts {
+  pythonDir: string
+  harnessDir: string
+  workDir: string
+}
+
+/**
+ * Argumentos do Wasmtime para um lote: fuel (CPU), memória linear, tempo de parede,
+ * WASI sem ambiente, sem rede (nem DNS) e só três diretórios.
+ */
+export function buildWasmtimeArgs({ pythonDir, harnessDir, workDir }: GuestMounts, limits: RunnerLimits): string[] {
+  const budgetSeconds = limits.timeoutMs / 1000
+  return [
+    "run",
+    "--allow-precompiled",
+    "-W", [
+      `fuel=${Math.round(FUEL_PER_SECOND * budgetSeconds)}`,
+      `max-memory-size=${limits.memoryMb * BYTES_PER_MIB}`,
+      `timeout=${limits.timeoutMs}ms`,
+    ].join(","),
+    "-S", "inherit-env=n,inherit-network=n,tcp=n,udp=n,allow-ip-name-lookup=n",
+    "--dir", `${path.join(pythonDir, "lib")}::/lib`,
+    "--dir", `${harnessDir}::/harness`,
+    "--dir", `${workDir}::/work`,
+    path.join(pythonDir, "python.cwasm"),
+    "-I", "-S", `/harness/${HARNESS_FILE}`,
+  ]
+}
+
+/**
+ * Mede o projeto do lote (sem seguir links) e para assim que passa da cota de
+ * bytes ou de `MAX_JOB_ENTRIES` entradas. Pasta sumindo no meio (o harness restaura
+ * arquivos entre sondas) não conta como estouro.
+ */
+export async function isWithinDiskQuota(root: string, maxBytes: number): Promise<boolean> {
+  let bytes = 0
+  let entries = 0
+  const pending = [root]
+  for (let directory = pending.pop(); directory !== undefined; directory = pending.pop()) {
+    const children = await readdir(directory, { withFileTypes: true }).catch(() => [])
+    for (const child of children) {
+      entries++
+      const childPath = path.join(directory, child.name)
+      if (child.isDirectory()) pending.push(childPath)
+      else bytes += await lstat(childPath).then((stats) => stats.size, () => 0)
+      if (bytes > maxBytes || entries > MAX_JOB_ENTRIES) return false
+    }
+  }
+  return true
 }
 
 /** Junta um caminho relativo do aluno ao diretório do projeto, recusando fugas. */
@@ -201,7 +270,7 @@ export function parseObservations(stdout: string, nonce: string): Map<string, Pr
   const duplicated = new Set<string>()
   const prefix = `${nonce} `
   for (const line of stdout.split("\n")) {
-    if (!line.startsWith(prefix)) continue
+    if (!line.startsWith(prefix) || line.length > MAX_OBSERVATION_LINE_CHARS) continue
     const observation = parseJsonLine(line.slice(prefix.length))
     if (!isObservation(observation)) continue
     if (observations.has(observation.id)) duplicated.add(observation.id)
@@ -211,8 +280,9 @@ export function parseObservations(stdout: string, nonce: string): Map<string, Pr
   return observations
 }
 
-/** Linha corrompida (ex.: escrita interrompida pelo timeout) vira undefined e é ignorada. */
+/** Linha corrompida (ex.: escrita interrompida pelo timeout) ou funda demais vira undefined e é ignorada. */
 function parseJsonLine(text: string): unknown {
+  if (jsonNestingDepth(text) > MAX_OBSERVATION_DEPTH) return undefined
   try {
     return JSON.parse(text)
   } catch {
@@ -220,7 +290,25 @@ function parseJsonLine(text: string): unknown {
   }
 }
 
+/** Profundidade máxima de `[`/`{` fora de strings, em uma passada (antes do JSON.parse recursivo dos consumidores). */
+export function jsonNestingDepth(text: string): number {
+  let depth = 0
+  let maxDepth = 0
+  let isInString = false
+  for (let index = 0; index < text.length; index++) {
+    const char = text[index]
+    if (isInString) {
+      if (char === "\\") index++
+      else if (char === '"') isInString = false
+    } else if (char === '"') isInString = true
+    else if (char === "[" || char === "{") maxDepth = Math.max(maxDepth, ++depth)
+    else if (char === "]" || char === "}") depth--
+  }
+  return maxDepth
+}
+
 function missingObservation(probeId: string, guestRun: GuestRun): ProbeObservation {
+  if (guestRun.diskExceeded) return { id: probeId, ok: false, error: "Disco excedido: o programa gravou arquivos demais no projeto." }
   if (guestRun.overflowed) return { id: probeId, ok: false, error: "Saída grande demais: o programa imprimiu dados demais." }
   if (guestRun.timedOut) return { id: probeId, ok: false, timedOut: true, error: "Tempo limite excedido (verifique laços infinitos)." }
   return { id: probeId, ok: false, error: describeCrash(guestRun.stderr) }

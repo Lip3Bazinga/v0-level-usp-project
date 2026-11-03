@@ -81,6 +81,18 @@ export interface AstFeatures {
   handlers: string[]
   /** Construções usadas dentro de cada função (inclui funções aninhadas). */
   function_constructs: Record<string, string[]>
+  /**
+   * Todo identificador citado (variável lida, atributo): `maior = max` cita `max`
+   * mesmo sem chamá-lo. Ausente em observações de harness antigo.
+   */
+  names?: string[]
+  /**
+   * Execução ou busca dinâmica de código/nomes (`eval`, `exec`, `compile`,
+   * `__import__`, `importlib`, `getattr`, `vars`, `globals`, `locals`,
+   * `__builtins__`, `__dict__`...): com ela, uma regra negativa ("não use X")
+   * não é verificável pela AST. Ausente em observações de harness antigo.
+   */
+  dynamic?: string[]
 }
 
 /** Exceção levantada pela preparação ou pela expressão de um caso `expr`. */

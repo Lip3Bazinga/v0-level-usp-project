@@ -147,6 +147,30 @@ describe.skipIf(!isPythonAvailable)("WasmtimeSandbox (integração)", () => {
     expect(detail).toContain("('arquivo', 'FileNotFoundError')")
   })
 
+  it("modo estrito: gc.DEBUG_SAVEALL e handlers de sinal não entregam frames (regressão; catálogo completo em test/attacks)", async () => {
+    const code = [
+      "import gc, signal",
+      "rotas = {}",
+      "def vitima():",
+      "    try:",
+      "        raise ValueError",
+      "    except ValueError as erro:",
+      "        guardado = erro",
+      "def lixo():",
+      "    vitima()",
+      "    gc.set_debug(gc.DEBUG_SAVEALL)",
+      "    gc.collect()",
+      "    return [o for o in gc.garbage if type(o).__name__ == 'frame']",
+      "for nome, acao in [('gc', lixo), ('sinal', lambda: signal.signal(signal.SIGINT, lambda n, f: None))]:",
+      "    try:",
+      "        rotas[nome] = len(acao() or [])",
+      "    except BaseException as erro:",
+      "        rotas[nome] = type(erro).__name__",
+    ].join("\n")
+    const [observation] = await run(mainFile(code), [{ id: "l", kind: "legacy", code: "assert False, repr(sorted(rotas.items()))" }])
+    expect(observation?.legacy?.details[0]).toBe("[('gc', 'RuntimeError'), ('sinal', 'RuntimeError')]")
+  })
+
   it("casos legados com unittest continuam funcionando no modo estrito (falhas sem traceback)", async () => {
     const code = "def soma(a, b):\n    return a + b\n"
     const suite = "import unittest\nclass T(unittest.TestCase):\n    def test_ok(self):\n        self.assertEqual(soma(2, 3), 5)\n    def test_falha(self):\n        self.assertEqual(soma(2, 2), 5, 'dois mais dois')\n    def test_erro(self):\n        raise KeyError('k')\n"
