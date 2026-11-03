@@ -24,7 +24,9 @@ export const notifications = pgTable(
   ],
 )
 
+/** Notificação de um usuário. */
 export type NotificationRow = typeof notifications.$inferSelect
+/** Valores para criar uma notificação. */
 export type NotificationInsert = typeof notifications.$inferInsert
 
 export const auditLog = pgTable(
@@ -45,6 +47,7 @@ export const auditLog = pgTable(
   ],
 )
 
+/** Entrada da trilha de auditoria (somente inserção). */
 export type AuditLogRow = typeof auditLog.$inferSelect
 
 export const platformSettings = pgTable("platform_settings", {
@@ -53,6 +56,7 @@ export const platformSettings = pgTable("platform_settings", {
   updatedAt: updatedAt(),
 })
 
+/** Configuração da plataforma (chave → valor JSON). */
 export type PlatformSettingRow = typeof platformSettings.$inferSelect
 
 export const teacherApprovals = pgTable(
@@ -78,7 +82,9 @@ export const teacherApprovals = pgTable(
   ],
 )
 
+/** Solicitação de professor. */
 export type TeacherApprovalRow = typeof teacherApprovals.$inferSelect
+/** Valores para criar uma solicitação de professor. */
 export type TeacherApprovalInsert = typeof teacherApprovals.$inferInsert
 
 export const libraryCatalog = pgTable(
@@ -97,7 +103,9 @@ export const libraryCatalog = pgTable(
   (table) => [index("idx_library_catalog_active").on(table.active)],
 )
 
+/** Biblioteca do catálogo. */
 export type LibraryCatalogRow = typeof libraryCatalog.$inferSelect
+/** Valores para inserir ou atualizar uma biblioteca no catálogo. */
 export type LibraryCatalogInsert = typeof libraryCatalog.$inferInsert
 
 export const libraryRequests = pgTable(
@@ -118,7 +126,9 @@ export const libraryRequests = pgTable(
   (table) => [index("idx_library_requests_status").on(table.status), index("idx_library_requests_user").on(table.requestedBy)],
 )
 
+/** Pedido de biblioteca feito por um professor. */
 export type LibraryRequestRow = typeof libraryRequests.$inferSelect
+/** Valores para criar um pedido de biblioteca. */
 export type LibraryRequestInsert = typeof libraryRequests.$inferInsert
 
 /** Imagens enviadas (capas, avatares): dono de cada arquivo em /data/uploads. */
@@ -133,4 +143,5 @@ export const uploads = pgTable(
   (table) => [index("uploads_owner_idx").on(table.ownerId, table.createdAt)],
 )
 
+/** Imagem enviada por um usuário (dono e nome do arquivo no volume de uploads). */
 export type UploadRow = typeof uploads.$inferSelect

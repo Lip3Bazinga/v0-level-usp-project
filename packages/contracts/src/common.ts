@@ -2,8 +2,10 @@ import { z } from "zod"
 
 /** UUID v4/v7 genérico (validação de parâmetros de rota e corpo). */
 export const uuidSchema = z.uuid()
+/** UUID já validado por {@link uuidSchema}. */
 export type Uuid = z.infer<typeof uuidSchema>
 
+/** Problema de validação de um campo; `path` usa pontos (`items.0.title`). */
 export interface ValidationIssue {
   path: string
   message: string
@@ -40,6 +42,7 @@ export interface UploadedImage {
   url: string
 }
 
+/** Limites de `?limit=` de uma listagem: valor usado quando ausente e teto aceito. */
 export interface LimitQueryOptions {
   defaultLimit: number
   maxLimit: number
@@ -52,8 +55,10 @@ export type LimitQuerySchema = z.ZodObject<{ limit: z.ZodDefault<z.ZodCoercedNum
 export function limitQuerySchema({ defaultLimit, maxLimit }: LimitQueryOptions): LimitQuerySchema {
   return z.object({ limit: z.coerce.number().int().min(1).max(maxLimit).default(defaultLimit) })
 }
+/** Query `?limit=` já convertida para número e dentro dos limites. */
 export type LimitQuery = z.infer<LimitQuerySchema>
 
 export const DIFFICULTIES = ["iniciante", "intermediario", "avancado"] as const
 export const difficultySchema = z.enum(DIFFICULTIES)
+/** Nível de dificuldade de lições e cursos. */
 export type Difficulty = z.infer<typeof difficultySchema>

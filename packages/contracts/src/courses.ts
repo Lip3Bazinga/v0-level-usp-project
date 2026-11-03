@@ -2,6 +2,7 @@ import { z } from "zod"
 import { difficultySchema, type Difficulty } from "./common"
 import { patchSchemaOf } from "./schema"
 
+/** Módulo temático do catálogo (agrupa lições); só admins criam e editam. */
 export interface Module {
   id: string
   title: string
@@ -19,11 +20,16 @@ export const moduleInputSchema = z.object({
   color: z.string().trim().max(60).default("bg-level-purple"),
   sort_order: z.number().int().min(0).default(0),
 })
+/** Corpo de `POST /modules` (admin), com os padrões visuais aplicados. */
 export type ModuleInput = z.infer<typeof moduleInputSchema>
 
 export const moduleUpdateSchema = patchSchemaOf(moduleInputSchema)
+/** Corpo de `PATCH /modules/:id`: só os campos enviados mudam (sem defaults). */
 export type ModuleUpdateInput = z.infer<typeof moduleUpdateSchema>
 
+/**
+ * Curso como a API devolve. `lesson_count` e `enrolled` só vêm nas rotas de catálogo (`enrolled` exige sessão).
+ */
 export interface Course {
   id: string
   title: string
@@ -58,24 +64,30 @@ export const courseInputSchema = z.object({
   final_project_description: z.string().max(20_000).nullable().optional(),
   final_project_starter_code: z.string().max(100_000).nullable().optional(),
 })
+/** Corpo de `POST /courses` (professor ou admin; o autor vira dono). */
 export type CourseInput = z.infer<typeof courseInputSchema>
 export const courseUpdateSchema = patchSchemaOf(courseInputSchema)
+/** Corpo de `PATCH /courses/:id`: só os campos enviados mudam (sem defaults). */
 export type CourseUpdateInput = z.infer<typeof courseUpdateSchema>
 
 export const publishSchema = z.object({ published: z.boolean() })
+/** Corpo de `PATCH /courses/:id/publish` e `PATCH /lessons/:id/publish`. */
 export type PublishInput = z.infer<typeof publishSchema>
 
 export const reorderLessonsSchema = z.object({
   lesson_ids: z.array(z.uuid()).min(1).max(500),
 })
+/** Corpo de `PUT /courses/:id/lessons/order`: todas as lições do curso, na nova ordem. */
 export type ReorderLessonsInput = z.infer<typeof reorderLessonsSchema>
 
 export const attachLessonSchema = z.object({
   lesson_id: z.uuid(),
   order: z.number().int().min(1).optional(),
 })
+/** Corpo de `POST /courses/:id/lessons`: anexa uma lição avulsa (sem `order`, vai para o fim). */
 export type AttachLessonInput = z.infer<typeof attachLessonSchema>
 
+/** Matrícula de um aluno num curso. */
 export interface Enrollment {
   id: string
   user_id: string

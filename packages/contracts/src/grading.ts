@@ -32,6 +32,7 @@ const PYTHON_DOTTED_NAME = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/
 
 /** Tipos Python verificáveis (o JSON não distingue int de float, nem list de tuple). */
 export const pyTypeSchema = z.enum(["int", "float", "str", "bool", "list", "tuple", "dict", "set", "NoneType"])
+/** Tipo Python exigido de um valor, quando o JSON sozinho não basta. */
 export type PyType = z.infer<typeof pyTypeSchema>
 
 /** Chama uma função definida pelo aluno e compara o retorno. */
@@ -50,6 +51,7 @@ export const callCaseSchema = z.object({
 
 export const OUTPUT_MATCH_MODES = ["exact", "trimmed", "contains", "regex"] as const
 export const outputMatchModeSchema = z.enum(OUTPUT_MATCH_MODES)
+/** Como a saída do programa é comparada com a esperada. */
 export type OutputMatchMode = z.infer<typeof outputMatchModeSchema>
 
 /** Executa o programa (main.py) com uma entrada e compara a saída padrão. */
@@ -86,6 +88,7 @@ export const sourceRuleSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("defines_class"), name: z.string().min(1).max(64) }),
   z.object({ type: z.literal("imports"), module: z.string().min(1).max(64) }),
 ])
+/** Regra estrutural sobre o código do aluno, verificada pela AST. */
 export type SourceRule = z.infer<typeof sourceRuleSchema>
 
 /** Verifica a estrutura do código (análise de AST, sem executar). */
@@ -113,11 +116,17 @@ export const testCaseSchema = z.discriminatedUnion("kind", [
   sourceCaseSchema,
   legacyCaseSchema,
 ])
+/** Caso de teste do gabarito, discriminado por `kind`. Nunca sai da API para o aluno. */
 export type TestCase = z.infer<typeof testCaseSchema>
+/** Caso que chama uma função do aluno e compara o retorno. */
 export type CallCase = z.infer<typeof callCaseSchema>
+/** Caso que roda o programa com uma entrada e compara a saída padrão. */
 export type IoCase = z.infer<typeof ioCaseSchema>
+/** Caso que lê uma variável global depois de executar o programa. */
 export type VariableCase = z.infer<typeof variableCaseSchema>
+/** Caso que só analisa a estrutura do código (sem executar). */
 export type SourceCase = z.infer<typeof sourceCaseSchema>
+/** Caso legado: código de teste unittest importado do avaliador antigo. */
 export type LegacyCase = z.infer<typeof legacyCaseSchema>
 
 export const testCasesSchema = z
@@ -131,6 +140,7 @@ export const testCasesSchema = z
     })
   })
 
+/** `strong`: só casos declarativos; `legacy`: algum caso legado (correção mais fraca). */
 export type GradingStrength = "strong" | "legacy"
 
 /** Resultado de um caso, como o aluno vê. */
@@ -154,6 +164,7 @@ export interface TestResult {
   failureDetails: string[]
 }
 
+/** Veredito de uma correção, com o resultado de cada caso visível ao aluno. */
 export interface GradeResult extends TestResult {
   cases: CaseResult[]
   strength: GradingStrength
@@ -171,6 +182,7 @@ export interface LessonCompletion {
   new_level: number
 }
 
+/** Resposta de `POST /lessons/:id/submissions`: veredito, efeito na gamificação e id da submissão. */
 export interface SubmissionResult extends GradeResult, LessonCompletion {
   submission_id: string
 }

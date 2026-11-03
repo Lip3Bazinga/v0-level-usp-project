@@ -27,5 +27,7 @@ export const profiles = pgTable(
   (table) => [check("profiles_role_check", isOneOf(table.role, USER_ROLES))],
 )
 
+/** Perfil e contadores de gamificação; o id é o mesmo da credencial em `users`. */
 export type ProfileRow = typeof profiles.$inferSelect
+/** Valores para inserir ou atualizar em `profiles`. */
 export type ProfileInsert = typeof profiles.$inferInsert

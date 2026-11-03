@@ -4,6 +4,7 @@ import { chmod, copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises
 import path from "node:path"
 import type { Probe, ProbeObservation, ProjectFile, RunnerLimits } from "@levelusp/contracts"
 
+/** Caminhos do Wasmtime, do CPython WASI e do harness, e a pasta de trabalho temporária. */
 export interface SandboxOptions {
   wasmtimeBin: string
   pythonDir: string
@@ -11,6 +12,7 @@ export interface SandboxOptions {
   workDir: string
 }
 
+/** Um lote de sondas rodado numa única instância isolada do interpretador. */
 export interface SandboxBatch {
   files: ProjectFile[]
   entry: string

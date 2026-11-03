@@ -21,8 +21,14 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
 })
 
+/** Configuração do executor lida do ambiente, com os padrões aplicados. */
 export type RunnerConfig = z.infer<typeof envSchema>
 
+/**
+ * Lê e valida a configuração do ambiente e resolve o caminho absoluto do Wasmtime.
+ *
+ * @throws Error com todos os problemas encontrados quando alguma variável é inválida.
+ */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): RunnerConfig {
   const parsed = envSchema.safeParse(env)
   if (!parsed.success) {

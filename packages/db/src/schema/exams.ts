@@ -5,6 +5,7 @@ import { courses } from "./content"
 import { createdAt, id, isOneOf, timestampTz } from "./_helpers"
 
 export const CERTIFICATE_PROJECT_STATUSES = ["passed", "waived"] as const
+/** Situação do projeto final no certificado (`waived`: curso sem projeto ou dispensado). */
 export type CertificateProjectStatus = (typeof CERTIFICATE_PROJECT_STATUSES)[number]
 
 export const exams = pgTable(
@@ -29,6 +30,7 @@ export const exams = pgTable(
   ],
 )
 
+/** Linha de `exams` (regras da prova final de um curso). */
 export type ExamRow = typeof exams.$inferSelect
 
 export const examQuestions = pgTable(
@@ -48,7 +50,9 @@ export const examQuestions = pgTable(
   (table) => [check("exam_questions_correct_index_check", sql`${table.correctIndex} >= 0`), index("exam_questions_exam_idx").on(table.examId)],
 )
 
+/** Questão do banco da prova, com o gabarito (`correctIndex`). */
 export type ExamQuestionRow = typeof examQuestions.$inferSelect
+/** Valores para inserir ou atualizar em `exam_questions`. */
 export type ExamQuestionInsert = typeof examQuestions.$inferInsert
 
 export const examAttempts = pgTable(
@@ -68,6 +72,7 @@ export const examAttempts = pgTable(
   (table) => [index("exam_attempts_user_exam_idx").on(table.userId, table.examId, table.startedAt.desc())],
 )
 
+/** Tentativa de prova: questões sorteadas, respostas e nota (null até a entrega). */
 export type ExamAttemptRow = typeof examAttempts.$inferSelect
 
 export const certificates = pgTable(
@@ -87,4 +92,5 @@ export const certificates = pgTable(
   ],
 )
 
+/** Certificado emitido; `verificationCode` é o código público da verificação. */
 export type CertificateRow = typeof certificates.$inferSelect

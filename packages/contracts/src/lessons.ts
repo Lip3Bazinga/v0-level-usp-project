@@ -40,6 +40,7 @@ export const projectFilesSchema = z
 
 export const LESSON_TYPES = ["coding", "theory", "quiz"] as const
 export const lessonTypeSchema = z.enum(LESSON_TYPES)
+/** Tipo de lição: prática com correção (`coding`), leitura (`theory`) ou questionário (`quiz`). */
 export type LessonType = z.infer<typeof lessonTypeSchema>
 
 /** Lição como o aluno vê (sem gabarito). */
@@ -73,6 +74,7 @@ export interface LessonWithTests extends Lesson {
   test_cases: TestCase[]
 }
 
+/** Lição resumida para listas e trilhas (`GET /lessons/summaries`). */
 export type LessonSummary = Pick<
   Lesson,
   | "id" | "title" | "slug" | "module" | "module_id" | "order" | "difficulty"
@@ -99,13 +101,17 @@ export const lessonInputSchema = z.object({
   time_limit: z.number().int().min(1).max(300).default(10),
   test_cases: testCasesSchema.default([]),
 })
+/** Corpo de `POST /lessons`, com os padrões aplicados. */
 export type LessonInput = z.infer<typeof lessonInputSchema>
 export const lessonUpdateSchema = patchSchemaOf(lessonInputSchema)
+/** Corpo de `PATCH /lessons/:id`: só os campos enviados mudam (sem defaults). */
 export type LessonUpdateInput = z.infer<typeof lessonUpdateSchema>
 
 export const LESSON_STATUSES = ["not_started", "in_progress", "completed"] as const
+/** Situação do aluno numa lição. */
 export type LessonStatus = (typeof LESSON_STATUSES)[number]
 
+/** Progresso do aluno numa lição (`GET /me/progress`); `score` só existe nos questionários. */
 export interface LessonProgress {
   id: string
   user_id: string
@@ -123,9 +129,11 @@ export const saveSnapshotSchema = z.object({ files: projectFilesSchema })
 export interface LessonSnapshot {
   files: ProjectFile[] | null
 }
+/** Corpo de `PUT /lessons/:id/snapshot`: o projeto inteiro do aluno. */
 export type SaveSnapshotInput = z.infer<typeof saveSnapshotSchema>
 
 export const submitCodeSchema = z.object({ files: projectFilesSchema })
+/** Corpo de `POST /lessons/:id/submissions`: o projeto a corrigir. */
 export type SubmitCodeInput = z.infer<typeof submitCodeSchema>
 
 /** Um dia no mapa de atividade (datas em ISO yyyy-mm-dd). */
@@ -144,6 +152,7 @@ export interface LessonMetrics {
   pass_rate: number | null
 }
 
+/** Questão de quiz com gabarito e explicação (só para o autor e admins). */
 export interface QuizQuestionFull {
   id: string
   prompt: string
@@ -152,18 +161,23 @@ export interface QuizQuestionFull {
   explanation: string
   sort_order: number
 }
+/** Questão de quiz como o aluno recebe: sem gabarito nem explicação. */
 export type QuizQuestionPublic = Pick<QuizQuestionFull, "id" | "prompt" | "options">
 
 export const quizQuestionInputSchema = z
   .object(multipleChoiceFields)
   .refine(correctIndexWithinOptions, CORRECT_INDEX_OUT_OF_RANGE)
+/** Uma questão no corpo de `PUT /lessons/:id/quiz`; `correct_index` precisa cair numa das opções. */
 export type QuizQuestionInput = z.infer<typeof quizQuestionInputSchema>
 export const replaceQuizSchema = z.object({ questions: z.array(quizQuestionInputSchema).max(50) })
+/** Corpo de `PUT /lessons/:id/quiz`: substitui todas as questões do quiz. */
 export type ReplaceQuizInput = z.infer<typeof replaceQuizSchema>
 
 export const quizSubmitSchema = z.object({ answers: answerSheetSchema })
+/** Corpo de `POST /lessons/:id/quiz/submissions`. */
 export type QuizSubmitInput = z.infer<typeof quizSubmitSchema>
 
+/** Correção do quiz somada ao efeito da conclusão na gamificação. */
 export interface QuizResult extends AnswerSheetResult {
   xp_awarded: number
   lesson_completed: boolean

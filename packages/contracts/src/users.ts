@@ -7,6 +7,7 @@ import type { Notification, TeacherApproval } from "./platform"
 
 export const USER_ROLES = ["student", "teacher", "admin"] as const
 export const userRoleSchema = z.enum(USER_ROLES)
+/** Papel do usuário; define as rotas que ele acessa. */
 export type UserRole = z.infer<typeof userRoleSchema>
 
 /** Perfil público + gamificação. Mantém snake_case por compatibilidade com o front. */
@@ -54,6 +55,7 @@ export const updateMyProfileSchema = z
     avatar_url: z.string().max(2048).nullable(),
   })
   .partial()
+/** Corpo de `PATCH /me/profile`: só os campos enviados mudam. */
 export type UpdateMyProfileInput = z.infer<typeof updateMyProfileSchema>
 
 /** Edição administrativa (papel, suspensão, dados básicos). */
@@ -66,10 +68,12 @@ export const adminUpdateUserSchema = z
     bio: bioSchema,
   })
   .partial()
+/** Corpo de `PATCH /admin/users/:id`; o admin não pode rebaixar nem suspender a si mesmo. */
 export type AdminUpdateUserInput = z.infer<typeof adminUpdateUserSchema>
 
 /** Exclusão da própria conta (LGPD): exige a senha atual. */
 export const deleteAccountSchema = z.object({ password: z.string().min(1, "Informe sua senha").max(128) })
+/** Corpo de `DELETE /me`. */
 export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>
 
 /** Credencial na exportação LGPD: só metadados, nunca o hash da senha. */

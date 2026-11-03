@@ -23,6 +23,7 @@ export const probeSchema = z.discriminatedUnion("kind", [
   z.object({ id: z.string(), kind: z.literal("ast") }),
   z.object({ id: z.string(), kind: z.literal("legacy"), code: z.string().max(100_000) }),
 ])
+/** Sonda que o executor roda; nenhuma carrega o valor esperado (a comparação é na API). */
 export type Probe = z.infer<typeof probeSchema>
 
 export const runnerJobSchema = z.object({
@@ -36,9 +37,12 @@ export const runnerJobSchema = z.object({
     })
     .default({ ...DEFAULT_RUNNER_LIMITS }),
 })
+/** Pedido da API ao executor: o projeto, o arquivo de entrada, as sondas e os limites. */
 export type RunnerJob = z.infer<typeof runnerJobSchema>
+/** Orçamento de tempo e memória de uma execução. */
 export type RunnerLimits = RunnerJob["limits"]
 
+/** Construções encontradas na AST do código do aluno (base das regras de `source`). */
 export interface AstFeatures {
   constructs: string[]
   calls: string[]
@@ -48,6 +52,7 @@ export interface AstFeatures {
   recursive_functions: string[]
 }
 
+/** O que o executor observou ao rodar uma sonda; os campos preenchidos dependem do `kind` da sonda. */
 export interface ProbeObservation {
   id: string
   ok: boolean
@@ -72,6 +77,7 @@ export interface ProbeObservation {
   truncated?: boolean
 }
 
+/** Resposta do executor: uma observação por sonda, versões do motor e duração total. */
 export interface RunnerResult {
   observations: ProbeObservation[]
   engine: { python: string; runtime: string }

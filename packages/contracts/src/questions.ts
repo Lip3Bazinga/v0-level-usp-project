@@ -24,8 +24,10 @@ export const CORRECT_INDEX_OUT_OF_RANGE = { message: "correct_index fora das op�
 
 /** Respostas do aluno: id da questão → índice da alternativa escolhida. */
 export const answerSheetSchema = z.record(z.uuid(), z.number().int().min(0).max(MAX_ANSWER_INDEX))
+/** Respostas do aluno já validadas por {@link answerSheetSchema}. */
 export type AnswerSheet = z.infer<typeof answerSheetSchema>
 
+/** Correção de uma questão, com a explicação do professor. */
 export interface AnswerReview {
   questionId: string
   correct: boolean

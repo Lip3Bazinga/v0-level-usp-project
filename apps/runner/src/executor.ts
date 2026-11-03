@@ -13,6 +13,7 @@ export interface BatchRunner {
   runBatch(batch: SandboxBatch): Promise<ProbeObservation[]>
 }
 
+/** Executa um job inteiro (todas as sondas) e devolve uma observação por sonda. */
 export interface JobExecutor {
   execute(job: RunnerJob, signal?: AbortSignal): Promise<RunnerResult>
 }
@@ -47,4 +48,5 @@ export interface HostInfo {
   memoryMb: number
 }
 
+/** Lê a capacidade da máquina atual (CPUs disponíveis e memória total). */
 export const hostInfo = (): HostInfo => ({ cpus: os.availableParallelism(), memoryMb: Math.round(os.totalmem() / BYTES_PER_MEGABYTE) })

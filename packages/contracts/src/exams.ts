@@ -2,6 +2,10 @@ import { z } from "zod"
 import { answerSheetSchema, CORRECT_INDEX_OUT_OF_RANGE, correctIndexWithinOptions, multipleChoiceFields, type AnswerSheetResult } from "./questions"
 import { patchSchemaOf } from "./schema"
 
+/**
+ * Situação do aluno diante da prova final do curso (`GET /courses/:id/exam`).
+ * Tempos em minutos; datas ISO 8601. `inProgress*` aponta a tentativa aberta que pode ser retomada.
+ */
 export interface ExamStatus {
   exam: {
     title: string
@@ -30,6 +34,7 @@ export interface ExamQuestion {
   options: string[]
 }
 
+/** Tentativa iniciada ou retomada (`resumed`) da prova final; as questões vêm sem gabarito. */
 export interface ExamStart {
   attemptId: string
   expiresAt: string
@@ -42,10 +47,13 @@ export const examSubmitSchema = z.object({
   attemptId: z.uuid(),
   answers: answerSheetSchema,
 })
+/** Corpo de `POST /courses/:id/exam/submit`: a tentativa e as respostas por questão. */
 export type ExamSubmitInput = z.infer<typeof examSubmitSchema>
 
+/** Correção da prova final (mesmo formato da folha de respostas do quiz). */
 export type ExamResult = AnswerSheetResult
 
+/** Resposta de `POST /courses/:id/certificate`; idempotente (`alreadyIssued` na segunda chamada). */
 export interface CertificateIssue {
   issued: boolean
   alreadyIssued: boolean
@@ -54,6 +62,7 @@ export interface CertificateIssue {
   examScore: number
 }
 
+/** Certificado do aluno logado (`GET /me/certificates`, `GET /courses/:id/certificate`). */
 export interface MyCertificate {
   verification_code: string
   issued_at: string
@@ -102,7 +111,9 @@ const examQuestionObjectSchema = z.object({
 })
 
 export const examQuestionInputSchema = examQuestionObjectSchema.refine(correctIndexWithinOptions, CORRECT_INDEX_OUT_OF_RANGE)
+/** Corpo de `POST /admin/exams/:examId/questions`; `correct_index` precisa cair numa das opções. */
 export type ExamQuestionInput = z.infer<typeof examQuestionInputSchema>
 /** PATCH sem defaults; o limite do correct_index é checado na API contra as opções gravadas. */
 export const examQuestionUpdateSchema = patchSchemaOf(examQuestionObjectSchema)
+/** Corpo de `PATCH /admin/exam-questions/:id`. */
 export type ExamQuestionUpdateInput = z.infer<typeof examQuestionUpdateSchema>

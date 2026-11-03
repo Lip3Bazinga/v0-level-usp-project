@@ -9,6 +9,7 @@ const MAX_BODY_BYTES = 1_000_000
 /** Só as primeiras falhas de validação: o suficiente para depurar a API. */
 const MAX_REPORTED_ISSUES = 5
 
+/** Dependências do servidor HTTP: o executor, o token esperado da API e o log. */
 export interface ServerDeps {
   executor: JobExecutor
   token: string

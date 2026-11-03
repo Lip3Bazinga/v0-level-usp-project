@@ -36,12 +36,14 @@ export class Semaphore {
   }
 }
 
+/** A fila de espera atingiu o teto: o servidor responde 503 para a API tentar depois. */
 export class QueueFullError extends Error {
   constructor() {
     super("Fila do executor cheia")
   }
 }
 
+/** O cliente desistiu enquanto o trabalho esperava na fila: nada foi executado. */
 export class CancelledError extends Error {
   constructor() {
     super("Execução cancelada: o cliente desconectou")

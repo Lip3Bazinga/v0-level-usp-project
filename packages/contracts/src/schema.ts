@@ -2,6 +2,7 @@ import { z } from "zod"
 
 type WithoutDefault<T> = T extends z.ZodDefault<infer Inner> ? Inner : T
 
+/** Forma de um schema de PATCH: cada campo opcional e sem o `.default()` do schema de criação. */
 export type PatchShape<S extends z.ZodRawShape> = { [K in keyof S]: z.ZodOptional<WithoutDefault<S[K]>> }
 
 /**

@@ -14,7 +14,9 @@ export const modules = pgTable("modules", {
   createdAt: createdAt(),
 })
 
+/** Linha de `modules`. */
 export type ModuleRow = typeof modules.$inferSelect
+/** Valores para inserir em `modules` (colunas com default são opcionais). */
 export type ModuleInsert = typeof modules.$inferInsert
 
 export const courses = pgTable(
@@ -43,7 +45,9 @@ export const courses = pgTable(
   ],
 )
 
+/** Linha de `courses` (`totalXp` é recalculado pela API, não editado). */
 export type CourseRow = typeof courses.$inferSelect
+/** Valores para inserir ou atualizar em `courses`. */
 export type CourseInsert = typeof courses.$inferInsert
 
 export const lessons = pgTable(
@@ -84,7 +88,11 @@ export const lessons = pgTable(
   ],
 )
 
+/**
+ * Linha completa de `lessons`, COM o gabarito em `testCases`: respostas ao aluno usam as colunas públicas.
+ */
 export type LessonRow = typeof lessons.$inferSelect
+/** Valores para inserir ou atualizar em `lessons`. */
 export type LessonInsert = typeof lessons.$inferInsert
 
 export const lessonQuizQuestions = pgTable(
@@ -105,4 +113,5 @@ export const lessonQuizQuestions = pgTable(
   ],
 )
 
+/** Questão de quiz de lição, com o gabarito (`correctIndex`). */
 export type LessonQuizQuestionRow = typeof lessonQuizQuestions.$inferSelect

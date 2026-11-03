@@ -23,27 +23,32 @@ export const signUpSchema = z.object({
   password: passwordSchema,
   full_name: z.string().trim().min(1, "Informe seu nome").max(MAX_FULL_NAME_LENGTH),
 })
+/** Corpo de `POST /auth/sign-up`: e-mail normalizado (minúsculo), senha pela política e nome. */
 export type SignUpInput = z.infer<typeof signUpSchema>
 
 export const signInSchema = z.object({
   email: emailSchema,
   password: currentPasswordSchema,
 })
+/** Corpo de `POST /auth/sign-in`. A senha só tem limite de tamanho: a política vale para senhas novas. */
 export type SignInInput = z.infer<typeof signInSchema>
 
 export const requestPasswordResetSchema = z.object({ email: emailSchema })
+/** Corpo de `POST /auth/password/forgot`; a resposta é a mesma exista ou não a conta. */
 export type RequestPasswordResetInput = z.infer<typeof requestPasswordResetSchema>
 
 export const resetPasswordSchema = z.object({
   token: z.string().min(32).max(256),
   password: passwordSchema,
 })
+/** Corpo de `POST /auth/password/reset`: token do link (uso único) e a nova senha. */
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
 
 export const changePasswordSchema = z.object({
   current_password: currentPasswordSchema,
   new_password: passwordSchema,
 })
+/** Corpo de `POST /auth/password/change`: exige a senha atual; as outras sessões são revogadas. */
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>
 
 /** Resultado da atualização de sequência diária feita no login. */
@@ -53,6 +58,9 @@ export interface StreakResult {
   reset: boolean
 }
 
+/**
+ * Resposta de login, cadastro e `GET /auth/me`. `streak` só vem quando o acesso atualizou a sequência diária.
+ */
 export interface SessionResponse {
   user: Profile
   streak?: StreakResult
