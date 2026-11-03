@@ -30,7 +30,8 @@ export const projectPathSchema = z
 
 export const projectFileSchema = z.object({
   path: projectPathSchema,
-  content: z.string().max(100_000),
+  // NUL não existe em código-fonte de verdade e o PostgreSQL recusa \u0000 em jsonb (viraria 500).
+  content: z.string().max(100_000).refine((content) => !content.includes("\u0000"), "O arquivo contém um caractere nulo (\\0)."),
 })
 export const projectFilesSchema = z
   .array(projectFileSchema)

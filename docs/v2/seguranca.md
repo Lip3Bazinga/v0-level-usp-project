@@ -366,14 +366,16 @@ ataques à lição 22). Os testes de robustez da API estão em `pnpm test`
 | `__proto__`/`constructor` no esperado ou no observado; JSON fundo | API | spec, e2e | Não casa; sem estouro de pilha | #12 |
 | NFC × NFD, tolerância, `$repr`/`$dict` × valores comuns | API | spec | Comparação estrita, documentada | — |
 
-### Wasmtime 49.0.0 (avisos publicados até 03/11/2026)
+### Wasmtime: 49.0.0 → 49.0.5 (avisos publicados até 03/11/2026)
 
 O convidado é um módulo **fixo e confiável** (CPython 3.14 pré-compilado no
 build); o aluno controla dados do interpretador, não instruções Wasm. Os
 avisos de compilador, *component model*, GC e streams não são alcançáveis por
-ele, mas a versão deve subir para **49.0.5** (que corrige todos os abaixo na
-linha 49.x), atualizando `WASMTIME_VERSION` e os SHA-256 em
-`apps/runner/scripts/fetch-python-wasi.sh`.
+ele. Mesmo assim a versão **subiu para 49.0.5** (corrige todos os abaixo na
+linha 49.x): `WASMTIME_VERSION` e SHA-256 atualizados em
+`apps/runner/scripts/fetch-python-wasi.sh`; suítes do executor, ataques e
+`verify:seed` rodados de novo na versão nova. A tabela registra o que afetava
+a versão anterior.
 
 | Aviso | Afeta 49.0.0 (corrigido em) | Aplicável aqui | Motivo |
 |---|---|---|---|
@@ -404,6 +406,5 @@ linha 49.x), atualizando `WASMTIME_VERSION` e os SHA-256 em
   Python exige rodar `test:attacks` de novo.
 - **Stdlib gravável** em desenvolvimento/CI quando o executor é root ou dono de
   `/opt/levelusp-python` (só aviso no log fora de produção).
-- **Wasmtime 49.0.0**: avisos acima, não aplicáveis ao uso atual; atualizar.
 - **Job em execução** não é interrompido quando a API desiste (só os da fila);
   o custo fica limitado ao tempo do lote.

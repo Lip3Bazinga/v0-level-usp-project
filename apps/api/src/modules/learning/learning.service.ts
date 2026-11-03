@@ -67,6 +67,7 @@ export class LearningService {
     if (!lesson.testCases.length) throw Unprocessable("Esta lição ainda não tem gabarito. Avise o professor.", "NO_TESTS")
     if (!hasEntryFile(files)) throw BadRequest("O projeto precisa de um arquivo main.py.")
     this.rateLimit.consume(RATE_LIMITS.codeSubmission, user.id)
+    this.rateLimit.consume(RATE_LIMITS.codeSubmissionPerLessonDay, `${user.id}:${lessonId}`)
 
     const { engine, ...gradeResult } = await this.grading.grade(files, lesson.testCases)
     const submissionId = await this.repo.createSubmission({

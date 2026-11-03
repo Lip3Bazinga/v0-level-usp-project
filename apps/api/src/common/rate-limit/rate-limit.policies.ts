@@ -1,4 +1,4 @@
-import { MS_PER_HOUR, MS_PER_MINUTE } from "../time/time"
+import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE } from "../time/time"
 
 /** Limite por usuário/alvo: `limit` ações a cada `windowMs`, contadas por `scope:id`. */
 export interface RateLimitPolicy {
@@ -17,6 +17,17 @@ export const RATE_LIMITS = {
   imageUpload: { scope: "upload", limit: 30, windowMs: MS_PER_HOUR, message: "Limite de envios de imagem atingido. Tente mais tarde." },
   /** Mesmo limite do avaliador antigo. */
   codeSubmission: { scope: "submit", limit: 12, windowMs: MS_PER_MINUTE, message: "Muitas verificações seguidas. Aguarde um instante." },
+  /**
+   * Teto diário por aluno e lição: sem ele, 12/min viram ~17 mil tentativas por dia,
+   * o bastante para "adivinhar" casos de resposta booleana por força bruta.
+   * 150 sobra para quem estuda de verdade (a mediana esperada é de poucas dezenas).
+   */
+  codeSubmissionPerLessonDay: {
+    scope: "submit-lesson-day",
+    limit: 150,
+    windowMs: MS_PER_DAY,
+    message: "Você atingiu o limite de verificações desta lição por hoje. Revise o código com o botão Executar e tente amanhã.",
+  },
   theoryCompletion: { scope: "theory", limit: 30, windowMs: MS_PER_MINUTE },
   quizSubmission: { scope: "quiz", limit: 10, windowMs: MS_PER_MINUTE, message: "Muitos envios seguidos. Aguarde um instante." },
   /** Início e envio da prova: mesmo limite do sistema antigo. */

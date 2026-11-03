@@ -71,6 +71,8 @@ describe("contratos", () => {
     expect(projectFileSchema.safeParse({ path: "../segredo.py", content: "" }).success).toBe(false)
     expect(projectFileSchema.safeParse({ path: "/etc/passwd.py", content: "" }).success).toBe(false)
     expect(projectFileSchema.safeParse({ path: "utils/mat.py", content: "" }).success).toBe(true)
+    // \u0000 quebraria a gravação em jsonb (500) — recusado na validação.
+    expect(projectFileSchema.safeParse({ path: "main.py", content: "print(1)\u0000" }).success).toBe(false)
   })
 
   it("política de senha exige 10+ caracteres com letra e número", () => {

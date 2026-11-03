@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { parsePublicOrigin, productionOriginProblem } from "@levelusp/contracts"
+import { isPublishedSecret, parsePublicOrigin, productionOriginProblem } from "@levelusp/contracts"
 
 /**
  * Variáveis de ambiente validadas na partida. A API se recusa a subir com
@@ -104,17 +104,11 @@ function resolvePublicBaseUrl(appEnv: Env["APP_ENV"], raw: string | undefined): 
  * dos `.env.example`) ou senhas de banco triviais. Em homologação e produção a API não
  * sobe com eles: quem lê o repositório público não pode conhecer o token do executor.
  */
-const PUBLIC_SECRET_MARKERS = ["__gerar__", "runner-token", "0123456789", "changeme", "trocar"] as const
 const WEAK_DATABASE_PASSWORDS: ReadonlySet<string> = new Set(["", "levelusp", "postgres", "password", "senha", "admin", "__gerar__"])
 
 interface SecretProblem {
   variable: "RUNNER_TOKEN" | "DATABASE_URL" | "SMTP_URL"
   message: string
-}
-
-function hasPublicMarker(value: string): boolean {
-  const lowered = value.toLowerCase()
-  return PUBLIC_SECRET_MARKERS.some((marker) => lowered.includes(marker))
 }
 
 function databasePassword(databaseUrl: string): string | null {
@@ -127,7 +121,7 @@ function databasePassword(databaseUrl: string): string | null {
 
 function publicSecretProblems(env: { RUNNER_TOKEN: string; DATABASE_URL: string; SMTP_URL?: string | undefined }): SecretProblem[] {
   const problems: SecretProblem[] = []
-  if (hasPublicMarker(env.RUNNER_TOKEN)) {
+  if (isPublishedSecret(env.RUNNER_TOKEN)) {
     problems.push({ variable: "RUNNER_TOKEN", message: "parece o valor de exemplo/dev publicado no repositório; gere um novo (openssl rand -hex 24)" })
   }
   const password = databasePassword(env.DATABASE_URL)

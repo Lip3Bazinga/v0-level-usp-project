@@ -2,6 +2,7 @@ import { accessSync, constants, readdirSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { isPublishedSecret } from "@levelusp/contracts"
 import { z } from "zod"
 
 const sourceDir = path.dirname(fileURLToPath(import.meta.url))
@@ -23,6 +24,11 @@ const envSchema = z.object({
   /** `production` recusa partir com a stdlib do Python gravável (ver `findWritableRuntimePaths`). */
   NODE_ENV: z.string().default("development"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+}).superRefine((env, ctx) => {
+  // Em produção, recusa os tokens de exemplo/dev/CI publicados no repositório (a API faz o mesmo).
+  if (env.NODE_ENV === "production" && isPublishedSecret(env.RUNNER_TOKEN)) {
+    ctx.addIssue({ code: "custom", path: ["RUNNER_TOKEN"], message: "parece o valor de exemplo/dev publicado no repositório; gere um novo (openssl rand -hex 24)" })
+  }
 })
 
 /** Configuração do executor lida do ambiente, com os padrões aplicados. */

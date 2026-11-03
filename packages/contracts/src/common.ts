@@ -24,6 +24,18 @@ export interface ApiErrorBody {
 }
 
 /**
+ * Trechos presentes nos segredos de exemplo/dev/CI publicados no repositório.
+ * Um segredo de homolog/prod que contenha algum deles é tratado como vazado.
+ */
+export const PUBLIC_SECRET_MARKERS = ["__gerar__", "runner-token", "0123456789", "changeme", "trocar"] as const
+
+/** Diz se o segredo parece um valor de exemplo publicado (ver `PUBLIC_SECRET_MARKERS`). */
+export function isPublishedSecret(value: string): boolean {
+  const lowered = value.toLowerCase()
+  return PUBLIC_SECRET_MARKERS.some((marker) => lowered.includes(marker))
+}
+
+/**
  * O texto, ou `undefined` quando ele é vazio ou ausente. Deixa explícito que "" conta
  * como "não informado": `nonEmpty(note.title) ?? "Sem título"` (em vez de `||`, que
  * esconde essa decisão e também engoliria outros valores falsy).
