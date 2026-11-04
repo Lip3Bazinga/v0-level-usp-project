@@ -196,8 +196,11 @@ test.describe("sessão, redirecionamento e CSRF", () => {
     )
     await page.goto(`${EVIL_ORIGIN}/`)
     expect(await page.evaluate("window.fetchResult")).toMatch(/^bloqueado/)
-    await page.evaluate(() => (document.getElementById("f") as HTMLFormElement).submit())
-    await page.waitForLoadState("domcontentloaded")
+    // Espera a navegação do formulário terminar; senão o goto("/") seguinte é abortado por ela.
+    await Promise.all([
+      page.waitForURL(target),
+      page.evaluate(() => (document.getElementById("f") as HTMLFormElement).submit()),
+    ])
     await page.goto("/")
     const notes = await page.request.get("/api/me/notes")
     expect(await notes.text()).not.toContain("csrf")
