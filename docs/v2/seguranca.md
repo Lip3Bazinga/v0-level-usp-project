@@ -56,8 +56,8 @@ Riscos aceitos e conhecidos:
   introspecção profunda fora do modo estrito, o próprio nonce), mas forjar a
   aprovação exige conhecer o valor esperado, que nunca entra no sandbox. Em
   `unittest`, exige saber se a suíte roda contra a referência ou um mutante.
-- **Disco do executor**: o aluno pode gravar no próprio diretório do projeto
-  dentro do tmpfs de 256 MB do container durante até 10 s.
+- ~~**Disco do executor**~~: resolvido em 03/11/2026 com cota de 32 MB e 2000
+  entradas por lote (ver "Executor e correção: catálogo de ataques", achado 6).
 - **Cadastro** responde "e-mail já cadastrado" (escolha de usabilidade).
 
 ## Modelo de ameaças e suíte de ataques (03/11/2026)
@@ -289,8 +289,6 @@ Revisão adversarial de 03/11/2026 do executor (`apps/runner`), do harness
 harness (é público) e envia Python arbitrário. Todos os testes rodam no
 CPython WASI real; as garantias por tipo de caso estão em
 [motor-de-correcao.md § Garantias por tipo de caso](motor-de-correcao.md#garantias-por-tipo-de-caso-precisas).
-Esta seção substitui a linha "Disco do executor" dos riscos aceitos acima
-(agora há cota por lote, achado 6).
 
 Como rodar: `pnpm --filter @levelusp/runner test:attacks` (57 testes, ~30 s) e,
 com um executor no ar, `RUNNER_URL=... RUNNER_TOKEN=... pnpm --filter
