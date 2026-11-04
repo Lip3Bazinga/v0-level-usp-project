@@ -1,4 +1,5 @@
 import { findWritableRuntimePaths, loadConfig } from "./config.js"
+import { DEFAULT_RUNNER_LIMITS } from "@levelusp/contracts"
 import { Executor, hostInfo } from "./executor.js"
 import { createLogger } from "./logger.js"
 import { WasmtimeSandbox } from "./sandbox.js"
@@ -32,11 +33,43 @@ const sandbox = new WasmtimeSandbox({
   harnessPath: config.HARNESS_PATH,
   workDir: config.WORK_DIR,
   maxJobDiskBytes: config.MAX_JOB_DISK_MB * BYTES_PER_MIB,
+  onGuestFailure: (details) => log("error", "convidado terminou sem nenhuma observação (falha do Wasmtime ou do módulo Python)", { ...details }),
 })
 const semaphore = new Semaphore(config.CONCURRENCY, config.MAX_QUEUE)
 const stats = new RunnerStats(semaphore)
 const executor = new Executor(sandbox, semaphore, { stats, maxQueueWaitMs: config.MAX_QUEUE_WAIT_MS })
-const server = buildServer({ executor, token: config.RUNNER_TOKEN, log, stats })
+const readiness = { ready: false, reason: "autoteste pendente" }
+const server = buildServer({ executor, token: config.RUNNER_TOKEN, log, stats, readiness })
+
+/**
+ * Autoteste: roda um programa trivial pelo mesmo caminho dos jobs reais. Um `.cwasm`
+ * compilado para outra CPU, um Wasmtime ausente ou uma stdlib fora do lugar derrubam
+ * todas as correções com a mesma mensagem genérica para o aluno; aqui isso vira um
+ * erro explícito no log e `/healthz` 503, que o compose e a API enxergam.
+ */
+async function selfTest(): Promise<void> {
+  const observations = await sandbox.runBatch({
+    files: [{ path: "main.py", content: 'print("levelusp-autoteste")\n' }],
+    entry: "main.py",
+    probes: [{ kind: "run", id: "autoteste", stdin: "" }],
+    limits: { ...DEFAULT_RUNNER_LIMITS },
+  })
+  const observation = observations[0]
+  if (observation?.ok && observation.stdout?.includes("levelusp-autoteste")) {
+    readiness.ready = true
+    readiness.reason = ""
+    log("info", "autoteste do sandbox aprovado")
+    return
+  }
+  readiness.ready = false
+  readiness.reason = observation?.error ?? "sem observação"
+  log("error", "autoteste do sandbox FALHOU: nenhuma correção vai funcionar até isto ser resolvido", { observation })
+}
+
+void selfTest().catch((error: unknown) => {
+  readiness.reason = error instanceof Error ? error.message : String(error)
+  log("error", "autoteste do sandbox FALHOU ao iniciar o Wasmtime", { error: readiness.reason })
+})
 
 server.listen(config.PORT, config.HOST, () => {
   log("info", "executor ouvindo", { port: config.PORT, concurrency: config.CONCURRENCY, maxQueue: config.MAX_QUEUE, maxQueueWaitMs: config.MAX_QUEUE_WAIT_MS, ...hostInfo() })

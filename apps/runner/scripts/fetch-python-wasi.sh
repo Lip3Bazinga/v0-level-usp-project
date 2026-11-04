@@ -37,5 +37,9 @@ echo "$PYTHON_ZIP_SHA256  $tmp/py.zip" | sha256sum -c -
 unzip -q -o "$tmp/py.zip" -d "$DEST"
 
 # Pré-compila para carregar em ~20 ms. As flags precisam bater com as do executor.
-wasmtime compile -W fuel=1,epoch-interruption=y "$DEST/python.wasm" -o "$DEST/python.cwasm"
+# --target explícito: sem ele o Wasmtime compila para a CPU da máquina que roda este script
+# (no GitHub, com AVX-512) e o .cwasm é recusado em qualquer CPU sem essas instruções
+# ("compilation settings ... not supported by host"). Com o alvo genérico, só o conjunto
+# base da arquitetura entra, e a mesma imagem roda em qualquer notebook ou VM.
+wasmtime compile --target "${WT_ARCH}-unknown-linux-gnu" -W fuel=1,epoch-interruption=y "$DEST/python.wasm" -o "$DEST/python.cwasm"
 echo "Python WASI pronto em $DEST"

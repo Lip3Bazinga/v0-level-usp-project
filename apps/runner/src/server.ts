@@ -17,12 +17,20 @@ export interface ServerDeps {
   log: Logger
   /** Contadores servidos em `GET /v1/stats` (mesmo token da API); sem eles a rota responde 404. */
   stats?: RunnerStats
+  /** Resultado do autoteste da partida; sem ele `/healthz` responde sempre ok. */
+  readiness?: RunnerReadiness
+}
+
+/** Estado do autoteste do sandbox: enquanto `ready` for falso, `/healthz` responde 503 com o motivo. */
+export interface RunnerReadiness {
+  ready: boolean
+  reason: string
 }
 
 class BodyTooLargeError extends Error {}
 
 /** HTTP mínimo (sem framework): menos superfície num serviço que roda código não confiável. */
-export function buildServer({ executor, token, log, stats }: ServerDeps): Server {
+export function buildServer({ executor, token, log, stats, readiness }: ServerDeps): Server {
   const expectedAuthorization = Buffer.from(`Bearer ${token}`)
 
   const isAuthorized = (request: IncomingMessage): boolean => {
@@ -47,7 +55,10 @@ export function buildServer({ executor, token, log, stats }: ServerDeps): Server
   // Toda falha vira resposta HTTP dentro do try/catch: a promessa nunca rejeita.
   const handleRequest = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     try {
-      if (request.method === "GET" && request.url === "/healthz") return sendJson(response, 200, { status: "ok" })
+      if (request.method === "GET" && request.url === "/healthz") {
+        if (readiness && !readiness.ready) return sendJson(response, 503, { status: "unavailable", reason: readiness.reason })
+        return sendJson(response, 200, { status: "ok" })
+      }
       if (request.method === "GET" && request.url === "/v1/stats" && stats) {
         if (!isAuthorized(request)) return sendJson(response, 401, { error: "unauthorized" })
         return sendJson(response, 200, stats.snapshot())

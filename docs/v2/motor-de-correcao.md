@@ -274,3 +274,20 @@ precisa ser `strong`. As conversões dos antigos blocos legados e as soluções
 erradas ficam em `packages/db/tools/manual_conversions.py`; o seed é gerado por
 `python3 packages/db/tools/convert_legacy_tests.py`. O CI executa essa
 verificação a cada mudança.
+
+## Portabilidade do `.cwasm` e autoteste
+
+O `python.cwasm` é o CPython pré-compilado pelo Wasmtime no build da imagem. Sem
+`--target`, o `wasmtime compile` usa as instruções da CPU da máquina que compila (no
+GitHub Actions, AVX-512) e o Wasmtime **recusa carregar** o módulo em qualquer CPU que
+não as tenha — foi o que aconteceu na homologação no notebook (04/11/2026): toda
+verificação voltava em ~10 ms com "O programa terminou de forma inesperada" em todos
+os casos, inclusive os de AST. Desde então:
+
+- `fetch-python-wasi.sh` compila com `--target <arch>-unknown-linux-gnu` (só o conjunto
+  base da arquitetura; mesma imagem roda em qualquer máquina);
+- o executor roda um **autoteste** na partida (um `print` por uma sonda `run`): se falhar,
+  `GET /healthz` responde 503 com o motivo, o `docker compose` não marca o serviço como
+  saudável e a API fica com `runner: false` no `/api/health/ready`;
+- um lote que termina **sem nenhuma observação** vai para o log em nível `error` com o
+  `stderr` do Wasmtime, que é onde a causa real aparece.
