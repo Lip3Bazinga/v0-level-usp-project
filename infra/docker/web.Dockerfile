@@ -7,6 +7,8 @@ WORKDIR /repo
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc tsconfig.base.json ./
 COPY apps/web/package.json apps/web/
 COPY packages/contracts/package.json packages/contracts/
+# Só o package.json: dependência de desenvolvimento (lint) que o pnpm precisa achar no workspace.
+COPY packages/eslint-config/package.json packages/eslint-config/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --filter @levelusp/web...
 COPY packages/contracts packages/contracts
 COPY apps/web apps/web
