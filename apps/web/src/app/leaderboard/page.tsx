@@ -32,24 +32,30 @@ export default function LeaderboardPage() {
   const { profile } = useAuth()
   const [users, setUsers] = useState<PublicProfile[]>([])
   const [loading, setLoading] = useState(true)
+  // Falha da API ≠ ranking vazio: antes dizia "Nenhum estudante ainda".
+  const [loadError, setLoadError] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     async function load() {
+      setLoading(true)
+      setLoadError(false)
       try {
         setUsers(await fetchLeaderboard())
       } catch {
         setUsers([])
+        setLoadError(true)
       } finally {
         setLoading(false)
       }
     }
     load()
-  }, [])
+  }, [reloadKey])
 
   const top3 = users.slice(0, 3)
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-8">
+    <div className="min-h-screen bg-background pb-24 lg:pb-8">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
@@ -60,7 +66,7 @@ export default function LeaderboardPage() {
             <span className="text-xl font-bold text-level-purple-dark">LevelUSP</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-6">
+          <nav aria-label="Navegação principal" className="hidden lg:flex items-center gap-6">
             <Link href="/dashboard" className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
               <BookOpen className="h-4 w-4" /> Aprender
             </Link>
@@ -99,6 +105,18 @@ export default function LeaderboardPage() {
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Loader2 className="h-10 w-10 animate-spin text-level-purple" />
             <p className="text-sm text-muted-foreground">Carregando ranking...</p>
+          </div>
+        ) : loadError ? (
+          <div role="alert" className="mx-auto max-w-md rounded-2xl border border-red-200 bg-red-50 px-6 py-8 text-center">
+            <p className="text-base font-semibold text-red-800">Não foi possível carregar o ranking.</p>
+            <p className="mt-1 text-sm text-red-700">Verifique sua conexão e tente novamente.</p>
+            <button
+              type="button"
+              onClick={() => setReloadKey((k) => k + 1)}
+              className="mt-4 rounded-xl bg-level-purple px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-level-purple-dark"
+            >
+              Tentar novamente
+            </button>
           </div>
         ) : users.length === 0 ? (
           <div className="py-16 text-center">
@@ -160,11 +178,11 @@ export default function LeaderboardPage() {
 
             {/* Full Leaderboard Table */}
             <div className="rounded-2xl border border-border bg-white overflow-hidden">
-              <div className="grid grid-cols-[48px_1fr_100px_80px] gap-4 border-b border-border bg-muted/50 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <div className="grid grid-cols-[32px_1fr_64px_48px] gap-2 border-b border-border bg-muted/50 px-3 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:grid-cols-[48px_1fr_100px_96px] sm:gap-4 sm:px-4">
                 <span>#</span>
                 <span>Estudante</span>
-                <span className="text-right">XP Total</span>
-                <span className="text-right">Streak</span>
+                <span className="text-right">XP<span className="hidden sm:inline"> Total</span></span>
+                <span className="text-right"><span className="sm:hidden" aria-hidden="true">Seq.</span><span className="sr-only sm:not-sr-only">Sequência</span></span>
               </div>
 
               {users.map((entry, index) => {
@@ -175,7 +193,7 @@ export default function LeaderboardPage() {
                   <Link
                     key={entry.id}
                     href={`/perfil/${entry.username}`}
-                    className={`grid grid-cols-[48px_1fr_100px_80px] gap-4 items-center px-4 py-3 transition-colors hover:bg-level-purple-subtle/50 ${
+                    className={`grid grid-cols-[32px_1fr_64px_48px] gap-2 items-center px-3 py-3 sm:grid-cols-[48px_1fr_100px_96px] sm:gap-4 sm:px-4 transition-colors hover:bg-level-purple-subtle/50 ${
                       isCurrentUser ? "bg-level-purple-light/50 border-l-4 border-level-purple" : "border-b border-border"
                     }`}
                   >
@@ -192,7 +210,7 @@ export default function LeaderboardPage() {
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-foreground">
                           {entry.full_name}
-                          {isCurrentUser && <span className="ml-2 text-xs text-level-purple">(voce)</span>}
+                          {isCurrentUser && <span className="ml-2 text-xs text-level-purple">(você)</span>}
                         </p>
                         <p className="text-xs text-muted-foreground">Nível {entry.level}</p>
                       </div>
@@ -217,7 +235,7 @@ export default function LeaderboardPage() {
       </main>
 
       {/* Mobile Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-white md:hidden">
+      <nav aria-label="Navegação principal" className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-white lg:hidden">
         <div className="flex items-center justify-around py-2">
           <Link href="/dashboard" className="flex flex-col items-center gap-1 px-4 py-2 text-muted-foreground">
             <BookOpen className="h-5 w-5" />

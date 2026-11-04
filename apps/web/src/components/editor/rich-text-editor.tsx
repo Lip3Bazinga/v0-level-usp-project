@@ -213,6 +213,10 @@ export function RichTextEditor({
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
+        // O StarterKit v3 já inclui Link e Underline; eles são configurados abaixo.
+        // Sem desligar aqui, o TipTap avisa "Duplicate extension names" no console.
+        link: false,
+        underline: false,
         codeBlock: {
           HTMLAttributes: {
             class: "relative rounded-xl bg-[#1e1e2e] px-4 py-3 font-mono text-sm text-gray-100 my-3 overflow-x-auto",
@@ -249,6 +253,9 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         class: "prose-lesson focus:outline-none min-h-[inherit] px-5 py-4 text-sm leading-relaxed",
+        role: "textbox",
+        "aria-multiline": "true",
+        "aria-label": placeholder,
       },
     },
   })

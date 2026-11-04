@@ -45,6 +45,7 @@ export function SiteNav() {
 
   return (
     <motion.nav
+      aria-label="Navegação do site"
       initial={{ y: -80, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
@@ -68,6 +69,7 @@ export function SiteNav() {
             <Link
               key={link.href}
               href={link.href}
+              aria-current={isActive(link.href) ? "page" : undefined}
               className={`relative text-sm font-medium transition-colors hover:text-[#7C3AED] ${
                 isActive(link.href) ? "text-[#7C3AED]" : "text-gray-600"
               }`}
@@ -87,8 +89,13 @@ export function SiteNav() {
             className="relative"
             onMouseEnter={() => setMoreOpen(true)}
             onMouseLeave={() => setMoreOpen(false)}
+            onKeyDown={(e) => { if (e.key === "Escape") setMoreOpen(false) }}
+            onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setMoreOpen(false) }}
           >
             <button
+              type="button"
+              aria-expanded={moreOpen}
+              aria-controls="site-nav-more"
               onClick={() => setMoreOpen((v) => !v)}
               className="flex items-center gap-1 text-sm font-medium text-gray-600 transition-colors hover:text-[#7C3AED]"
             >
@@ -102,6 +109,7 @@ export function SiteNav() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 8 }}
                   transition={{ duration: 0.18 }}
+                  id="site-nav-more"
                   className="absolute right-0 top-full w-72 pt-3"
                 >
                   <div className="glass overflow-hidden rounded-2xl p-2">
@@ -129,17 +137,16 @@ export function SiteNav() {
           >
             Entrar
           </Link>
-          <Link href="/signup">
-            <button className="rounded-full bg-[#7C3AED] px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-300/40 transition-all hover:bg-[#6D28D9] hover:shadow-purple-400/50">
+          <Link href="/signup" className="rounded-full bg-[#7C3AED] px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-300/40 transition-all hover:bg-[#6D28D9] hover:shadow-purple-400/50">
               Começar grátis
-            </button>
-          </Link>
+            </Link>
         </div>
 
         <button
           onClick={() => setOpen((v) => !v)}
           className="flex h-10 w-10 items-center justify-center rounded-xl text-[#4C1D95] lg:hidden"
-          aria-label="Abrir menu"
+          aria-label={open ? "Fechar menu" : "Abrir menu"}
+          aria-expanded={open}
         >
           {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
@@ -172,11 +179,9 @@ export function SiteNav() {
               >
                 Entrar
               </Link>
-              <Link href="/signup">
-                <button className="mt-1 w-full rounded-full bg-[#7C3AED] px-6 py-2.5 text-sm font-semibold text-white">
+              <Link href="/signup" className="mt-1 block w-full rounded-full bg-[#7C3AED] px-6 py-2.5 text-center text-sm font-semibold text-white">
                   Começar grátis
-                </button>
-              </Link>
+                </Link>
             </div>
           </motion.div>
         )}

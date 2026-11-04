@@ -76,7 +76,7 @@ export function ConfigTab({ form, patch, courses, modules }: {
           </div>
         ) : (
           <Select value={form.course_id ?? "none"} onValueChange={(v) => patch({ course_id: v === "none" ? null : v })}>
-            <SelectTrigger className={selectTrigger}>
+            <SelectTrigger aria-label="Curso" className={selectTrigger}>
               <SelectValue placeholder="Selecionar curso..." />
             </SelectTrigger>
             <SelectContent>
@@ -122,7 +122,7 @@ export function ConfigTab({ form, patch, courses, modules }: {
               else if (v !== LEGACY_MODULE) patch({ module_id: v, module: modules.find((m) => m.id === v)?.title ?? "" })
             }}
           >
-            <SelectTrigger className={selectTrigger}>
+            <SelectTrigger aria-label="Módulo" className={selectTrigger}>
               <SelectValue placeholder="Selecionar módulo..." />
             </SelectTrigger>
             <SelectContent>
@@ -142,7 +142,7 @@ export function ConfigTab({ form, patch, courses, modules }: {
 
       <div className="space-y-2">
         <span className={labelClass}>Dificuldade</span>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {DIFFICULTIES.map((d) => (
             <button
               key={d.value}
@@ -163,8 +163,8 @@ export function ConfigTab({ form, patch, courses, modules }: {
       </div>
 
       <div className="space-y-2">
-        <span className={labelClass}>Tipo de aula</span>
-        <div className="flex gap-2">
+        <span className={labelClass}>Tipo de lição</span>
+        <div className="flex flex-col gap-2 sm:flex-row">
           {LESSON_TYPES.map((t) => {
             const active = form.lesson_type === t.value
             return (
@@ -178,7 +178,7 @@ export function ConfigTab({ form, patch, courses, modules }: {
                 }`}
               >
                 <span className="font-medium">{t.label}</span>
-                <p className={`mt-0.5 text-xs ${active ? "text-white/80" : "text-muted-foreground"}`}>{t.desc}</p>
+                <p className={`mt-0.5 text-xs ${active ? "text-white/90" : "text-muted-foreground"}`}>{t.desc}</p>
               </button>
             )
           })}

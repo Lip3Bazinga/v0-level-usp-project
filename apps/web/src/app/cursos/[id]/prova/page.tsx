@@ -55,19 +55,6 @@ export default function ProvaPage() {
     }
   }, [authLoading, profile, loadStatus, router, courseId])
 
-  // Cronômetro
-  useEffect(() => {
-    if (phase !== "running" || !exam) return
-    const tick = () => {
-      const ms = new Date(exam.expiresAt).getTime() - Date.now()
-      setRemainingMs(ms)
-      if (ms <= 0 && !submittedRef.current) handleSubmit()
-    }
-    tick()
-    const id = setInterval(tick, 1000)
-    return () => clearInterval(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, exam])
 
   const handleStart = useCallback(async () => {
     setLoading(true)
@@ -104,6 +91,27 @@ export default function ProvaPage() {
      
   }, [exam, answers, courseId, loadStatus])
 
+  const submitLatestRef = useRef<(() => void) | null>(null)
+  useEffect(() => {
+    submitLatestRef.current = () => { void handleSubmit() }
+  }, [handleSubmit])
+
+  // Cronômetro
+  useEffect(() => {
+    if (phase !== "running" || !exam) return
+    const tick = () => {
+      const ms = new Date(exam.expiresAt).getTime() - Date.now()
+      setRemainingMs(ms)
+      // Usa a versão MAIS RECENTE de handleSubmit (com as respostas atuais). Antes, a
+      // closure do efeito guardava as respostas vazias do início e o envio automático
+      // ao fim do tempo zerava a prova.
+      if (ms <= 0 && !submittedRef.current) submitLatestRef.current?.()
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [phase, exam])
+
   const handleIssueCertificate = useCallback(async () => {
     setLoading(true)
     const certResult = await issueCertificate(courseId)
@@ -133,7 +141,7 @@ export default function ProvaPage() {
             <span className="text-xl font-bold text-level-purple-dark">LevelUSP</span>
           </Link>
           {phase === "running" && remainingMs !== null ? (
-            <div className={`flex items-center gap-2 rounded-xl px-4 py-2 font-mono text-sm font-bold ${
+            <div role="timer" aria-label="Tempo restante da prova" className={`flex items-center gap-2 rounded-xl px-4 py-2 font-mono text-sm font-bold ${
               remainingMs < 5 * 60_000 ? "bg-red-50 text-red-600" : "bg-level-purple-subtle text-level-purple-dark"
             }`}>
               <Clock className="h-4 w-4" />
@@ -149,7 +157,7 @@ export default function ProvaPage() {
 
       <main className="mx-auto max-w-4xl px-4 py-10">
         {error && (
-          <div className="mb-6 flex items-center gap-3 rounded-2xl bg-red-50 p-4 text-sm text-red-700 ring-1 ring-red-200">
+          <div role="alert" className="mb-6 flex items-center gap-3 rounded-2xl bg-red-50 p-4 text-sm text-red-700 ring-1 ring-red-200">
             <AlertTriangle className="h-5 w-5 shrink-0" />
             {error}
           </div>
@@ -272,13 +280,13 @@ export default function ProvaPage() {
 
             {exam.questions.map((q, qi) => (
               <div key={q.id} className="rounded-2xl border border-border bg-white p-6">
-                <p className="mb-4 font-semibold text-level-purple-dark">
+                <p id={`q-${q.id}`} className="mb-4 font-semibold text-level-purple-dark">
                   <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-level-purple-subtle text-xs font-bold text-level-purple">
                     {qi + 1}
                   </span>
                   <span className="whitespace-pre-wrap">{q.prompt}</span>
                 </p>
-                <div className="space-y-2">
+                <div role="radiogroup" aria-labelledby={`q-${q.id}`} className="space-y-2">
                   {q.options.map((opt, oi) => (
                     <label
                       key={oi}
@@ -303,9 +311,13 @@ export default function ProvaPage() {
             ))}
 
             <button
-              onClick={handleSubmit}
+              onClick={() => {
+                const missing = exam.questions.length - answeredCount
+                if (missing > 0 && !window.confirm(`Você deixou ${missing} ${missing === 1 ? "questão" : "questões"} sem resposta. Entregar mesmo assim?`)) return
+                handleSubmit()
+              }}
               disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-500 py-4 text-sm font-bold text-white transition-colors hover:bg-green-600 disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-700 py-4 text-sm font-bold text-white transition-colors hover:bg-green-800 disabled:opacity-50"
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-5 w-5" />}
               Entregar prova ({answeredCount}/{exam.questions.length} respondidas)

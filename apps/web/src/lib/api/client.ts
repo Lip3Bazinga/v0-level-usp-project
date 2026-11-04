@@ -23,10 +23,16 @@ export class ApiError extends Error {
 
 export const CSRF_HEADER = "x-levelusp-csrf"
 
-/** Base: no navegador, relativa; no servidor (SSR), a URL interna da API. */
+/**
+ * Base: no navegador, relativa; no servidor (SSR), a URL interna da API.
+ * Sem API_INTERNAL_URL em tempo de execução (a imagem standalone só a recebia no
+ * build), o SSR caía em localhost:4000 — que não existe dentro do contêiner web — e a
+ * verificação pública de certificado dizia "não encontrado" para códigos válidos.
+ * Agora o fallback passa pelo próprio Next (rewrite /api/*, resolvido no build).
+ */
 function baseUrl(): string {
   if (typeof window !== "undefined") return ""
-  return process.env.API_INTERNAL_URL ?? "http://localhost:4000"
+  return process.env.API_INTERNAL_URL ?? `http://127.0.0.1:${process.env.PORT ?? 3000}`
 }
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE"

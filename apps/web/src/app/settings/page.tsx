@@ -237,10 +237,8 @@ export default function SettingsPage() {
       <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-4xl items-center justify-between px-4">
           <div className="flex items-center gap-4">
-            <Link href="/dashboard">
-              <button className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground hover:bg-level-purple-light hover:text-level-purple transition-colors">
-                <ChevronLeft className="h-5 w-5" />
-              </button>
+            <Link href="/dashboard" aria-label="Voltar ao painel" className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground hover:bg-level-purple-light hover:text-level-purple transition-colors">
+              <ChevronLeft className="h-5 w-5" />
             </Link>
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-level-purple">
@@ -255,11 +253,12 @@ export default function SettingsPage() {
       <main className="mx-auto max-w-4xl px-4 py-8">
         <div className="flex flex-col gap-8 md:flex-row">
           {/* Sidebar Tabs */}
-          <nav className="w-full md:w-56 shrink-0">
+          <nav aria-label="Seções das configurações" className="w-full md:w-56 shrink-0">
             <div className="space-y-1">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
+                  aria-current={activeTab === tab.id ? "page" : undefined}
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
                     activeTab === tab.id
@@ -313,24 +312,25 @@ export default function SettingsPage() {
                         disabled={uploadingAvatar}
                         className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-level-purple text-white shadow-md hover:bg-level-purple-dark transition-colors disabled:opacity-60"
                         title="Alterar foto"
+                        aria-label="Alterar foto de perfil"
                       >
                         {uploadingAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
                       </button>
                     </div>
                     <div>
                       <p className="text-sm font-medium text-level-purple-dark">Foto de perfil</p>
-                      <p className="text-xs text-muted-foreground">JPG, PNG. Max 2MB.</p>
+                      <p className="text-xs text-muted-foreground">JPG, PNG ou WebP. Máx. 2 MB.</p>
                     </div>
                   </div>
 
                   {error && (
-                    <div className="mb-4 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                    <div role="alert" className="mb-4 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-red-700">
                       {error}
                     </div>
                   )}
 
                   {saved && (
-                    <div className="mb-4 flex items-center gap-2 rounded-xl bg-success/10 px-4 py-3 text-sm text-success">
+                    <div role="status" className="mb-4 flex items-center gap-2 rounded-xl bg-success/10 px-4 py-3 text-sm text-success">
                       <CheckCircle2 className="h-4 w-4" />
                       Alterações salvas com sucesso!
                     </div>
@@ -338,8 +338,9 @@ export default function SettingsPage() {
 
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-level-purple-dark">Nome completo</label>
+                      <label htmlFor="settings-name" className="text-sm font-medium text-level-purple-dark">Nome completo</label>
                       <input
+                        id="settings-name"
                         type="text"
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
@@ -348,11 +349,12 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-level-purple-dark">Username</label>
+                      <label htmlFor="settings-username" className="text-sm font-medium text-level-purple-dark">Username</label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">@</span>
                         <input
-                          type="text"
+                          id="settings-username"
+                        type="text"
                           value={username}
                           onChange={(e) => setUsername(e.target.value)}
                           className="w-full rounded-xl border-2 border-border bg-white pl-8 pr-4 py-3 text-foreground focus:border-level-purple focus:outline-none transition-colors"
@@ -361,8 +363,9 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-level-purple-dark">Bio</label>
+                      <label htmlFor="settings-bio" className="text-sm font-medium text-level-purple-dark">Bio</label>
                       <textarea
+                        id="settings-bio"
                         value={bio}
                         onChange={(e) => setBio(e.target.value)}
                         rows={3}
@@ -371,11 +374,12 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-level-purple-dark">Email</label>
+                      <label htmlFor="settings-email" className="text-sm font-medium text-level-purple-dark">Email</label>
                       <div className="relative">
                         <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <input
-                          type="email"
+                          id="settings-email"
+                        type="email"
                           value={profile.email}
                           disabled
                           className="w-full rounded-xl border-2 border-border bg-muted pl-11 pr-4 py-3 text-muted-foreground cursor-not-allowed"

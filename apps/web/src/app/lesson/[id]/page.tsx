@@ -164,11 +164,15 @@ export default function LessonPage() {
   const [lesson, setLesson] = useState<Lesson | null>(null)
   const [lessonLoading, setLessonLoading] = useState(true)
   const [lessonError, setLessonError] = useState<string | null>(null)
+  // "network" = falha da API (mostra "Tentar novamente"); "missing" = a lição não existe.
+  const [errorKind, setErrorKind] = useState<"network" | "missing" | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     async function load() {
       setLessonLoading(true)
       setLessonError(null)
+      setErrorKind(null)
       try {
         // Sumários leves para navegação + conteúdo completo só da lição atual
         const [summaries, direct] = await Promise.all([
@@ -181,16 +185,18 @@ export default function LessonPage() {
           const idx = summaries.findIndex((l) => l.id === lessonId)
           setCurrentIndex(idx >= 0 ? idx : 0)
         } else {
-          setLessonError("Lição não encontrada.")
+          setLessonError("Esta lição não existe ou não está disponível.")
+          setErrorKind("missing")
         }
       } catch {
-        setLessonError("Erro ao carregar lição.")
+        setLessonError("Não foi possível carregar a lição. Verifique sua conexão e tente novamente.")
+        setErrorKind("network")
       } finally {
         setLessonLoading(false)
       }
     }
     load()
-  }, [lessonId])
+  }, [lessonId, reloadKey])
 
   if (lessonLoading) {
     return (
@@ -203,17 +209,31 @@ export default function LessonPage() {
 
   if (lessonError || !lesson) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-white">
-        <BookOpen className="h-16 w-16 text-muted-foreground/30" />
-        <h2 className="text-lg font-semibold text-level-purple-dark">Lição não encontrada</h2>
+      <main role={errorKind === "network" ? "alert" : undefined} className="flex h-screen flex-col items-center justify-center gap-4 bg-white px-6 text-center">
+        <BookOpen className="h-16 w-16 text-muted-foreground/30" aria-hidden="true" />
+        <h1 className="text-lg font-semibold text-level-purple-dark">
+          {errorKind === "network" ? "Não foi possível carregar a lição" : "Lição não encontrada"}
+        </h1>
         <p className="text-sm text-muted-foreground">{lessonError ?? "Esta lição não existe ou não está disponível."}</p>
-        <button
-          onClick={() => router.push("/dashboard")}
-          className="rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors"
-        >
-          Voltar ao Dashboard
-        </button>
-      </div>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          {errorKind === "network" && (
+            <button
+              onClick={() => setReloadKey((k) => k + 1)}
+              className="rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors"
+            >
+              Tentar novamente
+            </button>
+          )}
+          <button
+            onClick={() => router.push("/dashboard")}
+            className={errorKind === "network"
+              ? "rounded-xl border border-border px-6 py-2.5 text-sm font-semibold text-level-purple-dark hover:border-level-purple transition-colors"
+              : "rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors"}
+          >
+            Voltar ao painel
+          </button>
+        </div>
+      </main>
     )
   }
 

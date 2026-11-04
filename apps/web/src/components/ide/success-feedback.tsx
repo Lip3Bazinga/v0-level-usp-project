@@ -6,6 +6,7 @@ import confetti from "canvas-confetti"
 import { CheckCircle2, Zap, Star, ArrowRight, Award } from "lucide-react"
 import { XpParticles } from "@/components/gamification/xp-particles"
 import { LevelUpModal } from "@/components/gamification/level-up-modal"
+import { useModalA11y } from "@/hooks/use-modal-a11y"
 
 interface SuccessFeedbackProps {
   show: boolean
@@ -23,6 +24,7 @@ function firePurpleConfetti() {
   const colors = ["#7C3AED", "#A78BFA", "#C4B5FD", "#DDD6FE", "#FFFFFF"]
 
   confetti({
+    disableForReducedMotion: true,
     particleCount: 100,
     spread: 80,
     origin: { y: 0.6, x: 0.5 },
@@ -34,8 +36,8 @@ function firePurpleConfetti() {
   })
 
   setTimeout(() => {
-    confetti({ particleCount: 50, angle: 60, spread: 55, origin: { x: 0, y: 0.65 }, colors })
-    confetti({ particleCount: 50, angle: 120, spread: 55, origin: { x: 1, y: 0.65 }, colors })
+    confetti({ disableForReducedMotion: true, particleCount: 50, angle: 60, spread: 55, origin: { x: 0, y: 0.65 }, colors })
+    confetti({ disableForReducedMotion: true, particleCount: 50, angle: 120, spread: 55, origin: { x: 1, y: 0.65 }, colors })
   }, 150)
 }
 
@@ -78,6 +80,7 @@ export function SuccessFeedback({
     onClose()
     if (didLevelUp && !xpBadgeRef) setTimeout(() => setShowLevelUp(true), 300)
   }, [onClose, didLevelUp, xpBadgeRef])
+  const dialogRef = useModalA11y<HTMLDivElement>(show, handleClose)
   const handleNext = useCallback(() => {
     onClose()
     onNext?.()
@@ -114,7 +117,10 @@ export function SuccessFeedback({
             onClick={handleClose}
           >
             <motion.div
-              ref={cardRef}
+              ref={(el: HTMLDivElement | null) => { cardRef.current = el; dialogRef.current = el }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="success-feedback-title"
               initial={{ scale: 0.5, opacity: 0, y: 30 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.8, opacity: 0, y: 20 }}
@@ -154,6 +160,7 @@ export function SuccessFeedback({
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
+                  id="success-feedback-title"
                   className="text-2xl font-bold text-white"
                 >
                   Parabéns!
@@ -199,7 +206,7 @@ export function SuccessFeedback({
                   transition={{ delay: 0.6 }}
                   className="mb-6 text-sm text-muted-foreground"
                 >
-                  Continue praticando para subir de nível e manter seu streak!
+                  Continue praticando para subir de nível e manter sua sequência!
                 </motion.p>
 
                 <div className="flex flex-col gap-3">
@@ -221,7 +228,7 @@ export function SuccessFeedback({
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.65 }}
                       onClick={handleNext}
-                      className="btn-3d w-full rounded-xl bg-level-purple py-3 text-sm font-semibold text-white transition-colors hover:bg-level-purple-medium flex items-center justify-center gap-2"
+                      className="btn-3d w-full rounded-xl bg-level-purple py-3 text-sm font-semibold text-white transition-colors hover:bg-level-purple-dark flex items-center justify-center gap-2"
                     >
                       Próxima Lição
                       <ArrowRight className="h-4 w-4" />
@@ -235,7 +242,7 @@ export function SuccessFeedback({
                     className={`w-full rounded-xl py-3 text-sm font-semibold transition-colors ${
                       hasNextLesson || isCourseEnd
                         ? "border border-level-purple text-level-purple hover:bg-level-purple-light"
-                        : "btn-3d bg-level-purple text-white hover:bg-level-purple-medium"
+                        : "btn-3d bg-level-purple text-white hover:bg-level-purple-dark"
                     }`}
                   >
                     Continuar Aqui

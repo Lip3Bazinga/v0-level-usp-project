@@ -126,9 +126,11 @@ export function LessonsPageEnhanced({ lessons, setLessons, onToast }: LessonsPag
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-0.5 rounded-xl border border-border bg-white p-0.5">
-            {([{ id: "list", Icon: List }, { id: "grid", Icon: Grid3X3 }, { id: "kanban", Icon: Columns }] as const).map(({ id, Icon }) => (
+            {([{ id: "list", Icon: List, label: "Lista" }, { id: "grid", Icon: Grid3X3, label: "Grade" }, { id: "kanban", Icon: Columns, label: "Quadro" }] as const).map(({ id, Icon, label }) => (
               <button
                 key={id}
+                aria-label={`Visualizar em ${label.toLowerCase()}`}
+                aria-pressed={view === id}
                 onClick={() => setView(id)}
                 className={cn(
                   "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
@@ -158,6 +160,7 @@ export function LessonsPageEnhanced({ lessons, setLessons, onToast }: LessonsPag
           />
         </div>
         <select
+          aria-label="Filtrar por módulo"
           value={mod}
           onChange={(e) => setMod(e.target.value)}
           className="rounded-xl border border-border bg-white px-3 py-2 text-sm font-semibold focus:border-level-purple focus:outline-none"

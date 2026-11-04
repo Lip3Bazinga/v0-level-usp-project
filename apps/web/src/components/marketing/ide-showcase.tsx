@@ -150,12 +150,10 @@ export function IdeShowcase() {
         </Reveal>
 
         <div className="mt-16 text-center">
-          <Link href="/signup">
-            <button className="inline-flex items-center gap-2 rounded-2xl bg-[#7C3AED] px-8 py-4 text-lg font-bold text-white btn-3d">
+          <Link href="/signup" className="inline-flex items-center gap-2 rounded-2xl bg-[#7C3AED] px-8 py-4 text-lg font-bold text-white btn-3d">
               <Terminal className="h-5 w-5" />
               Experimentar a IDE
-            </button>
-          </Link>
+            </Link>
         </div>
       </div>
     </section>

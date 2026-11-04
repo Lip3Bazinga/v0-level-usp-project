@@ -18,7 +18,9 @@ ENV API_INTERNAL_URL=${API_INTERNAL_URL} NEXT_PUBLIC_PYODIDE_INDEX_URL=${NEXT_PU
 RUN pnpm --filter @levelusp/contracts build && pnpm --filter @levelusp/web build
 
 FROM node:22-bookworm-slim AS runtime
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+# API_INTERNAL_URL também em tempo de execução: o SSR (ex.: /certificado/[code]) consulta a API.
+ARG API_INTERNAL_URL=http://api:4000
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 API_INTERNAL_URL=${API_INTERNAL_URL}
 RUN apt-get update && apt-get install -y --no-install-recommends tini && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build --chown=node:node /repo/apps/web/.next/standalone ./

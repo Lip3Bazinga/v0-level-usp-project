@@ -82,7 +82,7 @@ export function LibraryRequestModal({ onClose, onCreated }: {
             type="button"
             onClick={send}
             disabled={sending || !name.trim()}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-level-purple py-2.5 text-sm font-semibold text-white transition-colors hover:bg-level-purple-medium disabled:opacity-50"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-level-purple py-2.5 text-sm font-semibold text-white transition-colors hover:bg-level-purple-dark disabled:opacity-50"
           >
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             Enviar solicitação

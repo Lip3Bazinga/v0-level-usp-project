@@ -12,7 +12,7 @@ const FLAG_DEFS = [
   { key: "peer_review",        label: "Revisão entre pares",     desc: "Alunos podem revisar código uns dos outros", defaultOn: false },
   { key: "ai_hints",           label: "Dicas com IA (Claude)",   desc: "Sugestões contextualizadas em lições",       defaultOn: true  },
   { key: "leaderboard_weekly", label: "Ranking semanal",         desc: "Reset do leaderboard toda segunda",          defaultOn: true  },
-  { key: "streak_freeze",      label: "Streak freeze",           desc: "Usuários podem congelar streak por 1 dia",   defaultOn: false },
+  { key: "streak_freeze",      label: "Congelar sequência",       desc: "Usuários podem congelar a sequência por 1 dia",   defaultOn: false },
   { key: "dark_mode",          label: "Dark mode global",        desc: "Tema escuro em todas as páginas",            defaultOn: false },
 ]
 
@@ -25,9 +25,13 @@ const INTEGRATIONS = [
   { name: "Discord",          desc: "Notificações",                                connected: false, icon: "💬" },
 ]
 
-function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label?: string }) {
   return (
     <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
       onClick={() => onChange(!on)}
       className={cn("relative h-6 w-11 rounded-full transition-colors", on ? "bg-success" : "bg-border")}
     >
@@ -38,13 +42,13 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
 
 function SettingRow({ label, hint, children, danger }: { label: string; hint: string; children: React.ReactNode; danger?: boolean }) {
   return (
-    <div className={cn("flex items-center justify-between gap-6 rounded-2xl border p-4 bg-white", danger ? "border-destructive/30" : "border-border")}>
-      <div className="min-w-0">
-        <p className={cn("text-sm font-bold", danger ? "text-destructive" : "text-level-purple-dark")}>{label}</p>
-        <p className="mt-0.5 text-[11px] text-muted-foreground">{hint}</p>
-      </div>
-      <div className="w-56 shrink-0 flex justify-end">{children}</div>
-    </div>
+    <label className={cn("flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-4 bg-white sm:flex-nowrap sm:gap-6", danger ? "border-destructive/30" : "border-border")}>
+      <span className="block min-w-0">
+        <span className={cn("block text-sm font-bold", danger ? "text-destructive" : "text-level-purple-dark")}>{label}</span>
+        <span className="mt-0.5 block text-[11px] text-muted-foreground">{hint}</span>
+      </span>
+      <span className="flex w-full shrink-0 justify-end sm:w-56">{children}</span>
+    </label>
   )
 }
 
@@ -200,7 +204,7 @@ export function SettingsPage({ onToast }: SettingsPageProps) {
               <SettingRow label="XP necessário por nível" hint="Régua progressiva. Atual: 1000 XP/nível">
                 <input type="number" value={xpPerLevel} onChange={(e) => setXpPerLevel(e.target.value)} className={inputClass} />
               </SettingRow>
-              <SettingRow label="Multiplicador de streak" hint="XP × este valor para cada dia consecutivo (após 3)">
+              <SettingRow label="Multiplicador de sequência" hint="XP × este valor para cada dia consecutivo (após 3)">
                 <input type="number" step="0.1" value={streakMultiplier} onChange={(e) => setStreakMultiplier(e.target.value)} className={inputClass} />
               </SettingRow>
               <SettingRow label="Habilitar leaderboard global" hint="Alunos veem ranking público">
@@ -244,6 +248,7 @@ export function SettingsPage({ onToast }: SettingsPageProps) {
                 <p className="text-[11px] text-muted-foreground">{f.desc}</p>
               </div>
               <Toggle
+                label={f.label}
                 on={f.on}
                 onChange={(v) => setFlags((prev) => prev.map((x) => (x.key === f.key ? { ...x, on: v } : x)))}
               />

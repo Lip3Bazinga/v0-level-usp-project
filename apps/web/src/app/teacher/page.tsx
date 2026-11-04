@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
-import { LevelButton } from "@/components/design-system/level-button"
 import { useAuth } from "@/contexts/auth-context"
 import type { Course, Lesson, LessonMetrics } from "@levelusp/contracts"
 import {
@@ -204,9 +203,9 @@ export default function TeacherPage() {
       <header className="sticky top-0 z-40 border-b border-border bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-2 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-2 sm:gap-4">
-            <Link href="/dashboard" className="flex items-center gap-2 text-muted-foreground hover:text-level-purple transition-colors">
+            <Link href="/dashboard" aria-label="Voltar ao painel do aluno" className="flex items-center gap-2 text-muted-foreground hover:text-level-purple transition-colors">
               <ChevronLeft className="h-4 w-4" />
-              <span className="hidden text-sm sm:inline">Dashboard</span>
+              <span className="hidden text-sm sm:inline">Painel</span>
             </Link>
             <div className="hidden h-6 w-px bg-border sm:block" />
             <div className="flex min-w-0 items-center gap-2">
@@ -223,21 +222,22 @@ export default function TeacherPage() {
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
-            <Link href="/teacher/curso/new">
-              <LevelButton variant="secondary" size="md">
-                <span className="flex items-center gap-2">
-                  <GraduationCap className="h-4 w-4" />
-                  <span className="hidden sm:inline">Novo Curso</span>
-                </span>
-              </LevelButton>
+            {/* Link estilizado como botão (antes: <button> dentro de <a>, dois focos e sem nome no celular) */}
+            <Link
+              href="/teacher/curso/new"
+              aria-label="Novo curso"
+              className="flex items-center gap-2 rounded-xl bg-level-purple-light px-4 py-3 text-base font-semibold text-level-purple-dark transition-colors hover:bg-level-purple-subtle focus:outline-none focus:ring-2 focus:ring-level-purple focus:ring-offset-2 sm:px-6"
+            >
+              <GraduationCap className="h-4 w-4" />
+              <span className="hidden sm:inline">Novo Curso</span>
             </Link>
-            <Link href="/teacher/edit/new">
-              <LevelButton variant="primary" size="md">
-                <span className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  <span className="hidden sm:inline">Nova Lição</span>
-                </span>
-              </LevelButton>
+            <Link
+              href="/teacher/edit/new"
+              aria-label="Nova lição"
+              className="btn-3d flex items-center gap-2 rounded-xl bg-level-purple px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-level-purple-dark focus:outline-none focus:ring-2 focus:ring-level-purple focus:ring-offset-2 sm:px-6"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Nova Lição</span>
             </Link>
           </div>
         </div>

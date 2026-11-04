@@ -29,7 +29,7 @@ import { BadgesAdminPage } from "@/components/admin/badges-page"
 import { LibrariesAdminPage } from "@/components/admin/libraries-page"
 import { ExamQuestionsAdminPage } from "@/components/admin/exam-questions-page"
 import { CommandPalette } from "@/components/admin/command-palette"
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
 import {
   Users,
   BookOpen,
@@ -126,7 +126,7 @@ function Sidebar({ current, onChange, counts, profileName, profileEmail }: {
       <nav className="flex-1 space-y-4 overflow-y-auto p-3">
         {sections.map((sec) => (
           <div key={sec.header}>
-            <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">{sec.header}</p>
+            <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{sec.header}</p>
             <div className="space-y-0.5">
               {sec.items.map((it) => {
                 const active = current === it.id
@@ -148,7 +148,7 @@ function Sidebar({ current, onChange, counts, profileName, profileEmail }: {
                     {it.count !== undefined && (
                       <span className={cn(
                         "rounded px-1.5 py-0.5 text-[10px] font-bold",
-                        active ? "bg-white/20 text-white" : it.urgent ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground",
+                        active ? "bg-white/20 text-white" : it.urgent ? "bg-destructive/10 text-red-700" : "bg-muted text-muted-foreground",
                       )}>
                         {it.count}
                       </span>
@@ -161,19 +161,8 @@ function Sidebar({ current, onChange, counts, profileName, profileEmail }: {
         ))}
       </nav>
 
-      <div className="m-3 rounded-2xl border border-level-purple-subtle bg-linear-to-br from-level-purple-subtle to-white p-3">
-        <div className="mb-2 flex items-center gap-2 text-level-purple">
-          <Sparkles className="h-3.5 w-3.5" />
-          <p className="text-xs font-extrabold">Saúde da plataforma</p>
-        </div>
-        <div className="flex items-end justify-between">
-          <div>
-            <p className="text-xl font-extrabold leading-none text-level-purple-dark">98<span className="text-xs">%</span></p>
-            <p className="mt-0.5 text-[10px] text-muted-foreground">uptime · 30d</p>
-          </div>
-          <SparkBar data={[82, 88, 84, 90, 92, 94, 96, 95, 97, 98, 98, 96, 98, 98]} color="#7C3AED" height={28} width={4} />
-        </div>
-      </div>
+      {/* O card "Saúde da plataforma · 98% uptime" exibia números fixos no código (fictícios).
+          Removido até existir monitoramento real (ver docs/qa/relatorio-ux.md). */}
 
       <div className="flex items-center gap-3 border-t border-border p-3">
         <Avatar className="h-9 w-9">
@@ -185,7 +174,7 @@ function Sidebar({ current, onChange, counts, profileName, profileEmail }: {
           <p className="truncate text-xs font-semibold text-level-purple-dark">{profileName}</p>
           <p className="truncate text-[11px] text-muted-foreground">{profileEmail}</p>
         </div>
-        <Link href="/dashboard" title="Voltar à plataforma"
+        <Link href="/dashboard" title="Voltar à plataforma" aria-label="Voltar à plataforma"
           className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-level-purple-light hover:text-level-purple">
           <ChevronRight className="h-4 w-4 rotate-180" />
         </Link>
@@ -235,6 +224,7 @@ function TopBar({ title, breadcrumb, primaryHref, primaryLabel, onMenuClick }: {
           <NotificationBell />
           <Link
             href="/dashboard"
+            aria-label="Voltar à plataforma"
             className="flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:border-level-purple hover:text-level-purple"
           >
             <ChevronRight className="h-4 w-4 rotate-180" />
@@ -282,7 +272,8 @@ function Overview({
     { name: "Admins",      value: metrics.totalAdmins,    color: "#EF4444" },
   ]
 
-  const peakDay = Math.max(...dailyBars, 1)
+  const peakDay = dailyBars.length ? Math.max(0, ...dailyBars) : 0
+  const plural = (n: number, um: string, varios: string) => `${n.toLocaleString("pt-BR")} ${n === 1 ? um : varios}`
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -294,10 +285,10 @@ function Overview({
           <div className="max-w-2xl">
             <p className="text-xs font-bold uppercase tracking-widest text-white/70">Painel do administrador</p>
             <h2 className="mt-2 text-2xl font-extrabold leading-tight sm:text-3xl">
-              Olá, Admin 👋 A plataforma tem {metrics.totalUsers} usuários ativos.
+              Olá! 👋 A plataforma tem {plural(metrics.totalUsers, "usuário cadastrado", "usuários cadastrados")}.
             </h2>
             <p className="mt-2 text-sm text-white/80">
-              {metrics.publishedCourses} cursos · {metrics.publishedLessons} lições · {metrics.totalCompletions.toLocaleString("pt-BR")} conclusões · {metrics.totalEnrollments} matrículas
+              {plural(metrics.publishedCourses, "curso", "cursos")} · {plural(metrics.publishedLessons, "lição", "lições")} · {plural(metrics.totalCompletions, "conclusão", "conclusões")} · {plural(metrics.totalEnrollments, "matrícula", "matrículas")}
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
               {metrics.pendingApprovals > 0 && (
@@ -315,7 +306,7 @@ function Overview({
           <div className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur">
             <p className="text-[11px] font-bold uppercase tracking-wider text-white/70">Conclusões · {dailyBars.length} dias</p>
             <div className="mt-2"><SparkBar data={dailyBars} color="#FFFFFF" height={44} width={5} gap={2} /></div>
-            <p className="mt-2 text-xs text-white/80">pico: {peakDay} conclusão{peakDay !== 1 ? "ões" : ""}/dia</p>
+            <p className="mt-2 text-xs text-white/80">pico: {plural(peakDay, "conclusão", "conclusões")}/dia</p>
           </div>
         </div>
       </section>
@@ -497,7 +488,7 @@ export default function AdminPage() {
           href="/dashboard"
           className="rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-level-purple-dark"
         >
-          Voltar ao Dashboard
+          Voltar ao painel
         </Link>
       </div>
     )
@@ -591,6 +582,7 @@ export default function AdminPage() {
       <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
         <SheetContent side="left" className="w-64 p-0">
           <SheetTitle className="sr-only">Menu de navegação do admin</SheetTitle>
+          <SheetDescription className="sr-only">Seções do painel de administração</SheetDescription>
           <Sidebar
             current={page}
             onChange={(p) => { setPage(p); setMobileNavOpen(false) }}

@@ -186,7 +186,7 @@ export function TheoryLessonLayout({ lesson, allLessons, currentIndex, onComplet
                 <button
                   onClick={handleMarkDone}
                   disabled={completing}
-                  className="btn-3d w-full rounded-xl bg-level-purple py-3 text-sm font-semibold text-white hover:bg-level-purple-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+                  className="btn-3d w-full rounded-xl bg-level-purple py-3 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
                 >
                   {completing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                   Marcar como lida e continuar

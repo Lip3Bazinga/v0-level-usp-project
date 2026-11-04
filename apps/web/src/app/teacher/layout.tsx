@@ -49,7 +49,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
           href="/dashboard"
           className="rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-level-purple-dark"
         >
-          Voltar ao Dashboard
+          Voltar ao painel
         </Link>
       </div>
     )

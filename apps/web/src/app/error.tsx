@@ -16,12 +16,12 @@ export default function Error({
   }, [error])
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
+    <main role="alert" className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
       <div className="text-center">
         <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-destructive/10">
           <AlertTriangle className="h-10 w-10 text-destructive" />
         </div>
-        <h2 className="text-2xl font-bold text-level-purple-dark">Algo deu errado</h2>
+        <h1 className="text-2xl font-bold text-level-purple-dark">Algo deu errado</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Ocorreu um erro inesperado. Tente novamente ou volte ao início.
         </p>
@@ -42,10 +42,10 @@ export default function Error({
             href="/dashboard"
             className="rounded-xl bg-level-purple px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-level-purple-dark"
           >
-            Voltar ao início
+            Ir para o painel
           </Link>
         </div>
       </div>
-    </div>
+    </main>
   )
 }

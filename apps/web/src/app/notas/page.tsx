@@ -11,6 +11,13 @@ import {
   NotebookPen, Search, Loader2, FileText, Clock,
 } from "lucide-react"
 import { formatDate, snippet } from "@/lib/utils"
+import dynamic from "next/dynamic"
+
+// TipTap (~130 KB gzip) só quando há nota aberta; evita pesar no prefetch de /notas a partir do painel.
+const RichTextEditor = dynamic(
+  () => import("@/components/editor/rich-text-editor").then((m) => m.RichTextEditor),
+  { ssr: false, loading: () => <div className="h-[280px] animate-pulse rounded-xl bg-muted/60" /> },
+)
 
 
 
@@ -22,7 +29,13 @@ export default function NotasPage() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState(false)
+  // Campos alterados desde o último salvamento (título E conteúdo — o debounce não pode perder um deles).
+  const pending = useRef<{ id: string; patch: { title?: string; content?: string } } | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
+  // Falha da API ≠ caderno vazio: antes dizia "Nenhuma anotação ainda" (parecia que as notas sumiram).
+  const [loadError, setLoadError] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const activeNote = notes.find((n) => n.id === activeId) ?? null
@@ -32,12 +45,13 @@ export default function NotasPage() {
     if (!profile) { router.push("/login?next=/notas"); return }
     fetchNotes()
       .then((data) => {
+        setLoadError(false)
         setNotes(data)
         if (data.length > 0) setActiveId(data[0].id)
       })
-      .catch(() => {})
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false))
-  }, [profile, authLoading, router])
+  }, [profile, authLoading, router, reloadKey])
 
   const handleCreate = async () => {
     try {
@@ -74,10 +88,24 @@ export default function NotasPage() {
       )
       // Autosave com debounce de 800ms
       if (saveTimer.current) clearTimeout(saveTimer.current)
+      // Trocar de nota antes do fim do debounce não pode descartar o que foi digitado na anterior.
+      const previousJob = pending.current
+      if (previousJob && previousJob.id !== activeId) {
+        pending.current = null
+        updateNote(previousJob.id, previousJob.patch).catch(() => setSaveError(true))
+      }
+      const prevPatch = pending.current?.id === activeId ? pending.current.patch : {}
+      pending.current = { id: activeId, patch: { ...prevPatch, [field]: value } }
       setSaving(true)
       saveTimer.current = setTimeout(async () => {
+        const job = pending.current
+        pending.current = null
+        if (!job) return
         try {
-          await updateNote(activeId, { [field]: value })
+          await updateNote(job.id, job.patch)
+          setSaveError(false)
+        } catch {
+          setSaveError(true)
         } finally {
           setSaving(false)
         }
@@ -109,29 +137,31 @@ export default function NotasPage() {
     <div className="flex h-screen flex-col bg-background">
       {/* Header */}
       <header className="shrink-0 border-b border-border bg-white/90 backdrop-blur-sm">
-        <div className="flex h-14 items-center gap-4 px-4">
+        <div className="flex h-14 items-center gap-2 px-4 sm:gap-4">
           <Link
             href="/dashboard"
             className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-level-purple-light hover:text-level-purple transition-colors"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            Dashboard
+            Painel
           </Link>
           <div className="flex items-center gap-2">
             <NotebookPen className="h-4 w-4 text-level-purple" />
-            <span className="text-sm font-semibold text-level-purple-dark">Caderno de Anotações</span>
+            <h1 className="text-sm font-semibold text-level-purple-dark">Caderno de Anotações</h1>
           </div>
-          {saving && (
-            <span className="ml-auto text-xs text-muted-foreground flex items-center gap-1">
-              <Loader2 className="h-3 w-3 animate-spin" /> Salvando…
-            </span>
-          )}
+          <span role="status" className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
+            {saving ? (
+              <><Loader2 className="h-3 w-3 animate-spin" /> Salvando…</>
+            ) : saveError ? (
+              <span className="text-destructive">Não foi possível salvar. Verifique a conexão.</span>
+            ) : null}
+          </span>
         </div>
       </header>
 
-      <div className="flex flex-1 min-h-0">
-        {/* Sidebar — lista de notas */}
-        <aside className="flex w-72 shrink-0 flex-col border-r border-border bg-white">
+      <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
+        {/* Sidebar — lista de notas (em cima no celular) */}
+        <aside className="flex max-h-[40%] w-full shrink-0 flex-col border-b border-border bg-white sm:max-h-none sm:w-72 sm:border-b-0 sm:border-r">
           {/* Busca + nova nota */}
           <div className="space-y-2 p-3 border-b border-border">
             <div className="relative">
@@ -140,6 +170,7 @@ export default function NotasPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar anotações…"
+                aria-label="Buscar anotações"
                 className="w-full rounded-lg border border-border bg-muted/30 py-1.5 pl-8 pr-3 text-xs placeholder:text-muted-foreground focus:border-level-purple focus:outline-none"
               />
             </div>
@@ -154,7 +185,18 @@ export default function NotasPage() {
 
           {/* Lista */}
           <div className="flex-1 overflow-y-auto">
-            {filtered.length === 0 ? (
+            {loadError ? (
+              <div role="alert" className="px-4 py-10 text-center">
+                <p className="text-sm font-semibold text-red-800">Não foi possível carregar suas anotações.</p>
+                <button
+                  type="button"
+                  onClick={() => { setLoading(true); setReloadKey((k) => k + 1) }}
+                  className="mt-3 rounded-lg bg-level-purple px-4 py-2 text-xs font-semibold text-white hover:bg-level-purple-dark"
+                >
+                  Tentar novamente
+                </button>
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-12 text-center px-4">
                 <FileText className="h-10 w-10 text-muted-foreground/30" />
                 <p className="text-xs text-muted-foreground">
@@ -163,10 +205,14 @@ export default function NotasPage() {
               </div>
             ) : (
               filtered.map((note) => (
-                <button
+                <div
                   key={note.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-current={activeId === note.id ? "true" : undefined}
                   onClick={() => setActiveId(note.id)}
-                  className={`w-full border-b border-border px-3 py-3 text-left transition-colors hover:bg-level-purple-light/40 ${
+                  onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setActiveId(note.id) } }}
+                  className={`w-full cursor-pointer border-b border-border px-3 py-3 text-left transition-colors hover:bg-level-purple-light/40 ${
                     activeId === note.id ? "bg-level-purple-light/60" : ""
                   }`}
                 >
@@ -176,6 +222,7 @@ export default function NotasPage() {
                     </p>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDelete(note.id) }}
+                      aria-label={`Excluir anotação ${note.title || "sem título"}`}
                       className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-destructive transition-colors"
                       disabled={deleting === note.id}
                     >
@@ -206,7 +253,7 @@ export default function NotasPage() {
                       {formatDate(note.updated_at)}
                     </span>
                   </div>
-                </button>
+                </div>
               ))
             )}
           </div>
@@ -222,6 +269,7 @@ export default function NotasPage() {
                   value={activeNote.title ?? ""}
                   onChange={(e) => handleChange("title", e.target.value)}
                   placeholder="Título da anotação…"
+                  aria-label="Título da anotação"
                   className="w-full text-xl font-bold text-level-purple-dark placeholder:text-muted-foreground/50 focus:outline-none bg-transparent"
                 />
                 <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
@@ -245,15 +293,19 @@ export default function NotasPage() {
               </div>
 
               {/* Conteúdo */}
-              <textarea
-                value={activeNote.content}
-                onChange={(e) => handleChange("content", e.target.value)}
-                placeholder="Escreva suas anotações aqui…"
-                className="flex-1 resize-none px-6 py-4 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none bg-transparent leading-relaxed"
-              />
+              {/* Mesmo editor rico do caderno flutuante: o conteúdo é HTML. */}
+              <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+                <RichTextEditor
+                  key={activeNote.id}
+                  value={activeNote.content}
+                  onChange={(html) => handleChange("content", html)}
+                  placeholder="Escreva suas anotações aqui…"
+                  minHeight={280}
+                />
+              </div>
             </>
           ) : (
-            <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+            <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-8 text-center">
               <NotebookPen className="h-16 w-16 text-muted-foreground/20" />
               <div>
                 <h2 className="text-base font-semibold text-level-purple-dark">Nenhuma anotação selecionada</h2>

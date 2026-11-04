@@ -46,7 +46,7 @@ function ResetPasswordForm() {
   if (!token) {
     return (
       <div role="alert" className="space-y-4 text-sm">
-        <div className="flex items-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-destructive">
+        <div className="flex items-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-red-700">
           <AlertCircle className="h-4 w-4 shrink-0" />
           Link inválido ou incompleto.
         </div>
@@ -72,7 +72,7 @@ function ResetPasswordForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div role="alert" className="flex items-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div role="alert" className="flex items-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-red-700">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </div>
@@ -95,8 +95,9 @@ function ResetPasswordForm() {
           <button
             type="button"
             aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+            aria-pressed={showPassword}
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground transition-colors"
           >
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>

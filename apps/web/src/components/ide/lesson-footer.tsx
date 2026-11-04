@@ -25,14 +25,14 @@ export function LessonFooter({ currentIndex, total, onPrev, onNext }: LessonFoot
   }, [onPrev, onNext])
 
   return (
-    <footer className="flex h-12 shrink-0 items-center justify-between border-t border-border bg-white px-4">
+    <footer aria-label="Navegação entre lições" className="flex h-12 shrink-0 items-center justify-between border-t border-border bg-white px-4">
       {/* Contador de progresso */}
       <div className="flex items-center gap-1.5">
         <span className="text-xs font-semibold text-level-purple-dark">
           {currentIndex + 1}
         </span>
-        <span className="text-xs text-gray-400">/</span>
-        <span className="text-xs text-gray-400">{total}</span>
+        <span className="text-xs text-gray-500">/</span>
+        <span className="text-xs text-gray-500">{total}</span>
       </div>
 
       {/* Barra de progresso mini */}
@@ -60,7 +60,7 @@ export function LessonFooter({ currentIndex, total, onPrev, onNext }: LessonFoot
           onClick={onNext}
           disabled={isLast}
           title="Próximo (Alt+.)"
-          className="flex items-center gap-1.5 rounded-lg bg-level-purple px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-level-purple-medium disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex items-center gap-1.5 rounded-lg bg-level-purple px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-level-purple-dark disabled:cursor-not-allowed disabled:opacity-40"
         >
           Próximo
           <ChevronRight className="h-3.5 w-3.5" />

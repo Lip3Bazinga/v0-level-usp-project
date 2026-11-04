@@ -4,6 +4,7 @@ import { useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import confetti from "canvas-confetti"
 import { BookOpen, GraduationCap, Star, CheckCircle2, Rocket } from "lucide-react"
+import { useModalA11y } from "@/hooks/use-modal-a11y"
 
 type TeacherSuccessType = "lesson" | "course"
 
@@ -12,12 +13,14 @@ interface TeacherSuccessModalProps {
   type: TeacherSuccessType
   title: string
   onClose: () => void
+  /** Já publicada? Ajusta a mensagem (antes dizia "Publique…" logo depois de publicar). */
+  published?: boolean
   onView?: () => void
 }
 
 function fireTeacherConfetti() {
   const colors = ["#7C3AED", "#A78BFA", "#10B981", "#FACC15", "#FFFFFF"]
-  confetti({
+  confetti({ disableForReducedMotion: true,
     particleCount: 120,
     spread: 90,
     origin: { y: 0.5, x: 0.5 },
@@ -28,12 +31,12 @@ function fireTeacherConfetti() {
     zIndex: 9999,
   })
   setTimeout(() => {
-    confetti({ particleCount: 60, angle: 60, spread: 70, origin: { x: 0, y: 0.55 }, colors, zIndex: 9999 })
-    confetti({ particleCount: 60, angle: 120, spread: 70, origin: { x: 1, y: 0.55 }, colors, zIndex: 9999 })
+    confetti({ disableForReducedMotion: true, particleCount: 60, angle: 60, spread: 70, origin: { x: 0, y: 0.55 }, colors, zIndex: 9999 })
+    confetti({ disableForReducedMotion: true, particleCount: 60, angle: 120, spread: 70, origin: { x: 1, y: 0.55 }, colors, zIndex: 9999 })
   }, 300)
 }
 
-export function TeacherSuccessModal({ show, type, title, onClose, onView }: TeacherSuccessModalProps) {
+export function TeacherSuccessModal({ show, type, title, onClose, onView, published }: TeacherSuccessModalProps) {
   useEffect(() => {
     if (show) {
       fireTeacherConfetti()
@@ -43,6 +46,7 @@ export function TeacherSuccessModal({ show, type, title, onClose, onView }: Teac
   }, [show, onClose])
 
   const handleClose = useCallback(() => onClose(), [onClose])
+  const dialogRef = useModalA11y<HTMLDivElement>(show, handleClose)
   const isLesson = type === "lesson"
   const Icon = isLesson ? BookOpen : GraduationCap
   const gradientClass = isLesson
@@ -64,6 +68,10 @@ export function TeacherSuccessModal({ show, type, title, onClose, onView }: Teac
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.85, opacity: 0 }}
             transition={{ type: "spring", stiffness: 280, damping: 18 }}
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Conteúdo salvo com sucesso"
             onClick={(e) => e.stopPropagation()}
             className="relative mx-4 w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl"
           >
@@ -134,7 +142,9 @@ export function TeacherSuccessModal({ show, type, title, onClose, onView }: Teac
                 className="mb-5 text-sm text-muted-foreground"
               >
                 {isLesson
-                  ? "Sua lição foi salva! Publique para que os alunos possam acessá-la."
+                  ? published
+                    ? "Sua lição foi publicada e já está disponível para os alunos."
+                    : "Sua lição foi salva como rascunho. Publique para que os alunos possam acessá-la."
                   : "Seu curso foi criado com sucesso! Adicione lições e publique para os alunos."}
               </motion.p>
 

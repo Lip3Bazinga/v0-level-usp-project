@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
+import { useToast } from "@/contexts/toast-context"
 import type { ActivityDay, MyCertificate, PublicProfile } from "@levelusp/contracts"
 import {
   certificatePdfUrl,
@@ -50,6 +51,23 @@ export default function ProfilePage() {
   const [certificates, setCertificates] = React.useState<MyCertificate[]>([])
 
   const isOwnProfile = username === "me" || username === currentUser?.username
+  const toast = useToast()
+
+  // O botão de compartilhar não fazia nada: agora usa o compartilhamento nativo
+  // (celular) ou copia o link do perfil.
+  const handleShare = async () => {
+    const url = window.location.href
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Perfil no LevelUSP", url })
+        return
+      }
+      await navigator.clipboard.writeText(url)
+      toast.success("Link do perfil copiado!")
+    } catch (e) {
+      if ((e as Error)?.name !== "AbortError") toast.error("Não foi possível copiar o link.")
+    }
+  }
 
   const currentUsername = currentUser?.username
   const currentUserId = currentUser?.id
@@ -132,7 +150,7 @@ export default function ProfilePage() {
           onClick={() => router.push("/dashboard")}
           className="rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors"
         >
-          Voltar ao Dashboard
+          Voltar ao painel
         </button>
       </div>
     )
@@ -143,7 +161,9 @@ export default function ProfilePage() {
   const xpFloor = xpForLevel(level - 1)
   const xpCeil = xpForLevel(level)
   const xpInLevel = totalXp - xpFloor
-  const progressToNextLevel = xpCeil > 0 ? Math.min(100, Math.round((xpInLevel / xpCeil) * 100)) : 0
+  // Faixa de XP do nível atual (antes dividia pelo teto absoluto e mostrava "500/2.000" no nível 2).
+  const xpRange = Math.max(1, xpCeil - xpFloor)
+  const progressToNextLevel = Math.min(100, Math.round((xpInLevel / xpRange) * 100))
 
   return (
     <div className="min-h-screen bg-white">
@@ -151,11 +171,11 @@ export default function ProfilePage() {
       <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <div className="flex items-center gap-4">
-            <Link href="/dashboard">
-              <Button variant="ghost" size="icon" className="hover:bg-level-purple-light">
+            <Button asChild variant="ghost" size="icon" className="hover:bg-level-purple-light">
+              <Link href="/dashboard" aria-label="Voltar ao painel">
                 <ChevronLeft className="h-5 w-5 text-level-purple" />
-              </Button>
-            </Link>
+              </Link>
+            </Button>
             <Link href="/dashboard" className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-level-purple">
                 <Rocket className="h-4 w-4 text-white" />
@@ -165,15 +185,15 @@ export default function ProfilePage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="hover:bg-level-purple-light">
+            <Button variant="ghost" size="icon" className="hover:bg-level-purple-light" onClick={handleShare} aria-label="Compartilhar perfil">
               <Share2 className="h-5 w-5 text-muted-foreground" />
             </Button>
             {isOwnProfile && (
-              <Link href="/settings">
-                <Button variant="ghost" size="icon" className="hover:bg-level-purple-light">
+              <Button asChild variant="ghost" size="icon" className="hover:bg-level-purple-light">
+                <Link href="/settings" aria-label="Configurações">
                   <Settings className="h-5 w-5 text-muted-foreground" />
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             )}
           </div>
         </div>
@@ -193,14 +213,16 @@ export default function ProfilePage() {
               </Avatar>
 
               <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-level-purple px-4 py-1 shadow-lg">
-                <span className="text-sm font-bold text-white">Nível {level}</span>
+                <span className="whitespace-nowrap text-sm font-bold text-white">Nível {level}</span>
               </div>
 
               {isOwnProfile && (
-                <Link href="/settings">
-                  <button className="absolute -right-1 top-0 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md transition-colors hover:bg-level-purple-light">
-                    <Edit3 className="h-4 w-4 text-level-purple" />
-                  </button>
+                <Link
+                  href="/settings"
+                  aria-label="Editar perfil"
+                  className="absolute -right-1 top-0 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md transition-colors hover:bg-level-purple-light"
+                >
+                  <Edit3 className="h-4 w-4 text-level-purple" />
                 </Link>
               )}
             </div>
@@ -218,10 +240,10 @@ export default function ProfilePage() {
                     Membro desde {new Date(user.created_at).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 rounded-full bg-success/10 px-4 py-2">
-                  <Flame className="h-4 w-4 text-success" />
-                  <span className="text-sm text-success">
-                    {user.current_streak} {user.current_streak === 1 ? "dia" : "dias"} de streak
+                <div className="flex items-center gap-2 rounded-full bg-orange-50 px-4 py-2">
+                  <Flame className="h-4 w-4 text-orange-600" />
+                  <span className="text-sm text-orange-800">
+                    {user.current_streak} {user.current_streak === 1 ? "dia" : "dias"} de sequência
                   </span>
                 </div>
               </div>
@@ -230,7 +252,7 @@ export default function ProfilePage() {
                 <div className="mb-2 flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Progresso para o Nível {level + 1}</span>
                   <span className="font-medium text-level-purple">
-                    {xpInLevel.toLocaleString("pt-BR")}/{xpCeil.toLocaleString("pt-BR")} XP
+                    {xpInLevel.toLocaleString("pt-BR")}/{xpRange.toLocaleString("pt-BR")} XP
                   </span>
                 </div>
                 <div className="h-3 w-full overflow-hidden rounded-full bg-level-purple-subtle">
@@ -248,8 +270,8 @@ export default function ProfilePage() {
         <section className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="Nível Atual" value={level} icon={Trophy} iconColor="text-level-purple" />
           <StatCard label="Total XP" value={totalXp.toLocaleString("pt-BR")} icon={Zap} iconColor="text-yellow-500" />
-          <StatCard label="Maior Streak" value={`${user.max_streak} dias`} icon={Flame} iconColor="text-orange-500" />
-          <StatCard label="Licoes Completas" value={user.lessons_completed} icon={BookOpen} iconColor="text-success" />
+          <StatCard label="Maior sequência" value={`${user.max_streak} dias`} icon={Flame} iconColor="text-orange-500" />
+          <StatCard label="Lições concluídas" value={user.lessons_completed} icon={BookOpen} iconColor="text-success" />
         </section>
 
         {/* Activity Map */}

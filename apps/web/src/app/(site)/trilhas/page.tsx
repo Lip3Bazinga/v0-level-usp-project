@@ -170,12 +170,10 @@ export default function TrilhasPage() {
           </Stagger>
 
           <Reveal className="mt-12 text-center">
-            <Link href="/cursos">
-              <button className="inline-flex items-center gap-2 rounded-2xl bg-[#7C3AED] px-8 py-4 text-lg font-semibold text-white btn-3d">
+            <Link href="/cursos" className="inline-flex items-center gap-2 rounded-2xl bg-[#7C3AED] px-8 py-4 text-lg font-semibold text-white btn-3d">
                 Ver catálogo completo
                 <ArrowRight className="h-5 w-5" />
-              </button>
-            </Link>
+              </Link>
           </Reveal>
         </div>
       </section>

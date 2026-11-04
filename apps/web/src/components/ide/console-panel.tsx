@@ -146,7 +146,7 @@ export function ConsolePanel({ outputs, onClear, isRunning, onRunCommand }: Cons
                   <div className="mt-1">
                     <div className="flex items-center gap-2 mb-1">
                       {getIcon("success")}
-                      <span className="text-[10px] text-gray-600">[{output.timestamp.toLocaleTimeString()}]</span>
+                      <span className="text-[10px] text-gray-400">[{output.timestamp.toLocaleTimeString()}]</span>
                       <span className="text-xs text-green-400">{output.message}</span>
                     </div>
                     <div className="overflow-hidden rounded-lg border border-[#3e4451] bg-white">
@@ -161,7 +161,7 @@ export function ConsolePanel({ outputs, onClear, isRunning, onRunCommand }: Cons
                 ) : (
                   <div className="flex items-start gap-2">
                     {getIcon(output.type)}
-                    <span className="shrink-0 text-[10px] text-gray-600">
+                    <span className="shrink-0 text-[10px] text-gray-400">
                       [{output.timestamp.toLocaleTimeString()}]
                     </span>
                     <span className={`break-all ${getTextColor(output.type)}`}>{output.message}</span>

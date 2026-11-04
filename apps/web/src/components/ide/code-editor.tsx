@@ -9,7 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import CodeMirror from "@uiw/react-codemirror"
+import CodeMirror, { EditorView } from "@uiw/react-codemirror"
 import { python } from "@codemirror/lang-python"
 import { oneDark } from "@codemirror/theme-one-dark"
 
@@ -39,7 +39,8 @@ function fileName(path: string): string {
   return path.split("/").pop() ?? path
 }
 
-const extensions = [python()]
+// Nome acessível para o editor (leitores de tela anunciam "Editor de código Python").
+const extensions = [python(), EditorView.contentAttributes.of({ "aria-label": "Editor de código Python. Pressione Esc e depois Tab para sair do editor." })]
 
 function SolutionModal({
   myCode,
@@ -178,8 +179,9 @@ export function CodeEditor({
               </span>
               <button
                 onClick={(e) => { e.stopPropagation(); onTabClose(file.path) }}
-                className="rounded p-0.5 opacity-0 transition-opacity hover:bg-white/10 hover:text-destructive group-hover:opacity-100"
+                className="rounded p-0.5 opacity-0 transition-opacity hover:bg-white/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
                 title="Fechar aba"
+                aria-label={`Fechar aba ${file.path}`}
               >
                 <X className="h-3 w-3" />
               </button>
@@ -196,6 +198,7 @@ export function CodeEditor({
                 <Button
                   variant="ghost"
                   size="icon"
+                  aria-label="Copiar arquivo"
                   className="h-8 w-8 hover:bg-level-purple-light hover:text-level-purple"
                   onClick={handleCopy}
                 >
@@ -217,6 +220,7 @@ export function CodeEditor({
                 <Button
                   variant="ghost"
                   size="icon"
+                  aria-label="Restaurar código inicial"
                   className="h-8 w-8 hover:bg-level-purple-light hover:text-level-purple"
                   onClick={onReset}
                 >
@@ -224,7 +228,7 @@ export function CodeEditor({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Resetar workspace (Alt+G)</p>
+                <p>Restaurar código inicial (Alt+G)</p>
               </TooltipContent>
             </Tooltip>
 
@@ -235,6 +239,7 @@ export function CodeEditor({
                   <Button
                     variant="ghost"
                     size="icon"
+                    aria-label="Ver solução"
                     className="h-8 w-8 hover:bg-yellow-50 hover:text-yellow-600"
                     onClick={() => setShowSolution(true)}
                   >
@@ -272,7 +277,7 @@ export function CodeEditor({
               <TooltipTrigger asChild>
                 <Button
                   size="sm"
-                  className="ml-2 gap-2 bg-level-purple hover:bg-level-purple-medium text-white rounded-lg disabled:opacity-50"
+                  className="ml-2 gap-2 bg-level-purple hover:bg-level-purple-dark text-white rounded-lg disabled:opacity-50"
                   onClick={onRun}
                   disabled={isRunning || isInstalling || pyodideStatus === "loading"}
                 >

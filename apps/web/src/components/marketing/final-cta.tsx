@@ -23,17 +23,13 @@ export function FinalCta({
               <h2 className="text-balance text-4xl font-bold text-[#4C1D95] sm:text-5xl">{title}</h2>
               <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg text-gray-700">{description}</p>
               <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-                <Link href="/signup">
-                  <button className="inline-flex items-center gap-2 rounded-2xl bg-[#7C3AED] px-10 py-5 text-lg font-bold text-white btn-3d">
+                <Link href="/signup" className="inline-flex items-center gap-2 rounded-2xl bg-[#7C3AED] px-10 py-5 text-lg font-bold text-white btn-3d">
                     <Play className="h-5 w-5" />
                     Criar conta grátis
-                  </button>
-                </Link>
-                <Link href="/login">
-                  <button className="inline-flex items-center gap-2 rounded-2xl border-2 border-[#A78BFA] bg-white/60 px-8 py-4 text-lg font-semibold text-[#7C3AED] backdrop-blur transition-all hover:bg-white">
+                  </Link>
+                <Link href="/login" className="inline-flex items-center gap-2 rounded-2xl border-2 border-[#A78BFA] bg-white/60 px-8 py-4 text-lg font-semibold text-[#7C3AED] backdrop-blur transition-all hover:bg-white">
                     Já tenho conta
-                  </button>
-                </Link>
+                  </Link>
               </div>
             </div>
           </div>

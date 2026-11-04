@@ -21,7 +21,7 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { getInitials } from "@/lib/utils"
+import { getInitials, xpForLevel } from "@/lib/utils"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -90,7 +90,7 @@ export default function DashboardPage() {
   const isLoading = dataLoading || coursesLoading
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-12">
+    <div className="min-h-screen bg-background pb-24 lg:pb-12">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
@@ -101,7 +101,7 @@ export default function DashboardPage() {
             <span className="text-xl font-bold text-level-purple-dark">LevelUSP</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-6">
+          <nav aria-label="Navegação principal" className="hidden lg:flex items-center gap-6">
             <Link href="/dashboard" className="flex items-center gap-2 text-sm font-medium text-level-purple">
               <BookOpen className="h-4 w-4" /> Aprender
             </Link>
@@ -130,7 +130,7 @@ export default function DashboardPage() {
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="rounded-full ring-2 ring-level-purple ring-offset-2 transition-shadow hover:ring-offset-0">
+                <button aria-label={`Menu da conta (${initials})`} className="rounded-full ring-2 ring-level-purple ring-offset-2 transition-shadow hover:ring-offset-0">
                   <Avatar className="h-9 w-9">
                     <AvatarFallback className="bg-level-purple-light text-level-purple-dark text-xs font-bold">
                       {authLoading ? "…" : initials}
@@ -185,7 +185,7 @@ export default function DashboardPage() {
                 {authLoading ? "Carregando..." : `Olá, ${firstName}!`}
               </h1>
               <p className="mt-1 text-sm text-purple-200">
-                {xpInLevel.toLocaleString("pt-BR")} / {xpCeil.toLocaleString("pt-BR")} XP para o Nível {level + 1}
+                {xpInLevel.toLocaleString("pt-BR")} / {(xpCeil - xpForLevel(level - 1)).toLocaleString("pt-BR")} XP para o Nível {level + 1}
               </p>
               <div className="mt-4 h-3 max-w-md overflow-hidden rounded-full bg-white/20">
                 <motion.div
@@ -252,7 +252,7 @@ export default function DashboardPage() {
                 </p>
                 <Link
                   href="/cursos"
-                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-level-purple px-5 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-medium transition-colors"
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-level-purple px-5 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark transition-colors"
                 >
                   <BookOpen className="h-4 w-4" /> Explorar cursos
                 </Link>
@@ -279,7 +279,7 @@ export default function DashboardPage() {
       </main>
 
       {/* Mobile nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-white md:hidden">
+      <nav aria-label="Navegação principal" className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-white lg:hidden">
         <div className="flex items-center justify-around py-2">
           <Link href="/dashboard" className="flex flex-col items-center gap-1 px-3 py-2 text-level-purple">
             <BookOpen className="h-5 w-5" /><span className="text-xs font-medium">Aprender</span>

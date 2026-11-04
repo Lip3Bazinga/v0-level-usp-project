@@ -4,6 +4,7 @@ import { useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import confetti from "canvas-confetti"
 import { Trophy, Star, Award, Download, ExternalLink, Zap } from "lucide-react"
+import { useModalA11y } from "@/hooks/use-modal-a11y"
 
 interface CourseCompleteModalProps {
   show: boolean
@@ -17,7 +18,7 @@ interface CourseCompleteModalProps {
 function fireCourseCompleteConfetti() {
   const colors = ["#FACC15", "#F59E0B", "#7C3AED", "#A78BFA", "#10B981", "#FFFFFF"]
 
-  confetti({
+  confetti({ disableForReducedMotion: true,
     particleCount: 200,
     spread: 120,
     origin: { y: 0.5, x: 0.5 },
@@ -31,8 +32,8 @@ function fireCourseCompleteConfetti() {
 
   for (let i = 0; i < 3; i++) {
     setTimeout(() => {
-      confetti({ particleCount: 80, angle: 60, spread: 80, origin: { x: 0, y: 0.6 }, colors, zIndex: 10000 })
-      confetti({ particleCount: 80, angle: 120, spread: 80, origin: { x: 1, y: 0.6 }, colors, zIndex: 10000 })
+      confetti({ disableForReducedMotion: true, particleCount: 80, angle: 60, spread: 80, origin: { x: 0, y: 0.6 }, colors, zIndex: 10000 })
+      confetti({ disableForReducedMotion: true, particleCount: 80, angle: 120, spread: 80, origin: { x: 1, y: 0.6 }, colors, zIndex: 10000 })
     }, i * 400)
   }
 }
@@ -50,6 +51,7 @@ export function CourseCompleteModal({
   }, [show])
 
   const handleClose = useCallback(() => onClose(), [onClose])
+  const dialogRef = useModalA11y<HTMLDivElement>(show, handleClose)
 
   return (
     <AnimatePresence>
@@ -66,6 +68,10 @@ export function CourseCompleteModal({
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.8, opacity: 0 }}
             transition={{ type: "spring", stiffness: 230, damping: 16, delay: 0.05 }}
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Curso concluído"
             onClick={(e) => e.stopPropagation()}
             className="relative mx-4 w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl"
           >

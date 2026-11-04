@@ -230,6 +230,7 @@ export function UsersPageEnhanced({ users, setUsers, onToast, currentUserId }: U
             />
           </div>
           <select
+            aria-label="Ordenar usuários"
             value={sort}
             onChange={(e) => setSort(e.target.value)}
             className="rounded-xl border border-border bg-white px-3 py-2 text-sm font-semibold focus:border-level-purple focus:outline-none"

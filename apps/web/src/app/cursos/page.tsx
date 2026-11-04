@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { getInitials, xpForLevel } from "@/lib/utils"
+import { getInitials } from "@/lib/utils"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -140,11 +140,15 @@ export default function CoursesPage() {
   const [loading, setLoading]       = useState(true)
   const [search, setSearch]         = useState("")
   const [filterLevel, setFilterLevel] = useState<string>("all")
+  // Falha da API ≠ catálogo vazio: antes mostrava "Nenhum curso encontrado".
+  const [loadError, setLoadError]   = useState(false)
+  const [reloadKey, setReloadKey]   = useState(0)
 
   useEffect(() => {
     if (authLoading) return
     async function load() {
       setLoading(true)
+      setLoadError(false)
       try {
         const [fetchedCourses, ids] = await Promise.all([
           fetchPublishedCourses(),
@@ -154,18 +158,16 @@ export default function CoursesPage() {
         setEnrolledIds(new Set(ids))
       } catch {
         setCourses([])
+        setLoadError(true)
       } finally {
         setLoading(false)
       }
     }
     load()
-  }, [authLoading, profile?.id])
+  }, [authLoading, profile?.id, reloadKey])
 
-  const level      = profile?.level ?? 1
   const totalXp    = profile?.total_xp ?? 0
   const streak     = profile?.current_streak ?? 0
-  const xpFloor    = xpForLevel(level - 1)
-  const xpInLevel  = totalXp - xpFloor
   const initials   = profile?.full_name ? getInitials(profile.full_name) : "?"
 
   const filtered = courses.filter((c) => {
@@ -181,7 +183,7 @@ export default function CoursesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-8">
+    <div className="min-h-screen bg-background pb-24 lg:pb-8">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
@@ -192,7 +194,7 @@ export default function CoursesPage() {
             <span className="text-xl font-bold text-level-purple-dark">LevelUSP</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-6">
+          <nav aria-label="Navegação principal" className="hidden lg:flex items-center gap-6">
             <Link href="/dashboard" className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-level-purple transition-colors">
               <BookOpen className="h-4 w-4" /> Aprender
             </Link>
@@ -210,7 +212,7 @@ export default function CoursesPage() {
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-level-purple px-3 py-1.5 text-white">
               <Zap className="h-4 w-4 text-yellow-300" />
-              <span className="text-xs font-bold">{xpInLevel.toLocaleString("pt-BR")} XP</span>
+              <span className="text-xs font-bold">{totalXp.toLocaleString("pt-BR")} XP</span>
             </div>
             <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-gradient-to-r from-orange-500 to-red-500 px-3 py-1.5 text-white">
               <Flame className="h-4 w-4 text-yellow-300" />
@@ -218,7 +220,7 @@ export default function CoursesPage() {
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="rounded-full ring-2 ring-level-purple ring-offset-2 transition-shadow hover:ring-offset-0">
+                <button aria-label={`Menu da conta (${initials})`} className="rounded-full ring-2 ring-level-purple ring-offset-2 transition-shadow hover:ring-offset-0">
                   <Avatar className="h-9 w-9">
                     <AvatarFallback className="bg-level-purple-light text-level-purple-dark text-xs font-bold">
                       {authLoading ? "…" : initials}
@@ -302,6 +304,20 @@ export default function CoursesPage() {
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3, 4, 5, 6].map((i) => <SkeletonCard key={i} />)}
           </div>
+        ) : loadError ? (
+          <div className="py-16">
+          <div role="alert" className="mx-auto max-w-md rounded-2xl border border-red-200 bg-red-50 px-6 py-8 text-center">
+            <p className="text-base font-semibold text-red-800">Não foi possível carregar os cursos.</p>
+            <p className="mt-1 text-sm text-red-700">Verifique sua conexão e tente novamente.</p>
+            <button
+              type="button"
+              onClick={() => setReloadKey((k) => k + 1)}
+              className="mt-4 rounded-xl bg-level-purple px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-level-purple-dark"
+            >
+              Tentar novamente
+            </button>
+          </div>
+          </div>
         ) : filtered.length === 0 ? (
           <div className="py-20 text-center">
             <BookOpen className="mx-auto h-16 w-16 text-muted-foreground/30" />
@@ -322,7 +338,7 @@ export default function CoursesPage() {
       </main>
 
       {/* Mobile nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-white md:hidden">
+      <nav aria-label="Navegação principal" className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-white lg:hidden">
         <div className="flex items-center justify-around py-2">
           <Link href="/dashboard" className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground">
             <BookOpen className="h-5 w-5" /><span className="text-xs">Aprender</span>

@@ -80,7 +80,7 @@ export function JourneyScroll() {
               key={item.title}
               className="glass-dark relative w-[78vw] shrink-0 rounded-3xl p-8 sm:w-[420px]"
             >
-              <span className="absolute right-6 top-6 text-6xl font-bold text-white/10">
+              <span aria-hidden="true" className="absolute right-6 top-6 text-6xl font-bold text-white/10">
                 {String(i + 1).padStart(2, "0")}
               </span>
               <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10">
