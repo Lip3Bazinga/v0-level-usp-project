@@ -49,7 +49,7 @@ infra/
   caddy/       Caddyfile (HTTPS automático na VM, opção ao túnel)
   env/         *.env.example (os .env reais não são versionados)
   scripts/     levelusp.ps1 / levelusp.sh (notebook), levelusp-vm.sh + backup.sh (VM)
-.github/workflows/  ci.yml, cd.yml
+.github/workflows/  ci.yml (CI + publicação das imagens)
 legacy/        código da versão Supabase/Vercel (referência)
 ```
 
