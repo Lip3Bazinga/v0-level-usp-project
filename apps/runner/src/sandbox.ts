@@ -12,7 +12,24 @@ export interface SandboxOptions {
   workDir: string
   /** Teto de bytes gravados no projeto por um lote (padrão: `DEFAULT_JOB_DISK_BYTES`). */
   maxJobDiskBytes?: number
+  /**
+   * Chamado quando o convidado termina sem produzir NENHUMA observação (falha do próprio
+   * Wasmtime, módulo incompatível, caminho errado…): o aluno vê só a mensagem genérica,
+   * e sem este log o operador não descobre a causa.
+   */
+  onGuestFailure?: (details: GuestFailure) => void
 }
+
+/** Diagnóstico de um lote que não produziu observações: o que o Wasmtime escreveu em stderr. */
+export interface GuestFailure {
+  stderr: string
+  timedOut: boolean
+  overflowed: boolean
+  diskExceeded: boolean
+}
+
+/** Quanto do stderr do convidado vai para o log (o resto é só traceback repetido). */
+const LOGGED_STDERR_CHARS = 2_000
 
 /** Um lote de sondas rodado numa única instância isolada do interpretador. */
 export interface SandboxBatch {
@@ -51,7 +68,12 @@ const READ_ONLY_FILE = 0o444
 const READ_ONLY_DIR = 0o555
 const WRITABLE_DIR = 0o755
 const HARNESS_FILE = "harness.py"
-const TIMEOUT_STDERR_PATTERN = /fuel|interrupt|timed out|deadline/i
+/**
+ * Só as mensagens que o Wasmtime emite ao estourar o tempo de parede ("wasm trap: interrupt")
+ * ou o fuel. Um padrão mais largo classificava como "tempo excedido" até um `.cwasm`
+ * incompatível ("compiled without epoch interruption"), escondendo a causa real.
+ */
+const TIMEOUT_STDERR_PATTERN = /wasm trap: interrupt|all fuel consumed|epoch deadline/i
 /** Cota padrão de disco por lote: com 2 lotes simultâneos cabe folgado no tmpfs de 256 MB do container. */
 export const DEFAULT_JOB_DISK_BYTES = 32 * BYTES_PER_MIB
 /** Arquivos + pastas no projeto: acima disso o lote é morto (criação em massa de arquivos). */
@@ -101,6 +123,14 @@ export class WasmtimeSandbox {
       }
       const guestRun = await this.spawnWasmtime(directories, guestJob, limits)
       const observed = parseObservations(guestRun.stdout, nonce)
+      if (observed.size === 0 && probes.length > 0) {
+        this.options.onGuestFailure?.({
+          stderr: guestRun.stderr.slice(0, LOGGED_STDERR_CHARS),
+          timedOut: guestRun.timedOut,
+          overflowed: guestRun.overflowed,
+          diskExceeded: guestRun.diskExceeded,
+        })
+      }
       return probes.map((probe, index) => {
         const observation = observed.get(positionalId(index))
         return observation ? { ...observation, id: probe.id } : missingObservation(probe.id, guestRun)
