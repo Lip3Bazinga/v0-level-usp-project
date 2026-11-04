@@ -1,8 +1,12 @@
 import { Injectable } from "@nestjs/common"
-import { and, asc, desc, eq, gte, sql } from "drizzle-orm"
-import { badges, lessonProgress, profiles, userBadges } from "@levelusp/db"
+import { and, asc, desc, eq, gte, ne, sql } from "drizzle-orm"
+import { badges, lessonProgress, profiles, userBadges, type ProfileInsert } from "@levelusp/db"
+import { SAO_PAULO_TIME_ZONE } from "@/common/time/time"
 import { InjectDb, type Database } from "@/infra/database/database.module"
 
+const saoPauloZone = sql.raw(`'${SAO_PAULO_TIME_ZONE}'`)
+
+/** Perfis (dados de domínio do usuário) e o que se lê deles publicamente. */
 @Injectable()
 export class UsersRepository {
   constructor(@InjectDb() private readonly db: Database) {}
@@ -15,17 +19,25 @@ export class UsersRepository {
     return this.db.query.profiles.findFirst({ where: eq(profiles.username, username.toLowerCase()) })
   }
 
-  async usernameTakenByOther(username: string, userId: string) {
-    const row = await this.db.query.profiles.findFirst({ where: and(eq(profiles.username, username), sql`${profiles.id} <> ${userId}`), columns: { id: true } })
-    return Boolean(row)
+  /** `exceptUserId`: ignora o próprio usuário ao validar uma troca de username. */
+  async isUsernameTaken(username: string, exceptUserId?: string): Promise<boolean> {
+    const owner = await this.db.query.profiles.findFirst({
+      where: and(eq(profiles.username, username), exceptUserId ? ne(profiles.id, exceptUserId) : undefined),
+      columns: { id: true },
+    })
+    return Boolean(owner)
   }
 
-  async update(id: string, patch: Partial<typeof profiles.$inferInsert>) {
-    const [row] = await this.db.update(profiles).set(patch).where(eq(profiles.id, id)).returning()
-    return row
+  async update(id: string, patch: Partial<ProfileInsert>) {
+    const [profile] = await this.db.update(profiles).set(patch).where(eq(profiles.id, id)).returning()
+    return profile
   }
 
-  leaderboard(limit: number) {
+  list() {
+    return this.db.select().from(profiles).orderBy(desc(profiles.createdAt))
+  }
+
+  listLeaderboard(limit: number) {
     return this.db
       .select()
       .from(profiles)
@@ -35,23 +47,23 @@ export class UsersRepository {
   }
 
   /** XP e conclusões por dia (fuso de São Paulo) desde `since`. */
-  activity(userId: string, since: Date) {
+  listActivity(userId: string, since: Date) {
     return this.db
       .select({
-        day: sql<string>`to_char(${lessonProgress.completedAt} at time zone 'America/Sao_Paulo', 'YYYY-MM-DD')`,
+        day: sql<string>`to_char(${lessonProgress.completedAt} at time zone ${saoPauloZone}, 'YYYY-MM-DD')`,
         xp: sql<number>`coalesce(sum(${lessonProgress.xpEarned}), 0)::int`,
-        n: sql<number>`count(*)::int`,
+        completions: sql<number>`count(*)::int`,
       })
       .from(lessonProgress)
       .where(and(eq(lessonProgress.userId, userId), eq(lessonProgress.status, "completed"), gte(lessonProgress.completedAt, since.toISOString())))
       .groupBy(sql`1`)
   }
 
-  allBadges(includeInactive: boolean) {
+  listBadges(includeInactive: boolean) {
     return this.db.select().from(badges).where(includeInactive ? undefined : eq(badges.active, true)).orderBy(asc(badges.sortOrder))
   }
 
-  userBadges(userId: string) {
+  listUserBadges(userId: string) {
     return this.db.select().from(userBadges).where(eq(userBadges.userId, userId)).orderBy(desc(userBadges.earnedAt))
   }
 }

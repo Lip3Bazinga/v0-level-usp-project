@@ -39,9 +39,30 @@ legacy/        Código antigo (Supabase, avaliador Python da Vercel). Só refer�
 - Rotas sob o prefixo global `/api`. Recursos do usuário logado em `/me/...`; administração em `/admin/...`.
 - Registrar o módulo em `src/modules/index.ts`.
 - Auditoria de ações administrativas: `AuditService.log(user, acao, alvo, meta, severidade)`.
-- Limite por usuário: `RateLimitService.consume(chave, limite, janelaMs)`.
+- Limite por usuário: `RateLimitService.consume(RATE_LIMITS.<política>, sujeito)` (políticas em `common/rate-limit/rate-limit.policies.ts`).
+- Verbos: `list`/`find` (pode faltar)/`get` (precisa existir)/`count`/`create`/`update`/`delete`/`upsert`;
+  entidade no nome só se não for a principal da classe; `My` para `/me` (`listMyProgress`). Sem `insert`/`remove`/`save`.
+  Handler do controller = nome do método do service. `@Controller()` recebe o maior prefixo comum das rotas.
+- Padrões de código (nomes, tipos, SOLID): `docs/v2/padroes-de-codigo.md`.
 - Testes: unitários `vitest --project unit` (domínio/serviços); e2e `vitest --project e2e`
   com PostgreSQL real (`test/e2e/harness.ts`: `createTestApp`, `signUp`, `agent`, `FakeRunner`).
+
+## Convenções da web (apps/web/src)
+
+- `lib/api`: `fetchX` (GET), `fetchMyX`, `fetchAdminX`, `createX`/`updateX`/`deleteX`/`setX…`; todas lançam
+  `ApiError` (`getErrorMessage`, `isApiError`, `nullOnStatus`, `toApiResult`). O `AuthContext` devolve
+  `{ ok, error: string }` com a mensagem pronta (não `ApiResult`).
+- `lib/constants` (barrel): `ROUTES`, `STORAGE_KEYS`, tempos em `timing.ts` (`SAVED_FEEDBACK_DURATION_MS`,
+  `CELEBRATION_AUTO_CLOSE_MS`…), `MAX_COVER_IMAGE_BYTES`, rótulos (`DIFFICULTY_LABELS`, `LIBRARY_CATEGORY_LABELS`).
+- `lib/utils` (barrel): `cn`, `format*`, `localDateKey`/`todayKey`, `indexBy`, `isOneOf`, `diffChangedFields`,
+  `moveItem`, `getPasswordPolicyError`, `downloadCsv`/`downloadJson`/`downloadText`, arquivos de projeto.
+- Hooks: `useAsyncResource` (toda busca), `useTransientValue`/`useTransientFlag`, `useSubmitLock`,
+  `useLessonNavigation`, `useModalA11y`, `useSignOut`, `usePython`.
+- Componentes comuns: `design-system/` (`BrandLogo`/`BrandMark`, `Spinner`, `LevelButton` + `levelButtonClasses`
+  para `<Link>`), `auth/` (campos e layouts de login), `dashboard/student-shell.tsx` (`StudentShell`,
+  `StudentHeaderBar`), `admin/admin-modal.tsx` (`AdminModal`), `gamification/celebration-modal.tsx`.
+- Confirmação com `swalConfirm`; avisos com `swalToast` ou o toast do admin (`ToastKind` único). Classes
+  condicionais com `cn()`. Modais recebem `isOpen`. ESLint `react-hooks/*` é erro.
 
 ## Comandos
 

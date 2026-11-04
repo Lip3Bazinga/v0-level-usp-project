@@ -1,24 +1,33 @@
 import { Test } from "@nestjs/testing"
 import type { NestExpressApplication } from "@nestjs/platform-express"
 import type { INestApplication } from "@nestjs/common"
+import type { QueryResultRow } from "pg"
 import request from "supertest"
-import { sql } from "drizzle-orm"
-import { lessons, profiles } from "@levelusp/db"
-import type { ProbeObservation, RunnerJob, RunnerResult, TestCase } from "@levelusp/contracts"
+import { eq, sql, type SQL } from "drizzle-orm"
+import { lessons, profiles, type LessonInsert, type LessonRow } from "@levelusp/db"
+import type { ProbeObservation, RunnerJob, RunnerResult, UserRole } from "@levelusp/contracts"
 import { AppModule } from "@/app.module"
 import { configureApp } from "@/bootstrap"
+import { requireRow } from "@/common/database/rows"
 import { DB, type Database } from "@/infra/database/database.module"
 import { MailService, type MailMessage } from "@/infra/mail/mail.service"
+import type { CodeRunner, RunnerHealthProbe } from "@/infra/runner/code-runner"
 import { RunnerClient } from "@/infra/runner/runner.client"
 import { TEST_DATABASE_URL } from "./global-setup"
 
-/** Executor falso: cada teste define que observações o "sandbox" devolve. */
-export class FakeRunner {
-  jobs: RunnerJob[] = []
-  private responder: (job: RunnerJob) => ProbeObservation[] = (job) => job.probes.map((p) => ({ id: p.id, ok: true }))
+export const TEST_PASSWORD = "senhaForte123"
+/** Nome do cabeçalho como o front envia: fixado aqui de propósito, para o teste pegar uma mudança na API. */
+export const CSRF_HEADER_NAME = "x-levelusp-csrf"
 
-  respond(fn: (job: RunnerJob) => ProbeObservation[]) {
-    this.responder = fn
+type Responder = (job: RunnerJob) => ProbeObservation[]
+
+/** Executor falso: cada teste define que observações o "sandbox" devolve. */
+export class FakeRunner implements CodeRunner, RunnerHealthProbe {
+  jobs: RunnerJob[] = []
+  private responder: Responder = (job) => job.probes.map((probe) => ({ id: probe.id, ok: true }))
+
+  respond(responder: Responder) {
+    this.responder = responder
   }
 
   async run(job: RunnerJob): Promise<RunnerResult> {
@@ -33,8 +42,8 @@ export class FakeRunner {
 
 export class FakeMail {
   sent: MailMessage[] = []
-  async send(m: MailMessage) {
-    this.sent.push(m)
+  async send(message: MailMessage) {
+    this.sent.push(message)
   }
 }
 
@@ -92,33 +101,51 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
 
 /** Agente HTTP com cookies e o cabeçalho anti-CSRF que o front envia. */
 export function agent(app: INestApplication) {
-  const a = request.agent(app.getHttpServer())
+  const httpAgent = request.agent(app.getHttpServer())
   return {
-    raw: a,
-    get: (url: string) => a.get(url),
-    post: (url: string, body?: object) => a.post(url).set("x-levelusp-csrf", "1").send(body ?? {}),
-    put: (url: string, body?: object) => a.put(url).set("x-levelusp-csrf", "1").send(body ?? {}),
-    patch: (url: string, body?: object) => a.patch(url).set("x-levelusp-csrf", "1").send(body ?? {}),
-    delete: (url: string) => a.delete(url).set("x-levelusp-csrf", "1"),
+    raw: httpAgent,
+    get: (url: string) => httpAgent.get(url),
+    post: (url: string, body?: object) => httpAgent.post(url).set(CSRF_HEADER_NAME, "1").send(body ?? {}),
+    put: (url: string, body?: object) => httpAgent.put(url).set(CSRF_HEADER_NAME, "1").send(body ?? {}),
+    patch: (url: string, body?: object) => httpAgent.patch(url).set(CSRF_HEADER_NAME, "1").send(body ?? {}),
+    delete: (url: string) => httpAgent.delete(url).set(CSRF_HEADER_NAME, "1"),
   }
 }
 export type Agent = ReturnType<typeof agent>
 
-let counter = 0
-export async function signUp(app: INestApplication, role: "student" | "teacher" | "admin" = "student", db?: Database) {
-  const a = agent(app)
-  const email = `user${++counter}_${Date.now()}@usp.br`
-  const res = await a.post("/api/auth/sign-up", { email, password: "senhaForte123", full_name: `Usuário ${counter}` })
-  if (res.status !== 201) throw new Error(`sign-up falhou: ${res.status} ${JSON.stringify(res.body)}`)
-  const id = res.body.user.id as string
-  if (role !== "student" && db) await db.update(profiles).set({ role }).where(sql`${profiles.id} = ${id}`)
-  return { agent: a, id, email, password: "senhaForte123" }
+let signUpCounter = 0
+export async function signUp(app: INestApplication, role: UserRole = "student", db?: Database) {
+  const userAgent = agent(app)
+  const email = `user${++signUpCounter}_${Date.now()}@usp.br`
+  const response = await userAgent.post("/api/auth/sign-up", { email, password: TEST_PASSWORD, full_name: `Usuário ${signUpCounter}` })
+  if (response.status !== 201) throw new Error(`sign-up falhou: ${response.status} ${JSON.stringify(response.body)}`)
+  const id: string = response.body.user.id
+  if (role !== "student" && db) await db.update(profiles).set({ role }).where(eq(profiles.id, id))
+  return { agent: userAgent, id, email, password: TEST_PASSWORD }
 }
 
-export async function createLesson(db: Database, data: Partial<typeof lessons.$inferInsert> & { testCases?: TestCase[] } = {}) {
-  const [row] = await db
+export async function createLesson(db: Database, values: Partial<LessonInsert> = {}): Promise<LessonRow> {
+  const inserted = await db
     .insert(lessons)
-    .values({ title: "Lição de teste", published: true, xpReward: 50, lessonType: "coding", testCases: [], ...data })
+    .values({ title: "Lição de teste", published: true, xpReward: 50, lessonType: "coding", testCases: [], ...values })
     .returning()
-  return row!
+  return requireRow(inserted, "lessons")
+}
+
+/** Linhas de uma consulta SQL crua, com o formato que o teste espera. */
+export async function queryRows<Row extends QueryResultRow>(db: Database, query: SQL) {
+  const result = await db.execute<Row>(query)
+  return result.rows
+}
+
+/** Para consultas `select count(*)::int as n ...`. */
+export async function countRows(db: Database, query: SQL): Promise<number> {
+  const [counted] = await queryRows<{ n: number }>(db, query)
+  return counted?.n ?? 0
+}
+
+/** Falha o teste com mensagem clara quando um item esperado não existe. */
+export function required<T>(value: T | null | undefined, what: string): T {
+  if (value === null || value === undefined) throw new Error(`esperava ${what}`)
+  return value
 }

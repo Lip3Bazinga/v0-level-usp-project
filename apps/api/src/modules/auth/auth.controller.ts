@@ -12,17 +12,17 @@ import type { Env } from "@/config/env"
 import { CurrentUser, Public } from "@/common/decorators/auth.decorators"
 import type { AuthUser } from "@/common/http/request"
 import { ZodPipe } from "@/common/pipes/zod.pipe"
-import { AuthService, type ClientInfo } from "./auth.service"
+import { IP_THROTTLE } from "@/common/rate-limit/rate-limit.policies"
+import { AuthService, type ClientInfo, type IssuedSession } from "./auth.service"
 import { clearSessionCookie, setSessionCookie } from "./session.cookie"
 
-const client = (req: Request): ClientInfo => ({ ip: req.ip ?? null, userAgent: req.headers["user-agent"] ?? null })
-/**
- * Limite nas rotas de credencial: 60 por minuto por IP (turmas inteiras saem
- * pelo mesmo IP da universidade); a proteção por conta é o bloqueio após 10 erros.
- * AUTH_THROTTLE_LIMIT permite afrouxar nos testes automatizados.
- */
-const authLimit = () => Number(process.env.AUTH_THROTTLE_LIMIT ?? 60)
-const AUTH_LIMIT = { default: { limit: authLimit, ttl: 60_000 } }
+/** AUTH_THROTTLE_LIMIT permite afrouxar o limite por IP nos testes automatizados. */
+const credentialThrottleLimit = () => Number(process.env.AUTH_THROTTLE_LIMIT ?? IP_THROTTLE.credentialLimit)
+const CREDENTIAL_THROTTLE = { default: { limit: credentialThrottleLimit, ttl: IP_THROTTLE.windowMs } }
+/** "Esqueci a senha" dispara e-mail: metade do limite das demais rotas de credencial. */
+const PASSWORD_FORGOT_THROTTLE = { default: { limit: () => Math.ceil(credentialThrottleLimit() / 2), ttl: IP_THROTTLE.windowMs } }
+
+const clientInfo = (request: Request): ClientInfo => ({ ip: request.ip ?? null, userAgent: request.headers["user-agent"] ?? null })
 
 @ApiTags("auth")
 @Controller("auth")
@@ -33,59 +33,60 @@ export class AuthController {
   ) {}
 
   @Public()
-  @Throttle(AUTH_LIMIT)
+  @Throttle(CREDENTIAL_THROTTLE)
   @Post("sign-up")
-  async signUp(@Body(new ZodPipe(signUpSchema)) body: SignUpInput, @Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<SessionResponse> {
-    const s = await this.auth.signUp(body, client(req))
-    setSessionCookie(res, s.token, s.expiresAt, this.env.COOKIE_SECURE)
-    return s.response
+  async signUp(@Body(new ZodPipe(signUpSchema)) body: SignUpInput, @Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<SessionResponse> {
+    return this.startSession(response, await this.auth.signUp(body, clientInfo(request)))
   }
 
   @Public()
-  @Throttle(AUTH_LIMIT)
+  @Throttle(CREDENTIAL_THROTTLE)
   @HttpCode(200)
   @Post("sign-in")
-  async signIn(@Body(new ZodPipe(signInSchema)) body: SignInInput, @Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<SessionResponse> {
-    const s = await this.auth.signIn(body, client(req))
-    setSessionCookie(res, s.token, s.expiresAt, this.env.COOKIE_SECURE)
-    return s.response
+  async signIn(@Body(new ZodPipe(signInSchema)) body: SignInInput, @Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<SessionResponse> {
+    return this.startSession(response, await this.auth.signIn(body, clientInfo(request)))
   }
 
   @HttpCode(204)
   @Post("sign-out")
-  async signOut(@CurrentUser() user: AuthUser, @Res({ passthrough: true }) res: Response): Promise<void> {
+  async signOut(@CurrentUser() user: AuthUser, @Res({ passthrough: true }) response: Response): Promise<void> {
     await this.auth.signOut(user.sessionId)
-    clearSessionCookie(res, this.env.COOKIE_SECURE)
+    clearSessionCookie(response, this.env.COOKIE_SECURE)
   }
 
   @Get("me")
-  me(@CurrentUser() user: AuthUser): Promise<SessionResponse> {
-    return this.auth.me(user.id)
+  getSession(@CurrentUser() user: AuthUser): Promise<SessionResponse> {
+    return this.auth.getSession(user.id)
   }
 
   @Public()
-  @Throttle({ default: { limit: () => Math.ceil(authLimit() / 2), ttl: 60_000 } })
+  @Throttle(PASSWORD_FORGOT_THROTTLE)
   @HttpCode(202)
   @Post("password/forgot")
-  async forgot(@Body(new ZodPipe(requestPasswordResetSchema)) body: RequestPasswordResetInput): Promise<{ ok: true }> {
+  async requestPasswordReset(@Body(new ZodPipe(requestPasswordResetSchema)) body: RequestPasswordResetInput): Promise<{ ok: true }> {
     await this.auth.requestPasswordReset(body.email)
     return { ok: true }
   }
 
   @Public()
-  @Throttle(AUTH_LIMIT)
+  @Throttle(CREDENTIAL_THROTTLE)
   @HttpCode(200)
   @Post("password/reset")
-  async reset(@Body(new ZodPipe(resetPasswordSchema)) body: ResetPasswordInput): Promise<{ ok: true }> {
+  async resetPassword(@Body(new ZodPipe(resetPasswordSchema)) body: ResetPasswordInput): Promise<{ ok: true }> {
     await this.auth.resetPassword(body.token, body.password)
     return { ok: true }
   }
 
-  @Throttle(AUTH_LIMIT)
+  @Throttle(CREDENTIAL_THROTTLE)
   @HttpCode(200)
   @Post("password/change")
-  async change(@CurrentUser() user: AuthUser, @Body(new ZodPipe(changePasswordSchema)) body: ChangePasswordInput): Promise<{ ok: true }> {
+  async changePassword(@CurrentUser() user: AuthUser, @Body(new ZodPipe(changePasswordSchema)) body: ChangePasswordInput): Promise<{ ok: true }> {
     await this.auth.changePassword(user, body.current_password, body.new_password)
     return { ok: true }
+  }
+
+  private startSession(response: Response, session: IssuedSession): SessionResponse {
+    setSessionCookie(response, session, this.env.COOKIE_SECURE)
+    return session.response
   }
 }

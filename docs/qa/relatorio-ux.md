@@ -166,7 +166,7 @@ Os roteiros que funcionaram bem também estão documentados como evidência:
   `components/ide/{header,code-editor,console-panel,file-explorer,lesson-footer,lesson-panel,quiz-lesson-layout,success-feedback,theory-lesson-layout}.tsx`.
 - Notas: `app/notas/page.tsx`, `components/notes/notes-floating-widget.tsx`,
   `components/editor/rich-text-editor.tsx`.
-- Gamificação: `components/gamification/{badge-earned-modal,course-complete-modal,enrollment-animation,level-up-modal,streak-animation,teacher-success-modal}.tsx`.
+- Gamificação: `components/gamification/{badge-earned-modal,course-complete-modal,enrollment-modal,level-up-modal,streak-modal,teacher-success-modal}.tsx`.
 - Prova e certificado: `app/cursos/[id]/prova/page.tsx`, `app/certificado/[code]/page.tsx`.
 - Perfil e configurações: `app/perfil/[username]/page.tsx`, `app/settings/page.tsx`,
   `components/profile/activity-map.tsx`.

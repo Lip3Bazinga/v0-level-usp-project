@@ -19,19 +19,21 @@ import json
 import os
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.abspath(os.path.join(HERE, "../../.."))
-SRC = os.path.join(ROOT, "legacy/scripts/verify_lessons.py")
-OUT = os.path.join(ROOT, "packages/db/seed/python-completo.json")
+TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.abspath(os.path.join(TOOLS_DIR, "../../.."))
+LEGACY_SOURCE = os.path.join(ROOT, "legacy/scripts/verify_lessons.py")
+OUTPUT_FILE = os.path.join(ROOT, "packages/db/seed/python-completo.json")
 PY_TYPES = {"int", "float", "str", "bool", "list", "tuple", "dict", "set"}
+FLOAT_TOLERANCE = 1e-6
+MAX_CASE_NAME_LENGTH = 150
 
 
 def load_lessons():
-    src = open(SRC, encoding="utf-8").read()
-    src = src.split("\ndef evaluate(")[0]  # só as definições L[...]
-    ns = {}
-    exec(compile(src, SRC, "exec"), ns)
-    return ns["L"]
+    source = open(LEGACY_SOURCE, encoding="utf-8").read()
+    definitions = source.split("\ndef evaluate(")[0]  # só as definições L[...]
+    namespace = {}
+    exec(compile(definitions, LEGACY_SOURCE, "exec"), namespace)
+    return namespace["L"]
 
 
 def literal(node):
@@ -42,13 +44,11 @@ def literal(node):
 
 
 def to_json(value):
-    if isinstance(value, tuple):
-        return [to_json(v) for v in value]
-    if isinstance(value, list):
-        return [to_json(v) for v in value]
+    if isinstance(value, (tuple, list)):
+        return [to_json(item) for item in value]
     if isinstance(value, dict):
-        if all(isinstance(k, str) for k in value):
-            return {k: to_json(v) for k, v in value.items()}
+        if all(isinstance(key, str) for key in value):
+            return {key: to_json(item) for key, item in value.items()}
         raise ValueError("dict com chave não-str")
     if isinstance(value, (set, frozenset)):
         raise ValueError("set não é representável de forma estável")
@@ -58,21 +58,31 @@ def to_json(value):
 
 
 def py_type(value):
-    t = type(value).__name__
-    return t if t in PY_TYPES else None
+    type_name = type(value).__name__
+    return type_name if type_name in PY_TYPES else None
+
+
+def with_hint(case, hint):
+    if hint:
+        case["hint"] = hint
+    return case
+
+
+def is_single_comparison(test):
+    return isinstance(test, ast.Compare) and len(test.ops) == 1
 
 
 class Converter:
-    def __init__(self, tests_src):
-        self.tree = ast.parse(tests_src)
-        self.src = tests_src
+    def __init__(self, tests_source):
+        self.tree = ast.parse(tests_source)
+        self.source = tests_source
         self.cases = []
-        self.vars = {}  # var -> {"expected":..., "type":..., "hint":...}
-        self.n = 0
+        self.variables = {}  # variável -> {"expected":..., "type":..., "hint":...}
+        self.case_counter = 0
 
     def next_id(self, prefix):
-        self.n += 1
-        return "%s%d" % (prefix, self.n)
+        self.case_counter += 1
+        return "%s%d" % (prefix, self.case_counter)
 
     def run(self):
         """
@@ -83,71 +93,103 @@ class Converter:
         preserva a semântica (ordem e efeitos colaterais) do gabarito antigo.
         """
         setup_seen = False
-        unconverted = False
-        for stmt in self.tree.body:
-            if not isinstance(stmt, ast.Assert):
+        has_unconverted = False
+        for statement in self.tree.body:
+            if not isinstance(statement, ast.Assert):
                 setup_seen = True
-                unconverted = True
+                has_unconverted = True
                 continue
-            if setup_seen or not self.convert_assert(stmt):
-                unconverted = True
-        for var, spec in self.vars.items():
-            if "expected" not in spec:
-                unconverted = True  # só checagem de tipo: fica no bloco legado
-                continue
-            case = {"id": self.next_id("v"), "kind": "variable", "variable": var, "expected": spec["expected"],
-                    "name": "Variável %s" % var}
-            if spec.get("type"):
-                case["type"] = spec["type"]
-            if spec.get("hint"):
-                case["hint"] = spec["hint"]
-            self.cases.append(case)
-        if unconverted:
+            if setup_seen or not self.convert_assert(statement):
+                has_unconverted = True
+        if not self.add_variable_cases():
+            has_unconverted = True
+        if has_unconverted:
             self.cases.append({"id": self.next_id("legado"), "kind": "legacy", "name": "Testes adicionais",
-                               "code": self.src.strip("\n")})
+                               "code": self.source.strip("\n")})
         return self.cases
 
-    def convert_assert(self, a):
-        msg = None
-        if a.msg is not None:
-            ok, msg = literal(a.msg)
-            if not ok:
+    def add_variable_cases(self):
+        """Devolve False se alguma variável só tinha checagem de tipo (fica no bloco legado)."""
+        all_converted = True
+        for variable, spec in self.variables.items():
+            if "expected" not in spec:
+                all_converted = False
+                continue
+            case = {"id": self.next_id("v"), "kind": "variable", "variable": variable, "expected": spec["expected"],
+                    "name": "Variável %s" % variable}
+            if spec.get("type"):
+                case["type"] = spec["type"]
+            self.cases.append(with_hint(case, spec.get("hint")))
+        return all_converted
+
+    def convert_assert(self, assert_node):
+        hint = None
+        if assert_node.msg is not None:
+            is_literal, hint = literal(assert_node.msg)
+            if not is_literal:
                 return False
-        test = a.test
-        # "x" in _stdout
-        if isinstance(test, ast.Compare) and len(test.ops) == 1 and isinstance(test.comparators[0], ast.Name):
-            target = test.comparators[0].id
-            ok, val = literal(test.left)
-            if ok and isinstance(val, str) and target == "_stdout" and isinstance(test.ops[0], ast.In):
-                self.cases.append({"id": self.next_id("saida"), "kind": "io", "stdin": "", "expected_stdout": val,
-                                   "match": "contains", "name": "Saída contém %r" % val, **({"hint": msg} if msg else {})})
-                return True
-            if ok and isinstance(val, str) and target == "_source":
-                return self.source_rule(val, isinstance(test.ops[0], ast.NotIn), msg)
-        # "f\"" in _source or "f'" in _source  -> f-string
-        if isinstance(test, ast.BoolOp) and isinstance(test.op, ast.Or):
-            parts = [ast.get_source_segment(self.src, v) for v in test.values]
-            if all("_source" in p for p in parts) and any("f\\\"" in p or "f'" in p or 'f"' in p for p in parts):
-                self.cases.append({"id": self.next_id("fonte"), "kind": "source", "rule": {"type": "uses", "construct": "f_string"},
-                                   "name": "Usa f-string", **({"hint": msg} if msg else {})})
-                return True
-        # isinstance(var, T)
-        if isinstance(test, ast.Call) and isinstance(test.func, ast.Name) and test.func.id == "isinstance" \
-                and len(test.args) == 2 and isinstance(test.args[0], ast.Name) and isinstance(test.args[1], ast.Name) \
-                and test.args[1].id in PY_TYPES:
-            spec = self.vars.setdefault(test.args[0].id, {})
-            spec["type"] = test.args[1].id
-            if msg and not spec.get("hint"):
-                spec["hint"] = msg
+        test = assert_node.test
+        converted = self.convert_text_membership(test, hint)
+        if converted is not None:
+            return converted
+        if self.convert_f_string_check(test, hint) or self.convert_isinstance(test, hint):
             return True
-        if not (isinstance(test, ast.Compare) and len(test.ops) == 1):
+        return self.convert_equality(test, hint)
+
+    def convert_text_membership(self, test, hint):
+        """`"x" in _stdout` e `"nome(" (not) in _source`; None quando não é esse formato."""
+        if not (is_single_comparison(test) and isinstance(test.comparators[0], ast.Name)):
+            return None
+        target = test.comparators[0].id
+        is_literal, text = literal(test.left)
+        if not (is_literal and isinstance(text, str)):
+            return None
+        if target == "_stdout" and isinstance(test.ops[0], ast.In):
+            self.cases.append(with_hint({"id": self.next_id("saida"), "kind": "io", "stdin": "", "expected_stdout": text,
+                                         "match": "contains", "name": "Saída contém %r" % text}, hint))
+            return True
+        if target == "_source":
+            return self.source_rule(text, isinstance(test.ops[0], ast.NotIn), hint)
+        return None
+
+    def convert_f_string_check(self, test, hint):
+        """`"f\\"" in _source or "f'" in _source` -> regra de f-string."""
+        if not (isinstance(test, ast.BoolOp) and isinstance(test.op, ast.Or)):
             return False
-        op, left, right = test.ops[0], test.left, test.comparators[0]
-        if isinstance(op, ast.Is) and isinstance(right, ast.Constant) and right.value in (True, False, None):
+        segments = [ast.get_source_segment(self.source, value) for value in test.values]
+        if not all("_source" in segment for segment in segments):
+            return False
+        if not any("f\\\"" in segment or "f'" in segment or 'f"' in segment for segment in segments):
+            return False
+        self.cases.append(with_hint({"id": self.next_id("fonte"), "kind": "source", "rule": {"type": "uses", "construct": "f_string"},
+                                     "name": "Usa f-string"}, hint))
+        return True
+
+    def convert_isinstance(self, test, hint):
+        """`isinstance(var, T)` -> tipo exigido da variável."""
+        if not (isinstance(test, ast.Call) and isinstance(test.func, ast.Name) and test.func.id == "isinstance"):
+            return False
+        if not (len(test.args) == 2 and isinstance(test.args[0], ast.Name) and isinstance(test.args[1], ast.Name)):
+            return False
+        if test.args[1].id not in PY_TYPES:
+            return False
+        spec = self.variables.setdefault(test.args[0].id, {})
+        spec["type"] = test.args[1].id
+        if hint and not spec.get("hint"):
+            spec["hint"] = hint
+        return True
+
+    def convert_equality(self, test, hint):
+        """`var == literal`, `f(literais) == literal` e `... is True|False|None`."""
+        if not is_single_comparison(test):
+            return False
+        operator, left, right = test.ops[0], test.left, test.comparators[0]
+        is_identity = isinstance(operator, ast.Is)
+        if is_identity and isinstance(right, ast.Constant) and right.value in (True, False, None):
             expected = right.value
-        elif isinstance(op, ast.Eq):
-            ok, expected = literal(right)
-            if not ok:
+        elif isinstance(operator, ast.Eq):
+            is_literal, expected = literal(right)
+            if not is_literal:
                 return False
         else:
             return False
@@ -155,41 +197,44 @@ class Converter:
             expected_json = to_json(expected)
         except ValueError:
             return False
-        # var == literal
+        checks_type = is_identity or isinstance(expected, bool)
         if isinstance(left, ast.Name):
-            spec = self.vars.setdefault(left.id, {})
-            if "expected" in spec:
-                return False
-            spec["expected"] = expected_json
-            if isinstance(op, ast.Is) or isinstance(expected, bool):
-                spec.setdefault("type", py_type(expected) or "NoneType")
-            if msg:
-                spec["hint"] = msg
-            return True
-        # f(literais) == literal
+            return self.add_variable_expectation(left.id, expected, expected_json, checks_type, hint)
         if isinstance(left, ast.Call) and isinstance(left.func, ast.Name) and not left.keywords:
-            args = []
-            for arg in left.args:
-                ok, v = literal(arg)
-                if not ok:
-                    return False
-                try:
-                    args.append(to_json(v))
-                except ValueError:
-                    return False
-            case = {"id": self.next_id("chamada"), "kind": "call", "function": left.func.id, "args": args, "kwargs": {},
-                    "expected": expected_json, "name": ast.get_source_segment(self.src, left)[:150]}
-            if isinstance(op, ast.Is) or isinstance(expected, bool):
-                case["type"] = py_type(expected) or "NoneType"
-            if isinstance(expected, float):
-                case["tolerance"] = 1e-6
-            if msg:
-                case["hint"] = msg
-            self.cases.append(case)
-            return True
+            return self.add_call_case(left, expected, expected_json, checks_type, hint)
         return False
 
-    def source_rule(self, text, negated, msg):
+    def add_variable_expectation(self, variable, expected, expected_json, checks_type, hint):
+        spec = self.variables.setdefault(variable, {})
+        if "expected" in spec:
+            return False
+        spec["expected"] = expected_json
+        if checks_type:
+            spec.setdefault("type", py_type(expected) or "NoneType")
+        if hint:
+            spec["hint"] = hint
+        return True
+
+    def add_call_case(self, call, expected, expected_json, checks_type, hint):
+        args = []
+        for arg in call.args:
+            is_literal, value = literal(arg)
+            if not is_literal:
+                return False
+            try:
+                args.append(to_json(value))
+            except ValueError:
+                return False
+        case = {"id": self.next_id("chamada"), "kind": "call", "function": call.func.id, "args": args, "kwargs": {},
+                "expected": expected_json, "name": ast.get_source_segment(self.source, call)[:MAX_CASE_NAME_LENGTH]}
+        if checks_type:
+            case["type"] = py_type(expected) or "NoneType"
+        if isinstance(expected, float):
+            case["tolerance"] = FLOAT_TOLERANCE
+        self.cases.append(with_hint(case, hint))
+        return True
+
+    def source_rule(self, text, negated, hint):
         name = text[:-1] if text.endswith("(") else None
         if name and name.isidentifier():
             rule = {"type": "not_calls" if negated else "calls", "name": name}
@@ -197,58 +242,70 @@ class Converter:
             rule = {"type": "uses", "construct": "lambda"}
         else:
             return False
-        self.cases.append({"id": self.next_id("fonte"), "kind": "source", "rule": rule,
-                           "name": ("Não usa %s()" if negated else "Usa %s()") % rule.get("name", "lambda"), **({"hint": msg} if msg else {})})
+        label = ("Não usa %s()" if negated else "Usa %s()") % rule.get("name", "lambda")
+        self.cases.append(with_hint({"id": self.next_id("fonte"), "kind": "source", "rule": rule, "name": label}, hint))
         return True
+
+
+def stub_function(function, indent):
+    return ["%sdef %s(%s):" % (indent, function.name, ast.unparse(function.args)), indent + "    # TODO: implemente", indent + "    pass"]
+
+
+def stub_class(class_node):
+    bases = "(%s)" % ", ".join(ast.unparse(base) for base in class_node.bases) if class_node.bases else ""
+    lines = ["", "", "class %s%s:" % (class_node.name, bases)]
+    methods = [node for node in class_node.body if isinstance(node, ast.FunctionDef)]
+    if not methods:
+        lines.append("    pass")
+    for method in methods:
+        lines += ["    @%s" % ast.unparse(decorator) for decorator in method.decorator_list]
+        lines += stub_function(method, "    ") + [""]
+    return lines
 
 
 def make_stub(source):
     """Esqueleto inicial a partir da solução: imports, assinaturas e `pass`."""
-    tree = ast.parse(source)
     lines = []
-    for node in tree.body:
+    for node in ast.parse(source).body:
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             lines.append(ast.unparse(node))
         elif isinstance(node, ast.FunctionDef):
-            lines += ["", "", "def %s(%s):" % (node.name, ast.unparse(node.args)), "    # TODO: implemente", "    pass"]
+            lines += ["", ""] + stub_function(node, "")
         elif isinstance(node, ast.ClassDef):
-            bases = "(%s)" % ", ".join(ast.unparse(b) for b in node.bases) if node.bases else ""
-            lines += ["", "", "class %s%s:" % (node.name, bases)]
-            methods = [n for n in node.body if isinstance(n, ast.FunctionDef)]
-            if not methods:
-                lines.append("    pass")
-            for m in methods:
-                for d in m.decorator_list:
-                    lines.append("    @%s" % ast.unparse(d))
-                lines += ["    def %s(%s):" % (m.name, ast.unparse(m.args)), "        # TODO: implemente", "        pass", ""]
+            lines += stub_class(node)
     body = "\n".join(lines).strip("\n")
     return ("# Complete o código abaixo.\n\n" + body + "\n") if body else "# Escreva sua solução aqui\n"
+
+
+def starter_file(file):
+    if file["path"].endswith(".py") and file["content"].strip():
+        return {"path": file["path"], "content": make_stub(file["content"])}
+    return {"path": file["path"], "content": file["content"]}
 
 
 def main():
     lessons = []
     stats = {"strong": 0, "legacy": 0}
-    legacy = load_lessons()
-    for order in sorted(legacy):
-        title, sol, tests = legacy[order]
-        files = sol if isinstance(sol, list) else [{"path": "main.py", "content": sol.lstrip("\n")}]
+    legacy_lessons = load_lessons()
+    for order in sorted(legacy_lessons):
+        title, solution, tests = legacy_lessons[order]
+        files = solution if isinstance(solution, list) else [{"path": "main.py", "content": solution.lstrip("\n")}]
         cases = Converter(tests).run()
-        kinds = [c["kind"] for c in cases]
+        kinds = [case["kind"] for case in cases]
         stats["legacy" if "legacy" in kinds else "strong"] += 1
-        starter = [{"path": f["path"], "content": make_stub(f["content"]) if f["path"].endswith(".py") and f["content"].strip() else f["content"]} for f in files]
         lessons.append({
             "order": order,
             "title": title,
             "description": "Exercício do curso Python Completo: %s." % title,
-            "starter_files": starter,
+            "starter_files": [starter_file(file) for file in files],
             "reference_solution": files,
             "test_cases": cases,
         })
-        print("%02d %-35s %s" % (order, title, ", ".join("%s:%d" % (k, kinds.count(k)) for k in sorted(set(kinds)))))
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with open(OUT, "w", encoding="utf-8") as fh:
-        json.dump({"course": "Python Completo", "generated_from": "legacy/scripts/verify_lessons.py", "lessons": lessons}, fh, ensure_ascii=False, indent=2)
-    print("\n%d lições: %d só com casos fortes, %d com casos legados -> %s" % (len(lessons), stats["strong"], stats["legacy"], os.path.relpath(OUT, ROOT)))
+        print("%02d %-35s %s" % (order, title, ", ".join("%s:%d" % (kind, kinds.count(kind)) for kind in sorted(set(kinds)))))
+    os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as output:
+        json.dump({"course": "Python Completo", "generated_from": "legacy/scripts/verify_lessons.py", "lessons": lessons}, output, ensure_ascii=False, indent=2)
+    print("\n%d lições: %d só com casos fortes, %d com casos legados -> %s" % (len(lessons), stats["strong"], stats["legacy"], os.path.relpath(OUTPUT_FILE, ROOT)))
 
 
 if __name__ == "__main__":

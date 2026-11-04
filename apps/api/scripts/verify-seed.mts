@@ -8,8 +8,7 @@
  */
 import { readFileSync } from "node:fs"
 import path from "node:path"
-import type { ProjectFile, RunnerResult, TestCase } from "@levelusp/contracts"
-import { testCasesSchema } from "@levelusp/contracts"
+import { DEFAULT_ENTRY_FILE, DEFAULT_RUNNER_LIMITS, testCasesSchema, type GradeResult, type ProjectFile, type RunnerResult, type TestCase } from "@levelusp/contracts"
 import { buildProbes, grade } from "../src/modules/grading/grading.domain"
 
 interface SeedLesson {
@@ -20,33 +19,41 @@ interface SeedLesson {
   test_cases: TestCase[]
 }
 
+const MAX_PRINTED_FAILURES = 3
+const TITLE_COLUMN_WIDTH = 34
+
 const runnerUrl = process.env.RUNNER_URL ?? "http://localhost:8081"
-const token = process.env.RUNNER_TOKEN ?? ""
+const runnerToken = process.env.RUNNER_TOKEN ?? ""
 const seedPath = path.resolve(process.cwd(), "../../packages/db/seed/python-completo.json")
+// Arquivo versionado no repositório: este script é justamente a verificação dele.
 const seed = JSON.parse(readFileSync(seedPath, "utf8")) as { lessons: SeedLesson[] }
 
-async function run(files: ProjectFile[], cases: TestCase[]) {
-  const probes = buildProbes(cases)
-  const res = await fetch(new URL("/v1/run", runnerUrl), {
+async function gradeOnRunner(files: ProjectFile[], cases: TestCase[]): Promise<GradeResult> {
+  const response = await fetch(new URL("/v1/run", runnerUrl), {
     method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-    body: JSON.stringify({ files, entry: "main.py", probes, limits: { timeoutMs: 10_000, memoryMb: 128 } }),
+    headers: { "content-type": "application/json", authorization: `Bearer ${runnerToken}` },
+    body: JSON.stringify({ files, entry: DEFAULT_ENTRY_FILE, probes: buildProbes(cases), limits: DEFAULT_RUNNER_LIMITS }),
   })
-  if (!res.ok) throw new Error(`executor respondeu ${res.status}: ${await res.text()}`)
-  const out = (await res.json()) as RunnerResult
-  return grade(cases, out.observations, out.durationMs)
+  if (!response.ok) throw new Error(`executor respondeu ${response.status}: ${await response.text()}`)
+  // Executor local da própria verificação; o formato é o contrato RunnerResult.
+  const result = (await response.json()) as RunnerResult
+  return grade(cases, result.observations, result.durationMs)
 }
 
-let failures = 0
+let failedLessons = 0
 for (const lesson of seed.lessons) {
   const cases = testCasesSchema.parse(lesson.test_cases)
-  const good = await run(lesson.reference_solution, cases)
-  const bad = await run(lesson.starter_files, cases)
-  const ok = good.allPassed && !bad.allPassed
-  if (!ok) failures++
-  const tag = ok ? "OK  " : "FALHA"
-  console.log(`${tag} ${String(lesson.order).padStart(2, "0")} ${lesson.title.padEnd(34)} solução=${good.allPassed ? "aprovada" : "REPROVADA"} esqueleto=${bad.allPassed ? "APROVADO" : "reprovado"} (${good.strength}, ${good.durationMs} ms)`)
-  if (!good.allPassed) for (const d of good.failureDetails.slice(0, 3)) console.log(`        ${d}`)
+  const solution = await gradeOnRunner(lesson.reference_solution, cases)
+  const starter = await gradeOnRunner(lesson.starter_files, cases)
+  const isConsistent = solution.allPassed && !starter.allPassed
+  if (!isConsistent) failedLessons++
+  const tag = isConsistent ? "OK  " : "FALHA"
+  console.log(
+    `${tag} ${String(lesson.order).padStart(2, "0")} ${lesson.title.padEnd(TITLE_COLUMN_WIDTH)} ` +
+      `solução=${solution.allPassed ? "aprovada" : "REPROVADA"} esqueleto=${starter.allPassed ? "APROVADO" : "reprovado"} ` +
+      `(${solution.strength}, ${solution.durationMs} ms)`,
+  )
+  if (!solution.allPassed) for (const detail of solution.failureDetails.slice(0, MAX_PRINTED_FAILURES)) console.log(`        ${detail}`)
 }
-console.log(failures ? `\n${failures} lição(ões) com problema` : "\nTODAS AS LIÇÕES VERIFICADAS")
-process.exit(failures ? 1 : 0)
+console.log(failedLessons ? `\n${failedLessons} lição(ões) com problema` : "\nTODAS AS LIÇÕES VERIFICADAS")
+process.exit(failedLessons ? 1 : 0)

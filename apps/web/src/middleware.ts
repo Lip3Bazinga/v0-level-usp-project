@@ -1,36 +1,33 @@
 import { NextResponse, type NextRequest } from "next/server"
+import { PROTECTED_ROUTE_PREFIXES, ROUTES, SESSION_COOKIE_NAME } from "@/lib/constants"
 
-/**
- * Middleware de navegação.
- *
- * Só decide REDIRECIONAMENTO: se a rota é protegida e não há cookie de sessão,
- * manda para /login?next=<rota>. Não valida a sessão (o cookie é httpOnly e
- * opaco para o Next) — a autorização real é feita pela API em cada chamada.
- * Um cookie forjado no máximo vê o "esqueleto" da página.
+/*
+ * Só decide o redirecionamento: rota protegida sem cookie de sessão vai para o
+ * login. O cookie é httpOnly e opaco para o Next, então não é validado aqui; a
+ * autorização real acontece na API a cada chamada, e um cookie forjado no
+ * máximo vê o esqueleto da página.
  */
 
-export const SESSION_COOKIE = "lvl_session"
-
-const PROTECTED_PREFIXES = ["/dashboard", "/lesson", "/ide", "/notas", "/settings", "/teacher", "/admin"]
 const EXAM_ROUTE = /^\/cursos\/[^/]+\/prova(?:\/|$)/
 
 export function isProtectedPath(pathname: string): boolean {
   if (EXAM_ROUTE.test(pathname)) return true
-  return PROTECTED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
+  return PROTECTED_ROUTE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
 }
 
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl
   if (!isProtectedPath(pathname)) return NextResponse.next()
-  if (request.cookies.get(SESSION_COOKIE)?.value) return NextResponse.next()
+  if (request.cookies.get(SESSION_COOKIE_NAME)?.value) return NextResponse.next()
 
-  const url = request.nextUrl.clone()
-  url.pathname = "/login"
-  url.search = ""
-  url.searchParams.set("next", `${pathname}${search}`)
-  return NextResponse.redirect(url)
+  const loginUrl = request.nextUrl.clone()
+  loginUrl.pathname = ROUTES.login
+  loginUrl.search = ""
+  loginUrl.searchParams.set("next", `${pathname}${search}`)
+  return NextResponse.redirect(loginUrl)
 }
 
+// O Next exige um `matcher` literal (analisado no build); manter igual a PROTECTED_ROUTE_PREFIXES + prova.
 export const config = {
   matcher: [
     "/dashboard/:path*",

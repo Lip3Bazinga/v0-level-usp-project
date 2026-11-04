@@ -13,24 +13,24 @@ export class LearningController {
   constructor(private readonly learning: LearningService) {}
 
   @Get("me/progress")
-  progress(@CurrentUser() user: AuthUser) {
-    return this.learning.myProgress(user.id)
+  listMyProgress(@CurrentUser() user: AuthUser) {
+    return this.learning.listMyProgress(user.id)
   }
 
   @Get("me/progress/completed")
-  completed(@CurrentUser() user: AuthUser) {
-    return this.learning.completedLessonIds(user.id)
+  listMyCompletedLessonIds(@CurrentUser() user: AuthUser) {
+    return this.learning.listMyCompletedLessonIds(user.id)
   }
 
   @Get("lessons/:id/snapshot")
-  snapshot(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string) {
+  getSnapshot(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string) {
     return this.learning.getSnapshot(user, id)
   }
 
   @HttpCode(204)
   @Put("lessons/:id/snapshot")
-  async save(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(saveSnapshotSchema)) body: SaveSnapshotInput) {
-    await this.learning.saveSnapshot(user, id, body.files)
+  async updateSnapshot(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(saveSnapshotSchema)) body: SaveSnapshotInput) {
+    await this.learning.updateSnapshot(user, id, body.files)
   }
 
   @HttpCode(200)
@@ -41,7 +41,7 @@ export class LearningController {
 
   @HttpCode(200)
   @Post("lessons/:id/complete")
-  complete(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string) {
+  completeTheory(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string) {
     return this.learning.completeTheory(user, id)
   }
 }

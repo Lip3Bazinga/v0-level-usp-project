@@ -1,7 +1,4 @@
-/**
- * Iniciais do nome (no máximo 2 letras) para avatares.
- * Fonte única — antes duplicado em 11 arquivos.
- */
+/** Até duas iniciais do nome, para avatares sem foto. */
 export function getInitials(fullName: string): string {
   return fullName
     .split(" ")

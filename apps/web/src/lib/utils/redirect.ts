@@ -1,11 +1,12 @@
+import { AUTH_ROUTES, ROUTES } from "@/lib/constants"
+
 /**
- * Caminho interno seguro para redirecionar após o login.
- * Aceita só caminhos relativos da própria aplicação ("/x"), recusando URLs
- * absolutas e "//host" (open redirect). Padrão: /dashboard.
+ * Destino seguro após o login. Só aceita caminhos internos ("/x"): URLs absolutas,
+ * "//host" e "/\host" abririam um redirecionamento para fora (open redirect).
  */
-export function safeRedirectPath(raw: string | null | undefined, fallback = "/dashboard"): string {
+export function safeRedirectPath(raw: string | null | undefined, fallback: string = ROUTES.dashboard): string {
   if (!raw) return fallback
   if (!raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) return fallback
-  if (raw.startsWith("/login") || raw.startsWith("/signup")) return fallback
+  if (AUTH_ROUTES.some((route) => raw.startsWith(route))) return fallback
   return raw
 }

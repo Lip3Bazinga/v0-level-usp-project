@@ -1,21 +1,9 @@
-import type { LessonType, UserRole } from "@levelusp/contracts"
+import type { LessonType } from "@levelusp/contracts"
 
-/** Quem está agindo (o mínimo para decidir autorização de dono). */
-export interface Actor {
-  id: string
-  role: UserRole
-}
-
-/** Dono do recurso ou admin. */
-export function canManage(actor: Actor | undefined, ownerId: string | null): boolean {
-  if (!actor) return false
-  return actor.role === "admin" || (ownerId !== null && ownerId === actor.id)
-}
-
-/** Publicado é visível para todos; rascunho só para o dono e admins. */
-export function canView(actor: Actor | undefined, published: boolean, ownerId: string | null): boolean {
-  return published || canManage(actor, ownerId)
-}
+/** Slug usado quando o título não tem nenhum caractere aproveitável. */
+export const DEFAULT_SLUG = "licao"
+const MAX_SLUG_LENGTH = 80
+const COMBINING_MARKS = /[̀-ͯ]/g
 
 /**
  * Slug legível a partir do título (mesma regra do front antigo):
@@ -25,25 +13,30 @@ export function generateSlug(title: string): string {
   return title
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(COMBINING_MARKS, "")
     .replace(/[^a-z0-9\s-]/g, "")
     .trim()
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
-    .slice(0, 80)
+    .slice(0, MAX_SLUG_LENGTH)
     .replace(/-$/, "")
 }
 
 /** Primeiro slug livre: `base`, `base-2`, `base-3`… */
 export function pickUniqueSlug(base: string, taken: Iterable<string>): string {
-  const root = base || "licao"
+  const root = base || DEFAULT_SLUG
   const used = new Set(taken)
   if (!used.has(root)) return root
-  for (let i = 2; ; i++) {
-    const candidate = `${root}-${i}`
+  for (let suffix = 2; ; suffix++) {
+    const candidate = `${root}-${suffix}`
     if (!used.has(candidate)) return candidate
   }
+}
+
+/** Desempate de corrida entre duas criações com o mesmo título: sufixo aleatório curto. */
+export function withRandomSuffix(slug: string, random: () => number = Math.random): string {
+  return `${slug}-${random().toString(36).slice(2, 8)}`
 }
 
 export type ReorderCheck = { ok: true } | { ok: false; reason: "DUPLICATE" | "FOREIGN" }
@@ -65,11 +58,17 @@ export interface PublishBlocker {
   message: string
 }
 
+export interface PublishCandidate {
+  lessonType: LessonType
+  testCaseCount: number
+  quizQuestionCount: number
+}
+
 /**
  * Uma lição só pode ficar publicada se o aluno conseguir concluí-la:
  * exercício de código precisa de gabarito; quiz precisa de questões.
  */
-export function publishBlocker(lesson: { lessonType: LessonType; testCaseCount: number; quizQuestionCount: number }): PublishBlocker | null {
+export function publishBlocker(lesson: PublishCandidate): PublishBlocker | null {
   if (lesson.lessonType === "coding" && lesson.testCaseCount === 0) {
     return { code: "NO_TESTS", message: "Cadastre ao menos um caso de teste antes de publicar a lição." }
   }

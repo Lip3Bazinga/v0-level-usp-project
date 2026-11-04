@@ -1,18 +1,22 @@
 import { Injectable } from "@nestjs/common"
 import type { ActivityDay, Badge, Profile, PublicProfile, UpdateMyProfileInput, UserBadge } from "@levelusp/contracts"
+import type { ProfileInsert } from "@levelusp/db"
 import { Conflict, NotFound } from "@/common/errors/app-error"
+import { buildPatch, type PatchMapping } from "@/common/mapping/patch"
+import { MS_PER_DAY, saoPauloDate } from "@/common/time/time"
 import { StorageService } from "@/infra/storage/storage.service"
-import { saoPauloDate } from "../gamification/gamification.domain"
+import { toBadge, toUserBadge } from "../gamification/badge.mapper"
 import { toProfile, toPublicProfile } from "./profile.mapper"
 import { UsersRepository } from "./users.repository"
 
-type BadgeRow = Awaited<ReturnType<UsersRepository["allBadges"]>>[number]
+/** O mapa de atividade do perfil cobre um ano. */
+const ACTIVITY_DAYS = 365
 
-export function toBadge(b: BadgeRow): Badge {
-  return {
-    id: b.id, name: b.name, description: b.description, icon: b.icon, rarity: b.rarity,
-    criteria_type: b.criteriaType, criteria_value: b.criteriaValue, sort_order: b.sortOrder, active: b.active, created_at: b.createdAt,
-  }
+const MY_PROFILE_PATCH: PatchMapping<UpdateMyProfileInput, ProfileInsert> = {
+  full_name: (fullName) => ({ fullName }),
+  username: (username) => ({ username }),
+  bio: (bio) => ({ bio }),
+  avatar_url: (avatarUrl) => ({ avatarUrl }),
 }
 
 @Injectable()
@@ -22,53 +26,50 @@ export class UsersService {
     private readonly storage: StorageService,
   ) {}
 
-  async updateMe(userId: string, input: UpdateMyProfileInput): Promise<Profile> {
-    if (input.username && (await this.repo.usernameTakenByOther(input.username, userId))) {
+  async updateMyProfile(userId: string, input: UpdateMyProfileInput): Promise<Profile> {
+    if (input.username && (await this.repo.isUsernameTaken(input.username, userId))) {
       throw Conflict("Este nome de usuário já está em uso.", "USERNAME_TAKEN")
     }
-    const previous = input.avatar_url !== undefined ? await this.repo.findById(userId) : undefined
-    if (input.avatar_url !== undefined) await this.storage.assertUsableUrl(input.avatar_url, userId)
-    const row = await this.repo.update(userId, {
-      ...(input.full_name !== undefined ? { fullName: input.full_name } : {}),
-      ...(input.username !== undefined ? { username: input.username } : {}),
-      ...(input.bio !== undefined ? { bio: input.bio } : {}),
-      ...(input.avatar_url !== undefined ? { avatarUrl: input.avatar_url } : {}),
-    })
-    if (!row) throw NotFound("Perfil")
+    const isChangingAvatar = input.avatar_url !== undefined
+    const previousProfile = isChangingAvatar ? await this.repo.findById(userId) : undefined
+    if (isChangingAvatar) await this.storage.assertUsableUrl(input.avatar_url, userId)
+    const profile = await this.repo.update(userId, buildPatch(input, MY_PROFILE_PATCH))
+    if (!profile) throw NotFound("Perfil")
     // Avatar trocado: remove o arquivo antigo (só se foi enviado por este usuário).
-    if (previous?.avatarUrl && previous.avatarUrl !== row.avatarUrl) await this.storage.remove(previous.avatarUrl, userId)
-    return toProfile(row)
+    if (previousProfile?.avatarUrl && previousProfile.avatarUrl !== profile.avatarUrl) {
+      await this.storage.delete(previousProfile.avatarUrl, userId)
+    }
+    return toProfile(profile)
   }
 
-  async byUsername(username: string): Promise<PublicProfile> {
-    const row = await this.repo.findByUsername(username)
-    if (!row || row.suspended) throw NotFound("Perfil")
-    return toPublicProfile(row)
+  async getByUsername(username: string): Promise<PublicProfile> {
+    const profile = await this.repo.findByUsername(username)
+    if (!profile || profile.suspended) throw NotFound("Perfil")
+    return toPublicProfile(profile)
   }
 
-  async leaderboard(limit: number): Promise<PublicProfile[]> {
-    return (await this.repo.leaderboard(limit)).map(toPublicProfile)
+  async listLeaderboard(limit: number): Promise<PublicProfile[]> {
+    return (await this.repo.listLeaderboard(limit)).map(toPublicProfile)
   }
 
-  /** 365 dias, do mais antigo ao mais recente, sem buracos. */
-  async activity(userId: string, now = new Date()): Promise<ActivityDay[]> {
-    const since = new Date(now.getTime() - 365 * 86_400_000)
-    const rows = await this.repo.activity(userId, since)
-    const byDay = new Map(rows.map((r) => [r.day, r]))
+  /** Um ano, do mais antigo ao mais recente, sem buracos. */
+  async listActivity(userId: string, now = new Date()): Promise<ActivityDay[]> {
+    const since = new Date(now.getTime() - ACTIVITY_DAYS * MS_PER_DAY)
+    const activityByDay = new Map((await this.repo.listActivity(userId, since)).map((day) => [day.day, day]))
     const days: ActivityDay[] = []
-    for (let i = 364; i >= 0; i--) {
-      const key = saoPauloDate(new Date(now.getTime() - i * 86_400_000))
-      const r = byDay.get(key)
-      days.push({ date: key, xp: r?.xp ?? 0, activities: r?.n ?? 0 })
+    for (let daysAgo = ACTIVITY_DAYS - 1; daysAgo >= 0; daysAgo--) {
+      const date = saoPauloDate(new Date(now.getTime() - daysAgo * MS_PER_DAY))
+      const activity = activityByDay.get(date)
+      days.push({ date, xp: activity?.xp ?? 0, activities: activity?.completions ?? 0 })
     }
     return days
   }
 
-  async badges(includeInactive = false): Promise<Badge[]> {
-    return (await this.repo.allBadges(includeInactive)).map(toBadge)
+  async listBadges(includeInactive = false): Promise<Badge[]> {
+    return (await this.repo.listBadges(includeInactive)).map(toBadge)
   }
 
-  async userBadges(userId: string): Promise<UserBadge[]> {
-    return (await this.repo.userBadges(userId)).map((b) => ({ user_id: b.userId, badge_id: b.badgeId, earned_at: b.earnedAt }))
+  async listUserBadges(userId: string): Promise<UserBadge[]> {
+    return (await this.repo.listUserBadges(userId)).map(toUserBadge)
   }
 }

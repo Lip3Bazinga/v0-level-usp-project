@@ -5,25 +5,28 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Loader2, ShieldAlert } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import { ROUTES } from "@/lib/constants"
 
-// Protege todas as rotas /teacher/*. Sem isto, um aluno que navegue direto para
-// /teacher/curso/new recebe o editor completo e só descobre a falta de permissão
-// como um 403 da API ao salvar. A API continua sendo a fonte de verdade
-// (@Roles("teacher", "admin") + checagem de dono) — este guard só dá uma
-// mensagem clara antes.
-export default function TeacherLayout({ children }: { children: ReactNode }) {
+interface TeacherLayoutProps {
+  children: ReactNode
+}
+
+/**
+ * Protege todas as rotas /teacher/*. Sem isto, um aluno que navegue direto para
+ * /teacher/curso/new recebe o editor completo e só descobre a falta de permissão
+ * como um 403 da API ao salvar. A API continua sendo a fonte de verdade
+ * (@Roles("teacher", "admin") + checagem de dono); este guard só dá uma mensagem clara antes.
+ */
+export default function TeacherLayout({ children }: TeacherLayoutProps) {
   const router = useRouter()
   const { user, profile, isLoading } = useAuth()
-
-  const role = profile?.role
-  const allowed = role === "teacher" || role === "admin"
+  const canAuthor = profile?.role === "teacher" || profile?.role === "admin"
 
   useEffect(() => {
     if (isLoading) return
-    if (!user) router.replace("/login")
+    if (!user) router.replace(ROUTES.login)
   }, [isLoading, user, router])
 
-  // Enquanto carrega, ou logo após disparar o redirect para /login
   if (isLoading || !user) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-white">
@@ -33,7 +36,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
     )
   }
 
-  if (!allowed) {
+  if (!canAuthor) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-white px-6 text-center">
         <ShieldAlert className="h-16 w-16 text-muted-foreground/30" />
@@ -46,7 +49,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
           um administrador da plataforma.
         </p>
         <Link
-          href="/dashboard"
+          href={ROUTES.dashboard}
           className="rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-level-purple-dark"
         >
           Voltar ao painel

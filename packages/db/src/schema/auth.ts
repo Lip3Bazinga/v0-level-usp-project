@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm"
 import { index, integer, pgTable, primaryKey, text, uniqueIndex, uuid } from "drizzle-orm/pg-core"
-import { createdAt, id, tstz, updatedAt } from "./_helpers"
+import { createdAt, id, timestampTz, updatedAt } from "./_helpers"
 
 /**
  * Credenciais (autenticação própria). Separado de `profiles` (domínio): o que
@@ -13,14 +13,14 @@ export const users = pgTable(
     email: text("email").notNull(),
     /** Hash argon2id (ou bcrypt legado do Supabase, re-hasheado no próximo login). */
     passwordHash: text("password_hash"),
-    emailVerifiedAt: tstz("email_verified_at"),
+    emailVerifiedAt: timestampTz("email_verified_at"),
     failedLoginCount: integer("failed_login_count").notNull().default(0),
-    lockedUntil: tstz("locked_until"),
-    lastSignInAt: tstz("last_sign_in_at"),
+    lockedUntil: timestampTz("locked_until"),
+    lastSignInAt: timestampTz("last_sign_in_at"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [uniqueIndex("users_email_lower_key").on(sql`lower(${t.email})`)],
+  (table) => [uniqueIndex("users_email_lower_key").on(sql`lower(${table.email})`)],
 )
 
 /** Sessões opacas: o cookie carrega o token; o banco guarda só o SHA-256. */
@@ -29,21 +29,23 @@ export const sessions = pgTable(
   {
     id: text("id").primaryKey(),
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    expiresAt: tstz("expires_at").notNull(),
-    lastSeenAt: tstz("last_seen_at").notNull().defaultNow(),
+    expiresAt: timestampTz("expires_at").notNull(),
+    lastSeenAt: timestampTz("last_seen_at").notNull().defaultNow(),
     ip: text("ip"),
     userAgent: text("user_agent"),
-    revokedAt: tstz("revoked_at"),
+    revokedAt: timestampTz("revoked_at"),
     createdAt: createdAt(),
   },
-  (t) => [index("sessions_user_idx").on(t.userId)],
+  (table) => [index("sessions_user_idx").on(table.userId)],
 )
+
+export type UserRow = typeof users.$inferSelect
 
 export const passwordResetTokens = pgTable("password_reset_tokens", {
   tokenHash: text("token_hash").primaryKey(),
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  expiresAt: tstz("expires_at").notNull(),
-  usedAt: tstz("used_at"),
+  expiresAt: timestampTz("expires_at").notNull(),
+  usedAt: timestampTz("used_at"),
   createdAt: createdAt(),
 })
 
@@ -56,5 +58,5 @@ export const oauthAccounts = pgTable(
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     createdAt: createdAt(),
   },
-  (t) => [primaryKey({ columns: [t.provider, t.providerAccountId] })],
+  (table) => [primaryKey({ columns: [table.provider, table.providerAccountId] })],
 )

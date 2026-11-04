@@ -17,7 +17,7 @@ import { UsersModule } from "./users/users.module"
 
 /**
  * Módulos de funcionalidade. Cada um é dono do seu pedaço do domínio:
- * controller (HTTP fino) → service (regras) → repository (SQL via Drizzle).
+ * controller (HTTP fino) → service (regras) → repository (SQL via Drizzle) → mapper (linha → DTO).
  */
 export const FEATURE_MODULES = [
   HealthModule,

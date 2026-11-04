@@ -1,119 +1,141 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 import Link from "next/link"
 import {
-  Search, Plus, Eye, Edit3, Trash2, Globe, EyeOff,
-  BookOpen, Zap, Clock, Loader2, FileText, List, Grid3X3, Columns, Copy,
+  BookOpen, Clock, Columns, Copy, Edit3, EyeOff, FileText, Globe, Grid3X3, List, Loader2, Plus, Search, Trash2, Zap,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { DIFFICULTIES, type Difficulty, type Lesson } from "@levelusp/contracts"
 import { DiffBadge, PubBadge } from "@/components/ui/badges"
 import { IconBtn } from "@/components/ui/icon-btn"
-import type { Lesson, LessonInput } from "@levelusp/contracts"
-import { createLesson, deleteLesson, errorMessage, fetchLessonForAuthoring, toggleLessonPublished } from "@/lib/api"
-import type { OnToast } from "@/lib/types/ui"
+import { createLesson, deleteLesson, fetchLessonForAuthoring, getErrorMessage, setLessonPublished } from "@/lib/api"
+import { DIFFICULTY_LABELS, ROUTES } from "@/lib/constants"
+import type { OnToast } from "@/lib/types"
+import { cn } from "@/lib/utils"
+import { AdminModal, ModalCancelButton } from "../admin-modal"
+import type { ListUpdate } from "../use-admin-dashboard"
+import { duplicateLessonInput, filterLessons, type PublicationFilter } from "./lesson-list"
+
+const VIEW_MODES = [
+  { id: "list", icon: List, label: "Lista" },
+  { id: "grid", icon: Grid3X3, label: "Grade" },
+  { id: "kanban", icon: Columns, label: "Quadro" },
+] as const
+
+type ViewMode = (typeof VIEW_MODES)[number]["id"]
+
+const PUBLICATION_FILTERS: { id: PublicationFilter; label: string }[] = [
+  { id: "all", label: "Todas" },
+  { id: "published", label: "Publicadas" },
+  { id: "draft", label: "Rascunhos" },
+]
+
+const KANBAN_COLUMNS = [
+  { id: "draft", label: "Rascunho", toneClass: "text-muted-foreground bg-muted", matches: (lesson: Lesson) => !lesson.published },
+  { id: "published", label: "Publicada", toneClass: "text-success bg-success/10", matches: (lesson: Lesson) => lesson.published },
+  { id: "advanced", label: "Avançadas", toneClass: "text-destructive bg-destructive/10", matches: (lesson: Lesson) => lesson.difficulty === "avancado" },
+]
+
+const ALL_MODULES = "all"
+
+/** Mesmo visual do `IconBtn` pequeno, para links (não aninhar `<button>` em `<a>`). */
+const ICON_LINK_CLASS =
+  "flex h-8 w-8 items-center justify-center rounded-lg transition-colors text-muted-foreground hover:bg-level-purple-light hover:text-level-purple"
+
+const CHIP_BASE_CLASS = "rounded-lg px-3 py-1.5 text-sm font-semibold transition-all"
+const CHIP_ACTIVE_CLASS = "bg-level-purple text-white shadow-sm"
+const CHIP_IDLE_CLASS = "bg-muted text-muted-foreground hover:bg-level-purple-subtle hover:text-level-purple"
+
+function formatOrder(lesson: Lesson): string {
+  return lesson.order.toString().padStart(2, "0")
+}
 
 interface LessonsPageProps {
   lessons: Lesson[]
-  setLessons: (l: Lesson[] | ((p: Lesson[]) => Lesson[])) => void
+  updateLessons: ListUpdate<Lesson>
   onToast: OnToast
 }
 
-export function LessonsPageEnhanced({ lessons, setLessons, onToast }: LessonsPageProps) {
-  const [q, setQ] = useState("")
-  const [status, setStatus] = useState("all")
-  const [diff, setDiff] = useState("all")
-  const [mod, setMod] = useState("all")
-  const [view, setView] = useState<"list" | "grid" | "kanban">("list")
-  const [toDelete, setToDelete] = useState<Lesson | null>(null)
+export function LessonsPage({ lessons, updateLessons, onToast }: LessonsPageProps) {
+  const [search, setSearch] = useState("")
+  const [publication, setPublication] = useState<PublicationFilter>("all")
+  const [difficulty, setDifficulty] = useState<Difficulty | null>(null)
+  const [moduleTitle, setModuleTitle] = useState(ALL_MODULES)
+  const [view, setView] = useState<ViewMode>("list")
+  const [pendingDelete, setPendingDelete] = useState<Lesson | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
 
-  const modules = useMemo(() => Array.from(new Set(lessons.map((l) => l.module).filter(Boolean))), [lessons])
+  const moduleTitles = useMemo(() => Array.from(new Set(lessons.map((lesson) => lesson.module).filter(Boolean))), [lessons])
+  const filtered = useMemo(
+    () => filterLessons(lessons, { search, publication, difficulty, moduleTitle: moduleTitle === ALL_MODULES ? null : moduleTitle }),
+    [lessons, search, publication, difficulty, moduleTitle],
+  )
+  const publishedCount = lessons.filter((lesson) => lesson.published).length
 
-  const filtered = useMemo(() => {
-    return lessons
-      .filter((l) => {
-        if (q && !l.title.toLowerCase().includes(q.toLowerCase())) return false
-        if (status === "published" && !l.published) return false
-        if (status === "draft" && l.published) return false
-        if (diff !== "all" && l.difficulty !== diff) return false
-        if (mod !== "all" && l.module !== mod) return false
-        return true
-      })
-      .sort((a, b) => a.order - b.order)
-  }, [lessons, q, status, diff, mod])
-
-  const handleToggle = async (l: Lesson) => {
-    setTogglingId(l.id)
+  const handleTogglePublished = async (lesson: Lesson) => {
+    setTogglingId(lesson.id)
     try {
-      const updated = await toggleLessonPublished(l.id, !l.published)
-      setLessons((prev) => prev.map((x) => (x.id === l.id ? { ...x, published: updated.published } : x)))
-      onToast(l.published ? "Lição despublicada" : "Lição publicada", "success")
-    } catch (err) {
+      const updated = await setLessonPublished(lesson.id, !lesson.published)
+      updateLessons((current) => current.map((item) => (item.id === lesson.id ? { ...item, published: updated.published } : item)))
+      onToast(lesson.published ? "Lição despublicada" : "Lição publicada", "success")
+    } catch (error) {
       // Ex.: lição de código sem casos de teste não pode ser publicada.
-      onToast(errorMessage(err, "Erro ao alterar status da lição"), "danger")
+      onToast(getErrorMessage(error, "Erro ao alterar status da lição"), "error")
     } finally {
       setTogglingId(null)
     }
   }
 
-  const handleDelete = async () => {
-    const target = toDelete
-    if (!target) return
-    setDeletingId(target.id)
-    setToDelete(null)
+  const handleDelete = async (lesson: Lesson) => {
+    setDeletingId(lesson.id)
+    setPendingDelete(null)
     try {
-      await deleteLesson(target.id)
-      setLessons((prev) => prev.filter((x) => x.id !== target.id))
+      await deleteLesson(lesson.id)
+      updateLessons((current) => current.filter((item) => item.id !== lesson.id))
       onToast("Lição excluída", "success")
-    } catch (err) {
-      onToast(errorMessage(err, "Erro ao excluir lição"), "danger")
+    } catch (error) {
+      onToast(getErrorMessage(error, "Erro ao excluir lição"), "error")
     } finally {
       setDeletingId(null)
     }
   }
 
   /** Duplica de verdade (com gabarito e sem curso), sempre como rascunho. */
-  const duplicate = async (l: Lesson) => {
-    setDuplicatingId(l.id)
+  const handleDuplicate = async (lesson: Lesson) => {
+    setDuplicatingId(lesson.id)
     try {
-      const full = await fetchLessonForAuthoring(l.id)
-      if (!full) throw new Error("not found")
-      const input: LessonInput = {
-        title: `${full.title} (cópia)`.slice(0, 160),
-        description: full.description,
-        module: full.module,
-        module_id: full.module_id,
-        course_id: null,
-        order: full.order,
-        difficulty: full.difficulty,
-        content_markdown: full.content_markdown,
-        starter_code: full.starter_code,
-        starter_files: full.starter_files ?? [],
-        checkpoints: full.checkpoints ?? [],
-        libraries: full.libraries ?? [],
-        lesson_type: full.lesson_type,
-        quiz_passing_score: full.quiz_passing_score,
-        xp_reward: full.xp_reward,
-        time_limit: full.time_limit,
-        test_cases: full.test_cases ?? [],
-      }
-      const created = await createLesson(input)
-      setLessons((prev) => [...prev, created])
+      const source = await fetchLessonForAuthoring(lesson.id)
+      if (!source) throw new Error("Lição não encontrada.")
+      const created = await createLesson(duplicateLessonInput(source))
+      updateLessons((current) => [...current, created])
       onToast(
-        full.lesson_type === "quiz"
+        source.lesson_type === "quiz"
           ? "Lição duplicada como rascunho (as questões do questionário não são copiadas)"
           : "Lição duplicada como rascunho",
         "success",
       )
-    } catch (err) {
-      onToast(errorMessage(err, "Erro ao duplicar lição"), "danger")
+    } catch (error) {
+      onToast(getErrorMessage(error, "Erro ao duplicar lição"), "error")
     } finally {
       setDuplicatingId(null)
     }
   }
+
+  const rowActions = (lesson: Lesson, { withDuplicate, withPublishedTone }: { withDuplicate: boolean; withPublishedTone: boolean }) => (
+    <LessonActions
+      lesson={lesson}
+      isToggling={togglingId === lesson.id}
+      isDeleting={deletingId === lesson.id}
+      isDuplicating={duplicatingId === lesson.id}
+      withDuplicate={withDuplicate}
+      withPublishedTone={withPublishedTone}
+      onTogglePublished={() => handleTogglePublished(lesson)}
+      onDuplicate={() => handleDuplicate(lesson)}
+      onDelete={() => setPendingDelete(lesson)}
+    />
+  )
 
   return (
     <div className="space-y-5 p-6">
@@ -121,12 +143,12 @@ export function LessonsPageEnhanced({ lessons, setLessons, onToast }: LessonsPag
         <div>
           <h2 className="text-xl font-extrabold text-level-purple-dark">Lições</h2>
           <p className="text-sm text-muted-foreground">
-            {filtered.length} de {lessons.length} · {lessons.filter((l) => l.published).length} publicadas
+            {filtered.length} de {lessons.length} · {publishedCount} publicadas
           </p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-0.5 rounded-xl border border-border bg-white p-0.5">
-            {([{ id: "list", Icon: List, label: "Lista" }, { id: "grid", Icon: Grid3X3, label: "Grade" }, { id: "kanban", Icon: Columns, label: "Quadro" }] as const).map(({ id, Icon, label }) => (
+            {VIEW_MODES.map(({ id, icon: Icon, label }) => (
               <button
                 key={id}
                 aria-label={`Visualizar em ${label.toLowerCase()}`}
@@ -141,10 +163,8 @@ export function LessonsPageEnhanced({ lessons, setLessons, onToast }: LessonsPag
               </button>
             ))}
           </div>
-          <Link href="/teacher/edit/new">
-            <button className="btn-3d flex items-center gap-2 rounded-xl bg-level-purple px-4 py-2 text-sm font-bold text-white">
-              <Plus className="h-4 w-4" /> Nova Lição
-            </button>
+          <Link href={ROUTES.teacherNewLesson} className="btn-3d flex items-center gap-2 rounded-xl bg-level-purple px-4 py-2 text-sm font-bold text-white">
+            <Plus className="h-4 w-4" /> Nova Lição
           </Link>
         </div>
       </div>
@@ -153,215 +173,264 @@ export function LessonsPageEnhanced({ lessons, setLessons, onToast }: LessonsPag
         <div className="relative min-w-[240px] max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
+            aria-label="Buscar lição"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
             placeholder="Buscar lição..."
             className="w-full rounded-xl border border-border bg-white py-2 pl-9 pr-3 text-sm focus:border-level-purple focus:outline-none"
           />
         </div>
         <select
           aria-label="Filtrar por módulo"
-          value={mod}
-          onChange={(e) => setMod(e.target.value)}
+          value={moduleTitle}
+          onChange={(event) => setModuleTitle(event.target.value)}
           className="rounded-xl border border-border bg-white px-3 py-2 text-sm font-semibold focus:border-level-purple focus:outline-none"
         >
-          <option value="all">Todos módulos</option>
-          {modules.map((m) => <option key={m} value={m}>{m}</option>)}
+          <option value={ALL_MODULES}>Todos módulos</option>
+          {moduleTitles.map((title) => (
+            <option key={title} value={title}>{title}</option>
+          ))}
         </select>
-        {(["all", "published", "draft"] as const).map((s) => (
-          <button key={s} onClick={() => setStatus(s)}
-            className={cn("rounded-lg px-3 py-1.5 text-sm font-semibold transition-all",
-              status === s ? "bg-level-purple text-white shadow-sm" : "bg-muted text-muted-foreground hover:bg-level-purple-subtle hover:text-level-purple"
-            )}
+        {PUBLICATION_FILTERS.map((filter) => (
+          <button
+            key={filter.id}
+            onClick={() => setPublication(filter.id)}
+            className={cn(CHIP_BASE_CLASS, publication === filter.id ? CHIP_ACTIVE_CLASS : CHIP_IDLE_CLASS)}
           >
-            {s === "all" ? "Todas" : s === "published" ? "Publicadas" : "Rascunhos"}
+            {filter.label}
           </button>
         ))}
         <div className="h-5 w-px bg-border" />
-        {(["iniciante", "intermediario", "avancado"] as const).map((d) => (
-          <button key={d} onClick={() => setDiff(diff === d ? "all" : d)}
-            className={cn("rounded-lg px-3 py-1.5 text-sm font-semibold transition-all",
-              diff === d ? "bg-level-purple text-white shadow-sm" : "bg-muted text-muted-foreground hover:bg-level-purple-subtle hover:text-level-purple"
-            )}
+        {DIFFICULTIES.map((level) => (
+          <button
+            key={level}
+            onClick={() => setDifficulty(difficulty === level ? null : level)}
+            className={cn(CHIP_BASE_CLASS, difficulty === level ? CHIP_ACTIVE_CLASS : CHIP_IDLE_CLASS)}
           >
-            {d === "iniciante" ? "Iniciante" : d === "intermediario" ? "Intermediário" : "Avançado"}
+            {DIFFICULTY_LABELS[level]}
           </button>
         ))}
       </div>
 
       {view === "list" && (
-        <div className="overflow-hidden rounded-2xl border border-border bg-white">
-          <table className="w-full text-left">
-            <thead className="bg-muted/30">
-              <tr className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                <th className="w-10 px-4 py-2.5">#</th>
-                <th className="px-2 py-2.5">Lição</th>
-                <th className="hidden px-2 py-2.5 md:table-cell">Módulo</th>
-                <th className="hidden px-2 py-2.5 lg:table-cell">Dificuldade</th>
-                <th className="hidden px-2 py-2.5 text-right lg:table-cell">XP</th>
-                <th className="px-2 py-2.5">Status</th>
-                <th className="w-36 px-2 py-2.5" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filtered.map((l) => (
-                <tr key={l.id} className="group hover:bg-level-purple-subtle/30">
-                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{l.order.toString().padStart(2, "0")}</td>
-                  <td className="px-2 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-level-purple-light text-level-purple">
-                        <BookOpen className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-bold text-level-purple-dark">{l.title}</p>
-                        <p className="truncate text-[11px] text-muted-foreground">
-                          {(l.libraries?.length ?? 0) > 0 ? (l.libraries ?? []).join(", ") : "Sem bibliotecas"} · ⏱ {l.time_limit}min
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="hidden px-2 py-3 text-xs text-muted-foreground md:table-cell">{l.module}</td>
-                  <td className="hidden px-2 py-3 lg:table-cell"><DiffBadge d={l.difficulty} /></td>
-                  <td className="hidden px-2 py-3 text-right lg:table-cell">
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-level-purple">
-                      <Zap className="h-2.5 w-2.5" />+{l.xp_reward}
-                    </span>
-                  </td>
-                  <td className="px-2 py-3"><PubBadge published={l.published} /></td>
-                  <td className="px-2 py-3">
-                    <div className="flex items-center justify-end gap-0.5">
-                      <IconBtn title={l.published ? "Despublicar" : "Publicar"} size="sm" tone={l.published ? "success" : "neutral"} onClick={() => handleToggle(l)}>
-                        {togglingId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : l.published ? <Globe className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                      </IconBtn>
-                      <Link href={`/teacher/edit/${l.id}`}>
-                        <IconBtn title="Editar" size="sm"><Edit3 className="h-3.5 w-3.5" /></IconBtn>
-                      </Link>
-                      <IconBtn title="Duplicar" size="sm" onClick={() => duplicate(l)}>
-                        {duplicatingId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
-                      </IconBtn>
-                      <IconBtn title="Excluir" size="sm" tone="danger" onClick={() => setToDelete(l)}>
-                        {deletingId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                      </IconBtn>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="py-16 text-center">
-                    <FileText className="mx-auto h-10 w-10 text-muted-foreground/30" />
-                    <p className="mt-3 text-sm font-semibold text-muted-foreground">Nenhuma lição encontrada</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <LessonTable lessons={filtered} renderActions={(lesson) => rowActions(lesson, { withDuplicate: true, withPublishedTone: true })} />
       )}
 
       {view === "grid" && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((l) => (
-            <div key={l.id} className="cursor-pointer rounded-2xl border border-border bg-white p-5 transition-all hover:-translate-y-0.5 hover:border-level-purple-medium hover:shadow-lg">
-              <div className="mb-3 flex items-start justify-between">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-level-purple-light text-level-purple">
-                  <BookOpen className="h-5 w-5" />
-                </div>
-                <PubBadge published={l.published} />
-              </div>
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{l.module} · Lição {l.order.toString().padStart(2, "0")}</p>
-              <h3 className="mt-1 text-base font-extrabold leading-snug text-level-purple-dark">{l.title}</h3>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <DiffBadge d={l.difficulty} />
-                <span className="inline-flex items-center gap-1 rounded-full bg-level-purple-subtle px-2 py-0.5 text-[11px] font-bold text-level-purple">
-                  <Zap className="h-2.5 w-2.5" />{l.xp_reward} XP
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                  <Clock className="h-2.5 w-2.5" />{l.time_limit}min
-                </span>
-              </div>
-              <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
-                <div className="text-[11px] text-muted-foreground" />
-                <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-                  <IconBtn title={l.published ? "Despublicar" : "Publicar"} size="sm" onClick={() => handleToggle(l)}>
-                    {togglingId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : l.published ? <Globe className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                  </IconBtn>
-                  <Link href={`/teacher/edit/${l.id}`}>
-                    <IconBtn title="Editar" size="sm"><Edit3 className="h-3.5 w-3.5" /></IconBtn>
-                  </Link>
-                  <IconBtn title="Excluir" size="sm" tone="danger" onClick={() => setToDelete(l)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </IconBtn>
-                </div>
-              </div>
-            </div>
+          {filtered.map((lesson) => (
+            <LessonGridCard key={lesson.id} lesson={lesson} actions={rowActions(lesson, { withDuplicate: false, withPublishedTone: false })} />
           ))}
         </div>
       )}
 
-      {view === "kanban" && (
-        <div className="grid gap-4 lg:grid-cols-3">
-          {[
-            { key: "draft",    label: "Rascunho",  tone: "text-muted-foreground bg-muted",      filter: (l: Lesson) => !l.published },
-            { key: "published", label: "Publicada", tone: "text-success bg-success/10",          filter: (l: Lesson) => l.published },
-            { key: "advanced",  label: "Avançadas", tone: "text-destructive bg-destructive/10",  filter: (l: Lesson) => l.difficulty === "avancado" },
-          ].map((col) => {
-            const items = filtered.filter(col.filter)
-            return (
-              <div key={col.key} className="rounded-2xl border border-border bg-muted/30 p-3">
-                <div className="mb-3 flex items-center justify-between px-1">
-                  <div className="flex items-center gap-2">
-                    <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase", col.tone)}>{col.label}</span>
-                    <span className="text-xs font-bold text-muted-foreground">{items.length}</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {items.map((l) => (
-                    <div key={l.id} className="cursor-pointer rounded-xl border border-border bg-white p-3 hover:border-level-purple-medium hover:shadow-sm">
-                      <p className="text-xs font-bold text-muted-foreground">{l.module}</p>
-                      <p className="mt-1 text-sm font-extrabold leading-snug text-level-purple-dark">{l.title}</p>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <DiffBadge d={l.difficulty} />
-                        <span className="text-[10px] font-bold text-level-purple">+{l.xp_reward} XP</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {view === "kanban" && <LessonKanban lessons={filtered} />}
 
-      {toDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-level-purple-dark/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-border bg-level-purple-subtle/50 px-6 py-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10">
-                  <Trash2 className="h-5 w-5 text-destructive" />
-                </div>
-                <p className="text-base font-extrabold text-level-purple-dark">Excluir lição?</p>
-              </div>
-              <button onClick={() => setToDelete(null)} className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-level-purple-light">
-                ×
-              </button>
-            </div>
-            <div className="p-6">
-              <p className="text-sm text-foreground">A lição <b>&ldquo;{toDelete.title}&rdquo;</b> será excluída permanentemente.</p>
-              <p className="mt-2 text-xs text-muted-foreground">Esta ação não pode ser desfeita.</p>
-            </div>
-            <div className="flex justify-end gap-2 border-t border-border bg-muted/30 px-6 py-4">
-              <button onClick={() => setToDelete(null)} className="rounded-xl border border-border px-4 py-2 text-sm font-bold text-muted-foreground hover:bg-white">
-                Cancelar
-              </button>
-              <button onClick={() => handleDelete()} className="rounded-xl bg-destructive px-4 py-2 text-sm font-bold text-white">
+      {pendingDelete && (
+        <AdminModal
+          title="Excluir lição?"
+          icon={<Trash2 className="h-5 w-5" />}
+          iconTone="danger"
+          onClose={() => setPendingDelete(null)}
+          footer={
+            <>
+              <ModalCancelButton onClick={() => setPendingDelete(null)} />
+              <button onClick={() => handleDelete(pendingDelete)} className="rounded-xl bg-destructive px-4 py-2 text-sm font-bold text-white">
                 Excluir permanentemente
               </button>
+            </>
+          }
+        >
+          <p className="text-sm text-foreground">
+            A lição <b>&ldquo;{pendingDelete.title}&rdquo;</b> será excluída permanentemente.
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">Esta ação não pode ser desfeita.</p>
+        </AdminModal>
+      )}
+    </div>
+  )
+}
+
+interface LessonActionsProps {
+  lesson: Lesson
+  isToggling: boolean
+  isDeleting: boolean
+  isDuplicating: boolean
+  withDuplicate: boolean
+  /** Na lista, o ícone de publicada fica verde. */
+  withPublishedTone: boolean
+  onTogglePublished: () => void
+  onDuplicate: () => void
+  onDelete: () => void
+}
+
+function LessonActions({
+  lesson, isToggling, isDeleting, isDuplicating, withDuplicate, withPublishedTone, onTogglePublished, onDuplicate, onDelete,
+}: LessonActionsProps) {
+  return (
+    <>
+      <IconBtn
+        title={lesson.published ? "Despublicar" : "Publicar"}
+        size="sm"
+        tone={withPublishedTone && lesson.published ? "success" : "neutral"}
+        onClick={onTogglePublished}
+      >
+        {isToggling ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : lesson.published ? (
+          <Globe className="h-3.5 w-3.5" />
+        ) : (
+          <EyeOff className="h-3.5 w-3.5" />
+        )}
+      </IconBtn>
+      <Link href={ROUTES.teacherLesson(lesson.id)} title="Editar" className={ICON_LINK_CLASS}>
+        <Edit3 className="h-3.5 w-3.5" />
+      </Link>
+      {withDuplicate && (
+        <IconBtn title="Duplicar" size="sm" onClick={onDuplicate}>
+          {isDuplicating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
+        </IconBtn>
+      )}
+      <IconBtn title="Excluir" size="sm" tone="danger" onClick={onDelete}>
+        {isDeleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+      </IconBtn>
+    </>
+  )
+}
+
+interface LessonTableProps {
+  lessons: Lesson[]
+  renderActions: (lesson: Lesson) => ReactNode
+}
+
+function LessonTable({ lessons, renderActions }: LessonTableProps) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border bg-white">
+      <table className="w-full text-left">
+        <thead className="bg-muted/30">
+          <tr className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <th className="w-10 px-4 py-2.5">#</th>
+            <th className="px-2 py-2.5">Lição</th>
+            <th className="hidden px-2 py-2.5 md:table-cell">Módulo</th>
+            <th className="hidden px-2 py-2.5 lg:table-cell">Dificuldade</th>
+            <th className="hidden px-2 py-2.5 text-right lg:table-cell">XP</th>
+            <th className="px-2 py-2.5">Status</th>
+            <th className="w-36 px-2 py-2.5" />
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {lessons.map((lesson) => (
+            <tr key={lesson.id} className="group hover:bg-level-purple-subtle/30">
+              <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{formatOrder(lesson)}</td>
+              <td className="px-2 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-level-purple-light text-level-purple">
+                    <BookOpen className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-level-purple-dark">{lesson.title}</p>
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      {lesson.libraries?.length ? lesson.libraries.join(", ") : "Sem bibliotecas"} · ⏱ {lesson.time_limit}min
+                    </p>
+                  </div>
+                </div>
+              </td>
+              <td className="hidden px-2 py-3 text-xs text-muted-foreground md:table-cell">{lesson.module}</td>
+              <td className="hidden px-2 py-3 lg:table-cell"><DiffBadge d={lesson.difficulty} /></td>
+              <td className="hidden px-2 py-3 text-right lg:table-cell">
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-level-purple">
+                  <Zap className="h-2.5 w-2.5" />+{lesson.xp_reward}
+                </span>
+              </td>
+              <td className="px-2 py-3"><PubBadge published={lesson.published} /></td>
+              <td className="px-2 py-3">
+                <div className="flex items-center justify-end gap-0.5">{renderActions(lesson)}</div>
+              </td>
+            </tr>
+          ))}
+          {lessons.length === 0 && (
+            <tr>
+              <td colSpan={7} className="py-16 text-center">
+                <FileText className="mx-auto h-10 w-10 text-muted-foreground/30" />
+                <p className="mt-3 text-sm font-semibold text-muted-foreground">Nenhuma lição encontrada</p>
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+interface LessonGridCardProps {
+  lesson: Lesson
+  actions: ReactNode
+}
+
+function LessonGridCard({ lesson, actions }: LessonGridCardProps) {
+  return (
+    <div className="cursor-pointer rounded-2xl border border-border bg-white p-5 transition-all hover:-translate-y-0.5 hover:border-level-purple-medium hover:shadow-lg">
+      <div className="mb-3 flex items-start justify-between">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-level-purple-light text-level-purple">
+          <BookOpen className="h-5 w-5" />
+        </div>
+        <PubBadge published={lesson.published} />
+      </div>
+      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+        {lesson.module} · Lição {formatOrder(lesson)}
+      </p>
+      <h3 className="mt-1 text-base font-extrabold leading-snug text-level-purple-dark">{lesson.title}</h3>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <DiffBadge d={lesson.difficulty} />
+        <span className="inline-flex items-center gap-1 rounded-full bg-level-purple-subtle px-2 py-0.5 text-[11px] font-bold text-level-purple">
+          <Zap className="h-2.5 w-2.5" />
+          {lesson.xp_reward} XP
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+          <Clock className="h-2.5 w-2.5" />
+          {lesson.time_limit}min
+        </span>
+      </div>
+      <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
+        <div className="text-[11px] text-muted-foreground" />
+        <div className="flex items-center gap-0.5">{actions}</div>
+      </div>
+    </div>
+  )
+}
+
+interface LessonKanbanProps {
+  lessons: Lesson[]
+}
+
+function LessonKanban({ lessons }: LessonKanbanProps) {
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      {KANBAN_COLUMNS.map((column) => {
+        const items = lessons.filter(column.matches)
+        return (
+          <div key={column.id} className="rounded-2xl border border-border bg-muted/30 p-3">
+            <div className="mb-3 flex items-center justify-between px-1">
+              <div className="flex items-center gap-2">
+                <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase", column.toneClass)}>{column.label}</span>
+                <span className="text-xs font-bold text-muted-foreground">{items.length}</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {items.map((lesson) => (
+                <div key={lesson.id} className="cursor-pointer rounded-xl border border-border bg-white p-3 hover:border-level-purple-medium hover:shadow-sm">
+                  <p className="text-xs font-bold text-muted-foreground">{lesson.module}</p>
+                  <p className="mt-1 text-sm font-extrabold leading-snug text-level-purple-dark">{lesson.title}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <DiffBadge d={lesson.difficulty} />
+                    <span className="text-[10px] font-bold text-level-purple">+{lesson.xp_reward} XP</span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      )}
+        )
+      })}
     </div>
   )
 }

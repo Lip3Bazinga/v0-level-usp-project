@@ -1,10 +1,10 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { LessonInput, QuizQuestionFull } from "@levelusp/contracts"
+import { useCallback, useMemo, useState } from "react"
+import type { LessonInput, LessonWithTests, QuizQuestionFull, TestCase } from "@levelusp/contracts"
 import {
-  createLesson, errorMessage, fetchLessonForAuthoring, fetchQuizQuestionsForTeacher, replaceQuizQuestions,
-  toggleLessonPublished, updateLesson,
+  createLesson, fetchLessonForAuthoring, fetchQuizForAuthoring, getErrorMessage, replaceQuizQuestions, setLessonPublished,
+  updateLesson,
 } from "@/lib/api"
 import { compileDrafts, draftsFromCases, type TestCaseDraft } from "../test-cases-editor"
 import {
@@ -12,181 +12,162 @@ import {
   validateQuiz, type LessonFormState,
 } from "./lesson-form"
 
+/** Lição carregada para edição: com gabarito e, nos questionários, as questões. */
+export interface EditableLesson {
+  lesson: LessonWithTests
+  quiz: QuizQuestionFull[]
+  /** Falha ao buscar as questões: o editor abre mesmo assim, com o aviso. */
+  quizError: string | null
+}
+
+/** `null` quando a lição não existe (ou não é do professor). */
+export async function loadLessonForEditing(lessonId: string): Promise<EditableLesson | null> {
+  const lesson = await fetchLessonForAuthoring(lessonId)
+  if (!lesson) return null
+  if (lesson.lesson_type !== "quiz") return { lesson, quiz: [], quizError: null }
+  try {
+    return { lesson, quiz: await fetchQuizForAuthoring(lesson.id), quizError: null }
+  } catch (error) {
+    return { lesson, quiz: [], quizError: getErrorMessage(error, "Não foi possível carregar as questões do questionário.") }
+  }
+}
+
 export type SaveResult =
   | { ok: true; lessonId: string; created: boolean; published: boolean; publishError?: string }
   | { ok: false; title: string; message: string; focusTests?: boolean }
 
+const NO_TEST_CASES: TestCase[] = []
+
+interface SavedLesson {
+  id: string
+  created: boolean
+}
+
+function serializeQuiz(questions: QuizQuestionFull[]): string {
+  return JSON.stringify(toQuizInputs(questions))
+}
+
+interface LessonEditorOptions {
+  /** Chamado quando uma lição nova é criada no primeiro salvamento. */
+  onCreated?: (lessonId: string) => void
+}
+
 /**
- * Estado e ações do editor de lição: carrega a lição com gabarito
- * (`/lessons/:id/authoring`), salva com POST/PATCH (só campos alterados),
- * grava o questionário e publica/despublica.
+ * Estado e ações do editor de lição: parte da lição carregada (ou de uma nova),
+ * salva com POST/PATCH (só campos alterados), grava o questionário e
+ * publica/despublica.
  */
-export function useLessonEditor(idParam: string) {
-  const isNew = idParam === "new"
-  // Id criado nesta sessão do editor: a URL é trocada para /teacher/edit/<id>
-  // sem recarregar a lição (o estado local já é a versão salva).
-  const createdId = useRef<string | null>(null)
-  const [lessonId, setLessonId] = useState<string | null>(isNew ? null : idParam)
-  const [form, setForm] = useState<LessonFormState>(DEFAULT_FORM)
-  const [drafts, setDrafts] = useState<TestCaseDraft[]>(() => (isNew ? draftsFromCases(DEFAULT_TEST_CASES) : []))
-  const [quiz, setQuiz] = useState<QuizQuestionFull[]>([])
-  const [published, setPublished] = useState(false)
-  const [loading, setLoading] = useState(!isNew)
-  const [quizLoading, setQuizLoading] = useState(false)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
+export function useLessonEditor(initial: EditableLesson | null, { onCreated }: LessonEditorOptions = {}) {
+  const [lessonId, setLessonId] = useState<string | null>(initial?.lesson.id ?? null)
+  const [form, setForm] = useState<LessonFormState>(() => (initial ? formFromLesson(initial.lesson) : DEFAULT_FORM))
+  const [drafts, setDrafts] = useState<TestCaseDraft[]>(() => draftsFromCases(initial ? initial.lesson.test_cases : DEFAULT_TEST_CASES))
+  const [quiz, setQuiz] = useState<QuizQuestionFull[]>(initial?.quiz ?? [])
+  const [published, setPublished] = useState(initial?.lesson.published ?? false)
+  const [isSaving, setIsSaving] = useState(false)
 
-  // Versão salva (base do diff do PATCH e do aviso de alterações pendentes).
-  const baseline = useRef<LessonInput | null>(null)
-  const quizBaseline = useRef<string>("[]")
-  const [baselineVersion, setBaselineVersion] = useState(0)
+  // Versão salva: base do diff do PATCH e do aviso de alterações pendentes.
+  const [baseline, setBaseline] = useState<LessonInput | null>(() =>
+    initial ? toLessonInput(formFromLesson(initial.lesson), initial.lesson.test_cases ?? []) : null,
+  )
+  const [quizBaseline, setQuizBaseline] = useState(() => serializeQuiz(initial?.quiz ?? []))
 
-  useEffect(() => {
-    if (isNew || idParam === createdId.current) return
-    let cancelled = false
-    async function load() {
-      setLoading(true)
-      setLoadError(null)
-      try {
-        const lesson = await fetchLessonForAuthoring(idParam)
-        if (cancelled) return
-        if (!lesson) {
-          setLoadError("Lição não encontrada.")
-          return
-        }
-        const f = formFromLesson(lesson)
-        setForm(f)
-        setDrafts(draftsFromCases(lesson.test_cases))
-        setPublished(lesson.published)
-        baseline.current = toLessonInput(f, lesson.test_cases ?? [])
-        setBaselineVersion((v) => v + 1)
-        if (lesson.lesson_type === "quiz") {
-          setQuizLoading(true)
-          try {
-            const questions = await fetchQuizQuestionsForTeacher(lesson.id)
-            if (cancelled) return
-            setQuiz(questions)
-            quizBaseline.current = JSON.stringify(toQuizInputs(questions))
-          } catch (err) {
-            if (!cancelled) setLoadError(errorMessage(err, "Não foi possível carregar as questões do questionário."))
-          } finally {
-            if (!cancelled) setQuizLoading(false)
-          }
-        }
-      } catch (err) {
-        if (!cancelled) setLoadError(errorMessage(err, "Não foi possível carregar a lição."))
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    load()
-    return () => {
-      cancelled = true
-    }
-  }, [idParam, isNew])
-
-  const patchForm = useCallback((patch: Partial<LessonFormState>) => setForm((prev) => ({ ...prev, ...patch })), [])
+  const patchForm = useCallback((changes: Partial<LessonFormState>) => setForm((current) => ({ ...current, ...changes })), [])
 
   const compiled = useMemo(() => compileDrafts(drafts), [drafts])
 
-  /**
-   * Casos enviados à API: só lições de código usam o gabarito; nas demais,
-   * mantém o que já estava salvo (nada para lição nova).
-   */
-  const casesToSend = useCallback(
-    () => (form.lesson_type === "coding" ? compiled.cases : baseline.current?.test_cases ?? []),
-    [form.lesson_type, compiled],
-  )
+  // Só lições de código usam o gabarito; nas demais, mantém o que já estava salvo (nada para lição nova).
+  const casesToSend: TestCase[] = form.lesson_type === "coding" ? compiled.cases : baseline?.test_cases ?? NO_TEST_CASES
 
-  const dirty = useMemo(() => {
-    void baselineVersion
-    if (!baseline.current) return true
+  const isDirty = useMemo(() => {
+    if (!baseline) return true
     if (form.lesson_type === "coding" && !compiled.valid) return true
-    const now = toLessonInput(form, casesToSend())
-    if (Object.keys(diffLessonInput(baseline.current, now)).length) return true
-    return form.lesson_type === "quiz" && JSON.stringify(toQuizInputs(quiz)) !== quizBaseline.current
-  }, [form, compiled, quiz, baselineVersion, casesToSend])
+    if (Object.keys(diffLessonInput(baseline, toLessonInput(form, casesToSend))).length) return true
+    return form.lesson_type === "quiz" && serializeQuiz(quiz) !== quizBaseline
+  }, [baseline, form, compiled.valid, casesToSend, quiz, quizBaseline])
+
+  const validate = (): SaveResult | null => {
+    const formError = validateLessonForm(form)
+    if (formError) return { ok: false, title: "Verifique os dados da lição", message: formError }
+    if (form.lesson_type === "coding" && !compiled.valid) {
+      return {
+        ok: false,
+        title: "Casos de teste com erro",
+        message: `Corrija ${compiled.errorCount} erro(s) na aba Testes antes de salvar.`,
+        focusTests: true,
+      }
+    }
+    const quizError = form.lesson_type === "quiz" ? validateQuiz(quiz) : null
+    return quizError ? { ok: false, title: "Questionário incompleto", message: quizError } : null
+  }
+
+  /** Cria a lição ou envia só o que mudou. Devolve o id e se ela foi criada agora. */
+  const persistLesson = async (): Promise<SavedLesson> => {
+    const input = toLessonInput(form, casesToSend)
+    if (!lessonId) {
+      const { id } = await createLesson(input)
+      setLessonId(id)
+      setBaseline(input)
+      onCreated?.(id)
+      return { id, created: true }
+    }
+    const changes = baseline ? diffLessonInput(baseline, input) : input
+    if (Object.keys(changes).length) await updateLesson(lessonId, changes)
+    setBaseline(input)
+    return { id: lessonId, created: false }
+  }
+
+  /** As questões ficam em tabela própria (o gabarito nunca vai ao aluno). */
+  const persistQuiz = async ({ id, created }: SavedLesson) => {
+    if (form.lesson_type !== "quiz") return
+    const inputs = toQuizInputs(quiz)
+    if (!created && JSON.stringify(inputs) === quizBaseline) return
+    const savedQuestions = await replaceQuizQuestions(id, inputs)
+    setQuiz(savedQuestions)
+    setQuizBaseline(serializeQuiz(savedQuestions))
+  }
 
   /**
    * Salva a lição. `publish` = true/false publica/despublica depois de salvar;
    * omitido, mantém o estado atual de publicação.
    */
-  const save = useCallback(
-    async (publish?: boolean): Promise<SaveResult> => {
-      const formError = validateLessonForm(form)
-      if (formError) return { ok: false, title: "Verifique os dados da lição", message: formError }
-      if (form.lesson_type === "coding" && !compiled.valid) {
-        return {
-          ok: false,
-          title: "Casos de teste com erro",
-          message: `Corrija ${compiled.errorCount} erro(s) na aba Testes antes de salvar.`,
-          focusTests: true,
-        }
-      }
-      if (form.lesson_type === "quiz") {
-        const quizError = validateQuiz(quiz)
-        if (quizError) return { ok: false, title: "Questionário incompleto", message: quizError }
-      }
+  const save = async (publish?: boolean): Promise<SaveResult> => {
+    const invalid = validate()
+    if (invalid) return invalid
 
-      setSaving(true)
-      let id = lessonId
-      let created = false
+    setIsSaving(true)
+    const fail = (message: string): SaveResult => {
+      setIsSaving(false)
+      return { ok: false, title: "Erro ao salvar", message }
+    }
+    let saved: SavedLesson
+    try {
+      saved = await persistLesson()
+    } catch (error) {
+      return fail(getErrorMessage(error))
+    }
+    try {
+      await persistQuiz(saved)
+    } catch (error) {
+      const message = getErrorMessage(error)
+      return fail(saved.created ? `A lição foi criada como rascunho, mas o questionário não foi salvo: ${message}` : message)
+    }
+
+    // Publicação separada: a API recusa publicar lição de código sem casos.
+    let publishError: string | undefined
+    let isPublished = saved.created ? false : published
+    if (publish !== undefined && publish !== isPublished) {
       try {
-        const input = toLessonInput(form, casesToSend())
-        if (!id) {
-          const lesson = await createLesson(input)
-          id = lesson.id
-          created = true
-          createdId.current = id
-          setLessonId(id)
-        } else {
-          const patch = baseline.current ? diffLessonInput(baseline.current, input) : input
-          if (Object.keys(patch).length) await updateLesson(id, patch)
-        }
-        baseline.current = input
-
-        // As questões ficam em tabela própria (gabarito nunca vai ao aluno).
-        if (form.lesson_type === "quiz") {
-          const inputs = toQuizInputs(quiz)
-          const serialized = JSON.stringify(inputs)
-          if (created || serialized !== quizBaseline.current) {
-            const saved = await replaceQuizQuestions(id, inputs)
-            setQuiz(saved)
-            quizBaseline.current = JSON.stringify(toQuizInputs(saved))
-          }
-        }
-        setBaselineVersion((v) => v + 1)
-      } catch (err) {
-        setSaving(false)
-        return {
-          ok: false,
-          title: "Erro ao salvar",
-          message: created
-            ? `A lição foi criada como rascunho, mas o questionário não foi salvo: ${errorMessage(err)}`
-            : errorMessage(err),
-        }
+        isPublished = (await setLessonPublished(saved.id, publish)).published
+      } catch (error) {
+        publishError = getErrorMessage(error)
       }
-
-      // Publicação separada: a API recusa publicar lição de código sem casos.
-      let publishError: string | undefined
-      let isPublished = created ? false : published
-      if (publish !== undefined && publish !== isPublished) {
-        try {
-          const lesson = await toggleLessonPublished(id, publish)
-          isPublished = lesson.published
-        } catch (err) {
-          publishError = errorMessage(err)
-        }
-      }
-      setPublished(isPublished)
-      setSaving(false)
-      return { ok: true, lessonId: id, created, published: isPublished, publishError }
-    },
-    [form, compiled, quiz, lessonId, published, casesToSend],
-  )
+    }
+    setPublished(isPublished)
+    setIsSaving(false)
+    return { ok: true, lessonId: saved.id, created: saved.created, published: isPublished, publishError }
+  }
 
   return {
-    isNew,
     lessonId,
     form,
     patchForm,
@@ -195,12 +176,10 @@ export function useLessonEditor(idParam: string) {
     compiled,
     quiz,
     setQuiz,
-    quizLoading,
     published,
-    loading,
-    loadError,
-    saving,
-    dirty,
+    loadError: initial?.quizError ?? null,
+    isSaving,
+    isDirty,
     save,
   }
 }

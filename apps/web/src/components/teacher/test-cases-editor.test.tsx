@@ -142,7 +142,7 @@ describe("TestCasesEditor", () => {
   it("aponta identificadores repetidos", () => {
     const { errors, valid } = compileDrafts(draftsFromCases([CALL, { ...IO, id: "a" }]))
     expect(valid).toBe(false)
-    expect(Object.values(errors).some((e) => e.id?.includes("repetido"))).toBe(true)
+    expect(Object.values(errors).some((draftErrors) => draftErrors.id?.includes("repetido"))).toBe(true)
   })
 })
 
@@ -160,8 +160,8 @@ describe("rascunhos de casos", () => {
   })
 
   it("valida nome de função", () => {
-    const d = { ...emptyDraft("call", "x"), fn: "1soma", expected: "1" }
-    expect(compileDraft(d).errors.fn).toMatch(/nome Python válido/)
+    const draft = { ...emptyDraft("call", "x"), fn: "1soma", expected: "1" }
+    expect(compileDraft(draft).errors.fn).toMatch(/nome Python válido/)
   })
 
   it("prévia revela o esperado somente com reveal", () => {

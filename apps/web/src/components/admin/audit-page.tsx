@@ -1,45 +1,46 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Search, Download, Activity, AlertTriangle, X, History, Loader2 } from "lucide-react"
-import type { AuditLog } from "@levelusp/contracts"
-import { errorMessage, exportToCsv, fetchAuditLog } from "@/lib/api"
-import { timeAgo } from "@/lib/utils"
-import { cn } from "@/lib/utils"
+import { useState } from "react"
+import { Activity, AlertTriangle, Download, History, Search, X, type LucideIcon } from "lucide-react"
+import type { AuditLog, AuditSeverity } from "@levelusp/contracts"
+import { useAsyncResource } from "@/hooks/use-async-resource"
+import { fetchAuditLog } from "@/lib/api"
+import { cn, downloadCsv, formatDateTime, formatTimeAgo, todayKey } from "@/lib/utils"
+import { PanelSpinner } from "./panel-spinner"
 
+const AUDIT_PAGE_SIZE = 200
 
-const TONE_CLASSES: Record<string, string> = {
-  info:    "bg-info/10 text-info",
-  warning: "bg-warning/10 text-warning",
-  danger:  "bg-destructive/10 text-destructive",
+const SEVERITY_STYLES: Record<AuditSeverity, { icon: LucideIcon; toneClass: string }> = {
+  info: { icon: Activity, toneClass: "bg-info/10 text-info" },
+  warning: { icon: AlertTriangle, toneClass: "bg-warning/10 text-warning" },
+  danger: { icon: X, toneClass: "bg-destructive/10 text-destructive" },
 }
 
-const SEVERITY_ICON: Record<string, typeof Activity> = {
-  info:    Activity,
-  warning: AlertTriangle,
-  danger:  X,
+function matchesQuery(log: AuditLog, query: string): boolean {
+  const term = query.toLowerCase()
+  return [log.actor_name, log.target, log.action].some((field) => field.toLowerCase().includes(term))
+}
+
+function exportAuditLog(logs: AuditLog[]) {
+  downloadCsv(
+    logs.map((log) => ({
+      data: log.created_at,
+      ator: log.actor_name,
+      acao: log.action,
+      alvo: log.target,
+      severidade: log.severity,
+    })),
+    `audit-log-${todayKey()}.csv`,
+  )
 }
 
 export function AuditPage() {
-  const [q, setQ] = useState("")
-  const [logs, setLogs] = useState<AuditLog[]>([])
-  const [loadingData, setLoadingData] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetchAuditLog(200)
-      .then(setLogs)
-      .catch((err) => setLoadError(errorMessage(err, "Não foi possível carregar o log de auditoria.")))
-      .finally(() => setLoadingData(false))
-  }, [])
-
-  const filtered = logs.filter(
-    (a) =>
-      !q ||
-      a.actor_name.toLowerCase().includes(q.toLowerCase()) ||
-      a.target.toLowerCase().includes(q.toLowerCase()) ||
-      a.action.toLowerCase().includes(q.toLowerCase()),
-  )
+  const [query, setQuery] = useState("")
+  const auditLog = useAsyncResource(() => fetchAuditLog(AUDIT_PAGE_SIZE), [], {
+    errorMessage: "Não foi possível carregar o log de auditoria.",
+  })
+  const logs = auditLog.status === "success" ? auditLog.data : []
+  const filtered = query ? logs.filter((log) => matchesQuery(log, query)) : logs
 
   return (
     <div className="space-y-5 p-6">
@@ -53,23 +54,15 @@ export function AuditPage() {
           <div className="relative min-w-[240px] flex-1">
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
+              aria-label="Buscar no log de auditoria"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
               placeholder="Buscar ação, usuário, alvo..."
               className="w-full rounded-xl border border-border bg-white py-2 pl-9 pr-3 text-sm focus:border-level-purple focus:outline-none"
             />
           </div>
           <button
-            onClick={() => exportToCsv(
-              filtered.map((a) => ({
-                data: a.created_at,
-                ator: a.actor_name,
-                acao: a.action,
-                alvo: a.target,
-                severidade: a.severity,
-              })),
-              `audit-log-${new Date().toISOString().slice(0, 10)}.csv`,
-            )}
+            onClick={() => exportAuditLog(filtered)}
             disabled={filtered.length === 0}
             className="flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50"
           >
@@ -77,43 +70,46 @@ export function AuditPage() {
           </button>
         </div>
 
-        {loadError && (
-          <p role="alert" className="border-b border-border bg-destructive/5 px-4 py-3 text-sm text-destructive">{loadError}</p>
+        {auditLog.status === "error" && (
+          <p role="alert" className="border-b border-border bg-destructive/5 px-4 py-3 text-sm text-destructive">{auditLog.error}</p>
         )}
 
-        {loadingData && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-level-purple" />
-          </div>
-        )}
+        {auditLog.status === "loading" && <PanelSpinner className="py-12" />}
 
         <div className="divide-y divide-border">
-          {filtered.map((a) => {
-            const Icon = SEVERITY_ICON[a.severity] ?? Activity
-            return (
-              <div key={a.id} className="flex items-center gap-4 p-3 hover:bg-muted/20">
-                <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", TONE_CLASSES[a.severity])}>
-                  <Icon className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-foreground">
-                    <b className="text-level-purple-dark">{a.actor_name}</b> {a.action}{" "}
-                    <b>{a.target}</b>
-                  </p>
-                  <p className="font-mono text-[11px] text-muted-foreground" title={new Date(a.created_at).toLocaleString("pt-BR")}>
-                    {timeAgo(a.created_at)}
-                  </p>
-                </div>
-              </div>
-            )
-          })}
-          {!loadingData && filtered.length === 0 && (
+          {filtered.map((log) => (
+            <AuditLogRow key={log.id} log={log} />
+          ))}
+          {auditLog.status !== "loading" && filtered.length === 0 && (
             <div className="py-12 text-center">
               <History className="mx-auto h-10 w-10 text-muted-foreground/30" />
               <p className="mt-3 text-sm font-semibold text-muted-foreground">Nenhum evento encontrado</p>
             </div>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+interface AuditLogRowProps {
+  log: AuditLog
+}
+
+function AuditLogRow({ log }: AuditLogRowProps) {
+  const { icon: Icon, toneClass } = SEVERITY_STYLES[log.severity]
+  return (
+    <div className="flex items-center gap-4 p-3 hover:bg-muted/20">
+      <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", toneClass)}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm text-foreground">
+          <b className="text-level-purple-dark">{log.actor_name}</b> {log.action} <b>{log.target}</b>
+        </p>
+        <p className="font-mono text-[11px] text-muted-foreground" title={formatDateTime(log.created_at)}>
+          {formatTimeAgo(log.created_at)}
+        </p>
       </div>
     </div>
   )

@@ -29,7 +29,7 @@ flowchart LR
 |---|---|---|
 | Apresentação | `apps/web` | Telas, IDE, estado de UI. Nenhuma regra de negócio nem segredo. |
 | Contratos | `packages/contracts` | Tipos e schemas Zod compartilhados (fonte única do formato dos dados). |
-| Aplicação/Domínio | `apps/api/src/modules/*` | Controllers finos → services (regras e autorização) → repositories (SQL). Regras puras em `*.domain.ts`. |
+| Aplicação/Domínio | `apps/api/src/modules/*` | Controllers finos → services (regras e autorização) → repositories (SQL). Regras puras em `*.domain.ts`. Verbos `list`/`find`/`get`/`create`/`update`/`delete` (`padroes-de-codigo.md` §2.1). |
 | Infraestrutura | `apps/api/src/infra`, `packages/db` | Banco, executor, e-mail, armazenamento de imagens, migrações. |
 | Execução isolada | `apps/runner` | Roda código Python do aluno em WebAssembly; sem segredos, banco ou rede. |
 
@@ -39,7 +39,7 @@ flowchart LR
 apps/
   api/         NestJS: src/{config,common,infra,modules}, test/e2e
   runner/      src/ (servidor HTTP mínimo, sandbox, plano de lotes), python/harness.py
-  web/         Next.js: src/{app,components,contexts,hooks,lib/api}, e2e/ (Playwright)
+  web/         Next.js: src/{app,components,contexts,hooks,lib/{api,constants,utils,python,types}}, e2e/ (Playwright)
 packages/
   contracts/   schemas Zod + tipos (users, auth, courses, lessons, grading, exams, …)
   db/          schema Drizzle, migrations/, seed/, tools/ (conversor de gabaritos)
@@ -51,6 +51,19 @@ infra/
 .github/workflows/  ci.yml, cd.yml
 legacy/        código da versão Supabase/Vercel (referência)
 ```
+
+## Web (`apps/web/src`)
+
+| Pasta | O que mora lá |
+|---|---|
+| `app/` | Rotas do App Router. Páginas compõem; lógica de tela vai para hooks ao lado (`use-course-detail.ts`, `use-exam-session.ts`). |
+| `components/design-system` | Peças da marca: `BrandLogo`/`BrandMark`, `Spinner`, `LevelButton` (+ `levelButtonClasses` para links), `BadgeIcon`, `LoadErrorAlert`. |
+| `components/<área>` | `admin/` (`AdminModal`, `AdminToast`, telas `*-page.tsx`), `auth/` (campos e layouts de login), `dashboard/` (`StudentShell`), `gamification/` (`CelebrationModal` + modais), `ide/`, `teacher/`, `marketing/`. |
+| `components/ui` | Primitivas shadcn/Radix. |
+| `contexts/` | `AuthContext`, `IDEContext`, `ProgressContext`, `NotificationContext`. |
+| `hooks/` | `useAsyncResource`, `useTransientValue`/`useTransientFlag`, `useSubmitLock`, `useLessonNavigation`, `useModalA11y`, `useSignOut`, `usePython`. |
+| `lib/api` | Uma função por rota (`fetchX`, `createX`…); erros como `ApiError`. |
+| `lib/constants`, `lib/utils` | Constantes (rotas, tempos, limites, rótulos) e funções puras, sempre importadas pelo `index.ts`. |
 
 ## Módulos da API
 

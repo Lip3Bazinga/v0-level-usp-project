@@ -1,37 +1,35 @@
 import { Injectable } from "@nestjs/common"
 import { and, asc, desc, eq, sql } from "drizzle-orm"
-import { profiles, teacherApprovals } from "@levelusp/db"
-import type { TeacherApproval } from "@levelusp/contracts"
-import { InjectDb, type Database, type DbOrTx, type Tx } from "@/infra/database/database.module"
+import { profiles, teacherApprovals, type TeacherApprovalInsert } from "@levelusp/db"
+import type { TeacherApprovalStatus } from "@levelusp/contracts"
+import { requireRow } from "@/common/database/rows"
+import { InjectDb, type Database, type DbOrTx } from "@/infra/database/database.module"
 
-type ApprovalRow = typeof teacherApprovals.$inferSelect
-export type ApprovalStatus = ApprovalRow["status"]
+export type ApprovalStatusFilter = TeacherApprovalStatus | "all"
 
-export function toTeacherApproval(r: ApprovalRow): TeacherApproval {
-  return {
-    id: r.id, user_id: r.userId, name: r.name, email: r.email, institution: r.institution, motivation: r.motivation,
-    status: r.status, reviewed_by: r.reviewedBy, review_note: r.reviewNote, submitted_at: r.submittedAt,
-    reviewed_at: r.reviewedAt, created_at: r.createdAt, updated_at: r.updatedAt,
-  }
+export interface ApprovalReview {
+  status: "approved" | "rejected"
+  reviewedBy: string
+  reviewNote: string | null
 }
 
 @Injectable()
 export class TeacherRequestsRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
-  async insert(v: typeof teacherApprovals.$inferInsert) {
-    const [row] = await this.db.insert(teacherApprovals).values(v).returning()
-    return row!
+  async create(approval: TeacherApprovalInsert) {
+    return requireRow(await this.db.insert(teacherApprovals).values(approval).returning(), "teacher_approvals")
   }
 
-  latestFor(userId: string) {
+  findLatest(userId: string) {
     return this.db.query.teacherApprovals.findFirst({
       where: eq(teacherApprovals.userId, userId),
       orderBy: [desc(teacherApprovals.submittedAt), desc(teacherApprovals.createdAt)],
     })
   }
 
-  list(status: ApprovalStatus | "all") {
+  /** Pendentes em ordem de chegada (fila); as demais, mais recentes primeiro. */
+  list(status: ApprovalStatusFilter) {
     return this.db
       .select()
       .from(teacherApprovals)
@@ -39,26 +37,23 @@ export class TeacherRequestsRepository {
       .orderBy(status === "pending" ? asc(teacherApprovals.submittedAt) : desc(teacherApprovals.submittedAt))
   }
 
-  transaction<T>(fn: (tx: Tx) => Promise<T>) {
-    return this.db.transaction(fn)
+  async lock(id: string, tx: DbOrTx) {
+    const [approval] = await tx.select().from(teacherApprovals).where(eq(teacherApprovals.id, id)).for("update")
+    return approval
   }
 
-  async lock(tx: DbOrTx, id: string) {
-    const [row] = await tx.select().from(teacherApprovals).where(eq(teacherApprovals.id, id)).for("update")
-    return row
-  }
-
-  async review(tx: DbOrTx, id: string, patch: { status: "approved" | "rejected"; reviewedBy: string; reviewNote: string | null }) {
-    const [row] = await tx
+  /** Só revisa se ainda estiver pendente (a checagem acompanha o UPDATE). */
+  async review(id: string, review: ApprovalReview, tx: DbOrTx) {
+    const [approval] = await tx
       .update(teacherApprovals)
-      .set({ ...patch, reviewedAt: sql`now()` })
+      .set({ ...review, reviewedAt: sql`now()` })
       .where(and(eq(teacherApprovals.id, id), eq(teacherApprovals.status, "pending")))
       .returning()
-    return row
+    return approval
   }
 
   /** Promove a professor sem rebaixar quem já é admin. */
-  promoteToTeacher(tx: DbOrTx, userId: string) {
-    return tx.update(profiles).set({ role: "teacher" }).where(and(eq(profiles.id, userId), eq(profiles.role, "student")))
+  async promoteToTeacher(userId: string, tx: DbOrTx): Promise<void> {
+    await tx.update(profiles).set({ role: "teacher" }).where(and(eq(profiles.id, userId), eq(profiles.role, "student")))
   }
 }

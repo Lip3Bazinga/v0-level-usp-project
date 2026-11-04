@@ -17,6 +17,23 @@ const PURPLE_LIGHT = "#A78BFA"
 const GRAY = "#666666"
 const INK = "#1A1A1A"
 
+const OUTER_BORDER_INSET = 20
+const INNER_BORDER_INSET = 34
+/** Margem lateral total do texto centralizado. */
+const TEXT_SIDE_MARGIN = 140
+const FOOTER_SIDE_MARGIN = 60
+const MIN_FONT_SIZE = 8
+const NAME_TOP = 258
+const NAME_UNDERLINE_GAP = 8
+const NAME_UNDERLINE_OVERHANG = 20
+
+interface CenteredText {
+  top: number
+  font: string
+  size: number
+  color: string
+}
+
 /** PDF A4 paisagem do certificado (porte do layout de apps/web/.../certificate/pdf). */
 export function renderCertificatePdf(data: CertificatePdfData): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -27,48 +44,50 @@ export function renderCertificatePdf(data: CertificatePdfData): Promise<Buffer> 
       info: { Title: `Certificado LevelUSP ${data.code}`, Author: "LevelUSP", Subject: data.courseTitle },
     })
     const chunks: Buffer[] = []
-    doc.on("data", (c: Buffer) => chunks.push(c))
+    doc.on("data", (chunk: Buffer) => chunks.push(chunk))
     doc.on("end", () => resolve(Buffer.concat(chunks)))
     doc.on("error", reject)
 
     const { width, height } = doc.page
-    doc.lineWidth(4).strokeColor(PURPLE).rect(20, 20, width - 40, height - 40).stroke()
-    doc.lineWidth(1).strokeColor(PURPLE_LIGHT).rect(34, 34, width - 68, height - 68).stroke()
+    const maxTextWidth = width - TEXT_SIDE_MARGIN
+    doc.lineWidth(4).strokeColor(PURPLE).rect(OUTER_BORDER_INSET, OUTER_BORDER_INSET, width - 2 * OUTER_BORDER_INSET, height - 2 * OUTER_BORDER_INSET).stroke()
+    doc.lineWidth(1).strokeColor(PURPLE_LIGHT).rect(INNER_BORDER_INSET, INNER_BORDER_INSET, width - 2 * INNER_BORDER_INSET, height - 2 * INNER_BORDER_INSET).stroke()
 
-    /** Texto centralizado numa linha, reduzindo a fonte se não couber. */
-    const center = (text: string, top: number, font: string, size: number, color: string, maxWidth = width - 140) => {
+    /** Texto centralizado numa linha, reduzindo a fonte se não couber. Devolve o tamanho usado. */
+    const drawCentered = (text: string, { top, font, size, color }: CenteredText): number => {
       doc.font(font)
-      let s = size
-      while (s > 8 && doc.fontSize(s).widthOfString(text) > maxWidth) s -= 1
-      doc.fontSize(s).fillColor(color).text(text, (width - maxWidth) / 2, top, { width: maxWidth, align: "center", lineBreak: false })
-      return s
+      let fittedSize = size
+      while (fittedSize > MIN_FONT_SIZE && doc.fontSize(fittedSize).widthOfString(text) > maxTextWidth) fittedSize -= 1
+      doc.fontSize(fittedSize).fillColor(color).text(text, (width - maxTextWidth) / 2, top, { width: maxTextWidth, align: "center", lineBreak: false })
+      return fittedSize
     }
 
-    center("LevelUSP", 80, "Times-Bold", 30, PURPLE)
-    center("Universidade de São Paulo", 118, "Helvetica", 11, GRAY)
-    center("CERTIFICADO DE CONCLUSÃO", 160, "Times-Bold", 34, PURPLE_DARK)
-    center("Certificamos que", 222, "Times-Roman", 15, GRAY)
+    drawCentered("LevelUSP", { top: 80, font: "Times-Bold", size: 30, color: PURPLE })
+    drawCentered("Universidade de São Paulo", { top: 118, font: "Helvetica", size: 11, color: GRAY })
+    drawCentered("CERTIFICADO DE CONCLUSÃO", { top: 160, font: "Times-Bold", size: 34, color: PURPLE_DARK })
+    drawCentered("Certificamos que", { top: 222, font: "Times-Roman", size: 15, color: GRAY })
 
-    const nameSize = center(data.studentName, 258, "Times-Bold", 32, INK)
+    const nameSize = drawCentered(data.studentName, { top: NAME_TOP, font: "Times-Bold", size: 32, color: INK })
     const nameWidth = doc.font("Times-Bold").fontSize(nameSize).widthOfString(data.studentName)
-    const lineY = 258 + nameSize + 8
+    const underlineY = NAME_TOP + nameSize + NAME_UNDERLINE_GAP
     doc
       .lineWidth(1.5)
       .strokeColor(PURPLE)
-      .moveTo((width - nameWidth) / 2 - 20, lineY)
-      .lineTo((width + nameWidth) / 2 + 20, lineY)
+      .moveTo((width - nameWidth) / 2 - NAME_UNDERLINE_OVERHANG, underlineY)
+      .lineTo((width + nameWidth) / 2 + NAME_UNDERLINE_OVERHANG, underlineY)
       .stroke()
 
-    center("concluiu com aproveitamento o curso", 322, "Times-Roman", 15, GRAY)
-    center(data.courseTitle, 350, "Times-Bold", 22, PURPLE_DARK)
-    const project = data.projectStatus === "waived" ? "dispensado" : "aprovado"
-    center(`Nota na prova final: ${formatScore(data.examScore)}  ·  Projeto final: ${project}`, 390, "Helvetica", 12, GRAY)
+    drawCentered("concluiu com aproveitamento o curso", { top: 322, font: "Times-Roman", size: 15, color: GRAY })
+    drawCentered(data.courseTitle, { top: 350, font: "Times-Bold", size: 22, color: PURPLE_DARK })
+    const projectLabel = data.projectStatus === "waived" ? "dispensado" : "aprovado"
+    drawCentered(`Nota na prova final: ${formatScore(data.examScore)}  ·  Projeto final: ${projectLabel}`, { top: 390, font: "Helvetica", size: 12, color: GRAY })
 
+    const footerTop = height - 82
     doc.font("Helvetica").fontSize(11).fillColor(GRAY)
-    doc.text(`Emitido em ${formatIssuedDate(data.issuedAt)}`, 60, height - 82, { lineBreak: false })
+    doc.text(`Emitido em ${formatIssuedDate(data.issuedAt)}`, FOOTER_SIDE_MARGIN, footerTop, { lineBreak: false })
     const codeText = `Código de verificação: ${data.code}`
-    doc.text(codeText, width - 60 - doc.widthOfString(codeText), height - 82, { lineBreak: false })
-    center(`Verifique a autenticidade em ${data.verifyUrl}`, height - 58, "Helvetica", 9, GRAY)
+    doc.text(codeText, width - FOOTER_SIDE_MARGIN - doc.widthOfString(codeText), footerTop, { lineBreak: false })
+    drawCentered(`Verifique a autenticidade em ${data.verifyUrl}`, { top: height - 58, font: "Helvetica", size: 9, color: GRAY })
 
     doc.end()
   })

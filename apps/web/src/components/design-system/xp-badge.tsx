@@ -1,69 +1,44 @@
 "use client"
 
-import * as React from "react"
+import { Flame, Star, Trophy, Zap, type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Zap, Flame, Trophy, Star } from "lucide-react"
+
+type XPBadgeType = "xp" | "streak" | "level" | "achievement"
+type XPBadgeSize = "sm" | "md" | "lg"
 
 interface XPBadgeProps {
-  type: "xp" | "streak" | "level" | "achievement"
+  type: XPBadgeType
   value: number | string
   label?: string
-  size?: "sm" | "md" | "lg"
+  size?: XPBadgeSize
   className?: string
 }
 
-export function XPBadge({
-  type,
-  value,
-  label,
-  size = "md",
-  className,
-}: XPBadgeProps) {
-  const icons = {
-    xp: Zap,
-    streak: Flame,
-    level: Trophy,
-    achievement: Star,
-  }
+const BADGE_STYLE: Record<XPBadgeType, { Icon: LucideIcon; colorClass: string; iconColorClass: string }> = {
+  xp: { Icon: Zap, colorClass: "bg-level-purple text-white", iconColorClass: "text-yellow-300" },
+  streak: { Icon: Flame, colorClass: "bg-warning text-white", iconColorClass: "text-orange-200" },
+  level: { Icon: Trophy, colorClass: "bg-level-purple-dark text-white", iconColorClass: "text-yellow-400" },
+  achievement: { Icon: Star, colorClass: "bg-success text-white", iconColorClass: "text-yellow-300" },
+}
 
-  const colors = {
-    xp: "bg-level-purple text-white",
-    streak: "bg-warning text-white",
-    level: "bg-level-purple-dark text-white",
-    achievement: "bg-success text-white",
-  }
+const SIZE_CLASS: Record<XPBadgeSize, { container: string; icon: string }> = {
+  sm: { container: "px-2.5 py-1 text-xs gap-1", icon: "h-3 w-3" },
+  md: { container: "px-3 py-1.5 text-sm gap-1.5", icon: "h-4 w-4" },
+  lg: { container: "px-4 py-2 text-base gap-2", icon: "h-5 w-5" },
+}
 
-  const iconColors = {
-    xp: "text-yellow-300",
-    streak: "text-orange-200",
-    level: "text-yellow-400",
-    achievement: "text-yellow-300",
-  }
-
-  const sizes = {
-    sm: "px-2.5 py-1 text-xs gap-1",
-    md: "px-3 py-1.5 text-sm gap-1.5",
-    lg: "px-4 py-2 text-base gap-2",
-  }
-
-  const iconSizes = {
-    sm: "h-3 w-3",
-    md: "h-4 w-4",
-    lg: "h-5 w-5",
-  }
-
-  const Icon = icons[type]
-
+export function XPBadge({ type, value, label, size = "md", className }: XPBadgeProps) {
+  const { Icon, colorClass, iconColorClass } = BADGE_STYLE[type]
   return (
     <div
       className={cn(
         "inline-flex items-center rounded-full font-bold shadow-sm",
-        colors[type],
-        sizes[size],
-        className
+        colorClass,
+        SIZE_CLASS[size].container,
+        className,
       )}
     >
-      <Icon className={cn(iconSizes[size], iconColors[type])} />
+      <Icon className={cn(SIZE_CLASS[size].icon, iconColorClass)} />
       <span>{value}</span>
       {label && <span className="font-normal opacity-80">{label}</span>}
     </div>

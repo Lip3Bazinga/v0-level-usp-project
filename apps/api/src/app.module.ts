@@ -5,6 +5,7 @@ import { LoggerModule } from "nestjs-pino"
 import { randomUUID } from "node:crypto"
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter"
 import { CsrfMiddleware } from "./common/http/csrf.middleware"
+import { IP_THROTTLE } from "./common/rate-limit/rate-limit.policies"
 import { RateLimitModule } from "./common/rate-limit/rate-limit.module"
 import { ConfigModule, ENV } from "./config/config.module"
 import type { Env } from "./config/env"
@@ -14,6 +15,13 @@ import { RunnerModule } from "./infra/runner/runner.module"
 import { StorageModule } from "./infra/storage/storage.module"
 import { FEATURE_MODULES } from "./modules"
 
+const MAX_REQUEST_ID_LENGTH = 64
+
+/** Reaproveita o id do proxy (correlação ponta a ponta) ou gera um novo. */
+function requestIdFrom(header: string | string[] | undefined): string {
+  return typeof header === "string" ? header.slice(0, MAX_REQUEST_ID_LENGTH) : randomUUID()
+}
+
 @Module({
   imports: [
     ConfigModule,
@@ -22,21 +30,20 @@ import { FEATURE_MODULES } from "./modules"
       useFactory: (env: Env) => ({
         pinoHttp: {
           level: env.LOG_LEVEL,
-          genReqId: (req, res) => {
-            const id = (req.headers["x-request-id"] as string | undefined)?.slice(0, 64) ?? randomUUID()
-            res.setHeader("x-request-id", id)
+          genReqId: (request, response) => {
+            const id = requestIdFrom(request.headers["x-request-id"])
+            response.setHeader("x-request-id", id)
             return id
           },
           // Nunca logar credenciais nem o cookie de sessão.
           redact: ["req.headers.cookie", "req.headers.authorization", 'res.headers["set-cookie"]', "req.body.password"],
           customProps: () => ({ env: env.APP_ENV }),
-          autoLogging: { ignore: (req) => req.url?.startsWith("/api/health") ?? false },
+          autoLogging: { ignore: (request) => request.url?.startsWith("/api/health") ?? false },
           transport: env.APP_ENV === "dev" ? { target: "pino-pretty", options: { singleLine: true } } : undefined,
         },
       }),
     }),
-    // Por IP: generoso porque laboratórios inteiros compartilham um IP (NAT).
-    ThrottlerModule.forRoot({ throttlers: [{ name: "default", ttl: 60_000, limit: 1200 }] }),
+    ThrottlerModule.forRoot({ throttlers: [{ name: "default", ttl: IP_THROTTLE.windowMs, limit: IP_THROTTLE.globalLimit }] }),
     DatabaseModule,
     MailModule,
     RunnerModule,
@@ -50,9 +57,7 @@ import { FEATURE_MODULES } from "./modules"
   ],
 })
 export class AppModule implements NestModule {
-  configure(consumer: MarkMiddlewareConsumer) {
+  configure(consumer: MiddlewareConsumer) {
     consumer.apply(CsrfMiddleware).forRoutes("*path")
   }
 }
-
-type MarkMiddlewareConsumer = MiddlewareConsumer

@@ -3,7 +3,7 @@ import { Reflector } from "@nestjs/core"
 import type { UserRole } from "@levelusp/contracts"
 import { IS_PUBLIC, OPTIONAL_AUTH, ROLES } from "@/common/decorators/auth.decorators"
 import { Forbidden, Unauthorized } from "@/common/errors/app-error"
-import { type AuthenticatedRequest, SESSION_COOKIE } from "@/common/http/request"
+import { type AuthenticatedRequest, readSessionCookie } from "@/common/http/request"
 import { AuthService } from "./auth.service"
 
 /**
@@ -18,20 +18,20 @@ export class SessionGuard implements CanActivate {
     private readonly auth: AuthService,
   ) {}
 
-  async canActivate(ctx: ExecutionContext): Promise<boolean> {
-    const targets = [ctx.getHandler(), ctx.getClass()]
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const targets = [context.getHandler(), context.getClass()]
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC, targets)
-    const optional = this.reflector.getAllAndOverride<boolean>(OPTIONAL_AUTH, targets)
+    const isOptionalAuth = this.reflector.getAllAndOverride<boolean>(OPTIONAL_AUTH, targets)
     const roles = this.reflector.getAllAndOverride<UserRole[] | undefined>(ROLES, targets)
 
-    const req = ctx.switchToHttp().getRequest<AuthenticatedRequest>()
-    const token = (req.cookies as Record<string, string> | undefined)?.[SESSION_COOKIE]
-    if (token && (!isPublic || optional)) {
-      req.user = (await this.auth.resolveSession(token)) ?? undefined
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>()
+    const token = readSessionCookie(request)
+    if (token && (!isPublic || isOptionalAuth)) {
+      request.user = (await this.auth.resolveSession(token)) ?? undefined
     }
-    if (isPublic || optional) return true
-    if (!req.user) throw Unauthorized()
-    if (roles?.length && !roles.includes(req.user.role)) throw Forbidden()
+    if (isPublic || isOptionalAuth) return true
+    if (!request.user) throw Unauthorized()
+    if (roles?.length && !roles.includes(request.user.role)) throw Forbidden()
     return true
   }
 }

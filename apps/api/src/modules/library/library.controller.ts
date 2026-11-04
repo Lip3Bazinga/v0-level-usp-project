@@ -2,7 +2,7 @@ import { Body, Controller, Get, HttpCode, Param, Patch, Post } from "@nestjs/com
 import { ApiTags } from "@nestjs/swagger"
 import {
   libraryCatalogToggleSchema, libraryRequestInputSchema, reviewLibraryRequestSchema,
-  type LibraryRequestInput, type ReviewLibraryRequestInput,
+  type LibraryCatalogToggleInput, type LibraryRequestInput, type ReviewLibraryRequestInput,
 } from "@levelusp/contracts"
 import { CurrentUser, Public, Roles } from "@/common/decorators/auth.decorators"
 import type { AuthUser } from "@/common/http/request"
@@ -17,45 +17,45 @@ export class LibraryController {
 
   @Public()
   @Get("library")
-  catalog() {
-    return this.library.catalog(true)
+  listCatalog() {
+    return this.library.listCatalog(true)
   }
 
   @Roles("teacher", "admin")
   @Post("library/requests")
-  request(@CurrentUser() user: AuthUser, @Body(new ZodPipe(libraryRequestInputSchema)) body: LibraryRequestInput) {
-    return this.library.request(user, body)
+  createRequest(@CurrentUser() user: AuthUser, @Body(new ZodPipe(libraryRequestInputSchema)) body: LibraryRequestInput) {
+    return this.library.createRequest(user, body)
   }
 
   @Roles("teacher", "admin")
   @Get("me/library/requests")
-  myRequests(@CurrentUser() user: AuthUser) {
-    return this.library.myRequests(user)
+  listMyRequests(@CurrentUser() user: AuthUser) {
+    return this.library.listMyRequests(user)
   }
 
   @Roles("admin")
   @Get("admin/library")
-  fullCatalog() {
-    return this.library.catalog(false)
+  listFullCatalog() {
+    return this.library.listCatalog(false)
   }
 
   @Roles("admin")
   @HttpCode(204)
   @Patch("admin/library/:id")
-  async toggle(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(libraryCatalogToggleSchema)) body: { active: boolean }) {
-    await this.library.setActive(user, id, body.active)
+  async setCatalogActive(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(libraryCatalogToggleSchema)) body: LibraryCatalogToggleInput) {
+    await this.library.setCatalogActive(user, id, body.active)
   }
 
   @Roles("admin")
   @Get("admin/library/requests")
-  allRequests() {
-    return this.library.allRequests()
+  listRequests() {
+    return this.library.listRequests()
   }
 
   @Roles("admin")
   @HttpCode(200)
   @Post("admin/library/requests/:id/review")
-  review(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(reviewLibraryRequestSchema)) body: ReviewLibraryRequestInput) {
-    return this.library.review(user, id, body)
+  reviewRequest(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(reviewLibraryRequestSchema)) body: ReviewLibraryRequestInput) {
+    return this.library.reviewRequest(user, id, body)
   }
 }

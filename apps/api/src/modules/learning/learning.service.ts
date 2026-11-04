@@ -1,15 +1,18 @@
 import { Injectable, Logger } from "@nestjs/common"
-import type { LessonProgress, ProjectFile, SubmissionResult } from "@levelusp/contracts"
+import type { LessonCompletion, LessonProgress, ProjectFile, SubmissionResult } from "@levelusp/contracts"
+import { canViewContent } from "@/common/authorization/ownership"
 import { BadRequest, NotFound, Unprocessable } from "@/common/errors/app-error"
 import type { AuthUser } from "@/common/http/request"
+import { RATE_LIMITS } from "@/common/rate-limit/rate-limit.policies"
 import { RateLimitService } from "@/common/rate-limit/rate-limit.service"
 import { GamificationService } from "../gamification/gamification.service"
 import { GradingService } from "../grading/grading.service"
+import { hasEntryFile, parseSnapshot } from "./learning.domain"
+import { toLessonCompletion, toLessonProgress } from "./learning.mapper"
 import { LearningRepository } from "./learning.repository"
 
-/** 12 verificações por minuto por aluno (mesmo limite do avaliador antigo). */
-const SUBMIT_LIMIT = 12
-const SUBMIT_WINDOW_MS = 60_000
+/** Exercício aprovado pelo corretor vale nota cheia (a nota parcial é só do quiz). */
+const FULL_SCORE = 100
 
 @Injectable()
 export class LearningService {
@@ -22,23 +25,23 @@ export class LearningService {
     private readonly rateLimit: RateLimitService,
   ) {}
 
-  myProgress(userId: string): Promise<LessonProgress[]> {
-    return this.repo.progressOf(userId)
+  async listMyProgress(userId: string): Promise<LessonProgress[]> {
+    return (await this.repo.listProgress(userId)).map(toLessonProgress)
   }
 
-  async completedLessonIds(userId: string): Promise<string[]> {
-    return (await this.repo.progressOf(userId)).filter((p) => p.status === "completed").map((p) => p.lesson_id)
+  async listMyCompletedLessonIds(userId: string): Promise<string[]> {
+    const progress = await this.repo.listProgress(userId)
+    return progress.filter((lesson) => lesson.status === "completed").map((lesson) => lesson.lessonId)
   }
 
   async getSnapshot(user: AuthUser, lessonId: string): Promise<{ files: ProjectFile[] | null }> {
-    await this.accessibleLesson(user, lessonId)
-    const raw = await this.repo.snapshot(user.id, lessonId)
-    return { files: parseSnapshot(raw) }
+    await this.findAccessibleLesson(user, lessonId)
+    return { files: parseSnapshot(await this.repo.findSnapshot(user.id, lessonId)) }
   }
 
-  async saveSnapshot(user: AuthUser, lessonId: string, files: ProjectFile[]): Promise<void> {
-    await this.accessibleLesson(user, lessonId)
-    await this.repo.saveSnapshot(user.id, lessonId, files)
+  async updateSnapshot(user: AuthUser, lessonId: string, files: ProjectFile[]): Promise<void> {
+    await this.findAccessibleLesson(user, lessonId)
+    await this.repo.upsertSnapshot(user.id, lessonId, files)
   }
 
   /**
@@ -46,72 +49,46 @@ export class LearningService {
    * a lição e credita XP — tudo no servidor, a partir do veredito do servidor.
    */
   async submit(user: AuthUser, lessonId: string, files: ProjectFile[]): Promise<SubmissionResult> {
-    const lesson = await this.accessibleLesson(user, lessonId)
+    const lesson = await this.findAccessibleLesson(user, lessonId)
     if (lesson.lessonType !== "coding") throw BadRequest("Esta lição não tem exercício de código.")
     if (!lesson.testCases.length) throw Unprocessable("Esta lição ainda não tem gabarito. Avise o professor.", "NO_TESTS")
-    if (!files.some((f) => f.path === "main.py")) throw BadRequest("O projeto precisa de um arquivo main.py.")
-    this.rateLimit.consume(`submit:${user.id}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS, "Muitas verificações seguidas. Aguarde um instante.")
+    if (!hasEntryFile(files)) throw BadRequest("O projeto precisa de um arquivo main.py.")
+    this.rateLimit.consume(RATE_LIMITS.codeSubmission, user.id)
 
-    const result = await this.grading.grade(files, lesson.testCases)
-    const { engine, ...gradeResult } = result
-    const submissionId = await this.repo.insertSubmission({
+    const { engine, ...gradeResult } = await this.grading.grade(files, lesson.testCases)
+    const submissionId = await this.repo.createSubmission({
       userId: user.id,
       lessonId,
       files,
       status: "graded",
-      passed: result.allPassed,
+      passed: gradeResult.allPassed,
       result: gradeResult,
       engine,
-      durationMs: result.durationMs,
+      durationMs: gradeResult.durationMs,
     })
 
     // Prévia do professor numa lição não publicada não credita XP.
-    const counts = result.allPassed && lesson.published
-    const outcome = counts ? await this.gamification.completeLesson(user.id, lessonId, { score: 100 }) : null
-    if (counts) await this.repo.saveSnapshot(user.id, lessonId, files)
-    this.logger.log({ userId: user.id, lessonId, passed: result.allPassed, ms: result.durationMs }, "submissão corrigida")
+    const shouldCredit = gradeResult.allPassed && lesson.published
+    const outcome = shouldCredit ? await this.gamification.completeLesson(user.id, lessonId, { score: FULL_SCORE }) : null
+    if (shouldCredit) await this.repo.upsertSnapshot(user.id, lessonId, files)
+    this.logger.log({ userId: user.id, lessonId, passed: gradeResult.allPassed, ms: gradeResult.durationMs }, "submissão corrigida")
 
-    return {
-      ...gradeResult,
-      submission_id: submissionId,
-      lesson_completed: counts,
-      xp_awarded: outcome?.xpAwarded ?? 0,
-      new_badges: outcome?.newBadges ?? [],
-      level_up: outcome?.levelUp ?? false,
-      new_level: outcome?.newLevel ?? 0,
-    }
+    return { ...gradeResult, submission_id: submissionId, ...toLessonCompletion(outcome) }
   }
 
   /** Lições teóricas não têm avaliação: concluir = ter lido. */
-  async completeTheory(user: AuthUser, lessonId: string) {
-    this.rateLimit.consume(`theory:${user.id}`, 30, 60_000)
-    const lesson = await this.accessibleLesson(user, lessonId)
+  async completeTheory(user: AuthUser, lessonId: string): Promise<LessonCompletion> {
+    this.rateLimit.consume(RATE_LIMITS.theoryCompletion, user.id)
+    const lesson = await this.findAccessibleLesson(user, lessonId)
     if (lesson.lessonType !== "theory") throw BadRequest("Só lições teóricas podem ser concluídas sem avaliação.")
-    if (!lesson.published) return { lesson_completed: false, xp_awarded: 0, new_badges: [], level_up: false, new_level: 0 }
-    const o = await this.gamification.completeLesson(user.id, lessonId)
-    return { lesson_completed: true, xp_awarded: o.xpAwarded, new_badges: o.newBadges, level_up: o.levelUp, new_level: o.newLevel }
+    if (!lesson.published) return toLessonCompletion(null)
+    return toLessonCompletion(await this.gamification.completeLesson(user.id, lessonId))
   }
 
   /** Publicada para todos; rascunho só para o autor e admins. */
-  private async accessibleLesson(user: AuthUser, lessonId: string) {
+  private async findAccessibleLesson(user: AuthUser, lessonId: string) {
     const lesson = await this.repo.findLessonForGrading(lessonId)
-    if (!lesson) throw NotFound("Lição")
-    if (!lesson.published && lesson.createdBy !== user.id && user.role !== "admin") throw NotFound("Lição")
+    if (!lesson || !canViewContent(user, lesson)) throw NotFound("Lição")
     return lesson
   }
-}
-
-/** Snapshot salvo como JSON de ProjectFile[] (ou string de código legado). */
-export function parseSnapshot(raw: string | null): ProjectFile[] | null {
-  if (!raw?.trim()) return null
-  try {
-    const parsed: unknown = JSON.parse(raw)
-    if (Array.isArray(parsed)) {
-      const files = parsed.filter((f): f is ProjectFile => typeof f?.path === "string" && typeof f?.content === "string")
-      return files.length ? files : null
-    }
-  } catch {
-    return [{ path: "main.py", content: raw }]
-  }
-  return null
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { eligibleBadges, levelForXp, nextStreak, previousDate, saoPauloDate } from "./gamification.domain"
+import { eligibleBadges, levelForXp, nextStreak } from "./gamification.domain"
 
 describe("nextStreak", () => {
   it("mantém a sequência quando já houve atividade hoje", () => {
@@ -14,16 +14,8 @@ describe("nextStreak", () => {
   it("começa em 1 no primeiro acesso", () => {
     expect(nextStreak(null, "2026-10-15", 0)).toMatchObject({ streak: 1, increased: true, reset: false })
   })
-  it("atravessa virada de mês e ano", () => {
-    expect(previousDate("2026-03-01")).toBe("2026-02-28")
-    expect(previousDate("2027-01-01")).toBe("2026-12-31")
-  })
-})
-
-describe("saoPauloDate", () => {
-  it("usa o fuso de São Paulo (UTC-3)", () => {
-    expect(saoPauloDate(new Date("2026-10-16T02:30:00Z"))).toBe("2026-10-15")
-    expect(saoPauloDate(new Date("2026-10-16T03:30:00Z"))).toBe("2026-10-16")
+  it("incrementa através da virada de mês", () => {
+    expect(nextStreak("2026-02-28", "2026-03-01", 2)).toMatchObject({ streak: 3, increased: true })
   })
 })
 

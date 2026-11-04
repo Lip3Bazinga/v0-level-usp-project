@@ -54,13 +54,6 @@ const nextConfig = {
           { key: "Cache-Control", value: "no-store, must-revalidate" },
         ],
       },
-      {
-        // Arquivos Pyodide self-hosted: imutáveis por versão, cache de 1 ano
-        source: "/pyodide/:path*",
-        headers: [
-          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
-        ],
-      },
     ]
   },
 }

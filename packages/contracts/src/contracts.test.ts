@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest"
-import { courseUpdateSchema, lessonInputSchema, projectFileSchema, signUpSchema, testCasesSchema } from "./index"
+import {
+  courseUpdateSchema, deleteAccountSchema, examQuestionUpdateSchema, lessonInputSchema, limitQuerySchema, optionalBodySchema,
+  projectFileSchema, quizQuestionInputSchema, signUpSchema, testCasesSchema,
+} from "./index"
 
 describe("contratos", () => {
   it("recusa ids de caso duplicados", () => {
-    const r = testCasesSchema.safeParse([
+    const parsed = testCasesSchema.safeParse([
       { id: "a", kind: "call", function: "f", expected: 1 },
       { id: "a", kind: "call", function: "g", expected: 2 },
     ])
-    expect(r.success).toBe(false)
+    expect(parsed.success).toBe(false)
   })
 
   it("aplica defaults nos casos (args/kwargs vazios, match trimmed)", () => {
@@ -21,6 +24,7 @@ describe("contratos", () => {
 
   it("PATCH parcial não preenche defaults (não apaga campos não enviados)", () => {
     expect(courseUpdateSchema.parse({ title: "Novo título" })).toEqual({ title: "Novo título" })
+    expect(examQuestionUpdateSchema.parse({ topic: "Laços" })).toEqual({ topic: "Laços" })
   })
 
   it("bloqueia caminhos de arquivo perigosos", () => {
@@ -37,5 +41,24 @@ describe("contratos", () => {
 
   it("lição nova vem com valores padrão seguros", () => {
     expect(lessonInputSchema.parse({ title: "Lição" })).toMatchObject({ lesson_type: "coding", test_cases: [], xp_reward: 50 })
+  })
+
+  it("gabarito da questão precisa apontar para uma alternativa existente", () => {
+    const question = { prompt: "2 + 2?", options: ["3", "4"] }
+    expect(quizQuestionInputSchema.safeParse({ ...question, correct_index: 1 }).success).toBe(true)
+    expect(quizQuestionInputSchema.safeParse({ ...question, correct_index: 2 }).error?.issues[0]?.path).toEqual(["correct_index"])
+  })
+
+  it("limite de listagem converte o texto da query e respeita o teto", () => {
+    const schema = limitQuerySchema({ defaultLimit: 20, maxLimit: 100 })
+    expect(schema.parse({})).toEqual({ limit: 20 })
+    expect(schema.parse({ limit: "7" })).toEqual({ limit: 7 })
+    expect(schema.safeParse({ limit: "101" }).success).toBe(false)
+  })
+
+  it("corpo ausente vira objeto vazio antes da validação", () => {
+    const schema = optionalBodySchema(deleteAccountSchema)
+    expect(schema.safeParse(undefined).error?.issues[0]?.path).toEqual(["password"])
+    expect(schema.parse({ password: "x" })).toEqual({ password: "x" })
   })
 })

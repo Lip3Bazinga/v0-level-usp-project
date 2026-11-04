@@ -1,25 +1,27 @@
 import { ChevronDown, ChevronUp, ListChecks, Plus, Trash2 } from "lucide-react"
 import type { Checkpoint } from "@levelusp/contracts"
-import { addButtonClass, EditorPanel, miniLabelClass, smallInputClass } from "./panel"
+import { moveItem, type MoveDirection, cn } from "@/lib/utils"
+import { ADD_BUTTON_CLASS, EditorPanel, MINI_LABEL_CLASS, SMALL_INPUT_CLASS } from "./panel"
 
-export function CheckpointsTab({ checkpoints, onChange }: {
+const MAX_CHECKPOINTS = 50
+const MAX_TEXT_LENGTH = 2000
+const ORDER_BUTTON_CLASS = "flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-30"
+
+function nextCheckpointId(checkpoints: Checkpoint[]): number {
+  return checkpoints.length ? Math.max(...checkpoints.map((checkpoint) => checkpoint.id)) + 1 : 1
+}
+
+interface CheckpointsTabProps {
   checkpoints: Checkpoint[]
   onChange: (next: Checkpoint[]) => void
-}) {
-  const add = () =>
-    onChange([
-      ...checkpoints,
-      { id: checkpoints.length ? Math.max(...checkpoints.map((c) => c.id)) + 1 : 1, instruction: "", hint: "" },
-    ])
-  const update = (id: number, patch: Partial<Checkpoint>) => onChange(checkpoints.map((c) => (c.id === id ? { ...c, ...patch } : c)))
-  const remove = (id: number) => onChange(checkpoints.filter((c) => c.id !== id))
-  const move = (idx: number, dir: -1 | 1) => {
-    const target = idx + dir
-    if (target < 0 || target >= checkpoints.length) return
-    const copy = [...checkpoints]
-    ;[copy[idx], copy[target]] = [copy[target]!, copy[idx]!]
-    onChange(copy)
-  }
+}
+
+export function CheckpointsTab({ checkpoints, onChange }: CheckpointsTabProps) {
+  const handleAdd = () => onChange([...checkpoints, { id: nextCheckpointId(checkpoints), instruction: "", hint: "" }])
+  const handleUpdate = (checkpointId: number, changes: Partial<Checkpoint>) =>
+    onChange(checkpoints.map((checkpoint) => (checkpoint.id === checkpointId ? { ...checkpoint, ...changes } : checkpoint)))
+  const handleRemove = (checkpointId: number) => onChange(checkpoints.filter((checkpoint) => checkpoint.id !== checkpointId))
+  const handleMove = (index: number, direction: MoveDirection) => onChange(moveItem(checkpoints, index, direction))
 
   return (
     <EditorPanel
@@ -27,7 +29,7 @@ export function CheckpointsTab({ checkpoints, onChange }: {
       title="Instruções (Checkpoints)"
       subtitle="Passos guiados que o aluno vê no painel da lição"
       action={
-        <button type="button" onClick={add} disabled={checkpoints.length >= 50} className={addButtonClass}>
+        <button type="button" onClick={handleAdd} disabled={checkpoints.length >= MAX_CHECKPOINTS} className={ADD_BUTTON_CLASS}>
           <Plus className="h-4 w-4" /> Adicionar passo
         </button>
       }
@@ -39,45 +41,55 @@ export function CheckpointsTab({ checkpoints, onChange }: {
         </div>
       ) : (
         <div className="space-y-3">
-          {checkpoints.map((cp, idx) => (
-            <div key={cp.id} className="rounded-xl border-2 border-border p-4">
+          {checkpoints.map((checkpoint, index) => (
+            <div key={checkpoint.id} className="rounded-xl border-2 border-border p-4">
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-level-purple">Passo {idx + 1}</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-level-purple">Passo {index + 1}</span>
                 <div className="flex items-center gap-1">
-                  <button type="button" aria-label="Mover para cima" onClick={() => move(idx, -1)} disabled={idx === 0}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-30">
+                  <button type="button" aria-label="Mover para cima" onClick={() => handleMove(index, -1)} disabled={index === 0} className={ORDER_BUTTON_CLASS}>
                     <ChevronUp className="h-4 w-4" />
                   </button>
-                  <button type="button" aria-label="Mover para baixo" onClick={() => move(idx, 1)} disabled={idx === checkpoints.length - 1}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-30">
+                  <button
+                    type="button"
+                    aria-label="Mover para baixo"
+                    onClick={() => handleMove(index, 1)}
+                    disabled={index === checkpoints.length - 1}
+                    className={ORDER_BUTTON_CLASS}
+                  >
                     <ChevronDown className="h-4 w-4" />
                   </button>
-                  <button type="button" aria-label="Remover passo" onClick={() => remove(cp.id)}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-destructive hover:bg-destructive/10">
+                  <button
+                    type="button"
+                    aria-label="Remover passo"
+                    onClick={() => handleRemove(checkpoint.id)}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-destructive hover:bg-destructive/10"
+                  >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
               </div>
               <div className="space-y-2">
                 <div>
-                  <label className={miniLabelClass}>Instrução</label>
+                  <label htmlFor={`checkpoint-${checkpoint.id}-instruction`} className={MINI_LABEL_CLASS}>Instrução</label>
                   <textarea
-                    value={cp.instruction}
-                    maxLength={2000}
-                    onChange={(e) => update(cp.id, { instruction: e.target.value })}
+                    id={`checkpoint-${checkpoint.id}-instruction`}
+                    value={checkpoint.instruction}
+                    maxLength={MAX_TEXT_LENGTH}
+                    onChange={(event) => handleUpdate(checkpoint.id, { instruction: event.target.value })}
                     rows={2}
                     placeholder="Ex: Defina a função soma(a, b) que retorna a + b"
-                    className={`${smallInputClass} resize-none`}
+                    className={cn(SMALL_INPUT_CLASS, "resize-none")}
                   />
                 </div>
                 <div>
-                  <label className={miniLabelClass}>Dica (opcional)</label>
+                  <label htmlFor={`checkpoint-${checkpoint.id}-hint`} className={MINI_LABEL_CLASS}>Dica (opcional)</label>
                   <input
-                    value={cp.hint ?? ""}
-                    maxLength={2000}
-                    onChange={(e) => update(cp.id, { hint: e.target.value })}
+                    id={`checkpoint-${checkpoint.id}-hint`}
+                    value={checkpoint.hint ?? ""}
+                    maxLength={MAX_TEXT_LENGTH}
+                    onChange={(event) => handleUpdate(checkpoint.id, { hint: event.target.value })}
                     placeholder="Ex: Use return a + b"
-                    className={smallInputClass}
+                    className={SMALL_INPUT_CLASS}
                   />
                 </div>
               </div>

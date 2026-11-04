@@ -3,33 +3,31 @@
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { BookOpen, Clock, Lock, Star } from "lucide-react"
-import type { Lesson } from "@levelusp/contracts"
+import type { Difficulty, Lesson } from "@levelusp/contracts"
+import { DIFFICULTY_BADGE_CLASSES, DIFFICULTY_LABELS } from "@/lib/constants"
+import { cn } from "@/lib/utils"
 import type { CourseFormState } from "./course-form"
 
-const GRADIENTS: Record<string, string> = {
+const HERO_GRADIENTS: Record<Difficulty, string> = {
   iniciante: "from-violet-500 to-purple-700",
   intermediario: "from-amber-500 to-orange-600",
   avancado: "from-rose-500 to-red-700",
 }
-export const LEVEL_COLOR: Record<string, string> = {
-  iniciante: "bg-green-100 text-green-700",
-  intermediario: "bg-yellow-100 text-yellow-700",
-  avancado: "bg-red-100 text-red-700",
-}
-export const LEVEL_LABEL: Record<string, string> = {
-  iniciante: "Iniciante",
-  intermediario: "Intermediário",
-  avancado: "Avançado",
-}
 
-/** Prévia ao vivo da página pública do curso. */
-export function CoursePreview({ form, coverPreview, lessons }: {
+const PREVIEW_TAG_COUNT = 2
+const PREVIEW_LESSON_COUNT = 4
+const HERO_MIN_HEIGHT_PX = 160
+
+interface CoursePreviewProps {
   form: CourseFormState
   coverPreview: string | null
   lessons: Lesson[]
-}) {
-  const gradient = GRADIENTS[form.level] ?? "from-violet-500 to-purple-700"
-  const hasFinalProject = !!form.final_project_title.trim()
+}
+
+/** Prévia ao vivo da página pública do curso. */
+export function CoursePreview({ form, coverPreview, lessons }: CoursePreviewProps) {
+  const hasFinalProject = Boolean(form.final_project_title.trim())
+  const hiddenLessonCount = lessons.length - PREVIEW_LESSON_COUNT
 
   return (
     <div className="overflow-hidden rounded-2xl border-2 border-level-purple/30 bg-background shadow-xl">
@@ -41,15 +39,21 @@ export function CoursePreview({ form, coverPreview, lessons }: {
         <span className="text-[10px] text-muted-foreground">Atualiza em tempo real</span>
       </div>
 
-      <div className={`relative flex flex-col items-start justify-end bg-linear-to-br ${gradient} p-5 text-white`} style={{ minHeight: 160 }}>
-        {coverPreview && <img src={coverPreview} alt="Capa" className="absolute inset-0 h-full w-full object-cover opacity-30" />}
+      <div
+        className={cn("relative flex flex-col items-start justify-end bg-linear-to-br p-5 text-white", HERO_GRADIENTS[form.level])}
+        style={{ minHeight: HERO_MIN_HEIGHT_PX }}
+      >
+        {coverPreview && (
+          // eslint-disable-next-line @next/next/no-img-element -- prévia local (blob:) ou capa enviada, sem domínio fixo para o next/image
+          <img src={coverPreview} alt="Capa" className="absolute inset-0 h-full w-full object-cover opacity-30" />
+        )}
         <div className="relative z-10 w-full">
           <div className="mb-2 flex flex-wrap gap-1.5">
-            <span className={`rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold ${LEVEL_COLOR[form.level]}`}>
-              {LEVEL_LABEL[form.level]}
+            <span className={cn("rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold", DIFFICULTY_BADGE_CLASSES[form.level])}>
+              {DIFFICULTY_LABELS[form.level]}
             </span>
-            {form.tags.slice(0, 2).map((t) => (
-              <span key={t} className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium">{t}</span>
+            {form.tags.slice(0, PREVIEW_TAG_COUNT).map((tag) => (
+              <span key={tag} className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium">{tag}</span>
             ))}
           </div>
           <h1 className="text-lg font-bold leading-tight">{form.title || "Título do Curso"}</h1>
@@ -82,14 +86,14 @@ export function CoursePreview({ form, coverPreview, lessons }: {
             Conteúdo <span className="font-normal text-muted-foreground">({lessons.length} lições{hasFinalProject ? " + projeto" : ""})</span>
           </h3>
           <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-            {lessons.slice(0, 4).map((l, i) => (
-              <div key={l.id} className="flex items-center gap-2 px-3 py-2">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[9px] font-bold text-muted-foreground">{i + 1}</span>
-                <span className="flex-1 truncate text-[11px] text-muted-foreground">{l.title}</span>
+            {lessons.slice(0, PREVIEW_LESSON_COUNT).map((lesson, index) => (
+              <div key={lesson.id} className="flex items-center gap-2 px-3 py-2">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[9px] font-bold text-muted-foreground">{index + 1}</span>
+                <span className="flex-1 truncate text-[11px] text-muted-foreground">{lesson.title}</span>
                 <Lock className="h-3 w-3 shrink-0 text-muted-foreground/50" />
               </div>
             ))}
-            {lessons.length > 4 && <div className="px-3 py-1.5 text-center text-[10px] text-muted-foreground">+ {lessons.length - 4} mais</div>}
+            {hiddenLessonCount > 0 && <div className="px-3 py-1.5 text-center text-[10px] text-muted-foreground">+ {hiddenLessonCount} mais</div>}
           </div>
         </div>
       )}

@@ -2,7 +2,24 @@ import type {
   Checkpoint, Difficulty, LessonInput, LessonType, LessonUpdateInput, LessonWithTests, ProjectFile, QuizQuestionFull,
   QuizQuestionInput, TestCase,
 } from "@levelusp/contracts"
-import { resolveStarterFiles } from "@/lib/api/learning"
+import { MAIN_FILE_PATH } from "@/lib/constants"
+import { resolveStarterFiles, diffChangedFields } from "@/lib/utils"
+
+const MAX_TITLE_LENGTH = 160
+const MIN_TITLE_LENGTH = 3
+const MAX_QUIZ_QUESTIONS = 50
+const MIN_QUIZ_OPTIONS = 2
+const MAX_QUIZ_OPTIONS = 8
+const MAX_STARTER_PATH_LENGTH = 200
+const DEFAULT_QUIZ_PASSING_SCORE = 70
+
+/** Limites aceitos pela API (`lessonInputSchema`). */
+const LIMITS = {
+  timeLimitMinutes: { min: 1, max: 300 },
+  order: { min: 1, max: 10_000 },
+  xpReward: { min: 0, max: 5_000 },
+  quizPassingScore: { min: 1, max: 100 },
+} as const
 
 /** Estado do formulário do editor de lição (tudo que vai em `LessonInput`, menos os casos). */
 export interface LessonFormState {
@@ -60,113 +77,117 @@ export const DEFAULT_FORM: LessonFormState = {
   difficulty: "iniciante",
   lesson_type: "coding",
   content_markdown: DEFAULT_CONTENT,
-  starter_files: [{ path: "main.py", content: DEFAULT_STARTER }],
+  starter_files: [{ path: MAIN_FILE_PATH, content: DEFAULT_STARTER }],
   checkpoints: [],
   libraries: [],
   xp_reward: 50,
   time_limit: 10,
-  quiz_passing_score: 70,
+  quiz_passing_score: DEFAULT_QUIZ_PASSING_SCORE,
 }
 
-export function formFromLesson(l: LessonWithTests): LessonFormState {
+export function formFromLesson(lesson: LessonWithTests): LessonFormState {
   return {
-    title: l.title,
-    description: l.description ?? "",
-    module: l.module ?? "",
-    module_id: l.module_id,
-    course_id: l.course_id,
-    order: l.order,
-    difficulty: l.difficulty,
-    lesson_type: l.lesson_type ?? "coding",
-    content_markdown: l.content_markdown ?? "",
-    starter_files: resolveStarterFiles(l),
-    checkpoints: l.checkpoints ?? [],
-    libraries: l.libraries ?? [],
-    xp_reward: l.xp_reward,
-    time_limit: clamp(l.time_limit, 1, 300),
-    quiz_passing_score: l.quiz_passing_score ?? 70,
+    title: lesson.title,
+    description: lesson.description ?? "",
+    module: lesson.module ?? "",
+    module_id: lesson.module_id,
+    course_id: lesson.course_id,
+    order: lesson.order,
+    difficulty: lesson.difficulty,
+    lesson_type: lesson.lesson_type ?? "coding",
+    content_markdown: lesson.content_markdown ?? "",
+    starter_files: resolveStarterFiles(lesson),
+    checkpoints: lesson.checkpoints ?? [],
+    libraries: lesson.libraries ?? [],
+    xp_reward: lesson.xp_reward,
+    time_limit: clampInteger(lesson.time_limit, LIMITS.timeLimitMinutes),
+    quiz_passing_score: lesson.quiz_passing_score ?? DEFAULT_QUIZ_PASSING_SCORE,
   }
 }
 
-function clamp(n: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, Math.round(Number.isFinite(n) ? n : min)))
+/** Inteiro dentro dos limites; valores não numéricos viram o mínimo. */
+function clampInteger(value: number, { min, max }: { min: number; max: number }): number {
+  return Math.min(max, Math.max(min, Math.round(Number.isFinite(value) ? value : min)))
 }
 
 /** Monta o corpo completo aceito por `POST /lessons`. */
-export function toLessonInput(f: LessonFormState, testCases: TestCase[]): LessonInput {
-  const files = f.starter_files.length ? f.starter_files : [{ path: "main.py", content: "" }]
-  const main = files.find((x) => x.path === "main.py") ?? files[0]!
+export function toLessonInput(form: LessonFormState, testCases: TestCase[]): LessonInput {
+  const files = form.starter_files.length ? form.starter_files : [{ path: MAIN_FILE_PATH, content: "" }]
+  const mainFile = files.find((file) => file.path === MAIN_FILE_PATH) ?? files[0]
   return {
-    title: f.title.trim(),
-    description: f.description.trim(),
-    module: f.module.trim(),
-    module_id: f.module_id,
-    course_id: f.course_id,
-    order: clamp(f.order, 1, 10_000),
-    difficulty: f.difficulty,
-    lesson_type: f.lesson_type,
-    content_markdown: f.content_markdown,
+    title: form.title.trim(),
+    description: form.description.trim(),
+    module: form.module.trim(),
+    module_id: form.module_id,
+    course_id: form.course_id,
+    order: clampInteger(form.order, LIMITS.order),
+    difficulty: form.difficulty,
+    lesson_type: form.lesson_type,
+    content_markdown: form.content_markdown,
     // starter_code espelha o main.py (compatibilidade com telas antigas)
-    starter_code: main.content,
+    starter_code: mainFile.content,
     starter_files: files,
-    checkpoints: f.checkpoints.map((c) => {
-      const hint = c.hint?.trim()
-      return hint ? { id: c.id, instruction: c.instruction, hint } : { id: c.id, instruction: c.instruction }
+    checkpoints: form.checkpoints.map(({ id, instruction, hint }) => {
+      const trimmedHint = hint?.trim()
+      return trimmedHint ? { id, instruction, hint: trimmedHint } : { id, instruction }
     }),
-    libraries: f.libraries,
-    xp_reward: clamp(f.xp_reward, 0, 5000),
-    time_limit: clamp(f.time_limit, 1, 300),
-    quiz_passing_score: clamp(f.quiz_passing_score, 1, 100),
+    libraries: form.libraries,
+    xp_reward: clampInteger(form.xp_reward, LIMITS.xpReward),
+    time_limit: clampInteger(form.time_limit, LIMITS.timeLimitMinutes),
+    quiz_passing_score: clampInteger(form.quiz_passing_score, LIMITS.quizPassingScore),
     test_cases: testCases,
   }
 }
 
 /** Só os campos que mudaram (para o PATCH não sobrescrever o que não foi tocado). */
 export function diffLessonInput(before: LessonInput, after: LessonInput): LessonUpdateInput {
-  const patch: Record<string, unknown> = {}
-  for (const key of Object.keys(after) as (keyof LessonInput)[]) {
-    if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) patch[key] = after[key]
-  }
-  return patch as LessonUpdateInput
+  return diffChangedFields(before, after)
 }
 
 /** Primeira mensagem de erro do formulário (antes de chamar a API) ou null. */
-export function validateLessonForm(f: LessonFormState): string | null {
-  if (f.title.trim().length < 3) return "O título da lição precisa ter pelo menos 3 caracteres."
-  if (f.title.trim().length > 160) return "O título pode ter no máximo 160 caracteres."
-  if (f.lesson_type === "coding") {
-    const paths = f.starter_files.map((x) => x.path)
-    if (!paths.includes("main.py")) return "O exercício precisa de um arquivo main.py."
+export function validateLessonForm(form: LessonFormState): string | null {
+  const title = form.title.trim()
+  if (title.length < MIN_TITLE_LENGTH) return "O título da lição precisa ter pelo menos 3 caracteres."
+  if (title.length > MAX_TITLE_LENGTH) return "O título pode ter no máximo 160 caracteres."
+  if (form.lesson_type === "coding") {
+    const paths = form.starter_files.map((file) => file.path)
+    if (!paths.includes(MAIN_FILE_PATH)) return "O exercício precisa de um arquivo main.py."
     if (new Set(paths).size !== paths.length) return "Há arquivos do exercício com o mesmo nome."
   }
   return null
 }
 
-// ── Questionário ─────────────────────────────────────────────────────────────
-
 export function toQuizInputs(questions: QuizQuestionFull[]): QuizQuestionInput[] {
-  return questions.map((q) => ({
-    prompt: q.prompt.trim(),
-    options: q.options.map((o) => o.trim()),
-    correct_index: q.correct_index,
-    explanation: q.explanation.trim(),
+  return questions.map((question) => ({
+    prompt: question.prompt.trim(),
+    options: question.options.map((option) => option.trim()),
+    correct_index: question.correct_index,
+    explanation: question.explanation.trim(),
   }))
+}
+
+function validateQuestion(question: QuizQuestionFull): string | null {
+  if (!question.prompt.trim()) return "o enunciado é obrigatório."
+  if (question.options.length < MIN_QUIZ_OPTIONS) return "são necessárias ao menos 2 alternativas."
+  if (question.options.length > MAX_QUIZ_OPTIONS) return "use no máximo 8 alternativas."
+  if (question.options.some((option) => !option.trim())) return "há alternativas vazias."
+  if (question.correct_index < 0 || question.correct_index >= question.options.length) return "marque a alternativa correta."
+  return null
 }
 
 export function validateQuiz(questions: QuizQuestionFull[]): string | null {
   if (questions.length === 0) return "Adicione pelo menos uma questão ao questionário."
-  if (questions.length > 50) return "O questionário pode ter no máximo 50 questões."
-  for (const [i, q] of questions.entries()) {
-    if (!q.prompt.trim()) return `Questão ${i + 1}: o enunciado é obrigatório.`
-    if (q.options.length < 2) return `Questão ${i + 1}: são necessárias ao menos 2 alternativas.`
-    if (q.options.length > 8) return `Questão ${i + 1}: use no máximo 8 alternativas.`
-    if (q.options.some((o) => !o.trim())) return `Questão ${i + 1}: há alternativas vazias.`
-    if (q.correct_index < 0 || q.correct_index >= q.options.length) return `Questão ${i + 1}: marque a alternativa correta.`
+  if (questions.length > MAX_QUIZ_QUESTIONS) return "O questionário pode ter no máximo 50 questões."
+  for (const [index, question] of questions.entries()) {
+    const problem = validateQuestion(question)
+    if (problem) return `Questão ${index + 1}: ${problem}`
   }
   return null
 }
 
+const STARTER_PATH_PATTERN = /^(?!\/)(?!.*\.\.)[A-Za-z0-9_\-./]+\.(py|txt|csv|json|md)$/
+
 /** Nome de arquivo-semente aceito pela API (mesma regra de `projectPathSchema`). */
 export function isValidStarterPath(path: string): boolean {
-  return /^(?!\/)(?!.*\.\.)[A-Za-z0-9_\-./]+\.(py|txt|csv|json|md)$/.test(path) && path.length <= 200
+  return STARTER_PATH_PATTERN.test(path) && path.length <= MAX_STARTER_PATH_LENGTH
 }

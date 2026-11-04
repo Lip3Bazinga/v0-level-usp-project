@@ -1,47 +1,74 @@
-import type { AdminExamQuestion, ExamQuestion } from "@levelusp/contracts"
-import type { AttemptLike, ExamRules } from "./exams.domain"
-import type { AttemptRow, ExamRow, QuestionRow } from "./exams.repository"
+import type { AdminExamQuestion, AdminExamSummary, ExamQuestion, ExamStart } from "@levelusp/contracts"
+import type { ExamAttemptRow, ExamQuestionRow, ExamRow } from "@levelusp/db"
+import { toIsoTimestamp } from "@/common/time/time"
+import { attemptExpiresAt, type AttemptLike, type ExamRules } from "./exams.domain"
 
-/** Timestamps do Postgres ("2026-10-16 12:00:00+00") → ISO 8601. */
-export function toIso(value: string): string {
-  return new Date(value).toISOString()
+export interface ExamSummaryRow {
+  id: string
+  courseId: string
+  courseTitle: string
+  title: string
 }
 
-export function toRules(e: ExamRow): ExamRules {
+export type PublicExamQuestionRow = Pick<ExamQuestionRow, "id" | "prompt" | "options">
+
+export function toRules(exam: ExamRow): ExamRules {
   return {
-    passingScore: e.passingScore,
-    timeLimitMinutes: e.timeLimitMinutes,
-    cooldownMinutes: e.cooldownMinutes,
-    questionsPerAttempt: e.questionsPerAttempt,
+    passingScore: exam.passingScore,
+    timeLimitMinutes: exam.timeLimitMinutes,
+    cooldownMinutes: exam.cooldownMinutes,
+    questionsPerAttempt: exam.questionsPerAttempt,
   }
 }
 
-export function toAttemptLike(a: AttemptRow): AttemptLike {
+export function toAttemptLike(attempt: ExamAttemptRow): AttemptLike {
   return {
-    id: a.id,
-    startedAt: toIso(a.startedAt),
-    submittedAt: a.submittedAt ? toIso(a.submittedAt) : null,
-    score: a.score === null ? null : Number(a.score),
-    passed: a.passed,
+    id: attempt.id,
+    startedAt: toIsoTimestamp(attempt.startedAt),
+    submittedAt: attempt.submittedAt ? toIsoTimestamp(attempt.submittedAt) : null,
+    score: attempt.score === null ? null : Number(attempt.score),
+    passed: attempt.passed,
   }
 }
 
 /** Questão para o aluno: só id, enunciado e alternativas. */
-export function toExamQuestion(q: { id: string; prompt: string; options: string[] }): ExamQuestion {
-  return { id: q.id, prompt: q.prompt, options: [...q.options] }
+export function toExamQuestion(question: PublicExamQuestionRow): ExamQuestion {
+  return { id: question.id, prompt: question.prompt, options: [...question.options] }
 }
 
-export function toAdminQuestion(q: QuestionRow): AdminExamQuestion {
+export interface ExamStartParts {
+  attempt: AttemptLike
+  exam: ExamRow
+  questions: PublicExamQuestionRow[]
+  /** true quando devolve a tentativa já aberta em vez de criar outra. */
+  resumed: boolean
+}
+
+export function toExamStart({ attempt, exam, questions, resumed }: ExamStartParts): ExamStart {
   return {
-    id: q.id,
-    exam_id: q.examId,
-    prompt: q.prompt,
-    options: q.options,
-    correct_index: q.correctIndex,
-    explanation: q.explanation,
-    topic: q.topic,
-    sort_order: q.sortOrder,
-    active: q.active,
-    created_at: q.createdAt,
+    attemptId: attempt.id,
+    expiresAt: attemptExpiresAt(attempt, exam).toISOString(),
+    timeLimitMinutes: exam.timeLimitMinutes,
+    questions: questions.map(toExamQuestion),
+    resumed,
+  }
+}
+
+export function toAdminExamSummary(exam: ExamSummaryRow): AdminExamSummary {
+  return { id: exam.id, course_id: exam.courseId, course_title: exam.courseTitle, title: exam.title }
+}
+
+export function toAdminQuestion(question: ExamQuestionRow): AdminExamQuestion {
+  return {
+    id: question.id,
+    exam_id: question.examId,
+    prompt: question.prompt,
+    options: question.options,
+    correct_index: question.correctIndex,
+    explanation: question.explanation,
+    topic: question.topic,
+    sort_order: question.sortOrder,
+    active: question.active,
+    created_at: question.createdAt,
   }
 }

@@ -1,7 +1,9 @@
 import Link from "next/link"
 import { CheckCircle2, XCircle, Download, GraduationCap } from "lucide-react"
 import type { CertificateVerification } from "@levelusp/contracts"
-import { certificatePdfUrl, verifyCertificate } from "@/lib/api"
+import { certificatePdfUrl, fetchCertificateVerification } from "@/lib/api"
+import { ROUTES } from "@/lib/constants"
+import { formatDate, formatPercent } from "@/lib/utils"
 
 // Página PÚBLICA de verificação de certificado — não exige login.
 // Renderizada no servidor: consulta a API (rota pública GET /certificates/:code),
@@ -9,29 +11,32 @@ import { certificatePdfUrl, verifyCertificate } from "@/lib/api"
 
 export const dynamic = "force-dynamic"
 
-type VerifiedCertificate = CertificateVerification & {
+interface VerifiedCertificate extends CertificateVerification {
   student_name: string
   course_title: string
   issued_at: string
 }
 
-async function verifyCode(code: string): Promise<VerifiedCertificate | null> {
+/** `null` para código inexistente, inválido ou com dados incompletos (e se a API falhar). */
+async function verifyCode(verificationCode: string): Promise<VerifiedCertificate | null> {
   try {
-    const res = await verifyCertificate(code)
-    if (!res.valid || !res.student_name || !res.course_title || !res.issued_at) return null
-    return res as VerifiedCertificate
+    const verification = await fetchCertificateVerification(verificationCode)
+    const { valid, student_name, course_title, issued_at } = verification
+    if (!valid || !student_name || !course_title || !issued_at) return null
+    return { ...verification, student_name, course_title, issued_at }
   } catch {
     return null
   }
 }
 
-export default async function CertificadoPage({
-  params,
-}: {
+interface CertificadoPageProps {
   params: Promise<{ code: string }>
-}) {
+}
+
+export default async function CertificadoPage({ params }: CertificadoPageProps) {
   const { code } = await params
-  const cert = await verifyCode(decodeURIComponent(code))
+  const verificationCode = decodeURIComponent(code)
+  const certificate = await verifyCode(verificationCode)
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex items-center justify-center p-6">
@@ -44,7 +49,7 @@ export default async function CertificadoPage({
           </span>
         </div>
 
-        {cert ? (
+        {certificate ? (
           <>
             <div className="mb-6 flex items-center gap-3 rounded-2xl bg-green-50 p-4 ring-1 ring-green-200">
               <CheckCircle2 className="h-8 w-8 shrink-0 text-green-600" />
@@ -59,34 +64,32 @@ export default async function CertificadoPage({
             <dl className="space-y-4">
               <div>
                 <dt className="text-xs uppercase tracking-wide text-gray-400">Aluno(a)</dt>
-                <dd className="text-xl font-bold text-gray-900">{cert.student_name}</dd>
+                <dd className="text-xl font-bold text-gray-900">{certificate.student_name}</dd>
               </div>
               <div>
                 <dt className="text-xs uppercase tracking-wide text-gray-400">Curso</dt>
-                <dd className="text-lg font-semibold text-purple-900">{cert.course_title}</dd>
+                <dd className="text-lg font-semibold text-purple-900">{certificate.course_title}</dd>
               </div>
               <div className="flex gap-8">
                 <div>
                   <dt className="text-xs uppercase tracking-wide text-gray-400">Emitido em</dt>
                   <dd className="font-medium text-gray-700">
-                    {new Date(cert.issued_at).toLocaleDateString("pt-BR", {
-                      day: "numeric", month: "long", year: "numeric",
-                    })}
+                    {formatDate(certificate.issued_at, "long")}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-xs uppercase tracking-wide text-gray-400">Prova final</dt>
-                  <dd className="font-medium text-gray-700">{Number(cert.exam_score ?? 0).toFixed(0)}%</dd>
+                  <dd className="font-medium text-gray-700">{formatPercent(certificate.exam_score ?? 0)}</dd>
                 </div>
               </div>
               <div>
                 <dt className="text-xs uppercase tracking-wide text-gray-400">Código</dt>
-                <dd className="font-mono text-sm text-gray-600">{decodeURIComponent(code).toUpperCase()}</dd>
+                <dd className="font-mono text-sm text-gray-600">{verificationCode.toUpperCase()}</dd>
               </div>
             </dl>
 
             <a
-              href={certificatePdfUrl(decodeURIComponent(code))}
+              href={certificatePdfUrl(verificationCode)}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl bg-purple-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-purple-700"
@@ -102,7 +105,7 @@ export default async function CertificadoPage({
               <div>
                 <p className="font-bold text-red-800">Certificado não encontrado</p>
                 <p className="text-sm text-red-700">
-                  O código <span className="font-mono">{decodeURIComponent(code)}</span> não
+                  O código <span className="font-mono">{verificationCode}</span> não
                   corresponde a nenhum certificado emitido pela LevelUSP.
                 </p>
               </div>
@@ -115,7 +118,7 @@ export default async function CertificadoPage({
         )}
 
         <div className="mt-8 border-t border-gray-100 pt-4 text-center">
-          <Link href="/" className="text-sm font-medium text-purple-600 hover:underline">
+          <Link href={ROUTES.home} className="text-sm font-medium text-purple-600 hover:underline">
             Conheça a LevelUSP →
           </Link>
         </div>

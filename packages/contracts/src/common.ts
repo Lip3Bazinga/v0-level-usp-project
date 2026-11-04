@@ -4,6 +4,11 @@ import { z } from "zod"
 export const uuidSchema = z.uuid()
 export type Uuid = z.infer<typeof uuidSchema>
 
+export interface ValidationIssue {
+  path: string
+  message: string
+}
+
 /** Erro padronizado devolvido pela API (RFC 7807 simplificado). */
 export interface ApiErrorBody {
   statusCode: number
@@ -12,15 +17,21 @@ export interface ApiErrorBody {
   /** Mensagem em pt-BR, segura para exibir ao usuário. */
   message: string
   /** Detalhes de validação por campo, quando aplicável. */
-  issues?: { path: string; message: string }[]
+  issues?: ValidationIssue[]
   requestId?: string
 }
 
-export const paginationSchema = z.object({
-  limit: z.coerce.number().int().min(1).max(200).default(50),
-  offset: z.coerce.number().int().min(0).default(0),
-})
-export type Pagination = z.infer<typeof paginationSchema>
+export interface LimitQueryOptions {
+  defaultLimit: number
+  maxLimit: number
+}
 
-export type Difficulty = "iniciante" | "intermediario" | "avancado"
-export const difficultySchema = z.enum(["iniciante", "intermediario", "avancado"])
+/** Query string `?limit=` das listagens (o valor chega como texto e é convertido). */
+export function limitQuerySchema({ defaultLimit, maxLimit }: LimitQueryOptions) {
+  return z.object({ limit: z.coerce.number().int().min(1).max(maxLimit).default(defaultLimit) })
+}
+export type LimitQuery = z.infer<ReturnType<typeof limitQuerySchema>>
+
+export const DIFFICULTIES = ["iniciante", "intermediario", "avancado"] as const
+export const difficultySchema = z.enum(DIFFICULTIES)
+export type Difficulty = z.infer<typeof difficultySchema>

@@ -1,55 +1,39 @@
 "use client"
 
-// Rota legada /ide — hoje o IDE oficial vive em /lesson/[id] (IDEProvider +
-// avaliação server-side). Esta página só resolve para qual lição mandar o
-// aluno: ?lesson=<id> se válido; senão a primeira lição não concluída; senão
-// a primeira publicada. Substitui ~490 linhas que duplicavam o fluxo de lição.
+// Rota legada /ide: a IDE oficial vive em /lesson/[id]. Esta página só decide para qual
+// lição mandar o aluno: ?lesson=<id> se válido; senão a primeira lição não concluída;
+// senão a primeira publicada.
 
-import { useEffect } from "react"
+import { Suspense, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Suspense } from "react"
-import { ApiError, fetchPublishedLessonSummaries, fetchCompletedLessonIds } from "@/lib/api"
 import { Loader2 } from "lucide-react"
+import { useAsyncResource } from "@/hooks/use-async-resource"
+import { fetchMyCompletedLessonIds, fetchPublishedLessonSummaries, HTTP_STATUS, nullOnStatus } from "@/lib/api"
+import { ROUTES } from "@/lib/constants"
+
+async function resolveIdeDestination(requestedLessonId: string | null): Promise<string> {
+  try {
+    const lessons = await fetchPublishedLessonSummaries()
+    if (lessons.length === 0) return ROUTES.dashboard
+    if (requestedLessonId && lessons.some((lesson) => lesson.id === requestedLessonId)) return ROUTES.lesson(requestedLessonId)
+    // Sem sessão, ninguém concluiu nada: começa pela primeira lição.
+    const completedLessonIds = (await nullOnStatus(fetchMyCompletedLessonIds(), HTTP_STATUS.UNAUTHORIZED)) ?? new Set<string>()
+    const nextLesson = lessons.find((lesson) => !completedLessonIds.has(lesson.id)) ?? lessons[0]
+    return ROUTES.lesson(nextLesson.id)
+  } catch {
+    return ROUTES.dashboard
+  }
+}
 
 function IdeRedirect() {
   const router = useRouter()
-  const searchParams = useSearchParams()
+  const requestedLessonId = useSearchParams().get("lesson")
+  const destination = useAsyncResource(() => resolveIdeDestination(requestedLessonId), [requestedLessonId])
+  const destinationRoute = destination.status === "success" ? destination.data : null
 
   useEffect(() => {
-    let cancelled = false
-
-    async function resolve() {
-      try {
-        const lessons = await fetchPublishedLessonSummaries()
-        if (cancelled) return
-        if (!lessons.length) {
-          router.replace("/dashboard")
-          return
-        }
-
-        const requested = searchParams.get("lesson")
-        if (requested && lessons.some((l) => l.id === requested)) {
-          router.replace(`/lesson/${requested}`)
-          return
-        }
-
-        // Primeira lição ainda não concluída pelo usuário logado (sessão via cookie)
-        let completedLessonIds = new Set<string>()
-        try {
-          completedLessonIds = await fetchCompletedLessonIds()
-        } catch (err) {
-          if (!(err instanceof ApiError && err.status === 401)) throw err
-        }
-        const nextLesson = lessons.find((lesson) => !completedLessonIds.has(lesson.id))
-        if (!cancelled) router.replace(`/lesson/${(nextLesson ?? lessons[0]).id}`)
-      } catch {
-        if (!cancelled) router.replace("/dashboard")
-      }
-    }
-
-    resolve()
-    return () => { cancelled = true }
-  }, [router, searchParams])
+    if (destinationRoute) router.replace(destinationRoute)
+  }, [destinationRoute, router])
 
   return (
     <div className="flex h-screen flex-col items-center justify-center gap-3">

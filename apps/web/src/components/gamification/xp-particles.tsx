@@ -1,137 +1,142 @@
 "use client"
 
-import { useEffect, useRef, useCallback } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from "react"
 
 interface Particle {
-  id: number
   x: number
   y: number
-  vx: number
-  vy: number
+  velocityX: number
+  velocityY: number
   opacity: number
   size: number
   color: string
-  targetX: number
-  targetY: number
   phase: "explode" | "travel"
-  progress: number
+}
+
+interface Point {
+  x: number
+  y: number
 }
 
 interface XpParticlesProps {
   trigger: boolean
   count?: number
-  sourceRef: React.RefObject<HTMLElement | null>
-  targetRef: React.RefObject<HTMLElement | null>
+  sourceRef: RefObject<HTMLElement | null>
+  targetRef: RefObject<HTMLElement | null>
   onComplete?: () => void
 }
 
 const COLORS = ["#FACC15", "#FDE68A", "#FEF08A", "#FCD34D", "#F59E0B", "#FFFFFF"]
+const GLOW_COLOR = "#FACC15"
+/** Quadros de "explosão" antes de as partículas seguirem para o alvo. */
+const EXPLODE_FRAMES = 20
+const EXPLODE_FRICTION = 0.92
+const TRAVEL_EASING = 0.06
+const ARRIVAL_DISTANCE_PX = 8
+const FADE_PER_FRAME = 0.12
+const SPAWN_SPREAD_PX = 40
 
+function centerOf(element: HTMLElement): Point {
+  const rect = element.getBoundingClientRect()
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+}
+
+function spawnParticles(count: number, source: Point): Particle[] {
+  return Array.from({ length: count }, (_, index) => {
+    const angle = (Math.PI * 2 * index) / count + Math.random() * 0.5
+    const speed = 2 + Math.random() * 4
+    return {
+      x: source.x + (Math.random() - 0.5) * SPAWN_SPREAD_PX,
+      y: source.y + (Math.random() - 0.5) * SPAWN_SPREAD_PX,
+      velocityX: Math.cos(angle) * speed,
+      velocityY: Math.sin(angle) * speed,
+      opacity: 1,
+      size: 3 + Math.random() * 4,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      phase: "explode",
+    }
+  })
+}
+
+/** Avança uma partícula um quadro: espalha, depois voa até o alvo e some ao chegar. */
+function stepParticle(particle: Particle, target: Point, frame: number): void {
+  if (particle.phase === "explode") {
+    particle.x += particle.velocityX
+    particle.y += particle.velocityY
+    particle.velocityX *= EXPLODE_FRICTION
+    particle.velocityY *= EXPLODE_FRICTION
+    if (frame > EXPLODE_FRAMES) particle.phase = "travel"
+    return
+  }
+  const deltaX = target.x - particle.x
+  const deltaY = target.y - particle.y
+  if (Math.hypot(deltaX, deltaY) < ARRIVAL_DISTANCE_PX) {
+    particle.opacity -= FADE_PER_FRAME
+  } else {
+    particle.x += deltaX * TRAVEL_EASING
+    particle.y += deltaY * TRAVEL_EASING
+  }
+}
+
+function drawParticle(context: CanvasRenderingContext2D, particle: Particle): void {
+  context.beginPath()
+  context.arc(particle.x, particle.y, particle.size * particle.opacity, 0, Math.PI * 2)
+  context.fillStyle = particle.color
+  context.globalAlpha = particle.opacity * 0.9
+  context.shadowBlur = 8
+  context.shadowColor = GLOW_COLOR
+  context.fill()
+  context.globalAlpha = 1
+}
+
+/** Partículas de XP que saem do card de sucesso e voam até o selo de XP do cabeçalho. */
 export function XpParticles({ trigger, count = 80, sourceRef, targetRef, onComplete }: XpParticlesProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const animRef = useRef<number | null>(null)
-  const particlesRef = useRef<Particle[]>([])
+  const animationFrameRef = useRef<number | null>(null)
   const onCompleteRef = useRef(onComplete)
-  onCompleteRef.current = onComplete
+
+  useLayoutEffect(() => {
+    onCompleteRef.current = onComplete
+  })
 
   const startAnimation = useCallback(() => {
     const canvas = canvasRef.current
-    if (!canvas || !sourceRef.current || !targetRef.current) return
+    const context = canvas?.getContext("2d")
+    if (!canvas || !context || !sourceRef.current || !targetRef.current) return
 
     canvas.width = window.innerWidth
     canvas.height = window.innerHeight
-
-    const srcRect = sourceRef.current.getBoundingClientRect()
-    const tgtRect = targetRef.current.getBoundingClientRect()
-
-    const sx = srcRect.left + srcRect.width / 2
-    const sy = srcRect.top + srcRect.height / 2
-    const tx = tgtRect.left + tgtRect.width / 2
-    const ty = tgtRect.top + tgtRect.height / 2
-
-    particlesRef.current = Array.from({ length: count }, (_, i) => {
-      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5
-      const speed = 2 + Math.random() * 4
-      return {
-        id: i,
-        x: sx + (Math.random() - 0.5) * 40,
-        y: sy + (Math.random() - 0.5) * 40,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
-        opacity: 1,
-        size: 3 + Math.random() * 4,
-        color: COLORS[Math.floor(Math.random() * COLORS.length)],
-        targetX: tx,
-        targetY: ty,
-        phase: "explode",
-        progress: 0,
-      }
-    })
-
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
+    const target = centerOf(targetRef.current)
+    const particles = spawnParticles(count, centerOf(sourceRef.current))
     let frame = 0
 
-    function animate() {
-      if (!ctx || !canvas) return
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-      let alive = 0
-      for (const p of particlesRef.current) {
-        if (p.phase === "explode") {
-          p.x += p.vx
-          p.y += p.vy
-          p.vx *= 0.92
-          p.vy *= 0.92
-          if (frame > 20) {
-            p.phase = "travel"
-          }
-        } else {
-          const dx = p.targetX - p.x
-          const dy = p.targetY - p.y
-          const dist = Math.sqrt(dx * dx + dy * dy)
-          if (dist < 8) {
-            p.opacity -= 0.12
-          } else {
-            p.x += dx * 0.06
-            p.y += dy * 0.06
-          }
-        }
-
-        if (p.opacity <= 0) continue
-        alive++
-
-        ctx.beginPath()
-        ctx.arc(p.x, p.y, p.size * p.opacity, 0, Math.PI * 2)
-        ctx.fillStyle = p.color
-        ctx.globalAlpha = p.opacity * 0.9
-        ctx.shadowBlur = 8
-        ctx.shadowColor = "#FACC15"
-        ctx.fill()
-        ctx.globalAlpha = 1
+    const animate = () => {
+      context.clearRect(0, 0, canvas.width, canvas.height)
+      let visibleCount = 0
+      for (const particle of particles) {
+        stepParticle(particle, target, frame)
+        if (particle.opacity <= 0) continue
+        visibleCount++
+        drawParticle(context, particle)
       }
-
       frame++
 
-      if (alive > 0) {
-        animRef.current = requestAnimationFrame(animate)
-      } else {
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
-        onCompleteRef.current?.()
+      if (visibleCount > 0) {
+        animationFrameRef.current = requestAnimationFrame(animate)
+        return
       }
+      context.clearRect(0, 0, canvas.width, canvas.height)
+      onCompleteRef.current?.()
     }
 
-    if (animRef.current) cancelAnimationFrame(animRef.current)
-    animRef.current = requestAnimationFrame(animate)
+    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current)
+    animationFrameRef.current = requestAnimationFrame(animate)
   }, [count, sourceRef, targetRef])
 
   useEffect(() => {
-    if (trigger) {
-      startAnimation()
-    }
+    if (trigger) startAnimation()
     return () => {
-      if (animRef.current) cancelAnimationFrame(animRef.current)
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current)
     }
   }, [trigger, startAnimation])
 

@@ -2,17 +2,18 @@
  * Regras puras da administração (sem I/O) — testadas isoladamente.
  */
 import type { AdminUpdateUserInput } from "@levelusp/contracts"
-import { previousDate, saoPauloDate } from "../gamification/gamification.domain"
+import { previousDate, saoPauloDate } from "@/common/time/time"
+
+/** Chaves de configuração enviadas de uma vez (evita abuso de PUT gigante). */
+export const MAX_SETTINGS_PER_REQUEST = 100
+
+export type SelfAction = { kind: "update"; patch: Pick<AdminUpdateUserInput, "role" | "suspended"> } | { kind: "delete" }
 
 /**
  * Proteção contra o admin se trancar fora: não pode rebaixar o próprio papel,
  * se suspender nem excluir a própria conta. Devolve a mensagem de erro, ou null.
  */
-export function selfActionViolation(
-  actorId: string,
-  targetId: string,
-  action: { kind: "update"; patch: Pick<AdminUpdateUserInput, "role" | "suspended"> } | { kind: "delete" },
-): string | null {
+export function selfActionViolation(actorId: string, targetId: string, action: SelfAction): string | null {
   if (actorId !== targetId) return null
   if (action.kind === "delete") return "Você não pode excluir a própria conta pelo painel."
   if (action.patch.role !== undefined && action.patch.role !== "admin") {
@@ -22,17 +23,27 @@ export function selfActionViolation(
   return null
 }
 
-/** Últimos `days` dias civis (São Paulo), do mais antigo a hoje. */
-export function lastDays(days: number, now: Date = new Date()): string[] {
-  const out: string[] = [saoPauloDate(now)]
-  while (out.length < days) out.unshift(previousDate(out[0]!))
-  return out
+/** Últimos `dayCount` dias civis (São Paulo), do mais antigo a hoje. */
+export function lastDays(dayCount: number, now: Date = new Date()): string[] {
+  let oldestDay = saoPauloDate(now)
+  const days = [oldestDay]
+  while (days.length < dayCount) {
+    oldestDay = previousDate(oldestDay)
+    days.unshift(oldestDay)
+  }
+  return days
 }
 
-/** Série diária sem buracos a partir de linhas agregadas por dia (yyyy-mm-dd). */
-export function dailySeries(rows: { day: string; n: number }[], days: number, now: Date = new Date()): number[] {
-  const byDay = new Map(rows.map((r) => [r.day, Number(r.n)]))
-  return lastDays(days, now).map((d) => byDay.get(d) ?? 0)
+export interface DailyCount {
+  /** Data civil yyyy-mm-dd. */
+  day: string
+  count: number
+}
+
+/** Série diária sem buracos a partir de contagens agregadas por dia. */
+export function dailySeries(counts: DailyCount[], dayCount: number, now: Date = new Date()): number[] {
+  const countByDay = new Map(counts.map((daily) => [daily.day, Number(daily.count)]))
+  return lastDays(dayCount, now).map((day) => countByDay.get(day) ?? 0)
 }
 
 /** Percentual inteiro (0–100); 0 quando não há base. */
@@ -40,6 +51,3 @@ export function percentage(part: number, total: number): number {
   if (!total || total <= 0) return 0
   return Math.round((Math.min(part, total) / total) * 100)
 }
-
-/** Chaves de configuração enviadas de uma vez (evita abuso de PUT gigante). */
-export const MAX_SETTINGS_PER_REQUEST = 100

@@ -1,7 +1,7 @@
-import { sql } from "drizzle-orm"
 import { boolean, check, date, integer, pgTable, text, uuid } from "drizzle-orm/pg-core"
+import { USER_ROLES } from "@levelusp/contracts"
 import { users } from "./auth"
-import { createdAt, updatedAt } from "./_helpers"
+import { createdAt, isOneOf, updatedAt } from "./_helpers"
 
 export const profiles = pgTable(
   "profiles",
@@ -12,7 +12,7 @@ export const profiles = pgTable(
     username: text("username").unique(),
     avatarUrl: text("avatar_url"),
     bio: text("bio"),
-    role: text("role", { enum: ["student", "teacher", "admin"] }).notNull().default("student"),
+    role: text("role", { enum: USER_ROLES }).notNull().default("student"),
     level: integer("level").notNull().default(1),
     totalXp: integer("total_xp").notNull().default(0),
     currentStreak: integer("current_streak").notNull().default(0),
@@ -24,5 +24,8 @@ export const profiles = pgTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [check("profiles_role_check", sql`${t.role} in ('student','teacher','admin')`)],
+  (table) => [check("profiles_role_check", isOneOf(table.role, USER_ROLES))],
 )
+
+export type ProfileRow = typeof profiles.$inferSelect
+export type ProfileInsert = typeof profiles.$inferInsert

@@ -1,10 +1,11 @@
-export type { TestResult, CaseResult, SubmissionResult } from "@levelusp/contracts"
+export type ConsoleOutputType = "info" | "success" | "error" | "warning" | "output" | "figure"
 
-/** Linha do console do IDE (execução Python no navegador). Tipo puramente de UI. */
-export type ConsoleOutput = {
+/** Linha do console da IDE (execução Python no navegador). */
+export interface ConsoleOutput {
   id: string
-  type: "info" | "success" | "error" | "warning" | "output" | "figure"
+  type: ConsoleOutputType
   message: string
   timestamp: Date
-  figureB64?: string  // base64 PNG para type === "figure"
+  /** PNG em base64 quando `type === "figure"` (gráficos do matplotlib). */
+  figureB64?: string
 }

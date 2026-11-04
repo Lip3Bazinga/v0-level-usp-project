@@ -1,213 +1,148 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useCallback, useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react"
+import type { ProjectFile } from "@levelusp/contracts"
+import { MS_PER_SECOND, PYTHON_EXECUTION_TIMEOUT_MS } from "@/lib/constants"
 import {
-  ensureWorker,
-  replaceWorker,
   getWorkerStatus,
-  addListener,
-  removeListener,
-  type WorkerListener,
-} from "@/lib/pyodide-worker-singleton"
-import type { TestResult } from "@/lib/types"
+  postToWorker,
+  restartWorker,
+  subscribeToWorker,
+  subscribeToWorkerStatus,
+} from "@/lib/python/pyodide-worker"
+import type { ExecutionResult, PyodideStatus, WorkerMessage } from "@/lib/python/worker-protocol"
 
-export type PyodideStatus = "idle" | "loading" | "ready" | "error"
+export type { ExecutionResult, PyodideStatus }
 
-export interface ExecutionResult {
-  stdout: string
-  stderr: string
-  figures: string[]
+export interface ExecutionRequest {
+  files: readonly ProjectFile[]
+  /** Arquivo executado; os demais ficam disponíveis para `import`. */
+  entryPath: string
 }
 
-// Fonte única em @/lib/types; re-exportado aqui por compatibilidade.
-export type { TestResult }
+export interface ExecutionHandlers {
+  onResult: (result: ExecutionResult) => void
+  onError: (message: string) => void
+}
 
-// Tempo máximo de execução em ms antes de matar o worker
-const EXECUTION_TIMEOUT_MS = 10_000
+export interface UsePythonOptions {
+  /** Pacotes instalados sempre que o runtime fica pronto (inclusive depois de reiniciado). */
+  packages?: readonly string[] | null
+  /** Chamado ao montar com o status atual e depois a cada mudança de status do runtime. */
+  onStatusChange?: (status: PyodideStatus) => void
+}
 
-export function usePython() {
-  const [status, setStatus] = useState<PyodideStatus>(() => getWorkerStatus())
+const TIMEOUT_MESSAGE =
+  `Execução interrompida: tempo limite excedido (${PYTHON_EXECUTION_TIMEOUT_MS / MS_PER_SECOND}s). ` +
+  "Verifique se seu código tem loops infinitos."
+
+const getServerStatus = (): PyodideStatus => "idle"
+
+function withoutPackage(packages: ReadonlySet<string>, name: string): ReadonlySet<string> {
+  const next = new Set(packages)
+  next.delete(name)
+  return next
+}
+
+/** Executa Python no navegador (Pyodide em Web Worker compartilhado entre telas). */
+export function usePython({ packages, onStatusChange }: UsePythonOptions = {}) {
+  const status = useSyncExternalStore(subscribeToWorkerStatus, getWorkerStatus, getServerStatus)
   const [isExecuting, setIsExecuting] = useState(false)
-  const [pendingPackages, setPendingPackages] = useState<Set<string>>(new Set())
-  const isInstalling = pendingPackages.size > 0
+  const [pendingPackages, setPendingPackages] = useState<ReadonlySet<string>>(() => new Set())
+  // Handlers da execução em andamento; o worker responde de forma assíncrona.
+  const handlersRef = useRef<ExecutionHandlers | null>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const onStdoutRef      = useRef<((text: string) => void) | null>(null)
-  const onStderrRef      = useRef<((text: string) => void) | null>(null)
-  const onResultRef      = useRef<((result: ExecutionResult) => void) | null>(null)
-  const onFigureRef      = useRef<((b64: string, index: number) => void) | null>(null)
-  const onErrorRef       = useRef<((error: string) => void) | null>(null)
-  const onTestResultRef  = useRef<((result: TestResult) => void) | null>(null)
-  const onTestErrorRef   = useRef<((error: string) => void) | null>(null)
-  const hasPendingTestRef = useRef(false)
-  const timeoutRef       = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const clearExecutionTimeout = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    timeoutRef.current = null
+  }, [])
+
+  const abortExecution = useCallback(
+    (message: string) => {
+      clearExecutionTimeout()
+      restartWorker()
+      setIsExecuting(false)
+      handlersRef.current?.onError(message)
+    },
+    [clearExecutionTimeout],
+  )
+
+  const handleStatus = useEffectEvent((nextStatus: PyodideStatus) => {
+    if (nextStatus === "ready" && packages?.length) {
+      setPendingPackages(new Set(packages))
+      postToWorker({ type: "install", packages })
+    }
+    onStatusChange?.(nextStatus)
+  })
 
   useEffect(() => {
-    const listener: WorkerListener = {
-      onMessage(data) {
-        switch (data.type) {
-          case "status":
-            setStatus(data.status || "idle")
-            break
+    let lastStatus = getWorkerStatus()
 
-          case "stdout":
-            onStdoutRef.current?.(data.text || "")
-            break
-
-          case "stderr":
-            onStderrRef.current?.(data.text || "")
-            break
-
-          case "execution-start":
-            setIsExecuting(true)
-            if (timeoutRef.current) clearTimeout(timeoutRef.current)
-            timeoutRef.current = setTimeout(() => {
-              replaceWorker()
-              setIsExecuting(false)
-              hasPendingTestRef.current = false
-              onErrorRef.current?.("Execução interrompida: tempo limite excedido (10s). Verifique se seu código tem loops infinitos.")
-            }, EXECUTION_TIMEOUT_MS)
-            break
-
-          case "execution-result":
-            if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null }
-            if (!hasPendingTestRef.current) setIsExecuting(false)
-            onResultRef.current?.({
-              stdout:  data.stdout  || "",
-              stderr:  data.stderr  || "",
-              figures: data.figures || [],
-            })
-            break
-
-          case "figure":
-            if (data.data) onFigureRef.current?.(data.data, data.index ?? 0)
-            break
-
-          case "execution-error":
-            if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null }
-            hasPendingTestRef.current = false
-            setIsExecuting(false)
-            onErrorRef.current?.(data.error || "Erro desconhecido")
-            break
-
-          case "test-start":
-            break
-
-          case "test-result":
-            if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null }
-            hasPendingTestRef.current = false
-            setIsExecuting(false)
-            onTestResultRef.current?.({
-              testsRun:       data.testsRun      || 0,
-              passed:         data.passed        || 0,
-              failures:       data.failures      || 0,
-              errors:         data.errors        || 0,
-              allPassed:      data.allPassed     || false,
-              failureDetails: data.failureDetails || [],
-            })
-            break
-
-          case "test-error":
-            if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null }
-            hasPendingTestRef.current = false
-            setIsExecuting(false)
-            onTestErrorRef.current?.(data.error || "Erro nos testes")
-            break
-
-          case "error":
-            onErrorRef.current?.(data.error || "Erro interno")
-            break
-
-          case "package-installed":
-            setPendingPackages((prev) => {
-              const next = new Set(prev)
-              next.delete(data.package || "")
-              return next
-            })
-            break
-
-          case "package-error":
-            setPendingPackages((prev) => {
-              const next = new Set(prev)
-              next.delete(data.package || "")
-              return next
-            })
-            break
-        }
-      },
-      onError(ev) {
-        if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null }
-        setStatus("error")
-        setIsExecuting(false)
-        onErrorRef.current?.(`Worker error: ${ev.message}`)
-      },
+    const finishExecution = () => {
+      clearExecutionTimeout()
+      setIsExecuting(false)
     }
 
-    addListener(listener)
-    // Sincroniza o status inicial caso o worker já esteja pronto (navegação de volta à lição)
-    setStatus(getWorkerStatus())
+    const handleMessage = (message: WorkerMessage) => {
+      switch (message.type) {
+        case "status":
+          if (message.status === lastStatus) return
+          lastStatus = message.status
+          handleStatus(message.status)
+          return
+        case "execution-start":
+          setIsExecuting(true)
+          clearExecutionTimeout()
+          timeoutRef.current = setTimeout(() => abortExecution(TIMEOUT_MESSAGE), PYTHON_EXECUTION_TIMEOUT_MS)
+          return
+        case "execution-result":
+          finishExecution()
+          handlersRef.current?.onResult({
+            stdout: message.stdout ?? "",
+            stderr: message.stderr ?? "",
+            figures: message.figures ?? [],
+          })
+          return
+        case "execution-error":
+          finishExecution()
+          handlersRef.current?.onError(message.error || "Erro desconhecido")
+          return
+        case "error":
+          handlersRef.current?.onError(message.error || "Erro interno")
+          return
+        case "package-installed":
+        case "package-error":
+          setPendingPackages((current) => withoutPackage(current, message.package))
+          return
+      }
+    }
+
+    const unsubscribe = subscribeToWorker({
+      onMessage: handleMessage,
+      onCrash: (event) => {
+        finishExecution()
+        handlersRef.current?.onError(`Worker error: ${event.message}`)
+        if (lastStatus === "error") return
+        lastStatus = "error"
+        handleStatus("error")
+      },
+    })
+    handleStatus(lastStatus)
 
     return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
-      removeListener(listener)
+      clearExecutionTimeout()
+      unsubscribe()
     }
+  }, [abortExecution, clearExecutionTimeout])
+
+  const execute = useCallback((executionRequest: ExecutionRequest, handlers: ExecutionHandlers) => {
+    if (getWorkerStatus() !== "ready") return
+    handlersRef.current = handlers
+    postToWorker({ type: "execute", files: executionRequest.files, entryPath: executionRequest.entryPath })
   }, [])
 
-  const stop = useCallback(() => {
-    if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null }
-    replaceWorker()
-    setIsExecuting(false)
-    hasPendingTestRef.current = false
-    onErrorRef.current?.("Execução interrompida pelo usuário.")
-  }, [])
+  const stop = useCallback(() => abortExecution("Execução interrompida pelo usuário."), [abortExecution])
 
-  const execute = useCallback(
-    (
-      code: string,
-      options?: {
-        /** Projeto multi-arquivo. Se fornecido, tem precedência sobre `code`. */
-        files?: { path: string; content: string }[]
-        /** Arquivo de entrada a executar (padrão: main.py). Ignorado na verificação. */
-        entryPath?: string
-        testCode?: string
-        onStdout?: (text: string) => void
-        onStderr?: (text: string) => void
-        onResult?: (result: ExecutionResult) => void
-        onFigure?: (b64: string, index: number) => void
-        onError?: (error: string) => void
-        onTestResult?: (result: TestResult) => void
-        onTestError?: (error: string) => void
-      }
-    ) => {
-      if (status !== "ready") return
-
-      onStdoutRef.current     = options?.onStdout     || null
-      onStderrRef.current     = options?.onStderr     || null
-      onResultRef.current     = options?.onResult     || null
-      onFigureRef.current     = options?.onFigure     || null
-      onErrorRef.current      = options?.onError      || null
-      onTestResultRef.current = options?.onTestResult || null
-      onTestErrorRef.current  = options?.onTestError  || null
-      hasPendingTestRef.current = !!options?.testCode
-
-      ensureWorker().postMessage({
-        type: "execute",
-        code,
-        files: options?.files,
-        entryPath: options?.entryPath,
-        testCode: options?.testCode,
-      })
-    },
-    [status]
-  )
-
-  const installPackages = useCallback(
-    (packages: string[]) => {
-      if (status !== "ready") return
-      setPendingPackages(new Set(packages))
-      ensureWorker().postMessage({ type: "install", packages })
-    },
-    [status]
-  )
-
-  return { status, isExecuting, isInstalling, execute, installPackages, stop }
+  return { status, isExecuting, isInstalling: pendingPackages.size > 0, execute, stop }
 }

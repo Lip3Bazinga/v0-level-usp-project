@@ -2,7 +2,8 @@ import { Injectable } from "@nestjs/common"
 import type { Notification } from "@levelusp/contracts"
 import { NotFound } from "@/common/errors/app-error"
 import type { DbOrTx } from "@/infra/database/database.module"
-import { type NewNotification, NotificationsRepository, toNotification } from "./notifications.repository"
+import { toNotification } from "./notifications.mapper"
+import { type NewNotification, NotificationsRepository } from "./notifications.repository"
 
 /** Notificações in-app. Outros módulos usam `notify` (opcionalmente dentro da sua transação). */
 @Injectable()
@@ -21,7 +22,11 @@ export class NotificationsService {
     await this.repo.markAllRead(userId)
   }
 
-  async notify(userId: string, n: NewNotification, tx?: DbOrTx): Promise<void> {
-    await this.repo.insert(userId, n, tx)
+  async notify(userId: string, notification: NewNotification, tx?: DbOrTx): Promise<void> {
+    await this.repo.createMany(userId, [notification], tx)
+  }
+
+  async notifyMany(userId: string, notifications: NewNotification[], tx?: DbOrTx): Promise<void> {
+    await this.repo.createMany(userId, notifications, tx)
   }
 }

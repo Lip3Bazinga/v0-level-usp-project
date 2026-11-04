@@ -2,7 +2,10 @@ import { sql } from "drizzle-orm"
 import { boolean, check, index, integer, jsonb, numeric, pgTable, text, unique, uuid } from "drizzle-orm/pg-core"
 import { profiles } from "./profiles"
 import { courses } from "./content"
-import { createdAt, id, tstz } from "./_helpers"
+import { createdAt, id, isOneOf, timestampTz } from "./_helpers"
+
+export const CERTIFICATE_PROJECT_STATUSES = ["passed", "waived"] as const
+export type CertificateProjectStatus = (typeof CERTIFICATE_PROJECT_STATUSES)[number]
 
 export const exams = pgTable(
   "exams",
@@ -19,12 +22,14 @@ export const exams = pgTable(
     active: boolean("active").notNull().default(true),
     createdAt: createdAt(),
   },
-  (t) => [
-    check("exams_passing_score_check", sql`${t.passingScore} between 1 and 100`),
-    check("exams_time_limit_minutes_check", sql`${t.timeLimitMinutes} > 0`),
-    check("exams_cooldown_minutes_check", sql`${t.cooldownMinutes} >= 0`),
+  (table) => [
+    check("exams_passing_score_check", sql`${table.passingScore} between 1 and 100`),
+    check("exams_time_limit_minutes_check", sql`${table.timeLimitMinutes} > 0`),
+    check("exams_cooldown_minutes_check", sql`${table.cooldownMinutes} >= 0`),
   ],
 )
+
+export type ExamRow = typeof exams.$inferSelect
 
 export const examQuestions = pgTable(
   "exam_questions",
@@ -40,8 +45,11 @@ export const examQuestions = pgTable(
     active: boolean("active").notNull().default(true),
     createdAt: createdAt(),
   },
-  (t) => [check("exam_questions_correct_index_check", sql`${t.correctIndex} >= 0`), index("exam_questions_exam_idx").on(t.examId)],
+  (table) => [check("exam_questions_correct_index_check", sql`${table.correctIndex} >= 0`), index("exam_questions_exam_idx").on(table.examId)],
 )
+
+export type ExamQuestionRow = typeof examQuestions.$inferSelect
+export type ExamQuestionInsert = typeof examQuestions.$inferInsert
 
 export const examAttempts = pgTable(
   "exam_attempts",
@@ -53,12 +61,14 @@ export const examAttempts = pgTable(
     answers: jsonb("answers").$type<Record<string, number>>().notNull().default({}),
     score: numeric("score", { precision: 5, scale: 2, mode: "number" }),
     passed: boolean("passed"),
-    startedAt: tstz("started_at").notNull().defaultNow(),
-    submittedAt: tstz("submitted_at"),
+    startedAt: timestampTz("started_at").notNull().defaultNow(),
+    submittedAt: timestampTz("submitted_at"),
     createdAt: createdAt(),
   },
-  (t) => [index("exam_attempts_user_exam_idx").on(t.userId, t.examId, t.startedAt.desc())],
+  (table) => [index("exam_attempts_user_exam_idx").on(table.userId, table.examId, table.startedAt.desc())],
 )
+
+export type ExamAttemptRow = typeof examAttempts.$inferSelect
 
 export const certificates = pgTable(
   "certificates",
@@ -68,11 +78,11 @@ export const certificates = pgTable(
     courseId: uuid("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
     verificationCode: text("verification_code").notNull().unique(),
     examScore: numeric("exam_score", { precision: 5, scale: 2, mode: "number" }),
-    projectStatus: text("project_status", { enum: ["passed", "waived"] }).notNull().default("passed"),
-    issuedAt: tstz("issued_at").notNull().defaultNow(),
+    projectStatus: text("project_status", { enum: CERTIFICATE_PROJECT_STATUSES }).notNull().default("passed"),
+    issuedAt: timestampTz("issued_at").notNull().defaultNow(),
   },
-  (t) => [
-    unique("certificates_user_id_course_id_key").on(t.userId, t.courseId),
-    check("certificates_project_status_check", sql`${t.projectStatus} in ('passed','waived')`),
+  (table) => [
+    unique("certificates_user_id_course_id_key").on(table.userId, table.courseId),
+    check("certificates_project_status_check", isOneOf(table.projectStatus, CERTIFICATE_PROJECT_STATUSES)),
   ],
 )

@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common"
 import { ExamsAdminService } from "./exams-admin.service"
-import { ExamsAdminController, ExamsController } from "./exams.controller"
+import { ExamsAdminController } from "./exams-admin.controller"
+import { ExamsController } from "./exams.controller"
 import { ExamsRepository } from "./exams.repository"
 import { ExamsService } from "./exams.service"
 
