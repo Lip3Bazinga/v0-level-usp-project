@@ -27,4 +27,21 @@ describe("Semaphore", () => {
     await expect(slowTask()).rejects.toBeInstanceOf(QueueFullError)
     await Promise.all([running, queued])
   })
+
+  it("informa quantas tarefas novas ficariam na fila", async () => {
+    const semaphore = new Semaphore(2, 10)
+    expect(semaphore.queuedIfAdmitted(3)).toBe(1)
+    const release: (() => void)[] = []
+    const blocked = (): Promise<void> => semaphore.run(() => new Promise<void>((resolve) => release.push(resolve)))
+    const tasks = [blocked(), blocked(), blocked()]
+    expect(semaphore.active).toBe(2)
+    expect(semaphore.pending).toBe(1)
+    expect(semaphore.queuedIfAdmitted(2)).toBe(3)
+    while (release.length) {
+      release.shift()?.()
+      await sleep(1)
+    }
+    await Promise.all(tasks)
+    expect(semaphore.queuedIfAdmitted(2)).toBe(0)
+  })
 })

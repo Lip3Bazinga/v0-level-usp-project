@@ -16,9 +16,23 @@ const envSchema = z.object({
   PYTHON_WASI_DIR: z.string().default("/opt/levelusp-python"),
   HARNESS_PATH: z.string().default(path.resolve(sourceDir, "../python/harness.py")),
   WORK_DIR: z.string().default(os.tmpdir()),
-  CONCURRENCY: z.coerce.number().int().min(1).max(64).default(Math.max(1, os.availableParallelism() - 1)),
-  /** Fila curta: com 2 execuções simultâneas e 10 s cada, 20 jobs ≈ 100 s de espera no pior caso. */
-  MAX_QUEUE: z.coerce.number().int().min(1).default(20),
+  /**
+   * Instâncias WASI simultâneas. Padrão: uma por CPU. Numa máquina de 2 vCPU com a pilha
+   * inteira (docs/v2/desempenho-e-carga.md), 2 corrige 40 alunos em rajada com p95 de 0,7 s e
+   * 1 leva 2,8 s; a API e a web quase não usam CPU durante a rajada.
+   */
+  CONCURRENCY: z.coerce.number().int().min(1).max(64).default(Math.max(1, os.availableParallelism())),
+  /**
+   * Teto rígido de LOTES (instâncias) esperando. O limite que vale na prática é o de tempo
+   * (`MAX_QUEUE_WAIT_MS`); este só impede a fila de crescer sem limite em memória.
+   */
+  MAX_QUEUE: z.coerce.number().int().min(1).default(200),
+  /**
+   * Recusa (503 com Retry-After) o job cuja espera estimada até terminar passa disto. Fica
+   * abaixo do prazo da API (3 × 10 s + 10 s), para o aluno receber "ocupado" em vez de esperar
+   * e ver "indisponível".
+   */
+  MAX_QUEUE_WAIT_MS: z.coerce.number().int().min(1_000).max(120_000).default(20_000),
   /** Cota de disco por lote (MB gravados no projeto do aluno). */
   MAX_JOB_DISK_MB: z.coerce.number().int().min(1).max(1024).default(32),
   /** `production` recusa partir com a stdlib do Python gravável (ver `findWritableRuntimePaths`). */

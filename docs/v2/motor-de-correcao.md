@@ -121,7 +121,7 @@ As positivas (`uses`, `calls`, `decorator`...) aceitam código morto
 | `call` | executa `main.py`, chama a função, serializa retorno + tipo | compartilhada |
 | `globals` | executa `main.py` e lê variáveis globais | compartilhada |
 | `expr` | executa `main.py`, a preparação e a expressão; serializa valor/tipo ou exceção | compartilhada |
-| `ast` | **não executa** o código; extrai construções, chamadas, decorators, `except`, construções por função | própria |
+| `ast` | **não executa** o código; extrai construções, chamadas, decorators, `except`, construções por função | própria (uma para todas as `ast` do job) |
 | `unittest` | substitui `target`, roda a suíte do aluno, conta resultados | própria, **modo estrito** |
 | `legacy` | roda asserts/unittest antigos no namespace do aluno | própria (lote), **modo estrito** |
 
@@ -245,12 +245,17 @@ comparação, que acontece na API. Em cada tipo de caso:
 | CPU | 1,5×10¹⁰ unidades de fuel por segundo de orçamento | `-W fuel` |
 | Memória | 128 MB de memória linear | `-W max-memory-size` (→ `MemoryError`) |
 | Rede, ambiente, processos | inexistentes | WASI só recebe `/lib`, `/harness`, `/work`; `inherit-env=n`; sem sockets nem DNS (`allow-ip-name-lookup=n`) |
-| Concorrência | `CONCURRENCY` (padrão: CPUs − 1) e fila máx. 20 | semáforo no executor (503 quando cheio; job abandonado pela API é cancelado) |
+| Concorrência | `CONCURRENCY` (padrão: 1 por CPU); fila limitada pela espera estimada (`MAX_QUEUE_WAIT_MS`, padrão 20 s) e por 200 lotes (`MAX_QUEUE`) | semáforo no executor; admissão atômica por job (todos os lotes ou nenhum); 503 com `Retry-After` quando a espera estimada passa do teto; job abandonado pela API é cancelado. Medições em [desempenho-e-carga.md](./desempenho-e-carga.md) |
 | Saída | 8 MB por execução; linha de observação até 4 MB e profundidade 256 | o host mata o processo ao exceder; linhas maiores são descartadas |
 | Disco | 32 MB e 2 000 arquivos/pastas no projeto por lote (`MAX_JOB_DISK_MB`) | o host mede `/work` a cada 100 ms e mata o processo ("Disco excedido") |
 | Arquivos | harness somente leitura; projeto em `/work`, restaurado entre sondas; stdlib em `/lib` | permissões do sistema de arquivos: o executor **recusa partir** em produção se puder gravar na stdlib (o convidado herdaria a permissão) |
 
 ## Medições (máquina de 2 vCPUs, `CONCURRENCY=1`)
+
+Cada instância WASI (partida do CPython + harness) custa ~120–130 ms; por isso as regras
+de estrutura (`ast`) de um job dividem uma instância só (antes, uma por regra: a lição
+"Comprehensions", com 5 regras, subia 6 instâncias; agora 2). Carga de turma, fila e
+dimensionamento: [desempenho-e-carga.md](./desempenho-e-carga.md).
 
 | Cenário | Tempo |
 |---|---|
