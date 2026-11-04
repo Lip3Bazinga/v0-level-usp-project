@@ -1,0 +1,1 @@
+CREATE INDEX "profiles_leaderboard_idx" ON "profiles" USING btree ("total_xp" DESC NULLS FIRST,"created_at") WHERE "profiles"."suspended" = false and "profiles"."role" = 'student';

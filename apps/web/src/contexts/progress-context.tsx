@@ -1,12 +1,12 @@
 "use client"
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react"
-import type { GrantedBadge, Lesson, LessonProgress } from "@levelusp/contracts"
+import type { GrantedBadge, LessonProgress, LessonSummary } from "@levelusp/contracts"
 import { BadgeEarnedModal } from "@/components/gamification/badge-earned-modal"
 import { useAuth } from "@/contexts/auth-context"
 import { useNotifications } from "@/contexts/notification-context"
 import { useAsyncResource } from "@/hooks/use-async-resource"
-import { fetchMyProgress, fetchPublishedLessons, type CompletionResult } from "@/lib/api"
+import { fetchMyProgress, fetchPublishedLessonSummaries, type CompletionResult } from "@/lib/api"
 import { applyLessonCompletion, indexBy, summarizeGamification, type GamificationSummary } from "@/lib/utils"
 
 /**
@@ -17,7 +17,8 @@ export type CompletionLike = Pick<CompletionResult, "lesson_completed" | "xp_awa
   Partial<Pick<CompletionResult, "new_badges" | "level_up" | "new_level">>
 
 export interface ProgressState {
-  lessons: Lesson[]
+  /** Lições publicadas (resumo: o painel não precisa do enunciado nem dos arquivos). */
+  lessons: LessonSummary[]
   progressMap: Map<string, LessonProgress>
   isLoading: boolean
   error: string | null
@@ -36,24 +37,12 @@ export interface ProgressActions {
 
 export type ProgressContextValue = ProgressState & ProgressActions
 
-interface ProgressData {
-  lessons: Lesson[]
-  progress: LessonProgress[]
-}
-
 const LOAD_ERROR_MESSAGE = "Não foi possível carregar as lições. Tente novamente."
-const NO_LESSONS: Lesson[] = []
+const NO_LESSONS: LessonSummary[] = []
 const NO_PROGRESS: LessonProgress[] = []
+const loadErrorMessage = (): string => LOAD_ERROR_MESSAGE
 
 const ProgressContext = createContext<ProgressContextValue | null>(null)
-
-async function loadProgressData(profileId: string | undefined): Promise<ProgressData> {
-  const [lessons, progress] = await Promise.all([
-    fetchPublishedLessons(),
-    profileId ? fetchMyProgress() : Promise.resolve(NO_PROGRESS),
-  ])
-  return { lessons, progress }
-}
 
 export function ProgressProvider({ children }: { children: ReactNode }): React.JSX.Element {
   const { profile, refreshProfile } = useAuth()
@@ -61,13 +50,17 @@ export function ProgressProvider({ children }: { children: ReactNode }): React.J
   const [badgeQueue, setBadgeQueue] = useState<GrantedBadge[]>([])
 
   const profileId = profile?.id
-  const resource = useAsyncResource(() => loadProgressData(profileId), [profileId], {
-    errorMessage: () => LOAD_ERROR_MESSAGE,
+  // A lista de lições não depende de quem está logado: busca uma vez, só o resumo (o painel
+  // não usa enunciado nem arquivos). Atrelada ao perfil, cada página carregada buscaria a lista
+  // de novo quando a sessão chega.
+  const lessonsResource = useAsyncResource(fetchPublishedLessonSummaries, [], { errorMessage: loadErrorMessage })
+  const progressResource = useAsyncResource(() => (profileId ? fetchMyProgress() : Promise.resolve(NO_PROGRESS)), [profileId], {
+    errorMessage: loadErrorMessage,
   })
-  const { reload, setData } = resource
-  const data = resource.status === "success" ? resource.data : null
-  const lessons = data?.lessons ?? NO_LESSONS
-  const progressMap = useMemo(() => indexBy(data?.progress ?? NO_PROGRESS, (entry) => entry.lesson_id), [data])
+  const { reload, setData } = progressResource
+  const lessons = lessonsResource.status === "success" ? lessonsResource.data : NO_LESSONS
+  const progress = progressResource.status === "success" ? progressResource.data : NO_PROGRESS
+  const progressMap = useMemo(() => indexBy(progress, (entry) => entry.lesson_id), [progress])
 
   const applyCompletion = useCallback(
     async (lessonId: string, result: CompletionLike) => {
@@ -78,7 +71,7 @@ export function ProgressProvider({ children }: { children: ReactNode }): React.J
           xpAwarded: result.xp_awarded,
           completedAt: new Date().toISOString(),
         }
-        setData((current) => ({ ...current, progress: applyLessonCompletion(current.progress, completion) }))
+        setData((current) => applyLessonCompletion(current, completion))
       }
       const newBadges = result.new_badges ?? []
       if (newBadges.length) setBadgeQueue((queue) => [...queue, ...newBadges])
@@ -93,8 +86,8 @@ export function ProgressProvider({ children }: { children: ReactNode }): React.J
   )
 
   const gamification = useMemo(() => summarizeGamification(profile), [profile])
-  const isLoading = resource.status === "loading"
-  const error = resource.status === "error" ? resource.error : null
+  const isLoading = lessonsResource.status === "loading" || progressResource.status === "loading"
+  const error = lessonsResource.status === "error" ? lessonsResource.error : progressResource.status === "error" ? progressResource.error : null
 
   const value = useMemo<ProgressContextValue>(
     () => ({

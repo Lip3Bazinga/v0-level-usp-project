@@ -70,7 +70,8 @@ export function verificationErrorLine(error: unknown): ConsoleLine {
     return { type: "error", message: "Erro de conexão ao verificar. Verifique sua internet e tente novamente." }
   }
   if (error.status === HTTP_STATUS.NOT_FOUND) return { type: "error", message: "Lição não encontrada no servidor." }
-  if (error.status === HTTP_STATUS.TOO_MANY_REQUESTS) return { type: "warning", message: error.message }
+  // Limite pessoal (429) e fila cheia da turma (503 "ocupado"): não é erro do código do aluno.
+  if (error.status === HTTP_STATUS.TOO_MANY_REQUESTS || error.status === HTTP_STATUS.SERVICE_UNAVAILABLE) return { type: "warning", message: error.message }
   return { type: "error", message: error.message }
 }
 

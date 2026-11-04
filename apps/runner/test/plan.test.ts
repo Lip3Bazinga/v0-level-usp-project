@@ -13,10 +13,14 @@ const probeOf: { [K in Probe["kind"]]: (id: string) => Extract<Probe, { kind: K 
 }
 
 describe("planBatches", () => {
-  it("isola a análise de AST em instâncias próprias", () => {
-    const batches = planBatches([probeOf.call("a"), probeOf.ast("b"), probeOf.run("c")])
-    expect(batches).toHaveLength(2)
-    expect(batches.find((batch) => batch.some((probe) => probe.kind === "ast"))).toHaveLength(1)
+  it("isola a análise de AST numa instância sem execução, uma só para todas as regras", () => {
+    const batches = planBatches([probeOf.call("a"), probeOf.ast("b"), probeOf.run("c"), probeOf.ast("d"), probeOf.ast("e")])
+    expect(batches.map((batch) => batch.map((probe) => probe.id))).toEqual([["a", "c"], ["b", "d", "e"]])
+  })
+
+  it("nunca mistura AST com unittest ou legado", () => {
+    const batches = planBatches([probeOf.ast("s"), probeOf.unittest("u"), probeOf.legacy("l")])
+    expect(batches.map((batch) => batch.map((probe) => probe.kind))).toEqual([["legacy"], ["ast"], ["unittest"]])
   })
 
   it("separa testes legados das sondas normais", () => {

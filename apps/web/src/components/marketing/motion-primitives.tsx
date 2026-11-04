@@ -1,6 +1,6 @@
 "use client"
 
-import { motion, useInView, type MotionProps, type Variants } from "framer-motion"
+import { motion, useInView, type MotionProps, type MotionStyle, type Variants } from "framer-motion"
 import { useRef, type ReactNode } from "react"
 import { definedProps } from "@/lib/utils"
 
@@ -17,17 +17,23 @@ interface EntranceMotionOptions {
   delaySeconds?: number
 }
 
-/** Entrada ao montar (sobe e aparece), usada nos cabeçalhos das páginas. */
+/**
+ * Entrada (sobe) dos cabeçalhos das páginas, acima da dobra. É uma animação CSS (`lvl-rise` em
+ * globals.css) que começa na primeira pintura e só desloca o texto, sem esmaecer: o HTML do
+ * servidor já chega visível, sem esperar o JavaScript hidratar. Uma entrada do framer-motion
+ * com `opacity: 0` deixa o título invisível até a hidratação (em 4G lento, o LCP da home vai
+ * de ~1,2 s para ~4 s; UX-26). Quem pede "reduzir movimento" não vê a animação (globals.css).
+ */
 export function entranceMotion({
   offsetY,
   durationSeconds = 0.8,
   delaySeconds = 0,
 }: EntranceMotionOptions): MotionProps {
-  return {
-    initial: { opacity: 0, y: offsetY },
-    animate: { opacity: 1, y: 0 },
-    transition: { duration: durationSeconds, ease: EASE, delay: delaySeconds },
-  }
+  const style = {
+    "--lvl-rise-offset": `${offsetY}px`,
+    animation: `lvl-rise ${durationSeconds}s cubic-bezier(${EASE.join(", ")}) ${delaySeconds}s both`,
+  } as MotionStyle
+  return { initial: false, style }
 }
 
 interface RevealProps {

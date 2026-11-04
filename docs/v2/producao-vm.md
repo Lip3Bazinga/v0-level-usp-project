@@ -218,10 +218,20 @@ propósito; nem todos atingem o pico juntos). Para **4 vCPU / 8 GB**:
 | `API_CPUS` / `API_MEMORY` / `API_HEAP_MB` | 1.0 / 768m / 512 | 2.0 / 1g / 768 |
 | `WEB_CPUS` / `WEB_MEMORY` / `WEB_HEAP_MB` | 1.0 / 512m / 384 | 1.5 / 768m / 512 |
 | `RUNNER_CPUS` / `RUNNER_MEMORY` / `RUNNER_CONCURRENCY` | 1.5 / 1g / 2 | 3.0 / 2g / 4 |
+| `RUNNER_MAX_QUEUE_WAIT_MS` / `WEB_KEEP_ALIVE_TIMEOUT_MS` | 20000 / 125000 | 20000 / 125000 |
 | `DATABASE_POOL_MAX` | 10 | 20 |
 
 `cpus` não pode passar do número de núcleos da VM (o Docker recusa o contêiner). Cada execução
 do executor usa até 128 MB: mantenha `RUNNER_CONCURRENCY × 128 MB` abaixo de `RUNNER_MEMORY`.
+`RUNNER_CONCURRENCY` = número de vCPUs da VM.
+
+Capacidade medida com os tetos da coluna de 2 vCPU ([desempenho-e-carga.md](./desempenho-e-carga.md)):
+uma turma de **40 alunos clicando em Verificar em 10 s** é corrigida com p95 de 0,7 s; 80, com
+p95 de 3 s; nenhum 503. A fila do executor só responde "ocupado, tente em N s" quando a espera
+estimada passa de `RUNNER_MAX_QUEUE_WAIT_MS` (lições com `unittest` em rajada de 40+). Para
+turmas maiores verificando juntas, ou `unittest` em turma, use 4 vCPU. Com o túnel, crie na
+Cloudflare uma regra de cache para `/pyodide/*` (os arquivos são versionados e imutáveis): sem
+ela, a web gasta ~0,45 s de CPU comprimindo o Pyodide para cada aluno novo.
 
 ## 5. Primeiro deploy (checklist)
 

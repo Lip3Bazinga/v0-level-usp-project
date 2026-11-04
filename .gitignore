@@ -28,6 +28,8 @@ tsconfig.tsbuildinfo
 **/coverage/
 .turbo/
 apps/api/data/
+# Relatórios do teste de carga (pnpm load:turma)
+load-results/
 infra/env/*.env
 !infra/env/*.env.example
 playwright-report/

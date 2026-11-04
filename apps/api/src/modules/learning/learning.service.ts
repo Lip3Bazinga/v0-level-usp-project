@@ -1,12 +1,13 @@
 import { Injectable, Logger } from "@nestjs/common"
 import type { LessonCompletion, LessonProgress, LessonSnapshot, ProjectFile, SubmissionResult } from "@levelusp/contracts"
 import { canViewContent } from "@/common/authorization/ownership"
-import { BadRequest, NotFound, Unprocessable } from "@/common/errors/app-error"
+import { AppError, BadRequest, NotFound, Unprocessable } from "@/common/errors/app-error"
 import type { AuthUser } from "@/common/http/request"
 import { RATE_LIMITS } from "@/common/rate-limit/rate-limit.policies"
 import { RateLimitService } from "@/common/rate-limit/rate-limit.service"
+import { RUNNER_BUSY_CODE } from "@/infra/runner/code-runner"
 import { GamificationService } from "../gamification/gamification.service"
-import { GradingService } from "../grading/grading.service"
+import { GradingService, type GradedSubmission } from "../grading/grading.service"
 import { hasEntryFile, parseSnapshot } from "./learning.domain"
 import { toLessonCompletion, toLessonProgress } from "./learning.mapper"
 import { LearningRepository, type GradableLessonRow } from "./learning.repository"
@@ -69,7 +70,7 @@ export class LearningService {
     this.rateLimit.consume(RATE_LIMITS.codeSubmission, user.id)
     this.rateLimit.consume(RATE_LIMITS.codeSubmissionPerLessonDay, `${user.id}:${lessonId}`)
 
-    const { engine, ...gradeResult } = await this.grading.grade(files, lesson.testCases)
+    const { engine, ...gradeResult } = await this.gradeOrRefund(user.id, lessonId, files, lesson.testCases)
     const submissionId = await this.repo.createSubmission({
       userId: user.id,
       lessonId,
@@ -88,6 +89,23 @@ export class LearningService {
     this.logger.log({ userId: user.id, lessonId, passed: gradeResult.allPassed, ms: gradeResult.durationMs }, "submissão corrigida")
 
     return { ...gradeResult, submission_id: submissionId, ...toLessonCompletion(outcome) }
+  }
+
+  /**
+   * Corrige; se o executor recusou o job por fila cheia (`RUNNER_BUSY`: o código nem rodou),
+   * devolve as cotas de verificação — o aluno não perde tentativas por causa da fila da turma.
+   * Outras falhas (executor fora do ar, prazo estourado) não devolvem: o código pode ter rodado.
+   */
+  private async gradeOrRefund(userId: string, lessonId: string, files: ProjectFile[], testCases: GradableLessonRow["testCases"]): Promise<GradedSubmission> {
+    try {
+      return await this.grading.grade(files, testCases)
+    } catch (error) {
+      if (error instanceof AppError && error.code === RUNNER_BUSY_CODE) {
+        this.rateLimit.refund(RATE_LIMITS.codeSubmission, userId)
+        this.rateLimit.refund(RATE_LIMITS.codeSubmissionPerLessonDay, `${userId}:${lessonId}`)
+      }
+      throw error
+    }
   }
 
   /** Lições teóricas não têm avaliação: concluir = ter lido. */

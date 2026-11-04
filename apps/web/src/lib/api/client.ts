@@ -17,6 +17,7 @@ export const HTTP_STATUS = {
   REQUEST_TIMEOUT: 408,
   CONFLICT: 409,
   TOO_MANY_REQUESTS: 429,
+  SERVICE_UNAVAILABLE: 503,
 } as const
 
 const NETWORK_ERROR_MESSAGE = "Sem conexão com o servidor. Verifique sua internet."

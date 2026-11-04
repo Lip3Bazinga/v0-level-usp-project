@@ -2,11 +2,12 @@ import "reflect-metadata"
 import { NestFactory } from "@nestjs/core"
 import type { NestExpressApplication } from "@nestjs/platform-express"
 import { AppModule } from "./app.module"
-import { configureApp } from "./bootstrap"
+import { configureApp, configureHttpServer } from "./bootstrap"
 
 async function main(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true, bodyParser: false })
   const env = configureApp(app)
+  configureHttpServer(app.getHttpServer())
   await app.listen(env.PORT, "0.0.0.0")
 }
 

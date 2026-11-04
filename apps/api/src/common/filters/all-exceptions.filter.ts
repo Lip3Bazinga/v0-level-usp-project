@@ -51,9 +51,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const request = http.getRequest<Request>()
     const body = this.toBody(exception)
     if (typeof request.id === "string") body.requestId = request.id
-    if (body.statusCode >= 500) {
+    if (exception instanceof AppError && exception.statusCode === 503) {
+      // Dependência ocupada/fora do ar: esperado sob carga, sem stack (quem lançou já registrou a causa).
+      this.logger.warn({ code: exception.code, path: request.url, requestId: body.requestId }, "serviço indisponível")
+    } else if (body.statusCode >= 500) {
       this.logger.error({ err: exception, path: request.url, requestId: body.requestId }, "erro não tratado")
     }
+    if (exception instanceof AppError && exception.retryAfterSeconds !== undefined) response.setHeader("Retry-After", String(exception.retryAfterSeconds))
     response.status(body.statusCode).json(body)
   }
 

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
 import { ChevronDown, Check, Lock, Play, Star, BookOpen, Clock, Zap, GraduationCap, ChevronRight } from "lucide-react"
-import type { Course, Lesson, LessonProgress } from "@levelusp/contracts"
+import type { Course, LessonProgress, LessonSummary } from "@levelusp/contracts"
 import { computeTrailStatuses, cycleItem, formatNumber, formatXp, toClampedPercent, type NonEmptyArray, type TrailStatus, cn } from "@/lib/utils"
 import { ROUTES } from "@/lib/constants"
 import { groupLessonsByModule, sumEarnedXp } from "./course-groups"
@@ -39,7 +39,7 @@ function trailLabel(status: TrailStatus): string {
 }
 
 interface LessonNodeProps {
-  lesson: Lesson
+  lesson: LessonSummary
   status: TrailStatus
   index: number
   side: "left" | "right"
@@ -121,7 +121,7 @@ function LessonNode({ lesson, status, index, side }: LessonNodeProps): React.JSX
 
 interface ModuleSectionProps {
   name: string
-  lessons: Lesson[]
+  lessons: LessonSummary[]
   statuses: TrailStatus[]
   color: ModuleColor
 }
@@ -166,7 +166,7 @@ function ModuleSection({ name, lessons, statuses, color }: ModuleSectionProps): 
 
 interface CourseCardProps {
   course: Course
-  lessons: Lesson[]
+  lessons: LessonSummary[]
   progressMap: Map<string, LessonProgress>
   defaultOpen?: boolean
 }
