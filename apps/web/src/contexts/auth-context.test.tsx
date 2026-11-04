@@ -1,12 +1,13 @@
-import { act, renderHook, waitFor } from "@testing-library/react"
+import { act, renderHook, waitFor, type RenderHookResult } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { Profile } from "@levelusp/contracts"
 import * as api from "@/lib/api"
 import { ApiError } from "@/lib/api"
-import { AuthProvider, useAuth } from "./auth-context"
+import { AuthProvider, useAuth, type AuthContextValue } from "./auth-context"
+import type * as LibApi from "@/lib/api"
 
 vi.mock("@/lib/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api")>()),
+  ...(await importOriginal<typeof LibApi>()),
   fetchSession: vi.fn(),
   signIn: vi.fn(),
   signUp: vi.fn(),
@@ -37,7 +38,7 @@ const profile: Profile = {
   updated_at: "2026-01-01T00:00:00.000Z",
 }
 
-function renderAuth() {
+function renderAuth(): RenderHookResult<AuthContextValue, unknown> {
   return renderHook(() => useAuth(), { wrapper: AuthProvider })
 }
 

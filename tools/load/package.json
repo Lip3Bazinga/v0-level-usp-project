@@ -1,0 +1,27 @@
+{
+  "name": "@levelusp/load",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Teste de carga de turma: sessões realistas de alunos (cadastro, páginas, autosave, notas, ranking e Verificar) contra a pilha completa.",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "turma": "tsx src/cli/turma.ts"
+  },
+  "dependencies": {
+    "pg": "^8.23.1",
+    "undici": "^8.12.2"
+  },
+  "devDependencies": {
+    "@levelusp/eslint-config": "workspace:*",
+    "@types/node": "^22.15.0",
+    "@types/pg": "^8.23.1",
+    "eslint": "^9.37.0",
+    "tsx": "^4.23.15",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.46.0",
+    "vitest": "^5.0.5"
+  }
+}

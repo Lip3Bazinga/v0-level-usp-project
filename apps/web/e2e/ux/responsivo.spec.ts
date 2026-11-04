@@ -20,7 +20,7 @@ const VIEWPORTS = [
   { name: "celular 390×844", width: 390, height: 844 },
 ]
 
-const courseEditorRoute = async (page: Page) => ROUTES.teacherCourse(await fetchFirstCourseId(page))
+const courseEditorRoute = async (page: Page): Promise<string> => ROUTES.teacherCourse(await fetchFirstCourseId(page))
 
 const ROUTES_BY_PERSONA: { persona: Persona; routes: ScreenRoute[] }[] = [
   {

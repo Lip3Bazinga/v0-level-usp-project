@@ -1,7 +1,9 @@
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi, type Mock } from "vitest"
 import { api, ApiError, getErrorMessage, HTTP_STATUS, isApiError, nullOnStatus, toApiResult } from "./client"
 
-function mockFetch(status: number, body?: unknown) {
+type FetchMock = Mock<typeof fetch>
+
+function mockFetch(status: number, body?: unknown): FetchMock {
   const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
     new Response(body === undefined ? null : JSON.stringify(body), { status }),
   )
@@ -9,7 +11,13 @@ function mockFetch(status: number, body?: unknown) {
   return fetchMock
 }
 
-function lastCall(fetchMock: ReturnType<typeof mockFetch>) {
+interface RecordedCall {
+  url: Parameters<typeof fetch>[0] | undefined
+  headers: Headers
+  init: RequestInit | undefined
+}
+
+function lastCall(fetchMock: FetchMock): RecordedCall {
   const [url, init] = fetchMock.mock.lastCall ?? []
   return { url, headers: new Headers(init?.headers), init }
 }

@@ -10,9 +10,10 @@ interface ErrorPageProps {
   reset: () => void
 }
 
-export default function ErrorPage({ error, reset }: ErrorPageProps) {
+export default function ErrorPage({ error, reset }: ErrorPageProps): React.JSX.Element {
   useEffect(() => {
     // Sem telemetria no navegador: o console é o único registro do erro para diagnóstico.
+    // eslint-disable-next-line no-console -- registro intencional, ver comentário acima
     console.error(error)
   }, [error])
 

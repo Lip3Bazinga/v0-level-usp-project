@@ -16,7 +16,7 @@ describe("toDisplayBadges", () => {
       [{ user_id: "u1", badge_id: "segunda", earned_at: "2026-10-05T12:00:00Z" }],
     )
     expect(badges.map((item) => [item.id, item.isEarned])).toEqual([["primeira", false], ["segunda", true]])
-    expect(badges[1].earnedAt?.toISOString()).toBe("2026-10-05T12:00:00.000Z")
-    expect(badges[0].earnedAt).toBeUndefined()
+    expect(badges[1]?.earnedAt?.toISOString()).toBe("2026-10-05T12:00:00.000Z")
+    expect(badges[0]?.earnedAt).toBeUndefined()
   })
 })

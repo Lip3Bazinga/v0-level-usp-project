@@ -26,6 +26,7 @@ const COURSE_PATCH: PatchMapping<CourseUpdateInput, CourseInsert> = {
   final_project_starter_code: (finalProjectStarterCode) => ({ finalProjectStarterCode }),
 }
 
+/** Cursos: catálogo público, autoria (dono ou admin) e matrículas. */
 @Injectable()
 export class CoursesService {
   constructor(
@@ -34,10 +35,16 @@ export class CoursesService {
     private readonly audit: AuditService,
   ) {}
 
+  /** Cursos publicados; com sessão, cada um diz se o usuário está matriculado. */
   async listPublished(user?: AuthUser): Promise<Course[]> {
     return (await this.repo.listPublished(user?.id)).map(toCourseWithAggregates)
   }
 
+  /**
+   * Curso visível ao usuário (rascunho só para o dono e admins).
+   *
+   * @throws AppError 404 quando não existe ou não é visível.
+   */
   async get(user: AuthUser | undefined, id: string): Promise<Course> {
     const found = await this.repo.findWithAggregates(id, user?.id)
     if (!found || !canViewContent(user, found.course)) throw NotFound("Curso")
@@ -51,16 +58,27 @@ export class CoursesService {
     return (await this.repo.listLessons(id, !canManage(user, course.createdBy))).map(toLesson)
   }
 
+  /** Cursos do professor (admin: todos), inclusive rascunhos. */
   async listOwned(user: AuthUser): Promise<Course[]> {
     return (await this.repo.listByOwner(ownerScope(user))).map(toCourseWithAggregates)
   }
 
+  /**
+   * Cria o curso como rascunho, com o usuário como dono.
+   *
+   * @throws AppError 400 `INVALID_IMAGE_URL`, 403 quando a capa é uma imagem enviada por outra pessoa.
+   */
   async create(user: AuthUser, input: CourseInput): Promise<Course> {
     await this.storage.assertUsableUrl(input.cover_image_url, user.id)
     const course = await this.repo.create({ ...buildPatch(input, COURSE_PATCH), title: input.title, createdBy: user.id, published: false })
     return toCourse(course, { lessonCount: 0 })
   }
 
+  /**
+   * Atualiza os campos enviados; trocar ou remover a capa apaga a imagem antiga do disco.
+   *
+   * @throws AppError 404 curso inexistente/invisível, 403 quem não é dono nem admin ou capa alheia.
+   */
   async update(user: AuthUser, id: string, input: CourseUpdateInput): Promise<Course> {
     const course = await this.findManageable(user, id)
     const isChangingCover = input.cover_image_url !== undefined
@@ -74,6 +92,11 @@ export class CoursesService {
     return this.get(user, id)
   }
 
+  /**
+   * Apaga o curso e a capa; um admin apagando curso de outra pessoa fica na auditoria.
+   *
+   * @throws AppError 404 curso inexistente/invisível, 403 quem não é dono nem admin.
+   */
   async delete(user: AuthUser, id: string): Promise<void> {
     const course = await this.findManageable(user, id)
     await this.repo.delete(id)
@@ -83,12 +106,22 @@ export class CoursesService {
     }
   }
 
+  /**
+   * Publica ou despublica o curso.
+   *
+   * @throws AppError 404 curso inexistente/invisível, 403 quem não é dono nem admin.
+   */
   async setPublished(user: AuthUser, id: string, published: boolean): Promise<Course> {
     await this.findManageable(user, id)
     await this.repo.update(id, { published })
     return this.get(user, id)
   }
 
+  /**
+   * Grava a nova ordem 1..n das lições do curso, numa transação.
+   *
+   * @throws AppError 400 `DUPLICATE_LESSON` ou `LESSON_NOT_IN_COURSE`; 404/403 como em {@link update}.
+   */
   async reorder(user: AuthUser, id: string, lessonIds: string[]): Promise<void> {
     await this.findManageable(user, id)
     const courseLessonIds = new Set((await this.repo.listLessonOrders(id)).map((lesson) => lesson.id))
@@ -111,6 +144,11 @@ export class CoursesService {
     await this.repo.placeLesson(lesson.id, { courseId: id, order })
   }
 
+  /**
+   * Tira a lição do curso (ela continua existindo, avulsa).
+   *
+   * @throws AppError 404 quando a lição não está neste curso; 404/403 do curso como em {@link update}.
+   */
   async detachLesson(user: AuthUser, id: string, lessonId: string): Promise<void> {
     await this.findManageable(user, id)
     const lesson = await this.repo.findLessonRef(lessonId)
@@ -118,6 +156,11 @@ export class CoursesService {
     await this.repo.placeLesson(lessonId, { courseId: null })
   }
 
+  /**
+   * Matricula o usuário (idempotente).
+   *
+   * @throws AppError 404 quando o curso não existe ou é rascunho.
+   */
   async enroll(user: AuthUser, id: string): Promise<void> {
     const course = await this.repo.findById(id)
     // Matrícula só em curso publicado; rascunho responde como inexistente.
@@ -125,10 +168,12 @@ export class CoursesService {
     await this.repo.enroll(user.id, id)
   }
 
+  /** Cancela a matrícula (idempotente; o progresso nas lições é mantido). */
   async unenroll(user: AuthUser, id: string): Promise<void> {
     await this.repo.unenroll(user.id, id)
   }
 
+  /** Ids dos cursos em que o usuário está matriculado. */
   listMyEnrollments(user: AuthUser): Promise<string[]> {
     return this.repo.listEnrolledCourseIds(user.id)
   }

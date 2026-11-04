@@ -7,14 +7,23 @@ WORKDIR /repo
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc tsconfig.base.json ./
 COPY apps/web/package.json apps/web/
 COPY packages/contracts/package.json packages/contracts/
+# Só o package.json: dependência de desenvolvimento (lint) que o pnpm precisa achar no workspace.
+COPY packages/eslint-config/package.json packages/eslint-config/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --filter @levelusp/web...
 COPY packages/contracts packages/contracts
 COPY apps/web apps/web
 # Rewrites do Next são resolvidos no build: a API é o serviço "api" da rede do compose.
 ARG API_INTERNAL_URL=http://api:4000
-ARG NEXT_PUBLIC_PYODIDE_INDEX_URL=https://cdn.jsdelivr.net/pyodide/v0.25.1/full/
+# Python do "Executar": o núcleo do Pyodide é copiado do pacote npm (SHA-256 conferido)
+# para public/pyodide/ durante o build e servido pelo próprio front. Deixe
+# NEXT_PUBLIC_PYODIDE_INDEX_URL vazio para usar essa cópia. Os wheels dos pacotes
+# extras (numpy, matplotlib…) vêm do CDN oficial na mesma versão, salvo
+# NEXT_PUBLIC_PYODIDE_PACKAGE_BASE_URL (ex.: espelho próprio).
+ARG NEXT_PUBLIC_PYODIDE_INDEX_URL=
+ARG NEXT_PUBLIC_PYODIDE_PACKAGE_BASE_URL=
 ARG NEXT_PUBLIC_APP_ENV=prod
-ENV API_INTERNAL_URL=${API_INTERNAL_URL} NEXT_PUBLIC_PYODIDE_INDEX_URL=${NEXT_PUBLIC_PYODIDE_INDEX_URL} NEXT_PUBLIC_APP_ENV=${NEXT_PUBLIC_APP_ENV}
+ENV API_INTERNAL_URL=${API_INTERNAL_URL} NEXT_PUBLIC_PYODIDE_INDEX_URL=${NEXT_PUBLIC_PYODIDE_INDEX_URL} \
+    NEXT_PUBLIC_PYODIDE_PACKAGE_BASE_URL=${NEXT_PUBLIC_PYODIDE_PACKAGE_BASE_URL} NEXT_PUBLIC_APP_ENV=${NEXT_PUBLIC_APP_ENV}
 RUN pnpm --filter @levelusp/contracts build && pnpm --filter @levelusp/web build
 
 FROM node:22-bookworm-slim AS runtime

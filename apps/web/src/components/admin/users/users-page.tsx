@@ -37,7 +37,7 @@ interface UsersPageProps {
   currentUserId?: string
 }
 
-export function UsersPage({ users, updateUsers, onToast, currentUserId }: UsersPageProps) {
+export function UsersPage({ users, updateUsers, onToast, currentUserId }: UsersPageProps): React.JSX.Element {
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all")
   const [sort, setSort] = useState<UserSortId>("xp-desc")
@@ -51,10 +51,10 @@ export function UsersPage({ users, updateUsers, onToast, currentUserId }: UsersP
   const counts = countByRole(users)
   const areAllSelected = filtered.length > 0 && filtered.every((user) => selectedIds.has(user.id))
   const isPartiallySelected = selectedIds.size > 0 && !areAllSelected
-  const clearSelection = () => setSelectedIds(new Set())
+  const clearSelection = (): void => setSelectedIds(new Set())
 
-  const handleToggleAll = () => setSelectedIds(areAllSelected ? new Set() : new Set(filtered.map((user) => user.id)))
-  const handleToggleOne = (userId: string) => {
+  const handleToggleAll = (): void => setSelectedIds(areAllSelected ? new Set() : new Set(filtered.map((user) => user.id)))
+  const handleToggleOne = (userId: string): void => {
     const next = new Set(selectedIds)
     if (next.has(userId)) next.delete(userId)
     else next.add(userId)
@@ -62,18 +62,18 @@ export function UsersPage({ users, updateUsers, onToast, currentUserId }: UsersP
   }
 
   /** O próprio admin fica fora das ações em massa (evita se rebaixar/suspender sem querer). */
-  const bulkTargetIds = () => {
+  const bulkTargetIds = (): string[] => {
     const targetIds = [...selectedIds].filter((userId) => userId !== currentUserId)
     if (targetIds.length < selectedIds.size) onToast("Sua própria conta foi ignorada na ação em massa", "info")
     return targetIds
   }
 
-  const mergeUpdated = (updated: Profile[]) => {
+  const mergeUpdated = (updated: Profile[]): void => {
     const updatedById = indexBy(updated, (user) => user.id)
     updateUsers((current) => current.map((user) => updatedById.get(user.id) ?? user))
   }
 
-  const handleBulkRole = async (role: UserRole) => {
+  const handleBulkRole = async (role: UserRole): Promise<void> => {
     setIsBulkBusy(true)
     const { updated, failedCount, firstError } = await runForEachUser(bulkTargetIds(), (userId) => updateUserRole(userId, role))
     setIsBulkBusy(false)
@@ -84,7 +84,7 @@ export function UsersPage({ users, updateUsers, onToast, currentUserId }: UsersP
     setIsBulkRoleOpen(false)
   }
 
-  const handleBulkSuspend = async () => {
+  const handleBulkSuspend = async (): Promise<void> => {
     setIsBulkBusy(true)
     const { updated, failedCount, firstError } = await runForEachUser(bulkTargetIds(), (userId) => setUserSuspended(userId, true))
     setIsBulkBusy(false)
@@ -94,7 +94,7 @@ export function UsersPage({ users, updateUsers, onToast, currentUserId }: UsersP
     clearSelection()
   }
 
-  const handleExport = (isOnlySelected: boolean) => {
+  const handleExport = (isOnlySelected: boolean): void => {
     const rows = toUserCsvRows(isOnlySelected ? filtered.filter((user) => selectedIds.has(user.id)) : filtered)
     if (rows.length === 0) {
       onToast("Nenhum usuário para exportar", "warning")
@@ -104,7 +104,7 @@ export function UsersPage({ users, updateUsers, onToast, currentUserId }: UsersP
     if (isOnlySelected) clearSelection()
   }
 
-  const handleInvite = async () => {
+  const handleInvite = async (): Promise<void> => {
     const email = window.prompt("E-mail do usuário a convidar:")
     if (!email?.trim()) return
     try {
@@ -116,7 +116,7 @@ export function UsersPage({ users, updateUsers, onToast, currentUserId }: UsersP
     }
   }
 
-  const handleSaveUser = async (user: Profile, changes: AdminUpdateUserInput) => {
+  const handleSaveUser = async (user: Profile, changes: AdminUpdateUserInput): Promise<void> => {
     if (!Object.keys(changes).length) {
       setEditingUser(null)
       return
@@ -131,7 +131,7 @@ export function UsersPage({ users, updateUsers, onToast, currentUserId }: UsersP
     }
   }
 
-  const handleDeleteUser = async (user: Profile) => {
+  const handleDeleteUser = async (user: Profile): Promise<void> => {
     try {
       await deleteUser(user.id)
       updateUsers((current) => current.filter((item) => item.id !== user.id))
@@ -160,7 +160,7 @@ export function UsersPage({ users, updateUsers, onToast, currentUserId }: UsersP
           >
             <Download className="h-3.5 w-3.5" /> Exportar CSV
           </button>
-          <button onClick={handleInvite} className="btn-3d flex items-center gap-2 rounded-xl bg-level-purple px-4 py-2 text-sm font-bold text-white">
+          <button onClick={() => void handleInvite()} className="btn-3d flex items-center gap-2 rounded-xl bg-level-purple px-4 py-2 text-sm font-bold text-white">
             <Plus className="h-4 w-4" /> Convidar usuário
           </button>
         </div>
@@ -233,7 +233,7 @@ export function UsersPage({ users, updateUsers, onToast, currentUserId }: UsersP
                 <Download className="h-3 w-3" /> Exportar
               </button>
               <button
-                onClick={handleBulkSuspend}
+                onClick={() => void handleBulkSuspend()}
                 disabled={isBulkBusy}
                 className="flex items-center gap-1.5 rounded-lg border border-warning bg-white px-3 py-1.5 text-xs font-bold text-warning hover:bg-warning hover:text-white"
               >
@@ -305,7 +305,7 @@ export function UsersPage({ users, updateUsers, onToast, currentUserId }: UsersP
         <BulkRoleModal
           selectedCount={selectedIds.size}
           isBusy={isBulkBusy}
-          onSelectRole={handleBulkRole}
+          onSelectRole={(role) => void handleBulkRole(role)}
           onClose={() => setIsBulkRoleOpen(false)}
         />
       )}
@@ -332,7 +332,7 @@ interface UserRowProps {
   onEdit: () => void
 }
 
-function UserRow({ user, isSelected, onToggleSelected, onOpenDetail, onEdit }: UserRowProps) {
+function UserRow({ user, isSelected, onToggleSelected, onOpenDetail, onEdit }: UserRowProps): React.JSX.Element {
   return (
     <tr className={cn("transition-colors hover:bg-level-purple-subtle/30", isSelected && "bg-level-purple-subtle/20")}>
       <td className="px-4 py-3">

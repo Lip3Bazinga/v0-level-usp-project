@@ -1,11 +1,36 @@
+import { readFileSync } from "node:fs"
 import path from "node:path"
 
-const PYODIDE_ORIGIN = "https://cdn.jsdelivr.net"
+/*
+ * Origens do Python do botão "Executar" (ver src/lib/python/runtime-config.ts).
+ * O núcleo do Pyodide é servido pelo próprio site (/pyodide/v<versão>/), então
+ * nenhum script de terceiros entra na página. Só os wheels dos pacotes extras
+ * (numpy, matplotlib…) vêm do CDN oficial — e só via fetch (connect-src).
+ * Se NEXT_PUBLIC_PYODIDE_INDEX_URL apontar para fora, essa origem é liberada também.
+ */
+const runtimeManifest = JSON.parse(
+  readFileSync(new URL("./src/lib/python/pyodide-runtime.json", import.meta.url), "utf8"),
+)
+const DEFAULT_PYODIDE_PACKAGE_BASE_URL = `https://cdn.jsdelivr.net/pyodide/v${runtimeManifest.version}/full/`
+
+/** Origem de uma URL absoluta; URL relativa (mesma origem) devolve null. */
+function externalOrigin(url) {
+  if (!url || !/^https?:\/\//.test(url)) return null
+  return new URL(url).origin
+}
+
+const pyodideIndexOrigin = externalOrigin(process.env.NEXT_PUBLIC_PYODIDE_INDEX_URL)
+const pyodidePackageOrigin = externalOrigin(
+  process.env.NEXT_PUBLIC_PYODIDE_PACKAGE_BASE_URL || DEFAULT_PYODIDE_PACKAGE_BASE_URL,
+)
+const scriptOrigins = [pyodideIndexOrigin].filter(Boolean)
+const connectOrigins = [...new Set([pyodideIndexOrigin, pyodidePackageOrigin].filter(Boolean))]
+
 const CSP = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' ${PYODIDE_ORIGIN}`,
+  ["script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'", ...scriptOrigins].join(" "),
   "worker-src 'self' blob:",
-  `connect-src 'self' ${PYODIDE_ORIGIN}`,
+  ["connect-src 'self'", ...connectOrigins].join(" "),
   "img-src 'self' data: blob: https:",
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
@@ -17,6 +42,11 @@ const CSP = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Sem "X-Powered-By: Next.js": não anunciar o framework facilita menos a escolha de exploits.
+  poweredByHeader: false,
+  // Source maps do cliente nunca são publicados (o código-fonte não vai para o navegador).
+  productionBrowserSourceMaps: false,
+
   // Imagem Docker enxuta (server.js + dependências mínimas em .next/standalone).
   output: "standalone",
   // Monorepo: o rastreamento de arquivos parte da raiz para incluir packages/*.
@@ -40,7 +70,9 @@ const nextConfig = {
         headers: [
           { key: "X-Content-Type-Options",   value: "nosniff" },
           { key: "X-Frame-Options",           value: "DENY" },
-          { key: "X-XSS-Protection",          value: "1; mode=block" },
+          // O filtro XSS legado dos navegadores foi removido e já serviu de canal de vazamento;
+          // a recomendação atual (OWASP) é desligá-lo e confiar na CSP.
+          { key: "X-XSS-Protection",          value: "0" },
           { key: "Referrer-Policy",           value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy",        value: "camera=(), microphone=(), geolocation=()" },
           // CSP: impede exfiltração para domínios externos e plugins. 'unsafe-eval' e
@@ -49,9 +81,10 @@ const nextConfig = {
         ],
       },
       {
-        source: "/pyodide-worker-v2.js",
+        // Núcleo do Pyodide: o caminho já carrega a versão, então o arquivo nunca muda.
+        source: "/pyodide/:path*",
         headers: [
-          { key: "Cache-Control", value: "no-store, must-revalidate" },
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
         ],
       },
     ]

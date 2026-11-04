@@ -44,7 +44,7 @@ interface LessonMetricsRowProps {
 }
 
 /** Linha compacta com as métricas de uma lição no painel do professor. */
-export function LessonMetricsRow({ metrics }: LessonMetricsRowProps) {
+export function LessonMetricsRow({ metrics }: LessonMetricsRowProps): React.JSX.Element {
   if (!metrics || (metrics.started === 0 && metrics.submissions === 0)) {
     return <span className="text-xs text-muted-foreground">Sem atividade de alunos ainda</span>
   }

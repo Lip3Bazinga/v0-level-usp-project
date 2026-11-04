@@ -18,7 +18,7 @@ const SLOW_3G_CONDITIONS = {
 }
 
 /** Simula a API fora do ar em tudo, menos a sessão (/auth/me). */
-async function simulateApiOutage(page: Page, status = INTERNAL_SERVER_ERROR) {
+async function simulateApiOutage(page: Page, status = INTERNAL_SERVER_ERROR): Promise<void> {
   await page.route("**/api/**", (route) => {
     if (route.request().url().includes("/api/auth/me")) return route.continue()
     return route.fulfill({

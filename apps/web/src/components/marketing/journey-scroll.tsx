@@ -8,7 +8,7 @@ import { JOURNEY_CHAPTERS } from "./content/home"
 /** Deslocamento da faixa de capítulos do início ao fim da rolagem da seção. */
 const TRACK_OFFSET_RANGE = ["2%", "-72%"]
 
-export function JourneyScroll() {
+export function JourneyScroll(): React.JSX.Element {
   const sectionRef = useRef<HTMLDivElement>(null)
   const { scrollYProgress } = useScroll({ target: sectionRef })
 

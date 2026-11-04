@@ -1,11 +1,11 @@
 import { Injectable } from "@nestjs/common"
 import type { LibraryCatalog, LibraryRequest, LibraryRequestInput, ReviewLibraryRequestInput } from "@levelusp/contracts"
-import type { LibraryRequestRow } from "@levelusp/db"
+import type { LibraryRequestRow, DbTransaction } from "@levelusp/db"
 import { Conflict, NotFound } from "@/common/errors/app-error"
 import type { AuthUser } from "@/common/http/request"
 import { RATE_LIMITS } from "@/common/rate-limit/rate-limit.policies"
 import { RateLimitService } from "@/common/rate-limit/rate-limit.service"
-import { TransactionRunner, type Tx } from "@/infra/database/database.module"
+import { TransactionRunner } from "@/infra/database/database.module"
 import { AuditService } from "../audit/audit.service"
 import { NotificationsService } from "../notifications/notifications.service"
 import { toLibraryCatalog, toLibraryRequest } from "./library.mapper"
@@ -13,6 +13,7 @@ import { LibraryRepository } from "./library.repository"
 
 type CatalogEntry = NonNullable<ReviewLibraryRequestInput["catalog"]>
 
+/** Catálogo de bibliotecas Python e o fluxo de pedido (professor) e revisão (admin). */
 @Injectable()
 export class LibraryService {
   constructor(
@@ -23,16 +24,27 @@ export class LibraryService {
     private readonly rateLimit: RateLimitService,
   ) {}
 
+  /** Catálogo; por padrão só as bibliotecas ativas. */
   async listCatalog(onlyActive = true): Promise<LibraryCatalog[]> {
     return (await this.repo.listCatalog(onlyActive)).map(toLibraryCatalog)
   }
 
+  /**
+   * Liga ou desliga uma biblioteca do catálogo (auditado).
+   *
+   * @throws AppError 404 biblioteca inexistente.
+   */
   async setCatalogActive(actor: AuthUser, id: string, active: boolean): Promise<void> {
     const library = await this.repo.setCatalogActive(id, active)
     if (!library) throw NotFound("Biblioteca")
     await this.audit.log(actor, active ? "library.activate" : "library.deactivate", library.name, { id }, "info")
   }
 
+  /**
+   * Registra o pedido do professor.
+   *
+   * @throws AppError 409 `REQUEST_PENDING` quando já há pedido pendente da mesma biblioteca, 429 pedidos demais.
+   */
   async createRequest(user: AuthUser, input: LibraryRequestInput): Promise<LibraryRequest> {
     this.rateLimit.consume(RATE_LIMITS.libraryRequest, user.id)
     if (await this.repo.findPendingRequest(user.id, input.library_name)) {
@@ -48,10 +60,12 @@ export class LibraryService {
     return toLibraryRequest(request)
   }
 
+  /** Pedidos do próprio professor. */
   async listMyRequests(user: AuthUser): Promise<LibraryRequest[]> {
     return (await this.repo.listRequestsByUser(user.id)).map((request) => toLibraryRequest(request))
   }
 
+  /** Todos os pedidos, com o nome de quem pediu (para o admin). */
   async listRequests(): Promise<LibraryRequest[]> {
     return (await this.repo.listRequests()).map(({ request, requesterName }) => toLibraryRequest(request, requesterName))
   }
@@ -60,7 +74,7 @@ export class LibraryService {
   async reviewRequest(actor: AuthUser, id: string, input: ReviewLibraryRequestInput): Promise<LibraryRequest> {
     const isApproved = input.status === "approved"
     const catalogEntry = isApproved ? input.catalog : undefined
-    const reviewed = await this.transactions.run(async (tx) => {
+    const reviewed = await this.transactions.run(async (tx: DbTransaction) => {
       const pending = await this.repo.lockRequest(id, tx)
       if (!pending) throw NotFound("Solicitação")
       if (pending.status !== "pending") throw Conflict("Esta solicitação já foi revisada.", "ALREADY_REVIEWED")
@@ -84,7 +98,7 @@ export class LibraryService {
     return toLibraryRequest(reviewed)
   }
 
-  private addToCatalog(request: LibraryRequestRow, entry: CatalogEntry, actor: AuthUser, tx: Tx): Promise<void> {
+  private addToCatalog(request: LibraryRequestRow, entry: CatalogEntry, actor: AuthUser, tx: DbTransaction): Promise<void> {
     return this.repo.upsertCatalog(
       {
         name: request.libraryName,

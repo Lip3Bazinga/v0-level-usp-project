@@ -1,6 +1,7 @@
 import type { LessonProgress, Profile } from "@levelusp/contracts"
 import { computeLevelProgress } from "./gamification"
 
+/** Conclusão confirmada pela API, para refletir no progresso local. */
 export interface LessonCompletion {
   lessonId: string
   userId: string
@@ -38,6 +39,7 @@ export function applyLessonCompletion(progress: readonly LessonProgress[], compl
   )
 }
 
+/** Números de gamificação prontos para a interface. */
 export interface GamificationSummary {
   level: number
   totalXp: number
@@ -53,6 +55,7 @@ export interface GamificationSummary {
 
 type GamificationFields = Pick<Profile, "level" | "total_xp" | "current_streak" | "max_streak">
 
+/** Nível, XP, sequência e progresso no nível; sem perfil (deslogado), os valores iniciais. */
 export function summarizeGamification(profile: GamificationFields | null): GamificationSummary {
   const level = profile?.level ?? 1
   const totalXp = profile?.total_xp ?? 0

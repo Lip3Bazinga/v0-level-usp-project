@@ -26,7 +26,7 @@ interface BulkRoleModalProps {
   onClose: () => void
 }
 
-export function BulkRoleModal({ selectedCount, isBusy, onSelectRole, onClose }: BulkRoleModalProps) {
+export function BulkRoleModal({ selectedCount, isBusy, onSelectRole, onClose }: BulkRoleModalProps): React.JSX.Element {
   return (
     <AdminModal
       title={`Alterar papel de ${selectedCount} usuário(s)`}

@@ -11,6 +11,7 @@ import { MS_PER_MINUTE, MS_PER_SECOND } from "@/common/time/time"
 /** Tolerância além do tempo limite para latência de rede no envio. */
 export const SUBMIT_GRACE_MS = 30 * MS_PER_SECOND
 
+/** Regras da prova que valem para todas as tentativas (`questionsPerAttempt` null = todas as ativas). */
 export interface ExamRules {
   passingScore: number
   timeLimitMinutes: number
@@ -18,6 +19,7 @@ export interface ExamRules {
   questionsPerAttempt: number | null
 }
 
+/** O que as regras de prova precisam de uma tentativa (datas ISO; nota null até a entrega). */
 export interface AttemptLike {
   id: string
   startedAt: string
@@ -28,6 +30,7 @@ export interface AttemptLike {
 
 type TimeLimit = Pick<ExamRules, "timeLimitMinutes">
 
+/** Fim do prazo da tentativa: início + tempo limite (sem a tolerância de envio). */
 export function attemptExpiresAt(attempt: Pick<AttemptLike, "startedAt">, exam: TimeLimit): Date {
   return new Date(new Date(attempt.startedAt).getTime() + exam.timeLimitMinutes * MS_PER_MINUTE)
 }
@@ -72,6 +75,7 @@ export function cooldownUntil(attempts: AttemptLike[], exam: Pick<ExamRules, "co
   return until.getTime() > now.getTime() ? until : null
 }
 
+/** Resumo das tentativas do aluno: melhor nota, aprovação, intervalo até a próxima e a tentativa aberta. */
 export interface AttemptsSummary {
   attemptsCount: number
   bestScore: number | null
@@ -122,6 +126,7 @@ export function drawQuestions<T>(items: readonly T[], count: number | null, rand
   return shuffled.slice(0, questionsPerAttempt(shuffled.length, count))
 }
 
+/** Correção de uma tentativa, com as respostas que contam para a nota. */
 export interface ExamGrade extends Omit<AnswerSheetResult, "passingScore"> {
   /** Só as respostas a questões da tentativa (o resto é descartado). */
   answers: AnswerSheet
@@ -149,12 +154,16 @@ export function isCertificationModule(name: string | null | undefined): boolean 
   return name.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().includes("certificacao")
 }
 
+/**
+ * Lição publicada do curso com o módulo (texto legado e título do módulo), para achar o módulo de certificação.
+ */
 export interface LessonForEligibility {
   id: string
   module: string | null
   moduleTitle: string | null
 }
 
+/** Quantas lições obrigatórias faltam para liberar a prova. */
 export interface ExamEligibility {
   eligible: boolean
   remaining: number

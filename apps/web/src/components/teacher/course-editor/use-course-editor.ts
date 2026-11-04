@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type Dispatch, type SetStateAction } from "react"
 import type { Course, CourseInput } from "@levelusp/contracts"
 import { createCourse, getErrorMessage, setCoursePublished, updateCourse, uploadImage } from "@/lib/api"
 import { MAX_COVER_IMAGE_BYTES } from "@/lib/constants"
@@ -14,12 +14,26 @@ interface CourseEditorOptions {
   /** Chamado quando um curso novo é criado no primeiro salvamento. */
   onCreated?: (courseId: string) => void
 }
+export interface UseCourseEditorResult {
+  form: CourseFormState
+  patchForm: (changes: Partial<CourseFormState>) => void
+  courseId: string | null
+  isPublished: boolean
+  coverPreview: string | null
+  isSaving: boolean
+  isUploading: boolean
+  error: string | null
+  setError: Dispatch<SetStateAction<string | null>>
+  save: (publish: boolean | undefined, lessonCount: number) => Promise<CourseSaveResult>
+  uploadCover: (file: File) => Promise<void>
+  removeCover: () => Promise<void>
+}
 
 /**
  * Estado e ações do editor de curso: parte do curso carregado (ou de um novo), salva
  * com POST/PATCH (só campos alterados), publica/despublica e cuida da capa.
  */
-export function useCourseEditor(initial: Course | null, { onCreated }: CourseEditorOptions = {}) {
+export function useCourseEditor(initial: Course | null, { onCreated }: CourseEditorOptions = {}): UseCourseEditorResult {
   const [form, setForm] = useState<CourseFormState>(() => (initial ? formFromCourse(initial) : EMPTY_COURSE_FORM))
   const [courseId, setCourseId] = useState<string | null>(initial?.id ?? null)
   const [isPublished, setIsPublished] = useState(initial?.published ?? false)
@@ -30,8 +44,8 @@ export function useCourseEditor(initial: Course | null, { onCreated }: CourseEdi
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const patchForm = (changes: Partial<CourseFormState>) => setForm((current) => ({ ...current, ...changes }))
-  const patchBaseline = (changes: Partial<CourseInput>) => setBaseline((current) => (current ? { ...current, ...changes } : current))
+  const patchForm = (changes: Partial<CourseFormState>): void => setForm((current) => ({ ...current, ...changes }))
+  const patchBaseline = (changes: Partial<CourseInput>): void => setBaseline((current) => (current ? { ...current, ...changes } : current))
 
   /** Cria o curso (rascunho) ou envia só os campos alterados. Devolve o id. */
   const persist = async (): Promise<string> => {
@@ -78,7 +92,7 @@ export function useCourseEditor(initial: Course | null, { onCreated }: CourseEdi
     }
   }
 
-  const uploadCover = async (file: File) => {
+  const uploadCover = async (file: File): Promise<void> => {
     if (file.size > MAX_COVER_IMAGE_BYTES) {
       setError("A imagem deve ter no máximo 5 MB.")
       return
@@ -106,7 +120,7 @@ export function useCourseEditor(initial: Course | null, { onCreated }: CourseEdi
     }
   }
 
-  const removeCover = async () => {
+  const removeCover = async (): Promise<void> => {
     const previous = { url: form.cover_image_url, preview: coverPreview }
     patchForm({ cover_image_url: null })
     setCoverPreview(null)

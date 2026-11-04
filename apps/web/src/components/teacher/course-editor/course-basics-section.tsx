@@ -14,7 +14,7 @@ const MAX_ESTIMATED_HOURS = 1000
 
 /** Cor do ponto de cada nível: a cor de fundo do selo de dificuldade. */
 function levelDotClass(level: Difficulty): string {
-  return DIFFICULTY_BADGE_CLASSES[level].split(" ")[0]
+  return DIFFICULTY_BADGE_CLASSES[level].split(" ")[0] ?? ""
 }
 
 interface CourseBasicsSectionProps {
@@ -22,10 +22,10 @@ interface CourseBasicsSectionProps {
   onChange: (changes: Partial<CourseFormState>) => void
 }
 
-export function CourseBasicsSection({ form, onChange }: CourseBasicsSectionProps) {
+export function CourseBasicsSection({ form, onChange }: CourseBasicsSectionProps): React.JSX.Element {
   const [tagDraft, setTagDraft] = useState("")
 
-  const handleAddTag = () => {
+  const handleAddTag = (): void => {
     onChange({ tags: addTag(form.tags, tagDraft) })
     setTagDraft("")
   }

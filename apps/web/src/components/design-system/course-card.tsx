@@ -21,7 +21,7 @@ interface CourseCardProps {
 
 const CARD_SHADOW = "0 4px 12px -2px rgba(124, 58, 237, 0.08)"
 
-function StatusIcon({ status }: { status: CourseCardStatus }) {
+function StatusIcon({ status }: { status: CourseCardStatus }): React.JSX.Element {
   if (status === "locked") {
     return (
       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
@@ -53,7 +53,7 @@ export function CourseCard({
   status = "in-progress",
   className,
   onClick,
-}: CourseCardProps) {
+}: CourseCardProps): React.JSX.Element {
   const isLocked = status === "locked"
 
   return (

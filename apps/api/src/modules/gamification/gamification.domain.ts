@@ -22,6 +22,7 @@ export type AutomaticCriteria = Exclude<BadgeCriteriaType, "manual">
 /** Contadores do perfil, com os mesmos nomes dos critérios de badge. */
 export type PlayerStats = Record<AutomaticCriteria, number>
 
+/** O que a concessão automática precisa de um badge do catálogo. */
 export interface BadgeRule {
   id: string
   criteriaType: BadgeCriteriaType

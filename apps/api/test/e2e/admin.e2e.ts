@@ -1,10 +1,19 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { sql } from "drizzle-orm"
 import { badges, lessonProgress, profiles, submissions, userBadges } from "@levelusp/db"
-import { agent, countRows, createLesson, createTestApp, queryRows, required, signUp, type TestContext } from "./harness"
+import type {
+  AnalyticsMetrics, ApiErrorBody, AuditLog, Lesson, PlatformMetrics, Profile, RecentActivity, SessionResponse, UserDataExport,
+} from "@levelusp/contracts"
+import { agent, bodyOf, countRows, createLesson, createTestApp, queryRows, required, signUp, type TestContext } from "./harness"
 
-const auditActions = (ctx: TestContext) =>
-  queryRows<{ action: string; severity: string; target: string }>(ctx.db, sql`select action, severity, target from audit_log order by created_at`)
+interface AuditEntry {
+  action: string
+  severity: string
+  target: string
+}
+
+const auditActions = (ctx: TestContext): Promise<AuditEntry[]> =>
+  queryRows<AuditEntry>(ctx.db, sql`select action, severity, target from audit_log order by created_at`)
 
 describe("Administração (e2e)", () => {
   let ctx: TestContext
@@ -47,12 +56,12 @@ describe("Administração (e2e)", () => {
     const user = await signUp(ctx.app)
     const list = await admin.agent.get("/api/admin/users")
     expect(list.status).toBe(200)
-    expect(list.body.map((profile: { id: string }) => profile.id).sort()).toEqual([admin.id, user.id].sort())
+    expect(bodyOf<Profile[]>(list).map((profile) => profile.id).sort()).toEqual([admin.id, user.id].sort())
 
     const response = await admin.agent.patch(`/api/admin/users/${user.id}`, { role: "teacher", full_name: "Novo Nome" })
     expect(response.status).toBe(200)
     expect(response.body).toMatchObject({ id: user.id, role: "teacher", full_name: "Novo Nome" })
-    expect((await user.agent.get("/api/auth/me")).body.user.role).toBe("teacher")
+    expect(bodyOf<SessionResponse>(await user.agent.get("/api/auth/me")).user.role).toBe("teacher")
     const actions = await auditActions(ctx)
     expect(actions).toEqual(
       expect.arrayContaining([
@@ -81,7 +90,7 @@ describe("Administração (e2e)", () => {
     expect((await admin.agent.delete(`/api/admin/users/${admin.id}`)).status).toBe(403)
     const me = await admin.agent.get("/api/auth/me")
     expect(me.status).toBe(200)
-    expect(me.body.user).toMatchObject({ role: "admin", suspended: false })
+    expect(bodyOf<SessionResponse>(me).user).toMatchObject({ role: "admin", suspended: false })
     // Editar o próprio nome continua permitido
     expect((await admin.agent.patch(`/api/admin/users/${admin.id}`, { full_name: "Coordenação" })).status).toBe(200)
   })
@@ -92,7 +101,7 @@ describe("Administração (e2e)", () => {
     expect((await user.agent.get("/api/auth/me")).status).toBe(200)
     const response = await admin.agent.patch(`/api/admin/users/${user.id}`, { suspended: true })
     expect(response.status).toBe(200)
-    expect(response.body.suspended).toBe(true)
+    expect(bodyOf<Profile>(response).suspended).toBe(true)
     expect(await countRows(ctx.db, sql`select count(*)::int as n from sessions where user_id = ${user.id} and revoked_at is null`)).toBe(0)
     expect((await user.agent.get("/api/auth/me")).status).toBe(401)
     expect((await agent(ctx.app).post("/api/auth/sign-in", { email: user.email, password: user.password })).status).toBe(403)
@@ -118,7 +127,7 @@ describe("Administração (e2e)", () => {
 
     expect((await admin.agent.post(`/api/admin/users/${user.id}/reset-progress`)).status).toBe(204)
 
-    const me = (await user.agent.get("/api/auth/me")).body.user
+    const me = bodyOf<SessionResponse>(await user.agent.get("/api/auth/me")).user
     expect(me).toMatchObject({ total_xp: 0, level: 1, current_streak: 0, max_streak: 0, lessons_completed: 0, courses_completed: 0 })
     expect(await countRows(ctx.db, sql`select count(*)::int as n from lesson_progress where user_id = ${user.id}`)).toBe(0)
     expect(await countRows(ctx.db, sql`select count(*)::int as n from submissions where user_id = ${user.id}`)).toBe(0)
@@ -131,7 +140,7 @@ describe("Administração (e2e)", () => {
     const response = await admin.agent.post("/api/admin/users/invite", { email: "Convidada@USP.br", full_name: "Convidada" })
     expect(response.status).toBe(201)
     expect(response.body).toMatchObject({ email: "convidada@usp.br", full_name: "Convidada", role: "student", username: "convidada" })
-    const [credentials] = await queryRows<{ password_hash: string | null }>(ctx.db, sql`select password_hash from users where id = ${response.body.id}`)
+    const [credentials] = await queryRows<{ password_hash: string | null }>(ctx.db, sql`select password_hash from users where id = ${bodyOf<Profile>(response).id}`)
     expect(credentials?.password_hash).toBeNull()
 
     expect(ctx.mail.sent).toHaveLength(1)
@@ -145,7 +154,7 @@ describe("Administração (e2e)", () => {
 
     const duplicate = await admin.agent.post("/api/admin/users/invite", { email: "convidada@usp.br" })
     expect(duplicate.status).toBe(409)
-    expect(duplicate.body.code).toBe("EMAIL_TAKEN")
+    expect(bodyOf<ApiErrorBody>(duplicate).code).toBe("EMAIL_TAKEN")
     expect((await auditActions(ctx)).map((entry) => entry.action)).toContain("user.invite")
   })
 
@@ -191,7 +200,7 @@ describe("Administração (e2e)", () => {
     const user = await signUp(ctx.app)
     const response = await admin.agent.get(`/api/admin/users/${user.id}/export`)
     expect(response.status).toBe(200)
-    expect(response.body.profile.id).toBe(user.id)
+    expect(bodyOf<UserDataExport>(response).profile.id).toBe(user.id)
     const raw = JSON.stringify(response.body)
     expect(raw).not.toMatch(/password_hash|passwordHash|\$argon2/)
     expect((await auditActions(ctx)).map((entry) => entry.action)).toContain("user.export")
@@ -211,21 +220,21 @@ describe("Administração (e2e)", () => {
     ])
     await ctx.db.update(profiles).set({ totalXp: 100 }).where(sql`${profiles.id} = ${user.id}`)
 
-    const metrics = (await admin.agent.get("/api/admin/metrics")).body
+    const metrics = bodyOf<PlatformMetrics>(await admin.agent.get("/api/admin/metrics"))
     expect(metrics).toMatchObject({
       totalUsers: 3, totalStudents: 1, totalTeachers: 1, totalAdmins: 1, totalLessons: 2, publishedLessons: 1,
       totalCompletions: 2, pendingApprovals: 0, totalXpAwarded: 100,
     })
 
-    const daily = (await admin.agent.get("/api/admin/activity/daily")).body as number[]
+    const daily = bodyOf<number[]>(await admin.agent.get("/api/admin/activity/daily"))
     expect(daily).toHaveLength(30)
     expect(daily.at(-1)).toBe(2)
 
-    const recent = (await admin.agent.get("/api/admin/activity/recent")).body
+    const recent = bodyOf<RecentActivity[]>(await admin.agent.get("/api/admin/activity/recent"))
     expect(recent).toHaveLength(2)
     expect(recent[0]).toMatchObject({ lesson_title: "Variáveis", xp_earned: 50 })
 
-    const analytics = (await admin.agent.get("/api/admin/analytics")).body
+    const analytics = bodyOf<AnalyticsMetrics>(await admin.agent.get("/api/admin/analytics"))
     expect(analytics.dailyActiveUsers).toHaveLength(30)
     expect(analytics.dailyActiveUsers.at(-1)).toBe(2)
     expect(analytics.completionsByDay.at(-1)).toBe(2)
@@ -247,7 +256,7 @@ describe("Administração (e2e)", () => {
     const response = await admin.agent.get("/api/admin/lessons")
     expect(response.status).toBe(200)
     expect(response.body).toHaveLength(1)
-    expect(response.body[0]).toMatchObject({ title: "Rascunho", published: false })
+    expect(bodyOf<Lesson[]>(response)[0]).toMatchObject({ title: "Rascunho", published: false })
     expect(JSON.stringify(response.body)).not.toMatch(/test_cases|testCases|expected/)
   })
 
@@ -269,7 +278,7 @@ describe("Administração (e2e)", () => {
     await admin.agent.patch(`/api/admin/users/${user.id}`, { role: "teacher" })
     const response = await admin.agent.get("/api/admin/audit?limit=10")
     expect(response.status).toBe(200)
-    expect(response.body[0]).toMatchObject({ action: "user.role_change", actor_id: admin.id, severity: "warning" })
+    expect(bodyOf<AuditLog[]>(response)[0]).toMatchObject({ action: "user.role_change", actor_id: admin.id, severity: "warning" })
   })
 
   it("CRUD de badges; PATCH parcial preserva os demais campos", async () => {

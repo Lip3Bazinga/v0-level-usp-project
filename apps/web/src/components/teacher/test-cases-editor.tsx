@@ -2,16 +2,20 @@
 
 import { useMemo, useState, type ReactNode } from "react"
 import {
-  AlertTriangle, ChevronDown, ChevronRight, ChevronUp, Code2, Eye, FlaskConical, Plus, ShieldCheck, Terminal, Trash2,
-  Variable, Workflow, type LucideIcon,
+  AlertTriangle, Braces, ChevronDown, ChevronRight, ChevronUp, Code2, Eye, FlaskConical, ListChecks, Plus, ShieldCheck,
+  Terminal, Trash2, Variable, Workflow, type LucideIcon,
 } from "lucide-react"
+import type { ExprCase } from "@levelusp/contracts"
 import { cn, isOneOf, moveItem, type MoveDirection } from "@/lib/utils"
 import {
   ALL_KINDS, CONSTRUCT_LABELS, CREATABLE_KINDS, KIND_DESCRIPTIONS, KIND_LABELS, MATCH_LABELS, MATCH_MODES, PY_TYPES, RULE_LABELS,
-  RULE_TYPES, changeDraftKind, changeRuleType, compileDraft, compileDrafts, constructsFor, emptyDraft, isConstructRule, isMatchMode,
-  nextCaseId, type DraftErrors, type TestCaseDraft, type TestCaseKind,
+  RULE_TYPES, RULE_VALUE_FIELDS, changeDraftKind, changeRuleType, compileDraft, compileDrafts, constructsFor, emptyDraft,
+  isConstructRule, isMatchMode, nextCaseId, type DraftErrors, type TestCaseDraft, type TestCaseKind,
 } from "./test-cases/drafts"
-import { callSignature, failurePreview, pyRepr } from "./test-cases/preview"
+import { ExprFields } from "./test-cases/expr-fields"
+import { Field, JsonInput, TextArea, TextInput, inputClass } from "./test-cases/form-fields"
+import { callSignature, expressionLabel, failurePreview, pyRepr } from "./test-cases/preview"
+import { UnittestFields } from "./test-cases/unittest-fields"
 
 export type { TestCaseDraft } from "./test-cases/drafts"
 export { compileDrafts, draftsFromCases } from "./test-cases/drafts"
@@ -21,6 +25,8 @@ const KIND_ICONS: Record<TestCaseKind, LucideIcon> = {
   io: Terminal,
   variable: Variable,
   source: Code2,
+  expr: Braces,
+  unittest: ListChecks,
   legacy: AlertTriangle,
 }
 
@@ -37,16 +43,16 @@ interface TestCasesEditorProps {
  * e usa `compileDrafts` para obter os `TestCase[]` válidos na hora de salvar —
  * se houver qualquer erro, o salvamento deve ser bloqueado.
  */
-export function TestCasesEditor({ value, onChange, disabled }: TestCasesEditorProps) {
+export function TestCasesEditor({ value, onChange, disabled }: TestCasesEditorProps): React.JSX.Element {
   const compiled = useMemo(() => compileDrafts(value), [value])
   const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set())
   const hasLegacy = value.some((draft) => draft.kind === "legacy")
 
-  const handleUpdate = (key: string, next: TestCaseDraft) => onChange(value.map((draft) => (draft.key === key ? next : draft)))
-  const handleAdd = (kind: TestCaseKind) => onChange([...value, emptyDraft(kind, nextCaseId(value))])
-  const handleRemove = (key: string) => onChange(value.filter((draft) => draft.key !== key))
-  const handleMove = (index: number, direction: MoveDirection) => onChange(moveItem(value, index, direction))
-  const handleToggleCollapsed = (key: string) =>
+  const handleUpdate = (key: string, next: TestCaseDraft): void => onChange(value.map((draft) => (draft.key === key ? next : draft)))
+  const handleAdd = (kind: TestCaseKind): void => onChange([...value, emptyDraft(kind, nextCaseId(value))])
+  const handleRemove = (key: string): void => onChange(value.filter((draft) => draft.key !== key))
+  const handleMove = (index: number, direction: MoveDirection): void => onChange(moveItem(value, index, direction))
+  const handleToggleCollapsed = (key: string): void =>
     setCollapsedKeys((current) => {
       const next = new Set(current)
       if (next.has(key)) next.delete(key)
@@ -79,7 +85,7 @@ export function TestCasesEditor({ value, onChange, disabled }: TestCasesEditorPr
             <strong>Há testes no formato legado (assert/unittest).</strong>{" "}
             Eles rodam junto com o código do aluno, então a correção é mais fraca (o aluno poderia
             interferir no resultado). Sugerimos convertê-los em casos de <em>Chamar função</em>,{" "}
-            <em>Entrada e saída</em> ou <em>Valor de variável</em>.
+            <em>Avaliar expressão</em> (objetos, exceções, arquivos) ou <em>Testes do aluno</em> (unittest).
           </p>
         </div>
       )}
@@ -151,15 +157,15 @@ interface CaseCardProps {
   total: number
   errors: DraftErrors
   isCollapsed: boolean
-  disabled?: boolean
+  disabled?: boolean | undefined
   onToggle: () => void
   onChange: (draft: TestCaseDraft) => void
   onRemove: () => void
   onMove: (direction: MoveDirection) => void
 }
 
-function CaseCard({ draft, index, total, errors, isCollapsed, disabled, onToggle, onChange, onRemove, onMove }: CaseCardProps) {
-  const set = (changes: Partial<TestCaseDraft>) => onChange({ ...draft, ...changes })
+function CaseCard({ draft, index, total, errors, isCollapsed, disabled, onToggle, onChange, onRemove, onMove }: CaseCardProps): React.JSX.Element {
+  const set = (changes: Partial<TestCaseDraft>): void => onChange({ ...draft, ...changes })
   const hasErrors = Object.keys(errors).length > 0
   const Icon = KIND_ICONS[draft.kind]
   const label = `Caso ${index + 1}`
@@ -253,7 +259,7 @@ function CaseCard({ draft, index, total, errors, isCollapsed, disabled, onToggle
               error={errors.hint}
               onChange={(hint) => set({ hint })}
             />
-            {draft.kind !== "source" && draft.kind !== "legacy" && (
+            {draft.kind !== "source" && draft.kind !== "legacy" && draft.kind !== "unittest" && (
               <label className="flex items-center gap-2 pb-2.5 text-sm text-foreground">
                 <input
                   type="checkbox"
@@ -277,12 +283,12 @@ function CaseCard({ draft, index, total, errors, isCollapsed, disabled, onToggle
 interface KindFieldsProps {
   draft: TestCaseDraft
   errors: DraftErrors
-  disabled?: boolean
+  disabled?: boolean | undefined
   set: (changes: Partial<TestCaseDraft>) => void
   onChange: (draft: TestCaseDraft) => void
 }
 
-function KindFields({ draft, errors, disabled, set, onChange }: KindFieldsProps) {
+function KindFields({ draft, errors, disabled, set, onChange }: KindFieldsProps): React.JSX.Element {
   switch (draft.kind) {
     case "call":
       return (
@@ -412,18 +418,34 @@ function KindFields({ draft, errors, disabled, set, onChange }: KindFieldsProps)
           ) : (
             <TextInput
               id={`${draft.key}-rule-value`}
-              label={draft.ruleType === "imports" ? "Módulo" : draft.ruleType === "defines_class" ? "Classe" : "Função"}
+              label={RULE_VALUE_FIELDS[draft.ruleType].label}
               value={draft.ruleValue}
               mono
-              placeholder={draft.ruleType === "imports" ? "math" : draft.ruleType === "defines_class" ? "Conta" : "sorted"}
+              placeholder={RULE_VALUE_FIELDS[draft.ruleType].placeholder}
               disabled={disabled}
               error={errors.ruleValue}
               onChange={(ruleValue) => set({ ruleValue })}
             />
           )}
+          {constructs && (
+            <TextInput
+              id={`${draft.key}-rule-function`}
+              label="Só dentro da função (opcional)"
+              value={draft.ruleFunction}
+              mono
+              placeholder="achatar"
+              disabled={disabled}
+              error={errors.ruleFunction}
+              onChange={(ruleFunction) => set({ ruleFunction })}
+            />
+          )}
         </div>
       )
     }
+    case "expr":
+      return <ExprFields draft={draft} errors={errors} disabled={disabled} set={set} />
+    case "unittest":
+      return <UnittestFields draft={draft} errors={errors} disabled={disabled} set={set} />
     case "legacy":
       return (
         <TextArea
@@ -443,12 +465,12 @@ function KindFields({ draft, errors, disabled, set, onChange }: KindFieldsProps)
 interface ExpectedFieldsProps {
   draft: TestCaseDraft
   errors: DraftErrors
-  disabled?: boolean
+  disabled?: boolean | undefined
   set: (changes: Partial<TestCaseDraft>) => void
   expectedLabel: string
 }
 
-function ExpectedFields({ draft, errors, disabled, set, expectedLabel }: ExpectedFieldsProps) {
+function ExpectedFields({ draft, errors, disabled, set, expectedLabel }: ExpectedFieldsProps): React.JSX.Element {
   return (
     <div className="grid gap-3 sm:grid-cols-[1fr_150px_150px]">
       <JsonInput
@@ -496,7 +518,7 @@ interface FailurePreviewProps {
   hasErrors: boolean
 }
 
-function FailurePreview({ draft, hasErrors }: FailurePreviewProps) {
+function FailurePreview({ draft, hasErrors }: FailurePreviewProps): React.JSX.Element {
   const compiled = hasErrors ? null : compileDraft(draft).testCase
   const preview = compiled ? failurePreview(compiled) : null
   return (
@@ -529,113 +551,28 @@ function summarizeDraft(draft: TestCaseDraft): string {
     case "io": return `stdin → ${JSON.stringify(testCase.expected_stdout).slice(0, SUMMARY_STDOUT_LENGTH)}`
     case "variable": return `${testCase.variable} == ${pyRepr(testCase.expected, SUMMARY_VALUE_LENGTH)}`
     case "source": return failurePreview(testCase).message
+    case "expr": return summarizeExpression(testCase)
+    case "unittest": return `suíte do aluno deve ${testCase.expect === "pass" ? "passar" : "reprovar"}${testCase.target ? ` (${testCase.target})` : ""}`
     case "legacy": return testCase.code.split("\n")[0] ?? ""
   }
 }
 
-function inputClass(error?: boolean, mono?: boolean) {
-  return cn(
-    "w-full rounded-xl border-2 bg-white px-3 py-2 text-sm focus:outline-none disabled:bg-muted",
-    error ? "border-destructive focus:border-destructive" : "border-border focus:border-level-purple",
-    mono && "font-mono",
-  )
-}
-
-interface FieldProps {
-  label: string
-  htmlFor: string
-  error?: string
-  children: ReactNode
-}
-
-function Field({ label, htmlFor, error, children }: FieldProps) {
-  return (
-    <div className="min-w-0">
-      <label htmlFor={htmlFor} className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </label>
-      {children}
-      {error && <FieldError id={`${htmlFor}-error`} message={error} />}
-    </div>
-  )
-}
-
-interface FieldErrorProps {
-  id: string
-  message: string
-}
-
-function FieldError({ id, message }: FieldErrorProps) {
-  return (
-    <p id={id} className="mt-1 text-xs font-medium text-destructive">
-      {message}
-    </p>
-  )
-}
-
-interface InputProps {
-  id: string
-  label: string
-  value: string
-  onChange: (value: string) => void
-  placeholder?: string
-  error?: string
-  disabled?: boolean
-  mono?: boolean
-}
-
-function TextInput({ id, label, value, onChange, placeholder, error, disabled, mono }: InputProps) {
-  return (
-    <Field label={label} htmlFor={id} error={error}>
-      <input
-        id={id}
-        value={value}
-        placeholder={placeholder}
-        disabled={disabled}
-        aria-invalid={!!error}
-        aria-describedby={error ? `${id}-error` : undefined}
-        onChange={(event) => onChange(event.target.value)}
-        className={inputClass(!!error, mono)}
-      />
-    </Field>
-  )
-}
-
-function JsonInput(props: InputProps) {
-  return <TextInput {...props} mono />
-}
-
-interface TextAreaProps extends InputProps {
-  rows?: number
-}
-
-function TextArea({ id, label, value, onChange, placeholder, error, disabled, mono, rows = 3 }: TextAreaProps) {
-  return (
-    <Field label={label} htmlFor={id} error={error}>
-      <textarea
-        id={id}
-        value={value}
-        rows={rows}
-        placeholder={placeholder}
-        disabled={disabled}
-        aria-invalid={!!error}
-        aria-describedby={error ? `${id}-error` : undefined}
-        onChange={(event) => onChange(event.target.value)}
-        className={cn(inputClass(!!error, true), "resize-y", !mono && "font-mono")}
-      />
-    </Field>
-  )
+function summarizeExpression(testCase: ExprCase): string {
+  const expression = expressionLabel(testCase)
+  if (testCase.raises !== undefined) return `${expression} levanta ${testCase.raises}`
+  if (testCase.expected !== undefined) return `${expression} == ${pyRepr(testCase.expected, SUMMARY_VALUE_LENGTH)}`
+  return testCase.type === undefined ? expression : `${expression}: ${testCase.type}`
 }
 
 interface IconButtonProps {
   label: string
   onClick: () => void
-  disabled?: boolean
+  disabled?: boolean | undefined
   isDanger?: boolean
   children: ReactNode
 }
 
-function IconButton({ label, onClick, disabled, isDanger, children }: IconButtonProps) {
+function IconButton({ label, onClick, disabled, isDanger, children }: IconButtonProps): React.JSX.Element {
   return (
     <button
       type="button"

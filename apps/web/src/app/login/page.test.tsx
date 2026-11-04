@@ -1,10 +1,11 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, type RenderResult } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import * as api from "@/lib/api"
 import { ApiError } from "@/lib/api/client"
 import { AuthProvider } from "@/contexts/auth-context"
 import LoginPage from "./page"
+import type * as LibApi from "@/lib/api"
 
 let searchParams = new URLSearchParams()
 vi.mock("next/navigation", () => ({
@@ -13,7 +14,7 @@ vi.mock("next/navigation", () => ({
 }))
 
 vi.mock("@/lib/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api")>()),
+  ...(await importOriginal<typeof LibApi>()),
   fetchSession: vi.fn().mockResolvedValue(null),
   signIn: vi.fn(),
   signOut: vi.fn(),
@@ -21,7 +22,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
 
 const signIn = vi.mocked(api.signIn)
 
-function renderLogin() {
+function renderLogin(): RenderResult {
   return render(
     <AuthProvider>
       <LoginPage />

@@ -47,7 +47,7 @@ interface LessonsByModule {
 export function groupLessonsByModule(lessons: Lesson[]): LessonsByModule {
   const byId = new Map<string, Lesson[]>()
   const byTitle = new Map<string, Lesson[]>()
-  const append = (groups: Map<string, Lesson[]>, key: string, lesson: Lesson) => groups.set(key, [...(groups.get(key) ?? []), lesson])
+  const append = (groups: Map<string, Lesson[]>, key: string, lesson: Lesson): Map<string, Lesson[]> => groups.set(key, [...(groups.get(key) ?? []), lesson])
   for (const lesson of lessons) {
     if (lesson.module_id) append(byId, lesson.module_id, lesson)
     else if (lesson.module) append(byTitle, lesson.module, lesson)
@@ -68,14 +68,14 @@ interface ModulesPageProps {
   onToast: OnToast
 }
 
-export function ModulesPage({ lessons, onToast }: ModulesPageProps) {
+export function ModulesPage({ lessons, onToast }: ModulesPageProps): React.JSX.Element {
   const modules = useAsyncResource(() => fetchModules(), [], { errorMessage: "Erro ao carregar módulos" })
   const [editor, setEditor] = useState<ModuleEditor | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const lessonGroups = useMemo(() => groupLessonsByModule(lessons), [lessons])
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<void> => {
     if (!editor) return
     if (!editor.form.title.trim()) {
       onToast("Título é obrigatório", "warning")
@@ -100,7 +100,7 @@ export function ModulesPage({ lessons, onToast }: ModulesPageProps) {
     }
   }
 
-  const handleDelete = async (moduleId: string) => {
+  const handleDelete = async (moduleId: string): Promise<void> => {
     const isConfirmed = await swalConfirm({
       title: "Excluir este módulo?",
       text: "As lições não serão apagadas, apenas desvinculadas.",
@@ -149,7 +149,7 @@ export function ModulesPage({ lessons, onToast }: ModulesPageProps) {
               lessons={lessonsOf(learningModule, lessonGroups)}
               isDeleting={deletingId === learningModule.id}
               onEdit={() => setEditor({ moduleId: learningModule.id, form: toModuleInput(learningModule) })}
-              onDelete={() => handleDelete(learningModule.id)}
+              onDelete={() => void handleDelete(learningModule.id)}
             />
           ))}
           {modules.data.length === 0 && (
@@ -167,7 +167,7 @@ export function ModulesPage({ lessons, onToast }: ModulesPageProps) {
           isSaving={isSaving}
           onChange={(form) => setEditor({ ...editor, form })}
           onClose={() => setEditor(null)}
-          onSave={handleSave}
+          onSave={() => void handleSave()}
         />
       )}
     </div>
@@ -183,7 +183,7 @@ interface ModuleCardProps {
   onDelete: () => void
 }
 
-function ModuleCard({ learningModule, position, lessons, isDeleting, onEdit, onDelete }: ModuleCardProps) {
+function ModuleCard({ learningModule, position, lessons, isDeleting, onEdit, onDelete }: ModuleCardProps): React.JSX.Element {
   const publishedCount = lessons.filter((lesson) => lesson.published).length
   const totalXp = lessons.reduce((sum, lesson) => sum + lesson.xp_reward, 0)
   const hiddenCount = lessons.length - PREVIEW_LESSON_COUNT
@@ -253,7 +253,7 @@ interface ModuleEditModalProps {
   onSave: () => void
 }
 
-function ModuleEditModal({ editor: { form, moduleId }, isSaving, onChange, onClose, onSave }: ModuleEditModalProps) {
+function ModuleEditModal({ editor: { form, moduleId }, isSaving, onChange, onClose, onSave }: ModuleEditModalProps): React.JSX.Element {
   return (
     <AdminModal
       title={moduleId ? "Editar módulo" : "Novo módulo"}

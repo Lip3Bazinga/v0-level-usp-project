@@ -15,8 +15,8 @@ interface SuccessFeedbackProps {
   xpEarned: number
   hasNextLesson?: boolean
   isCourseEnd?: boolean
-  prevLevel?: number
-  newLevel?: number
+  prevLevel?: number | undefined
+  newLevel?: number | undefined
   /** Selo de XP do cabeçalho: com ele, partículas voam do card até o selo. */
   xpBadgeRef?: RefObject<HTMLElement | null>
   onClose: () => void
@@ -43,7 +43,7 @@ export function getLevelUpTransition(
   return { prevLevel: levelBefore ?? result.new_level - 1, newLevel: result.new_level }
 }
 
-function firePurpleConfetti() {
+function firePurpleConfetti(): void {
   const colors = ["#7C3AED", "#A78BFA", "#C4B5FD", "#DDD6FE", "#FFFFFF"]
   fireConfetti({
     particleCount: 100,
@@ -72,7 +72,7 @@ export function SuccessFeedback({
   xpBadgeRef,
   onClose,
   onNext,
-}: SuccessFeedbackProps) {
+}: SuccessFeedbackProps): React.JSX.Element {
   const cardRef = useRef<HTMLDivElement>(null)
   const [areParticlesFlying, setAreParticlesFlying] = useState(false)
   const [isLevelUpOpen, setIsLevelUpOpen] = useState(false)

@@ -55,14 +55,14 @@ interface UserEditModalProps {
 }
 
 /** Edição de um usuário pelo admin. Montado com `key={user.id}`, então o formulário nasce do usuário aberto. */
-export function UserEditModal({ user, isSelf, onClose, onSave, onDelete }: UserEditModalProps) {
+export function UserEditModal({ user, isSelf, onClose, onSave, onDelete }: UserEditModalProps): React.JSX.Element {
   const [form, setForm] = useState<EditableUserFields>(() => fieldsOf(user))
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const patch = (changes: Partial<EditableUserFields>) => setForm({ ...form, ...changes })
+  const patch = (changes: Partial<EditableUserFields>): void => setForm({ ...form, ...changes })
   const isBusy = isSaving || isDeleting
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<void> => {
     setIsSaving(true)
     try {
       await onSave(userChanges(user, form))
@@ -71,7 +71,7 @@ export function UserEditModal({ user, isSelf, onClose, onSave, onDelete }: UserE
     }
   }
 
-  const handleDelete = async () => {
+  const handleDelete = async (): Promise<void> => {
     const isConfirmed = await swalConfirm({
       title: `Excluir permanentemente a conta de ${user.full_name}?`,
       text: "Esta ação não pode ser desfeita.",
@@ -99,7 +99,7 @@ export function UserEditModal({ user, isSelf, onClose, onSave, onDelete }: UserE
       footer={
         <>
           <button
-            onClick={handleDelete}
+            onClick={() => void handleDelete()}
             disabled={isBusy || isSelf}
             className="flex items-center gap-1.5 text-sm font-bold text-destructive hover:underline disabled:opacity-50"
           >
@@ -115,7 +115,7 @@ export function UserEditModal({ user, isSelf, onClose, onSave, onDelete }: UserE
               Cancelar
             </button>
             <button
-              onClick={handleSave}
+              onClick={() => void handleSave()}
               disabled={isBusy || !form.full_name.trim()}
               className="btn-3d flex items-center gap-2 rounded-xl bg-level-purple px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
             >

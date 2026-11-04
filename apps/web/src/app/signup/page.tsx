@@ -29,7 +29,7 @@ const SIGNUP_BENEFITS = [
   "Certificados reconhecidos pela USP",
 ] as const
 
-function SignupBrandPanel() {
+function SignupBrandPanel(): React.JSX.Element {
   return (
     <AuthBrandPanel description="Comece sua jornada na programação hoje. 100% gratuito, 100% gamificado.">
       <div className="mt-12 space-y-4 text-left">
@@ -44,7 +44,7 @@ function SignupBrandPanel() {
   )
 }
 
-export default function SignupPage() {
+export default function SignupPage(): React.JSX.Element {
   const router = useRouter()
   const { signUp } = useAuth()
   const submitLock = useSubmitLock()
@@ -55,7 +55,7 @@ export default function SignupPage() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
     setErrorMessage("")
 
@@ -88,7 +88,7 @@ export default function SignupPage() {
       <OAuthButtons mode="signup" />
       <AuthDivider label="ou cadastre com email" />
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
         {errorMessage && <FormErrorAlert message={errorMessage} />}
 
         <AuthField

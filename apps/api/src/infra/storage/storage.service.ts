@@ -14,6 +14,7 @@ const STORED_NAME_PATTERN = /^[0-9a-f-]{36}\.(png|jpg|webp)$/
 const LOCAL_URL_PATTERN = /^\/api\/files\/([0-9a-f-]{36}\.(png|jpg|webp))$/
 const IMAGE_FILE_MODE = 0o640
 
+/** Arquivo lido do volume de uploads, com o tipo derivado da extensão gravada. */
 export interface StoredFile {
   data: Buffer
   mime: string
@@ -66,6 +67,19 @@ export class StorageService {
     const name = localFileName(url)
     if (!name) throw BadRequest("Endereço de imagem inválido.", "INVALID_IMAGE_URL")
     if (!(await this.uploads.isOwnedBy(name, ownerId))) throw Forbidden("Use uma imagem enviada por você.")
+  }
+
+  /**
+   * Avatar: só imagem enviada pelo próprio usuário (ou nenhuma). URL externa fica de fora:
+   * o avatar aparece no ranking público, e uma imagem num servidor do aluno registraria o
+   * IP (dado pessoal) de cada visitante — rastreamento que a CSP `img-src https:` não impede.
+   *
+   * @throws AppError 400 `INVALID_IMAGE_URL` (externa ou malformada), 403 imagem de outra pessoa.
+   */
+  async assertOwnUpload(url: string | null | undefined, ownerId: string): Promise<void> {
+    if (!url) return
+    if (!localFileName(url)) throw BadRequest("Envie a imagem pelo LevelUSP (endereços externos não são aceitos).", "INVALID_IMAGE_URL")
+    await this.assertUsableUrl(url, ownerId)
   }
 
   /** Apaga a imagem só se ela pertence a `ownerId` (nunca arquivos de terceiros). */

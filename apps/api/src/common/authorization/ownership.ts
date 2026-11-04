@@ -23,6 +23,7 @@ export function canView(actor: Actor | undefined, published: boolean, ownerId: s
   return published || canManage(actor, ownerId)
 }
 
+/** Atalho de {@link canView} para linhas com `published` e `createdBy`. */
 export function canViewContent(actor: Actor | undefined, content: OwnedContent): boolean {
   return canView(actor, content.published, content.createdBy)
 }

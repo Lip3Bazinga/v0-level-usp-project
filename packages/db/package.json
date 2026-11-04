@@ -22,7 +22,7 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts --clean && tsup src/scripts/migrate.ts src/scripts/seed.ts src/scripts/import-supabase.ts --format esm --out-dir dist/scripts --no-dts --external @node-rs/argon2 --external pg --external drizzle-orm",
     "typecheck": "tsc --noEmit",
-    "lint": "tsc --noEmit",
+    "lint": "eslint .",
     "generate": "drizzle-kit generate",
     "migrate": "tsx src/scripts/migrate.ts",
     "seed": "tsx src/scripts/seed.ts",
@@ -35,11 +35,14 @@
     "@node-rs/argon2": "^2.2.2"
   },
   "devDependencies": {
+    "@levelusp/eslint-config": "workspace:*",
     "@types/node": "^22.15.0",
     "@types/pg": "^8.23.1",
     "drizzle-kit": "^0.31.11",
+    "eslint": "^9.37.0",
     "tsup": "^9.0.0",
     "tsx": "^4.23.15",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.46.0"
   }
 }

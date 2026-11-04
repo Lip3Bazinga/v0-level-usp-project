@@ -27,7 +27,7 @@ interface AuditedScreen {
   checksContrast?: boolean
 }
 
-const courseExamRoute = async (page: Page) => ROUTES.courseExam(await fetchFirstCourseId(page))
+const courseExamRoute = async (page: Page): Promise<string> => ROUTES.courseExam(await fetchFirstCourseId(page))
 
 const MISSING_CERTIFICATE_CODE = "LVL-0000-0000"
 const MISSING_ROUTE = "/rota-que-nao-existe"
@@ -99,10 +99,8 @@ test("documento em pt-BR com título e landmark principal", async ({ page }) => 
 })
 
 test("prefers-reduced-motion: confete e animações em loop desligados", async ({ browser }) => {
-  const context = await browser.newContext({
-    reducedMotion: "reduce",
-    baseURL: test.info().project.use.baseURL,
-  })
+  const { baseURL } = test.info().project.use
+  const context = await browser.newContext({ reducedMotion: "reduce", ...(baseURL !== undefined && { baseURL }) })
   const page = await context.newPage()
   await page.goto(ROUTES.home)
   await waitForPageToSettle(page)

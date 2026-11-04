@@ -17,8 +17,8 @@ import {
 
 const exam: ExamRules = { passingScore: 70, timeLimitMinutes: 45, cooldownMinutes: 60, questionsPerAttempt: null }
 const T0 = "2026-10-16T12:00:00.000Z"
-const at = (iso: string) => new Date(iso)
-const minutesAfter = (iso: string, minutes: number) => new Date(new Date(iso).getTime() + minutes * 60_000)
+const at = (iso: string): Date => new Date(iso)
+const minutesAfter = (iso: string, minutes: number): Date => new Date(new Date(iso).getTime() + minutes * 60_000)
 
 function attempt(overrides: Partial<AttemptLike> = {}): AttemptLike {
   return { id: "a1", startedAt: T0, submittedAt: null, score: null, passed: null, ...overrides }

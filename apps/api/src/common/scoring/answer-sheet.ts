@@ -7,6 +7,7 @@ export interface GradableQuestion {
   explanation: string
 }
 
+/** Correção de uma folha de respostas, antes de aplicar a nota mínima. */
 export interface ReviewedAnswers {
   review: AnswerReview[]
   correctCount: number

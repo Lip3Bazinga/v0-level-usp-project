@@ -24,7 +24,7 @@ function orbitTransform(position: number): string {
   return `translateX(${Math.cos(angle) * ORBIT_RADIUS_PX}px) translateY(${Math.sin(angle) * ORBIT_RADIUS_PX}px)`
 }
 
-function fireCourseCompleteConfetti() {
+function fireCourseCompleteConfetti(): void {
   const shared = { colors: ["#FACC15", "#F59E0B", "#7C3AED", "#A78BFA", "#10B981", "#FFFFFF"], zIndex: 10_000 }
   fireConfetti({
     ...shared,
@@ -53,7 +53,7 @@ export function CourseCompleteModal({
   hasCertificate = false,
   onClose,
   onDownloadCertificate,
-}: CourseCompleteModalProps) {
+}: CourseCompleteModalProps): React.JSX.Element {
   useCelebration(isOpen, { celebrate: fireCourseCompleteConfetti, onClose })
 
   return (

@@ -12,7 +12,7 @@ interface BadgeEarnedModalProps {
   isOpen: boolean
   badgeName: string
   badgeDescription?: string
-  badgeIcon?: string
+  badgeIcon?: string | undefined | undefined
   onClose: () => void
 }
 
@@ -24,7 +24,7 @@ const SPARKLE_POSITIONS = [0, 1, 2, 3, 4, 5]
  */
 const ICON_NAME_PATTERN = /^[A-Za-z0-9_-]+$/
 
-function fireBadgeConfetti() {
+function fireBadgeConfetti(): void {
   fireConfetti({
     particleCount: 120,
     spread: 90,
@@ -38,13 +38,13 @@ function fireBadgeConfetti() {
   })
 }
 
-function EarnedBadgeIcon({ icon }: { icon?: string }) {
+function EarnedBadgeIcon({ icon }: { icon: string | undefined }): React.JSX.Element {
   if (icon && isBadgeIconName(icon)) return <BadgeIcon name={icon} className="h-10 w-10 text-level-purple" />
   if (icon && !ICON_NAME_PATTERN.test(icon)) return <span className="text-4xl" aria-hidden="true">{icon}</span>
   return <Shield className="h-10 w-10 text-level-purple" />
 }
 
-export function BadgeEarnedModal({ isOpen, badgeName, badgeDescription, badgeIcon, onClose }: BadgeEarnedModalProps) {
+export function BadgeEarnedModal({ isOpen, badgeName, badgeDescription, badgeIcon, onClose }: BadgeEarnedModalProps): React.JSX.Element {
   useCelebration(isOpen, { celebrate: fireBadgeConfetti, onClose, autoCloseMs: CELEBRATION_AUTO_CLOSE_MS.badgeEarned })
 
   return (

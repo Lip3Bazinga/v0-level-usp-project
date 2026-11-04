@@ -1,6 +1,6 @@
 import type {
   AdminExamQuestion, AdminUpdateUserInput, AnalyticsMetrics, AuditLog, ExamQuestionInput, ExamQuestionUpdateInput,
-  invalidateSessionsSchema, inviteUserSchema, Lesson, PlatformMetrics, PlatformSettings, Profile, RecentActivity,
+  invalidateSessionsSchema, inviteUserSchema, Lesson, OkResponse, PlatformMetrics, PlatformSettings, Profile, RecentActivity,
   reviewTeacherSchema, TeacherApproval, UserDataExport,
 } from "@levelusp/contracts"
 import type { SchemaInput } from "@/lib/types/schema"
@@ -13,39 +13,58 @@ type InviteUserInput = SchemaInput<typeof inviteUserSchema>
 type InvalidateSessionsInput = SchemaInput<typeof invalidateSessionsSchema>
 type ReviewTeacherInput = SchemaInput<typeof reviewTeacherSchema>
 
-export const fetchPlatformMetrics = () => api.get<PlatformMetrics>("/admin/metrics")
-export const fetchRecentActivity = (limit = RECENT_ACTIVITY_SIZE) =>
+/** Totais do painel (`GET /admin/metrics`). */
+export const fetchPlatformMetrics = (): Promise<PlatformMetrics> => api.get<PlatformMetrics>("/admin/metrics")
+/** Conclusões recentes para o feed do painel. */
+export const fetchRecentActivity = (limit = RECENT_ACTIVITY_SIZE): Promise<RecentActivity[]> =>
   api.get<RecentActivity[]>("/admin/activity/recent", { query: { limit } })
-export const fetchDailyActivity = () => api.get<number[]>("/admin/activity/daily")
-export const fetchAnalyticsMetrics = () => api.get<AnalyticsMetrics>("/admin/analytics")
-export const fetchAdminLessons = () => api.get<Lesson[]>("/admin/lessons")
+/** Conclusões por dia nos últimos 30 dias, do mais antigo a hoje. */
+export const fetchDailyActivity = (): Promise<number[]> => api.get<number[]>("/admin/activity/daily")
+/** Indicadores de engajamento do painel (`GET /admin/analytics`). */
+export const fetchAnalyticsMetrics = (): Promise<AnalyticsMetrics> => api.get<AnalyticsMetrics>("/admin/analytics")
+/** Todas as lições, publicadas ou não, sem gabarito. */
+export const fetchAdminLessons = (): Promise<Lesson[]> => api.get<Lesson[]>("/admin/lessons")
 
-export const fetchAdminUsers = () => api.get<Profile[]>("/admin/users")
-export const updateUserProfile = (userId: string, patch: AdminUpdateUserInput) =>
+/** Todos os perfis, inclusive suspensos. */
+export const fetchAdminUsers = (): Promise<Profile[]> => api.get<Profile[]>("/admin/users")
+/** Edita papel, suspensão e dados básicos (`PATCH /admin/users/:id`); a API recusa o admin se rebaixar. */
+export const updateUserProfile = (userId: string, patch: AdminUpdateUserInput): Promise<Profile> =>
   api.patch<Profile>(`/admin/users/${userId}`, patch)
-export const updateUserRole = (userId: string, role: Profile["role"]) => updateUserProfile(userId, { role })
-export const setUserSuspended = (userId: string, suspended: boolean) => updateUserProfile(userId, { suspended })
-export const deleteUser = (userId: string) => api.delete(`/admin/users/${userId}`)
-export const resetUserProgress = (userId: string) => api.post<void>(`/admin/users/${userId}/reset-progress`)
-export const sendPasswordReset = (userId: string) => api.post<{ ok: true }>(`/admin/users/${userId}/password-reset`)
-export const inviteUser = (email: string, fullName?: string) =>
+/** Troca só o papel do usuário. */
+export const updateUserRole = (userId: string, role: Profile["role"]): Promise<Profile> => updateUserProfile(userId, { role })
+/** Suspende (derruba as sessões na hora) ou reativa o usuário. */
+export const setUserSuspended = (userId: string, suspended: boolean): Promise<Profile> => updateUserProfile(userId, { suspended })
+/** Exclui a conta e todos os dados do usuário. */
+export const deleteUser = (userId: string): Promise<void> => api.delete(`/admin/users/${userId}`)
+/** Zera XP, progresso, submissões e badges do usuário. */
+export const resetUserProgress = (userId: string): Promise<void> => api.post<void>(`/admin/users/${userId}/reset-progress`)
+/** Envia ao usuário o link de redefinição de senha. */
+export const sendPasswordReset = (userId: string): Promise<OkResponse> => api.post<OkResponse>(`/admin/users/${userId}/password-reset`)
+/** Cria a conta sem senha e envia o convite (409 se o e-mail já existe). */
+export const inviteUser = (email: string, fullName?: string): Promise<Profile> =>
   api.post<Profile, InviteUserInput>("/admin/users/invite", { email, full_name: fullName })
 /** Exportação LGPD dos dados de um usuário. */
-export const fetchUserDataExport = (userId: string) => api.get<UserDataExport>(`/admin/users/${userId}/export`)
+export const fetchUserDataExport = (userId: string): Promise<UserDataExport> => api.get<UserDataExport>(`/admin/users/${userId}/export`)
 /** Encerra as sessões de um usuário ou, sem `userId`, de todos. */
-export const invalidateSessions = (userId?: string) =>
+export const invalidateSessions = (userId?: string): Promise<void> =>
   api.post<void, InvalidateSessionsInput>("/admin/sessions/invalidate", userId ? { user_id: userId } : {})
 
-export const fetchTeacherApprovals = (status: "pending" | "all" = "pending") =>
+/** Solicitações de professor; pendentes por padrão, em ordem de chegada. */
+export const fetchTeacherApprovals = (status: "pending" | "all" = "pending"): Promise<TeacherApproval[]> =>
   api.get<TeacherApproval[]>("/admin/teacher-approvals", { query: { status } })
-export const approveTeacher = (approvalId: string, note?: string) =>
+/** Aprova e promove o usuário a professor (a nota vai na notificação). */
+export const approveTeacher = (approvalId: string, note?: string): Promise<void> =>
   api.post<void, ReviewTeacherInput>(`/admin/teacher-approvals/${approvalId}/approve`, { note })
-export const rejectTeacher = (approvalId: string, note?: string) =>
+/** Rejeita a solicitação (a nota vai na notificação). */
+export const rejectTeacher = (approvalId: string, note?: string): Promise<void> =>
   api.post<void, ReviewTeacherInput>(`/admin/teacher-approvals/${approvalId}/reject`, { note })
 
-export const fetchPlatformSettings = () => api.get<PlatformSettings>("/admin/settings")
-export const updatePlatformSettings = (settings: PlatformSettings) => api.put<PlatformSettings>("/admin/settings", settings)
-export const fetchAuditLog = (limit = AUDIT_LOG_SIZE) => api.get<AuditLog[]>("/admin/audit", { query: { limit } })
+/** Configurações da plataforma (chave → valor). */
+export const fetchPlatformSettings = (): Promise<PlatformSettings> => api.get<PlatformSettings>("/admin/settings")
+/** Grava só as chaves enviadas e devolve todas. */
+export const updatePlatformSettings = (settings: PlatformSettings): Promise<PlatformSettings> => api.put<PlatformSettings>("/admin/settings", settings)
+/** Trilha de auditoria, mais recentes primeiro. */
+export const fetchAuditLog = (limit = AUDIT_LOG_SIZE): Promise<AuditLog[]> => api.get<AuditLog[]>("/admin/audit", { query: { limit } })
 
 /** Espelha o `AdminExamSummary` da API, que ainda não está em @levelusp/contracts. */
 export interface AdminExamSummary {
@@ -54,10 +73,14 @@ export interface AdminExamSummary {
   course_title: string
   title: string
 }
-export const fetchAdminExams = () => api.get<AdminExamSummary[]>("/admin/exams")
-export const fetchAdminExamQuestions = (examId: string) =>
+/** Provas finais com o título do curso. */
+export const fetchAdminExams = (): Promise<AdminExamSummary[]> => api.get<AdminExamSummary[]>("/admin/exams")
+/** Banco de questões da prova, com gabarito. */
+export const fetchAdminExamQuestions = (examId: string): Promise<AdminExamQuestion[]> =>
   api.get<AdminExamQuestion[]>(`/admin/exams/${examId}/questions`)
-export const createExamQuestion = (examId: string, input: ExamQuestionInput) =>
+/** Adiciona uma questão ao banco da prova. */
+export const createExamQuestion = (examId: string, input: ExamQuestionInput): Promise<AdminExamQuestion> =>
   api.post<AdminExamQuestion>(`/admin/exams/${examId}/questions`, input)
-export const updateExamQuestion = (questionId: string, input: ExamQuestionUpdateInput) =>
+/** Atualiza os campos enviados da questão. */
+export const updateExamQuestion = (questionId: string, input: ExamQuestionUpdateInput): Promise<AdminExamQuestion> =>
   api.patch<AdminExamQuestion>(`/admin/exam-questions/${questionId}`, input)

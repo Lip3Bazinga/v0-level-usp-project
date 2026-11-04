@@ -2,6 +2,7 @@ import type { CertificateIssue, CertificateVerification, MyCertificate } from "@
 import { toIsoTimestamp } from "@/common/time/time"
 import type { CertificateProjectStatus } from "@levelusp/db"
 
+/** Certificado do aluno com o curso. */
 export interface CertificateSummaryRow {
   verificationCode: string
   issuedAt: string
@@ -10,6 +11,7 @@ export interface CertificateSummaryRow {
   courseTitle: string
 }
 
+/** Certificado com o nome do aluno, para a verificação pública e o PDF. */
 export interface PublicCertificateRow {
   verificationCode: string
   studentName: string
@@ -19,6 +21,7 @@ export interface PublicCertificateRow {
   projectStatus: CertificateProjectStatus
 }
 
+/** Certificado do aluno no formato do contrato. */
 export function toMyCertificate(certificate: CertificateSummaryRow): MyCertificate {
   return {
     verification_code: certificate.verificationCode,
@@ -29,6 +32,7 @@ export function toMyCertificate(certificate: CertificateSummaryRow): MyCertifica
   }
 }
 
+/** Resposta da emissão; `alreadyIssued` diferencia a primeira emissão das repetidas. */
 export function toCertificateIssue(certificate: Pick<CertificateSummaryRow, "verificationCode" | "issuedAt" | "examScore">, alreadyIssued: boolean): CertificateIssue {
   return {
     issued: true,
@@ -39,6 +43,7 @@ export function toCertificateIssue(certificate: Pick<CertificateSummaryRow, "ver
   }
 }
 
+/** Verificação pública: só nome, curso, data, nota e situação (nunca o e-mail). */
 export function toVerification(certificate: PublicCertificateRow): CertificateVerification {
   return {
     valid: true,

@@ -23,12 +23,25 @@ async function loadCourseLessons(courseId: string): Promise<CourseLessonsData> {
   const courseLessonIds = new Set(courseLessons.map((lesson) => lesson.id))
   return { courseLessons, freeLessons: mine.filter((lesson) => !courseLessonIds.has(lesson.id) && lesson.course_id === null) }
 }
+export interface UseCourseLessonsResult {
+  isLoading: boolean
+  loadError: string | null
+  reload: () => Promise<void>
+  courseLessons: Lesson[]
+  freeLessons: Lesson[]
+  removingId: string | null
+  addingId: string | null
+  isReordering: boolean
+  reorder: (activeId: string, overId: string) => Promise<void>
+  remove: (lessonId: string) => Promise<void>
+  add: (lesson: Lesson) => Promise<void>
+}
 
 /**
  * Lições de um curso: reordenar (salvo na hora, com volta atrás se falhar), remover
  * e anexar lições avulsas. Sem `courseId` (curso ainda não salvo) a lista fica vazia.
  */
-export function useCourseLessons(courseId: string | null, onError: (message: string) => void) {
+export function useCourseLessons(courseId: string | null, onError: (message: string) => void): UseCourseLessonsResult {
   const resource = useAsyncResource(async () => (courseId ? loadCourseLessons(courseId) : NO_LESSONS), [courseId], {
     errorMessage: "Não foi possível carregar as lições do curso.",
   })
@@ -37,9 +50,9 @@ export function useCourseLessons(courseId: string | null, onError: (message: str
   const [isReordering, setIsReordering] = useState(false)
   const { courseLessons, freeLessons } = resource.status === "success" ? resource.data : NO_LESSONS
 
-  const setCourseLessons = (next: Lesson[]) => resource.setData((current) => ({ ...current, courseLessons: next }))
+  const setCourseLessons = (next: Lesson[]): void => resource.setData((current) => ({ ...current, courseLessons: next }))
 
-  const reorder = async (activeId: string, overId: string) => {
+  const reorder = async (activeId: string, overId: string): Promise<void> => {
     if (!courseId || activeId === overId) return
     const previous = courseLessons
     const reordered = arrayMove(
@@ -59,7 +72,7 @@ export function useCourseLessons(courseId: string | null, onError: (message: str
     }
   }
 
-  const remove = async (lessonId: string) => {
+  const remove = async (lessonId: string): Promise<void> => {
     if (!courseId) return
     setRemovingId(lessonId)
     try {
@@ -78,7 +91,7 @@ export function useCourseLessons(courseId: string | null, onError: (message: str
     }
   }
 
-  const add = async (lesson: Lesson) => {
+  const add = async (lesson: Lesson): Promise<void> => {
     if (!courseId) return
     setAddingId(lesson.id)
     try {

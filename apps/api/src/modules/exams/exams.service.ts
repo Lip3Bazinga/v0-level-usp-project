@@ -1,20 +1,21 @@
 import { Injectable, Logger } from "@nestjs/common"
 import type { ExamResult, ExamStart, ExamStatus, ExamSubmitInput } from "@levelusp/contracts"
-import type { ExamRow } from "@levelusp/db"
+import type { ExamRow, DbTransaction } from "@levelusp/db"
 import { canViewContent } from "@/common/authorization/ownership"
 import { Conflict, Forbidden, NotFound, TooManyRequests, Unprocessable } from "@/common/errors/app-error"
 import type { AuthUser } from "@/common/http/request"
 import { RATE_LIMITS } from "@/common/rate-limit/rate-limit.policies"
 import { RateLimitService } from "@/common/rate-limit/rate-limit.service"
-import { TransactionRunner, type Tx } from "@/infra/database/database.module"
+import { TransactionRunner } from "@/infra/database/database.module"
 import { NotificationsService } from "../notifications/notifications.service"
 import {
   acceptsSubmission, attemptExpiresAt, cooldownUntil, drawQuestions, examEligibility, gradeExam, isInProgress,
-  questionsPerAttempt, staleAttemptCutoff, summarizeAttempts, type AttemptLike, type ExamEligibility,
+  questionsPerAttempt, staleAttemptCutoff, summarizeAttempts, type AttemptLike, type ExamEligibility, type LessonForEligibility,
 } from "./exams.domain"
 import { toAttemptLike, toExamStart, toRules } from "./exams.mapper"
-import { ExamsRepository } from "./exams.repository"
+import { ExamsRepository, type ExamCourseRow } from "./exams.repository"
 
+/** O que o certificado exige: lições concluídas e prova aprovada (com a nota). */
 export interface CertificateRequirements {
   course: { id: string; title: string }
   lessonsTotal: number
@@ -25,10 +26,13 @@ export interface CertificateRequirements {
 }
 
 interface CourseCompletion {
-  lessons: Awaited<ReturnType<ExamsRepository["listPublishedLessons"]>>
+  lessons: LessonForEligibility[]
   completed: Set<string>
 }
 
+/**
+ * Prova final: elegibilidade, sorteio e retomada de tentativas, correção no servidor e intervalo entre tentativas.
+ */
 @Injectable()
 export class ExamsService {
   private readonly logger = new Logger(ExamsService.name)
@@ -78,7 +82,7 @@ export class ExamsService {
     const eligibility = await this.eligibility(user.id, courseId)
     if (!eligibility.eligible) throw Forbidden(`Conclua todas as lições antes da prova (faltam ${eligibility.remaining}).`, "NOT_ELIGIBLE")
 
-    return this.transactions.run(async (tx) => {
+    return this.transactions.run(async (tx: DbTransaction) => {
       const owner = { examId: exam.id, userId: user.id }
       await this.repo.lockAttempts(owner, tx)
       const now = new Date()
@@ -159,7 +163,7 @@ export class ExamsService {
     throw TooManyRequests(`Aguarde o intervalo entre tentativas. Nova tentativa liberada em ${until}.`, "COOLDOWN", [{ path: "cooldownUntil", message: until }])
   }
 
-  private async createAttempt(user: AuthUser, exam: ExamRow, now: Date, tx: Tx): Promise<ExamStart> {
+  private async createAttempt(user: AuthUser, exam: ExamRow, now: Date, tx: DbTransaction): Promise<ExamStart> {
     const owner = { examId: exam.id, userId: user.id }
     // Abandonadas além da tolerância viram reprovação registrada.
     await this.repo.closeStaleAttempts({ ...owner, timeLimitMinutes: exam.timeLimitMinutes, startedBefore: staleAttemptCutoff(exam, now) }, tx)
@@ -182,7 +186,7 @@ export class ExamsService {
   }
 
   /** Curso publicado para todos; rascunho só para o autor e admins. */
-  private async findVisibleCourse(user: AuthUser, courseId: string) {
+  private async findVisibleCourse(user: AuthUser, courseId: string): Promise<ExamCourseRow> {
     const course = await this.repo.findCourse(courseId)
     if (!course || !canViewContent(user, course)) throw NotFound("Curso")
     return course

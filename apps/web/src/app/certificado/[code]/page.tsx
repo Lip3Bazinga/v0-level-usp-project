@@ -33,7 +33,7 @@ interface CertificadoPageProps {
   params: Promise<{ code: string }>
 }
 
-export default async function CertificadoPage({ params }: CertificadoPageProps) {
+export default async function CertificadoPage({ params }: CertificadoPageProps): Promise<React.JSX.Element> {
   const { code } = await params
   const verificationCode = decodeURIComponent(code)
   const certificate = await verifyCode(verificationCode)

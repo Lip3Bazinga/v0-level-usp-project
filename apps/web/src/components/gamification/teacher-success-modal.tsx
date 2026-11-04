@@ -16,12 +16,12 @@ interface TeacherSuccessModalProps {
   onClose: () => void
   /** Já publicada? Ajusta a mensagem para não pedir para publicar o que acabou de ser publicado. */
   published?: boolean
-  onView?: () => void
+  onView?: (() => void) | undefined
 }
 
 const DECORATION_POSITIONS = [0, 1, 2, 3]
 
-function fireTeacherConfetti() {
+function fireTeacherConfetti(): void {
   const shared = { colors: ["#7C3AED", "#A78BFA", "#10B981", "#FACC15", "#FFFFFF"], zIndex: 9999 }
   fireConfetti({ ...shared, particleCount: 120, spread: 90, origin: { y: 0.5, x: 0.5 }, gravity: 0.7, scalar: 1.2, ticks: 260 })
   fireConfettiAfter(
@@ -38,7 +38,7 @@ function describeSavedContent(type: TeacherSuccessType, isPublished = false): st
     : "Sua lição foi salva como rascunho. Publique para que os alunos possam acessá-la."
 }
 
-export function TeacherSuccessModal({ isOpen, type, title, onClose, onView, published }: TeacherSuccessModalProps) {
+export function TeacherSuccessModal({ isOpen, type, title, onClose, onView, published }: TeacherSuccessModalProps): React.JSX.Element {
   useCelebration(isOpen, { celebrate: fireTeacherConfetti, onClose, autoCloseMs: CELEBRATION_AUTO_CLOSE_MS.teacherSuccess })
   const isLesson = type === "lesson"
   const ContentIcon = isLesson ? BookOpen : GraduationCap

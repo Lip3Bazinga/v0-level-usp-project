@@ -29,20 +29,25 @@ const OUTPUT_TEXT_CLASSES: Record<ConsoleOutputType, string> = {
   figure: "text-gray-400",
 }
 
-function OutputIcon({ type }: { type: ConsoleOutputType }) {
+function OutputIcon({ type }: { type: ConsoleOutputType }): React.JSX.Element | null {
   if (type === "success") return <CheckCircle2 className="h-4 w-4 shrink-0 text-green-400" />
   if (type === "error") return <XCircle className="h-4 w-4 shrink-0 text-red-400" />
   if (type === "warning") return <AlertCircle className="h-4 w-4 shrink-0 text-yellow-400" />
   return null
 }
+interface UseCommandHistoryResult {
+  record: (command: string) => void
+  recallOlder: () => string
+  recallNewer: () => string
+}
 
 /** Histórico de comandos do console, navegado com as setas (o mais recente primeiro). */
-function useCommandHistory() {
+function useCommandHistory(): UseCommandHistoryResult {
   const [commands, setCommands] = useState<string[]>([])
   /** -1 é a linha nova, ainda fora do histórico. */
   const [position, setPosition] = useState(-1)
 
-  const record = (command: string) => {
+  const record = (command: string): void => {
     setCommands((current) => [command, ...current].slice(0, MAX_HISTORY_SIZE))
     setPosition(-1)
   }
@@ -59,7 +64,7 @@ function useCommandHistory() {
   }
 }
 
-export function ConsolePanel({ outputs, onClear, isRunning, onRunCommand }: ConsolePanelProps) {
+export function ConsolePanel({ outputs, onClear, isRunning, onRunCommand }: ConsolePanelProps): React.JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [command, setCommand] = useState("")
@@ -70,7 +75,7 @@ export function ConsolePanel({ outputs, onClear, isRunning, onRunCommand }: Cons
     if (scrollArea) scrollArea.scrollTop = scrollArea.scrollHeight
   }, [outputs])
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
     if (event.key === "Enter") {
       const trimmedCommand = command.trim()
       if (!trimmedCommand) return
@@ -89,7 +94,7 @@ export function ConsolePanel({ outputs, onClear, isRunning, onRunCommand }: Cons
     }
   }
 
-  const handleDownload = () => {
+  const handleDownload = (): void => {
     downloadText(outputs.map((output) => `[${formatTime(output.timestamp)}] ${output.message}`).join("\n"), DOWNLOAD_FILE_NAME)
   }
 
@@ -172,7 +177,7 @@ export function ConsolePanel({ outputs, onClear, isRunning, onRunCommand }: Cons
   )
 }
 
-function ConsoleLine({ output }: { output: ConsoleOutput }) {
+function ConsoleLine({ output }: { output: ConsoleOutput }): React.JSX.Element {
   const timestamp = `[${formatTime(output.timestamp)}]`
   if (output.type === "figure" && output.figureB64) {
     return (

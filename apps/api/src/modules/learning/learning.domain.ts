@@ -22,6 +22,7 @@ export function parseSnapshot(raw: string | null): ProjectFile[] | null {
   return files.length ? files : null
 }
 
+/** Se o projeto tem o arquivo de entrada (`main.py`) que a correção executa. */
 export function hasEntryFile(files: readonly ProjectFile[]): boolean {
   return files.some((file) => file.path === DEFAULT_ENTRY_FILE)
 }

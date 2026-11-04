@@ -47,6 +47,7 @@ services:
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
       SEED_DEMO_USERS: ${SEED_DEMO_USERS:-false}
+      SEED_DEMO_PASSWORD: ${SEED_DEMO_PASSWORD:-}
       SEED_CONTENT: ${SEED_CONTENT:-true}
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -72,7 +73,10 @@ services:
     image: ${REGISTRY:-ghcr.io/lip3bazinga/levelusp}/runner:${IMAGE_TAG}
     environment:
       RUNNER_TOKEN: ${RUNNER_TOKEN:?defina RUNNER_TOKEN}
+      # Uma execução por vCPU; a fila recusa (503 com Retry-After) só quando a espera estimada
+      # passa de RUNNER_MAX_QUEUE_WAIT_MS. Medições: docs/v2/desempenho-e-carga.md.
       CONCURRENCY: ${RUNNER_CONCURRENCY:-2}
+      MAX_QUEUE_WAIT_MS: ${RUNNER_MAX_QUEUE_WAIT_MS:-20000}
     # Defesa em profundidade (além do sandbox WASI): sem rede externa, sistema de
     # arquivos somente leitura, sem privilégios, limites de CPU/memória/processos.
     networks: [runner]
@@ -90,6 +94,8 @@ services:
     image: ${REGISTRY:-ghcr.io/lip3bazinga/levelusp}/api:${IMAGE_TAG}
     environment:
       APP_ENV: ${APP_ENV:?defina APP_ENV}
+      # Origem pública dos links (e-mail, certificado). Vazia → usa APP_ORIGIN (Quick Tunnel do notebook).
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
       APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
       DATABASE_URL: postgres://levelusp:${POSTGRES_PASSWORD}@postgres:5432/levelusp
       RUNNER_URL: http://runner:8081
@@ -112,6 +118,16 @@ services:
   web:
     <<: *restart
     image: ${REGISTRY:-ghcr.io/lip3bazinga/levelusp}/web:${IMAGE_TAG}
+    # Lidas em tempo de execução pelo SSR (não pelo build da imagem): ver apps/web/src/lib/config.
+    environment:
+      APP_ENV: ${APP_ENV}
+      API_INTERNAL_URL: http://api:4000
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
+      # Conexões ociosas abertas mais tempo que as do proxy na frente (cloudflared: 90 s;
+      # Caddy: 120 s). Com o padrão de 5 s, um POST (ex.: Verificar) pode cair num socket que a
+      # web acabou de fechar e o aluno vê 502.
+      KEEP_ALIVE_TIMEOUT: ${WEB_KEEP_ALIVE_TIMEOUT_MS:-125000}
     depends_on:
       api: { condition: service_healthy }
     networks: [app]

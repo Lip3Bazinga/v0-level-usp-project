@@ -1,6 +1,7 @@
 import type { Request } from "express"
 import type { UserRole } from "@levelusp/contracts"
 
+/** Usuário da sessão, resolvido pelo SessionGuard a cada requisição (papel e nome já atualizados). */
 export interface AuthUser {
   id: string
   email: string
@@ -9,6 +10,7 @@ export interface AuthUser {
   sessionId: string
 }
 
+/** Requisição Express depois do SessionGuard; `user` só existe com sessão válida. */
 export interface AuthenticatedRequest extends Request {
   user?: AuthUser
 }

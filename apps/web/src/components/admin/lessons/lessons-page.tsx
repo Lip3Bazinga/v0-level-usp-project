@@ -56,7 +56,7 @@ interface LessonsPageProps {
   onToast: OnToast
 }
 
-export function LessonsPage({ lessons, updateLessons, onToast }: LessonsPageProps) {
+export function LessonsPage({ lessons, updateLessons, onToast }: LessonsPageProps): React.JSX.Element {
   const [search, setSearch] = useState("")
   const [publication, setPublication] = useState<PublicationFilter>("all")
   const [difficulty, setDifficulty] = useState<Difficulty | null>(null)
@@ -74,7 +74,7 @@ export function LessonsPage({ lessons, updateLessons, onToast }: LessonsPageProp
   )
   const publishedCount = lessons.filter((lesson) => lesson.published).length
 
-  const handleTogglePublished = async (lesson: Lesson) => {
+  const handleTogglePublished = async (lesson: Lesson): Promise<void> => {
     setTogglingId(lesson.id)
     try {
       const updated = await setLessonPublished(lesson.id, !lesson.published)
@@ -88,7 +88,7 @@ export function LessonsPage({ lessons, updateLessons, onToast }: LessonsPageProp
     }
   }
 
-  const handleDelete = async (lesson: Lesson) => {
+  const handleDelete = async (lesson: Lesson): Promise<void> => {
     setDeletingId(lesson.id)
     setPendingDelete(null)
     try {
@@ -103,7 +103,7 @@ export function LessonsPage({ lessons, updateLessons, onToast }: LessonsPageProp
   }
 
   /** Duplica de verdade (com gabarito e sem curso), sempre como rascunho. */
-  const handleDuplicate = async (lesson: Lesson) => {
+  const handleDuplicate = async (lesson: Lesson): Promise<void> => {
     setDuplicatingId(lesson.id)
     try {
       const source = await fetchLessonForAuthoring(lesson.id)
@@ -123,7 +123,7 @@ export function LessonsPage({ lessons, updateLessons, onToast }: LessonsPageProp
     }
   }
 
-  const rowActions = (lesson: Lesson, { withDuplicate, withPublishedTone }: { withDuplicate: boolean; withPublishedTone: boolean }) => (
+  const rowActions = (lesson: Lesson, { withDuplicate, withPublishedTone }: { withDuplicate: boolean; withPublishedTone: boolean }): React.JSX.Element => (
     <LessonActions
       lesson={lesson}
       isToggling={togglingId === lesson.id}
@@ -131,8 +131,8 @@ export function LessonsPage({ lessons, updateLessons, onToast }: LessonsPageProp
       isDuplicating={duplicatingId === lesson.id}
       withDuplicate={withDuplicate}
       withPublishedTone={withPublishedTone}
-      onTogglePublished={() => handleTogglePublished(lesson)}
-      onDuplicate={() => handleDuplicate(lesson)}
+      onTogglePublished={() => void handleTogglePublished(lesson)}
+      onDuplicate={() => void handleDuplicate(lesson)}
       onDelete={() => setPendingDelete(lesson)}
     />
   )
@@ -235,7 +235,7 @@ export function LessonsPage({ lessons, updateLessons, onToast }: LessonsPageProp
           footer={
             <>
               <ModalCancelButton onClick={() => setPendingDelete(null)} />
-              <button onClick={() => handleDelete(pendingDelete)} className="rounded-xl bg-destructive px-4 py-2 text-sm font-bold text-white">
+              <button onClick={() => void handleDelete(pendingDelete)} className="rounded-xl bg-destructive px-4 py-2 text-sm font-bold text-white">
                 Excluir permanentemente
               </button>
             </>
@@ -266,7 +266,7 @@ interface LessonActionsProps {
 
 function LessonActions({
   lesson, isToggling, isDeleting, isDuplicating, withDuplicate, withPublishedTone, onTogglePublished, onDuplicate, onDelete,
-}: LessonActionsProps) {
+}: LessonActionsProps): React.JSX.Element {
   return (
     <>
       <IconBtn
@@ -303,7 +303,7 @@ interface LessonTableProps {
   renderActions: (lesson: Lesson) => ReactNode
 }
 
-function LessonTable({ lessons, renderActions }: LessonTableProps) {
+function LessonTable({ lessons, renderActions }: LessonTableProps): React.JSX.Element {
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-white">
       <table className="w-full text-left">
@@ -367,7 +367,7 @@ interface LessonGridCardProps {
   actions: ReactNode
 }
 
-function LessonGridCard({ lesson, actions }: LessonGridCardProps) {
+function LessonGridCard({ lesson, actions }: LessonGridCardProps): React.JSX.Element {
   return (
     <div className="cursor-pointer rounded-2xl border border-border bg-white p-5 transition-all hover:-translate-y-0.5 hover:border-level-purple-medium hover:shadow-lg">
       <div className="mb-3 flex items-start justify-between">
@@ -403,7 +403,7 @@ interface LessonKanbanProps {
   lessons: Lesson[]
 }
 
-function LessonKanban({ lessons }: LessonKanbanProps) {
+function LessonKanban({ lessons }: LessonKanbanProps): React.JSX.Element {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       {KANBAN_COLUMNS.map((column) => {

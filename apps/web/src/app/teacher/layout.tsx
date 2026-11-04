@@ -17,7 +17,7 @@ interface TeacherLayoutProps {
  * como um 403 da API ao salvar. A API continua sendo a fonte de verdade
  * (@Roles("teacher", "admin") + checagem de dono); este guard só dá uma mensagem clara antes.
  */
-export default function TeacherLayout({ children }: TeacherLayoutProps) {
+export default function TeacherLayout({ children }: TeacherLayoutProps): React.JSX.Element {
   const router = useRouter()
   const { user, profile, isLoading } = useAuth()
   const canAuthor = profile?.role === "teacher" || profile?.role === "admin"

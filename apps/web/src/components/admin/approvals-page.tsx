@@ -19,7 +19,7 @@ interface ApprovalsPageProps {
   onToast: OnToast
 }
 
-export function ApprovalsPage({ onToast }: ApprovalsPageProps) {
+export function ApprovalsPage({ onToast }: ApprovalsPageProps): React.JSX.Element {
   const approvals = useAsyncResource(() => fetchTeacherApprovals("pending"), [], {
     errorMessage: "Erro ao carregar aprovações",
   })
@@ -27,10 +27,10 @@ export function ApprovalsPage({ onToast }: ApprovalsPageProps) {
   const [rejecting, setRejecting] = useState<TeacherApproval | null>(null)
   const pending = approvals.status === "success" ? approvals.data : []
 
-  const removeApproval = (approvalId: string) =>
+  const removeApproval = (approvalId: string): void =>
     approvals.setData((current) => current.filter((approval) => approval.id !== approvalId))
 
-  const handleApprove = async (approval: TeacherApproval) => {
+  const handleApprove = async (approval: TeacherApproval): Promise<void> => {
     setBusyId(approval.id)
     try {
       await approveTeacher(approval.id)
@@ -43,7 +43,7 @@ export function ApprovalsPage({ onToast }: ApprovalsPageProps) {
     }
   }
 
-  const handleReject = async (approval: TeacherApproval, reason: string) => {
+  const handleReject = async (approval: TeacherApproval, reason: string): Promise<void> => {
     setBusyId(approval.id)
     try {
       await rejectTeacher(approval.id, reason.trim() || undefined)
@@ -83,7 +83,7 @@ export function ApprovalsPage({ onToast }: ApprovalsPageProps) {
             key={approval.id}
             approval={approval}
             isBusy={busyId === approval.id}
-            onApprove={() => handleApprove(approval)}
+            onApprove={() => void handleApprove(approval)}
             onReject={() => setRejecting(approval)}
           />
         ))}
@@ -93,7 +93,7 @@ export function ApprovalsPage({ onToast }: ApprovalsPageProps) {
         <RejectApprovalModal
           isBusy={busyId === rejecting.id}
           onClose={() => setRejecting(null)}
-          onConfirm={(reason) => handleReject(rejecting, reason)}
+          onConfirm={(reason) => void handleReject(rejecting, reason)}
         />
       )}
     </div>
@@ -107,7 +107,7 @@ interface ApprovalCardProps {
   onReject: () => void
 }
 
-function ApprovalCard({ approval, isBusy, onApprove, onReject }: ApprovalCardProps) {
+function ApprovalCard({ approval, isBusy, onApprove, onReject }: ApprovalCardProps): React.JSX.Element {
   return (
     <div className="overflow-hidden rounded-2xl border border-warning/30 bg-white">
       <div className="flex items-center justify-between border-b border-warning/20 bg-warning/5 px-5 py-3">
@@ -163,7 +163,7 @@ interface RejectApprovalModalProps {
   onConfirm: (reason: string) => void
 }
 
-function RejectApprovalModal({ isBusy, onClose, onConfirm }: RejectApprovalModalProps) {
+function RejectApprovalModal({ isBusy, onClose, onConfirm }: RejectApprovalModalProps): React.JSX.Element {
   const [reason, setReason] = useState("")
   return (
     <AdminModal

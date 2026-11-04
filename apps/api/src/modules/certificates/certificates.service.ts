@@ -23,11 +23,13 @@ interface IssuedCertificate {
   score: number
 }
 
+/** PDF gerado e o código (para o nome do arquivo). */
 export interface CertificatePdf {
   code: string
   buffer: Buffer
 }
 
+/** Emissão, consulta e verificação pública de certificados. */
 @Injectable()
 export class CertificatesService {
   private readonly logger = new Logger(CertificatesService.name)
@@ -66,11 +68,13 @@ export class CertificatesService {
     throw ServiceUnavailable("Não foi possível emitir o certificado agora. Tente novamente.", "CERTIFICATE_UNAVAILABLE")
   }
 
+  /** Certificado do usuário no curso, ou null se ainda não foi emitido. */
   async findMyCertificate(user: AuthUser, courseId: string): Promise<MyCertificate | null> {
     const certificate = await this.repo.findByUserCourse(user.id, courseId)
     return certificate ? toMyCertificate(certificate) : null
   }
 
+  /** Certificados do usuário. */
   async listMyCertificates(user: AuthUser): Promise<MyCertificate[]> {
     return (await this.repo.listByUser(user.id)).map(toMyCertificate)
   }
@@ -94,7 +98,7 @@ export class CertificatesService {
       issuedAt: toIsoTimestamp(certificate.issuedAt),
       examScore: Number(certificate.examScore ?? 0),
       projectStatus: certificate.projectStatus,
-      verifyUrl: verificationUrl(this.env.APP_ORIGIN, certificate.verificationCode),
+      verifyUrl: verificationUrl(this.env.PUBLIC_BASE_URL, certificate.verificationCode),
     })
     return { code: certificate.verificationCode, buffer }
   }

@@ -7,7 +7,7 @@ interface TeacherHeaderProps {
   teacherName: string | null
 }
 
-export function TeacherHeader({ teacherName }: TeacherHeaderProps) {
+export function TeacherHeader({ teacherName }: TeacherHeaderProps): React.JSX.Element {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-white/80 backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-2 px-4 sm:px-6">

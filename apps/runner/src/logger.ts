@@ -1,5 +1,7 @@
+/** Níveis de log, do mais verboso ao mais grave. */
 export type LogLevel = "debug" | "info" | "warn" | "error"
 
+/** Escreve uma linha de log estruturado; `extra` vira campos do JSON. */
 export type Logger = (level: LogLevel, message: string, extra?: Record<string, unknown>) => void
 
 const LEVEL_RANK: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, error: 40 }

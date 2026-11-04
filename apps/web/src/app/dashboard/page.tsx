@@ -23,7 +23,7 @@ const LEVEL_RING_CIRCUMFERENCE = 2 * Math.PI * LEVEL_RING_RADIUS
 const MIN_VISIBLE_PROGRESS_PERCENT = 2
 const SKELETON_CARDS = [0, 1]
 
-export default function DashboardPage() {
+export default function DashboardPage(): React.JSX.Element {
   const { profile, isLoading: isAuthLoading } = useAuth()
   const { lessons, progressMap, isLoading: isProgressLoading, error, gamification } = useProgress()
   // Falha no catálogo mostra o estado vazio aqui; o erro com nova tentativa fica em /cursos.
@@ -34,7 +34,7 @@ export default function DashboardPage() {
   const studyDays = useStudyDays(progressMap)
   const lessonsCompleted = useMemo(() => countCompletedLessons(progressMap), [progressMap])
   const isLoading = isProgressLoading || coursesResource.status === "loading"
-  const firstName = profile?.full_name?.split(" ")[0] ?? "Estudante"
+  const firstName = profile?.full_name.split(" ")[0] ?? "Estudante"
 
   return (
     <StudentShell screen="dashboard">
@@ -96,7 +96,7 @@ interface DashboardHeroProps {
   gamification: GamificationSummary
 }
 
-function DashboardHero({ firstName, isAuthLoading, gamification }: DashboardHeroProps) {
+function DashboardHero({ firstName, isAuthLoading, gamification }: DashboardHeroProps): React.JSX.Element {
   const { level, xpInLevel, xpLevelRange, xpProgress } = gamification
   return (
     <motion.div
@@ -137,7 +137,7 @@ function DashboardHero({ firstName, isAuthLoading, gamification }: DashboardHero
   )
 }
 
-function LevelRing({ level, progressPercent }: { level: number; progressPercent: number }) {
+function LevelRing({ level, progressPercent }: { level: number; progressPercent: number }): React.JSX.Element {
   return (
     <div className="relative hidden h-[92px] w-[92px] shrink-0 sm:block">
       <svg viewBox="0 0 92 92" className="h-full w-full -rotate-90">
@@ -164,7 +164,7 @@ function LevelRing({ level, progressPercent }: { level: number; progressPercent:
   )
 }
 
-function NoCoursesYet() {
+function NoCoursesYet(): React.JSX.Element {
   return (
     <div className="py-16 text-center">
       <GraduationCap className="mx-auto h-16 w-16 text-muted-foreground/30" />

@@ -78,14 +78,14 @@ export function searchCommandTargets(query: string, { users, lessons, courses }:
 }
 
 /** Command palette do admin (⌘K). Busca usuários, lições e cursos. */
-export function CommandPalette({ users, lessons, courses, onNavigate }: CommandPaletteProps) {
+export function CommandPalette({ users, lessons, courses, onNavigate }: CommandPaletteProps): React.JSX.Element | null {
   const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState("")
-  const close = () => setIsOpen(false)
+  const close = (): void => setIsOpen(false)
   const dialogRef = useModalA11y<HTMLDivElement>(isOpen, close)
 
   useEffect(() => {
-    const handleShortcut = (event: KeyboardEvent) => {
+    const handleShortcut = (event: KeyboardEvent): void => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault()
         setIsOpen((wasOpen) => !wasOpen)
@@ -97,7 +97,7 @@ export function CommandPalette({ users, lessons, courses, onNavigate }: CommandP
 
   // O campo de busca do TopBar fica em outra árvore; um evento de janela evita prop drilling.
   useEffect(() => {
-    const handleOpenRequest = () => setIsOpen(true)
+    const handleOpenRequest = (): void => setIsOpen(true)
     window.addEventListener(OPEN_ADMIN_SEARCH_EVENT, handleOpenRequest)
     return () => window.removeEventListener(OPEN_ADMIN_SEARCH_EVENT, handleOpenRequest)
   }, [])
@@ -106,7 +106,7 @@ export function CommandPalette({ users, lessons, courses, onNavigate }: CommandP
 
   if (!isOpen) return null
 
-  const handleSelect = (target: CommandTarget) => {
+  const handleSelect = (target: CommandTarget): void => {
     setIsOpen(false)
     setQuery("")
     if (target.href) window.open(target.href, "_blank")
@@ -162,7 +162,7 @@ interface CommandResultProps {
   onSelect: (target: CommandTarget) => void
 }
 
-function CommandResult({ target, onSelect }: CommandResultProps) {
+function CommandResult({ target, onSelect }: CommandResultProps): React.JSX.Element {
   const { Icon, label } = KIND_META[target.kind]
   return (
     <button

@@ -24,7 +24,7 @@ const CREDENTIALS: Record<Exclude<Persona, "visitante">, Credentials> = {
 const SETTLE_DELAY_MS = 600
 
 /** Login direto pela API (mais rápido que a tela); o cookie fica no contexto da página. */
-export async function signInAs(page: Page, persona: Persona) {
+export async function signInAs(page: Page, persona: Persona): Promise<void> {
   if (persona === "visitante") return
   const response = await apiPost(page, "/auth/sign-in", CREDENTIALS[persona])
   expect(response.ok(), `login de ${persona}`).toBeTruthy()
@@ -37,11 +37,11 @@ export async function resolveScreenRoute(page: Page, route: ScreenRoute): Promis
   return typeof route === "string" ? route : route(page)
 }
 
-export const courseRoute = async (page: Page) => ROUTES.course(await fetchFirstCourseId(page))
-export const lessonRoute = async (page: Page) => ROUTES.lesson(await fetchLessonId(page))
+export const courseRoute = async (page: Page): Promise<string> => ROUTES.course(await fetchFirstCourseId(page))
+export const lessonRoute = async (page: Page): Promise<string> => ROUTES.lesson(await fetchLessonId(page))
 
 /** Espera a tela "assentar" (dados carregados, animações de entrada concluídas). */
-export async function waitForPageToSettle(page: Page) {
+export async function waitForPageToSettle(page: Page): Promise<void> {
   await page.waitForLoadState("networkidle").catch(() => {})
   await page.waitForTimeout(SETTLE_DELAY_MS)
 }

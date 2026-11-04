@@ -2,6 +2,7 @@ import { z } from "zod"
 
 type WithoutDefault<T> = T extends z.ZodDefault<infer Inner> ? Inner : T
 
+/** Forma de um schema de PATCH: cada campo opcional e sem o `.default()` do schema de criação. */
 export type PatchShape<S extends z.ZodRawShape> = { [K in keyof S]: z.ZodOptional<WithoutDefault<S[K]>> }
 
 /**
@@ -29,6 +30,6 @@ function withoutDefault(key: string, field: z.core.$ZodType): z.ZodType {
  * Corpo opcional em métodos como DELETE/POST sem payload: ausente vira `{}`
  * e a validação do schema decide o que é obrigatório.
  */
-export function optionalBodySchema<T extends z.ZodType>(schema: T) {
+export function optionalBodySchema<T extends z.ZodType>(schema: T): z.ZodPreprocess<T> {
   return z.preprocess((body) => body ?? {}, schema)
 }

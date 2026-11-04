@@ -9,7 +9,7 @@ import { TeacherStats } from "@/components/teacher/dashboard/teacher-stats"
 import { useTeacherContentActions } from "@/components/teacher/dashboard/use-teacher-content-actions"
 import { useTeacherDashboard } from "@/components/teacher/dashboard/use-teacher-dashboard"
 
-export default function TeacherPage() {
+export default function TeacherPage(): React.JSX.Element {
   const { profile, isLoading: isAuthLoading } = useAuth()
   const { content, metricsByLesson, summary } = useTeacherDashboard(!isAuthLoading && Boolean(profile?.id))
   const actions = useTeacherContentActions(content.setData)
@@ -36,8 +36,8 @@ export default function TeacherPage() {
           isLoading={isLoading}
           togglingCourseId={pending.togglingCourseId}
           deletingCourseId={pending.deletingCourseId}
-          onTogglePublished={actions.toggleCoursePublished}
-          onDelete={actions.deleteCourseWithConfirm}
+          onTogglePublished={(course) => void actions.toggleCoursePublished(course)}
+          onDelete={(course) => void actions.deleteCourseWithConfirm(course)}
         />
 
         <TeacherLessonsSection
@@ -46,8 +46,8 @@ export default function TeacherPage() {
           metricsByLesson={metricsByLesson}
           togglingLessonId={pending.togglingLessonId}
           deletingLessonId={pending.deletingLessonId}
-          onTogglePublished={actions.toggleLessonPublished}
-          onDelete={actions.deleteLessonWithConfirm}
+          onTogglePublished={(lesson) => void actions.toggleLessonPublished(lesson)}
+          onDelete={(lesson) => void actions.deleteLessonWithConfirm(lesson)}
         />
       </main>
     </div>

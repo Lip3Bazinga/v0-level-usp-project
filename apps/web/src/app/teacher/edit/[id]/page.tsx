@@ -12,7 +12,7 @@ import { ROUTES } from "@/lib/constants"
 /** Segmento da rota de criação (`/teacher/edit/new`). */
 const NEW_LESSON_ID = "new"
 
-export default function TeacherEditPage() {
+export default function TeacherEditPage(): React.JSX.Element {
   const { id: routeId } = useParams<{ id: string }>()
   // Depois do primeiro salvamento a URL ganha o id da lição criada; o editor aberto
   // continua o mesmo (o estado local já é a versão salva), sem recarregar.
@@ -42,7 +42,7 @@ interface LessonLoadErrorProps {
   message: string
 }
 
-function LessonLoadError({ message }: LessonLoadErrorProps) {
+function LessonLoadError({ message }: LessonLoadErrorProps): React.JSX.Element {
   return (
     <div className="flex h-screen flex-col items-center justify-center gap-4 px-6 text-center">
       <AlertCircle className="h-10 w-10 text-destructive/60" />

@@ -1,22 +1,25 @@
+import { createTypeScriptConfig, REACT_RULES } from "@levelusp/eslint-config"
 import nextVitals from "eslint-config-next/core-web-vitals"
-import nextTs from "eslint-config-next/typescript"
+import tseslint from "typescript-eslint"
 
 const config = [
   ...nextVitals,
-  ...nextTs,
-  {
-    ignores: [".next/**", "node_modules/**", "public/pyodide-worker*.js", "next-env.d.ts", "playwright-report/**", "test-results/**"],
-  },
-  {
-    rules: {
-      "@typescript-eslint/no-explicit-any": "error",
-      // useAsyncResource recebe um array de dependências como o useEffect.
-      "react-hooks/exhaustive-deps": ["error", { additionalHooks: "useAsyncResource" }],
-      // As demais regras react-hooks/* (React Compiler) já são erro no preset; estas duas vêm como aviso.
-      "react-hooks/incompatible-library": "error",
-      "react-hooks/unsupported-syntax": "error",
-    },
-  },
+  ...createTypeScriptConfig({
+    tseslint,
+    tsconfigRootDir: import.meta.dirname,
+    allowDefaultProject: ["vitest.config.mts"],
+    ignores: [
+      ".next/**",
+      "node_modules/**",
+      "public/pyodide/**",
+      "next-env.d.ts",
+      "playwright-report/**",
+      "test-results/**",
+    ],
+    cliScripts: ["scripts/**"],
+    documented: { files: ["src/lib/**/*.ts", "src/hooks/**/*.ts"] },
+  }),
+  { rules: REACT_RULES },
 ]
 
 export default config

@@ -27,7 +27,7 @@ const SIZE_CLASS: Record<XPBadgeSize, { container: string; icon: string }> = {
   lg: { container: "px-4 py-2 text-base gap-2", icon: "h-5 w-5" },
 }
 
-export function XPBadge({ type, value, label, size = "md", className }: XPBadgeProps) {
+export function XPBadge({ type, value, label, size = "md", className }: XPBadgeProps): React.JSX.Element {
   const { Icon, colorClass, iconColorClass } = BADGE_STYLE[type]
   return (
     <div

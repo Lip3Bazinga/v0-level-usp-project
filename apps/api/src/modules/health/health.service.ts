@@ -5,6 +5,12 @@ import type { Env } from "@/config/env"
 import { InjectDb, type Database } from "@/infra/database/database.module"
 import { RUNNER_HEALTH, type RunnerHealthProbe } from "@/infra/runner/code-runner"
 
+/** Resposta do liveness: o processo está de pé (não verifica dependências). */
+export interface Liveness {
+  status: "ok"
+}
+
+/** Resposta do readiness: `degraded` quando o banco ou o executor não respondem. */
 export interface Readiness {
   status: "ok" | "degraded"
   env: Env["APP_ENV"]
@@ -12,6 +18,7 @@ export interface Readiness {
   checks: { db: boolean; runner: boolean }
 }
 
+/** Verificações de saúde para o orquestrador (Docker/Compose). */
 @Injectable()
 export class HealthService {
   constructor(
@@ -20,6 +27,7 @@ export class HealthService {
     @Inject(ENV) private readonly env: Env,
   ) {}
 
+  /** Testa o banco (`select 1`) e o executor; nunca lança, só reporta. */
   async getReadiness(): Promise<Readiness> {
     const isDatabaseUp = await this.db.execute(sql`select 1`).then(() => true, () => false)
     const isRunnerUp = await this.runner.healthy()

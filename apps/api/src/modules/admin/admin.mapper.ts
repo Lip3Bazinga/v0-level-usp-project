@@ -1,6 +1,7 @@
-import type { AnalyticsMetrics, RecentActivity } from "@levelusp/contracts"
+import type { AnalyticsMetrics, RecentActivity, UserRole } from "@levelusp/contracts"
 import { percentage } from "./admin.domain"
 
+/** Conclusão de lição com os nomes do aluno e da lição (feed do painel). */
 export interface RecentCompletionRow {
   id: string
   userName: string
@@ -23,6 +24,20 @@ export type AnalyticsTotalsRow = {
   completed5: number
 }
 
+/** Agregado por dia civil (São Paulo, `yyyy-mm-dd`): conclusões e alunos distintos. */
+export interface CompletionsPerDayRow {
+  day: string
+  completions: number
+  users: number
+}
+
+/** Quantidade de perfis por papel. */
+export interface RoleCountRow {
+  role: UserRole
+  count: number
+}
+
+/** Lição mais concluída, para o ranking do painel. */
 export interface TopLessonRow {
   lessonId: string
   title: string
@@ -35,12 +50,14 @@ export function toRecentActivity(completion: RecentCompletionRow): RecentActivit
   return [{ id: completion.id, user_name: completion.userName, lesson_title: completion.lessonTitle, xp_earned: completion.xpEarned, completed_at: completion.completedAt }]
 }
 
+/** Linha do ranking de lições no formato do contrato. */
 export function toTopLesson(lesson: TopLessonRow): AnalyticsMetrics["topLessons"][number] {
   return { lesson_id: lesson.lessonId, title: lesson.title, completions: lesson.completions }
 }
 
 type AnalyticsTotals = Omit<AnalyticsMetrics, "dailyActiveUsers" | "completionsByDay" | "topLessons" | "roleDistribution">
 
+/** Totais agregados → indicadores do painel; a retenção vira percentual inteiro (0 sem base). */
 export function toAnalyticsTotals(totals: AnalyticsTotalsRow): AnalyticsTotals {
   return {
     averageXp: totals.average_xp,

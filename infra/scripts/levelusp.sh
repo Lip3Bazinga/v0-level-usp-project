@@ -16,8 +16,10 @@ case "$cmd" in
   setup)
     [ -f "$envfile" ] && { echo "$envfile já existe"; exit 0; }
     cp "$envfile.example" "$envfile"
-    for k in POSTGRES_PASSWORD RUNNER_TOKEN SEED_ADMIN_PASSWORD; do setv "$k" "$(secret)"; done
-    echo "Criado $envfile. Senha do admin ($(getv SEED_ADMIN_EMAIL)): $(getv SEED_ADMIN_PASSWORD)" ;;
+    # Gera todo valor marcado __gerar__ no modelo (senhas do banco, admin, demo e token do executor).
+    grep -E '^[A-Z0-9_]+=__gerar__$' "$envfile" | cut -d= -f1 | while read -r k; do setv "$k" "$(secret)"; done
+    echo "Criado $envfile. Senha do admin ($(getv SEED_ADMIN_EMAIL)): $(getv SEED_ADMIN_PASSWORD)"
+    [ -n "$(getv SEED_DEMO_PASSWORD)" ] && echo "Senha das contas demo (professora/aluna): $(getv SEED_DEMO_PASSWORD)" ;;
   up)
     need_env; dc pull --quiet; dc up -d tunnel
     url="$(tunnel_url)"; [ -n "$url" ] && setv APP_ORIGIN "$url"

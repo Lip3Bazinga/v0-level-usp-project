@@ -40,12 +40,23 @@ export function buildProfileUpdate(fields: ProfileFields, currentUsername: strin
   if (!input.full_name) return { ok: false, error: "Informe seu nome." }
   return { ok: true, input }
 }
+export interface UseProfileFormResult {
+  fields: ProfileFields
+  updateField: (field: keyof ProfileFields, value: string) => void
+  avatarUrl: string | null
+  isSaving: boolean
+  isUploadingAvatar: boolean
+  error: string
+  isSaved: boolean
+  save: () => Promise<void>
+  changeAvatar: (file: File) => Promise<void>
+}
 
 /**
  * Estado do formulário de perfil. Fica acima das abas para que trocar de aba não
  * descarte o que o aluno digitou e ainda não salvou.
  */
-export function useProfileForm(profile: Profile) {
+export function useProfileForm(profile: Profile): UseProfileFormResult {
   const { setProfile } = useAuth()
   const [fields, setFields] = useState(() => fieldsFrom(profile))
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url)
@@ -54,9 +65,9 @@ export function useProfileForm(profile: Profile) {
   const [error, setError] = useState("")
   const savedFeedback = useTransientValue<true>(SAVED_FEEDBACK_DURATION_MS)
 
-  const updateField = (field: keyof ProfileFields, value: string) => setFields((current) => ({ ...current, [field]: value }))
+  const updateField = (field: keyof ProfileFields, value: string): void => setFields((current) => ({ ...current, [field]: value }))
 
-  const save = async () => {
+  const save = async (): Promise<void> => {
     setError("")
     savedFeedback.clear()
     const update = buildProfileUpdate(fields, profile.username)
@@ -77,7 +88,7 @@ export function useProfileForm(profile: Profile) {
     }
   }
 
-  const changeAvatar = async (file: File) => {
+  const changeAvatar = async (file: File): Promise<void> => {
     if (file.size > MAX_AVATAR_SIZE_BYTES) {
       setError("A imagem deve ter no máximo 2MB.")
       return
@@ -115,7 +126,7 @@ interface ProfileSettingsSectionProps {
   form: ProfileForm
 }
 
-export function ProfileSettingsSection({ profile, form }: ProfileSettingsSectionProps) {
+export function ProfileSettingsSection({ profile, form }: ProfileSettingsSectionProps): React.JSX.Element {
   const { fields, updateField } = form
   return (
     <div className="space-y-6">
@@ -197,7 +208,7 @@ export function ProfileSettingsSection({ profile, form }: ProfileSettingsSection
         </div>
 
         <div className="mt-6">
-          <LevelButton variant="primary" size="md" onClick={form.save} disabled={form.isSaving}>
+          <LevelButton variant="primary" size="md" onClick={() => void form.save()} disabled={form.isSaving}>
             {form.isSaving ? (
               <span className="flex items-center gap-2">
                 <Spinner />
@@ -224,10 +235,10 @@ interface AvatarPickerProps {
   onPick: (file: File) => Promise<void>
 }
 
-function AvatarPicker({ avatarUrl, altText, initials, isUploading, onPick }: AvatarPickerProps) {
+function AvatarPicker({ avatarUrl, altText, initials, isUploading, onPick }: AvatarPickerProps): React.JSX.Element {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
     const input = event.currentTarget
     const file = input.files?.[0]
     if (!file) return
@@ -243,7 +254,7 @@ function AvatarPicker({ avatarUrl, altText, initials, isUploading, onPick }: Ava
           {avatarUrl && <AvatarImage src={avatarUrl} alt={altText} />}
           <AvatarFallback className="bg-level-purple-light text-xl font-bold text-level-purple-dark">{initials}</AvatarFallback>
         </Avatar>
-        <input ref={fileInputRef} type="file" accept={ACCEPTED_AVATAR_TYPES} className="hidden" onChange={handleFileChange} />
+        <input ref={fileInputRef} type="file" accept={ACCEPTED_AVATAR_TYPES} className="hidden" onChange={(event) => void handleFileChange(event)} />
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading}

@@ -5,18 +5,17 @@ import { mkdir, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { eq, sql } from "drizzle-orm"
 import { courses, lessonProgress, submissions, uploads } from "@levelusp/db"
-import type { TestCase } from "@levelusp/contracts"
-import { agent, createLesson, createTestApp, queryRows, signUp, type Agent, type TestContext } from "./harness"
+import type { ApiErrorBody, Course, Lesson, LessonMetrics, LessonWithTests, Module, TestCase } from "@levelusp/contracts"
+import { agent, bodyOf, createLesson, createTestApp, queryRows, signUp, type Agent, type TestContext } from "./harness"
 
 const cases: TestCase[] = [{ id: "c1", kind: "call", function: "soma", args: [2, 3], kwargs: {}, expected: 5 }]
 const SECRET = "valor-secreto-do-gabarito"
 const secretCases: TestCase[] = [{ id: "s1", kind: "io", stdin: "", expected_stdout: SECRET, match: "trimmed" }]
 
-async function newCourse(author: Agent, body: Record<string, unknown> = {}) {
+async function newCourse(author: Agent, body: Record<string, unknown> = {}): Promise<Course> {
   const response = await author.post("/api/courses", { title: "Python do zero", description: "curso", ...body })
   expect(response.status).toBe(201)
-  const course: { id: string; published: boolean; created_by: string } = response.body
-  return course
+  return bodyOf<Course>(response)
 }
 
 describe("Catálogo (e2e)", () => {
@@ -67,7 +66,7 @@ describe("Catálogo (e2e)", () => {
       const admin = await signUp(ctx.app, "admin", ctx.db)
       const edited = await admin.agent.patch(`/api/courses/${course.id}`, { title: "Ajustado pelo admin" })
       expect(edited.status).toBe(200)
-      expect(edited.body.title).toBe("Ajustado pelo admin")
+      expect(bodyOf<Course>(edited).title).toBe("Ajustado pelo admin")
     })
 
     it("PATCH altera só os campos enviados", async () => {
@@ -82,7 +81,7 @@ describe("Catálogo (e2e)", () => {
       const teacher = await signUp(ctx.app, "teacher", ctx.db)
       const response = await teacher.agent.post("/api/courses", { title: "x", level: "expert" })
       expect(response.status).toBe(400)
-      expect(response.body.code).toBe("VALIDATION")
+      expect(bodyOf<ApiErrorBody>(response).code).toBe("VALIDATION")
     })
 
     it("/teacher/courses: professor vê os seus; admin vê todos; aluno 403", async () => {
@@ -91,7 +90,7 @@ describe("Catálogo (e2e)", () => {
       const firstCourse = await newCourse(firstTeacher.agent, { title: "Curso A" })
       await newCourse(secondTeacher.agent, { title: "Curso B" })
       const mine = await firstTeacher.agent.get("/api/teacher/courses")
-      expect(mine.body.map((course: { id: string }) => course.id)).toEqual([firstCourse.id])
+      expect(bodyOf<Course[]>(mine).map((course) => course.id)).toEqual([firstCourse.id])
       const admin = await signUp(ctx.app, "admin", ctx.db)
       expect((await admin.agent.get("/api/teacher/courses")).body).toHaveLength(2)
       const { agent: studentAgent } = await signUp(ctx.app)
@@ -111,7 +110,7 @@ describe("Catálogo (e2e)", () => {
       expect((await teacher.agent.delete(`/api/courses/${course.id}`)).status).toBe(204)
       expect(existsSync(path.join(dir, name))).toBe(false)
       expect(await ctx.db.query.courses.findFirst({ where: eq(courses.id, course.id) })).toBeUndefined()
-      expect((await teacher.agent.get(`/api/lessons/${lesson.id}`)).body.course_id).toBeNull()
+      expect(bodyOf<Lesson>(await teacher.agent.get(`/api/lessons/${lesson.id}`)).course_id).toBeNull()
     })
   })
 
@@ -127,13 +126,13 @@ describe("Catálogo (e2e)", () => {
       const anonymous = await agent(ctx.app).get("/api/courses")
       expect(anonymous.status).toBe(200)
       expect(anonymous.body).toHaveLength(1)
-      expect(anonymous.body[0].lesson_count).toBe(2)
-      expect(anonymous.body[0]).not.toHaveProperty("enrolled")
+      expect(bodyOf<Course[]>(anonymous)[0]?.lesson_count).toBe(2)
+      expect(bodyOf<Course[]>(anonymous)[0]).not.toHaveProperty("enrolled")
 
       const { agent: studentAgent } = await signUp(ctx.app)
-      expect((await studentAgent.get("/api/courses")).body[0].enrolled).toBe(false)
+      expect(bodyOf<Course[]>(await studentAgent.get("/api/courses"))[0]?.enrolled).toBe(false)
       await studentAgent.post(`/api/courses/${course.id}/enrollment`)
-      expect((await studentAgent.get("/api/courses")).body[0].enrolled).toBe(true)
+      expect(bodyOf<Course[]>(await studentAgent.get("/api/courses"))[0]?.enrolled).toBe(true)
       expect((await studentAgent.get(`/api/courses/${course.id}`)).body).toMatchObject({ enrolled: true, lesson_count: 2 })
     })
 
@@ -146,7 +145,7 @@ describe("Catálogo (e2e)", () => {
       await createLesson(ctx.db, { courseId: course.id, createdBy: teacher.id, order: 3, published: false, testCases: secretCases })
 
       const anonymous = await agent(ctx.app).get(`/api/courses/${course.id}/lessons`)
-      expect(anonymous.body.map((lesson: { title: string }) => lesson.title)).toEqual(["Primeira", "Segunda"])
+      expect(bodyOf<Lesson[]>(anonymous).map((lesson) => lesson.title)).toEqual(["Primeira", "Segunda"])
       const owner = await teacher.agent.get(`/api/courses/${course.id}/lessons`)
       expect(owner.body).toHaveLength(3)
       for (const response of [anonymous, owner]) {
@@ -166,16 +165,16 @@ describe("Catálogo (e2e)", () => {
       const response = await teacher.agent.put(`/api/courses/${course.id}/lessons/order`, { lesson_ids: [thirdLesson.id, firstLesson.id, secondLesson.id] })
       expect(response.status).toBe(204)
       const list = await teacher.agent.get(`/api/courses/${course.id}/lessons`)
-      expect(list.body.map((lesson: { id: string; order: number }) => [lesson.id, lesson.order])).toEqual([[thirdLesson.id, 1], [firstLesson.id, 2], [secondLesson.id, 3]])
+      expect(bodyOf<Lesson[]>(list).map((lesson) => [lesson.id, lesson.order])).toEqual([[thirdLesson.id, 1], [firstLesson.id, 2], [secondLesson.id, 3]])
 
       const foreign = await teacher.agent.put(`/api/courses/${course.id}/lessons/order`, { lesson_ids: [firstLesson.id, outsideLesson.id] })
       expect(foreign.status).toBe(400)
-      expect(foreign.body.code).toBe("LESSON_NOT_IN_COURSE")
+      expect(bodyOf<ApiErrorBody>(foreign).code).toBe("LESSON_NOT_IN_COURSE")
       const duplicateResponse = await teacher.agent.put(`/api/courses/${course.id}/lessons/order`, { lesson_ids: [firstLesson.id, firstLesson.id] })
       expect(duplicateResponse.status).toBe(400)
       // Nada mudou depois das tentativas recusadas.
       const again = await teacher.agent.get(`/api/courses/${course.id}/lessons`)
-      expect(again.body.map((lesson: { id: string }) => lesson.id)).toEqual([thirdLesson.id, firstLesson.id, secondLesson.id])
+      expect(bodyOf<Lesson[]>(again).map((lesson) => lesson.id)).toEqual([thirdLesson.id, firstLesson.id, secondLesson.id])
 
       const otherTeacher = await signUp(ctx.app, "teacher", ctx.db)
       await teacher.agent.patch(`/api/courses/${course.id}/publish`, { published: true })
@@ -189,11 +188,11 @@ describe("Catálogo (e2e)", () => {
       const standaloneLesson = await createLesson(ctx.db, { createdBy: teacher.id })
 
       expect((await teacher.agent.post(`/api/courses/${course.id}/lessons`, { lesson_id: standaloneLesson.id })).status).toBe(204)
-      let lessonView = (await teacher.agent.get(`/api/lessons/${standaloneLesson.id}`)).body
+      let lessonView = bodyOf<Lesson>(await teacher.agent.get(`/api/lessons/${standaloneLesson.id}`))
       expect(lessonView).toMatchObject({ course_id: course.id, order: 5 })
 
       expect((await teacher.agent.delete(`/api/courses/${course.id}/lessons/${standaloneLesson.id}`)).status).toBe(204)
-      lessonView = (await teacher.agent.get(`/api/lessons/${standaloneLesson.id}`)).body
+      lessonView = bodyOf<Lesson>(await teacher.agent.get(`/api/lessons/${standaloneLesson.id}`))
       expect(lessonView.course_id).toBeNull()
       expect((await teacher.agent.delete(`/api/courses/${course.id}/lessons/${standaloneLesson.id}`)).status).toBe(404)
 
@@ -239,7 +238,7 @@ describe("Catálogo (e2e)", () => {
 
       const auth = await teacher.agent.get(`/api/lessons/${lesson.id}/authoring`)
       expect(auth.status).toBe(200)
-      expect(auth.body.test_cases).toEqual(secretCases)
+      expect(bodyOf<LessonWithTests>(auth).test_cases).toEqual(secretCases)
 
       const otherTeacher = await signUp(ctx.app, "teacher", ctx.db)
       expect((await otherTeacher.agent.get(`/api/lessons/${lesson.id}/authoring`)).status).toBe(403)
@@ -265,7 +264,7 @@ describe("Catálogo (e2e)", () => {
       expect(firstCreated.status).toBe(201)
       expect(firstCreated.body).toMatchObject({ slug: "funcoes-em-python", published: false, created_by: teacher.id, test_cases: cases })
       const secondCreated = await teacher.agent.post("/api/lessons", body)
-      expect(secondCreated.body.slug).toBe("funcoes-em-python-2")
+      expect(bodyOf<LessonWithTests>(secondCreated).slug).toBe("funcoes-em-python-2")
 
       const { agent: studentAgent } = await signUp(ctx.app)
       expect((await studentAgent.post("/api/lessons", body)).status).toBe(403)
@@ -282,7 +281,7 @@ describe("Catálogo (e2e)", () => {
 
     it("PATCH altera só os campos enviados e mantém o gabarito", async () => {
       const teacher = await signUp(ctx.app, "teacher", ctx.db)
-      const created = (await teacher.agent.post("/api/lessons", { title: "Laços", xp_reward: 80, test_cases: cases })).body
+      const created = bodyOf<LessonWithTests>(await teacher.agent.post("/api/lessons", { title: "Laços", xp_reward: 80, test_cases: cases }))
       const response = await teacher.agent.patch(`/api/lessons/${created.id}`, { description: "nova descrição" })
       expect(response.status).toBe(200)
       expect(response.body).toMatchObject({ title: "Laços", xp_reward: 80, description: "nova descrição", test_cases: cases })
@@ -290,31 +289,31 @@ describe("Catálogo (e2e)", () => {
 
     it("publicar lição de código exige casos de teste (422 NO_TESTS)", async () => {
       const teacher = await signUp(ctx.app, "teacher", ctx.db)
-      const untestedLesson = (await teacher.agent.post("/api/lessons", { title: "Sem gabarito" })).body
+      const untestedLesson = bodyOf<LessonWithTests>(await teacher.agent.post("/api/lessons", { title: "Sem gabarito" }))
       const response = await teacher.agent.patch(`/api/lessons/${untestedLesson.id}/publish`, { published: true })
       expect(response.status).toBe(422)
-      expect(response.body.code).toBe("NO_TESTS")
+      expect(bodyOf<ApiErrorBody>(response).code).toBe("NO_TESTS")
 
-      const testedLesson = (await teacher.agent.post("/api/lessons", { title: "Com gabarito", test_cases: cases })).body
+      const testedLesson = bodyOf<LessonWithTests>(await teacher.agent.post("/api/lessons", { title: "Com gabarito", test_cases: cases }))
       const publishResponse = await teacher.agent.patch(`/api/lessons/${testedLesson.id}/publish`, { published: true })
       expect(publishResponse.status).toBe(200)
-      expect(publishResponse.body.published).toBe(true)
+      expect(bodyOf<Lesson>(publishResponse).published).toBe(true)
       expect(publishResponse.body).not.toHaveProperty("test_cases")
 
       // Lição publicada não pode perder o gabarito.
       const wipe = await teacher.agent.patch(`/api/lessons/${testedLesson.id}`, { test_cases: [] })
       expect(wipe.status).toBe(422)
 
-      const theoryLesson = (await teacher.agent.post("/api/lessons", { title: "Teoria", lesson_type: "theory" })).body
+      const theoryLesson = bodyOf<LessonWithTests>(await teacher.agent.post("/api/lessons", { title: "Teoria", lesson_type: "theory" }))
       expect((await teacher.agent.patch(`/api/lessons/${theoryLesson.id}/publish`, { published: true })).status).toBe(200)
     })
 
     it("publicar quiz exige ao menos uma questão (422 NO_QUESTIONS)", async () => {
       const teacher = await signUp(ctx.app, "teacher", ctx.db)
-      const quiz = (await teacher.agent.post("/api/lessons", { title: "Quiz de listas", lesson_type: "quiz" })).body
+      const quiz = bodyOf<LessonWithTests>(await teacher.agent.post("/api/lessons", { title: "Quiz de listas", lesson_type: "quiz" }))
       const response = await teacher.agent.patch(`/api/lessons/${quiz.id}/publish`, { published: true })
       expect(response.status).toBe(422)
-      expect(response.body.code).toBe("NO_QUESTIONS")
+      expect(bodyOf<ApiErrorBody>(response).code).toBe("NO_QUESTIONS")
     })
 
     it("dono exclui sua lição; outro professor não", async () => {
@@ -348,12 +347,12 @@ describe("Catálogo (e2e)", () => {
       ])
 
       const lessons = await teacher.agent.get("/api/teacher/lessons")
-      expect(lessons.body.map((lesson: { id: string }) => lesson.id).sort()).toEqual([mine.id, empty.id].sort())
+      expect(bodyOf<Lesson[]>(lessons).map((lesson) => lesson.id).sort()).toEqual([mine.id, empty.id].sort())
       expect(JSON.stringify(lessons.body)).not.toContain(SECRET)
 
       const metrics = await teacher.agent.get("/api/teacher/metrics")
       expect(metrics.status).toBe(200)
-      const byId = Object.fromEntries(metrics.body.map((entry: { lesson_id: string }) => [entry.lesson_id, entry]))
+      const byId = Object.fromEntries(bodyOf<LessonMetrics[]>(metrics).map((entry) => [entry.lesson_id, entry]))
       expect(Object.keys(byId)).toHaveLength(2)
       expect(byId[mine.id]).toEqual({ lesson_id: mine.id, started: 2, completed: 1, submissions: 4, pass_rate: 0.25 })
       expect(byId[empty.id]).toEqual({ lesson_id: empty.id, started: 0, completed: 0, submissions: 0, pass_rate: null })
@@ -371,14 +370,14 @@ describe("Catálogo (e2e)", () => {
 
       const created = await admin.agent.post("/api/modules", { title: "Básico", sort_order: 2 })
       expect(created.status).toBe(201)
-      const second = (await admin.agent.post("/api/modules", { title: "Avançado", sort_order: 1 })).body
-      const createdModule: { id: string } = created.body
+      const second = bodyOf<Module>(await admin.agent.post("/api/modules", { title: "Avançado", sort_order: 1 }))
+      const createdModule = bodyOf<Module>(created)
 
       const patched = await admin.agent.patch(`/api/modules/${createdModule.id}`, { description: "fundamentos" })
       expect(patched.body).toMatchObject({ title: "Básico", description: "fundamentos", sort_order: 2 })
 
       const list = await agent(ctx.app).get("/api/modules")
-      expect(list.body.map((entry: { title: string }) => entry.title)).toEqual(["Avançado", "Básico"])
+      expect(bodyOf<Module[]>(list).map((entry) => entry.title)).toEqual(["Avançado", "Básico"])
 
       await createLesson(ctx.db, { moduleId: createdModule.id })
       await createLesson(ctx.db, { moduleId: createdModule.id })

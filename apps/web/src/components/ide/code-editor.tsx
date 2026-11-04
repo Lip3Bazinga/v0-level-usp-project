@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useTransientFlag } from "@/hooks/use-transient-value"
 import type { PyodideStatus } from "@/hooks/use-python"
 import { COPIED_FEEDBACK_DURATION_MS } from "@/lib/constants"
+import { BROWSER_PYTHON_MINOR_VERSION } from "@/lib/python/runtime-config"
 import { cn } from "@/lib/utils"
 
 interface CodeEditorProps {
@@ -78,11 +79,11 @@ export function CodeEditor({
   isRunning = false,
   isInstalling = false,
   pythonStatus = "idle",
-}: CodeEditorProps) {
+}: CodeEditorProps): React.JSX.Element {
   const copiedFeedback = useTransientFlag(COPIED_FEEDBACK_DURATION_MS)
   const activeFile = tabs.find((tab) => tab.path === activePath)
 
-  const handleCopy = async () => {
+  const handleCopy = async (): Promise<void> => {
     if (!activeFile) return
     await navigator.clipboard.writeText(activeFile.content)
     copiedFeedback.activate()
@@ -105,7 +106,7 @@ export function CodeEditor({
 
         <div className="flex items-center gap-1">
           <TooltipProvider>
-            <IconAction label="Copiar arquivo" tooltip="Copiar arquivo" onClick={handleCopy}>
+            <IconAction label="Copiar arquivo" tooltip="Copiar arquivo" onClick={() => void handleCopy()}>
               {copiedFeedback.isActive ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
             </IconAction>
             <IconAction label="Restaurar código inicial" tooltip="Restaurar código inicial (Alt+G)" onClick={onReset}>
@@ -133,7 +134,7 @@ export function CodeEditor({
 
       <div className="flex-1 overflow-auto">
         <CodeMirror
-          value={activeFile?.content || ""}
+          value={activeFile?.content ?? ""}
           onChange={(content) => onContentChange(activePath, content)}
           theme={oneDark}
           extensions={EDITOR_EXTENSIONS}
@@ -145,7 +146,7 @@ export function CodeEditor({
 
       <div className="flex items-center justify-between border-t border-[#3e4451] bg-[#21252b] px-3 py-1 text-xs text-[#abb2bf]">
         <div className="flex items-center gap-4">
-          <span>Python 3.11 (Pyodide)</span>
+          <span>Python {BROWSER_PYTHON_MINOR_VERSION} (Pyodide)</span>
           <span className="flex items-center gap-1">
             <span className={cn("h-2 w-2 rounded-full", STATUS_DOT_CLASSES[pythonStatus])} />
             {STATUS_LABELS[pythonStatus]}
@@ -167,7 +168,7 @@ interface EditorTabProps {
   onClose: (path: string) => void
 }
 
-function EditorTab({ path, isActive, onSelect, onClose }: EditorTabProps) {
+function EditorTab({ path, isActive, onSelect, onClose }: EditorTabProps): React.JSX.Element {
   return (
     <div
       onClick={() => onSelect(path)}
@@ -200,7 +201,7 @@ interface IconActionProps {
   children: ReactNode
 }
 
-function IconAction({ label, tooltip, onClick, children }: IconActionProps) {
+function IconAction({ label, tooltip, onClick, children }: IconActionProps): React.JSX.Element {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -236,7 +237,7 @@ function busyLabel({ isRunning, isInstalling, pythonStatus }: Omit<RunButtonProp
   return null
 }
 
-function RunButton({ isRunning, isInstalling, pythonStatus, onRun }: RunButtonProps) {
+function RunButton({ isRunning, isInstalling, pythonStatus, onRun }: RunButtonProps): React.JSX.Element {
   const label = busyLabel({ isRunning, isInstalling, pythonStatus })
   const tooltip = isInstalling
     ? "Aguarde a instalação dos pacotes"

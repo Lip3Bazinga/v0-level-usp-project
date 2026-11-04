@@ -1,12 +1,14 @@
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react"
 import type { LessonInput, LessonWithTests, QuizQuestionFull, TestCase } from "@levelusp/contracts"
 import {
   createLesson, fetchLessonForAuthoring, fetchQuizForAuthoring, getErrorMessage, replaceQuizQuestions, setLessonPublished,
   updateLesson,
 } from "@/lib/api"
+import { definedProps } from "@/lib/utils"
 import { compileDrafts, draftsFromCases, type TestCaseDraft } from "../test-cases-editor"
+import type { CompiledDrafts } from "../test-cases/drafts"
 import {
   DEFAULT_FORM, DEFAULT_TEST_CASES, diffLessonInput, formFromLesson, toLessonInput, toQuizInputs, validateLessonForm,
   validateQuiz, type LessonFormState,
@@ -51,13 +53,28 @@ interface LessonEditorOptions {
   /** Chamado quando uma lição nova é criada no primeiro salvamento. */
   onCreated?: (lessonId: string) => void
 }
+export interface UseLessonEditorResult {
+  lessonId: string | null
+  form: LessonFormState
+  patchForm: (changes: Partial<LessonFormState>) => void
+  drafts: TestCaseDraft[]
+  setDrafts: Dispatch<SetStateAction<TestCaseDraft[]>>
+  compiled: CompiledDrafts
+  quiz: QuizQuestionFull[]
+  setQuiz: Dispatch<SetStateAction<QuizQuestionFull[]>>
+  published: boolean
+  loadError: string | null
+  isSaving: boolean
+  isDirty: boolean
+  save: (publish?: boolean) => Promise<SaveResult>
+}
 
 /**
  * Estado e ações do editor de lição: parte da lição carregada (ou de uma nova),
  * salva com POST/PATCH (só campos alterados), grava o questionário e
  * publica/despublica.
  */
-export function useLessonEditor(initial: EditableLesson | null, { onCreated }: LessonEditorOptions = {}) {
+export function useLessonEditor(initial: EditableLesson | null, { onCreated }: LessonEditorOptions = {}): UseLessonEditorResult {
   const [lessonId, setLessonId] = useState<string | null>(initial?.lesson.id ?? null)
   const [form, setForm] = useState<LessonFormState>(() => (initial ? formFromLesson(initial.lesson) : DEFAULT_FORM))
   const [drafts, setDrafts] = useState<TestCaseDraft[]>(() => draftsFromCases(initial ? initial.lesson.test_cases : DEFAULT_TEST_CASES))
@@ -67,7 +84,7 @@ export function useLessonEditor(initial: EditableLesson | null, { onCreated }: L
 
   // Versão salva: base do diff do PATCH e do aviso de alterações pendentes.
   const [baseline, setBaseline] = useState<LessonInput | null>(() =>
-    initial ? toLessonInput(formFromLesson(initial.lesson), initial.lesson.test_cases ?? []) : null,
+    initial ? toLessonInput(formFromLesson(initial.lesson), initial.lesson.test_cases) : null,
   )
   const [quizBaseline, setQuizBaseline] = useState(() => serializeQuiz(initial?.quiz ?? []))
 
@@ -117,7 +134,7 @@ export function useLessonEditor(initial: EditableLesson | null, { onCreated }: L
   }
 
   /** As questões ficam em tabela própria (o gabarito nunca vai ao aluno). */
-  const persistQuiz = async ({ id, created }: SavedLesson) => {
+  const persistQuiz = async ({ id, created }: SavedLesson): Promise<void> => {
     if (form.lesson_type !== "quiz") return
     const inputs = toQuizInputs(quiz)
     if (!created && JSON.stringify(inputs) === quizBaseline) return
@@ -164,7 +181,7 @@ export function useLessonEditor(initial: EditableLesson | null, { onCreated }: L
     }
     setPublished(isPublished)
     setIsSaving(false)
-    return { ok: true, lessonId: saved.id, created: saved.created, published: isPublished, publishError }
+    return { ok: true, lessonId: saved.id, created: saved.created, published: isPublished, ...definedProps({ publishError }) }
   }
 
   return {

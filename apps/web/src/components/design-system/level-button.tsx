@@ -34,7 +34,7 @@ export function levelButtonClasses(variant: LevelButtonVariant = "primary", size
   return cn(BASE_CLASS, VARIANT_CLASS[variant], SIZE_CLASS[size])
 }
 
-export function LevelButton({ variant = "primary", size = "md", className, children, ...buttonProps }: LevelButtonProps) {
+export function LevelButton({ variant = "primary", size = "md", className, children, ...buttonProps }: LevelButtonProps): React.JSX.Element {
   return (
     <button className={cn(levelButtonClasses(variant, size), className)} {...buttonProps}>
       {children}

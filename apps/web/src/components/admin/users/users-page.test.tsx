@@ -5,10 +5,12 @@ import userEvent from "@testing-library/user-event"
 import type { Profile } from "@levelusp/contracts"
 import { ApiError, setUserSuspended, updateUserProfile, updateUserRole } from "@/lib/api"
 import type { OnToast } from "@/lib/types"
+import { definedProps } from "@/lib/utils"
 import { UsersPage } from "./users-page"
+import type * as LibApi from "@/lib/api"
 
 vi.mock("@/lib/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api")>()),
+  ...(await importOriginal<typeof LibApi>()),
   updateUserRole: vi.fn(),
   setUserSuspended: vi.fn(),
   updateUserProfile: vi.fn(),
@@ -29,12 +31,16 @@ const ANA = profile({ id: "ana", full_name: "Ana Souza", email: "ana@usp.br", us
 const BETO = profile({ id: "beto", full_name: "Beto Lima", email: "beto@usp.br", username: "beto", total_xp: 300 })
 const ADMIN = profile({ id: "adm", full_name: "Admin Root", email: "adm@usp.br", username: "adm", role: "admin", total_xp: 10 })
 
-function Harness({ onToast }: { onToast: OnToast }) {
+function Harness({ onToast }: { onToast: OnToast }): React.JSX.Element {
   const [users, setUsers] = useState<Profile[]>([ANA, BETO, ADMIN])
   return <UsersPage users={users} updateUsers={setUsers} onToast={onToast} currentUserId="adm" />
 }
 
-const rowOf = (name: string) => screen.getByText(name).closest("tr")!
+const rowOf = (name: string): HTMLTableRowElement => {
+  const row = screen.getByText(name).closest("tr")
+  if (!row) throw new Error(`linha de ${name} não encontrada`)
+  return row
+}
 
 describe("UsersPage (admin)", () => {
   beforeEach(() => vi.clearAllMocks())
@@ -56,7 +62,7 @@ describe("UsersPage (admin)", () => {
   it("altera o papel em massa com updateUserRole e usa o perfil devolvido pela API", async () => {
     const user = userEvent.setup()
     const onToast = vi.fn()
-    vi.mocked(updateUserRole).mockImplementation(async (id, role) => ({ ...(id === ANA.id ? ANA : BETO), role }))
+    vi.mocked(updateUserRole).mockImplementation((id, role) => Promise.resolve({ ...(id === ANA.id ? ANA : BETO), role }))
     render(<Harness onToast={onToast} />)
 
     await user.click(screen.getByLabelText("Selecionar Ana Souza"))
@@ -74,7 +80,7 @@ describe("UsersPage (admin)", () => {
   it("suspende em massa com setUserSuspended, ignorando a própria conta", async () => {
     const user = userEvent.setup()
     const onToast = vi.fn()
-    vi.mocked(setUserSuspended).mockImplementation(async (id, suspended) => ({ ...BETO, id, suspended }))
+    vi.mocked(setUserSuspended).mockImplementation((id, suspended) => Promise.resolve({ ...BETO, id, suspended }))
     render(<Harness onToast={onToast} />)
 
     await user.click(screen.getByLabelText("Selecionar Beto Lima"))
@@ -104,7 +110,7 @@ describe("UsersPage (admin)", () => {
   it("edita o usuário enviando só os campos alterados", async () => {
     const user = userEvent.setup()
     const onToast = vi.fn()
-    vi.mocked(updateUserProfile).mockImplementation(async (id, patch) => ({ ...ANA, ...patch, bio: patch.bio ?? null }))
+    vi.mocked(updateUserProfile).mockImplementation((_id, patch) => Promise.resolve({ ...ANA, ...definedProps(patch), bio: patch.bio ?? null }))
     render(<Harness onToast={onToast} />)
 
     await user.click(within(rowOf("Ana Souza")).getByTitle("Editar"))

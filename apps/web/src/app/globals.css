@@ -526,8 +526,22 @@ textarea:focus {
   mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 40%, transparent 100%);
 }
 
+/*
+ * Entrada dos cabeçalhos (entranceMotion): roda na primeira pintura, sem depender da hidratação.
+ * Só desloca (sem opacidade): o texto acima da dobra é o LCP e precisa estar visível já no
+ * primeiro quadro — com opacity 0, o navegador só conta o LCP depois da animação.
+ */
+@keyframes lvl-rise {
+  from {
+    transform: translateY(var(--lvl-rise-offset, 24px));
+  }
+}
+
 /* Movimento reduzido */
 @media (prefers-reduced-motion: reduce) {
+  [style*="lvl-rise"] {
+    animation: none !important;
+  }
   .aurora-bg::before,
   .aurora-bg::after,
   .gradient-text,

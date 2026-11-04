@@ -13,11 +13,11 @@ export interface TopBarAction {
 
 interface AdminTopBarProps {
   title: string
-  primaryAction?: TopBarAction
+  primaryAction?: TopBarAction | undefined | undefined
   onMenuClick: () => void
 }
 
-export function AdminTopBar({ title, primaryAction, onMenuClick }: AdminTopBarProps) {
+export function AdminTopBar({ title, primaryAction, onMenuClick }: AdminTopBarProps): React.JSX.Element {
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-white/85 backdrop-blur">
       <div className="flex h-16 items-center justify-between gap-3 px-4 sm:gap-4 sm:px-6">

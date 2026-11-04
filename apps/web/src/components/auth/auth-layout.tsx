@@ -13,7 +13,7 @@ interface AuthHeadingProps {
   description: string
 }
 
-export function AuthHeading({ as: Heading, title, description }: AuthHeadingProps) {
+export function AuthHeading({ as: Heading, title, description }: AuthHeadingProps): React.JSX.Element {
   return (
     <div className="mb-8">
       <Heading className="text-2xl font-bold text-level-purple-dark">{title}</Heading>
@@ -22,7 +22,7 @@ export function AuthHeading({ as: Heading, title, description }: AuthHeadingProp
   )
 }
 
-export function AuthDivider({ label }: { label: string }) {
+export function AuthDivider({ label }: { label: string }): React.JSX.Element {
   return (
     <div className="relative mb-6">
       <div className="absolute inset-0 flex items-center">
@@ -42,7 +42,7 @@ interface AuthFooterPromptProps {
 }
 
 /** "Não tem uma conta? Cadastre-se" e afins, abaixo do formulário. */
-export function AuthFooterPrompt({ prompt, href, linkLabel }: AuthFooterPromptProps) {
+export function AuthFooterPrompt({ prompt, href, linkLabel }: AuthFooterPromptProps): React.JSX.Element {
   return (
     <p className="mt-6 text-center text-sm text-muted-foreground">
       {prompt}{" "}
@@ -59,7 +59,7 @@ interface AuthBrandPanelProps {
 }
 
 /** Coluna roxa com a marca, visível só em telas largas. */
-export function AuthBrandPanel({ description, children }: AuthBrandPanelProps) {
+export function AuthBrandPanel({ description, children }: AuthBrandPanelProps): React.JSX.Element {
   return (
     <div className="hidden lg:flex lg:w-1/2 bg-linear-to-br from-level-purple to-level-purple-dark items-center justify-center p-12">
       <div className="max-w-md text-center">
@@ -82,7 +82,7 @@ interface AuthSplitLayoutProps {
 }
 
 /** Login e cadastro: marca à esquerda (desktop) e formulário à direita. */
-export function AuthSplitLayout({ brandPanel, children }: AuthSplitLayoutProps) {
+export function AuthSplitLayout({ brandPanel, children }: AuthSplitLayoutProps): React.JSX.Element {
   return (
     <main className="flex min-h-screen">
       {brandPanel}
@@ -108,7 +108,7 @@ interface AuthCenteredLayoutProps {
 }
 
 /** Telas de senha: uma coluna centralizada com a marca, o título e o conteúdo. */
-export function AuthCenteredLayout({ title, description, children }: AuthCenteredLayoutProps) {
+export function AuthCenteredLayout({ title, description, children }: AuthCenteredLayoutProps): React.JSX.Element {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-8">
       <div className="w-full max-w-md">

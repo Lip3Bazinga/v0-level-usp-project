@@ -11,7 +11,7 @@ import { formatCountdown } from "./exam-countdown"
 import { ExamQuestionsForm, ExamResultView, ExamStatusCard } from "./exam-views"
 import { useExamSession } from "./use-exam-session"
 
-export default function ProvaPage() {
+export default function ProvaPage(): React.JSX.Element {
   const { id: courseId } = useParams<{ id: string }>()
   const session = useExamSession(courseId)
   const { phase, remainingMs } = session
@@ -63,8 +63,8 @@ export default function ProvaPage() {
             status={session.status}
             certificateCode={session.certificateCode}
             isBusy={session.isBusy}
-            onStart={session.start}
-            onIssueCertificate={session.requestCertificate}
+            onStart={() => void session.start()}
+            onIssueCertificate={() => void session.requestCertificate()}
           />
         )}
 
@@ -74,7 +74,7 @@ export default function ProvaPage() {
             answers={session.answers}
             isSubmitting={session.isSubmitting}
             onAnswer={session.answerQuestion}
-            onSubmit={session.submit}
+            onSubmit={() => void session.submit()}
           />
         )}
 

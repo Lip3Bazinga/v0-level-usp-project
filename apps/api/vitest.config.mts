@@ -26,6 +26,20 @@ export default defineConfig({
           hookTimeout: 60_000,
         },
       },
+      {
+        // Suíte de ataques: mesma infraestrutura dos e2e (PostgreSQL real), outra pasta.
+        plugins,
+        resolve: { alias },
+        test: {
+          name: "security",
+          include: ["test/security/**/*.e2e.ts"],
+          environment: "node",
+          globalSetup: ["test/e2e/global-setup.ts"],
+          fileParallelism: false,
+          testTimeout: 60_000,
+          hookTimeout: 60_000,
+        },
+      },
     ],
     coverage: { provider: "v8", include: ["src/**/*.ts"], exclude: ["src/main.ts", "src/**/*.module.ts"] },
   },

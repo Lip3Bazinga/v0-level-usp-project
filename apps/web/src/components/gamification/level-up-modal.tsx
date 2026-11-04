@@ -17,7 +17,7 @@ const XP_PER_LEVEL = 1_000
 const CONFETTI_COLORS = ["#FACC15", "#F59E0B", "#7C3AED", "#A78BFA", "#FFFFFF"]
 const CONFETTI_LAYER = 10_000
 
-function fireLevelUpConfetti() {
+function fireLevelUpConfetti(): void {
   const shared = { colors: CONFETTI_COLORS, zIndex: CONFETTI_LAYER }
   fireConfetti({
     ...shared,
@@ -37,7 +37,7 @@ function fireLevelUpConfetti() {
   fireConfettiAfter(500, { ...shared, particleCount: 60, spread: 80, origin: { y: 0.3, x: 0.5 } })
 }
 
-export function LevelUpModal({ isOpen, newLevel, onClose }: LevelUpModalProps) {
+export function LevelUpModal({ isOpen, newLevel, onClose }: LevelUpModalProps): React.JSX.Element {
   useCelebration(isOpen, { celebrate: fireLevelUpConfetti, onClose, autoCloseMs: CELEBRATION_AUTO_CLOSE_MS.levelUp })
 
   return (

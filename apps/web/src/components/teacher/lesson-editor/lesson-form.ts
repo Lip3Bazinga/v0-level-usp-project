@@ -3,7 +3,7 @@ import type {
   QuizQuestionInput, TestCase,
 } from "@levelusp/contracts"
 import { MAIN_FILE_PATH } from "@/lib/constants"
-import { resolveStarterFiles, diffChangedFields } from "@/lib/utils"
+import { diffChangedFields, isNonEmpty, resolveStarterFiles, type NonEmptyArray } from "@/lib/utils"
 
 const MAX_TITLE_LENGTH = 160
 const MIN_TITLE_LENGTH = 3
@@ -88,20 +88,20 @@ export const DEFAULT_FORM: LessonFormState = {
 export function formFromLesson(lesson: LessonWithTests): LessonFormState {
   return {
     title: lesson.title,
-    description: lesson.description ?? "",
-    module: lesson.module ?? "",
+    description: lesson.description,
+    module: lesson.module,
     module_id: lesson.module_id,
     course_id: lesson.course_id,
     order: lesson.order,
     difficulty: lesson.difficulty,
-    lesson_type: lesson.lesson_type ?? "coding",
-    content_markdown: lesson.content_markdown ?? "",
+    lesson_type: lesson.lesson_type,
+    content_markdown: lesson.content_markdown,
     starter_files: resolveStarterFiles(lesson),
-    checkpoints: lesson.checkpoints ?? [],
+    checkpoints: lesson.checkpoints,
     libraries: lesson.libraries ?? [],
     xp_reward: lesson.xp_reward,
     time_limit: clampInteger(lesson.time_limit, LIMITS.timeLimitMinutes),
-    quiz_passing_score: lesson.quiz_passing_score ?? DEFAULT_QUIZ_PASSING_SCORE,
+    quiz_passing_score: lesson.quiz_passing_score,
   }
 }
 
@@ -112,7 +112,7 @@ function clampInteger(value: number, { min, max }: { min: number; max: number })
 
 /** Monta o corpo completo aceito por `POST /lessons`. */
 export function toLessonInput(form: LessonFormState, testCases: TestCase[]): LessonInput {
-  const files = form.starter_files.length ? form.starter_files : [{ path: MAIN_FILE_PATH, content: "" }]
+  const files: NonEmptyArray<ProjectFile> = isNonEmpty(form.starter_files) ? form.starter_files : [{ path: MAIN_FILE_PATH, content: "" }]
   const mainFile = files.find((file) => file.path === MAIN_FILE_PATH) ?? files[0]
   return {
     title: form.title.trim(),
@@ -126,7 +126,7 @@ export function toLessonInput(form: LessonFormState, testCases: TestCase[]): Les
     content_markdown: form.content_markdown,
     // starter_code espelha o main.py (compatibilidade com telas antigas)
     starter_code: mainFile.content,
-    starter_files: files,
+    starter_files: [...files],
     checkpoints: form.checkpoints.map(({ id, instruction, hint }) => {
       const trimmedHint = hint?.trim()
       return trimmedHint ? { id, instruction, hint: trimmedHint } : { id, instruction }

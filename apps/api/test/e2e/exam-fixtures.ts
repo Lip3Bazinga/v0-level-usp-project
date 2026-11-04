@@ -61,7 +61,7 @@ export async function seedCourseWithExam(ctx: TestContext, options: ExamFixtureO
 }
 
 /** Conclui as lições pelo caminho oficial (GamificationService). */
-export async function completeLessons(ctx: TestContext, userId: string, lessonIds: string[]) {
+export async function completeLessons(ctx: TestContext, userId: string, lessonIds: string[]): Promise<void> {
   const gamification = ctx.app.get(GamificationService)
   for (const lessonId of lessonIds) await gamification.completeLesson(userId, lessonId)
 }

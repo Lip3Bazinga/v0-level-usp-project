@@ -28,7 +28,12 @@ tsconfig.tsbuildinfo
 **/coverage/
 .turbo/
 apps/api/data/
+# Relatórios do teste de carga (pnpm load:turma)
+load-results/
 infra/env/*.env
 !infra/env/*.env.example
 playwright-report/
 test-results/
+
+# Núcleo do Pyodide copiado do pacote npm no build (apps/web/scripts/copy-pyodide.mts)
+apps/web/public/pyodide/

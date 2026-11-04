@@ -23,7 +23,9 @@ export const badges = pgTable(
   ],
 )
 
+/** Linha do catálogo de badges. */
 export type BadgeRow = typeof badges.$inferSelect
+/** Valores para inserir ou atualizar em `badges`. */
 export type BadgeInsert = typeof badges.$inferInsert
 
 export const userBadges = pgTable(
@@ -36,4 +38,5 @@ export const userBadges = pgTable(
   (table) => [primaryKey({ columns: [table.userId, table.badgeId] })],
 )
 
+/** Badge conquistado por um usuário (chave: usuário + badge). */
 export type UserBadgeRow = typeof userBadges.$inferSelect

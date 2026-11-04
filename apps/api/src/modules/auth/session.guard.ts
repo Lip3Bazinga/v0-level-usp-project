@@ -27,7 +27,8 @@ export class SessionGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>()
     const token = readSessionCookie(request)
     if (token && (!isPublic || isOptionalAuth)) {
-      request.user = (await this.auth.resolveSession(token)) ?? undefined
+      const user = await this.auth.resolveSession(token)
+      if (user) request.user = user
     }
     if (isPublic || isOptionalAuth) return true
     if (!request.user) throw Unauthorized()

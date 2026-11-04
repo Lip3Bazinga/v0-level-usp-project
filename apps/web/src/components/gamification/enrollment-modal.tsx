@@ -15,7 +15,7 @@ interface EnrollmentModalProps {
 
 const BASE_BENEFITS = ["Acesso completo ao conteúdo", "Progresso salvo automaticamente", "Certificado ao concluir"]
 
-function fireEnrollmentConfetti() {
+function fireEnrollmentConfetti(): void {
   fireConfetti({
     particleCount: 100,
     spread: 80,
@@ -28,7 +28,7 @@ function fireEnrollmentConfetti() {
   })
 }
 
-export function EnrollmentModal({ isOpen, courseTitle, courseXp, onClose }: EnrollmentModalProps) {
+export function EnrollmentModal({ isOpen, courseTitle, courseXp, onClose }: EnrollmentModalProps): React.JSX.Element {
   useCelebration(isOpen, { celebrate: fireEnrollmentConfetti, onClose, autoCloseMs: CELEBRATION_AUTO_CLOSE_MS.enrollment })
   const hasCourseXp = Boolean(courseXp)
   const benefits = hasCourseXp ? [...BASE_BENEFITS, `${courseXp} XP ao completar o curso`] : BASE_BENEFITS

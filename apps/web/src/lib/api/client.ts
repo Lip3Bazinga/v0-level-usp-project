@@ -1,4 +1,5 @@
 import type { ApiErrorBody } from "@levelusp/contracts"
+import { resolveServerApiBaseUrl } from "@/lib/config/server-urls"
 
 /*
  * Cliente HTTP da API. O navegador sempre chama a mesma origem (`/api/*`) e o
@@ -16,6 +17,7 @@ export const HTTP_STATUS = {
   REQUEST_TIMEOUT: 408,
   CONFLICT: 409,
   TOO_MANY_REQUESTS: 429,
+  SERVICE_UNAVAILABLE: 503,
 } as const
 
 const NETWORK_ERROR_MESSAGE = "Sem conexão com o servidor. Verifique sua internet."
@@ -44,6 +46,7 @@ export function isApiError(error: unknown, status?: number): error is ApiError {
   return status === undefined || error.status === status
 }
 
+/** Se o erro é o cancelamento de um fetch (o `AbortError` do `signal`). */
 export function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError"
 }
@@ -53,31 +56,30 @@ export function getErrorMessage(error: unknown, fallback = DEFAULT_FALLBACK_MESS
   return error instanceof ApiError ? error.message : fallback
 }
 
+/** Métodos HTTP usados pelo cliente. */
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
+/** Query string; valores `null` e `undefined` são omitidos da URL. */
 export type QueryParams = Record<string, string | number | boolean | null | undefined>
 
 /** Corpo enviado nas mutações sem dados: a API espera sempre um objeto JSON. */
 type EmptyBody = Record<string, never>
 const EMPTY_BODY: EmptyBody = {}
 
+/** Corpo, query, cancelamento e cabeçalhos extras de uma chamada. */
 export interface RequestOptions<TBody = undefined> {
-  body?: TBody
-  query?: QueryParams
-  signal?: AbortSignal
+  body?: TBody | undefined
+  query?: QueryParams | undefined
+  signal?: AbortSignal | undefined
   /** Cabeçalhos extras (ex.: cookie repassado na renderização no servidor). */
-  headers?: Record<string, string>
+  headers?: Record<string, string> | undefined
 }
 
 type ReadOptions = Omit<RequestOptions, "body">
 
-/**
- * No navegador a URL é relativa; no servidor (SSR) é preciso a URL interna da API.
- * Sem `API_INTERNAL_URL` em tempo de execução, o SSR passa pelo próprio Next (o rewrite
- * de `/api/*` é resolvido no build): `localhost:4000` não existe dentro do contêiner web.
- */
+/** No navegador a URL é relativa; no servidor (SSR) é a URL interna da API (ver `resolveServerApiBaseUrl`). */
 function apiBaseUrl(): string {
   if (typeof window !== "undefined") return ""
-  return (process.env.API_INTERNAL_URL ?? `http://127.0.0.1:${process.env.PORT ?? 3000}`).replace(/\/+$/, "")
+  return resolveServerApiBaseUrl(process.env)
 }
 
 function buildUrl(path: string, query: QueryParams = {}): string {
@@ -89,7 +91,7 @@ function buildUrl(path: string, query: QueryParams = {}): string {
   return `${apiBaseUrl()}/api${path}${queryString ? `?${queryString}` : ""}`
 }
 
-function buildHeaders(method: HttpMethod, hasJsonBody: boolean, extraHeaders: Record<string, string> = {}) {
+function buildHeaders(method: HttpMethod, hasJsonBody: boolean, extraHeaders: Record<string, string> = {}): Record<string, string> {
   const headers: Record<string, string> = { accept: "application/json", ...extraHeaders }
   if (method !== "GET") headers[CSRF_HEADER] = "1"
   if (hasJsonBody) headers["content-type"] = "application/json"
@@ -138,10 +140,10 @@ export async function request<TResponse, TBody = undefined>(
     response = await fetch(buildUrl(path, query), {
       method,
       headers: buildHeaders(method, hasJsonBody, headers),
-      body: isFormData ? body : hasJsonBody ? JSON.stringify(body) : undefined,
+      body: isFormData ? body : hasJsonBody ? JSON.stringify(body) : null,
       credentials: "same-origin",
       cache: "no-store",
-      signal,
+      signal: signal ?? null,
     })
   } catch (error) {
     if (isAbortError(error)) throw error
@@ -161,14 +163,19 @@ export async function request<TResponse, TBody = undefined>(
  * do argumento ou informado para amarrar o corpo ao schema do contrato.
  */
 export const api = {
-  get: <TResponse>(path: string, options?: ReadOptions) => request<TResponse>("GET", path, options),
-  post: <TResponse, TBody extends object = object>(path: string, body?: TBody, options?: ReadOptions) =>
+  /** `GET` com o tipo de resposta informado. */
+  get: <TResponse>(path: string, options?: ReadOptions): Promise<TResponse> => request<TResponse>("GET", path, options),
+  /** `POST` com o cabeçalho anti-CSRF; sem corpo, envia `{}`. */
+  post: <TResponse, TBody extends object = object>(path: string, body?: TBody, options?: ReadOptions): Promise<TResponse> =>
     request<TResponse, TBody | EmptyBody>("POST", path, { ...options, body: body ?? EMPTY_BODY }),
-  put: <TResponse, TBody extends object = object>(path: string, body?: TBody, options?: ReadOptions) =>
+  /** `PUT` com o cabeçalho anti-CSRF; sem corpo, envia `{}`. */
+  put: <TResponse, TBody extends object = object>(path: string, body?: TBody, options?: ReadOptions): Promise<TResponse> =>
     request<TResponse, TBody | EmptyBody>("PUT", path, { ...options, body: body ?? EMPTY_BODY }),
-  patch: <TResponse, TBody extends object = object>(path: string, body?: TBody, options?: ReadOptions) =>
+  /** `PATCH` com o cabeçalho anti-CSRF; sem corpo, envia `{}`. */
+  patch: <TResponse, TBody extends object = object>(path: string, body?: TBody, options?: ReadOptions): Promise<TResponse> =>
     request<TResponse, TBody | EmptyBody>("PATCH", path, { ...options, body: body ?? EMPTY_BODY }),
-  delete: <TResponse = void, TBody extends object = object>(path: string, body?: TBody, options?: ReadOptions) =>
+  /** `DELETE` com o cabeçalho anti-CSRF; o corpo é opcional. */
+  delete: <TResponse = void, TBody extends object = object>(path: string, body?: TBody, options?: ReadOptions): Promise<TResponse> =>
     request<TResponse, TBody>("DELETE", path, { ...options, body }),
 }
 
@@ -182,6 +189,7 @@ export async function nullOnStatus<T>(promise: Promise<T>, status: number): Prom
   }
 }
 
+/** Resultado de uma chamada sem exceção: os dados ou o `ApiError` (ver {@link toApiResult}). */
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: ApiError }
 
 /** Para telas que tratam o erro como dado (ex.: mostrar a mensagem no lugar do conteúdo). */

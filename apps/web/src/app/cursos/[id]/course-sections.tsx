@@ -17,7 +17,7 @@ interface CourseLessonListProps {
   isEnrolled: boolean
 }
 
-export function CourseLessonList({ lessons, statuses, isEnrolled }: CourseLessonListProps) {
+export function CourseLessonList({ lessons, statuses, isEnrolled }: CourseLessonListProps): React.JSX.Element {
   if (lessons.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
@@ -32,7 +32,7 @@ export function CourseLessonList({ lessons, statuses, isEnrolled }: CourseLesson
           key={lesson.id}
           lesson={lesson}
           position={index + 1}
-          status={statuses[index]}
+          status={statuses[index] ?? "locked"}
           isEnrolled={isEnrolled}
         />
       ))}
@@ -46,7 +46,7 @@ const STATUS_BADGE_CLASSES: Record<TrailStatus, string> = {
   locked: "bg-muted",
 }
 
-function LessonStatusIcon({ status }: { status: TrailStatus }) {
+function LessonStatusIcon({ status }: { status: TrailStatus }): React.JSX.Element {
   if (status === "completed") return <CheckCircle2 className="h-4 w-4 text-green-600" />
   if (status === "in-progress") return <Play className="h-4 w-4 text-level-purple" />
   return <Lock className="h-3.5 w-3.5 text-muted-foreground" />
@@ -59,7 +59,7 @@ interface CourseLessonRowProps {
   isEnrolled: boolean
 }
 
-function CourseLessonRow({ lesson, position, status, isEnrolled }: CourseLessonRowProps) {
+function CourseLessonRow({ lesson, position, status, isEnrolled }: CourseLessonRowProps): React.JSX.Element {
   const router = useRouter()
   const canAccess = isEnrolled && status !== "locked"
   return (
@@ -119,7 +119,7 @@ interface CertificationSectionProps {
   certificateCode: string | null
 }
 
-export function CertificationSection({ courseId, examStatus, certificateCode }: CertificationSectionProps) {
+export function CertificationSection({ courseId, examStatus, certificateCode }: CertificationSectionProps): React.JSX.Element {
   const { passed, eligible } = examStatus
   const cardClassName = passed
     ? "border-green-300 bg-green-50"
@@ -179,7 +179,7 @@ interface FinalProjectSectionProps {
   onStart: () => void
 }
 
-export function FinalProjectSection({ course, lessonCount, isUnlocked, onStart }: FinalProjectSectionProps) {
+export function FinalProjectSection({ course, lessonCount, isUnlocked, onStart }: FinalProjectSectionProps): React.JSX.Element {
   return (
     <section>
       <h2 className="mb-4 text-xl font-bold text-level-purple-dark">Projeto Final</h2>
@@ -272,7 +272,7 @@ function courseStats(course: Course, lessonCount: number, hasFinalProject: boole
   return stats
 }
 
-export function CourseSidebar({ course, lessons, hasFinalProject }: CourseSidebarProps) {
+export function CourseSidebar({ course, lessons, hasFinalProject }: CourseSidebarProps): React.JSX.Element {
   const hiddenLessonCount = lessons.length - LEARNING_PREVIEW_SIZE
   return (
     <>

@@ -19,7 +19,7 @@ interface SparkBarProps {
 }
 
 /** Mini gráfico de barras (sparkline) para os cards do painel admin. */
-export function SparkBar({ data, color = BRAND_PURPLE, height = 32, width = 5, gap = 2 }: SparkBarProps) {
+export function SparkBar({ data, color = BRAND_PURPLE, height = 32, width = 5, gap = 2 }: SparkBarProps): React.JSX.Element {
   const max = Math.max(...data, 1)
   return (
     <div className="flex items-end" style={{ height, gap }}>
@@ -67,7 +67,7 @@ interface DonutProps {
 }
 
 /** Gráfico de rosca (donut) com total no centro. */
-export function Donut({ data, size = 140, thickness = 16, label = "Total" }: DonutProps) {
+export function Donut({ data, size = 140, thickness = 16, label = "Total" }: DonutProps): React.JSX.Element {
   const total = data.reduce((sum, slice) => sum + slice.value, 0) || 1
   const radius = size / 2 - thickness / 2 - 4
   const center = size / 2
@@ -105,7 +105,7 @@ interface ChartLegendProps {
 }
 
 /** Legenda (cor, nome e valor) ao lado do `Donut`. */
-export function ChartLegend({ slices }: ChartLegendProps) {
+export function ChartLegend({ slices }: ChartLegendProps): React.JSX.Element {
   return (
     <ul className="space-y-2 text-xs">
       {slices.map((slice) => (

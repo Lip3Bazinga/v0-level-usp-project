@@ -1,3 +1,5 @@
+import { nonEmpty } from "@levelusp/contracts"
+
 const LESSON_ROUTE_PREFIX = "/lesson"
 
 /**
@@ -25,7 +27,7 @@ export const ROUTES = {
   leaderboard: "/leaderboard",
   settings: "/settings",
   /** Perfil público; sem username cai em `/perfil/me` (a página resolve o usuário logado). */
-  profile: (username?: string | null) => `/perfil/${username || "me"}`,
+  profile: (username?: string | null) => `/perfil/${nonEmpty(username) ?? "me"}`,
   certificate: (verificationCode: string) => `/certificado/${verificationCode}`,
 
   teacher: "/teacher",

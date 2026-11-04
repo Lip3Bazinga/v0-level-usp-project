@@ -28,7 +28,7 @@ const NO_QUESTIONS: QuizQuestionPublic[] = []
 
 type QuizReview = QuizResult["review"][number]
 
-export function QuizLessonLayout({ lesson, allLessons, currentIndex }: QuizLessonLayoutProps) {
+export function QuizLessonLayout({ lesson, allLessons, currentIndex }: QuizLessonLayoutProps): React.JSX.Element {
   const router = useRouter()
   const { applyCompletion, isCompleted } = useProgress()
   const navigation = useLessonNavigation(allLessons, currentIndex, lesson)
@@ -54,12 +54,12 @@ export function QuizLessonLayout({ lesson, allLessons, currentIndex }: QuizLesso
   const errorMessage = submitError ?? (quiz.status === "error" ? quiz.error : null)
   const hasAnsweredAll = questions.length > 0 && questions.every((question) => answers[question.id] !== undefined)
 
-  const handleNext = () => {
+  const handleNext = (): void => {
     setIsSuccessOpen(false)
     navigation.goToNext()
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (): Promise<void> => {
     if (!hasAnsweredAll || isSubmitting) return
     setIsSubmitting(true)
     setSubmitError(null)
@@ -81,13 +81,13 @@ export function QuizLessonLayout({ lesson, allLessons, currentIndex }: QuizLesso
     }
   }
 
-  const handleRetry = () => {
+  const handleRetry = (): void => {
     setResult(null)
     setAnswers({})
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
-  const handleAnswer = (questionId: string, optionIndex: number) => {
+  const handleAnswer = (questionId: string, optionIndex: number): void => {
     setAnswers((current) => ({ ...current, [questionId]: optionIndex }))
   }
 
@@ -103,7 +103,7 @@ export function QuizLessonLayout({ lesson, allLessons, currentIndex }: QuizLesso
           hasAnsweredAll={hasAnsweredAll}
           hasQuestions={questions.length > 0}
           isSubmitting={isSubmitting}
-          onSubmit={handleSubmit}
+          onSubmit={() => void handleSubmit()}
           onRetry={handleRetry}
         />
       }
@@ -163,7 +163,7 @@ export function QuizLessonLayout({ lesson, allLessons, currentIndex }: QuizLesso
   )
 }
 
-function QuizScore({ result }: { result: QuizResult }) {
+function QuizScore({ result }: { result: QuizResult }): React.JSX.Element {
   const { passed } = result
   return (
     <div className={cn(
@@ -195,7 +195,7 @@ interface QuizQuestionCardProps {
   onAnswer: (questionId: string, optionIndex: number) => void
 }
 
-function QuizQuestionCard({ question, position, chosenIndex, review, isLocked, onAnswer }: QuizQuestionCardProps) {
+function QuizQuestionCard({ question, position, chosenIndex, review, isLocked, onAnswer }: QuizQuestionCardProps): React.JSX.Element {
   const cardClassName = !review ? "border-border bg-white" : review.correct ? "border-green-200 bg-green-50/50" : "border-red-200 bg-red-50/50"
   return (
     <div className={cn("rounded-2xl border-2 p-5 transition-colors", cardClassName)}>
@@ -261,7 +261,7 @@ interface QuizPrimaryActionProps {
   onRetry: () => void
 }
 
-function QuizPrimaryAction({ result, hasAnsweredAll, hasQuestions, isSubmitting, onSubmit, onRetry }: QuizPrimaryActionProps) {
+function QuizPrimaryAction({ result, hasAnsweredAll, hasQuestions, isSubmitting, onSubmit, onRetry }: QuizPrimaryActionProps): React.JSX.Element {
   if (!result) {
     return (
       <button

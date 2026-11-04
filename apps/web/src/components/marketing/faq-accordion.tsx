@@ -12,7 +12,7 @@ interface FaqAccordionProps {
 }
 
 /** Lista de perguntas em que só uma resposta fica aberta por vez (a primeira começa aberta). */
-export function FaqAccordion({ items }: FaqAccordionProps) {
+export function FaqAccordion({ items }: FaqAccordionProps): React.JSX.Element {
   const [openIndex, setOpenIndex] = useState<number | null>(0)
 
   return (

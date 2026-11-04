@@ -5,7 +5,7 @@ import type { Request, Response } from "express"
 import {
   changePasswordSchema, requestPasswordResetSchema, resetPasswordSchema, signInSchema, signUpSchema,
   type ChangePasswordInput, type RequestPasswordResetInput, type ResetPasswordInput, type SessionResponse,
-  type SignInInput, type SignUpInput,
+  type SignInInput, type SignUpInput, type OkResponse,
 } from "@levelusp/contracts"
 import { ENV } from "@/config/config.module"
 import type { Env } from "@/config/env"
@@ -17,7 +17,7 @@ import { AuthService, type ClientInfo, type IssuedSession } from "./auth.service
 import { clearSessionCookie, setSessionCookie } from "./session.cookie"
 
 /** AUTH_THROTTLE_LIMIT permite afrouxar o limite por IP nos testes automatizados. */
-const credentialThrottleLimit = () => Number(process.env.AUTH_THROTTLE_LIMIT ?? IP_THROTTLE.credentialLimit)
+const credentialThrottleLimit = (): number => Number(process.env.AUTH_THROTTLE_LIMIT ?? IP_THROTTLE.credentialLimit)
 const CREDENTIAL_THROTTLE = { default: { limit: credentialThrottleLimit, ttl: IP_THROTTLE.windowMs } }
 /** "Esqueci a senha" dispara e-mail: metade do limite das demais rotas de credencial. */
 const PASSWORD_FORGOT_THROTTLE = { default: { limit: () => Math.ceil(credentialThrottleLimit() / 2), ttl: IP_THROTTLE.windowMs } }
@@ -63,7 +63,7 @@ export class AuthController {
   @Throttle(PASSWORD_FORGOT_THROTTLE)
   @HttpCode(202)
   @Post("password/forgot")
-  async requestPasswordReset(@Body(new ZodPipe(requestPasswordResetSchema)) body: RequestPasswordResetInput): Promise<{ ok: true }> {
+  async requestPasswordReset(@Body(new ZodPipe(requestPasswordResetSchema)) body: RequestPasswordResetInput): Promise<OkResponse> {
     await this.auth.requestPasswordReset(body.email)
     return { ok: true }
   }
@@ -72,7 +72,7 @@ export class AuthController {
   @Throttle(CREDENTIAL_THROTTLE)
   @HttpCode(200)
   @Post("password/reset")
-  async resetPassword(@Body(new ZodPipe(resetPasswordSchema)) body: ResetPasswordInput): Promise<{ ok: true }> {
+  async resetPassword(@Body(new ZodPipe(resetPasswordSchema)) body: ResetPasswordInput): Promise<OkResponse> {
     await this.auth.resetPassword(body.token, body.password)
     return { ok: true }
   }
@@ -80,7 +80,7 @@ export class AuthController {
   @Throttle(CREDENTIAL_THROTTLE)
   @HttpCode(200)
   @Post("password/change")
-  async changePassword(@CurrentUser() user: AuthUser, @Body(new ZodPipe(changePasswordSchema)) body: ChangePasswordInput): Promise<{ ok: true }> {
+  async changePassword(@CurrentUser() user: AuthUser, @Body(new ZodPipe(changePasswordSchema)) body: ChangePasswordInput): Promise<OkResponse> {
     await this.auth.changePassword(user, body.current_password, body.new_password)
     return { ok: true }
   }

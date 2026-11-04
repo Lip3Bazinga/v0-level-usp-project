@@ -53,7 +53,7 @@ interface AdminOverviewProps {
   onNavigate: (page: AdminPageId) => void
 }
 
-export function AdminOverview({ metrics, activity, dailyCompletions, onNavigate }: AdminOverviewProps) {
+export function AdminOverview({ metrics, activity, dailyCompletions, onNavigate }: AdminOverviewProps): React.JSX.Element {
   const roleSlices = [
     roleSlice("student", metrics.totalStudents),
     roleSlice("teacher", metrics.totalTeachers),
@@ -103,7 +103,7 @@ interface OverviewHeroProps {
   onNavigate: (page: AdminPageId) => void
 }
 
-function OverviewHero({ metrics, dailyCompletions, onNavigate }: OverviewHeroProps) {
+function OverviewHero({ metrics, dailyCompletions, onNavigate }: OverviewHeroProps): React.JSX.Element {
   const peakDay = Math.max(0, ...dailyCompletions)
   return (
     <section className="relative overflow-hidden rounded-3xl bg-linear-to-br from-level-purple-dark via-level-purple to-level-purple-medium p-6 text-white shadow-xl sm:p-8">
@@ -151,7 +151,7 @@ interface KpiCardProps {
   kpi: Kpi
 }
 
-function KpiCard({ kpi }: KpiCardProps) {
+function KpiCard({ kpi }: KpiCardProps): React.JSX.Element {
   const Icon = kpi.icon
   return (
     <div className="rounded-2xl border border-border bg-white p-4 transition-all hover:-translate-y-0.5 hover:border-level-purple-medium hover:shadow-lg">
@@ -169,7 +169,7 @@ interface ActivityFeedProps {
   onShowLogs: () => void
 }
 
-function ActivityFeed({ activity, onShowLogs }: ActivityFeedProps) {
+function ActivityFeed({ activity, onShowLogs }: ActivityFeedProps): React.JSX.Element {
   return (
     <div className="rounded-2xl border border-border bg-white">
       <div className="flex items-center justify-between border-b border-border px-6 py-4">

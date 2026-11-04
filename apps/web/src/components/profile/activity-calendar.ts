@@ -1,5 +1,5 @@
 import type { ActivityDay } from "@levelusp/contracts"
-import { indexBy } from "@/lib/utils"
+import { cycleItem, indexBy, isNonEmpty, type NonEmptyArray } from "@/lib/utils"
 
 /** Célula do mapa (data já convertida para Date local). */
 export interface DayCell {
@@ -20,7 +20,7 @@ export interface MonthLabel {
 const DAYS_IN_MAP = 365
 const DAYS_PER_WEEK = 7
 const WEEKS_IN_MAP = 53
-const MONTH_NAMES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+const MONTH_NAMES: NonEmptyArray<string> = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
 
 /** Faixas de XP do dia → cor (mais XP, roxo mais escuro). */
 const ACTIVITY_COLORS: readonly { maxXpExclusive: number; color: string }[] = [
@@ -60,7 +60,7 @@ export function activityColor(xp: number): string {
 
 /** Colunas de domingo a sábado; a primeira semana começa com espaços vazios. */
 export function groupIntoWeeks(cells: readonly DayCell[]): CalendarWeek[] {
-  if (cells.length === 0) return []
+  if (!isNonEmpty(cells)) return []
   const leadingBlanks: CalendarWeek = Array.from({ length: cells[0].date.getDay() }, () => null)
   const slots: CalendarWeek = [...leadingBlanks, ...cells]
   const weeks: CalendarWeek[] = []
@@ -77,7 +77,7 @@ export function monthLabels(today = new Date()): MonthLabel[] {
     const month = date.getMonth()
     if (month === previousMonth) continue
     previousMonth = month
-    labels.push({ month: MONTH_NAMES[month], weekIndex })
+    labels.push({ month: cycleItem(MONTH_NAMES, month), weekIndex })
   }
   return labels
 }
@@ -85,6 +85,6 @@ export function monthLabels(today = new Date()): MonthLabel[] {
 /** Dias seguidos com XP, contando de hoje para trás. */
 export function countTrailingActiveDays(cells: readonly DayCell[]): number {
   let streak = 0
-  for (let index = cells.length - 1; index >= 0 && cells[index].xp > 0; index--) streak++
+  for (let index = cells.length - 1; index >= 0 && (cells[index]?.xp ?? 0) > 0; index--) streak++
   return streak
 }

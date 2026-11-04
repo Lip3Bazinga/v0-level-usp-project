@@ -3,7 +3,7 @@ import type { RunnerJob, RunnerResult } from "@levelusp/contracts"
 import { ENV } from "@/config/config.module"
 import type { Env } from "@/config/env"
 import { AppError, ServiceUnavailable } from "@/common/errors/app-error"
-import type { CodeRunner, RunnerHealthProbe } from "./code-runner"
+import { RUNNER_BUSY_CODE, type CodeRunner, type RunnerHealthProbe } from "./code-runner"
 
 /**
  * Prazo da requisição: os lotes de um job podem rodar em sequência e esperar
@@ -15,6 +15,25 @@ const HEALTHCHECK_TIMEOUT_MS = 2_000
 const MAX_LOGGED_BODY_CHARS = 500
 
 const UNAVAILABLE_MESSAGE = "O corretor está indisponível no momento."
+
+/** Espera sugerida quando o executor não informa (fila cheia de versão antiga). */
+const DEFAULT_RETRY_AFTER_SECONDS = 10
+const MAX_RETRY_AFTER_SECONDS = 120
+
+/** `Retry-After` em segundos inteiros (o executor não manda data); inválido → padrão. */
+export function parseRetryAfter(header: string | null): number {
+  const seconds = Number(header)
+  if (header === null || !Number.isInteger(seconds) || seconds < 1) return DEFAULT_RETRY_AFTER_SECONDS
+  return Math.min(seconds, MAX_RETRY_AFTER_SECONDS)
+}
+
+/**
+ * Mensagem do "corretor ocupado": diz quanto esperar e que a tentativa não contou no limite
+ * de verificações (o serviço devolve a cota). Sob carga é o que a turma inteira vê.
+ */
+export function busyMessage(retryAfterSeconds: number): string {
+  return `Muitos envios ao mesmo tempo: a fila do corretor está cheia. Tente de novo em ${retryAfterSeconds} s — esta tentativa não contou no seu limite.`
+}
 
 /** Formato mínimo da resposta; o executor é interno, mas a fronteira continua tipada. */
 function isRunnerResult(value: unknown): value is RunnerResult {
@@ -63,7 +82,11 @@ export class RunnerClient implements CodeRunner, RunnerHealthProbe {
   }
 
   private async readResult(response: Response): Promise<RunnerResult> {
-    if (response.status === 503) throw ServiceUnavailable("O corretor está ocupado. Tente de novo em alguns segundos.", "RUNNER_BUSY")
+    if (response.status === 503) {
+      const retryAfterSeconds = parseRetryAfter(response.headers.get("retry-after"))
+      await response.body?.cancel()
+      throw ServiceUnavailable(busyMessage(retryAfterSeconds), RUNNER_BUSY_CODE, retryAfterSeconds)
+    }
     if (!response.ok) {
       this.logger.error({ status: response.status, body: (await response.text()).slice(0, MAX_LOGGED_BODY_CHARS) }, "executor respondeu erro")
       throw ServiceUnavailable(UNAVAILABLE_MESSAGE, "RUNNER_ERROR")

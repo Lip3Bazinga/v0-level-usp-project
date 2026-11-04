@@ -45,13 +45,13 @@ export function duplicateLessonInput(source: LessonWithTests): LessonInput {
     difficulty: source.difficulty,
     content_markdown: source.content_markdown,
     starter_code: source.starter_code,
-    starter_files: source.starter_files ?? [],
-    checkpoints: source.checkpoints ?? [],
+    starter_files: source.starter_files,
+    checkpoints: source.checkpoints,
     libraries: source.libraries ?? [],
     lesson_type: source.lesson_type,
     quiz_passing_score: source.quiz_passing_score,
     xp_reward: source.xp_reward,
     time_limit: source.time_limit,
-    test_cases: source.test_cases ?? [],
+    test_cases: source.test_cases,
   }
 }

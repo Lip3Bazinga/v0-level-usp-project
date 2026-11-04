@@ -1,29 +1,31 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { eq, sql } from "drizzle-orm"
 import { certificates, notifications } from "@levelusp/db"
-import { agent, countRows, createLesson, createTestApp, signUp, type TestContext } from "./harness"
+import type { ApiErrorBody, CertificateIssue, CertificateVerification, ExamStart } from "@levelusp/contracts"
+import { agent, bodyOf, countRows, createLesson, createTestApp, signUp, type SignedUpUser, type TestContext } from "./harness"
 import { answersFor, completeLessons, drawnQuestionIds, missQuestions, seedCourseWithExam, type ExamFixture } from "./exam-fixtures"
 
-const APP_ORIGIN = "https://levelusp.teste.example"
+const PUBLIC_BASE_URL = "https://levelusp.teste.example"
 
 describe("Certificados (e2e)", () => {
   let ctx: TestContext
   beforeAll(async () => {
-    ctx = await createTestApp({ APP_ORIGIN })
+    ctx = await createTestApp({ PUBLIC_BASE_URL })
   })
   afterAll(() => ctx.close())
   beforeEach(() => ctx.reset())
 
   /** Aluno que concluiu as lições e foi aprovado na prova pelo fluxo real. */
-  async function approvedStudent(fixture: ExamFixture) {
+  async function approvedStudent(fixture: ExamFixture): Promise<SignedUpUser> {
     const student = await signUp(ctx.app)
     await completeLessons(ctx, student.id, fixture.lessonIds)
     const start = await student.agent.post(`/api/courses/${fixture.courseId}/exam/attempts`)
     expect(start.status).toBe(200)
-    const ids = drawnQuestionIds(start.body)
+    const attempt = bodyOf<ExamStart>(start)
+    const ids = drawnQuestionIds(attempt)
     // Erra 1 de 4: nota 75.
     const answers = missQuestions(answersFor(ids, fixture.answerKey, true), fixture.answerKey, ids.slice(0, 1))
-    const submit = await student.agent.post(`/api/courses/${fixture.courseId}/exam/submit`, { attemptId: start.body.attemptId, answers })
+    const submit = await student.agent.post(`/api/courses/${fixture.courseId}/exam/submit`, { attemptId: attempt.attemptId, answers })
     expect(submit.body).toMatchObject({ passed: true, score: 75 })
     return student
   }
@@ -37,9 +39,10 @@ describe("Certificados (e2e)", () => {
     const issued = await student.agent.post(`/api/courses/${fixture.courseId}/certificate`)
     expect(issued.status).toBe(200)
     expect(issued.body).toMatchObject({ issued: true, alreadyIssued: false, examScore: 75 })
-    const code = issued.body.verificationCode as string
+    const certificate = bodyOf<CertificateIssue>(issued)
+    const code = certificate.verificationCode
     expect(code).toMatch(/^LVL-[A-Z2-9]{4}-[A-Z2-9]{4}$/)
-    expect(new Date(issued.body.issuedAt).toISOString()).toBe(issued.body.issuedAt)
+    expect(new Date(certificate.issuedAt).toISOString()).toBe(certificate.issuedAt)
 
     // Idempotente.
     const again = await student.agent.post(`/api/courses/${fixture.courseId}/certificate`)
@@ -47,19 +50,21 @@ describe("Certificados (e2e)", () => {
     expect(await countRows(ctx.db, sql`select count(*)::int as n from certificates`)).toBe(1)
 
     const mine = await student.agent.get(`/api/courses/${fixture.courseId}/certificate`)
-    expect(mine.body).toEqual({ verification_code: code, issued_at: issued.body.issuedAt, exam_score: 75, course_id: fixture.courseId, course_title: "Python do Zero" })
+    expect(mine.body).toEqual({ verification_code: code, issued_at: certificate.issuedAt, exam_score: 75, course_id: fixture.courseId, course_title: "Python do Zero" })
     expect((await student.agent.get("/api/me/certificates")).body).toEqual([mine.body])
 
     // Verificação pública, sem login e sem e-mail.
     const anonymous = agent(ctx.app)
     const verify = await anonymous.get(`/api/certificates/${code.toLowerCase()}`)
     expect(verify.status).toBe(200)
-    expect(verify.body).toEqual({
+    const verification = bodyOf<CertificateVerification>(verify)
+    expect(verification.student_name).toMatch(/^Usuário/)
+    expect(verification).toEqual({
       valid: true,
       verification_code: code,
-      student_name: expect.stringMatching(/^Usuário/),
+      student_name: verification.student_name,
       course_title: "Python do Zero",
-      issued_at: issued.body.issuedAt,
+      issued_at: certificate.issuedAt,
       exam_score: 75,
     })
     expect(JSON.stringify(verify.body)).not.toContain(student.email)
@@ -72,9 +77,12 @@ describe("Certificados (e2e)", () => {
     expect(pdf.status).toBe(200)
     expect(pdf.headers["content-type"]).toBe("application/pdf")
     expect(pdf.headers["content-disposition"]).toContain(`certificado-levelusp-${code}.pdf`)
-    const body: Buffer = pdf.body
+    const body = bodyOf<Buffer>(pdf)
     expect(body.subarray(0, 4).toString()).toBe("%PDF")
     expect(body.length).toBeGreaterThan(1000)
+    // Link de verificação (anotação clicável) aponta para a origem pública configurada (UX-02).
+    expect(body.toString("latin1")).toContain(`/URI (${PUBLIC_BASE_URL}/certificado/${code})`)
+    expect(body.toString("latin1")).not.toContain("localhost")
 
     // Auditoria e notificação da emissão.
     const audit = await ctx.db.execute(sql`select action, target from audit_log`)
@@ -88,7 +96,7 @@ describe("Certificados (e2e)", () => {
     const response = await anonymous.get("/api/certificates/LVL-ZZZZ-ZZZZ")
     expect(response.status).toBe(200)
     expect(response.body).toEqual({ valid: false, verification_code: "LVL-ZZZZ-ZZZZ", student_name: null, course_title: null, issued_at: null, exam_score: null })
-    expect((await anonymous.get("/api/certificates/codigo%20estranho%27")).body.valid).toBe(false)
+    expect(bodyOf<CertificateVerification>(await anonymous.get("/api/certificates/codigo%20estranho%27")).valid).toBe(false)
     expect((await anonymous.get("/api/certificates/LVL-ZZZZ-ZZZZ/pdf")).status).toBe(404)
   })
 
@@ -106,7 +114,7 @@ describe("Certificados (e2e)", () => {
     await completeLessons(ctx, student.id, fixture.lessonIds)
     const response = await student.agent.post(`/api/courses/${fixture.courseId}/certificate`)
     expect(response.status).toBe(403)
-    expect(response.body.code).toBe("EXAM_NOT_PASSED")
+    expect(bodyOf<ApiErrorBody>(response).code).toBe("EXAM_NOT_PASSED")
     expect((await student.agent.get("/api/me/certificates")).body).toEqual([])
   })
 
@@ -117,7 +125,7 @@ describe("Certificados (e2e)", () => {
     await createLesson(ctx.db, { title: "Projeto final", courseId: fixture.courseId, module: "Certificação", lessonType: "coding" })
     const response = await student.agent.post(`/api/courses/${fixture.courseId}/certificate`)
     expect(response.status).toBe(403)
-    expect(response.body.code).toBe("NOT_ELIGIBLE")
+    expect(bodyOf<ApiErrorBody>(response).code).toBe("NOT_ELIGIBLE")
     const status = await student.agent.get(`/api/courses/${fixture.courseId}/exam`)
     expect(status.body).toMatchObject({ eligible: true, lessonsRemaining: 0, lessonsTotal: 2 })
   })

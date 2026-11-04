@@ -17,6 +17,9 @@ export const enrollments = pgTable(
   (table) => [unique("enrollments_user_id_course_id_key").on(table.userId, table.courseId), index("enrollments_course_idx").on(table.courseId)],
 )
 
+/** Matrícula de um aluno num curso. */
+export type EnrollmentRow = typeof enrollments.$inferSelect
+
 export const lessonProgress = pgTable(
   "lesson_progress",
   {
@@ -38,6 +41,7 @@ export const lessonProgress = pgTable(
   ],
 )
 
+/** Progresso do aluno numa lição; só o GamificationService grava a conclusão. */
 export type LessonProgressRow = typeof lessonProgress.$inferSelect
 
 /** Cada clique em "Verificar": trilha de auditoria da nota e base das métricas do professor. */
@@ -58,7 +62,9 @@ export const submissions = pgTable(
   (table) => [index("submissions_user_lesson_idx").on(table.userId, table.lessonId, table.createdAt), index("submissions_lesson_idx").on(table.lessonId)],
 )
 
+/** Submissão de código e o veredito guardado. */
 export type SubmissionRow = typeof submissions.$inferSelect
+/** Valores para gravar uma submissão. */
 export type SubmissionInsert = typeof submissions.$inferInsert
 
 export const notes = pgTable(
@@ -76,5 +82,7 @@ export const notes = pgTable(
   (table) => [index("idx_notes_user").on(table.userId, table.updatedAt)],
 )
 
+/** Anotação do aluno. */
 export type NoteRow = typeof notes.$inferSelect
+/** Valores para inserir ou atualizar em `notes`. */
 export type NoteInsert = typeof notes.$inferInsert

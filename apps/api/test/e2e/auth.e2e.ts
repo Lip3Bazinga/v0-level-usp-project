@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { sql } from "drizzle-orm"
 import { profiles, sessions } from "@levelusp/db"
-import { agent, countRows, createTestApp, queryRows, required, signUp, type TestContext } from "./harness"
+import type { ApiErrorBody, SessionResponse } from "@levelusp/contracts"
+import { agent, bodyOf, countRows, createTestApp, queryRows, required, signUp, type TestContext } from "./harness"
 
 describe("Autenticação (e2e)", () => {
   let ctx: TestContext
@@ -15,14 +16,14 @@ describe("Autenticação (e2e)", () => {
     const visitor = agent(ctx.app)
     const response = await visitor.post("/api/auth/sign-up", { email: "Ana@USP.br", password: "senhaForte123", full_name: "Ana" })
     expect(response.status).toBe(201)
-    expect(response.body.user).toMatchObject({ email: "ana@usp.br", username: "ana", role: "student", current_streak: 1 })
+    expect(bodyOf<SessionResponse>(response).user).toMatchObject({ email: "ana@usp.br", username: "ana", role: "student", current_streak: 1 })
     const cookie = response.headers["set-cookie"]?.[0] ?? ""
     expect(cookie).toMatch(/lvl_session=/)
     expect(cookie).toMatch(/HttpOnly/i)
     expect(cookie).toMatch(/SameSite=Lax/i)
     const me = await visitor.get("/api/auth/me")
     expect(me.status).toBe(200)
-    expect(me.body.user.email).toBe("ana@usp.br")
+    expect(bodyOf<SessionResponse>(me).user.email).toBe("ana@usp.br")
   })
 
   it("guarda só o hash do token e da senha", async () => {
@@ -39,16 +40,16 @@ describe("Autenticação (e2e)", () => {
     const { email } = await signUp(ctx.app)
     const duplicate = await agent(ctx.app).post("/api/auth/sign-up", { email, password: "senhaForte123", full_name: "X" })
     expect(duplicate.status).toBe(409)
-    expect(duplicate.body.code).toBe("EMAIL_TAKEN")
+    expect(bodyOf<ApiErrorBody>(duplicate).code).toBe("EMAIL_TAKEN")
     const weak = await agent(ctx.app).post("/api/auth/sign-up", { email: "b@usp.br", password: "123", full_name: "B" })
     expect(weak.status).toBe(400)
-    expect(weak.body.code).toBe("VALIDATION")
+    expect(bodyOf<ApiErrorBody>(weak).code).toBe("VALIDATION")
   })
 
   it("exige o cabeçalho anti-CSRF em requisições que alteram estado", async () => {
     const response = await agent(ctx.app).raw.post("/api/auth/sign-in").send({ email: "a@usp.br", password: "x" })
     expect(response.status).toBe(403)
-    expect(response.body.code).toBe("CSRF")
+    expect(bodyOf<ApiErrorBody>(response).code).toBe("CSRF")
   })
 
   it("rotas protegidas respondem 401 sem sessão", async () => {
@@ -63,7 +64,7 @@ describe("Autenticação (e2e)", () => {
     const missing = await agent(ctx.app).post("/api/auth/sign-in", { email: "ninguem@usp.br", password: "errada123456" })
     expect(wrong.status).toBe(401)
     expect(missing.status).toBe(401)
-    expect(wrong.body.message).toBe(missing.body.message)
+    expect(bodyOf<ApiErrorBody>(wrong).message).toBe(bodyOf<ApiErrorBody>(missing).message)
   })
 
   it("logout revoga a sessão no servidor", async () => {
@@ -105,7 +106,7 @@ describe("Autenticação (e2e)", () => {
     const blocked = await agent(ctx.app).post("/api/auth/sign-in", { email, password })
     expect(blocked.status).toBe(401)
     const missing = await agent(ctx.app).post("/api/auth/sign-in", { email: "ninguem@usp.br", password })
-    expect(blocked.body.message).toBe(missing.body.message)
+    expect(bodyOf<ApiErrorBody>(blocked).message).toBe(bodyOf<ApiErrorBody>(missing).message)
   })
 
   it("bloqueio vencido zera a contagem (um erro não bloqueia de novo)", async () => {
@@ -131,8 +132,8 @@ describe("Autenticação (e2e)", () => {
   it("sessões ficam associadas ao usuário certo", async () => {
     const firstUser = await signUp(ctx.app)
     const secondUser = await signUp(ctx.app)
-    expect((await firstUser.agent.get("/api/auth/me")).body.user.id).toBe(firstUser.id)
-    expect((await secondUser.agent.get("/api/auth/me")).body.user.id).toBe(secondUser.id)
+    expect(bodyOf<SessionResponse>(await firstUser.agent.get("/api/auth/me")).user.id).toBe(firstUser.id)
+    expect(bodyOf<SessionResponse>(await secondUser.agent.get("/api/auth/me")).user.id).toBe(secondUser.id)
     expect(await ctx.db.select().from(sessions)).toHaveLength(2)
   })
 })

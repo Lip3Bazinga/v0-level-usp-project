@@ -15,7 +15,7 @@ import { getErrorMessage, resetPassword } from "@/lib/api"
 import { ROUTES, LOGIN_REDIRECT_DELAY_MS } from "@/lib/constants"
 import { PASSWORD_MIN_LENGTH, getPasswordPolicyError } from "@/lib/utils"
 
-function InvalidResetLinkNotice() {
+function InvalidResetLinkNotice(): React.JSX.Element {
   return (
     <div role="alert" className="space-y-4 text-sm">
       <div className="flex items-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-red-700">
@@ -32,7 +32,7 @@ function InvalidResetLinkNotice() {
   )
 }
 
-function PasswordResetDoneNotice() {
+function PasswordResetDoneNotice(): React.JSX.Element {
   return (
     <div
       role="status"
@@ -44,7 +44,7 @@ function PasswordResetDoneNotice() {
   )
 }
 
-function ResetPasswordForm() {
+function ResetPasswordForm(): React.JSX.Element {
   const router = useRouter()
   const token = useSearchParams().get("token") ?? ""
   const submitLock = useSubmitLock()
@@ -61,7 +61,7 @@ function ResetPasswordForm() {
     return () => clearTimeout(timerId)
   }, [isDone, router])
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
     setErrorMessage("")
     const passwordError = getPasswordPolicyError(password)
@@ -90,7 +90,7 @@ function ResetPasswordForm() {
   if (isDone) return <PasswordResetDoneNotice />
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
       {errorMessage && <FormErrorAlert message={errorMessage} />}
       <PasswordField
         id="new-password"
@@ -122,7 +122,7 @@ function ResetPasswordForm() {
   )
 }
 
-export default function ResetPasswordPage() {
+export default function ResetPasswordPage(): React.JSX.Element {
   return (
     <AuthCenteredLayout
       title="Criar nova senha"

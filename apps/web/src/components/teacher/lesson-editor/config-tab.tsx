@@ -42,10 +42,10 @@ interface ConfigTabProps {
   modules: Module[]
 }
 
-export function ConfigTab({ form, onChange: patch, courses, modules }: ConfigTabProps) {
+export function ConfigTab({ form, onChange: patch, courses, modules }: ConfigTabProps): React.JSX.Element {
   const moduleValue = form.module_id ?? (form.module ? LEGACY_MODULE : NO_MODULE)
 
-  const handleModuleChange = (value: string) => {
+  const handleModuleChange = (value: string): void => {
     if (value === NO_MODULE) patch({ module_id: null, module: "" })
     // O módulo legado (só título) não é uma escolha nova: mantém como está.
     else if (value !== LEGACY_MODULE) patch({ module_id: value, module: modules.find((item) => item.id === value)?.title ?? "" })

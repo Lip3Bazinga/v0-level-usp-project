@@ -14,7 +14,7 @@ import { CourseHero, EnrollButton } from "./course-hero"
 import { CertificationSection, CourseLessonList, CourseSidebar, FinalProjectSection } from "./course-sections"
 import { useCourseDetail } from "./use-course-detail"
 
-export default function CourseDetailPage() {
+export default function CourseDetailPage(): React.JSX.Element {
   const { id: courseId } = useParams<{ id: string }>()
   const router = useRouter()
   const detail = useCourseDetail(courseId)
@@ -46,13 +46,13 @@ export default function CourseDetailPage() {
   const hasFinalProject = Boolean(course.final_project_title?.trim())
   const isFinalProjectUnlocked = isAllDone && isEnrolled
 
-  const handleStartLesson = () => {
+  const handleStartLesson = (): void => {
     const nextLesson = lessons.find((_, index) => statuses[index] !== "completed") ?? lessons[0]
     if (nextLesson) router.push(ROUTES.lesson(nextLesson.id))
   }
 
   // O projeto final é a última lição do curso.
-  const handleStartFinalProject = () => {
+  const handleStartFinalProject = (): void => {
     const lastLesson = lessons[lessons.length - 1]
     if (lastLesson) router.push(ROUTES.lesson(lastLesson.id))
   }
@@ -71,7 +71,7 @@ export default function CourseDetailPage() {
         courseXp={course.total_xp}
         hasCertificate
         onClose={detail.closeCompleteModal}
-        onDownloadCertificate={detail.downloadCertificate}
+        onDownloadCertificate={() => void detail.downloadCertificate()}
       />
 
       <div className="min-h-screen bg-background pb-24 md:pb-8">
@@ -94,8 +94,8 @@ export default function CourseDetailPage() {
           isEnrolling={detail.isEnrolling}
           isAllDone={isAllDone}
           onStart={handleStartLesson}
-          onToggleEnrollment={detail.toggleEnrollment}
-          onDownloadCertificate={detail.downloadCertificate}
+          onToggleEnrollment={() => void detail.toggleEnrollment()}
+          onDownloadCertificate={() => void detail.downloadCertificate()}
         />
 
         <main className="mx-auto max-w-6xl px-4 py-10">
@@ -136,7 +136,7 @@ export default function CourseDetailPage() {
               <CourseSidebar course={course} lessons={lessons} hasFinalProject={hasFinalProject} />
               {!isEnrolled && (
                 <div className="md:hidden">
-                  <EnrollButton isEnrolling={detail.isEnrolling} onEnroll={detail.toggleEnrollment} className="py-3.5" />
+                  <EnrollButton isEnrolling={detail.isEnrolling} onEnroll={() => void detail.toggleEnrollment()} className="py-3.5" />
                 </div>
               )}
             </div>

@@ -8,7 +8,7 @@ interface StreakCounterProps {
   className?: string
 }
 
-export function StreakCounter({ days, className }: StreakCounterProps) {
+export function StreakCounter({ days, className }: StreakCounterProps): React.JSX.Element {
   return (
     <div
       className={cn(

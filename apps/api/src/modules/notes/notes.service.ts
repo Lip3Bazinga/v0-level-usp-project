@@ -13,10 +13,12 @@ const NOTE_PATCH: PatchMapping<NoteUpdateInput, NoteInsert> = {
   content: (content) => ({ content }),
 }
 
+/** Anotações do aluno (sempre do próprio usuário). */
 @Injectable()
 export class NotesService {
   constructor(private readonly repo: NotesRepository) {}
 
+  /** Notas do usuário com os títulos vinculados, mais recentes primeiro. */
   async list(user: AuthUser): Promise<Note[]> {
     return (await this.repo.listByUser(user.id)).map(({ note, lessonTitle, courseTitle }) => toNote(note, { lessonTitle, courseTitle }))
   }
@@ -34,9 +36,14 @@ export class NotesService {
       lessonId: input.lesson_id ?? null,
       courseId: input.course_id ?? null,
     })
-    return toNote(note, { lessonTitle: lesson?.title, courseTitle: course?.title })
+    return toNote(note, { lessonTitle: lesson?.title ?? null, courseTitle: course?.title ?? null })
   }
 
+  /**
+   * Atualiza título e/ou conteúdo.
+   *
+   * @throws AppError 400 sem campos, 404 nota inexistente ou de outra pessoa.
+   */
   async update(user: AuthUser, id: string, input: NoteUpdateInput): Promise<Note> {
     if (input.title === undefined && input.content === undefined) throw BadRequest("Nada para atualizar.")
     const note = await this.repo.updateOwned(user.id, id, buildPatch(input, NOTE_PATCH))
@@ -45,6 +52,11 @@ export class NotesService {
     return toNote(note)
   }
 
+  /**
+   * Apaga a nota.
+   *
+   * @throws AppError 404 nota inexistente ou de outra pessoa.
+   */
   async delete(user: AuthUser, id: string): Promise<void> {
     if (!(await this.repo.deleteOwned(user.id, id))) throw NotFound("Nota")
   }

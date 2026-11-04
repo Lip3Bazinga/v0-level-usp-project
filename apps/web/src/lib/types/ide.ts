@@ -1,3 +1,4 @@
+/** Tom de uma linha do console da IDE (`figure` traz uma imagem em vez de texto). */
 export type ConsoleOutputType = "info" | "success" | "error" | "warning" | "output" | "figure"
 
 /** Linha do console da IDE (execução Python no navegador). */

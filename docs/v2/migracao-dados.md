@@ -17,6 +17,8 @@
      verificáveis;
    - imagens continuam apontando para o Storage do Supabase até serem copiadas.
 4. Converter gabaritos: `python3 packages/db/tools/convert_legacy_tests.py`
-   mostra o caminho (o seed do curso Python Completo foi gerado assim) — os
-   casos convertidos devem passar no `verify:seed` antes de substituir os legados.
+   mostra o caminho (o seed do curso Python Completo foi gerado assim): asserts
+   simples viram casos `call`/`variable`/`io`/`source`; o resto é reescrito em
+   `packages/db/tools/manual_conversions.py` como casos `expr`/`unittest`, com
+   soluções erradas que o `verify:seed` exige reprovadas.
 5. Depois de validar: rotacionar as chaves do Supabase e pausar o projeto.

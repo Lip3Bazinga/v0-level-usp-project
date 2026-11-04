@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest"
 import { buildPatch, presentFields, type PatchMapping } from "./patch"
 
+// Entradas parciais (z.infer de schemas com .optional()) podem trazer `undefined` explícito.
 interface ProfileInput {
-  full_name?: string
+  full_name?: string | undefined
   bio?: string | null
 }
 interface ProfileColumns {

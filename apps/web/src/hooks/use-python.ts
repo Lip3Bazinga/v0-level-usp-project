@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react"
-import type { ProjectFile } from "@levelusp/contracts"
+import { nonEmpty, type ProjectFile } from "@levelusp/contracts"
 import { MS_PER_SECOND, PYTHON_EXECUTION_TIMEOUT_MS } from "@/lib/constants"
 import {
   getWorkerStatus,
@@ -14,17 +14,20 @@ import type { ExecutionResult, PyodideStatus, WorkerMessage } from "@/lib/python
 
 export type { ExecutionResult, PyodideStatus }
 
+/** Projeto a executar no navegador. */
 export interface ExecutionRequest {
   files: readonly ProjectFile[]
   /** Arquivo executado; os demais ficam disponíveis para `import`. */
   entryPath: string
 }
 
+/** Callbacks de uma execução: exatamente um deles é chamado por pedido. */
 export interface ExecutionHandlers {
   onResult: (result: ExecutionResult) => void
   onError: (message: string) => void
 }
 
+/** Opções do `usePython`. */
 export interface UsePythonOptions {
   /** Pacotes instalados sempre que o runtime fica pronto (inclusive depois de reiniciado). */
   packages?: readonly string[] | null
@@ -44,8 +47,23 @@ function withoutPackage(packages: ReadonlySet<string>, name: string): ReadonlySe
   return next
 }
 
-/** Executa Python no navegador (Pyodide em Web Worker compartilhado entre telas). */
-export function usePython({ packages, onStatusChange }: UsePythonOptions = {}) {
+/** Estado e comandos do runtime Python do navegador devolvidos por `usePython`. */
+export interface UsePythonResult {
+  status: PyodideStatus
+  isExecuting: boolean
+  /** Há pacotes extras sendo instalados (a execução espera por eles). */
+  isInstalling: boolean
+  /** Executa o projeto; ignorado se o runtime ainda não está pronto. */
+  execute: (executionRequest: ExecutionRequest, handlers: ExecutionHandlers) => void
+  /** Interrompe a execução atual (reinicia o worker). */
+  stop: () => void
+}
+
+/**
+ * Executa Python no navegador (Pyodide em Web Worker compartilhado entre telas).
+ * O resultado é só pedagógico: a correção oficial acontece no servidor.
+ */
+export function usePython({ packages, onStatusChange }: UsePythonOptions = {}): UsePythonResult {
   const status = useSyncExternalStore(subscribeToWorkerStatus, getWorkerStatus, getServerStatus)
   const [isExecuting, setIsExecuting] = useState(false)
   const [pendingPackages, setPendingPackages] = useState<ReadonlySet<string>>(() => new Set())
@@ -79,12 +97,12 @@ export function usePython({ packages, onStatusChange }: UsePythonOptions = {}) {
   useEffect(() => {
     let lastStatus = getWorkerStatus()
 
-    const finishExecution = () => {
+    const finishExecution = (): void => {
       clearExecutionTimeout()
       setIsExecuting(false)
     }
 
-    const handleMessage = (message: WorkerMessage) => {
+    const handleMessage = (message: WorkerMessage): void => {
       switch (message.type) {
         case "status":
           if (message.status === lastStatus) return
@@ -98,22 +116,18 @@ export function usePython({ packages, onStatusChange }: UsePythonOptions = {}) {
           return
         case "execution-result":
           finishExecution()
-          handlersRef.current?.onResult({
-            stdout: message.stdout ?? "",
-            stderr: message.stderr ?? "",
-            figures: message.figures ?? [],
-          })
+          handlersRef.current?.onResult(message.result)
           return
         case "execution-error":
           finishExecution()
-          handlersRef.current?.onError(message.error || "Erro desconhecido")
-          return
-        case "error":
-          handlersRef.current?.onError(message.error || "Erro interno")
+          handlersRef.current?.onError(nonEmpty(message.error) ?? "Erro desconhecido")
           return
         case "package-installed":
         case "package-error":
           setPendingPackages((current) => withoutPackage(current, message.package))
+          return
+        case "packages-loading":
+          // Só informativo: a lista pendente já foi montada ao pedir a instalação.
           return
       }
     }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 
+/** Valor temporário e as ações de mostrar e limpar. */
 export interface TransientValue<T> {
   value: T | null
   /** Mostra `nextValue` por `durationMs` e depois volta a `null`; chamar de novo reinicia o prazo. */

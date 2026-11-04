@@ -1,9 +1,9 @@
 "use client"
 
-import type { CSSProperties, ReactNode, Ref } from "react"
-import { AnimatePresence, motion, type MotionProps } from "framer-motion"
+import type { ReactNode, Ref } from "react"
+import { AnimatePresence, motion, type MotionProps, type MotionStyle } from "framer-motion"
 import { useModalA11y } from "@/hooks/use-modal-a11y"
-import { cn } from "@/lib/utils"
+import { cn, definedProps } from "@/lib/utils"
 
 export type ModalMotion = Pick<MotionProps, "initial" | "animate" | "exit" | "transition">
 
@@ -12,15 +12,15 @@ interface CelebrationModalProps {
   onClose: () => void
   /** Camada e escurecimento do fundo, ex.: `"z-[10000] bg-black/70"`. */
   backdropClassName: string
-  backdropTransition?: MotionProps["transition"]
+  backdropTransition?: MotionProps["transition"] | undefined
   className: string
-  style?: CSSProperties
+  style?: MotionStyle | undefined
   motion: ModalMotion
   /** Recebe o elemento do diálogo além do foco preso (ex.: origem das partículas de XP). */
   ref?: Ref<HTMLDivElement>
-  "aria-label"?: string
-  "aria-labelledby"?: string
-  "aria-describedby"?: string
+  "aria-label"?: string | undefined
+  "aria-labelledby"?: string | undefined
+  "aria-describedby"?: string | undefined
   children: ReactNode
 }
 
@@ -44,10 +44,10 @@ export function CelebrationModal({
   ref,
   children,
   ...ariaProps
-}: CelebrationModalProps) {
+}: CelebrationModalProps): React.JSX.Element {
   const dialogRef = useModalA11y<HTMLDivElement>(isOpen, onClose)
 
-  const attachDialog = (element: HTMLDivElement | null) => {
+  const attachDialog = (element: HTMLDivElement | null): void => {
     dialogRef.current = element
     assignRef(ref, element)
   }
@@ -59,19 +59,19 @@ export function CelebrationModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={backdropTransition}
+          {...definedProps({ transition: backdropTransition })}
           className={cn("fixed inset-0 flex items-center justify-center", backdropClassName)}
           onClick={onClose}
         >
           <motion.div
-            {...dialogMotion}
+            {...definedProps(dialogMotion)}
             ref={attachDialog}
             role="dialog"
             aria-modal="true"
-            {...ariaProps}
+            {...definedProps(ariaProps)}
             onClick={(event) => event.stopPropagation()}
             className={className}
-            style={style}
+            {...definedProps({ style })}
           >
             {children}
           </motion.div>

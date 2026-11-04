@@ -10,7 +10,7 @@ interface CourseFinalProjectSectionProps {
   onChange: (changes: Partial<CourseFormState>) => void
 }
 
-export function CourseFinalProjectSection({ form, onChange }: CourseFinalProjectSectionProps) {
+export function CourseFinalProjectSection({ form, onChange }: CourseFinalProjectSectionProps): React.JSX.Element {
   return (
     <EditorSection icon={Star} title="Projeto Final" subtitle="Desafio integrador — desbloqueado após todas as lições">
       <div className="space-y-4">

@@ -30,7 +30,7 @@ const CODE_LINE_DELAY_SECONDS = 0.3
 const CODE_LINE_STAGGER_SECONDS = 0.1
 const CONSOLE_DELAY_SECONDS = 1.1
 
-function CodeLineContent({ line }: { line: CodeLine }) {
+function CodeLineContent({ line }: { line: CodeLine }): React.JSX.Element {
   const tokens = line.tokens.map((token, index) =>
     typeof token === "string" ? (
       token
@@ -43,7 +43,7 @@ function CodeLineContent({ line }: { line: CodeLine }) {
   return line.isIndented ? <span className="pl-4">{tokens}</span> : <>{tokens}</>
 }
 
-function CodeEditor() {
+function CodeEditor(): React.JSX.Element {
   return (
     <div className="bg-[#1E1E2E] p-4 font-mono text-xs sm:text-sm">
       <div className="space-y-1">
@@ -70,7 +70,7 @@ function CodeEditor() {
   )
 }
 
-function ProjectFilesSidebar() {
+function ProjectFilesSidebar(): React.JSX.Element {
   return (
     <div className="hidden w-48 border-r border-gray-100 bg-gray-50 p-3 sm:block">
       <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Arquivos</p>
@@ -93,7 +93,7 @@ function ProjectFilesSidebar() {
   )
 }
 
-function ConsolePanel() {
+function ConsolePanel(): React.JSX.Element {
   return (
     <div className="border-t border-gray-200 bg-gray-50 p-4">
       <div className="mb-2 flex items-center gap-2">
@@ -118,7 +118,7 @@ function ConsolePanel() {
   )
 }
 
-function IdeWindow() {
+function IdeWindow(): React.JSX.Element {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
       <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-3">
@@ -171,7 +171,7 @@ function FloatingBadge({
   floatOffsetPx,
   floatDurationSeconds,
   positionClass,
-}: FloatingBadgeProps) {
+}: FloatingBadgeProps): React.JSX.Element {
   return (
     <motion.div
       animate={{ y: [0, floatOffsetPx, 0] }}
@@ -196,7 +196,7 @@ function FloatingBadge({
   )
 }
 
-export function IdeShowcase() {
+export function IdeShowcase(): React.JSX.Element {
   return (
     <section id="ide" className="relative overflow-hidden py-24 lg:py-32">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">

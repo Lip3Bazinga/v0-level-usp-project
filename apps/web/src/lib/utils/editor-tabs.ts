@@ -7,10 +7,12 @@ export interface EditorTabs {
   activePath: string
 }
 
+/** Abas iniciais do editor: só o arquivo informado, ativo. */
 export function createEditorTabs(path: string = MAIN_FILE_PATH): EditorTabs {
   return { openPaths: [path], activePath: path }
 }
 
+/** Abre (ou só ativa, se já aberto) o arquivo numa aba. */
 export function openTab(tabs: EditorTabs, path: string): EditorTabs {
   const openPaths = tabs.openPaths.includes(path) ? tabs.openPaths : [...tabs.openPaths, path]
   return { openPaths, activePath: path }
@@ -23,6 +25,7 @@ export function closeTab(tabs: EditorTabs, path: string): EditorTabs {
   return { openPaths: remaining.length ? remaining : [MAIN_FILE_PATH], activePath }
 }
 
+/** Acompanha a renomeação de um arquivo ou pasta nas abas abertas. */
 export function renameTabs(tabs: EditorTabs, oldPath: string, newPath: string): EditorTabs {
   return {
     openPaths: tabs.openPaths.map((path) => renamePath(path, oldPath, newPath)),

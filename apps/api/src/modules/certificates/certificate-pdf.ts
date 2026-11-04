@@ -1,6 +1,7 @@
 import PDFDocument from "pdfkit"
 import { formatIssuedDate, formatScore } from "./certificates.domain"
 
+/** Dados impressos no PDF do certificado (data ISO; nota de 0 a 100). */
 export interface CertificatePdfData {
   code: string
   studentName: string
@@ -32,6 +33,8 @@ interface CenteredText {
   font: string
   size: number
   color: string
+  /** Torna a linha um link (anotação /URI do PDF). */
+  link?: string
 }
 
 /** PDF A4 paisagem do certificado (porte do layout de apps/web/.../certificate/pdf). */
@@ -54,11 +57,11 @@ export function renderCertificatePdf(data: CertificatePdfData): Promise<Buffer> 
     doc.lineWidth(1).strokeColor(PURPLE_LIGHT).rect(INNER_BORDER_INSET, INNER_BORDER_INSET, width - 2 * INNER_BORDER_INSET, height - 2 * INNER_BORDER_INSET).stroke()
 
     /** Texto centralizado numa linha, reduzindo a fonte se não couber. Devolve o tamanho usado. */
-    const drawCentered = (text: string, { top, font, size, color }: CenteredText): number => {
+    const drawCentered = (text: string, { top, font, size, color, link }: CenteredText): number => {
       doc.font(font)
       let fittedSize = size
       while (fittedSize > MIN_FONT_SIZE && doc.fontSize(fittedSize).widthOfString(text) > maxTextWidth) fittedSize -= 1
-      doc.fontSize(fittedSize).fillColor(color).text(text, (width - maxTextWidth) / 2, top, { width: maxTextWidth, align: "center", lineBreak: false })
+      doc.fontSize(fittedSize).fillColor(color).text(text, (width - maxTextWidth) / 2, top, { width: maxTextWidth, align: "center", lineBreak: false, link })
       return fittedSize
     }
 
@@ -87,7 +90,8 @@ export function renderCertificatePdf(data: CertificatePdfData): Promise<Buffer> 
     doc.text(`Emitido em ${formatIssuedDate(data.issuedAt)}`, FOOTER_SIDE_MARGIN, footerTop, { lineBreak: false })
     const codeText = `Código de verificação: ${data.code}`
     doc.text(codeText, width - FOOTER_SIDE_MARGIN - doc.widthOfString(codeText), footerTop, { lineBreak: false })
-    drawCentered(`Verifique a autenticidade em ${data.verifyUrl}`, { top: height - 58, font: "Helvetica", size: 9, color: GRAY })
+    // Link clicável além do texto: quem recebe o PDF verifica com um clique.
+    drawCentered(`Verifique a autenticidade em ${data.verifyUrl}`, { top: height - 58, font: "Helvetica", size: 9, color: GRAY, link: data.verifyUrl })
 
     doc.end()
   })

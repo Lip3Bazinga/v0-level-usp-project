@@ -7,6 +7,7 @@ import { previousDate, saoPauloDate } from "@/common/time/time"
 /** Chaves de configuração enviadas de uma vez (evita abuso de PUT gigante). */
 export const MAX_SETTINGS_PER_REQUEST = 100
 
+/** Ação de um admin sobre um usuário, para checar se ele está agindo sobre si mesmo. */
 export type SelfAction = { kind: "update"; patch: Pick<AdminUpdateUserInput, "role" | "suspended"> } | { kind: "delete" }
 
 /**
@@ -34,6 +35,7 @@ export function lastDays(dayCount: number, now: Date = new Date()): string[] {
   return days
 }
 
+/** Contagem agregada de um dia, entrada de {@link dailySeries}. */
 export interface DailyCount {
   /** Data civil yyyy-mm-dd. */
   day: string

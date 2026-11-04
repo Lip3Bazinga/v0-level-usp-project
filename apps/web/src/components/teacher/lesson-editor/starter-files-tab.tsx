@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Code2, Plus, X } from "lucide-react"
 import type { ProjectFile } from "@levelusp/contracts"
 import { MAIN_FILE_PATH } from "@/lib/constants"
-import { cn } from "@/lib/utils"
+import { cn, isNonEmpty, type NonEmptyArray } from "@/lib/utils"
 import { isValidStarterPath } from "./lesson-form"
 import { ADD_BUTTON_CLASS, EditorPanel } from "./panel"
 
@@ -15,7 +15,7 @@ function fileIcon(path: string): string {
 }
 
 /** Erro ao adicionar `path`, ou `null` quando pode. */
-function validateNewFile(path: string, files: ProjectFile[]): string | null {
+function validateNewFile(path: string, files: readonly ProjectFile[]): string | null {
   if (!isValidStarterPath(path)) return "Nome de arquivo inválido. Use letras, números, _ - / e termine com .py, .txt, .csv, .json ou .md."
   if (files.some((file) => file.path === path)) return "Já existe um arquivo com esse nome."
   if (files.length >= MAX_STARTER_FILES) return "Limite de 30 arquivos por exercício."
@@ -28,12 +28,12 @@ interface StarterFilesTabProps {
   onError: (message: string) => void
 }
 
-export function StarterFilesTab({ files, onChange, onError }: StarterFilesTabProps) {
-  const fileList = files.length ? files : [{ path: MAIN_FILE_PATH, content: "" }]
+export function StarterFilesTab({ files, onChange, onError }: StarterFilesTabProps): React.JSX.Element {
+  const fileList: NonEmptyArray<ProjectFile> = isNonEmpty(files) ? files : [{ path: MAIN_FILE_PATH, content: "" }]
   const [activePath, setActivePath] = useState(MAIN_FILE_PATH)
   const activeFile = fileList.find((file) => file.path === activePath) ?? fileList[0]
 
-  const handleAdd = () => {
+  const handleAdd = (): void => {
     const name = window.prompt("Nome do arquivo (ex: utils.py, dados.csv ou pasta/mod.py):")
     if (!name) return
     const path = name.trim().replace(/^\/+/, "")
@@ -46,13 +46,13 @@ export function StarterFilesTab({ files, onChange, onError }: StarterFilesTabPro
     setActivePath(path)
   }
 
-  const handleRemove = (path: string) => {
+  const handleRemove = (path: string): void => {
     if (path === MAIN_FILE_PATH) return
     onChange(fileList.filter((file) => file.path !== path))
     setActivePath(MAIN_FILE_PATH)
   }
 
-  const handleContentChange = (content: string) =>
+  const handleContentChange = (content: string): void =>
     onChange(fileList.map((file) => (file.path === activeFile.path ? { ...file, content } : file)))
 
   return (

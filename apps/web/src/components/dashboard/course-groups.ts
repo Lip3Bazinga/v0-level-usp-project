@@ -15,7 +15,7 @@ export interface ModuleGroup<TLesson = Lesson> {
 /** Lições sem módulo caem neste grupo na trilha do curso. */
 export const DEFAULT_MODULE_NAME = "Módulo 1"
 
-const byOrder = (first: OrderedLesson, second: OrderedLesson) => first.order - second.order
+const byOrder = (first: OrderedLesson, second: OrderedLesson): number => first.order - second.order
 
 function groupBy<TItem, TKey>(items: readonly TItem[], getKey: (item: TItem) => TKey): Map<TKey, TItem[]> {
   const groups = new Map<TKey, TItem[]>()

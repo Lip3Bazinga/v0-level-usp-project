@@ -12,7 +12,7 @@ const FLOATING_STATS_DELAY_SECONDS = 0.6
 const FLOATING_STATS_STAGGER_SECONDS = 0.15
 const FLOAT_LOOP_BASE_SECONDS = 4
 
-function FloatingStats() {
+function FloatingStats(): React.JSX.Element[] {
   return HERO_FLOATING_STATS.map((stat, index) => (
     <motion.div
       key={stat.label}
@@ -40,7 +40,7 @@ function FloatingStats() {
   ))
 }
 
-export function Hero() {
+export function Hero(): React.JSX.Element {
   return (
     <section className="relative overflow-hidden pt-36 pb-24 lg:pt-44 lg:pb-32">
       <div className="aurora-bg" aria-hidden />

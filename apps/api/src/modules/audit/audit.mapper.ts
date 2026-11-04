@@ -1,6 +1,7 @@
 import type { AuditLog } from "@levelusp/contracts"
 import type { AuditLogRow } from "@levelusp/db"
 
+/** Entrada de auditoria no formato do contrato (nome do ator já resolvido na gravação). */
 export function toAuditLog(entry: AuditLogRow): AuditLog {
   return {
     id: entry.id,

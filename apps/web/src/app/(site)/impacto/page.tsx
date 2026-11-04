@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 
 const REGION_BAR_STAGGER_SECONDS = 0.1
 
-function OutcomesSection() {
+function OutcomesSection(): React.JSX.Element {
   return (
     <section className="py-12">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -49,7 +49,7 @@ function OutcomesSection() {
   )
 }
 
-function RegionsSection() {
+function RegionsSection(): React.JSX.Element {
   return (
     <section className="py-16">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
@@ -83,7 +83,7 @@ function RegionsSection() {
   )
 }
 
-function TestimonialsSection() {
+function TestimonialsSection(): React.JSX.Element {
   return (
     <section className="bg-[#FAFAFA] py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -117,7 +117,7 @@ function TestimonialsSection() {
   )
 }
 
-function SustainableGoalsSection() {
+function SustainableGoalsSection(): React.JSX.Element {
   return (
     <section className="py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -145,7 +145,7 @@ function SustainableGoalsSection() {
   )
 }
 
-export default function ImpactPage() {
+export default function ImpactPage(): React.JSX.Element {
   return (
     <>
       <PageHero

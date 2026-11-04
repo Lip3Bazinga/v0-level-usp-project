@@ -35,10 +35,10 @@ const NO_BADGES: DisplayBadge[] = []
 const NO_CERTIFICATES: MyCertificate[] = []
 
 /** Compartilhamento nativo no celular; nos demais, copia o link do perfil. */
-async function shareProfileLink() {
+async function shareProfileLink(): Promise<void> {
   const url = window.location.href
   try {
-    if (navigator.share) {
+    if (typeof navigator.share === "function") {
       await navigator.share({ title: "Perfil no LevelUSP", url })
       return
     }
@@ -53,9 +53,15 @@ async function loadDisplayBadges(userId: string): Promise<DisplayBadge[]> {
   const [catalog, earnedBadges] = await Promise.all([fetchBadges(), fetchUserBadges(userId)])
   return toDisplayBadges(catalog, earnedBadges)
 }
+interface UseDisplayedProfileResult {
+  user: PublicProfile | null
+  isLoading: boolean
+  isOwnProfile: boolean
+  currentUserId: string | undefined
+}
 
 /** Perfil exibido: o do usuário logado vem da sessão; o de outra pessoa, da API. */
-function useDisplayedProfile(username: string) {
+function useDisplayedProfile(username: string): UseDisplayedProfileResult {
   const router = useRouter()
   const { profile: currentUser, isLoading: isAuthLoading } = useAuth()
   const isOwnProfile = username === OWN_PROFILE_SLUG || username === currentUser?.username
@@ -75,7 +81,7 @@ function useDisplayedProfile(username: string) {
   return { user, isLoading, isOwnProfile, currentUserId: currentUser?.id }
 }
 
-export default function ProfilePage() {
+export default function ProfilePage(): React.JSX.Element {
   const { username } = useParams<{ username: string }>()
   const router = useRouter()
   const { user, isLoading, isOwnProfile, currentUserId } = useDisplayedProfile(username)
@@ -134,7 +140,7 @@ export default function ProfilePage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="hover:bg-level-purple-light" onClick={shareProfileLink} aria-label="Compartilhar perfil">
+          <Button variant="ghost" size="icon" className="hover:bg-level-purple-light" onClick={() => void shareProfileLink()} aria-label="Compartilhar perfil">
             <Share2 className="h-5 w-5 text-muted-foreground" />
           </Button>
           {isOwnProfile && (
@@ -175,7 +181,7 @@ export default function ProfilePage() {
   )
 }
 
-function ProfileHeroSection({ user, isOwnProfile }: { user: PublicProfile; isOwnProfile: boolean }) {
+function ProfileHeroSection({ user, isOwnProfile }: { user: PublicProfile; isOwnProfile: boolean }): React.JSX.Element {
   const { xpInLevel, xpLevelRange, levelPercent } = computeLevelProgress(user.total_xp, user.level)
   return (
     <section className="mb-8">
@@ -241,7 +247,7 @@ function ProfileHeroSection({ user, isOwnProfile }: { user: PublicProfile; isOwn
   )
 }
 
-function CertificatesSection({ certificates }: { certificates: readonly MyCertificate[] }) {
+function CertificatesSection({ certificates }: { certificates: readonly MyCertificate[] }): React.JSX.Element {
   return (
     <div className="rounded-2xl border border-border bg-white p-6">
       <div className="mb-4 flex items-center gap-2">

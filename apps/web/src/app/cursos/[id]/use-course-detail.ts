@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import type { ExamStatus, LessonProgress } from "@levelusp/contracts"
+import type { ExamStatus, LessonProgress, Course, Lesson } from "@levelusp/contracts"
 import { useAuth } from "@/contexts/auth-context"
 import { useAsyncResource } from "@/hooks/use-async-resource"
 import {
@@ -19,7 +19,7 @@ import {
 } from "@/lib/api"
 import { ROUTES } from "@/lib/constants"
 import { swalConfirm, swalError, swalToast } from "@/lib/swal"
-import { computeTrailStatuses, indexBy } from "@/lib/utils"
+import { computeTrailStatuses, indexBy, type TrailStatus } from "@/lib/utils"
 
 const NO_PROGRESS: LessonProgress[] = []
 
@@ -39,13 +39,17 @@ async function loadCertification(courseId: string): Promise<Certification> {
     certificateCode: certificate?.verification_code ?? null,
   }
 }
+interface UseCourseCompletionModalResult {
+  isOpen: boolean
+  close: () => void
+}
 
 /**
  * Abre o modal de curso concluído quando o aluno matriculado passa a ter todas as
  * lições concluídas, inclusive na primeira carga da página. Acompanha a transição
  * durante a renderização (padrão do React para derivar de valores anteriores).
  */
-function useCourseCompletionModal(isAllDone: boolean, isEnrolled: boolean) {
+function useCourseCompletionModal(isAllDone: boolean, isEnrolled: boolean): UseCourseCompletionModalResult {
   const [wasAllDone, setWasAllDone] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   if (isAllDone !== wasAllDone) {
@@ -54,9 +58,28 @@ function useCourseCompletionModal(isAllDone: boolean, isEnrolled: boolean) {
   }
   return { isOpen, close: () => setIsOpen(false) }
 }
+export interface UseCourseDetailResult {
+  isLoading: boolean
+  loadError: string | null
+  course: Course | null
+  lessons: Lesson[]
+  statuses: TrailStatus[]
+  completedCount: number
+  isAllDone: boolean
+  isEnrolled: boolean
+  isEnrolling: boolean
+  examStatus: ExamStatus | null
+  certificateCode: string | null
+  isEnrollAnimationOpen: boolean
+  closeEnrollAnimation: () => void
+  isCompleteModalOpen: boolean
+  closeCompleteModal: () => void
+  toggleEnrollment: () => Promise<void>
+  downloadCertificate: () => Promise<void>
+}
 
 /** Dados da página do curso, matrícula e emissão do certificado. */
-export function useCourseDetail(courseId: string) {
+export function useCourseDetail(courseId: string): UseCourseDetailResult {
   const router = useRouter()
   const { profile, isLoading: isAuthLoading } = useAuth()
   const profileId = profile?.id
@@ -86,10 +109,10 @@ export function useCourseDetail(courseId: string) {
   )
   const certification = certificationResource.status === "success" ? certificationResource.data : null
 
-  const setEnrolled = (enrolled: boolean) =>
+  const setEnrolled = (enrolled: boolean): void =>
     courseResource.setData((current) => current && { ...current, enrolled })
 
-  const toggleEnrollment = async () => {
+  const toggleEnrollment = async (): Promise<void> => {
     if (!profile) {
       router.push(ROUTES.loginWithNext(ROUTES.course(courseId)))
       return
@@ -120,7 +143,7 @@ export function useCourseDetail(courseId: string) {
     }
   }
 
-  const downloadCertificate = async () => {
+  const downloadCertificate = async (): Promise<void> => {
     if (!certification?.examStatus) {
       await swalError({
         title: "Certificado indisponível",

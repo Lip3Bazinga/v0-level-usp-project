@@ -13,6 +13,7 @@ import { updateNote } from "@/lib/api"
 import { ROUTES, SAVED_FEEDBACK_DURATION_MS } from "@/lib/constants"
 import { formatRelativeDay, truncatePlainText, cn } from "@/lib/utils"
 import { filterNotes, sortByRecentUpdate, useNoteCollection, type NoteSearchField } from "./note-collection"
+import { nonEmpty } from "@levelusp/contracts"
 
 const IDE_ROUTE_PREFIXES = [ROUTES.lesson(""), ROUTES.ide]
 const SEARCH_FIELDS: readonly NoteSearchField[] = ["title", "content", "lesson_title"]
@@ -31,7 +32,7 @@ interface NoteEditorProps {
  * re-renderiza o React. Só "Salvar" (ou Ctrl+S) persiste e atualiza a lista. É
  * remontado (key) ao trocar de nota.
  */
-function NoteEditor({ note, onSaved }: NoteEditorProps) {
+function NoteEditor({ note, onSaved }: NoteEditorProps): React.JSX.Element {
   const titleRef = useRef<HTMLInputElement>(null)
   const contentRef = useRef(note.content)
   const [isSaving, setIsSaving] = useState(false)
@@ -57,7 +58,7 @@ function NoteEditor({ note, onSaved }: NoteEditorProps) {
   }, [note.id, isSaving, onSaved, showSaved])
 
   useEffect(() => {
-    const handleSaveShortcut = (event: KeyboardEvent) => {
+    const handleSaveShortcut = (event: KeyboardEvent): void => {
       if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s") return
       event.preventDefault()
       void handleSave()
@@ -83,7 +84,7 @@ function NoteEditor({ note, onSaved }: NoteEditorProps) {
           </span>
         )}
         <button
-          onClick={handleSave}
+          onClick={() => void handleSave()}
           disabled={isSaving}
           aria-live="polite"
           className={cn(
@@ -124,7 +125,7 @@ function NoteEditor({ note, onSaved }: NoteEditorProps) {
   )
 }
 
-function NotesModal({ onClose }: { onClose: () => void }) {
+function NotesModal({ onClose }: { onClose: () => void }): React.JSX.Element {
   const { profile } = useAuth()
   const collection = useNoteCollection(Boolean(profile))
   const { notesResource, activeNote, deletingNoteId, setNotes } = collection
@@ -162,7 +163,7 @@ function NotesModal({ onClose }: { onClose: () => void }) {
               Notas
             </span>
             <button
-              onClick={collection.create}
+              onClick={() => void collection.create()}
               title="Nova anotação"
               aria-label="Nova anotação"
               className="mr-9 flex h-7 w-7 items-center justify-center rounded-lg bg-level-purple text-white transition-colors hover:bg-level-purple-dark sm:mr-0"
@@ -202,7 +203,7 @@ function NotesModal({ onClose }: { onClose: () => void }) {
                   isActive={activeNote?.id === note.id}
                   isDeleting={deletingNoteId === note.id}
                   onSelect={collection.selectNote}
-                  onDelete={collection.remove}
+                  onDelete={(noteId) => void collection.remove(noteId)}
                 />
               ))
             )}
@@ -219,7 +220,7 @@ function NotesModal({ onClose }: { onClose: () => void }) {
               <p className="mt-1 text-xs text-muted-foreground">Clique em um título à esquerda ou crie uma nova anotação.</p>
             </div>
             <button
-              onClick={collection.create}
+              onClick={() => void collection.create()}
               className="flex items-center gap-2 rounded-xl bg-level-purple px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-level-purple-dark"
             >
               <Plus className="h-3.5 w-3.5" /> Nova anotação
@@ -247,7 +248,7 @@ interface NoteListItemProps {
   onDelete: (noteId: string) => void
 }
 
-function NoteListItem({ note, isActive, isDeleting, onSelect, onDelete }: NoteListItemProps) {
+function NoteListItem({ note, isActive, isDeleting, onSelect, onDelete }: NoteListItemProps): React.JSX.Element {
   return (
     <div
       role="button"
@@ -265,13 +266,13 @@ function NoteListItem({ note, isActive, isDeleting, onSelect, onDelete }: NoteLi
       )}
     >
       <div className="flex items-start justify-between gap-1">
-        <p className="truncate text-xs font-semibold leading-tight text-level-purple-dark">{note.title || "Sem título"}</p>
+        <p className="truncate text-xs font-semibold leading-tight text-level-purple-dark">{nonEmpty(note.title) ?? "Sem título"}</p>
         <button
           onClick={(event) => {
             event.stopPropagation()
             onDelete(note.id)
           }}
-          aria-label={`Excluir anotação ${note.title || "sem título"}`}
+          aria-label={`Excluir anotação ${nonEmpty(note.title) ?? "sem título"}`}
           className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-all hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
           disabled={isDeleting}
         >
@@ -302,9 +303,9 @@ function useIsClient(): boolean {
   return useSyncExternalStore(subscribeToNothing, () => true, () => false)
 }
 
-export function NotesFloatingWidget() {
+export function NotesFloatingWidget(): React.JSX.Element | null {
   const { profile } = useAuth()
-  const pathname = usePathname() ?? ""
+  const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
   const isClient = useIsClient()
 

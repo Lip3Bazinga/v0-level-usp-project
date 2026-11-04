@@ -55,7 +55,7 @@ interface ExamQuestionsPageProps {
   onToast: OnToast
 }
 
-export function ExamQuestionsPage({ onToast }: ExamQuestionsPageProps) {
+export function ExamQuestionsPage({ onToast }: ExamQuestionsPageProps): React.JSX.Element {
   const exams = useAsyncResource(() => fetchAdminExams(), [], { errorMessage: "Erro ao carregar as provas" })
   const [chosenExamId, setChosenExamId] = useState<string | null>(null)
   const examList = exams.status === "success" ? exams.data : []
@@ -72,10 +72,10 @@ export function ExamQuestionsPage({ onToast }: ExamQuestionsPageProps) {
   const isLoading = exams.status === "loading" || (examId !== "" && questions.status === "loading")
   const loadError = exams.status === "error" ? exams.error : questions.status === "error" ? questions.error : null
 
-  const replaceQuestion = (updated: AdminExamQuestion) =>
+  const replaceQuestion = (updated: AdminExamQuestion): void =>
     questions.setData((current) => current.map((question) => (question.id === updated.id ? updated : question)))
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<void> => {
     if (!editor) return
     const invalid = validateExamQuestion(editor.form)
     if (invalid) {
@@ -100,8 +100,8 @@ export function ExamQuestionsPage({ onToast }: ExamQuestionsPageProps) {
     }
   }
 
-  const handleToggleActive = async (question: AdminExamQuestion) => {
-    const setActive = (active: boolean) =>
+  const handleToggleActive = async (question: AdminExamQuestion): Promise<void> => {
+    const setActive = (active: boolean): void =>
       questions.setData((current) => current.map((item) => (item.id === question.id ? { ...item, active } : item)))
     setActive(!question.active)
     try {
@@ -155,7 +155,7 @@ export function ExamQuestionsPage({ onToast }: ExamQuestionsPageProps) {
           isSaving={isSaving}
           onChange={(form) => setEditor({ ...editor, form })}
           onCancel={() => setEditor(null)}
-          onSave={handleSave}
+          onSave={() => void handleSave()}
         />
       )}
 
@@ -178,7 +178,7 @@ export function ExamQuestionsPage({ onToast }: ExamQuestionsPageProps) {
               question={question}
               position={position}
               onEdit={() => setEditor({ mode: "edit", questionId: question.id, form: toQuestionInput(question) })}
-              onToggleActive={() => handleToggleActive(question)}
+              onToggleActive={() => void handleToggleActive(question)}
             />
           ))}
         </div>
@@ -195,10 +195,10 @@ interface QuestionFormProps {
   onSave: () => void
 }
 
-function QuestionForm({ editor, isSaving, onChange, onCancel, onSave }: QuestionFormProps) {
+function QuestionForm({ editor, isSaving, onChange, onCancel, onSave }: QuestionFormProps): React.JSX.Element {
   const { form } = editor
-  const patch = (changes: Partial<ExamQuestionInput>) => onChange({ ...form, ...changes })
-  const setOption = (index: number, value: string) =>
+  const patch = (changes: Partial<ExamQuestionInput>): void => onChange({ ...form, ...changes })
+  const setOption = (index: number, value: string): void =>
     patch({ options: form.options.map((option, optionIndex) => (optionIndex === index ? value : option)) })
 
   return (
@@ -315,7 +315,7 @@ interface QuestionCardProps {
   onToggleActive: () => void
 }
 
-function QuestionCard({ question, position, onEdit, onToggleActive }: QuestionCardProps) {
+function QuestionCard({ question, position, onEdit, onToggleActive }: QuestionCardProps): React.JSX.Element {
   return (
     <div className={cn("rounded-2xl border border-border bg-white p-4", !question.active && "opacity-60")}>
       <div className="flex items-start gap-3">

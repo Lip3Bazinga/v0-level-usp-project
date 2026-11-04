@@ -27,6 +27,7 @@ import {
 } from "@/lib/utils"
 import {
   pythonErrorLines,
+  stderrLines,
   stdoutLines,
   toConsoleOutput,
   verificationErrorLine,
@@ -104,8 +105,15 @@ export interface IDELessonState {
 export type IDEContextValue = IDEFilesState & IDEFileActions & IDEConsole & IDERuntime & IDELessonState
 
 const IDEContext = createContext<IDEContextValue | null>(null)
+interface UseConsoleOutputsResult {
+  consoleOutputs: ConsoleOutput[]
+  appendLines: (lines: readonly ConsoleLine[]) => void
+  replaceWithLine: (line: ConsoleLine) => void
+  addOutput: (type: ConsoleOutputType, message: string) => void
+  clearConsole: () => void
+}
 
-function useConsoleOutputs() {
+function useConsoleOutputs(): UseConsoleOutputsResult {
   const [consoleOutputs, setConsoleOutputs] = useState<ConsoleOutput[]>([])
   const appendLines = useCallback(
     (lines: readonly ConsoleLine[]) => setConsoleOutputs((current) => [...current, ...lines.map(toConsoleOutput)]),
@@ -125,7 +133,7 @@ function useConsoleOutputs() {
  * feitas na tela disparam o salvamento (marcadas por `markEdited`): carregar o
  * snapshot ou os arquivos iniciais não grava nada.
  */
-function useSnapshotAutosave(lessonId: string, userId: string | undefined, files: ProjectFile[]) {
+function useSnapshotAutosave(lessonId: string, userId: string | undefined, files: ProjectFile[]): () => void {
   const hasLocalEditsRef = useRef(false)
   useEffect(() => {
     if (!userId || !hasLocalEditsRef.current) return
@@ -143,7 +151,7 @@ function useSnapshotAutosave(lessonId: string, userId: string | undefined, files
  * Estado da IDE de uma lição: projeto multi-arquivo, console, execução no
  * navegador (Pyodide) e verificação no servidor. A página só cuida do layout.
  */
-export function IDEProvider({ lesson, children }: { lesson: Lesson; children: ReactNode }) {
+export function IDEProvider({ lesson, children }: { lesson: Lesson; children: ReactNode }): React.JSX.Element {
   const router = useRouter()
   const { applyCompletion } = useProgress()
   const { user, profile } = useAuth()
@@ -270,17 +278,18 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
   }, [lesson, commitFiles, replaceWithLine])
 
   const handleRunResult = useCallback(
-    (entryPath: string, result: ExecutionResult) => {
+    (entryPath: string, result: ExecutionResult): void => {
       const outputLines = stdoutLines(result.stdout)
       const figureLines: ConsoleLine[] = result.figures.map((figureB64, index) => ({
         type: "figure",
         message: `Figura ${index + 1}`,
         figureB64,
       }))
-      appendLines([...outputLines, ...figureLines])
+      appendLines([...outputLines, ...figureLines, ...stderrLines(result.stderr)])
+      if (result.truncated) addOutput("warning", "A saída foi cortada por ser grande demais.")
 
-      if (result.stderr) {
-        appendLines(pythonErrorLines(result.stderr))
+      if (result.error) {
+        appendLines(pythonErrorLines(result.error.traceback))
         setHasOutput(false)
         setRunSucceeded(false)
         return
@@ -301,7 +310,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
   )
 
   const handleRunError = useCallback(
-    (rawError: string) => {
+    (rawError: string): void => {
       appendLines(pythonErrorLines(rawError))
       setHasOutput(false)
       setRunSucceeded(false)
@@ -402,9 +411,9 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
       execute(
         { files: [...files, { path: CONSOLE_COMMAND_FILE_PATH, content: command }], entryPath: CONSOLE_COMMAND_FILE_PATH },
         {
-          onResult: (result) => {
-            if (result.stdout) appendLines(stdoutLines(result.stdout))
-            if (result.stderr) addOutput("error", result.stderr.trim())
+          onResult: (result: ExecutionResult): void => {
+            appendLines([...stdoutLines(result.stdout), ...stderrLines(result.stderr)])
+            if (result.error) addOutput("error", result.error.traceback.trim())
           },
           onError: (message) => addOutput("error", message),
         },
@@ -414,7 +423,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
   )
 
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
       if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
         event.preventDefault()
         run()

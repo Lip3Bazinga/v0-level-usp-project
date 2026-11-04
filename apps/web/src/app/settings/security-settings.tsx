@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, type FormEvent } from "react"
+import { useState, type FormEvent, type Dispatch, type SetStateAction } from "react"
 import { Download, Loader2, Lock } from "lucide-react"
 import { LevelButton } from "@/components/design-system/level-button"
 import { useAuth } from "@/contexts/auth-context"
@@ -11,9 +11,26 @@ import { PASSWORD_MIN_LENGTH, downloadJson, getPasswordPolicyError, todayKey, cn
 import { INPUT_CLASS, LABEL_CLASS } from "./settings-styles"
 
 type SecurityFeedback = { kind: "error" | "success"; message: string } | null
+export interface UseSecuritySettingsResult {
+  currentPassword: string
+  setCurrentPassword: Dispatch<SetStateAction<string>>
+  newPassword: string
+  setNewPassword: Dispatch<SetStateAction<string>>
+  confirmPassword: string
+  setConfirmPassword: Dispatch<SetStateAction<string>>
+  deletePassword: string
+  setDeletePassword: Dispatch<SetStateAction<string>>
+  isChangingPassword: boolean
+  isExporting: boolean
+  isDeletingAccount: boolean
+  feedback: SecurityFeedback
+  submitPasswordChange: (event: FormEvent) => Promise<void>
+  exportData: () => Promise<void>
+  deleteAccount: () => Promise<void>
+}
 
 /** Troca de senha, exportação LGPD e exclusão da conta. Fica acima das abas, como o perfil. */
-export function useSecuritySettings() {
+export function useSecuritySettings(): UseSecuritySettingsResult {
   const { setProfile } = useAuth()
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -23,9 +40,9 @@ export function useSecuritySettings() {
   const [isExporting, setIsExporting] = useState(false)
   const [isDeletingAccount, setIsDeletingAccount] = useState(false)
   const [feedback, setFeedback] = useState<SecurityFeedback>(null)
-  const showError = (message: string) => setFeedback({ kind: "error", message })
+  const showError = (message: string): void => setFeedback({ kind: "error", message })
 
-  const submitPasswordChange = async (event: FormEvent) => {
+  const submitPasswordChange = async (event: FormEvent): Promise<void> => {
     event.preventDefault()
     setFeedback(null)
     const passwordError = getPasswordPolicyError(newPassword)
@@ -51,7 +68,7 @@ export function useSecuritySettings() {
     }
   }
 
-  const exportData = async () => {
+  const exportData = async (): Promise<void> => {
     setFeedback(null)
     setIsExporting(true)
     try {
@@ -63,7 +80,7 @@ export function useSecuritySettings() {
     }
   }
 
-  const deleteAccount = async () => {
+  const deleteAccount = async (): Promise<void> => {
     setFeedback(null)
     if (!deletePassword) {
       showError("Informe sua senha para confirmar a exclusão da conta.")
@@ -107,15 +124,15 @@ interface PasswordFieldProps {
   value: string
   onChange: (value: string) => void
   autoComplete: "current-password" | "new-password"
-  placeholder?: string
-  minLength?: number
+  placeholder?: string | undefined
+  minLength?: number | undefined
   isRequired?: boolean
   labelClassName?: string
 }
 
 function PasswordField({
   id, label, value, onChange, autoComplete, placeholder, minLength, isRequired = true, labelClassName = LABEL_CLASS,
-}: PasswordFieldProps) {
+}: PasswordFieldProps): React.JSX.Element {
   return (
     <div className="space-y-2">
       <label htmlFor={id} className={labelClassName}>{label}</label>
@@ -134,7 +151,7 @@ function PasswordField({
   )
 }
 
-export function SecuritySettingsSection({ security }: { security: SecuritySettings }) {
+export function SecuritySettingsSection({ security }: { security: SecuritySettings }): React.JSX.Element {
   const { feedback } = security
   return (
     <div className="space-y-6">
@@ -150,7 +167,7 @@ export function SecuritySettingsSection({ security }: { security: SecuritySettin
         </div>
       )}
 
-      <form onSubmit={security.submitPasswordChange} className="rounded-2xl border border-border bg-white p-6">
+      <form onSubmit={(event) => void security.submitPasswordChange(event)} className="rounded-2xl border border-border bg-white p-6">
         <h2 className="mb-6 text-lg font-bold text-level-purple-dark">Alterar senha</h2>
         <div className="space-y-4">
           <PasswordField
@@ -192,7 +209,7 @@ export function SecuritySettingsSection({ security }: { security: SecuritySettin
         <p className="mb-4 text-sm text-muted-foreground">
           Baixe uma cópia de todos os seus dados na plataforma (LGPD), em formato JSON.
         </p>
-        <LevelButton variant="outline" size="md" onClick={security.exportData} disabled={security.isExporting}>
+        <LevelButton variant="outline" size="md" onClick={() => void security.exportData()} disabled={security.isExporting}>
           <span className="flex items-center gap-2">
             {security.isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             Exportar meus dados
@@ -217,7 +234,7 @@ export function SecuritySettingsSection({ security }: { security: SecuritySettin
           />
         </div>
         <button
-          onClick={security.deleteAccount}
+          onClick={() => void security.deleteAccount()}
           disabled={security.isDeletingAccount}
           className="flex items-center gap-2 rounded-xl border-2 border-destructive px-4 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive hover:text-white disabled:opacity-60"
         >

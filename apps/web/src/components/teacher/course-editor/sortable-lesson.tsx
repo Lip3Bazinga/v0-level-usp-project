@@ -17,7 +17,7 @@ interface SortableLessonProps {
 }
 
 /** Item arrastável da lista de lições do curso. */
-export function SortableLesson({ lesson, position, onRemove, isRemoving }: SortableLessonProps) {
+export function SortableLesson({ lesson, position, onRemove, isRemoving }: SortableLessonProps): React.JSX.Element {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: lesson.id })
 
   return (

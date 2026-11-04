@@ -3,11 +3,13 @@ import type { CourseRow, LessonRow, ModuleRow } from "@levelusp/db"
 import { passRate } from "./catalog.domain"
 import type { LessonSummaryRow, PublicLessonRow } from "./lesson-columns"
 
+/** Campos agregados do curso; `enrolled` só existe quando há usuário logado. */
 export interface CourseAggregates {
   lessonCount?: number
   enrolled?: boolean
 }
 
+/** Curso com a contagem de lições publicadas e a matrícula do usuário (null sem sessão). */
 export interface CourseWithAggregatesRow {
   course: CourseRow
   lessonCount: number
@@ -15,6 +17,7 @@ export interface CourseWithAggregatesRow {
   enrolled: boolean | null
 }
 
+/** Métricas agregadas de uma lição (taxa de aprovação null quando não há submissões). */
 export interface LessonMetricsRow {
   lessonId: string
   started: number
@@ -23,6 +26,7 @@ export interface LessonMetricsRow {
   passed: number
 }
 
+/** Módulo no formato do contrato. */
 export function toModule(module: ModuleRow): Module {
   return {
     id: module.id,
@@ -35,6 +39,7 @@ export function toModule(module: ModuleRow): Module {
   }
 }
 
+/** Curso no formato do contrato; os agregados só entram quando informados. */
 export function toCourse(course: CourseRow, aggregates: CourseAggregates = {}): Course {
   return {
     id: course.id,
@@ -58,6 +63,7 @@ export function toCourse(course: CourseRow, aggregates: CourseAggregates = {}): 
   }
 }
 
+/** Curso da listagem do catálogo; sem sessão, `enrolled` fica de fora da resposta. */
 export function toCourseWithAggregates({ course, lessonCount, enrolled }: CourseWithAggregatesRow): Course {
   return toCourse(course, { lessonCount, ...(enrolled === null ? {} : { enrolled }) })
 }
@@ -98,6 +104,7 @@ export function toLessonWithTests(lesson: LessonRow): LessonWithTests {
   return { ...toLesson(lesson), test_cases: lesson.testCases }
 }
 
+/** Lição resumida para listas e trilhas. */
 export function toLessonSummary(lesson: LessonSummaryRow): LessonSummary {
   return {
     id: lesson.id,
@@ -114,6 +121,7 @@ export function toLessonSummary(lesson: LessonSummaryRow): LessonSummary {
   }
 }
 
+/** Métricas de uma lição para o painel do professor. */
 export function toLessonMetrics(metrics: LessonMetricsRow): LessonMetrics {
   return {
     lesson_id: metrics.lessonId,

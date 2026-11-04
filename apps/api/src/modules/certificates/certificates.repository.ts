@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common"
 import { and, desc, eq } from "drizzle-orm"
-import { certificates, courses, profiles } from "@levelusp/db"
+import { certificates, courses, profiles, type CertificateRow } from "@levelusp/db"
 import { InjectDb, type Database } from "@/infra/database/database.module"
 import type { CertificateSummaryRow, PublicCertificateRow } from "./certificates.mapper"
 
@@ -12,6 +12,7 @@ const summaryColumns = {
   courseTitle: courses.title,
 }
 
+/** Certificado a emitir; o código é gerado pelo service. */
 export interface NewCertificate {
   userId: string
   courseId: string
@@ -19,10 +20,15 @@ export interface NewCertificate {
   examScore: number
 }
 
+/** O que a emissão devolve para montar a resposta (código, data e nota). */
+export type IssuedCertificateRow = Pick<CertificateRow, "verificationCode" | "issuedAt" | "examScore">
+
+/** Certificados emitidos e a busca pública por código. */
 @Injectable()
 export class CertificatesRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
+  /** Certificado do aluno num curso, ou null. */
   async findByUserCourse(userId: string, courseId: string): Promise<CertificateSummaryRow | null> {
     const [certificate] = await this.db
       .select(summaryColumns)
@@ -33,6 +39,7 @@ export class CertificatesRepository {
     return certificate ?? null
   }
 
+  /** Certificados do aluno, mais recentes primeiro. */
   listByUser(userId: string): Promise<CertificateSummaryRow[]> {
     return this.db
       .select(summaryColumns)
@@ -46,7 +53,7 @@ export class CertificatesRepository {
    * Insere o certificado. Em conflito (código repetido ou já emitido para o
    * par aluno+curso) não insere e devolve null — o service decide o que fazer.
    */
-  async create(certificate: NewCertificate) {
+  async create(certificate: NewCertificate): Promise<IssuedCertificateRow | null> {
     const [inserted] = await this.db
       .insert(certificates)
       .values({ ...certificate, projectStatus: "passed" })

@@ -3,25 +3,31 @@ import { and, asc, desc, eq, sql } from "drizzle-orm"
 import { profiles, teacherApprovals, type TeacherApprovalInsert } from "@levelusp/db"
 import type { TeacherApprovalStatus } from "@levelusp/contracts"
 import { requireRow } from "@/common/database/rows"
-import { InjectDb, type Database, type DbOrTx } from "@/infra/database/database.module"
+import { InjectDb, type Database } from "@/infra/database/database.module"
+import type { DbTransaction, DbExecutor, TeacherApprovalRow } from "@levelusp/db"
 
+/** Filtro da listagem administrativa (`all`: todas as situações). */
 export type ApprovalStatusFilter = TeacherApprovalStatus | "all"
 
+/** Decisão do admin sobre uma solicitação. */
 export interface ApprovalReview {
   status: "approved" | "rejected"
   reviewedBy: string
   reviewNote: string | null
 }
 
+/** Solicitações de professor e a promoção do papel do usuário. */
 @Injectable()
 export class TeacherRequestsRepository {
   constructor(@InjectDb() private readonly db: Database) {}
 
-  async create(approval: TeacherApprovalInsert) {
+  /** Insere a solicitação. Uma segunda pendente do mesmo usuário viola o índice único parcial. */
+  async create(approval: TeacherApprovalInsert): Promise<TeacherApprovalRow> {
     return requireRow(await this.db.insert(teacherApprovals).values(approval).returning(), "teacher_approvals")
   }
 
-  findLatest(userId: string) {
+  /** Solicitação mais recente do usuário, em qualquer situação. */
+  findLatest(userId: string): Promise<TeacherApprovalRow | undefined> {
     return this.db.query.teacherApprovals.findFirst({
       where: eq(teacherApprovals.userId, userId),
       orderBy: [desc(teacherApprovals.submittedAt), desc(teacherApprovals.createdAt)],
@@ -29,7 +35,7 @@ export class TeacherRequestsRepository {
   }
 
   /** Pendentes em ordem de chegada (fila); as demais, mais recentes primeiro. */
-  list(status: ApprovalStatusFilter) {
+  list(status: ApprovalStatusFilter): Promise<TeacherApprovalRow[]> {
     return this.db
       .select()
       .from(teacherApprovals)
@@ -37,14 +43,15 @@ export class TeacherRequestsRepository {
       .orderBy(status === "pending" ? asc(teacherApprovals.submittedAt) : desc(teacherApprovals.submittedAt))
   }
 
-  async lock(id: string, tx: DbOrTx) {
+  /** Lê a solicitação com `FOR UPDATE`, travando-a até o fim da transação da revisão. */
+  async lock(id: string, tx: DbTransaction): Promise<TeacherApprovalRow | undefined> {
     const [approval] = await tx.select().from(teacherApprovals).where(eq(teacherApprovals.id, id)).for("update")
     return approval
   }
 
   /** Só revisa se ainda estiver pendente (a checagem acompanha o UPDATE). */
-  async review(id: string, review: ApprovalReview, tx: DbOrTx) {
-    const [approval] = await tx
+  async review(id: string, review: ApprovalReview, executor: DbExecutor): Promise<TeacherApprovalRow | undefined> {
+    const [approval] = await executor
       .update(teacherApprovals)
       .set({ ...review, reviewedAt: sql`now()` })
       .where(and(eq(teacherApprovals.id, id), eq(teacherApprovals.status, "pending")))
@@ -53,7 +60,7 @@ export class TeacherRequestsRepository {
   }
 
   /** Promove a professor sem rebaixar quem já é admin. */
-  async promoteToTeacher(userId: string, tx: DbOrTx): Promise<void> {
-    await tx.update(profiles).set({ role: "teacher" }).where(and(eq(profiles.id, userId), eq(profiles.role, "student")))
+  async promoteToTeacher(userId: string, executor: DbExecutor): Promise<void> {
+    await executor.update(profiles).set({ role: "teacher" }).where(and(eq(profiles.id, userId), eq(profiles.role, "student")))
   }
 }

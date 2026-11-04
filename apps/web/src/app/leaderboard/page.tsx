@@ -14,19 +14,19 @@ import { LoadErrorAlert } from "@/components/design-system/load-error-alert"
 import { StudentShell } from "@/components/dashboard/student-shell"
 
 const NO_USERS: PublicProfile[] = []
-const PODIUM_SIZE = 3
 const ROW_GRID_CLASS = "grid grid-cols-[32px_1fr_64px_48px] gap-2 px-3 sm:grid-cols-[48px_1fr_100px_96px] sm:gap-4 sm:px-4"
 
-function RankIcon({ rank }: { rank: number }) {
+function RankIcon({ rank }: { rank: number }): React.JSX.Element {
   if (rank === 1) return <Crown className="h-6 w-6 text-yellow-500" />
   if (rank === 2) return <Medal className="h-6 w-6 text-gray-400" />
   if (rank === 3) return <Medal className="h-6 w-6 text-amber-600" />
   return <span className="text-sm font-bold text-muted-foreground">{rank}</span>
 }
 
-export default function LeaderboardPage() {
+export default function LeaderboardPage(): React.JSX.Element {
   const leaderboard = useAsyncResource(() => fetchLeaderboard(), [])
   const users = leaderboard.status === "success" ? leaderboard.data : NO_USERS
+  const podium = podiumOf(users)
 
   return (
     <StudentShell screen="leaderboard">
@@ -51,7 +51,7 @@ export default function LeaderboardPage() {
           </div>
         ) : (
           <>
-            {users.length >= PODIUM_SIZE && <Podium first={users[0]} second={users[1]} third={users[2]} />}
+            {podium && <Podium {...podium} />}
             <LeaderboardTable users={users} />
           </>
         )}
@@ -66,7 +66,13 @@ interface PodiumProps {
   third: PublicProfile
 }
 
-function Podium({ first, second, third }: PodiumProps) {
+/** Os três primeiros colocados, ou null enquanto não há gente suficiente para o pódio. */
+function podiumOf(users: readonly PublicProfile[]): PodiumProps | null {
+  const [first, second, third] = users
+  return first && second && third ? { first, second, third } : null
+}
+
+function Podium({ first, second, third }: PodiumProps): React.JSX.Element {
   return (
     <div className="mb-10 flex items-end justify-center gap-4">
       <PodiumPlace
@@ -102,7 +108,7 @@ interface PodiumPlaceProps {
   standClassName: string
 }
 
-function PodiumPlace({ entry, avatarClassName, fallbackClassName, icon, standClassName }: PodiumPlaceProps) {
+function PodiumPlace({ entry, avatarClassName, fallbackClassName, icon, standClassName }: PodiumPlaceProps): React.JSX.Element {
   return (
     <div className="flex flex-col items-center">
       <Avatar className={avatarClassName}>
@@ -118,7 +124,7 @@ function PodiumPlace({ entry, avatarClassName, fallbackClassName, icon, standCla
   )
 }
 
-function LeaderboardTable({ users }: { users: readonly PublicProfile[] }) {
+function LeaderboardTable({ users }: { users: readonly PublicProfile[] }): React.JSX.Element {
   const { profile } = useAuth()
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-white">

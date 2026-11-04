@@ -38,7 +38,7 @@ interface SettingsPageProps {
   onToast: OnToast
 }
 
-export function SettingsPage({ onToast }: SettingsPageProps) {
+export function SettingsPage({ onToast }: SettingsPageProps): React.JSX.Element {
   const [tab, setTab] = useState<SettingsTabId>("general")
   const settings = useAsyncResource(() => fetchPlatformSettings(), [], {
     errorMessage: "Não foi possível carregar as configurações.",
@@ -51,7 +51,7 @@ export function SettingsPage({ onToast }: SettingsPageProps) {
   const form = edits ?? (settings.status === "success" ? parseSettingsForm(settings.data) : DEFAULT_SETTINGS_FORM)
   const patch: PatchSettings = (changes) => setEdits({ ...form, ...changes })
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<void> => {
     setIsSaving(true)
     try {
       await updatePlatformSettings(toPlatformSettings(form))
@@ -63,7 +63,7 @@ export function SettingsPage({ onToast }: SettingsPageProps) {
     }
   }
 
-  const handleInvalidateSessions = async () => {
+  const handleInvalidateSessions = async (): Promise<void> => {
     const isConfirmed = await swalConfirm({
       title: "Invalidar TODAS as sessões?",
       text: "Todos os usuários precisarão logar novamente.",
@@ -128,13 +128,13 @@ export function SettingsPage({ onToast }: SettingsPageProps) {
       {tab === "flags" && <FeatureFlagsList form={form} patch={patch} />}
 
       {tab === "security" && (
-        <SecuritySettings form={form} patch={patch} isInvalidating={isInvalidating} onInvalidateSessions={handleInvalidateSessions} />
+        <SecuritySettings form={form} patch={patch} isInvalidating={isInvalidating} onInvalidateSessions={() => void handleInvalidateSessions()} />
       )}
 
       <div className="sticky bottom-0 -mx-6 flex items-center justify-between border-t border-border bg-white/90 px-6 py-4 backdrop-blur">
         <p className="text-xs text-muted-foreground">Alterações são registradas no log de auditoria</p>
         <button
-          onClick={handleSave}
+          onClick={() => void handleSave()}
           disabled={isSaving || settings.status !== "success"}
           className="btn-3d flex items-center gap-2 rounded-xl bg-level-purple px-5 py-2 text-sm font-bold text-white disabled:opacity-60"
         >
@@ -151,7 +151,7 @@ interface SettingsSectionProps {
   patch: PatchSettings
 }
 
-function GeneralSettings({ form, patch }: SettingsSectionProps) {
+function GeneralSettings({ form, patch }: SettingsSectionProps): React.JSX.Element {
   return (
     <>
       <SettingRow label="Nome da plataforma" hint="Exibido em emails e abas">
@@ -173,7 +173,7 @@ function GeneralSettings({ form, patch }: SettingsSectionProps) {
   )
 }
 
-function GamificationSettings({ form, patch }: SettingsSectionProps) {
+function GamificationSettings({ form, patch }: SettingsSectionProps): React.JSX.Element {
   return (
     <>
       <SettingRow label="XP necessário por nível" hint="Régua progressiva. Atual: 1000 XP/nível">
@@ -198,7 +198,7 @@ function GamificationSettings({ form, patch }: SettingsSectionProps) {
   )
 }
 
-function IntegrationsList() {
+function IntegrationsList(): React.JSX.Element {
   return (
     <div className="grid max-w-3xl gap-3 md:grid-cols-2">
       {INTEGRATIONS.map((integration) => (
@@ -221,7 +221,7 @@ function IntegrationsList() {
   )
 }
 
-function FeatureFlagsList({ form, patch }: SettingsSectionProps) {
+function FeatureFlagsList({ form, patch }: SettingsSectionProps): React.JSX.Element {
   return (
     <div className="max-w-2xl space-y-3">
       {FEATURE_FLAG_KEYS.map((key) => {
@@ -249,7 +249,7 @@ interface SecuritySettingsProps extends SettingsSectionProps {
   onInvalidateSessions: () => void
 }
 
-function SecuritySettings({ form, patch, isInvalidating, onInvalidateSessions }: SecuritySettingsProps) {
+function SecuritySettings({ form, patch, isInvalidating, onInvalidateSessions }: SecuritySettingsProps): React.JSX.Element {
   return (
     <div className="max-w-2xl space-y-4">
       <SettingRow label="2FA obrigatório para admins" hint="Exige autenticação de dois fatores">
@@ -279,7 +279,7 @@ function SecuritySettings({ form, patch, isInvalidating, onInvalidateSessions }:
   )
 }
 
-function SectionSpinner() {
+function SectionSpinner(): React.JSX.Element {
   return (
     <div className="flex justify-center py-8">
       <Loader2 className="h-6 w-6 animate-spin text-level-purple" />
@@ -293,7 +293,7 @@ interface ToggleProps {
   label?: string
 }
 
-function Toggle({ isOn, onChange, label }: ToggleProps) {
+function Toggle({ isOn, onChange, label }: ToggleProps): React.JSX.Element {
   return (
     <button
       type="button"
@@ -316,7 +316,7 @@ interface SettingRowProps {
 }
 
 /** Linha rotulada; o `<label>` envolve o controle para que leitores de tela anunciem o nome do ajuste. */
-function SettingRow({ label, hint, isDanger, children }: SettingRowProps) {
+function SettingRow({ label, hint, isDanger, children }: SettingRowProps): React.JSX.Element {
   return (
     <label
       className={cn(

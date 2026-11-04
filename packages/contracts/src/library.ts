@@ -2,11 +2,14 @@ import { z } from "zod"
 
 export const LIBRARY_CATEGORIES = ["data-science", "ml", "deep-learning", "visualization", "math", "general"] as const
 export const libraryCategorySchema = z.enum(LIBRARY_CATEGORIES)
+/** Categoria do catálogo de bibliotecas Python. */
 export type LibraryCategory = z.infer<typeof libraryCategorySchema>
 
 export const LIBRARY_REQUEST_STATUSES = ["pending", "approved", "rejected"] as const
+/** Situação de um pedido de biblioteca. */
 export type LibraryRequestStatus = (typeof LIBRARY_REQUEST_STATUSES)[number]
 
+/** Biblioteca liberada para as lições. `pyodide_native`: já vem no Pyodide (não precisa de micropip). */
 export interface LibraryCatalog {
   id: string
   name: string
@@ -19,6 +22,7 @@ export interface LibraryCatalog {
   created_at: string
 }
 
+/** Pedido de um professor para liberar uma biblioteca. `requester_name` só vem na listagem do admin. */
 export interface LibraryRequest {
   id: string
   requested_by: string
@@ -40,6 +44,7 @@ export const libraryRequestInputSchema = z.object({
   description: z.string().trim().max(1000).optional(),
   use_case: z.string().trim().max(2000).optional(),
 })
+/** Corpo de `POST /library/requests`; `library_name` é o nome do pacote no PyPI. */
 export type LibraryRequestInput = z.infer<typeof libraryRequestInputSchema>
 
 export const reviewLibraryRequestSchema = z.object({
@@ -55,7 +60,9 @@ export const reviewLibraryRequestSchema = z.object({
     })
     .optional(),
 })
+/** Corpo de `POST /admin/library/requests/:id/review`; ao aprovar, `catalog` define a entrada criada. */
 export type ReviewLibraryRequestInput = z.infer<typeof reviewLibraryRequestSchema>
 
 export const libraryCatalogToggleSchema = z.object({ active: z.boolean() })
+/** Corpo de `PATCH /admin/library/:id`. */
 export type LibraryCatalogToggleInput = z.infer<typeof libraryCatalogToggleSchema>

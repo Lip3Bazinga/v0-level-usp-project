@@ -70,9 +70,12 @@ switch ($Command) {
     $example = "$EnvFile.example"
     if (Test-Path $EnvFile) { Write-Host "$EnvFile já existe — mantido." ; break }
     Copy-Item $example $EnvFile
-    foreach ($k in "POSTGRES_PASSWORD", "RUNNER_TOKEN", "SEED_ADMIN_PASSWORD") { Set-EnvValue $k (New-Secret) }
-    Write-Host "Criado $EnvFile com segredos aleatórios."
+    # Gera todo valor marcado __gerar__ no modelo (senhas do banco, admin, demo e token do executor).
+    $keys = (Get-Content $EnvFile) | Where-Object { $_ -match '^([A-Z0-9_]+)=__gerar__$' } | ForEach-Object { $_.Split('=')[0] }
+    foreach ($k in $keys) { Set-EnvValue $k (New-Secret) }
+    Write-Host "Criado $EnvFile com segredos aleatórios ($($keys -join ', '))."
     Write-Host "Senha do admin ($(Get-EnvValue 'SEED_ADMIN_EMAIL')): $(Get-EnvValue 'SEED_ADMIN_PASSWORD')"
+    if (Get-EnvValue 'SEED_DEMO_PASSWORD') { Write-Host "Senha das contas demo (professora/aluna): $(Get-EnvValue 'SEED_DEMO_PASSWORD')" }
   }
   "up" {
     Assert-EnvFile

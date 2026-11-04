@@ -2,17 +2,16 @@
 
 import { useState } from "react"
 import { AlertCircle, CheckCircle2, ChevronDown, ChevronUp, Clock, Loader2, Package, Search, X } from "lucide-react"
-import {
-  LIBRARY_CATEGORIES, type LibraryCatalog, type LibraryCategory, type LibraryRequest, type LibraryRequestStatus,
-} from "@levelusp/contracts"
+import { LIBRARY_CATEGORIES, type LibraryCatalog, type LibraryCategory, type LibraryRequest, type LibraryRequestStatus, nonEmpty } from "@levelusp/contracts"
 import { LoadErrorAlert } from "@/components/design-system/load-error-alert"
 import { useAsyncResource } from "@/hooks/use-async-resource"
 import {
   fetchAdminLibraryCatalog, fetchAdminLibraryRequests, getErrorMessage, reviewLibraryRequest, setLibraryCatalogActive,
 } from "@/lib/api"
 import { LIBRARY_CATEGORY_LABELS } from "@/lib/constants"
+import { PYODIDE_VERSION } from "@/lib/python/runtime-config"
 import type { OnToast } from "@/lib/types"
-import { cn, formatDate, isOneOf } from "@/lib/utils"
+import { cn, formatDate, isOneOf, definedProps } from "@/lib/utils"
 import { PanelSpinner } from "./panel-spinner"
 
 const STATUS_STYLES: Record<LibraryRequestStatus, { label: string; className: string }> = {
@@ -50,36 +49,36 @@ interface LibrariesPageProps {
   onToast: OnToast
 }
 
-export function LibrariesPage({ onToast }: LibrariesPageProps) {
+export function LibrariesPage({ onToast }: LibrariesPageProps): React.JSX.Element {
   const [tab, setTab] = useState<LibrariesTab>("requests")
   const libraries = useAsyncResource(loadLibraries, [], { errorMessage: "Erro ao carregar dados" })
   const { requests, catalog } = libraries.status === "success" ? libraries.data : { requests: [], catalog: [] }
   const pending = requests.filter((request) => request.status === "pending")
   const reviewed = requests.filter((request) => request.status !== "pending")
 
-  const applyReview = (reviewedRequest: LibraryRequest) =>
+  const applyReview = (reviewedRequest: LibraryRequest): void =>
     libraries.setData((current) => ({
       ...current,
       requests: current.requests.map((request) =>
-        request.id === reviewedRequest.id ? { ...request, ...reviewedRequest, requester_name: request.requester_name } : request,
+        request.id === reviewedRequest.id ? { ...request, ...reviewedRequest, ...definedProps({ requester_name: request.requester_name }) } : request,
       ),
     }))
 
-  const setCatalogActive = (libraryId: string, active: boolean) =>
+  const setCatalogActive = (libraryId: string, active: boolean): void =>
     libraries.setData((current) => ({
       ...current,
       catalog: current.catalog.map((library) => (library.id === libraryId ? { ...library, active } : library)),
     }))
 
-  const handleApprove = async (request: LibraryRequest, { category, isPyodideNative, notes }: ApprovalOptions) => {
+  const handleApprove = async (request: LibraryRequest, { category, isPyodideNative, notes }: ApprovalOptions): Promise<void> => {
     try {
       // A API aprova e inclui no catálogo na mesma operação.
       const reviewedRequest = await reviewLibraryRequest(request.id, {
         status: "approved",
         review_notes: notes.trim() || undefined,
         catalog: {
-          display_name: request.display_name || request.library_name,
-          description: request.description || null,
+          display_name: nonEmpty(request.display_name) ?? request.library_name,
+          description: nonEmpty(request.description) ?? null,
           category,
           pyodide_native: isPyodideNative,
         },
@@ -92,7 +91,7 @@ export function LibrariesPage({ onToast }: LibrariesPageProps) {
     }
   }
 
-  const handleReject = async (request: LibraryRequest, notes: string) => {
+  const handleReject = async (request: LibraryRequest, notes: string): Promise<void> => {
     try {
       applyReview(await reviewLibraryRequest(request.id, { status: "rejected", review_notes: notes.trim() || undefined }))
       onToast(`Requisição de ${request.library_name} rejeitada`, "warning")
@@ -101,7 +100,7 @@ export function LibrariesPage({ onToast }: LibrariesPageProps) {
     }
   }
 
-  const handleToggleCatalog = async (libraryId: string, active: boolean) => {
+  const handleToggleCatalog = async (libraryId: string, active: boolean): Promise<void> => {
     setCatalogActive(libraryId, active)
     try {
       await setLibraryCatalogActive(libraryId, active)
@@ -164,7 +163,7 @@ export function LibrariesPage({ onToast }: LibrariesPageProps) {
       ) : libraries.status === "error" ? (
         <LoadErrorAlert message={libraries.error} onRetry={() => void libraries.reload()} />
       ) : tab === "catalog" ? (
-        <CatalogView catalog={catalog} onToggle={handleToggleCatalog} />
+        <CatalogView catalog={catalog} onToggle={(libraryId, active) => void handleToggleCatalog(libraryId, active)} />
       ) : (
         <div className="space-y-3">
           {pending.length > 0 && (
@@ -202,7 +201,7 @@ interface RequestRowProps {
   onReject: (request: LibraryRequest, notes: string) => Promise<void>
 }
 
-function RequestRow({ request, onApprove, onReject }: RequestRowProps) {
+function RequestRow({ request, onApprove, onReject }: RequestRowProps): React.JSX.Element {
   const [isOpen, setIsOpen] = useState(false)
   const status = STATUS_STYLES[request.status]
   const isPending = request.status === "pending"
@@ -259,14 +258,14 @@ function RequestRow({ request, onApprove, onReject }: RequestRowProps) {
   )
 }
 
-function ReviewForm({ request, onApprove, onReject }: RequestRowProps) {
+function ReviewForm({ request, onApprove, onReject }: RequestRowProps): React.JSX.Element {
   const [notes, setNotes] = useState("")
   const [category, setCategory] = useState<LibraryCategory>("general")
   const [isPyodideNative, setIsPyodideNative] = useState(false)
   const [isReviewing, setIsReviewing] = useState(false)
   const fieldId = `library-request-${request.id}`
 
-  const review = async (action: () => Promise<void>) => {
+  const review = async (action: () => Promise<void>): Promise<void> => {
     setIsReviewing(true)
     await action()
     setIsReviewing(false)
@@ -291,7 +290,7 @@ function ReviewForm({ request, onApprove, onReject }: RequestRowProps) {
           </select>
         </div>
         <div>
-          <span className={LABEL_CLASS}>Suporte nativo Pyodide?</span>
+          <span className={LABEL_CLASS}>Nativo no Pyodide {PYODIDE_VERSION}?</span>
           <div className="flex gap-2 pt-1">
             {PYODIDE_OPTIONS.map((option) => (
               <button
@@ -320,14 +319,14 @@ function ReviewForm({ request, onApprove, onReject }: RequestRowProps) {
           value={notes}
           onChange={(event) => setNotes(event.target.value)}
           rows={2}
-          placeholder="Ex: Aprovado — disponível no Pyodide 0.25 nativo"
+          placeholder={`Ex: Aprovado — wheel nativo no Pyodide ${PYODIDE_VERSION}`}
           className="w-full rounded-xl border-2 border-border px-3 py-2 text-sm focus:border-level-purple focus:outline-none resize-none"
         />
       </div>
 
       <div className="flex gap-2">
         <button
-          onClick={() => review(() => onReject(request, notes))}
+          onClick={() => void review(() => onReject(request, notes))}
           disabled={isReviewing}
           className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-destructive/30 py-2 text-sm font-semibold text-destructive hover:bg-destructive/10 disabled:opacity-50 transition-colors"
         >
@@ -335,7 +334,7 @@ function ReviewForm({ request, onApprove, onReject }: RequestRowProps) {
           Rejeitar
         </button>
         <button
-          onClick={() => review(() => onApprove(request, { category, isPyodideNative, notes }))}
+          onClick={() => void review(() => onApprove(request, { category, isPyodideNative, notes }))}
           disabled={isReviewing}
           className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
         >
@@ -352,7 +351,7 @@ interface CatalogViewProps {
   onToggle: (libraryId: string, active: boolean) => void
 }
 
-function CatalogView({ catalog, onToggle }: CatalogViewProps) {
+function CatalogView({ catalog, onToggle }: CatalogViewProps): React.JSX.Element {
   const [search, setSearch] = useState("")
   const term = search.toLowerCase()
   const filtered = catalog.filter(

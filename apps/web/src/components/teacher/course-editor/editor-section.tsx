@@ -12,7 +12,7 @@ interface EditorSectionProps {
 }
 
 /** Cartão de uma seção do editor de curso (ícone, título e conteúdo). */
-export function EditorSection({ icon: Icon, title, subtitle, children }: EditorSectionProps) {
+export function EditorSection({ icon: Icon, title, subtitle, children }: EditorSectionProps): React.JSX.Element {
   return (
     <div className="rounded-2xl border-2 border-border bg-white p-6">
       <div className="mb-5 flex items-center gap-3">

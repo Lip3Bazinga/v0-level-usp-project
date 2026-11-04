@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
-import type { QuizQuestionFull } from "@levelusp/contracts"
-import { agent, createLesson, createTestApp, signUp, type Agent, type TestContext } from "./harness"
+import type { ApiErrorBody, LessonProgress, QuizQuestionFull, QuizQuestionPublic, QuizResult, SessionResponse } from "@levelusp/contracts"
+import type { LessonRow } from "@levelusp/db"
+import { agent, bodyOf, createLesson, createTestApp, signUp, type Agent, type SignedUpUser, type TestContext } from "./harness"
 
 const questions = [
   { prompt: "Qual função mostra texto na tela?", options: ["input", "print", "len"], correct_index: 1, explanation: "print escreve na saída." },
@@ -8,6 +9,13 @@ const questions = [
   { prompt: "Quanto é 2 ** 3?", options: ["6", "8", "9"], correct_index: 1, explanation: "Potência: 2³ = 8." },
   { prompt: "Qual palavra define função?", options: ["def", "fun", "func"], correct_index: 0, explanation: "Usa-se def." },
 ]
+
+/** Professor dono, a lição de quiz criada e as questões salvas (com gabarito). */
+interface QuizSetup {
+  teacher: SignedUpUser
+  lesson: LessonRow
+  full: QuizQuestionFull[]
+}
 
 describe("Quiz de lição (e2e)", () => {
   let ctx: TestContext
@@ -18,7 +26,7 @@ describe("Quiz de lição (e2e)", () => {
   beforeEach(() => ctx.reset())
 
   /** Professor dono + lição de quiz publicada (70%) com as 4 questões. */
-  async function setupQuiz(options: { published?: boolean; xpReward?: number } = {}) {
+  async function setupQuiz(options: { published?: boolean; xpReward?: number } = {}): Promise<QuizSetup> {
     const teacher = await signUp(ctx.app, "teacher", ctx.db)
     const lesson = await createLesson(ctx.db, {
       createdBy: teacher.id,
@@ -29,11 +37,11 @@ describe("Quiz de lição (e2e)", () => {
     })
     const saved = await teacher.agent.put(`/api/lessons/${lesson.id}/quiz`, { questions })
     expect(saved.status).toBe(200)
-    const full: QuizQuestionFull[] = saved.body
+    const full = bodyOf<QuizQuestionFull[]>(saved)
     return { teacher, lesson, full }
   }
 
-  const answersFor = (full: QuizQuestionFull[], correct: number) =>
+  const answersFor = (full: QuizQuestionFull[], correct: number): Record<string, number> =>
     Object.fromEntries(full.map((question, position) => [question.id, position < correct ? question.correct_index : (question.correct_index + 1) % question.options.length]))
 
   it("aluno recebe as questões sem gabarito nem explicação", async () => {
@@ -42,7 +50,7 @@ describe("Quiz de lição (e2e)", () => {
     const response = await studentAgent.get(`/api/lessons/${lesson.id}/quiz`)
     expect(response.status).toBe(200)
     expect(response.body).toHaveLength(4)
-    for (const question of response.body) expect(Object.keys(question).sort()).toEqual(["id", "options", "prompt"])
+    for (const question of bodyOf<QuizQuestionPublic[]>(response)) expect(Object.keys(question).sort()).toEqual(["id", "options", "prompt"])
     expect(JSON.stringify(response.body)).not.toContain("correct_index")
     expect(JSON.stringify(response.body)).not.toContain("imutáveis")
     expect((await agent(ctx.app).get(`/api/lessons/${lesson.id}/quiz`)).status).toBe(401)
@@ -52,7 +60,7 @@ describe("Quiz de lição (e2e)", () => {
     const { teacher, lesson } = await setupQuiz()
     const authoring = await teacher.agent.get(`/api/lessons/${lesson.id}/quiz/authoring`)
     expect(authoring.status).toBe(200)
-    expect(authoring.body.map((question: QuizQuestionFull) => question.correct_index)).toEqual([1, 2, 1, 0])
+    expect(bodyOf<QuizQuestionFull[]>(authoring).map((question) => question.correct_index)).toEqual([1, 2, 1, 0])
 
     const otherTeacher = await signUp(ctx.app, "teacher", ctx.db)
     expect((await otherTeacher.agent.get(`/api/lessons/${lesson.id}/quiz/authoring`)).status).toBe(403)
@@ -68,13 +76,13 @@ describe("Quiz de lição (e2e)", () => {
     expect(full.map((question) => question.sort_order)).toEqual([0, 1, 2, 3])
     const response = await teacher.agent.put(`/api/lessons/${lesson.id}/quiz`, { questions: [questions[3], questions[0]] })
     expect(response.status).toBe(200)
-    expect(response.body.map((question: QuizQuestionFull) => [question.prompt, question.sort_order])).toEqual([
+    expect(bodyOf<QuizQuestionFull[]>(response).map((question) => [question.prompt, question.sort_order])).toEqual([
       [questions[3]?.prompt, 0],
       [questions[0]?.prompt, 1],
     ])
     const after = await teacher.agent.get(`/api/lessons/${lesson.id}/quiz/authoring`)
     expect(after.body).toHaveLength(2)
-    expect(after.body.some((question: QuizQuestionFull) => full.some((old) => old.id === question.id))).toBe(false)
+    expect(bodyOf<QuizQuestionFull[]>(after).some((question) => full.some((old) => old.id === question.id))).toBe(false)
   })
 
   it("recusa gabarito fora das opções e esvaziar um quiz publicado", async () => {
@@ -83,7 +91,7 @@ describe("Quiz de lição (e2e)", () => {
     expect(bad.status).toBe(400)
     const empty = await teacher.agent.put(`/api/lessons/${lesson.id}/quiz`, { questions: [] })
     expect(empty.status).toBe(422)
-    expect(empty.body.code).toBe("NO_QUESTIONS")
+    expect(bodyOf<ApiErrorBody>(empty).code).toBe("NO_QUESTIONS")
   })
 
   it("aprovação corrige no servidor e credita XP uma única vez", async () => {
@@ -93,17 +101,18 @@ describe("Quiz de lição (e2e)", () => {
     const first = await studentAgent.post(`/api/lessons/${lesson.id}/quiz/submissions`, { answers: answersFor(full, 3) })
     expect(first.status).toBe(200)
     expect(first.body).toMatchObject({ score: 75, passed: true, passingScore: 70, correctCount: 3, total: 4, xp_awarded: 40, lesson_completed: true })
-    expect(first.body.review).toHaveLength(4)
-    expect(first.body.review[0]).toEqual({ questionId: full[0]?.id, correct: true, explanation: "print escreve na saída." })
-    expect(first.body.review[3].correct).toBe(false)
+    const result = bodyOf<QuizResult>(first)
+    expect(result.review).toHaveLength(4)
+    expect(result.review[0]).toEqual({ questionId: full[0]?.id, correct: true, explanation: "print escreve na saída." })
+    expect(result.review[3]?.correct).toBe(false)
 
     const second = await studentAgent.post(`/api/lessons/${lesson.id}/quiz/submissions`, { answers: answersFor(full, 4) })
     expect(second.body).toMatchObject({ score: 100, passed: true, xp_awarded: 0 })
 
     const me = await studentAgent.get("/api/auth/me")
-    expect(me.body.user).toMatchObject({ total_xp: 40, lessons_completed: 1 })
+    expect(bodyOf<SessionResponse>(me).user).toMatchObject({ total_xp: 40, lessons_completed: 1 })
     const progress = await studentAgent.get("/api/me/progress")
-    expect(progress.body[0]).toMatchObject({ lesson_id: lesson.id, status: "completed", score: 75 })
+    expect(bodyOf<LessonProgress[]>(progress)[0]).toMatchObject({ lesson_id: lesson.id, status: "completed", score: 75 })
   })
 
   it("reprovação não credita XP nem conclui a lição", async () => {
@@ -111,7 +120,7 @@ describe("Quiz de lição (e2e)", () => {
     const { agent: studentAgent } = await signUp(ctx.app)
     const response = await studentAgent.post(`/api/lessons/${lesson.id}/quiz/submissions`, { answers: answersFor(full, 2) })
     expect(response.body).toMatchObject({ score: 50, passed: false, xp_awarded: 0, lesson_completed: false })
-    expect((await studentAgent.get("/api/auth/me")).body.user.total_xp).toBe(0)
+    expect(bodyOf<SessionResponse>(await studentAgent.get("/api/auth/me")).user.total_xp).toBe(0)
     expect((await studentAgent.get("/api/me/progress/completed")).body).toEqual([])
   })
 
@@ -130,7 +139,7 @@ describe("Quiz de lição (e2e)", () => {
     const { agent: studentAgent } = await signUp(ctx.app)
     const response = await studentAgent.get(`/api/lessons/${coding.id}/quiz`)
     expect(response.status).toBe(422)
-    expect(response.body.code).toBe("NOT_A_QUIZ")
+    expect(bodyOf<ApiErrorBody>(response).code).toBe("NOT_A_QUIZ")
 
     const emptyQuiz = await createLesson(ctx.db, { lessonType: "quiz" })
     const submission = await studentAgent.post(`/api/lessons/${emptyQuiz.id}/quiz/submissions`, { answers: {} })

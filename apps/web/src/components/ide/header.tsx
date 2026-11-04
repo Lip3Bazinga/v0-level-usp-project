@@ -20,7 +20,7 @@ interface HeaderProps {
   xpBadgeRef?: RefObject<HTMLDivElement | null>
 }
 
-export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps) {
+export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps): React.JSX.Element {
   const { profile } = useAuth()
   const level = profile?.level ?? 1
   const totalXp = profile?.total_xp ?? 0
@@ -103,10 +103,10 @@ function useXpPulse(totalXp: number): boolean {
 interface XpPillProps {
   totalXp: number
   level: number
-  badgeRef?: RefObject<HTMLDivElement | null>
+  badgeRef?: RefObject<HTMLDivElement | null> | undefined | undefined
 }
 
-function XpPill({ totalXp, level, badgeRef }: XpPillProps) {
+function XpPill({ totalXp, level, badgeRef }: XpPillProps): React.JSX.Element {
   const isPulsing = useXpPulse(totalXp)
   const { xpInLevel, xpLevelRange, levelPercent } = computeLevelProgress(totalXp, level)
 
@@ -153,7 +153,7 @@ function XpPill({ totalXp, level, badgeRef }: XpPillProps) {
   )
 }
 
-function StreakPill({ streak }: { streak: number }) {
+function StreakPill({ streak }: { streak: number }): React.JSX.Element {
   const hasStreak = streak > 0
   return (
     <div className="flex items-center gap-1.5 rounded-full bg-linear-to-r from-orange-500 to-red-500 px-3 py-1.5 text-white">

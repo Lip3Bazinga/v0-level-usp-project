@@ -25,7 +25,7 @@ interface CoursePreviewProps {
 }
 
 /** Prévia ao vivo da página pública do curso. */
-export function CoursePreview({ form, coverPreview, lessons }: CoursePreviewProps) {
+export function CoursePreview({ form, coverPreview, lessons }: CoursePreviewProps): React.JSX.Element {
   const hasFinalProject = Boolean(form.final_project_title.trim())
   const hiddenLessonCount = lessons.length - PREVIEW_LESSON_COUNT
 

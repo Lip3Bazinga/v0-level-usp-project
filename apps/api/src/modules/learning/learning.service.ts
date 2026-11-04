@@ -1,19 +1,21 @@
 import { Injectable, Logger } from "@nestjs/common"
-import type { LessonCompletion, LessonProgress, ProjectFile, SubmissionResult } from "@levelusp/contracts"
+import type { LessonCompletion, LessonProgress, LessonSnapshot, ProjectFile, SubmissionResult } from "@levelusp/contracts"
 import { canViewContent } from "@/common/authorization/ownership"
-import { BadRequest, NotFound, Unprocessable } from "@/common/errors/app-error"
+import { AppError, BadRequest, NotFound, Unprocessable } from "@/common/errors/app-error"
 import type { AuthUser } from "@/common/http/request"
 import { RATE_LIMITS } from "@/common/rate-limit/rate-limit.policies"
 import { RateLimitService } from "@/common/rate-limit/rate-limit.service"
+import { RUNNER_BUSY_CODE } from "@/infra/runner/code-runner"
 import { GamificationService } from "../gamification/gamification.service"
-import { GradingService } from "../grading/grading.service"
+import { GradingService, type GradedSubmission } from "../grading/grading.service"
 import { hasEntryFile, parseSnapshot } from "./learning.domain"
 import { toLessonCompletion, toLessonProgress } from "./learning.mapper"
-import { LearningRepository } from "./learning.repository"
+import { LearningRepository, type GradableLessonRow } from "./learning.repository"
 
 /** Exercício aprovado pelo corretor vale nota cheia (a nota parcial é só do quiz). */
 const FULL_SCORE = 100
 
+/** Submissão de código (correção no servidor), conclusão de lições teóricas, progresso e rascunhos. */
 @Injectable()
 export class LearningService {
   private readonly logger = new Logger(LearningService.name)
@@ -25,20 +27,32 @@ export class LearningService {
     private readonly rateLimit: RateLimitService,
   ) {}
 
+  /** Progresso do usuário em todas as lições. */
   async listMyProgress(userId: string): Promise<LessonProgress[]> {
     return (await this.repo.listProgress(userId)).map(toLessonProgress)
   }
 
+  /** Ids das lições que o usuário concluiu. */
   async listMyCompletedLessonIds(userId: string): Promise<string[]> {
     const progress = await this.repo.listProgress(userId)
     return progress.filter((lesson) => lesson.status === "completed").map((lesson) => lesson.lessonId)
   }
 
-  async getSnapshot(user: AuthUser, lessonId: string): Promise<{ files: ProjectFile[] | null }> {
+  /**
+   * Rascunho do usuário na lição; null quando nunca salvou (rascunho legado em texto vira o main.py).
+   *
+   * @throws AppError 404 quando a lição não existe ou não é visível.
+   */
+  async getSnapshot(user: AuthUser, lessonId: string): Promise<LessonSnapshot> {
     await this.findAccessibleLesson(user, lessonId)
     return { files: parseSnapshot(await this.repo.findSnapshot(user.id, lessonId)) }
   }
 
+  /**
+   * Salva o rascunho sem rebaixar uma lição já concluída.
+   *
+   * @throws AppError 404 quando a lição não existe ou não é visível.
+   */
   async updateSnapshot(user: AuthUser, lessonId: string, files: ProjectFile[]): Promise<void> {
     await this.findAccessibleLesson(user, lessonId)
     await this.repo.upsertSnapshot(user.id, lessonId, files)
@@ -54,8 +68,9 @@ export class LearningService {
     if (!lesson.testCases.length) throw Unprocessable("Esta lição ainda não tem gabarito. Avise o professor.", "NO_TESTS")
     if (!hasEntryFile(files)) throw BadRequest("O projeto precisa de um arquivo main.py.")
     this.rateLimit.consume(RATE_LIMITS.codeSubmission, user.id)
+    this.rateLimit.consume(RATE_LIMITS.codeSubmissionPerLessonDay, `${user.id}:${lessonId}`)
 
-    const { engine, ...gradeResult } = await this.grading.grade(files, lesson.testCases)
+    const { engine, ...gradeResult } = await this.gradeOrRefund(user.id, lessonId, files, lesson.testCases)
     const submissionId = await this.repo.createSubmission({
       userId: user.id,
       lessonId,
@@ -76,6 +91,23 @@ export class LearningService {
     return { ...gradeResult, submission_id: submissionId, ...toLessonCompletion(outcome) }
   }
 
+  /**
+   * Corrige; se o executor recusou o job por fila cheia (`RUNNER_BUSY`: o código nem rodou),
+   * devolve as cotas de verificação — o aluno não perde tentativas por causa da fila da turma.
+   * Outras falhas (executor fora do ar, prazo estourado) não devolvem: o código pode ter rodado.
+   */
+  private async gradeOrRefund(userId: string, lessonId: string, files: ProjectFile[], testCases: GradableLessonRow["testCases"]): Promise<GradedSubmission> {
+    try {
+      return await this.grading.grade(files, testCases)
+    } catch (error) {
+      if (error instanceof AppError && error.code === RUNNER_BUSY_CODE) {
+        this.rateLimit.refund(RATE_LIMITS.codeSubmission, userId)
+        this.rateLimit.refund(RATE_LIMITS.codeSubmissionPerLessonDay, `${userId}:${lessonId}`)
+      }
+      throw error
+    }
+  }
+
   /** Lições teóricas não têm avaliação: concluir = ter lido. */
   async completeTheory(user: AuthUser, lessonId: string): Promise<LessonCompletion> {
     this.rateLimit.consume(RATE_LIMITS.theoryCompletion, user.id)
@@ -86,7 +118,7 @@ export class LearningService {
   }
 
   /** Publicada para todos; rascunho só para o autor e admins. */
-  private async findAccessibleLesson(user: AuthUser, lessonId: string) {
+  private async findAccessibleLesson(user: AuthUser, lessonId: string): Promise<GradableLessonRow> {
     const lesson = await this.repo.findLessonForGrading(lessonId)
     if (!lesson || !canViewContent(user, lesson)) throw NotFound("Lição")
     return lesson

@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { sql } from "drizzle-orm"
 import { courses, libraryCatalog, notifications } from "@levelusp/db"
-import { agent, countRows, createLesson, createTestApp, signUp, type TestContext } from "./harness"
+import type { ApiErrorBody, LibraryCatalog, LibraryRequest, Note, Notification, SessionResponse, TeacherApproval } from "@levelusp/contracts"
+import { agent, bodyOf, countRows, createLesson, createTestApp, signUp, type TestContext } from "./harness"
 import { requireRow } from "@/common/database/rows"
 
 describe("Notas, notificações, bibliotecas e solicitações de professor (e2e)", () => {
@@ -24,26 +25,26 @@ describe("Notas, notificações, bibliotecas e solicitações de professor (e2e)
 
       const list = await userAgent.get("/api/me/notes")
       expect(list.body).toHaveLength(1)
-      expect(list.body[0]).toMatchObject({ lesson_title: "Funções", course_title: "Python 1" })
+      expect(bodyOf<Note[]>(list)[0]).toMatchObject({ lesson_title: "Funções", course_title: "Python 1" })
 
-      const updated = await userAgent.patch(`/api/me/notes/${created.body.id}`, { content: "novo" })
+      const updated = await userAgent.patch(`/api/me/notes/${bodyOf<Note>(created).id}`, { content: "novo" })
       expect(updated.status).toBe(200)
       expect(updated.body).toMatchObject({ title: "Resumo", content: "novo" })
 
-      expect((await userAgent.delete(`/api/me/notes/${created.body.id}`)).status).toBe(204)
+      expect((await userAgent.delete(`/api/me/notes/${bodyOf<Note>(created).id}`)).status).toBe(204)
       expect((await userAgent.get("/api/me/notes")).body).toEqual([])
     })
 
     it("notas são isoladas por dono: outro usuário recebe 404", async () => {
       const owner = await signUp(ctx.app)
       const other = await signUp(ctx.app)
-      const note = (await owner.agent.post("/api/me/notes", { title: "Minha", content: "segredo" })).body
+      const note = bodyOf<Note>(await owner.agent.post("/api/me/notes", { title: "Minha", content: "segredo" }))
       expect((await other.agent.get("/api/me/notes")).body).toEqual([])
       expect((await other.agent.patch(`/api/me/notes/${note.id}`, { content: "hack" })).status).toBe(404)
       expect((await other.agent.delete(`/api/me/notes/${note.id}`)).status).toBe(404)
-      const still = (await owner.agent.get("/api/me/notes")).body
+      const still = bodyOf<Note[]>(await owner.agent.get("/api/me/notes"))
       expect(still).toHaveLength(1)
-      expect(still[0].content).toBe("segredo")
+      expect(still[0]?.content).toBe("segredo")
       expect((await agent(ctx.app).get("/api/me/notes")).status).toBe(401)
     })
 
@@ -67,7 +68,7 @@ describe("Notas, notificações, bibliotecas e solicitações de professor (e2e)
       const list = await user.agent.get("/api/me/notifications?limit=10")
       expect(list.status).toBe(200)
       expect(list.body).toHaveLength(2)
-      expect(list.body.every((notification: { user_id: string }) => notification.user_id === user.id)).toBe(true)
+      expect(bodyOf<Notification[]>(list).every((notification) => notification.user_id === user.id)).toBe(true)
 
       expect((await user.agent.post(`/api/me/notifications/${ownNotification.id}/read`)).status).toBe(204)
       expect((await user.agent.post(`/api/me/notifications/${foreignNotification.id}/read`)).status).toBe(404)
@@ -86,7 +87,7 @@ describe("Notas, notificações, bibliotecas e solicitações de professor (e2e)
       await ctx.db.insert(libraryCatalog).values({ name: "velha", displayName: "Velha", active: false })
       const publicCatalog = await agent(ctx.app).get("/api/library")
       expect(publicCatalog.status).toBe(200)
-      expect(publicCatalog.body.map((library: { name: string }) => library.name)).toEqual(["numpy"])
+      expect(bodyOf<LibraryCatalog[]>(publicCatalog).map((library) => library.name)).toEqual(["numpy"])
       expect((await admin.agent.get("/api/admin/library")).body).toHaveLength(2)
 
       expect((await admin.agent.patch(`/api/admin/library/${numpy.id}`, { active: false })).status).toBe(204)
@@ -108,9 +109,12 @@ describe("Notas, notificações, bibliotecas e solicitações de professor (e2e)
       expect((await teacher.agent.get("/api/me/library/requests")).body).toHaveLength(1)
 
       const all = await admin.agent.get("/api/admin/library/requests")
-      expect(all.body[0]).toMatchObject({ id: libraryRequest.body.id, requester_name: expect.any(String) })
+      const requested = bodyOf<LibraryRequest>(libraryRequest)
+      const [listed] = bodyOf<LibraryRequest[]>(all)
+      expect(listed?.id).toBe(requested.id)
+      expect(listed?.requester_name).toEqual(expect.any(String))
 
-      const review = await admin.agent.post(`/api/admin/library/requests/${libraryRequest.body.id}/review`, {
+      const review = await admin.agent.post(`/api/admin/library/requests/${requested.id}/review`, {
         status: "approved",
         review_notes: "ok",
         catalog: { display_name: "Pandas", category: "data-science" },
@@ -121,7 +125,7 @@ describe("Notas, notificações, bibliotecas e solicitações de professor (e2e)
       expect(await countRows(ctx.db, sql`select count(*)::int as n from notifications where user_id = ${teacher.id}`)).toBe(1)
       expect(await countRows(ctx.db, sql`select count(*)::int as n from audit_log where action = 'library.approve'`)).toBe(1)
 
-      const again = await admin.agent.post(`/api/admin/library/requests/${libraryRequest.body.id}/review`, { status: "rejected" })
+      const again = await admin.agent.post(`/api/admin/library/requests/${requested.id}/review`, { status: "rejected" })
       expect(again.status).toBe(409)
     })
   })
@@ -142,23 +146,26 @@ describe("Notas, notificações, bibliotecas e solicitações de professor (e2e)
 
       const duplicate = await user.agent.post("/api/me/teacher-request", body)
       expect(duplicate.status).toBe(409)
-      expect(duplicate.body.code).toBe("REQUEST_PENDING")
-      expect((await user.agent.get("/api/me/teacher-request")).body.id).toBe(created.body.id)
+      expect(bodyOf<ApiErrorBody>(duplicate).code).toBe("REQUEST_PENDING")
+      const request = bodyOf<TeacherApproval>(created)
+      expect(bodyOf<TeacherApproval>(await user.agent.get("/api/me/teacher-request")).id).toBe(request.id)
 
-      expect((await user.agent.post(`/api/admin/teacher-approvals/${created.body.id}/approve`, {})).status).toBe(403)
+      expect((await user.agent.post(`/api/admin/teacher-approvals/${request.id}/approve`, {})).status).toBe(403)
       const pending = await admin.agent.get("/api/admin/teacher-approvals?status=pending")
-      expect(pending.body.map((approval: { id: string }) => approval.id)).toEqual([created.body.id])
+      expect(bodyOf<TeacherApproval[]>(pending).map((approval) => approval.id)).toEqual([request.id])
 
-      expect((await admin.agent.post(`/api/admin/teacher-approvals/${created.body.id}/approve`, { note: "Bem-vinda!" })).status).toBe(204)
-      expect((await user.agent.get("/api/auth/me")).body.user.role).toBe("teacher")
-      const mine = (await user.agent.get("/api/me/teacher-request")).body
+      expect((await admin.agent.post(`/api/admin/teacher-approvals/${request.id}/approve`, { note: "Bem-vinda!" })).status).toBe(204)
+      expect(bodyOf<SessionResponse>(await user.agent.get("/api/auth/me")).user.role).toBe("teacher")
+      const mine = bodyOf<TeacherApproval>(await user.agent.get("/api/me/teacher-request"))
       expect(mine).toMatchObject({ status: "approved", reviewed_by: admin.id, review_note: "Bem-vinda!" })
       expect(mine.reviewed_at).toBeTruthy()
-      const notes = (await user.agent.get("/api/me/notifications")).body
-      expect(notes).toEqual([expect.objectContaining({ kind: "success", title: expect.stringMatching(/professor/i) })])
+      const notes = bodyOf<Notification[]>(await user.agent.get("/api/me/notifications"))
+      expect(notes).toHaveLength(1)
+      expect(notes[0]?.kind).toBe("success")
+      expect(notes[0]?.title).toMatch(/professor/i)
       expect(await countRows(ctx.db, sql`select count(*)::int as n from audit_log where action = 'teacher.approve'`)).toBe(1)
 
-      expect((await admin.agent.post(`/api/admin/teacher-approvals/${created.body.id}/reject`)).status).toBe(409)
+      expect((await admin.agent.post(`/api/admin/teacher-approvals/${request.id}/reject`)).status).toBe(409)
       expect((await user.agent.post("/api/me/teacher-request", body)).status).toBe(409)
       expect((await admin.agent.get("/api/admin/teacher-approvals")).body).toEqual([])
       expect((await admin.agent.get("/api/admin/teacher-approvals?status=all")).body).toHaveLength(1)
@@ -168,9 +175,9 @@ describe("Notas, notificações, bibliotecas e solicitações de professor (e2e)
       const user = await signUp(ctx.app)
       const admin = await signUp(ctx.app, "admin", ctx.db)
       const body = { motivation: "Quero ensinar Python na escola." }
-      const first = (await user.agent.post("/api/me/teacher-request", body)).body
+      const first = bodyOf<TeacherApproval>(await user.agent.post("/api/me/teacher-request", body))
       expect((await admin.agent.post(`/api/admin/teacher-approvals/${first.id}/reject`, { note: "Faltam dados" })).status).toBe(204)
-      expect((await user.agent.get("/api/auth/me")).body.user.role).toBe("student")
+      expect(bodyOf<SessionResponse>(await user.agent.get("/api/auth/me")).user.role).toBe("student")
       expect((await user.agent.get("/api/me/teacher-request")).body).toMatchObject({ status: "rejected", review_note: "Faltam dados" })
       expect((await user.agent.post("/api/me/teacher-request", body)).status).toBe(201)
       expect((await user.agent.post("/api/me/teacher-request", { motivation: "curta" })).status).toBe(400)

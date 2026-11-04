@@ -7,6 +7,7 @@ export function newToken(): string {
   return randomBytes(TOKEN_BYTES).toString("base64url")
 }
 
+/** SHA-256 em hex: é isto que vai para o banco, nunca o token. */
 export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex")
 }

@@ -9,7 +9,7 @@ interface StatCardProps {
   className?: string
 }
 
-export function StatCard({ label, value, icon: Icon, iconColor = "text-level-purple", className }: StatCardProps) {
+export function StatCard({ label, value, icon: Icon, iconColor = "text-level-purple", className }: StatCardProps): React.JSX.Element {
   return (
     <div className={cn("group relative overflow-hidden rounded-2xl border border-border bg-white p-6 transition-all card-hover", className)}>
       <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-level-purple-light opacity-50 transition-transform group-hover:scale-150" />

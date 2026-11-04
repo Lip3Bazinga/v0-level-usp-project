@@ -39,7 +39,10 @@ export const sessions = pgTable(
   (table) => [index("sessions_user_idx").on(table.userId)],
 )
 
+/** Credencial (`users`), incluindo o hash da senha: nunca serializar para o cliente. */
 export type UserRow = typeof users.$inferSelect
+/** Sessão de login; o `id` é o SHA-256 do token do cookie, nunca o token. */
+export type SessionRow = typeof sessions.$inferSelect
 
 export const passwordResetTokens = pgTable("password_reset_tokens", {
   tokenHash: text("token_hash").primaryKey(),

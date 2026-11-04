@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
-  courseUpdateSchema, deleteAccountSchema, examQuestionUpdateSchema, lessonInputSchema, limitQuerySchema, optionalBodySchema,
+  courseUpdateSchema, deleteAccountSchema, examQuestionUpdateSchema, lessonInputSchema, limitQuerySchema, nonEmpty, optionalBodySchema,
   projectFileSchema, quizQuestionInputSchema, signUpSchema, testCasesSchema,
 } from "./index"
 
@@ -22,6 +22,46 @@ describe("contratos", () => {
     expect(io).toMatchObject({ stdin: "", match: "trimmed" })
   })
 
+  it("caso expr exige alguma expectativa e não mistura valor com exceção", () => {
+    const parse = (extra: Record<string, unknown>): boolean =>
+      testCasesSchema.safeParse([{ id: "e", kind: "expr", expr: "conta.saldo", ...extra }]).success
+    expect(parse({})).toBe(false)
+    expect(parse({ expected: 100 })).toBe(true)
+    expect(parse({ expected: null })).toBe(true)
+    expect(parse({ type: "generator" })).toBe(true)
+    expect(parse({ raises: "ValueError", message_contains: "insuficiente" })).toBe(true)
+    expect(parse({ raises: "ValueError", expected: 1 })).toBe(false)
+    expect(parse({ expected: 1, message_contains: "x" })).toBe(false)
+    expect(parse({ expected_stdout: "oi" })).toBe(true)
+    expect(parse({ type: "não é nome" })).toBe(false)
+  })
+
+  it("caso expr recebe defaults de preparação, stdin e comparação", () => {
+    const [exprCase] = testCasesSchema.parse([{ id: "e", kind: "expr", expr: "x", expected: 1 }])
+    expect(exprCase).toMatchObject({ setup: "", stdin: "", match: "trimmed" })
+  })
+
+  it("caso unittest exige implementação e nome substituído juntos", () => {
+    const parse = (extra: Record<string, unknown>): boolean =>
+      testCasesSchema.safeParse([{ id: "u", kind: "unittest", expect: "fail", ...extra }]).success
+    expect(parse({})).toBe(true)
+    expect(parse({ target: "validar", implementation: "def validar(s):\n    return True\n" })).toBe(true)
+    expect(parse({ target: "validar" })).toBe(false)
+    expect(parse({ implementation: "def validar(s): ..." })).toBe(false)
+    expect(parse({ expect: "talvez" })).toBe(false)
+    expect(parse({ min_tests: 0 })).toBe(false)
+  })
+
+  it("novas regras de estrutura: decorator, catches e yield", () => {
+    const rules = [
+      { type: "decorator", name: "property" },
+      { type: "catches", exception: "ValueError" },
+      { type: "uses", construct: "yield" },
+    ]
+    const parsed = testCasesSchema.safeParse(rules.map((rule, index) => ({ id: `s${index}`, kind: "source", rule })))
+    expect(parsed.success).toBe(true)
+  })
+
   it("PATCH parcial não preenche defaults (não apaga campos não enviados)", () => {
     expect(courseUpdateSchema.parse({ title: "Novo título" })).toEqual({ title: "Novo título" })
     expect(examQuestionUpdateSchema.parse({ topic: "Laços" })).toEqual({ topic: "Laços" })
@@ -31,6 +71,8 @@ describe("contratos", () => {
     expect(projectFileSchema.safeParse({ path: "../segredo.py", content: "" }).success).toBe(false)
     expect(projectFileSchema.safeParse({ path: "/etc/passwd.py", content: "" }).success).toBe(false)
     expect(projectFileSchema.safeParse({ path: "utils/mat.py", content: "" }).success).toBe(true)
+    // \u0000 quebraria a gravação em jsonb (500) — recusado na validação.
+    expect(projectFileSchema.safeParse({ path: "main.py", content: "print(1)\u0000" }).success).toBe(false)
   })
 
   it("política de senha exige 10+ caracteres com letra e número", () => {
@@ -60,5 +102,15 @@ describe("contratos", () => {
     const schema = optionalBodySchema(deleteAccountSchema)
     expect(schema.safeParse(undefined).error?.issues[0]?.path).toEqual(["password"])
     expect(schema.parse({ password: "x" })).toEqual({ password: "x" })
+  })
+})
+
+describe("nonEmpty", () => {
+  it("texto vazio, null e undefined contam como ausentes", () => {
+    expect(nonEmpty("")).toBeUndefined()
+    expect(nonEmpty(null)).toBeUndefined()
+    expect(nonEmpty(undefined)).toBeUndefined()
+    expect(nonEmpty(" ")).toBe(" ")
+    expect(nonEmpty("Laços")).toBe("Laços")
   })
 })

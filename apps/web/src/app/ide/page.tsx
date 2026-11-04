@@ -10,11 +10,12 @@ import { Loader2 } from "lucide-react"
 import { useAsyncResource } from "@/hooks/use-async-resource"
 import { fetchMyCompletedLessonIds, fetchPublishedLessonSummaries, HTTP_STATUS, nullOnStatus } from "@/lib/api"
 import { ROUTES } from "@/lib/constants"
+import { isNonEmpty } from "@/lib/utils"
 
 async function resolveIdeDestination(requestedLessonId: string | null): Promise<string> {
   try {
     const lessons = await fetchPublishedLessonSummaries()
-    if (lessons.length === 0) return ROUTES.dashboard
+    if (!isNonEmpty(lessons)) return ROUTES.dashboard
     if (requestedLessonId && lessons.some((lesson) => lesson.id === requestedLessonId)) return ROUTES.lesson(requestedLessonId)
     // Sem sessão, ninguém concluiu nada: começa pela primeira lição.
     const completedLessonIds = (await nullOnStatus(fetchMyCompletedLessonIds(), HTTP_STATUS.UNAUTHORIZED)) ?? new Set<string>()
@@ -25,7 +26,7 @@ async function resolveIdeDestination(requestedLessonId: string | null): Promise<
   }
 }
 
-function IdeRedirect() {
+function IdeRedirect(): React.JSX.Element {
   const router = useRouter()
   const requestedLessonId = useSearchParams().get("lesson")
   const destination = useAsyncResource(() => resolveIdeDestination(requestedLessonId), [requestedLessonId])
@@ -43,7 +44,7 @@ function IdeRedirect() {
   )
 }
 
-export default function IdePage() {
+export default function IdePage(): React.JSX.Element {
   return (
     <Suspense
       fallback={

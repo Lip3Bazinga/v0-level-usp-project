@@ -1,6 +1,7 @@
 import type { AnswerSheet, AnswerSheetResult } from "@levelusp/contracts"
 import { reviewAnswers, type GradableQuestion } from "@/common/scoring/answer-sheet"
 
+/** Correção do quiz antes de comparar com a nota mínima da lição. */
 export type QuizGrade = Omit<AnswerSheetResult, "passingScore">
 
 /**

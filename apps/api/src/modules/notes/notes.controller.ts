@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post } from "@nestjs/common"
 import { ApiTags } from "@nestjs/swagger"
-import { noteInputSchema, noteUpdateSchema, type NoteInput, type NoteUpdateInput } from "@levelusp/contracts"
+import { noteInputSchema, noteUpdateSchema, type NoteInput, type NoteUpdateInput, type Note } from "@levelusp/contracts"
 import { CurrentUser } from "@/common/decorators/auth.decorators"
 import type { AuthUser } from "@/common/http/request"
 import { UuidPipe } from "@/common/pipes/uuid.pipe"
@@ -13,17 +13,17 @@ export class NotesController {
   constructor(private readonly notes: NotesService) {}
 
   @Get()
-  list(@CurrentUser() user: AuthUser) {
+  list(@CurrentUser() user: AuthUser): Promise<Note[]> {
     return this.notes.list(user)
   }
 
   @Post()
-  create(@CurrentUser() user: AuthUser, @Body(new ZodPipe(noteInputSchema)) body: NoteInput) {
+  create(@CurrentUser() user: AuthUser, @Body(new ZodPipe(noteInputSchema)) body: NoteInput): Promise<Note> {
     return this.notes.create(user, body)
   }
 
   @Patch(":id")
-  update(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(noteUpdateSchema)) body: NoteUpdateInput) {
+  update(@CurrentUser() user: AuthUser, @Param("id", UuidPipe) id: string, @Body(new ZodPipe(noteUpdateSchema)) body: NoteUpdateInput): Promise<Note> {
     return this.notes.update(user, id, body)
   }
 

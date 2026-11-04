@@ -7,7 +7,7 @@ const CODE_BLOCK_LENGTH = 4
 
 /** Código de verificação legível: LVL-XXXX-XXXX (31^8 ≈ 2^39,6 combinações). */
 export function generateVerificationCode(randomBelow: (max: number) => number = randomInt): string {
-  const block = () => Array.from({ length: CODE_BLOCK_LENGTH }, () => CODE_ALPHABET.charAt(randomBelow(CODE_ALPHABET.length))).join("")
+  const block = (): string => Array.from({ length: CODE_BLOCK_LENGTH }, () => CODE_ALPHABET.charAt(randomBelow(CODE_ALPHABET.length))).join("")
   return `LVL-${block()}-${block()}`
 }
 
@@ -30,7 +30,7 @@ export function formatIssuedDate(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric", timeZone: SAO_PAULO_TIME_ZONE })
 }
 
-/** URL pública de verificação. */
-export function verificationUrl(appOrigin: string, code: string): string {
-  return `${appOrigin.replace(/\/+$/, "")}/certificado/${encodeURIComponent(code)}`
+/** URL pública de verificação (impressa e clicável no PDF). */
+export function verificationUrl(publicBaseUrl: string, code: string): string {
+  return `${publicBaseUrl.replace(/\/+$/, "")}/certificado/${encodeURIComponent(code)}`
 }

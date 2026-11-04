@@ -24,7 +24,7 @@ const SKELETON_CARDS = [1, 2, 3, 4, 5, 6]
 const NO_COURSES: Course[] = []
 const NO_ENROLLMENTS: string[] = []
 
-export default function CoursesPage() {
+export default function CoursesPage(): React.JSX.Element {
   const { profile, isLoading: isAuthLoading } = useAuth()
   const profileId = profile?.id
   const [searchText, setSearchText] = useState("")
@@ -42,7 +42,7 @@ export default function CoursesPage() {
   const enrolledIds = new Set(enrollmentsResource.status === "success" ? enrollmentsResource.data : NO_ENROLLMENTS)
   const visibleCourses = filterCourses(courses, searchText, levelFilter)
 
-  const handleRetry = () => {
+  const handleRetry = (): void => {
     void coursesResource.reload()
     void enrollmentsResource.reload()
   }
@@ -116,7 +116,7 @@ interface CourseCardProps {
   isEnrolled: boolean
 }
 
-function CourseCard({ course, isEnrolled }: CourseCardProps) {
+function CourseCard({ course, isEnrolled }: CourseCardProps): React.JSX.Element {
   return (
     <Link
       href={ROUTES.course(course.id)}
@@ -178,7 +178,7 @@ function CourseCard({ course, isEnrolled }: CourseCardProps) {
   )
 }
 
-function SkeletonCard() {
+function SkeletonCard(): React.JSX.Element {
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-white">
       <div className="h-36 animate-pulse bg-muted" />

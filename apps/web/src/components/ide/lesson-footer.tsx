@@ -15,12 +15,12 @@ interface LessonFooterProps {
 const PREVIOUS_SHORTCUT_KEY = ","
 const NEXT_SHORTCUT_KEY = "."
 
-export function LessonFooter({ currentIndex, total, onPrev, onNext }: LessonFooterProps) {
+export function LessonFooter({ currentIndex, total, onPrev, onNext }: LessonFooterProps): React.JSX.Element {
   const isFirst = currentIndex <= 0
   const isLast = currentIndex >= total - 1
 
   useEffect(() => {
-    const handleShortcut = (event: KeyboardEvent) => {
+    const handleShortcut = (event: KeyboardEvent): void => {
       if (!event.altKey) return
       const navigate = event.key === PREVIOUS_SHORTCUT_KEY ? onPrev : event.key === NEXT_SHORTCUT_KEY ? onNext : null
       if (!navigate) return

@@ -1,4 +1,5 @@
-import { boolean, check, date, integer, pgTable, text, uuid } from "drizzle-orm/pg-core"
+import { sql } from "drizzle-orm"
+import { boolean, check, date, index, integer, pgTable, text, uuid } from "drizzle-orm/pg-core"
 import { USER_ROLES } from "@levelusp/contracts"
 import { users } from "./auth"
 import { createdAt, isOneOf, updatedAt } from "./_helpers"
@@ -24,8 +25,18 @@ export const profiles = pgTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (table) => [check("profiles_role_check", isOneOf(table.role, USER_ROLES))],
+  (table) => [
+    check("profiles_role_check", isOneOf(table.role, USER_ROLES)),
+    // Ranking (`GET /leaderboard`, rota pública): com 50 mil perfis, 13 ms de varredura +
+    // ordenação por chamada viram 0,08 ms (docs/v2/desempenho-e-carga.md). `nullsFirst` casa
+    // com o `ORDER BY total_xp DESC` da consulta (sem ele o planejador não usa o índice).
+    index("profiles_leaderboard_idx")
+      .on(table.totalXp.desc().nullsFirst(), table.createdAt)
+      .where(sql`${table.suspended} = false and ${table.role} = 'student'`),
+  ],
 )
 
+/** Perfil e contadores de gamificação; o id é o mesmo da credencial em `users`. */
 export type ProfileRow = typeof profiles.$inferSelect
+/** Valores para inserir ou atualizar em `profiles`. */
 export type ProfileInsert = typeof profiles.$inferInsert

@@ -15,11 +15,16 @@ import { RunnerModule } from "./infra/runner/runner.module"
 import { StorageModule } from "./infra/storage/storage.module"
 import { FEATURE_MODULES } from "./modules"
 
-const MAX_REQUEST_ID_LENGTH = 64
+/**
+ * Ids aceitos do proxy: só letras, dígitos, `_`, `.` e `-` (até 64). Qualquer
+ * outra coisa (aspas, espaços, `key=value`) poderia forjar campos nas linhas de
+ * log ou confundir a correlação de incidentes; nesses casos geramos um id novo.
+ */
+const REQUEST_ID_PATTERN = /^[\w.-]{1,64}$/
 
 /** Reaproveita o id do proxy (correlação ponta a ponta) ou gera um novo. */
 function requestIdFrom(header: string | string[] | undefined): string {
-  return typeof header === "string" ? header.slice(0, MAX_REQUEST_ID_LENGTH) : randomUUID()
+  return typeof header === "string" && REQUEST_ID_PATTERN.test(header) ? header : randomUUID()
 }
 
 @Module({
@@ -39,7 +44,7 @@ function requestIdFrom(header: string | string[] | undefined): string {
           redact: ["req.headers.cookie", "req.headers.authorization", 'res.headers["set-cookie"]', "req.body.password"],
           customProps: () => ({ env: env.APP_ENV }),
           autoLogging: { ignore: (request) => request.url?.startsWith("/api/health") ?? false },
-          transport: env.APP_ENV === "dev" ? { target: "pino-pretty", options: { singleLine: true } } : undefined,
+          ...(env.APP_ENV === "dev" ? { transport: { target: "pino-pretty", options: { singleLine: true } } } : {}),
         },
       }),
     }),
@@ -57,7 +62,7 @@ function requestIdFrom(header: string | string[] | undefined): string {
   ],
 })
 export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
+  configure(consumer: MiddlewareConsumer): void {
     consumer.apply(CsrfMiddleware).forRoutes("*path")
   }
 }

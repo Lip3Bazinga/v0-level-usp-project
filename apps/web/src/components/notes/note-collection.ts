@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type Dispatch, type SetStateAction } from "react"
 import type { Note } from "@levelusp/contracts"
-import { useAsyncResource } from "@/hooks/use-async-resource"
+import { useAsyncResource, type AsyncResource } from "@/hooks/use-async-resource"
 import { createNote, deleteNote, fetchNotes } from "@/lib/api"
 import { swalConfirm } from "@/lib/swal"
 
@@ -26,12 +26,23 @@ export function filterNotes<TNote extends Pick<Note, NoteSearchField>>(
 export function sortByRecentUpdate<TNote extends Pick<Note, "updated_at">>(notes: readonly TNote[]): TNote[] {
   return [...notes].sort((first, second) => second.updated_at.localeCompare(first.updated_at))
 }
+export interface UseNoteCollectionResult {
+  notesResource: AsyncResource<Note[]>
+  notes: Note[]
+  activeNote: Note | null
+  deletingNoteId: string | null
+  selectNote: Dispatch<SetStateAction<string | null>>
+  setNotes: (update: (current: Note[]) => Note[]) => void
+  updateNoteLocally: (noteId: string, update: (note: Note) => Note) => void
+  create: () => Promise<void>
+  remove: (noteId: string) => Promise<void>
+}
 
 /**
  * Caderno do aluno: lista, nota aberta, criação e exclusão. Usado pela página
  * /notas e pelo caderno flutuante. Sem nota escolhida, a primeira da lista fica aberta.
  */
-export function useNoteCollection(isSignedIn: boolean) {
+export function useNoteCollection(isSignedIn: boolean): UseNoteCollectionResult {
   const notesResource = useAsyncResource(() => (isSignedIn ? fetchNotes() : Promise.resolve(NO_NOTES)), [isSignedIn])
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null)
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null)
@@ -41,7 +52,7 @@ export function useNoteCollection(isSignedIn: boolean) {
   const activeNoteId = selectedNoteId ?? notes[0]?.id ?? null
   const activeNote = notes.find((note) => note.id === activeNoteId) ?? null
 
-  const create = async () => {
+  const create = async (): Promise<void> => {
     try {
       const note = await createNote(NEW_NOTE)
       setNotes((current) => [note, ...current])
@@ -51,7 +62,7 @@ export function useNoteCollection(isSignedIn: boolean) {
     }
   }
 
-  const remove = async (noteId: string) => {
+  const remove = async (noteId: string): Promise<void> => {
     const isConfirmed = await swalConfirm({ title: "Excluir esta anotação?", confirmText: "Excluir", danger: true })
     if (!isConfirmed) return
     setDeletingNoteId(noteId)
@@ -66,7 +77,7 @@ export function useNoteCollection(isSignedIn: boolean) {
     }
   }
 
-  const updateNoteLocally = (noteId: string, update: (note: Note) => Note) =>
+  const updateNoteLocally = (noteId: string, update: (note: Note) => Note): void =>
     setNotes((current) => current.map((note) => (note.id === noteId ? update(note) : note)))
 
   return {

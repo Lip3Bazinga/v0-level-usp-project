@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, type PipeTransform } from "@nestjs/common"
 import { ApiTags } from "@nestjs/swagger"
-import { BADGE_ID_PATTERN, badgeInputSchema, badgeUpdateSchema, type BadgeInput, type BadgeUpdateInput } from "@levelusp/contracts"
+import { BADGE_ID_PATTERN, badgeInputSchema, badgeUpdateSchema, type BadgeInput, type BadgeUpdateInput, type Badge } from "@levelusp/contracts"
 import { CurrentUser, Roles } from "@/common/decorators/auth.decorators"
 import { NotFound } from "@/common/errors/app-error"
 import type { AuthUser } from "@/common/http/request"
@@ -27,17 +27,17 @@ export class AdminBadgesController {
 
   /** Todas as badges, inclusive inativas (a rota pública /badges mostra só as ativas). */
   @Get()
-  listBadges() {
+  listBadges(): Promise<Badge[]> {
     return this.users.listBadges(true)
   }
 
   @Post()
-  createBadge(@CurrentUser() actor: AuthUser, @Body(new ZodPipe(badgeInputSchema)) body: BadgeInput) {
+  createBadge(@CurrentUser() actor: AuthUser, @Body(new ZodPipe(badgeInputSchema)) body: BadgeInput): Promise<Badge> {
     return this.admin.createBadge(actor, body)
   }
 
   @Patch(":id")
-  updateBadge(@CurrentUser() actor: AuthUser, @Param("id", BadgeIdPipe) id: string, @Body(new ZodPipe(badgeUpdateSchema)) body: BadgeUpdateInput) {
+  updateBadge(@CurrentUser() actor: AuthUser, @Param("id", BadgeIdPipe) id: string, @Body(new ZodPipe(badgeUpdateSchema)) body: BadgeUpdateInput): Promise<Badge> {
     return this.admin.updateBadge(actor, id, body)
   }
 

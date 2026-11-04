@@ -9,7 +9,7 @@ const LABEL_CLASS = "mb-1.5 block text-sm font-medium text-level-purple-dark"
 const FIELD_CLASS =
   "w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-800 outline-none transition-colors focus:border-level-purple focus:ring-2 focus:ring-[#E9D5FF]"
 
-function ContactSentNotice({ onSendAnother }: { onSendAnother: () => void }) {
+function ContactSentNotice({ onSendAnother }: { onSendAnother: () => void }): React.JSX.Element {
   return (
     <div className="flex flex-col items-center rounded-3xl border border-[#E9D5FF] bg-white p-12 text-center shadow-sm">
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-level-purple-light">
@@ -35,7 +35,7 @@ interface SubjectPickerProps {
   onSelect: (subject: ContactSubject) => void
 }
 
-function SubjectPicker({ selected, onSelect }: SubjectPickerProps) {
+function SubjectPicker({ selected, onSelect }: SubjectPickerProps): React.JSX.Element {
   return (
     <div className="mt-5">
       <span className={LABEL_CLASS}>Assunto</span>
@@ -60,11 +60,11 @@ function SubjectPicker({ selected, onSelect }: SubjectPickerProps) {
   )
 }
 
-export function ContactForm() {
+export function ContactForm(): React.JSX.Element {
   const [isSent, setIsSent] = useState(false)
   const [subject, setSubject] = useState<ContactSubject>(CONTACT_SUBJECTS[0])
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault()
     // A API ainda não tem endpoint de contato: por enquanto o envio só confirma na tela.
     setIsSent(true)

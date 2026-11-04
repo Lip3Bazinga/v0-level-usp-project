@@ -18,14 +18,14 @@ interface CourseLessonsSectionProps {
 }
 
 /** Lista arrastável das lições do curso e painel para anexar lições avulsas do professor. */
-export function CourseLessonsSection({ lessons }: CourseLessonsSectionProps) {
+export function CourseLessonsSection({ lessons }: CourseLessonsSectionProps): React.JSX.Element {
   const [isAddPanelOpen, setIsAddPanelOpen] = useState(false)
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: DRAG_ACTIVATION_DISTANCE_PX } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 
-  const handleDragEnd = ({ active, over }: DragEndEvent) => {
+  const handleDragEnd = ({ active, over }: DragEndEvent): void => {
     if (over) void lessons.reorder(String(active.id), String(over.id))
   }
 
@@ -65,7 +65,7 @@ export function CourseLessonsSection({ lessons }: CourseLessonsSectionProps) {
                   key={lesson.id}
                   lesson={lesson}
                   position={index + 1}
-                  onRemove={lessons.remove}
+                  onRemove={(lessonId) => void lessons.remove(lessonId)}
                   isRemoving={lessons.removingId === lesson.id}
                 />
               ))}
@@ -83,7 +83,7 @@ export function CourseLessonsSection({ lessons }: CourseLessonsSectionProps) {
         {isAddPanelOpen ? "Fechar painel" : "Adicionar lição ao curso"}
       </button>
 
-      {isAddPanelOpen && <FreeLessonsPanel freeLessons={lessons.freeLessons} addingId={lessons.addingId} onAdd={lessons.add} />}
+      {isAddPanelOpen && <FreeLessonsPanel freeLessons={lessons.freeLessons} addingId={lessons.addingId} onAdd={(lesson) => void lessons.add(lesson)} />}
     </div>
   )
 }
@@ -94,7 +94,7 @@ interface FreeLessonsPanelProps {
   onAdd: (lesson: Lesson) => void
 }
 
-function FreeLessonsPanel({ freeLessons, addingId, onAdd }: FreeLessonsPanelProps) {
+function FreeLessonsPanel({ freeLessons, addingId, onAdd }: FreeLessonsPanelProps): React.JSX.Element {
   return (
     <div className="rounded-xl border-2 border-level-purple/30 bg-level-purple-subtle/30 p-4">
       <p className="mb-3 text-xs font-semibold text-level-purple-dark">Suas lições avulsas — clique para adicionar ao curso</p>

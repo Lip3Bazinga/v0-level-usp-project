@@ -8,8 +8,9 @@ import { RateLimitService } from "@/common/rate-limit/rate-limit.service"
 import { GamificationService } from "../gamification/gamification.service"
 import { gradeQuiz } from "./quizzes.domain"
 import { toQuizQuestionFull, toQuizQuestionPublic } from "./quizzes.mapper"
-import { QuizzesRepository } from "./quizzes.repository"
+import { QuizzesRepository, type QuizLessonRow } from "./quizzes.repository"
 
+/** Quizzes de lição: autoria com gabarito e correção no servidor. */
 @Injectable()
 export class QuizzesService {
   private readonly logger = new Logger(QuizzesService.name)
@@ -26,11 +27,21 @@ export class QuizzesService {
     return (await this.repo.listPublicQuestions(lessonId)).map(toQuizQuestionPublic)
   }
 
+  /**
+   * Questões com gabarito, para edição.
+   *
+   * @throws AppError 404 lição inexistente/invisível, 403 quem não é dono nem admin.
+   */
   async listForAuthoring(user: AuthUser, lessonId: string): Promise<QuizQuestionFull[]> {
     await this.findManageableLesson(user, lessonId)
     return (await this.repo.listQuestions(lessonId)).map(toQuizQuestionFull)
   }
 
+  /**
+   * Substitui todas as questões; quiz publicado não pode ficar vazio.
+   *
+   * @throws AppError 422 `NO_QUESTIONS`; 404/403 como em {@link listForAuthoring}.
+   */
   async replace(user: AuthUser, lessonId: string, questions: QuizQuestionInput[]): Promise<QuizQuestionFull[]> {
     const lesson = await this.findManageableLesson(user, lessonId)
     if (lesson.published && lesson.lessonType === "quiz" && !questions.length) {
@@ -70,14 +81,14 @@ export class QuizzesService {
   }
 
   /** Lição de quiz visível ao usuário (publicada, ou rascunho do dono/admin). */
-  private async findVisibleQuiz(user: AuthUser, lessonId: string) {
+  private async findVisibleQuiz(user: AuthUser, lessonId: string): Promise<QuizLessonRow> {
     const lesson = await this.repo.findLesson(lessonId)
     if (!lesson || !canViewContent(user, lesson)) throw NotFound("Lição")
     if (lesson.lessonType !== "quiz") throw Unprocessable("Esta lição não é um questionário.", "NOT_A_QUIZ")
     return lesson
   }
 
-  private async findManageableLesson(user: AuthUser, lessonId: string) {
+  private async findManageableLesson(user: AuthUser, lessonId: string): Promise<QuizLessonRow> {
     const lesson = await this.repo.findLesson(lessonId)
     if (!lesson || !canViewContent(user, lesson)) throw NotFound("Lição")
     if (!canManage(user, lesson.createdBy)) throw Forbidden("Só o autor da lição (ou um admin) pode ver o gabarito.")

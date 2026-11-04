@@ -1,8 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { sql } from "drizzle-orm"
 import { badges } from "@levelusp/db"
-import type { TestCase } from "@levelusp/contracts"
-import { countRows, createLesson, createTestApp, signUp, type TestContext } from "./harness"
+import type { ApiErrorBody, LessonCompletion, LessonProgress, LessonSnapshot, SessionResponse, SubmissionResult, TestCase } from "@levelusp/contracts"
+import { ServiceUnavailable } from "@/common/errors/app-error"
+import { busyMessage } from "@/infra/runner/runner.client"
+import { bodyOf, countRows, createLesson, createTestApp, signUp, type TestContext } from "./harness"
 
 const files = [{ path: "main.py", content: "def soma(a, b):\n    return a + b\n" }]
 const cases: TestCase[] = [
@@ -40,7 +42,7 @@ describe("Correção e progresso (e2e)", () => {
     expect(second.body).toMatchObject({ allPassed: true, xp_awarded: 0 })
 
     const me = await agent.get("/api/auth/me")
-    expect(me.body.user).toMatchObject({ total_xp: 120, lessons_completed: 1 })
+    expect(bodyOf<SessionResponse>(me).user).toMatchObject({ total_xp: 120, lessons_completed: 1 })
     const completed = await agent.get("/api/me/progress/completed")
     expect(completed.body).toEqual([lesson.id])
   })
@@ -51,9 +53,9 @@ describe("Correção e progresso (e2e)", () => {
     ctx.runner.respond((job) => job.probes.map((probe) => ({ id: probe.id, ok: true, value: 999 })))
     const response = await agent.post(`/api/lessons/${lesson.id}/submissions`, { files })
     expect(response.body).toMatchObject({ allPassed: false, xp_awarded: 0, lesson_completed: false })
-    expect(response.body.failureDetails[0]).not.toContain("5")
+    expect(bodyOf<SubmissionResult>(response).failureDetails[0]).not.toContain("5")
     expect(await countRows(ctx.db, sql`select count(*)::int as n from submissions where passed = false`)).toBe(1)
-    expect((await agent.get("/api/auth/me")).body.user.total_xp).toBe(0)
+    expect(bodyOf<SessionResponse>(await agent.get("/api/auth/me")).user.total_xp).toBe(0)
   })
 
   it("concede badges ao atingir o critério", async () => {
@@ -62,7 +64,7 @@ describe("Correção e progresso (e2e)", () => {
     const { agent } = await signUp(ctx.app)
     ctx.runner.respond((job) => job.probes.map((probe) => ({ id: probe.id, ok: true, value: 5 })))
     const response = await agent.post(`/api/lessons/${lesson.id}/submissions`, { files })
-    expect(response.body.new_badges).toEqual([expect.objectContaining({ id: "primeira" })])
+    expect(bodyOf<SubmissionResult>(response).new_badges).toEqual([expect.objectContaining({ id: "primeira" })])
   })
 
   it("lição não publicada é invisível para alunos", async () => {
@@ -95,6 +97,32 @@ describe("Correção e progresso (e2e)", () => {
     expect(statuses[12]).toBe(429)
   })
 
+  it("corretor ocupado: 503 com Retry-After e a tentativa não conta no limite", async () => {
+    const lesson = await createLesson(ctx.db, { testCases: cases })
+    const { agent } = await signUp(ctx.app)
+    ctx.runner.failNext(ServiceUnavailable(busyMessage(7), "RUNNER_BUSY", 7), 12)
+    for (let i = 0; i < 12; i++) {
+      const busy = await agent.post(`/api/lessons/${lesson.id}/submissions`, { files })
+      expect(busy.status).toBe(503)
+      expect(busy.headers["retry-after"]).toBe("7")
+      expect(bodyOf<ApiErrorBody>(busy)).toMatchObject({ code: "RUNNER_BUSY", message: expect.stringContaining("7 s") as unknown })
+    }
+    // As 12 recusas foram devolvidas: o limite de 12 por minuto continua inteiro.
+    const statuses: number[] = []
+    for (let i = 0; i < 13; i++) statuses.push((await agent.post(`/api/lessons/${lesson.id}/submissions`, { files })).status)
+    expect(statuses.slice(0, 12).every((s) => s === 200)).toBe(true)
+    expect(statuses[12]).toBe(429)
+    expect(await countRows(ctx.db, sql`select count(*)::int as n from submissions`)).toBe(12)
+  })
+
+  it("executor fora do ar ou prazo estourado conta no limite (o código pode ter rodado)", async () => {
+    const lesson = await createLesson(ctx.db, { testCases: cases })
+    const { agent } = await signUp(ctx.app)
+    ctx.runner.failNext(ServiceUnavailable("O corretor está indisponível no momento.", "RUNNER_UNREACHABLE"), 12)
+    for (let i = 0; i < 12; i++) expect((await agent.post(`/api/lessons/${lesson.id}/submissions`, { files })).status).toBe(503)
+    expect((await agent.post(`/api/lessons/${lesson.id}/submissions`, { files })).status).toBe(429)
+  })
+
   it("salva e recupera o código do aluno sem rebaixar lição concluída", async () => {
     const lesson = await createLesson(ctx.db, { testCases: cases })
     const { agent } = await signUp(ctx.app)
@@ -102,9 +130,9 @@ describe("Correção e progresso (e2e)", () => {
     await agent.post(`/api/lessons/${lesson.id}/submissions`, { files })
     expect((await agent.put(`/api/lessons/${lesson.id}/snapshot`, { files: [{ path: "main.py", content: "# novo" }] })).status).toBe(204)
     const snapshot = await agent.get(`/api/lessons/${lesson.id}/snapshot`)
-    expect(snapshot.body.files[0].content).toBe("# novo")
+    expect(bodyOf<LessonSnapshot>(snapshot).files?.[0]?.content).toBe("# novo")
     const progress = await agent.get("/api/me/progress")
-    expect(progress.body[0].status).toBe("completed")
+    expect(bodyOf<LessonProgress[]>(progress)[0]?.status).toBe("completed")
   })
 
   it("lição teórica é concluída sem avaliação", async () => {
@@ -121,8 +149,8 @@ describe("Correção e progresso (e2e)", () => {
     const { agent } = await signUp(ctx.app)
     const results = await Promise.all(Array.from({ length: 10 }, () => agent.post(`/api/lessons/${lesson.id}/complete`)))
     expect(results.every((r) => r.status === 200)).toBe(true)
-    expect(results.filter((r) => r.body.xp_awarded === 100)).toHaveLength(1)
+    expect(results.filter((result) => bodyOf<LessonCompletion>(result).xp_awarded === 100)).toHaveLength(1)
     const me = await agent.get("/api/auth/me")
-    expect(me.body.user).toMatchObject({ total_xp: 100, lessons_completed: 1 })
+    expect(bodyOf<SessionResponse>(me).user).toMatchObject({ total_xp: 100, lessons_completed: 1 })
   })
 })

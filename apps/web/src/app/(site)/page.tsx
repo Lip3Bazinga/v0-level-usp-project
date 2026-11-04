@@ -7,7 +7,7 @@ import { JourneyScroll } from "@/components/marketing/journey-scroll"
 import { ImpactSection } from "@/components/marketing/impact-section"
 import { FinalCta } from "@/components/marketing/final-cta"
 
-export default function HomePage() {
+export default function HomePage(): React.JSX.Element {
   return (
     <>
       <Hero />

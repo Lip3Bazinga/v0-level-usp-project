@@ -5,7 +5,7 @@ import { Reveal, Stagger, motion, staggerItem } from "./motion-primitives"
 import { SectionIntro } from "./section-heading"
 import { SCIENTIFIC_EVIDENCE } from "./content/home"
 
-export function ScienceSection() {
+export function ScienceSection(): React.JSX.Element {
   return (
     <section id="ciencia" className="relative bg-[#FAFAFA] py-24 lg:py-32">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">

@@ -29,14 +29,14 @@ const NO_PENDING: PendingItems = { togglingLessonId: null, deletingLessonId: nul
 /** Publicar, despublicar e excluir lições e cursos do painel do professor, sempre com confirmação. */
 export function useTeacherContentActions(setContent: ContentUpdate): TeacherContentActions {
   const [pending, setPending] = useState<PendingItems>(NO_PENDING)
-  const markPending = (changes: Partial<PendingItems>) => setPending((current) => ({ ...current, ...changes }))
+  const markPending = (changes: Partial<PendingItems>): void => setPending((current) => ({ ...current, ...changes }))
 
-  const updateLessons = (update: (lessons: Lesson[]) => Lesson[]) =>
+  const updateLessons = (update: (lessons: Lesson[]) => Lesson[]): void =>
     setContent((content) => (content ? { ...content, lessons: update(content.lessons) } : content))
-  const updateCourses = (update: (courses: Course[]) => Course[]) =>
+  const updateCourses = (update: (courses: Course[]) => Course[]): void =>
     setContent((content) => (content ? { ...content, courses: update(content.courses) } : content))
 
-  const toggleLessonPublished = async (lesson: Lesson) => {
+  const toggleLessonPublished = async (lesson: Lesson): Promise<void> => {
     const confirmed = await swalConfirm({
       title: `Deseja ${lesson.published ? "despublicar" : "publicar"} esta lição?`,
       text: lesson.published ? "A lição ficará invisível para os alunos." : "A lição ficará disponível para todos os alunos.",
@@ -58,7 +58,7 @@ export function useTeacherContentActions(setContent: ContentUpdate): TeacherCont
     }
   }
 
-  const deleteLessonWithConfirm = async (lesson: Lesson) => {
+  const deleteLessonWithConfirm = async (lesson: Lesson): Promise<void> => {
     const confirmed = await swalConfirm({
       title: "Excluir lição?",
       text: `A lição "${lesson.title}" será excluída permanentemente. O progresso dos alunos também será removido.`,
@@ -79,7 +79,7 @@ export function useTeacherContentActions(setContent: ContentUpdate): TeacherCont
     }
   }
 
-  const toggleCoursePublished = async (course: Course) => {
+  const toggleCoursePublished = async (course: Course): Promise<void> => {
     // Curso publicado sem lição aparece na vitrine e aceita matrícula, mas não
     // tem o que entregar ao aluno. Despublicar segue sempre permitido.
     if (!course.published && (course.lesson_count ?? 0) === 0) {
@@ -106,7 +106,7 @@ export function useTeacherContentActions(setContent: ContentUpdate): TeacherCont
     }
   }
 
-  const deleteCourseWithConfirm = async (course: Course) => {
+  const deleteCourseWithConfirm = async (course: Course): Promise<void> => {
     const confirmed = await swalConfirm({
       title: "Excluir curso?",
       text: `O curso "${course.title}" será excluído permanentemente. Esta ação não pode ser desfeita.`,

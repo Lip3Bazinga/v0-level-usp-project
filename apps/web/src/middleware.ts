@@ -15,7 +15,7 @@ export function isProtectedPath(pathname: string): boolean {
   return PROTECTED_ROUTE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
 }
 
-export function middleware(request: NextRequest) {
+export function middleware(request: NextRequest): NextResponse<unknown> {
   const { pathname, search } = request.nextUrl
   if (!isProtectedPath(pathname)) return NextResponse.next()
   if (request.cookies.get(SESSION_COOKIE_NAME)?.value) return NextResponse.next()

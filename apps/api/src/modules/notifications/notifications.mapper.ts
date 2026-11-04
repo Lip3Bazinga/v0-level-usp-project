@@ -1,6 +1,7 @@
 import type { Notification } from "@levelusp/contracts"
 import type { NotificationRow } from "@levelusp/db"
 
+/** Notificação no formato do contrato. */
 export function toNotification(notification: NotificationRow): Notification {
   return {
     id: notification.id,

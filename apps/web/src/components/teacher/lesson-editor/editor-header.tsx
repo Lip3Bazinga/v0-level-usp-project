@@ -18,7 +18,7 @@ interface EditorHeaderProps {
 
 export function EditorHeader({
   isNew, title, isPublished, isSaving, isDirty, hasJustSaved, onSave, onPublish, onUnpublish,
-}: EditorHeaderProps) {
+}: EditorHeaderProps): React.JSX.Element {
   const canSave = !isSaving && title.trim().length > 0
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-white/95 backdrop-blur">

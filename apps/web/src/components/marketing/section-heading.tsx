@@ -7,7 +7,7 @@ interface SectionIntroProps {
 }
 
 /** Abertura das seções da página inicial: sobretítulo, título grande e parágrafo. */
-export function SectionIntro({ eyebrow, title, description }: SectionIntroProps) {
+export function SectionIntro({ eyebrow, title, description }: SectionIntroProps): React.JSX.Element {
   return (
     <Reveal className="mx-auto max-w-3xl text-center">
       <p className="mb-4 text-sm font-semibold uppercase tracking-wider text-level-purple">
@@ -33,7 +33,7 @@ export function SectionHeading({
   title,
   description,
   className = "mx-auto mb-12 max-w-2xl text-center",
-}: SectionHeadingProps) {
+}: SectionHeadingProps): React.JSX.Element {
   return (
     <Reveal className={className}>
       <h2 className="text-3xl font-bold text-level-purple-dark sm:text-4xl">{title}</h2>

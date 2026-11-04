@@ -3,7 +3,7 @@ import { ArrowLeft } from "lucide-react"
 import { BrandMark } from "@/components/design-system/brand-logo"
 import { ROUTES } from "@/lib/constants"
 
-export default function NotFound() {
+export default function NotFound(): React.JSX.Element {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
       <div className="text-center">

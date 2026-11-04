@@ -1,6 +1,7 @@
 import type { TeacherApproval } from "@levelusp/contracts"
 import type { TeacherApprovalRow } from "@levelusp/db"
 
+/** Solicitação no formato do contrato. */
 export function toTeacherApproval(approval: TeacherApprovalRow): TeacherApproval {
   return {
     id: approval.id,

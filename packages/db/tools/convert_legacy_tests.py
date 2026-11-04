@@ -12,12 +12,20 @@ sandbox junto com o código do aluno — correção mais fraca, sinalizada na UI
   assert "texto" in _stdout                 -> io (contains)
   assert "f\"" in _source or "f'" in _source -> source uses f_string
   assert "nome(" not in _source...          -> source not_calls nome
+Os blocos que não se encaixam nessas regras foram reescritos à mão em casos
+declarativos (expr, unittest, regras de estrutura) em tools/manual_conversions.py,
+que também traz soluções erradas plausíveis por lição: o seed sai sem casos
+"legacy" e com `wrong_solutions`, que `pnpm --filter @levelusp/api verify:seed`
+exige reprovadas.
 Uso: python3 tools/convert_legacy_tests.py  (a partir de packages/db)
 """
 import ast
 import json
 import os
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import manual_conversions  # noqa: E402 — módulo irmão em tools/
 
 TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(TOOLS_DIR, "../../.."))
@@ -283,6 +291,32 @@ def starter_file(file):
     return {"path": file["path"], "content": file["content"]}
 
 
+def apply_manual_conversion(order, cases):
+    """Troca o caso legado pelos casos escritos à mão e aplica os ajustes da lição."""
+    manual_cases = manual_conversions.CASES.get(order)
+    if manual_cases is not None:
+        cases = [case for case in cases if case["kind"] != "legacy"] + [dict(case) for case in manual_cases]
+    patches = manual_conversions.PATCHES.get(order, {})
+    for case in cases:
+        case.update(patches.get(case["id"], {}))
+    unknown = set(patches) - {case["id"] for case in cases}
+    if unknown:
+        raise SystemExit("lição %d: ajustes para casos inexistentes: %s" % (order, sorted(unknown)))
+    return cases
+
+
+def wrong_solution(order, files, spec):
+    """Aplica as trocas de uma solução errada sobre a referência; cada trecho precisa existir uma vez."""
+    contents = {file["path"]: file["content"] for file in files}
+    content = contents[spec["path"]]
+    for old, new in spec["replacements"]:
+        if content.count(old) != 1:
+            raise SystemExit("lição %d, solução errada %r: trecho não encontrado uma única vez: %r" % (order, spec["name"], old))
+        content = content.replace(old, new)
+    contents[spec["path"]] = content
+    return {"name": spec["name"], "files": [{"path": path, "content": text} for path, text in contents.items()]}
+
+
 def main():
     lessons = []
     stats = {"strong": 0, "legacy": 0}
@@ -290,7 +324,7 @@ def main():
     for order in sorted(legacy_lessons):
         title, solution, tests = legacy_lessons[order]
         files = solution if isinstance(solution, list) else [{"path": "main.py", "content": solution.lstrip("\n")}]
-        cases = Converter(tests).run()
+        cases = apply_manual_conversion(order, Converter(tests).run())
         kinds = [case["kind"] for case in cases]
         stats["legacy" if "legacy" in kinds else "strong"] += 1
         lessons.append({
@@ -300,6 +334,7 @@ def main():
             "starter_files": [starter_file(file) for file in files],
             "reference_solution": files,
             "test_cases": cases,
+            "wrong_solutions": [wrong_solution(order, files, spec) for spec in manual_conversions.WRONG_SOLUTIONS.get(order, [])],
         })
         print("%02d %-35s %s" % (order, title, ", ".join("%s:%d" % (kind, kinds.count(kind)) for kind in sorted(set(kinds)))))
     os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)

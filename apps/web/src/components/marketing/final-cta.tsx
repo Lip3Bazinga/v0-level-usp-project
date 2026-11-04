@@ -18,7 +18,7 @@ interface FinalCtaProps {
 export function FinalCta({
   title = DEFAULT_TITLE,
   description = DEFAULT_DESCRIPTION,
-}: FinalCtaProps) {
+}: FinalCtaProps): React.JSX.Element {
   return (
     <section className="py-24 lg:py-32">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">

@@ -12,12 +12,17 @@ interface PendingSave {
   /** Campos alterados desde o último salvamento: o debounce não pode perder o título nem o conteúdo. */
   patch: NoteUpdateInput
 }
+export interface UseNoteAutosaveResult {
+  isSaving: boolean
+  hasSaveError: boolean
+  scheduleSave: (noteId: string, field: EditableNoteField, value: string) => void
+}
 
 /**
  * Salva a nota alguns instantes depois da última alteração. O envio pendente não é
  * cancelado ao sair da página, para não perder o que acabou de ser digitado.
  */
-export function useNoteAutosave() {
+export function useNoteAutosave(): UseNoteAutosaveResult {
   const [isSaving, setIsSaving] = useState(false)
   const [hasSaveError, setHasSaveError] = useState(false)
   const pendingSaveRef = useRef<PendingSave | null>(null)

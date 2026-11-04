@@ -12,7 +12,8 @@
       "outputs": [
         "dist/**",
         ".next/**",
-        "!.next/cache/**"
+        "!.next/cache/**",
+        "public/pyodide/**"
       ],
       "env": [
         "API_INTERNAL_URL",
@@ -45,6 +46,12 @@
       ]
     },
     "test:e2e": {
+      "dependsOn": [
+        "^build"
+      ],
+      "cache": false
+    },
+    "test:security": {
       "dependsOn": [
         "^build"
       ],

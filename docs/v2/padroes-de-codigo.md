@@ -73,6 +73,44 @@ entenderia de primeira ao ler o arquivo sem contexto.
   na web ou na API um tipo que já existe lá — importe ou derive (`Pick`, `Omit`, `z.infer`).
 - Genéricos quando o mesmo algoritmo serve a vários tipos (repositórios, listas paginadas,
   `useAsyncResource<T>`, `Result<T, E>`, mapeadores). Restrinja com `extends` em vez de aceitar tudo.
+  Só crie a abstração quando ela remove duplicação que já existe (ver §3.2).
+- **Tipo de retorno explícito** em toda função e método (exceto callbacks passados como argumento).
+  Componentes devolvem `React.JSX.Element` (ou `| null`); hooks que devolvem objeto têm uma interface
+  `Use<Hook>Result` ao lado. Se o tipo inferido for longo ou anônimo (resultado do Drizzle, objeto
+  literal), dê um nome: `XRow`/`Pick<XRow, …>` do `@levelusp/db`, um `interface …Row` no módulo ou
+  um DTO no `@levelusp/contracts` quando cruza web e API.
+- `exactOptionalPropertyTypes`: propriedade opcional (`campo?: T`) significa "pode faltar", não
+  "pode ser `undefined`". Para montar objetos, use spread condicional
+  (`...(issues ? { issues } : {})`). Props de componentes **nossos** que só repassam um valor opcional
+  declaram `prop?: T | undefined`; para bibliotecas (framer-motion, Radix, `RequestInit`), use
+  `definedProps({ … })` de `@/lib/utils`.
+- `noUncheckedIndexedAccess`: `lista[0]` é `T | undefined`. Prove que existe (`isNonEmpty(lista)`,
+  desestruturação com guard) em vez de usar `!`; `cycleItem(paleta, i)` para listas circulares.
+
+### 3.1 Texto vazio, `||` e `??`
+
+- `??` para fallback de `null`/`undefined` (regra `prefer-nullish-coalescing`). `||` só entre booleanos.
+- Quando "" deve contar como ausente, diga isso: `nonEmpty(note.title) ?? "Sem título"`
+  (`nonEmpty` vem de `@levelusp/contracts`).
+
+### 3.2 Tipos genéricos do projeto
+
+| Tipo | Onde | Para quê |
+|---|---|---|
+| `Database`, `DbTransaction`, `DbExecutor` | `@levelusp/db` | `DbExecutor = Database \| DbTransaction`: todo método de repositório que pode rodar numa transação recebe `executor: DbExecutor = this.db`; métodos `lock…` (`SELECT … FOR UPDATE`) exigem `tx: DbTransaction`. Callbacks `db.transaction(async (tx: DbTransaction) => …)` tipados. |
+| `XRow` / `XInsert` | `@levelusp/db` | Linha e valores de inserção de cada tabela (`$inferSelect`/`$inferInsert`). |
+| `NonEmptyArray<T>`, `isNonEmpty`, `lastOf`, `cycleItem` | `apps/web/src/lib/utils/collections.ts` | Listas que não podem estar vazias sem `!`. |
+| `definedProps<T>()` | `apps/web/src/lib/utils/defined-props.ts` | Repassar props opcionais a bibliotecas sem `undefined` explícito. |
+| `AsyncResource<T>`, `ApiResult<T>` | web (`hooks`, `lib/api`) | Estado de busca e resultado sem exceção. |
+| `bodyOf<T>(response)` | `apps/api/test/e2e/harness.ts` | Corpo do supertest tipado pelo DTO do contrato (o único `as` dos e2e). |
+| `readJson<T>(response)` | `apps/web/e2e/helpers.ts` | O mesmo para o Playwright. |
+| `nonEmpty`, `OkResponse`, `UploadedImage`, `LessonSnapshot`, `*Export` | `@levelusp/contracts` | DTOs que antes eram tipos inline repetidos na web e na API. |
+
+Avaliados e **não** criados (não havia duplicação real): `Page<T>` (as listagens usam só `?limit=`,
+sem paginação), interface `Repository<T>` genérica (cada repositório tem operações próprias),
+`Mapper<Row, Dto>` (os mappers já são funções `toX(row): X`), ids com marca (`UserId`…; mexeria em
+centenas de assinaturas e nos contratos sem pegar bug existente) e `assertNever` (o lint
+`switch-exhaustiveness-check` já cobre os `switch`).
 - Prefira `interface` para formas de objeto públicas e `type` para uniões/derivações.
   Uniões discriminadas para estados (`{ status: "loading" } | { status: "ready"; data: T } | ...`)
   em vez de vários booleanos soltos.
@@ -135,3 +173,53 @@ entenderia de primeira ao ler o arquivo sem contexto.
 
 - Todo comportamento alterado continua coberto; refatoração não muda comportamento observável.
 - Nome de teste descreve o comportamento em pt-BR (`"reprova quando a saída difere"`).
+- Testes e2e da API leem o corpo com `bodyOf<Dto>(response)`; os do Playwright, com `readJson<Dto>(response)`.
+  Um campo renomeado no contrato quebra a compilação do teste.
+
+## 9. Regras verificadas por ferramenta
+
+Tudo abaixo é **erro** (`pnpm typecheck` e `pnpm lint` precisam passar com zero erros e zero avisos).
+
+### 9.1 TypeScript (`tsconfig.base.json` e `apps/web/tsconfig.json`)
+
+`strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`, `exactOptionalPropertyTypes`,
+`noImplicitReturns`, `noFallthroughCasesInSwitch`.
+
+### 9.2 ESLint (`packages/eslint-config`)
+
+As regras ficam num único lugar, `@levelusp/eslint-config` (`index.mjs`). O `eslint.config.mjs` de cada
+pacote só informa arquivos, ignores, quais camadas exigem TSDoc e quais scripts de linha de comando
+podem usar `console`. Lint com tipos (`projectService`) em todos os pacotes.
+
+| Grupo | Regras |
+|---|---|
+| Tipos explícitos | `explicit-function-return-type` (expressões, funções tipadas, de ordem superior e IIFEs liberadas), `explicit-module-boundary-types`, `explicit-member-accessibility` (`no-public`), `consistent-type-imports` |
+| Sem escape do sistema de tipos | `no-explicit-any`, `no-non-null-assertion`, `no-unnecessary-type-assertion`, `no-unsafe-assignment/member-access/call/argument/return` |
+| Promessas | `no-floating-promises`, `no-misused-promises`, `await-thenable`, `require-await`, `return-await` (`in-try-catch`) |
+| Condições | `switch-exhaustiveness-check`, `no-unnecessary-condition`, `prefer-nullish-coalescing` (booleanos liberados), `no-fallthrough` |
+| Higiene | `no-unused-vars` (prefixo `_` libera), `no-unused-expressions`, `no-console` |
+| React (web) | preset do Next com todas as `react-hooks/*` (React Compiler) como erro; `exhaustive-deps` também para `useAsyncResource` |
+| Documentação | `jsdoc/require-jsdoc` em toda exportação (funções, classes, métodos não privados, interfaces, tipos, enums) de: API (`src/**`, menos controllers, `*.module.ts` e `main.ts`), runner, contracts, db e web `lib/` + `hooks/`; `require-description`, `no-blank-blocks`, `no-types`, `check-tag-names`, `check-param-names` |
+
+Handler assíncrono passado onde se espera `void` (props `onClick`, `onSubmit`…): `onClick={() => void salvar()}`
+— o handler já trata os próprios erros. Toast é dispara-e-esquece: `swalToast` devolve `void`.
+
+Desligar uma regra numa linha só com motivo:
+`// eslint-disable-next-line <regra> -- <por quê>` (ex.: gabaritos do seed gravados sem passar pelo schema).
+
+### 9.3 TSDoc
+
+- Diz o **contrato**: o que a função garante, erros lançados (`@throws AppError 404 …`), efeitos
+  colaterais (auditoria, notificação, cascata, arquivo apagado), travas e transações, unidades.
+- Nunca repete o nome ("Retorna o usuário"). `@param` só para o parâmetro que precisa de explicação.
+- Classes com decorator (`@Injectable()`) levam o comentário **acima** do decorator.
+
+```ts
+/**
+ * Publica ou despublica; só publica lição que o aluno consegue concluir.
+ *
+ * @throws AppError 404/403 como em {@link getForAuthoring}; 422 `NO_TESTS` ou `NO_QUESTIONS`.
+ */
+async setPublished(user: AuthUser, id: string, published: boolean): Promise<Lesson> {
+```
+

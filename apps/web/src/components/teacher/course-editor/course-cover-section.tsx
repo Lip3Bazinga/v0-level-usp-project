@@ -13,11 +13,11 @@ interface CourseCoverSectionProps {
   onRemove: () => void
 }
 
-export function CourseCoverSection({ coverPreview, isUploading, onSelectFile, onRemove }: CourseCoverSectionProps) {
+export function CourseCoverSection({ coverPreview, isUploading, onSelectFile, onRemove }: CourseCoverSectionProps): React.JSX.Element {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const openFilePicker = () => fileInputRef.current?.click()
+  const openFilePicker = (): void => fileInputRef.current?.click()
 
-  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>): void => {
     const file = event.target.files?.[0]
     // Limpa o campo para que escolher o mesmo arquivo de novo dispare outro envio.
     event.target.value = ""

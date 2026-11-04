@@ -10,6 +10,7 @@ export interface ConsoleLine {
   figureB64?: string
 }
 
+/** Linha do console com id e horário. */
 export function toConsoleOutput({ type, message, figureB64 }: ConsoleLine): ConsoleOutput {
   return { id: crypto.randomUUID(), type, message, timestamp: new Date(), ...(figureB64 ? { figureB64 } : {}) }
 }
@@ -20,6 +21,17 @@ export function stdoutLines(stdout: string): ConsoleLine[] {
     .split("\n")
     .filter((line) => line.length > 0)
     .map((line) => ({ type: "output", message: line }))
+}
+
+/**
+ * O que o programa escreveu em sys.stderr (avisos, `print(..., file=sys.stderr)`).
+ * É exibido, mas não reprova a execução: o "Verificar" também só reprova por exceção.
+ */
+export function stderrLines(stderr: string): ConsoleLine[] {
+  return stderr
+    .split("\n")
+    .filter((line) => line.length > 0)
+    .map((line) => ({ type: "warning", message: line }))
 }
 
 /** Erro do Python explicado para iniciantes, seguido da mensagem original e de uma dica. */
@@ -35,7 +47,7 @@ export function pythonErrorLines(rawError: string): ConsoleLine[] {
 /** Feedback de "Verificar" quando a correção foi concluída mas reprovou. */
 export function verificationFailureLines(result: SubmissionResult): ConsoleLine[] {
   const failedCount = result.failures + result.errors
-  const failedCases = (result.cases ?? []).filter((testCase) => !testCase.passed)
+  const failedCases = result.cases.filter((testCase) => !testCase.passed)
   const details: ConsoleLine[] = failedCases.length
     ? failedCases.map((testCase) => ({
         type: "warning",
@@ -58,10 +70,12 @@ export function verificationErrorLine(error: unknown): ConsoleLine {
     return { type: "error", message: "Erro de conexão ao verificar. Verifique sua internet e tente novamente." }
   }
   if (error.status === HTTP_STATUS.NOT_FOUND) return { type: "error", message: "Lição não encontrada no servidor." }
-  if (error.status === HTTP_STATUS.TOO_MANY_REQUESTS) return { type: "warning", message: error.message }
+  // Limite pessoal (429) e fila cheia da turma (503 "ocupado"): não é erro do código do aluno.
+  if (error.status === HTTP_STATUS.TOO_MANY_REQUESTS || error.status === HTTP_STATUS.SERVICE_UNAVAILABLE) return { type: "warning", message: error.message }
   return { type: "error", message: error.message }
 }
 
+/** Mensagem de aprovação no "Verificar"; avisa quando a lição já estava concluída (sem XP novo). */
 export function verificationSuccessLine(result: SubmissionResult): ConsoleLine {
   return {
     type: "success",

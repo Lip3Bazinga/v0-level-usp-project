@@ -27,6 +27,14 @@ export class RateLimitService {
     if (this.hitsByKey.size > MAX_TRACKED_KEYS) this.sweep(now, policy.windowMs)
   }
 
+  /**
+   * Devolve a última ação registrada de `subjectId` (ex.: o Verificar que não rodou porque o
+   * corretor estava ocupado). Sem ação registrada, não faz nada.
+   */
+  refund(policy: RateLimitPolicy, subjectId: string): void {
+    this.hitsByKey.get(`${policy.scope}:${subjectId}`)?.pop()
+  }
+
   private sweep(now: number, windowMs: number): void {
     for (const [key, hits] of this.hitsByKey) {
       if (!hits.some((hitAt) => now - hitAt < windowMs)) this.hitsByKey.delete(key)

@@ -19,8 +19,8 @@ interface NotificationItemProps {
   onOpen: (notificationId: string) => void
 }
 
-function NotificationItem({ notification, onOpen }: NotificationItemProps) {
-  const { Icon, colorClass } = KIND_STYLE[notification.kind] ?? KIND_STYLE.info
+function NotificationItem({ notification, onOpen }: NotificationItemProps): React.JSX.Element {
+  const { Icon, colorClass } = KIND_STYLE[notification.kind]
   const className = cn(
     "flex w-full items-start gap-3 p-3 text-left transition-colors hover:bg-level-purple-subtle/40",
     !notification.read && "bg-level-purple-subtle/20",
@@ -38,7 +38,7 @@ function NotificationItem({ notification, onOpen }: NotificationItemProps) {
       {!notification.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-level-purple" />}
     </>
   )
-  const handleClick = () => onOpen(notification.id)
+  const handleClick = (): void => onOpen(notification.id)
 
   if (notification.href) {
     return (
@@ -54,7 +54,7 @@ function NotificationItem({ notification, onOpen }: NotificationItemProps) {
   )
 }
 
-export function NotificationBell() {
+export function NotificationBell(): React.JSX.Element {
   const [isOpen, setIsOpen] = useState(false)
   const { notifications, unreadCount, markAllRead, markRead } = useNotifications()
 
@@ -85,7 +85,7 @@ export function NotificationBell() {
                 </p>
               </div>
               {unreadCount > 0 && (
-                <button onClick={() => markAllRead()} className="text-[11px] font-bold text-level-purple hover:underline">
+                <button onClick={() => void markAllRead()} className="text-[11px] font-bold text-level-purple hover:underline">
                   Marcar todas
                 </button>
               )}
@@ -99,7 +99,7 @@ export function NotificationBell() {
                 </div>
               ) : (
                 notifications.map((notification) => (
-                  <NotificationItem key={notification.id} notification={notification} onOpen={markRead} />
+                  <NotificationItem key={notification.id} notification={notification} onOpen={(notificationId) => void markRead(notificationId)} />
                 ))
               )}
             </div>

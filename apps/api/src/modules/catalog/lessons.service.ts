@@ -40,6 +40,7 @@ interface CurrentPlacement {
   courseId: string | null
 }
 
+/** Lições: catálogo público sem gabarito e autoria com gabarito (dono ou admin). */
 @Injectable()
 export class LessonsService {
   constructor(
@@ -49,10 +50,12 @@ export class LessonsService {
     private readonly audit: AuditService,
   ) {}
 
+  /** Resumo das lições publicadas. */
   async listSummaries(): Promise<LessonSummary[]> {
     return (await this.repo.listPublishedSummaries()).map(toLessonSummary)
   }
 
+  /** Lições publicadas, sem gabarito. */
   async listPublished(): Promise<Lesson[]> {
     return (await this.repo.listPublished()).map(toLesson)
   }
@@ -64,14 +67,21 @@ export class LessonsService {
     return toLesson(lesson)
   }
 
+  /**
+   * Lição com o gabarito, para edição.
+   *
+   * @throws AppError 404 lição inexistente/invisível, 403 quem não é dono nem admin.
+   */
   async getForAuthoring(user: AuthUser, id: string): Promise<LessonWithTests> {
     return toLessonWithTests(await this.findManageable(user, id))
   }
 
+  /** Lições do professor (admin: todas), sem gabarito. */
   async listOwned(user: AuthUser): Promise<Lesson[]> {
     return (await this.repo.listByOwner(ownerScope(user))).map(toLesson)
   }
 
+  /** Métricas das lições do professor (admin: todas). */
   async listMetrics(user: AuthUser): Promise<LessonMetrics[]> {
     return (await this.repo.listMetrics(ownerScope(user))).map(toLessonMetrics)
   }
@@ -90,6 +100,12 @@ export class LessonsService {
     }
   }
 
+  /**
+   * Atualiza os campos enviados. Lição publicada não pode ficar sem gabarito (código) ou sem questões (quiz).
+   *
+   * @throws AppError 404/403 como em {@link getForAuthoring}; 422 `NO_TESTS`/`NO_QUESTIONS`,
+   * `INVALID_MODULE`, `INVALID_COURSE`; 403 ao vincular a curso de outra pessoa.
+   */
   async update(user: AuthUser, id: string, input: LessonUpdateInput): Promise<LessonWithTests> {
     const current = await this.findManageable(user, id)
     await this.assertReferences(user, input, current)
@@ -101,6 +117,11 @@ export class LessonsService {
     return toLessonWithTests(lesson)
   }
 
+  /**
+   * Apaga a lição; um admin apagando lição de outra pessoa fica na auditoria.
+   *
+   * @throws AppError 404/403 como em {@link getForAuthoring}.
+   */
   async delete(user: AuthUser, id: string): Promise<void> {
     const lesson = await this.findManageable(user, id)
     await this.repo.delete(id)
@@ -109,6 +130,11 @@ export class LessonsService {
     }
   }
 
+  /**
+   * Publica ou despublica; só publica lição que o aluno consegue concluir.
+   *
+   * @throws AppError 404/403 como em {@link getForAuthoring}; 422 `NO_TESTS` ou `NO_QUESTIONS`.
+   */
   async setPublished(user: AuthUser, id: string, published: boolean): Promise<Lesson> {
     const current = await this.findManageable(user, id)
     if (published) await this.assertPublishable(id, current.lessonType, current.testCases)

@@ -1,7 +1,19 @@
 import { downloadText } from "./download"
 
+/**
+ * Planilhas (Excel, LibreOffice, Google Sheets) executam como fórmula a célula que começa
+ * com = + - @ TAB ou CR — mesmo entre aspas. Nome, e-mail e alvo de auditoria vêm de
+ * usuários: `=HYPERLINK("https://evil", "clique")` viraria link/fórmula no computador do admin.
+ */
+const FORMULA_TRIGGER = /^[=+\-@\t\r]/
+
+function neutralizeFormula(value: unknown): string {
+  const text = String(value ?? "")
+  return typeof value === "string" && FORMULA_TRIGGER.test(text) ? `'${text}` : text
+}
+
 function escapeCsvCell(value: unknown): string {
-  return `"${String(value ?? "").replace(/"/g, '""')}"`
+  return `"${neutralizeFormula(value).replace(/"/g, '""')}"`
 }
 
 /** Serializa linhas homogêneas em CSV; o cabeçalho vem das chaves da primeira linha. */
