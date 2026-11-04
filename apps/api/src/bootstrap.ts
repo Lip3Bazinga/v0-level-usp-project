@@ -1,3 +1,4 @@
+import type { Server } from "node:http"
 import type { NestExpressApplication } from "@nestjs/platform-express"
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger"
 import cookieParser from "cookie-parser"
@@ -33,6 +34,22 @@ export function configureApp(app: NestExpressApplication, options: ConfigureAppO
   app.enableShutdownHooks()
   if (env.SWAGGER_ENABLED) setupSwagger(app)
   return env
+}
+
+/**
+ * Conexões ociosas ficam abertas mais tempo do que as dos proxies na frente da API (o rewrite do
+ * Next reaproveita sockets; o cloudflared, por até 90 s). Com o padrão do Node (5 s), a API fecha
+ * um socket no instante em que o proxy o reutiliza e o aluno recebe 500/502 — visto no teste de
+ * carga num Verificar (docs/v2/desempenho-e-carga.md). Quem fecha primeiro tem de ser o cliente.
+ */
+export const KEEP_ALIVE_TIMEOUT_MS = 65_000
+/** O Node exige `headersTimeout` maior que `keepAliveTimeout`. */
+export const HEADERS_TIMEOUT_MS = 66_000
+
+/** Ajusta os tempos de keep-alive do servidor HTTP da API (ver {@link KEEP_ALIVE_TIMEOUT_MS}). */
+export function configureHttpServer(server: Server): void {
+  server.keepAliveTimeout = KEEP_ALIVE_TIMEOUT_MS
+  server.headersTimeout = HEADERS_TIMEOUT_MS
 }
 
 function setupSwagger(app: NestExpressApplication): void {

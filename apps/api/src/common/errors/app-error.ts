@@ -5,11 +5,17 @@ import type { ValidationIssue } from "@levelusp/contracts"
  * usuário. Serviços lançam estes; o filtro global converte em HTTP.
  */
 export class AppError extends Error {
+  /**
+   * Erro com status HTTP, código estável e mensagem para o usuário.
+   *
+   * @param retryAfterSeconds quando presente, o filtro envia `Retry-After` (503/429 com espera conhecida).
+   */
   constructor(
     readonly statusCode: number,
     readonly code: string,
     message: string,
     readonly issues?: ValidationIssue[],
+    readonly retryAfterSeconds?: number,
   ) {
     super(message)
     this.name = "AppError"
@@ -31,8 +37,9 @@ export const Unprocessable = (message: string, code = "UNPROCESSABLE"): AppError
 /** 429 do limite por usuário; `issues` pode levar o momento de liberar. */
 export const TooManyRequests = (message = "Muitas tentativas seguidas. Aguarde um instante.", code = "RATE_LIMITED", issues?: ValidationIssue[]): AppError =>
   new AppError(429, code, message, issues)
-/** 503: dependência indisponível (ex.: executor fora do ar). */
-export const ServiceUnavailable = (message: string, code = "UNAVAILABLE"): AppError => new AppError(503, code, message)
+/** 503: dependência indisponível (ex.: executor fora do ar); `retryAfterSeconds` vira o cabeçalho `Retry-After`. */
+export const ServiceUnavailable = (message: string, code = "UNAVAILABLE", retryAfterSeconds?: number): AppError =>
+  new AppError(503, code, message, undefined, retryAfterSeconds)
 /** 400 de validação: a mensagem é a do primeiro problema; `issues` lista todos. */
 export const ValidationFailed = (issues: ValidationIssue[]): AppError =>
   new AppError(400, "VALIDATION", issues[0]?.message ?? "Dados inválidos.", issues)

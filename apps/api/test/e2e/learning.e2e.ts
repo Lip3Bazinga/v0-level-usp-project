@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { sql } from "drizzle-orm"
 import { badges } from "@levelusp/db"
-import type { LessonCompletion, LessonProgress, LessonSnapshot, SessionResponse, SubmissionResult, TestCase } from "@levelusp/contracts"
+import type { ApiErrorBody, LessonCompletion, LessonProgress, LessonSnapshot, SessionResponse, SubmissionResult, TestCase } from "@levelusp/contracts"
+import { ServiceUnavailable } from "@/common/errors/app-error"
+import { busyMessage } from "@/infra/runner/runner.client"
 import { bodyOf, countRows, createLesson, createTestApp, signUp, type TestContext } from "./harness"
 
 const files = [{ path: "main.py", content: "def soma(a, b):\n    return a + b\n" }]
@@ -93,6 +95,32 @@ describe("Correção e progresso (e2e)", () => {
     for (let i = 0; i < 13; i++) statuses.push((await agent.post(`/api/lessons/${lesson.id}/submissions`, { files })).status)
     expect(statuses.slice(0, 12).every((s) => s === 200)).toBe(true)
     expect(statuses[12]).toBe(429)
+  })
+
+  it("corretor ocupado: 503 com Retry-After e a tentativa não conta no limite", async () => {
+    const lesson = await createLesson(ctx.db, { testCases: cases })
+    const { agent } = await signUp(ctx.app)
+    ctx.runner.failNext(ServiceUnavailable(busyMessage(7), "RUNNER_BUSY", 7), 12)
+    for (let i = 0; i < 12; i++) {
+      const busy = await agent.post(`/api/lessons/${lesson.id}/submissions`, { files })
+      expect(busy.status).toBe(503)
+      expect(busy.headers["retry-after"]).toBe("7")
+      expect(bodyOf<ApiErrorBody>(busy)).toMatchObject({ code: "RUNNER_BUSY", message: expect.stringContaining("7 s") as unknown })
+    }
+    // As 12 recusas foram devolvidas: o limite de 12 por minuto continua inteiro.
+    const statuses: number[] = []
+    for (let i = 0; i < 13; i++) statuses.push((await agent.post(`/api/lessons/${lesson.id}/submissions`, { files })).status)
+    expect(statuses.slice(0, 12).every((s) => s === 200)).toBe(true)
+    expect(statuses[12]).toBe(429)
+    expect(await countRows(ctx.db, sql`select count(*)::int as n from submissions`)).toBe(12)
+  })
+
+  it("executor fora do ar ou prazo estourado conta no limite (o código pode ter rodado)", async () => {
+    const lesson = await createLesson(ctx.db, { testCases: cases })
+    const { agent } = await signUp(ctx.app)
+    ctx.runner.failNext(ServiceUnavailable("O corretor está indisponível no momento.", "RUNNER_UNREACHABLE"), 12)
+    for (let i = 0; i < 12; i++) expect((await agent.post(`/api/lessons/${lesson.id}/submissions`, { files })).status).toBe(503)
+    expect((await agent.post(`/api/lessons/${lesson.id}/submissions`, { files })).status).toBe(429)
   })
 
   it("salva e recupera o código do aluno sem rebaixar lição concluída", async () => {

@@ -27,4 +27,14 @@ describe("RateLimitService", () => {
     expect(() => rateLimit.consume(policy, "aluno:licao-1")).toThrow(expect.objectContaining({ statusCode: 429 }))
     expect(() => rateLimit.consume(policy, "aluno:licao-2")).not.toThrow()
   })
+
+  it("devolve a última ação (Verificar que não rodou porque o corretor estava ocupado)", () => {
+    const rateLimit = new RateLimitService()
+    rateLimit.consume(policy, "u1")
+    rateLimit.consume(policy, "u1")
+    rateLimit.refund(policy, "u1")
+    expect(() => rateLimit.consume(policy, "u1")).not.toThrow()
+    expect(() => rateLimit.consume(policy, "u1")).toThrow(expect.objectContaining({ statusCode: 429 }))
+    expect(() => rateLimit.refund(policy, "sem-registro")).not.toThrow()
+  })
 })

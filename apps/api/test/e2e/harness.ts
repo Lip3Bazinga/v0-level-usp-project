@@ -25,13 +25,27 @@ type Responder = (job: RunnerJob) => ProbeObservation[]
 /** Executor falso: cada teste define que observações o "sandbox" devolve. */
 export class FakeRunner implements CodeRunner, RunnerHealthProbe {
   jobs: RunnerJob[] = []
+  private readonly failures: Error[] = []
   private responder: Responder = (job) => job.probes.map((probe) => ({ id: probe.id, ok: true }))
 
   respond(responder: Responder): void {
     this.responder = responder
   }
 
+  /** Esquece os jobs recebidos e as falhas programadas. */
+  reset(): void {
+    this.jobs = []
+    this.failures.length = 0
+  }
+
+  /** Faz as próximas `count` correções falharem com `error` (ex.: executor ocupado). */
+  failNext(error: Error, count = 1): void {
+    this.failures.push(...Array.from({ length: count }, () => error))
+  }
+
   run(job: RunnerJob): Promise<RunnerResult> {
+    const failure = this.failures.shift()
+    if (failure) return Promise.reject(failure)
     this.jobs.push(job)
     return Promise.resolve({ observations: this.responder(job), engine: { python: "fake", runtime: "fake" }, durationMs: 1 })
   }
@@ -111,7 +125,7 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
           lesson_quiz_questions, enrollments, lesson_progress, submissions, notes, badges, user_badges, exams,
           exam_questions, exam_attempts, certificates, notifications, audit_log, platform_settings,
           teacher_approvals, library_catalog, library_requests, uploads cascade`)
-      runner.jobs = []
+      runner.reset()
       mail.reset()
     },
   }
