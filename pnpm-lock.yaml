@@ -166,6 +166,9 @@ importers:
       '@levelusp/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      pyodide:
+        specifier: 314.0.7
+        version: 314.0.7
       zod:
         specifier: ^4.6.7
         version: 4.6.7
@@ -173,6 +176,9 @@ importers:
       '@levelusp/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
+      '@types/emscripten':
+        specifier: ^1.41.6
+        version: 1.41.6
       '@types/node':
         specifier: ^22.15.0
         version: 22.20.5

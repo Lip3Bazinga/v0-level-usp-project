@@ -387,6 +387,73 @@ a versão anterior.
 | RUSTSEC-2026-0269 / GHSA-vqjp-4c8c-hfgg (fuga de FS com barra final) | Não (≥ 47.0.4) | — | Coberto também por `escape.attack.ts` |
 | RUSTSEC-2026-0422/0423/0424 (GC; recursos entre componentes, GHSA-6fr9-xmw9-5352) | Sim (49.0.5) | Não | GC e *component model* |
 
+### Motor python-dados (Pyodide no Node)
+
+O motor `python-dados` ([motor-de-correcao.md](motor-de-correcao.md#motor-python-dados-pyodide))
+corrige lições que usam numpy/pandas/scikit-learn rodando o código do aluno num
+**Pyodide** (CPython 3.14 em WebAssembly) dentro de uma `worker_thread`. O
+harness, o protocolo (lote pelo stdin, observações com nonce pelo stdout) e as
+garantias por tipo de caso são **os mesmos do WASI**; o que muda é a fronteira de
+isolamento, porque o Emscripten dá ao convidado uma ponte para o JavaScript do
+host.
+
+**Modelo de ameaça.** O atacante é um aluno que envia Python arbitrário, conhece
+o harness e o código de bloqueio (são públicos) e sabe que o Pyodide roda no Node.
+Diferente do WASI (onde o CPython é um módulo Wasm isolado pelo Wasmtime, sem
+ponte para o host), aqui o interpretador compartilha o processo do worker com o
+JavaScript: a fuga valiosa é **sair do Python para o JS do worker** (de onde
+`emscripten_run_script`/`eval` e, sem os bloqueios de rede/processo do Node,
+`require`/`process`/`fetch` estariam a um passo), **ler o nonce do harness**,
+**gravar na stdlib** (forjaria as correções seguintes) ou, na política `reuse`,
+**contaminar o lote seguinte**.
+
+**Mitigações** (instaladas antes de qualquer código do aluno; `src/pyodide-guard.ts`,
+`src/pyodide-worker.ts`):
+
+| Vetor | Mitigação |
+|---|---|
+| `import js` / `import pyodide_js` → objetos do host | `sys.modules["js"]=sys.modules["pyodide_js"]=None`, finder de módulos JS removido, registro limpo |
+| `JsProxy` alcançável (seu `.constructor` é a `Function` do host) | toda referência a `JsProxy` em módulos é apagada; as fábricas (`to_js`, `create_proxy`, `run_js`, `run_sync`) são removidas; varredura do gc confirma zero `JsProxy` vivos |
+| `ctypes`/`_ctypes` → `emscripten_run_script` (=`eval` no host) e memória do interpretador | `import` e `_imp.create_builtin` de `ctypes`/`_ctypes`/`_test*` recusados por um audit hook cujo `create_builtin` original só existe no fecho |
+| `eval`/`Function` do host (via `JsProxy` ou `ctypes` que escapasse) | `globalThis.eval`, `Function` e as variantes async/generator (inclusive por `.constructor`) passam a lançar no worker |
+| `process`/`require`/`fetch`/`WebSocket` no `globalThis` do worker | removidos do `globalThis` antes do primeiro lote |
+| Rede, subprocesso, fork, threads | inexistentes no Emscripten; não há egresso (urllib/`connect` falham) |
+| Gravar na stdlib, nos site-packages ou no harness | somente leitura no MEMFS, imposto nas **tabelas de operações** (não nas permissões por nó): `os.chmod` do aluno não as desfaz. Só `/work`, `/tmp` e `/home` são graváveis, com cota de bytes e de entradas por lote |
+| Ler o nonce (frames, gc, trace) nas sondas `unittest`/`legacy` | **modo estrito** do harness, igual ao WASI; o worker de um lote estrito é sempre dedicado e descartado |
+| Contaminação entre lotes (`reuse`): `numpy.mean = …`, builtins, módulos, arquivos | restauração a partir de uma fotografia + **canário** após cada lote; reciclagem após N lotes, por heap alto ou se a restauração falha; audit hook e introspecção do gc do aluno não persistem |
+
+**Suíte de ataques.** `apps/runner/test/attacks/pyodide.attack.ts` (roda com
+`pnpm --filter @levelusp/runner test:attacks`): `import js`/`import pyodide_js`
+por vários caminhos, `JsProxy`/`to_js`/`create_proxy`/`run_js` sumidos, varredura
+do gc sem `JsProxy`, `ctypes`→`emscripten_run_script`, rede/subprocesso/fork/thread,
+harness e stdlib somente leitura (confirmando que numpy continua íntegro),
+`/work`÷`/tmp`÷`/home` graváveis, ausência de nonce em argv/ambiente/stdin, modo
+estrito fechando frames/gc/trace/audithook, laço infinito interrompido, estouro de
+memória limpo, disco e stdout cortados, e **contaminação entre lotes** na `reuse`
+(um lote adultera numpy/pandas/builtins, instala audit hook/trace e cria arquivo;
+o seguinte observa o numpy original, sem trace e sem o arquivo). Todos devem ser
+**bloqueados**.
+
+**Resíduos conhecidos** (documentados, não exploráveis para fuga):
+
+- `socket.socket()` cria um objeto e `os.system(...)` devolve `0`: são **stubs do
+  Emscripten** que não fazem nada (sem egresso de rede, sem shell). Uma conexão de
+  verdade (`create_connection`, `urlopen`) falha.
+- Uma escrita em modo *append* na stdlib (`open(p, "a").write(...)`) **retorna
+  sucesso** porque o buffer do Python só descarrega no `flush`/`close`, que o MEMFS
+  recusa: os bytes são descartados e o arquivo **não muda** (provado relendo numpy).
+- A política `reuse` cobre o estado de **módulos, classes e funções**, mas o de
+  **instâncias** (ex.: objetos globais de bibliotecas que a fotografia não visita)
+  pode sobreviver; o canário pega as regressões comuns e a reciclagem limita a
+  janela. Por isso a `reuse` é **opcional**; a `fresh` (padrão) não tem esse risco.
+- Os bloqueios são uma **lista sobre o Pyodide 314.0.7**: atualizar o Pyodide exige
+  rodar `test:attacks` de novo (como o modo estrito sobre o CPython).
+- O código do aluno **não é interrompido** quando a API desiste (igual ao WASI); o
+  custo fica limitado ao tempo do lote.
+- A CSP do front já libera `'unsafe-eval'` para o Pyodide do botão **Executar**
+  (navegador); isto é sobre o Pyodide do **servidor**, onde `eval`/`Function` do
+  worker são desligados.
+
 ### Riscos residuais (não corrigidos)
 
 - **Instâncias compartilhadas** (`call`/`io`/`variable`/`expr`) não têm modo

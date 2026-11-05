@@ -1,8 +1,10 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http"
 import { timingSafeEqual } from "node:crypto"
 import { runnerJobSchema } from "@levelusp/contracts"
+import { EngineRequestError, RuntimeUnavailableError, type EngineReadiness } from "./engine.js"
 import type { JobExecutor } from "./executor.js"
 import type { Logger } from "./logger.js"
+import type { PyodideReadiness } from "./pyodide-engine.js"
 import { CancelledError, QueueFullError } from "./semaphore.js"
 import type { RunnerStats } from "./stats.js"
 
@@ -17,25 +19,30 @@ export interface ServerDeps {
   log: Logger
   /** Contadores servidos em `GET /v1/stats` (mesmo token da API); sem eles a rota responde 404. */
   stats?: RunnerStats
-  /** Resultado do autoteste da partida; sem ele `/healthz` responde sempre ok. */
+  /** Resultado do autoteste do motor WASI; sem ele `/healthz` responde sempre ok. */
   readiness?: RunnerReadiness
+  /** Prontidão do motor Pyodide, informada em `/healthz` (`pyodide: {...}`); o motor é opcional e não derruba a saúde. */
+  pyodideReadiness?: PyodideReadiness
 }
 
 /** Estado do autoteste do sandbox: enquanto `ready` for falso, `/healthz` responde 503 com o motivo. */
-export interface RunnerReadiness {
-  ready: boolean
-  reason: string
-}
+export type RunnerReadiness = EngineReadiness
 
 class BodyTooLargeError extends Error {}
 
 /** HTTP mínimo (sem framework): menos superfície num serviço que roda código não confiável. */
-export function buildServer({ executor, token, log, stats, readiness }: ServerDeps): Server {
+export function buildServer({ executor, token, log, stats, readiness, pyodideReadiness }: ServerDeps): Server {
   const expectedAuthorization = Buffer.from(`Bearer ${token}`)
 
   const isAuthorized = (request: IncomingMessage): boolean => {
     const authorization = Buffer.from(request.headers.authorization ?? "")
     return authorization.length === expectedAuthorization.length && timingSafeEqual(authorization, expectedAuthorization)
+  }
+
+  const health = (response: ServerResponse): void => {
+    const pyodide = pyodideReadiness ? { pyodide: { ready: pyodideReadiness.ready, reason: pyodideReadiness.reason, policy: pyodideReadiness.policy, profiles: pyodideReadiness.profiles, warm: pyodideReadiness.warm } } : {}
+    if (readiness && !readiness.ready) return sendJson(response, 503, { status: "unavailable", reason: readiness.reason, ...pyodide })
+    return sendJson(response, 200, { status: "ok", ...pyodide })
   }
 
   const runJob = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
@@ -48,17 +55,14 @@ export function buildServer({ executor, token, log, stats, readiness }: ServerDe
       if (!response.writableFinished) abort.abort()
     })
     const result = await executor.execute(parsed.data, abort.signal)
-    log("info", "job executado", { probes: parsed.data.probes.length, ms: result.durationMs })
+    log("info", "job executado", { probes: parsed.data.probes.length, ms: result.durationMs, runtime: parsed.data.runtime ?? "python" })
     return sendJson(response, 200, result)
   }
 
   // Toda falha vira resposta HTTP dentro do try/catch: a promessa nunca rejeita.
   const handleRequest = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     try {
-      if (request.method === "GET" && request.url === "/healthz") {
-        if (readiness && !readiness.ready) return sendJson(response, 503, { status: "unavailable", reason: readiness.reason })
-        return sendJson(response, 200, { status: "ok" })
-      }
+      if (request.method === "GET" && request.url === "/healthz") return health(response)
       if (request.method === "GET" && request.url === "/v1/stats" && stats) {
         if (!isAuthorized(request)) return sendJson(response, 401, { error: "unauthorized" })
         return sendJson(response, 200, stats.snapshot())
@@ -77,6 +81,8 @@ export function buildServer({ executor, token, log, stats, readiness }: ServerDe
         stats?.recordCancelled()
         return void response.destroy()
       }
+      if (error instanceof EngineRequestError) return sendJson(response, 400, { error: error.code, message: error.message })
+      if (error instanceof RuntimeUnavailableError) return sendJson(response, 501, { error: "runtime_unavailable", message: error.message })
       if (error instanceof BodyTooLargeError) return sendJson(response, 413, { error: "too_large" })
       if (error instanceof SyntaxError) return sendJson(response, 400, { error: "invalid_json" })
       stats?.recordFailed()

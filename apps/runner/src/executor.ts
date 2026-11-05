@@ -1,17 +1,16 @@
 import os from "node:os"
-import type { ProbeObservation, RunnerJob, RunnerResult } from "@levelusp/contracts"
+import { DEFAULT_PYTHON_RUNTIME, type Probe, type PythonRuntime, type RunnerJob, type RunnerResult } from "@levelusp/contracts"
+import { RuntimeUnavailableError, type Engine, type EngineRequest } from "./engine.js"
 import { planBatches } from "./plan.js"
-import type { SandboxBatch } from "./sandbox.js"
 import { QueueFullError, type Semaphore } from "./semaphore.js"
 import type { RunnerStats } from "./stats.js"
 
-export const ENGINE = { python: "3.14.0 (WASI)", runtime: "wasmtime 49" } as const
-
 const BYTES_PER_MEGABYTE = 1e6
 
-/** O que o executor precisa do sandbox: rodar um lote numa instância isolada. */
-export interface BatchRunner {
-  runBatch(batch: SandboxBatch): Promise<ProbeObservation[]>
+/** Motores disponíveis, pelo `runtime` que atendem; o Pyodide é opcional. */
+export interface EngineRegistry {
+  python: Engine
+  "python-dados"?: Engine
 }
 
 /** Executa um job inteiro (todas as sondas) e devolve uma observação por sonda. */
@@ -46,6 +45,10 @@ export interface ExecutorOptions {
  * Orquestra os lotes de um job respeitando o limite global de concorrência. A admissão é
  * atômica: ou todos os lotes do job entram na fila, ou nenhum — um job recusado pela metade
  * deixaria lotes rodando sem ninguém para ler o resultado, justamente com a fila cheia.
+ *
+ * O motor vem do `runtime` do job (`python` = WASI, `python-dados` = Pyodide); os lotes só de
+ * análise estrutural (`ast`) sempre vão ao WASI, que não executa o código do aluno e custa
+ * ~130 ms em vez de um worker do Pyodide. Os dois motores dividem o mesmo semáforo.
  */
 export class Executor implements JobExecutor {
   private batchEstimateMs = INITIAL_BATCH_ESTIMATE_MS
@@ -53,7 +56,7 @@ export class Executor implements JobExecutor {
   private readonly maxQueueWaitMs: number
 
   constructor(
-    private readonly sandbox: BatchRunner,
+    private readonly engines: EngineRegistry,
     private readonly semaphore: Semaphore,
     options: ExecutorOptions = {},
   ) {
@@ -61,29 +64,42 @@ export class Executor implements JobExecutor {
     this.maxQueueWaitMs = options.maxQueueWaitMs ?? DEFAULT_MAX_QUEUE_WAIT_MS
   }
 
-  /** Duração média estimada de um lote (média móvel exponencial das medições). */
+  /** Duração média estimada de um lote (média móvel exponencial das medições, todos os motores). */
   get estimatedBatchMs(): number {
     return this.batchEstimateMs
   }
 
   /**
    * Tempo estimado até um job de `batchCount` lotes terminar se entrasse agora: a fila à frente
-   * mais os próprios lotes, divididos pelas vagas, vezes a duração média de um lote.
+   * mais os próprios lotes, divididos pelas vagas, vezes a duração média de um lote, mais o
+   * aquecimento de um worker quando o motor não tem instância pronta.
    */
-  estimateWaitMs(batchCount: number): number {
-    return ((this.semaphore.pending + batchCount) / this.semaphore.capacity) * this.batchEstimateMs
+  estimateWaitMs(batchCount: number, warmupMs = 0): number {
+    return ((this.semaphore.pending + batchCount) / this.semaphore.capacity) * this.batchEstimateMs + warmupMs
   }
 
   /**
-   * Decide se o job entra. Sem fila (vaga livre para todos os lotes), sempre aceita.
+   * Motor que atende o `runtime` pedido.
+   *
+   * @throws RuntimeUnavailableError (501) quando o motor não está habilitado.
+   */
+  engineFor(runtime: PythonRuntime): Engine {
+    const engine = this.engines[runtime]
+    if (!engine) throw new RuntimeUnavailableError(runtime)
+    return engine
+  }
+
+  /**
+   * Decide se o job entra. Sem fila (vaga livre para todos os lotes), sempre aceita — mesmo
+   * que o motor precise aquecer um worker: recusar não encurtaria essa espera.
    *
    * @throws QueueFullError (com a espera sugerida) se o job não cabe na fila ou se a espera
    *         estimada passa do teto.
    */
-  private admit(batchCount: number): void {
+  private admit(batchCount: number, warmupMs: number): void {
     const queued = this.semaphore.queuedIfAdmitted(batchCount)
     if (queued === 0) return
-    const waitMs = this.estimateWaitMs(batchCount)
+    const waitMs = this.estimateWaitMs(batchCount, warmupMs)
     if (queued > this.semaphore.maxQueue || waitMs > this.maxQueueWaitMs) {
       throw new QueueFullError(Math.min(MAX_RETRY_AFTER_SECONDS, Math.max(MIN_RETRY_AFTER_SECONDS, Math.ceil(waitMs / 1000))))
     }
@@ -96,14 +112,19 @@ export class Executor implements JobExecutor {
   async execute(job: RunnerJob, signal?: AbortSignal): Promise<RunnerResult> {
     const startedAt = performance.now()
     const batchStartTimes: number[] = []
+    const request: EngineRequest = { runtime: job.runtime ?? DEFAULT_PYTHON_RUNTIME, libraries: job.libraries ?? [] }
+    const engine = this.engineFor(request.runtime)
+    engine.accept(request)
     const batches = planBatches(job.probes)
-    this.admit(batches.length)
+    const needsEngine = batches.some((probes) => !isAnalysisOnly(probes))
+    this.admit(batches.length, needsEngine ? engine.warmupMs(request) : 0)
     const pendingBatches = batches.map((probes) =>
       this.semaphore.run(async () => {
         const batchStartedAt = performance.now()
         batchStartTimes.push(batchStartedAt)
+        const batchEngine = isAnalysisOnly(probes) ? this.engines.python : engine
         try {
-          return await this.sandbox.runBatch({ files: job.files, entry: job.entry, probes, limits: job.limits })
+          return await batchEngine.run({ files: job.files, entry: job.entry, probes, limits: job.limits, libraries: request.libraries })
         } finally {
           this.recordBatch(performance.now() - batchStartedAt)
         }
@@ -118,10 +139,15 @@ export class Executor implements JobExecutor {
     const observationById = new Map(batchResults.flat().map((observation) => [observation.id, observation]))
     return {
       observations: job.probes.map((probe) => observationById.get(probe.id) ?? { id: probe.id, ok: false, error: "Sem observação" }),
-      engine: { ...ENGINE },
+      engine: { ...engine.versions },
       durationMs: Math.round(finishedAt - startedAt),
     }
   }
+}
+
+/** Lote só de regras de estrutura: não executa o código do aluno, então qualquer motor serve. */
+function isAnalysisOnly(probes: Probe[]): boolean {
+  return probes.every((probe) => probe.kind === "ast")
 }
 
 /** Capacidade da máquina, registrada no log de inicialização para dimensionar a concorrência. */

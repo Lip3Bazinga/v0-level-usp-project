@@ -1,7 +1,8 @@
-import { findWritableRuntimePaths, loadConfig } from "./config.js"
-import { DEFAULT_RUNNER_LIMITS } from "@levelusp/contracts"
-import { Executor, hostInfo } from "./executor.js"
+import { findWritableRuntimePaths, isPyodideEnabled, loadConfig, resolvePyodideWorkerPath } from "./config.js"
+import type { Engine } from "./engine.js"
+import { Executor, hostInfo, type EngineRegistry } from "./executor.js"
 import { createLogger } from "./logger.js"
+import { PyodideEngine } from "./pyodide-engine.js"
 import { WasmtimeSandbox } from "./sandbox.js"
 import { Semaphore } from "./semaphore.js"
 import { buildServer } from "./server.js"
@@ -16,6 +17,8 @@ const log = createLogger(config.LOG_LEVEL)
 /** Quantos caminhos graváveis aparecem no log (o resto só conta). */
 const MAX_LOGGED_WRITABLE_PATHS = 3
 const BYTES_PER_MIB = 1024 * 1024
+/** Arquivos + pastas que um lote pode criar no projeto (mesma cota do WASI). */
+const MAX_JOB_ENTRIES = 2_000
 
 const writableRuntime = findWritableRuntimePaths(config.PYTHON_WASI_DIR)
 if (writableRuntime.length > 0) {
@@ -35,50 +38,65 @@ const sandbox = new WasmtimeSandbox({
   maxJobDiskBytes: config.MAX_JOB_DISK_MB * BYTES_PER_MIB,
   onGuestFailure: (details) => log("error", "convidado terminou sem nenhuma observação (falha do Wasmtime ou do módulo Python)", { ...details }),
 })
+const pyodide = isPyodideEnabled(config)
+  ? new PyodideEngine({
+      pyodideDir: config.PYODIDE_DIR,
+      harnessPath: config.HARNESS_PATH,
+      workerPath: resolvePyodideWorkerPath(config.PYODIDE_WORKER_PATH),
+      policy: config.RUNNER_PYODIDE_POLICY,
+      warm: config.RUNNER_PYODIDE_WARM,
+      recycleAfter: config.RUNNER_PYODIDE_RECYCLE_AFTER,
+      recycleHeapMb: config.RUNNER_PYODIDE_RECYCLE_HEAP_MB,
+      maxHeapMb: config.RUNNER_PYODIDE_MAX_HEAP_MB,
+      jsHeapMb: config.RUNNER_PYODIDE_JS_HEAP_MB,
+      maxJobDiskBytes: config.MAX_JOB_DISK_MB * BYTES_PER_MIB,
+      maxJobEntries: MAX_JOB_ENTRIES,
+      bootTimeoutMs: config.RUNNER_PYODIDE_BOOT_TIMEOUT_MS,
+      log,
+    })
+  : undefined
+const engines: EngineRegistry = { python: sandbox, ...(pyodide ? { "python-dados": pyodide } : {}) }
+const engineList: Engine[] = pyodide ? [sandbox, pyodide] : [sandbox]
 const semaphore = new Semaphore(config.CONCURRENCY, config.MAX_QUEUE)
-const stats = new RunnerStats(semaphore)
-const executor = new Executor(sandbox, semaphore, { stats, maxQueueWaitMs: config.MAX_QUEUE_WAIT_MS })
-const readiness = { ready: false, reason: "autoteste pendente" }
-const server = buildServer({ executor, token: config.RUNNER_TOKEN, log, stats, readiness })
-
-/**
- * Autoteste: roda um programa trivial pelo mesmo caminho dos jobs reais. Um `.cwasm`
- * compilado para outra CPU, um Wasmtime ausente ou uma stdlib fora do lugar derrubam
- * todas as correções com a mesma mensagem genérica para o aluno; aqui isso vira um
- * erro explícito no log e `/healthz` 503, que o compose e a API enxergam.
- */
-async function selfTest(): Promise<void> {
-  const observations = await sandbox.runBatch({
-    files: [{ path: "main.py", content: 'print("levelusp-autoteste")\n' }],
-    entry: "main.py",
-    probes: [{ kind: "run", id: "autoteste", stdin: "" }],
-    limits: { ...DEFAULT_RUNNER_LIMITS },
-  })
-  const observation = observations[0]
-  if (observation?.ok && observation.stdout?.includes("levelusp-autoteste")) {
-    readiness.ready = true
-    readiness.reason = ""
-    log("info", "autoteste do sandbox aprovado")
-    return
-  }
-  readiness.ready = false
-  readiness.reason = observation?.error ?? "sem observação"
-  log("error", "autoteste do sandbox FALHOU: nenhuma correção vai funcionar até isto ser resolvido", { observation })
-}
-
-void selfTest().catch((error: unknown) => {
-  readiness.reason = error instanceof Error ? error.message : String(error)
-  log("error", "autoteste do sandbox FALHOU ao iniciar o Wasmtime", { error: readiness.reason })
+const stats = new RunnerStats(semaphore, engineList)
+const executor = new Executor(engines, semaphore, { stats, maxQueueWaitMs: config.MAX_QUEUE_WAIT_MS })
+const server = buildServer({
+  executor,
+  token: config.RUNNER_TOKEN,
+  log,
+  stats,
+  readiness: sandbox.readiness,
+  ...(pyodide ? { pyodideReadiness: pyodide.readiness } : {}),
 })
 
+/**
+ * Autotestes na partida: o do WASI decide `/healthz` (503 enquanto falhar); o do Pyodide
+ * só informa (`pyodide.ready`), porque o motor é opcional e as lições `python` continuam
+ * funcionando sem ele.
+ */
+void sandbox.selfTest().then(() => {
+  if (sandbox.readiness.ready) log("info", "autoteste do sandbox aprovado")
+  else log("error", "autoteste do sandbox FALHOU: nenhuma correção vai funcionar até isto ser resolvido", { reason: sandbox.readiness.reason })
+})
+if (pyodide) {
+  void pyodide.start().then(() => {
+    if (pyodide.readiness.ready) log("info", "motor python-dados pronto", { policy: config.RUNNER_PYODIDE_POLICY, warm: config.RUNNER_PYODIDE_WARM, pyodideDir: config.PYODIDE_DIR })
+    else log("error", "autoteste do motor python-dados FALHOU: lições python-dados não serão corrigidas", { reason: pyodide.readiness.reason })
+  })
+} else {
+  log("info", "motor python-dados desligado", { pyodideDir: config.PYODIDE_DIR })
+}
+
 server.listen(config.PORT, config.HOST, () => {
-  log("info", "executor ouvindo", { port: config.PORT, concurrency: config.CONCURRENCY, maxQueue: config.MAX_QUEUE, maxQueueWaitMs: config.MAX_QUEUE_WAIT_MS, ...hostInfo() })
+  log("info", "executor ouvindo", { port: config.PORT, concurrency: config.CONCURRENCY, maxQueue: config.MAX_QUEUE, maxQueueWaitMs: config.MAX_QUEUE_WAIT_MS, pyodide: pyodide !== undefined, ...hostInfo() })
 })
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
     log("info", "encerrando", { signal })
-    server.close(() => process.exit(0))
+    server.close(() => {
+      void (pyodide?.shutdown() ?? Promise.resolve()).finally(() => process.exit(0))
+    })
     setTimeout(() => process.exit(0), SHUTDOWN_GRACE_MS).unref()
   })
 }

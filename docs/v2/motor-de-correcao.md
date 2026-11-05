@@ -291,3 +291,143 @@ os casos, inclusive os de AST. Desde então:
   saudável e a API fica com `runner: false` no `/api/health/ready`;
 - um lote que termina **sem nenhuma observação** vai para o log em nível `error` com o
   `stderr` do Wasmtime, que é onde a causa real aparece.
+
+## Motor python-dados (Pyodide)
+
+Lições de dados/IA precisam de numpy, pandas, scikit-learn e companhia, que não
+existem no CPython WASI. Elas são corrigidas por um segundo motor, o **Pyodide**
+(CPython 3.14 compilado para WebAssembly, com os wheels científicos oficiais),
+rodando em `worker_threads` do Node. O **harness é o mesmo arquivo**
+(`apps/runner/python/harness.py`) nos dois motores; muda só a camada que entrega
+o lote e lê as observações.
+
+### Interface `Engine` e escolha do motor
+
+O executor fala com os dois motores por uma interface única
+(`apps/runner/src/engine.ts`):
+
+```ts
+interface Engine {
+  readonly name: "wasi" | "pyodide"
+  readonly versions: { python: string; runtime: string }
+  readonly readiness: { ready: boolean; reason: string }
+  accept(request): void          // recusa pedido impossível (ex.: biblioteca desconhecida) → 400
+  warmupMs(request): number      // custo de aquecer uma instância quando não há pronta
+  run(batch): Promise<ProbeObservation[]>
+  stats(): Record<string, …>
+}
+```
+
+O `WasmtimeSandbox` (motor `wasi`) foi refatorado para implementá-la **sem mudar
+o comportamento** (os testes de `apps/runner/test` e `test/attacks` continuam
+passando). A requisição do executor (`POST /v1/run`) ganhou dois campos opcionais
+em `@levelusp/contracts` (`runner.ts`):
+
+- `runtime?: "python" | "python-dados"` (padrão `python`): escolhe o motor;
+- `libraries?: string[]` (padrão `[]`): os pacotes do Pyodide que o lote precisa.
+
+Os lotes **só de análise estrutural** (`ast`) de um job `python-dados` rodam no
+WASI (não executam o código do aluno e custam ~130 ms, em vez de um worker do
+Pyodide). Os dois motores dividem o **mesmo semáforo** de concorrência
+(`CONCURRENCY`); a estimativa de espera da fila soma o custo de aquecer um worker
+quando o pool do perfil está vazio.
+
+### Protocolo (idêntico ao WASI)
+
+O lote entra pela **entrada padrão** do convidado (`pyodide.setStdin` com um
+`read` que entrega o JSON do lote até o EOF; o harness lê `os.read(0, …)`). As
+observações saem pela **saída padrão** (`pyodide.setStdout`), uma por linha,
+prefixadas pelo nonce desta execução; prints do aluno são capturados. `/work`
+(arquivos do projeto) e `/harness` (o harness, somente leitura) vivem no MEMFS,
+`os.chdir("/work")` funciona, e as sondas viajam com ids posicionais. Como no
+WASI: o nonce nunca entra em disco, argv ou ambiente; uma segunda linha com o
+mesmo id invalida a sonda.
+
+### Perfis e políticas
+
+Um worker é **aquecido** com os pacotes de um perfil (descompactados no MEMFS e
+os mais caros já importados), para que um lote pague só o tempo do próprio
+código. O perfil vem do `libraries` do lote:
+
+| Perfil | Pacotes | Quando |
+|---|---|---|
+| `dados` | numpy, pandas | o lote pede só numpy/pandas (ou nada) |
+| `ml` | dados + scipy, scikit-learn, matplotlib, statsmodels, sympy, networkx | o lote pede qualquer uma dessas |
+
+Uma biblioteca fora do catálogo é **erro 400** claro (`unknown_library`), antes
+de admitir o job.
+
+- **Política `fresh`** (padrão, `RUNNER_PYODIDE_POLICY=fresh`): **um lote por
+  worker**. O worker é descartado depois do lote; um pool aquecido por perfil
+  (`RUNNER_PYODIDE_WARM`, padrão `dados:1,ml:0`) mantém instâncias prontas. É o
+  isolamento mais forte: nenhum estado atravessa lotes.
+- **Política `reuse`** (`RUNNER_PYODIDE_POLICY=reuse`): o worker atende **vários
+  lotes**, com uma **restauração** entre eles (dicionário de cada módulo, classes,
+  código/`__defaults__`/`__dict__` das funções, `sys.modules`/`sys.path`/builtins,
+  `os.environ`, limite de recursão, handlers de sinal, `atexit`, `sys.monitoring`,
+  opções de numpy/pandas/matplotlib/logging) a partir de uma **fotografia** tirada
+  logo após o aquecimento. Depois de cada lote roda um **canário** (uma expressão
+  numpy/pandas com resultado conhecido); o worker é **reciclado** após
+  `RUNNER_PYODIDE_RECYCLE_AFTER` lotes (padrão 25), quando o heap wasm passa de
+  `RUNNER_PYODIDE_RECYCLE_HEAP_MB` (padrão 256 MB), ou se a restauração/canário
+  falham. Lotes **estritos** (`unittest`/`legacy`, que instalam um audit hook)
+  usam sempre um worker dedicado e descartado. A `reuse` troca ~5–6 s de
+  aquecimento por lote por ~50–80 ms de restauração, mas o estado de **instâncias**
+  (não coberto pela fotografia) pode sobreviver — é por isso que ela é opcional e
+  tem canário + reciclagem (riscos em [seguranca.md](./seguranca.md)).
+
+### Isolamento (antes do código do aluno)
+
+O código do aluno roda **dentro** do worker, então tudo que ele poderia alcançar
+fora do interpretador é fechado no aquecimento (`src/pyodide-guard.ts`):
+
+- `sys.modules["js"] = sys.modules["pyodide_js"] = None`, o finder de módulos JS
+  é removido e **toda referência a objeto JS** (`JsProxy`) guardada em módulos é
+  apagada (um `JsProxy` daria `.constructor` → `Function` do host); as fábricas
+  de `JsProxy` (`to_js`, `create_proxy`, `run_js`, `run_sync`) somem;
+- `_ctypes`/`ctypes` ficam inacessíveis (eles chamariam `emscripten_run_script`,
+  que é `eval` no host, e leriam a memória do interpretador);
+- no `globalThis` do worker, `process`, `fetch`, `WebSocket`, `XMLHttpRequest`,
+  `require` e afins são removidos, e `eval`/`Function` (e as variantes
+  async/generator, inclusive via `.constructor`) passam a lançar;
+- o ambiente fica vazio e o SIGINT volta ao handler padrão (o que transforma o
+  buffer de interrupção em `KeyboardInterrupt`).
+
+### Limites por lote
+
+| Recurso | Limite | Mecanismo |
+|---|---|---|
+| Tempo de parede | os mesmos `RunnerLimits` do WASI | `setInterruptBuffer` (interrupção suave, rearmada a cada 20 ms porque o harness reexecuta o `main.py` por sonda) + `worker.terminate()` no estouro duro |
+| Memória do wasm | `RUNNER_PYODIDE_MAX_HEAP_MB` (padrão 512) | o `emscripten_resize_heap` recusa crescer além do teto → `MemoryError` |
+| Heap de JS do worker | `RUNNER_PYODIDE_JS_HEAP_MB` (padrão 1536) | `resourceLimits.maxOldGenerationSizeMb` do worker |
+| Disco | `MAX_JOB_DISK_MB` e 2 000 entradas por lote | as tabelas de operações do MEMFS contam bytes e entradas gravados em `/work`, `/tmp`, `/home` |
+| Saída | 8 MB por lote; linha de observação ≤ 4 MB e profundidade ≤ 256 | a thread principal corta e marca `overflowed` (o worker é descartado) |
+| Arquivos | stdlib, site-packages e harness **somente leitura** no MEMFS | as mesmas tabelas de operações recusam escrita/rename/unlink fora dos três diretórios graváveis |
+| Rede, processos, threads | inexistentes | Emscripten não tem subprocess/fork/thread e não há egresso de rede |
+
+### Readiness
+
+O motor Pyodide é **opcional**: ligado por `RUNNER_PYODIDE_ENABLED` ou, por
+padrão, quando `PYODIDE_DIR` tem a distribuição. Seu autoteste da partida (um lote
+trivial com numpy) **não derruba** `/healthz` — as lições `python` seguem
+funcionando sem ele. O `/healthz` informa `pyodide: { ready, reason, policy,
+profiles, warm }`; o WASI continua decidindo o 503. O `GET /v1/stats` traz os
+contadores por motor (lotes, falhas, workers aquecidos/reciclados).
+
+### Medições de referência (nuvem, 1 vCPU)
+
+Processo novo, com a distribuição de `PYODIDE_DIR`:
+
+| Cenário | Tempo / memória |
+|---|---|
+| Boot do Pyodide (sem pacotes) | ~1,8 s |
+| + numpy | +0,9 s; RSS ~250 MB; heap wasm ~80 MB |
+| Perfil `dados` (numpy + pandas), aquecido | ~6 s no total; RSS ~590 MB |
+| Perfil `ml` (+ scipy + scikit-learn + matplotlib + statsmodels + sympy + networkx) | ~15–18 s no total; RSS ~1,3 GB |
+| Lote `dados` depois do worker aquecido | dezenas de ms + o código do aluno |
+| Restauração entre lotes (`reuse`, perfil `dados`) | ~20–50 ms (fotografia ~50 ms no aquecimento) |
+
+`makeMemorySnapshot()` do Pyodide **não funciona** com pacotes carregados (erro
+`Unexpected hiwire entry`), e carregar uma segunda instância no mesmo processo
+não é mais rápido — por isso o pool de workers aquecidos em vez de snapshots.
+Carga e dimensionamento em [desempenho-e-carga.md](./desempenho-e-carga.md).

@@ -77,11 +77,20 @@ services:
       # passa de RUNNER_MAX_QUEUE_WAIT_MS. Medições: docs/v2/desempenho-e-carga.md.
       CONCURRENCY: ${RUNNER_CONCURRENCY:-2}
       MAX_QUEUE_WAIT_MS: ${RUNNER_MAX_QUEUE_WAIT_MS:-20000}
-    # Defesa em profundidade (além do sandbox WASI): sem rede externa, sistema de
+      # Motor python-dados (Pyodide): ligado por padrão (a imagem traz /opt/levelusp-pyodide).
+      # Pool aquecido por perfil (dados = numpy+pandas; ml = + scipy/scikit-learn/matplotlib);
+      # ml ocioso custa ~1,5 GB, então por padrão só o perfil dados fica quente.
+      RUNNER_PYODIDE_ENABLED: ${RUNNER_PYODIDE_ENABLED:-true}
+      RUNNER_PYODIDE_POLICY: ${RUNNER_PYODIDE_POLICY:-fresh}
+      RUNNER_PYODIDE_WARM: ${RUNNER_PYODIDE_WARM:-dados:1,ml:0}
+      RUNNER_PYODIDE_MAX_HEAP_MB: ${RUNNER_PYODIDE_MAX_HEAP_MB:-512}
+    # Defesa em profundidade (além do sandbox WASI/Pyodide): sem rede externa, sistema de
     # arquivos somente leitura, sem privilégios, limites de CPU/memória/processos.
     networks: [runner]
     read_only: true
     tmpfs:
+      # O perfil ml carrega ~1,3 GB no heap do wasm (fora do tmpfs); o tmpfs guarda só os
+      # arquivos de projeto do WASI, por isso 256m basta.
       - /tmp:size=256m,mode=1777
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
