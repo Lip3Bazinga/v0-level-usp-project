@@ -1,0 +1,6 @@
+slug: erros-testes-e-depuracao
+titulo: Erros, testes e depuração
+descricao: Tipos de erro e tracebacks, try/except, assert e testes simples, e estratégias de depuração.
+icone: Bug
+cor: bg-level-orange
+ordem: 8

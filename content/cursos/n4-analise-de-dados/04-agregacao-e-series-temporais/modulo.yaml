@@ -1,0 +1,6 @@
+slug: agregacao-e-series-temporais
+titulo: Agregação e séries temporais
+descricao: groupby com várias funções, transform e filter, tabelas dinâmicas, e séries temporais com resample, rolling e deslocamento.
+icone: BarChart3
+cor: bg-level-orange
+ordem: 4

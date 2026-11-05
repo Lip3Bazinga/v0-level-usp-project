@@ -1,0 +1,16 @@
+slug: python-do-zero-a-ia
+titulo: 'Python: do zero à IA'
+descricao: 'Sete níveis certificáveis que levam você do primeiro print até construir um modelo de linguagem do zero e um assistente com RAG servido por API: fundamentos de programação e de computação, Python intermediário e engenharia de software, estruturas de dados e algoritmos, análise de dados, machine learning, deep learning por dentro e engenharia de IA.'
+icone: Rocket
+cor: bg-level-purple
+ordem: 1
+publicada: true
+titulo_certificado: 'Python: do zero à IA — trilha completa'
+cursos:
+- n1-fundamentos
+- n2-python-intermediario
+- n3-estruturas-de-dados-e-algoritmos
+- n4-analise-de-dados
+- n5-machine-learning
+- n6-deep-learning
+- n7-engenharia-de-ia

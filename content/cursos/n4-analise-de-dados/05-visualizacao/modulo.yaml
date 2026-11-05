@@ -1,0 +1,6 @@
+slug: visualizacao
+titulo: Visualização com matplotlib
+descricao: Anatomia de uma figura, tipos de gráfico e quando usar cada um, boas práticas e gráficos enganosos, pandas.plot e figuras com vários painéis.
+icone: LineChart
+cor: bg-level-purple
+ordem: 5

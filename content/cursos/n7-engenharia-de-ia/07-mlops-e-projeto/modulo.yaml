@@ -1,0 +1,6 @@
+slug: mlops-e-projeto
+titulo: MLOps básico e projeto
+descricao: 'Servir um modelo com FastAPI (simulado no sandbox), empacotar e versionar modelos, monitorar e detectar drift, e o projeto final: assistente de atendimento da secretaria.'
+icone: Server
+cor: bg-level-green
+ordem: 7

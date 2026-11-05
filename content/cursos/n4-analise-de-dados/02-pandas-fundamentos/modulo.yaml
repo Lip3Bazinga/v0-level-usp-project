@@ -1,0 +1,6 @@
+slug: pandas-fundamentos
+titulo: 'pandas: fundamentos'
+descricao: Series e DataFrame, seleção com loc e iloc, filtros e ordenação, criação de colunas e apply, leitura de CSV e JSON.
+icone: Table
+cor: bg-level-blue
+ordem: 2

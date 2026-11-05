@@ -1,0 +1,6 @@
+slug: modulos-e-organizacao
+titulo: Módulos, pacotes e biblioteca padrão
+descricao: import e módulos próprios, pacotes, if __name__ == '__main__', os módulos mais úteis da biblioteca padrão, pip e ambientes virtuais.
+icone: Package
+cor: bg-level-blue
+ordem: 2

@@ -1,0 +1,37 @@
+slug: n5-machine-learning
+titulo: Nível 5 — Machine Learning
+descricao: Álgebra linear e cálculo para ML, gradiente descendente do zero, regressão e classificação, scikit-learn, validação cruzada e métricas, árvores e ensembles, SVM, clustering e PCA, viés-variância e boas práticas, com projeto.
+descricao_longa: |
+  ## Para quem é
+
+  Para quem domina análise de dados (Nível 4) e quer construir modelos que aprendem com dados — entendendo o que acontece por dentro antes de chamar `fit`. O roteiro combina a trilha *Data Scientist: Machine Learning* da Codecademy, o *ISLP* e *Mãos à Obra: Aprendizado de Máquina com Scikit-Learn* (Géron).
+
+  ## O que você vai construir
+
+  - Regressão linear e logística implementadas do zero em numpy, com gradiente descendente que você mesmo escreve e depura.
+  - Pipelines completos de scikit-learn: pré-processamento, validação cruzada, busca de hiperparâmetros e métricas corretas para cada problema.
+  - Árvores, florestas aleatórias, gradient boosting, SVM, k-means, DBSCAN e PCA, cada um com uma implementação didática ou uma inspeção por dentro.
+  - O projeto final: um **modelo de previsão de inadimplência** com pipeline reprodutível, avaliação honesta e relatório de limitações e vieses.
+
+  ## Pré-requisitos
+
+  Certificado do Nível 4. O primeiro módulo revisa a matemática necessária (vetores, derivadas, gradiente, verossimilhança).
+
+  ## Como é avaliado
+
+  - Exercícios verificados no servidor com numpy e scikit-learn: valores com tolerância, propriedades de modelos (coeficientes, métricas em dados fixos) e estrutura do código.
+  - Certificado do nível: 100 % das lições + prova (nota mínima 70 %) + projeto final aprovado.
+nivel: avancado
+tags:
+- machine learning
+- scikit-learn
+- regressão
+- classificação
+- validação
+- ensembles
+- clustering
+horas: 60
+ordem: 5
+publicado: false
+prerequisito: n4-analise-de-dados
+sequencial: false

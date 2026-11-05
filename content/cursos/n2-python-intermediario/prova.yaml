@@ -1,0 +1,115 @@
+titulo: Prova do Nível 2 — Python intermediário e engenharia de software
+descricao: 'Banco inicial de 12 questões (10 sorteadas por tentativa) sobre orientação a objetos, módulos, exceções, arquivos, iteradores, geradores, decoradores, tipagem, testes e git. Nota mínima: 70 %.'
+nota_minima: 70
+tempo_min: 45
+intervalo_min: 60
+questoes_por_tentativa: 10
+questoes:
+- enunciado: Qual é o papel de `self` em um método de instância?
+  opcoes:
+  - Referenciar a instância sobre a qual o método foi chamado
+  - Referenciar a classe
+  - Uma palavra reservada sem função
+  - O primeiro argumento informado por quem chama
+  correta: 0
+  explicacao: '`self` é o próprio objeto; o Python o passa automaticamente quando você chama `objeto.metodo()`.'
+  topico: programacao-orientada-a-objetos
+- enunciado: O que `super().__init__(nome)` faz dentro do `__init__` de uma subclasse?
+  opcoes:
+  - Cria uma nova instância da classe base
+  - Chama o construtor da classe base para inicializar os atributos herdados
+  - Copia os métodos da classe base
+  - 'Nada: é opcional e sem efeito'
+  correta: 1
+  explicacao: Sem essa chamada, os atributos definidos pela classe base não são criados no objeto.
+  topico: programacao-orientada-a-objetos
+- enunciado: O que acontece ao instanciar uma classe que herda de `ABC` e não implementa um método marcado com `@abstractmethod`?
+  opcoes:
+  - Funciona normalmente
+  - TypeError no momento da instanciação
+  - O método devolve None
+  - SyntaxError
+  correta: 1
+  explicacao: Classes abstratas com métodos pendentes não podem ser instanciadas; o erro aparece ao criar o objeto, não ao definir a classe.
+  topico: programacao-orientada-a-objetos
+- enunciado: 'Por que `@dataclass` com o campo `tags: list = []` falha?'
+  opcoes:
+  - Listas não podem ser campos
+  - 'Valor padrão mutável é proibido: use `field(default_factory=list)`'
+  - Falta a anotação de tipo
+  - Faltam parênteses no decorador
+  correta: 1
+  explicacao: Um padrão mutável seria compartilhado entre todas as instâncias; `default_factory` cria uma lista nova para cada objeto.
+  topico: programacao-orientada-a-objetos
+- enunciado: O que a construção `if __name__ == "__main__":` permite?
+  opcoes:
+  - Executar um trecho só quando o arquivo é rodado diretamente, e não quando é importado
+  - Definir o nome do módulo
+  - Importar o módulo duas vezes
+  - Nada no Python 3
+  correta: 0
+  explicacao: Ao importar, `__name__` é o nome do módulo; só ao executar o arquivo diretamente ele vale "__main__".
+  topico: modulos-e-organizacao
+- enunciado: Qual bloco de uma estrutura `try` executa somente quando nenhuma exceção ocorreu?
+  opcoes:
+  - except
+  - else
+  - finally
+  - raise
+  correta: 1
+  explicacao: '`else` roda após o `try` sem erro; `finally` roda sempre; `except` roda só com erro.'
+  topico: excecoes-e-robustez
+- enunciado: Qual é a forma correta de definir uma exceção própria?
+  opcoes:
+  - 'class MeuErro(Exception): pass'
+  - 'class MeuErro: pass'
+  - 'def MeuErro(): raise'
+  - MeuErro = Exception()
+  correta: 0
+  explicacao: Exceções são classes que herdam de `Exception` (ou de uma subclasse dela).
+  topico: excecoes-e-robustez
+- enunciado: Qual modo de `open()` apaga o conteúdo existente do arquivo antes de escrever?
+  opcoes:
+  - '"a"'
+  - '"r"'
+  - '"w"'
+  - '"x"'
+  correta: 2
+  explicacao: '`w` trunca o arquivo; `a` anexa ao final; `x` cria e falha se já existir; `r` só lê.'
+  topico: arquivos-e-dados
+- enunciado: 'O que `json.dumps({"a": None})` devolve?'
+  opcoes:
+  - '{"a": null}'
+  - '{"a": None}'
+  - '{''a'': None}'
+  - Erro
+  correta: 0
+  explicacao: JSON usa aspas duplas e representa None como null.
+  topico: arquivos-e-dados
+- enunciado: O que uma função que contém `yield` devolve ao ser chamada?
+  opcoes:
+  - O primeiro valor produzido
+  - Um objeto gerador
+  - Uma lista com todos os valores
+  - None
+  correta: 1
+  explicacao: 'A chamada não executa o corpo: devolve um gerador que produz os valores sob demanda com `next()` ou em um `for`.'
+  topico: iteradores-geradores-e-decoradores
+- enunciado: 'Aplicar `@d` a `def f(): ...` equivale a:'
+  opcoes:
+  - f = d(f)
+  - d = f(d)
+  - f = d()
+  - f(d)
+  correta: 0
+  explicacao: O decorador recebe a função e o nome `f` passa a apontar para o que ele devolve.
+  topico: iteradores-geradores-e-decoradores
+- enunciado: Em `unittest`, por que um método chamado `verifica_soma` dentro de um `TestCase` não é executado?
+  opcoes:
+  - Porque falta `self`
+  - Porque o nome precisa começar com `test`
+  - Porque não tem docstring
+  - Porque não usa `assertEqual`
+  correta: 1
+  explicacao: O descobridor de testes só executa métodos cujo nome começa com `test`.
+  topico: tipagem-testes-e-estilo

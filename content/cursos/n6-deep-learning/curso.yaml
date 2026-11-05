@@ -1,0 +1,36 @@
+slug: n6-deep-learning
+titulo: 'Nível 6 — Deep Learning: a IA por dentro'
+descricao: Perceptron, autograd do zero (estilo micrograd), backprop, MLP, otimizadores, CNN, embeddings e RNN, atenção e transformer, tokenização e um mini modelo de linguagem treinado em numpy, com limitações e projeto.
+descricao_longa: |
+  ## Para quem é
+
+  Para quem já treina modelos com scikit-learn (Nível 5) e quer entender o que acontece dentro de uma rede neural e de um modelo de linguagem — sem caixas pretas. Tudo é construído do zero em numpy, no espírito do micrograd e do makemore (Karpathy) e do CS231n (Stanford). Nenhuma lição depende de GPU ou de PyTorch; passos opcionais indicam como repetir em PyTorch no seu computador.
+
+  ## O que você vai construir
+
+  - Um motor de diferenciação automática (autograd) com algumas dezenas de linhas, e um MLP treinado com ele.
+  - Backprop vetorizado, otimizadores (SGD com momentum, Adam), regularização e um classificador de dígitos.
+  - Uma rede convolucional, um modelo de linguagem por bigramas, um MLP de linguagem com embeddings e uma RNN.
+  - Um tokenizador BPE, self-attention, multi-head attention e um **mini-GPT** treinado em numpy que gera texto.
+
+  ## Pré-requisitos
+
+  Certificado do Nível 5 (gradiente descendente, regressão logística, softmax e numpy fluente).
+
+  ## Como é avaliado
+
+  - Exercícios verificados no servidor em numpy: gradientes conferidos numericamente, perdas que precisam cair abaixo de um limiar em dados fixos com semente, e propriedades de tensores.
+  - Certificado do nível: 100 % das lições + prova (nota mínima 70 %) + projeto final (seu próprio modelo de linguagem) aprovado.
+nivel: avancado
+tags:
+- deep learning
+- redes neurais
+- backpropagation
+- transformers
+- numpy
+- modelos de linguagem
+horas: 60
+ordem: 6
+publicado: false
+prerequisito: n5-machine-learning
+sequencial: false

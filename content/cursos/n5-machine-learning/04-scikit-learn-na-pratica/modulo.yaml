@@ -1,0 +1,6 @@
+slug: scikit-learn-na-pratica
+titulo: scikit-learn na prática
+descricao: A API fit/predict/transform, pré-processamento e Pipeline, divisão treino/validação/teste e validação cruzada, busca de hiperparâmetros, métricas de regressão e viés-variância com curvas de aprendizado.
+icone: Workflow
+cor: bg-level-orange
+ordem: 4

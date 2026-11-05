@@ -1,0 +1,6 @@
+slug: sequencias-embeddings-e-rnn
+titulo: Sequências, embeddings e RNN
+descricao: Representar texto (one-hot e embeddings), modelo de bigramas (makemore), MLP de linguagem com embeddings (Bengio), RNN do zero com backprop no tempo, e LSTM/GRU como leitura.
+icone: Type
+cor: bg-level-blue
+ordem: 6

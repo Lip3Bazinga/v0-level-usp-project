@@ -1,0 +1,6 @@
+slug: embeddings-e-busca-vetorial
+titulo: Embeddings e busca vetorial
+descricao: O que são embeddings de texto, similaridade e busca kNN em numpy, índices vetoriais e chunking de documentos.
+icone: Compass
+cor: bg-level-green
+ordem: 3
