@@ -412,4 +412,4 @@ questoes:
   - Porque listas não podem ser globais
   correta: 1
   explicacao: Funções que recebem e devolvem dados são fáceis de testar e de verificar automaticamente; estado global escondido gera bugs difíceis de reproduzir.
-  topico: projeto-do-nivel
+  topico: n1-projeto-do-nivel
