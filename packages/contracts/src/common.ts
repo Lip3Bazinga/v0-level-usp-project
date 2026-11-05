@@ -74,3 +74,9 @@ export const DIFFICULTIES = ["iniciante", "intermediario", "avancado"] as const
 export const difficultySchema = z.enum(DIFFICULTIES)
 /** Nível de dificuldade de lições e cursos. */
 export type Difficulty = z.infer<typeof difficultySchema>
+
+/** Slug de conteúdo (trilha, curso, módulo, lição): minúsculas, dígitos e hífens, como `n1-fundamentos`. */
+export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+export const slugSchema = z.string().trim().min(2).max(80).regex(SLUG_PATTERN, "Use letras minúsculas, números e hífens")
+/** Slug já validado por {@link slugSchema}; é a chave do upsert do conteúdo. */
+export type Slug = z.infer<typeof slugSchema>

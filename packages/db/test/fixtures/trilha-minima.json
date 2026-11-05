@@ -1,0 +1,282 @@
+{
+  "format": 2,
+  "generated_at": "2026-11-05T00:00:00.000Z",
+  "tracks": [
+    {
+      "slug": "python-ia",
+      "title": "Python: do zero à IA (mínima)",
+      "description": "Trilha de teste com dois níveis.",
+      "icon": "Sparkles",
+      "color": "bg-level-purple",
+      "sort_order": 1,
+      "published": true,
+      "certificate_title": "Python: do zero à IA",
+      "courses": ["n1-fundamentos", "n2-intermediario"]
+    }
+  ],
+  "courses": [
+    {
+      "slug": "n1-fundamentos",
+      "title": "Nível 1 — Fundamentos",
+      "description": "Como o computador funciona e o Python básico.",
+      "long_description": "Curso de teste do pacote formato 2.",
+      "level": "iniciante",
+      "tags": ["python", "fundamentos"],
+      "estimated_hours": 50,
+      "order": 1,
+      "published": true,
+      "prerequisite": null,
+      "sequential": true,
+      "exam": {
+        "title": "Prova do Nível 1",
+        "description": "Duas questões.",
+        "passing_score": 70,
+        "time_limit_minutes": 30,
+        "cooldown_minutes": 30,
+        "questions_per_attempt": null,
+        "questions": [
+          { "prompt": "O que `print` faz?", "options": ["Lê", "Escreve na saída", "Soma"], "correct_index": 1, "explanation": "Escreve na saída padrão.", "topic": "Saída" },
+          { "prompt": "Qual é o tipo de `3 / 2`?", "options": ["int", "float"], "correct_index": 1, "explanation": "A divisão devolve float.", "topic": "Operadores" }
+        ]
+      },
+      "modules": [
+        {
+          "slug": "m1-primeiros-passos",
+          "title": "Primeiros passos",
+          "description": "Seu primeiro programa.",
+          "icon": "BookOpen",
+          "color": "bg-level-blue",
+          "sort_order": 1,
+          "lessons": [
+            {
+              "slug": "n1-m1-01-ola-python",
+              "title": "Olá, Python",
+              "description": "Seu primeiro programa e como o Python o executa.",
+              "difficulty": "iniciante",
+              "lesson_type": "guided",
+              "runtime": "python",
+              "libraries": [],
+              "xp_reward": 100,
+              "time_limit": 25,
+              "published": true,
+              "is_project": false,
+              "solution_after_attempts": 3,
+              "objectives": ["Executar um programa Python e ler a saída", "Explicar o que `print` faz"],
+              "steps": [
+                {
+                  "order": 1,
+                  "kind": "leitura",
+                  "title": "O que é um programa",
+                  "narrative_markdown": "Um programa é uma sequência de instruções.",
+                  "starter_files": [],
+                  "solution_files": [],
+                  "checkpoints": [],
+                  "test_cases": [],
+                  "hints": [],
+                  "quiz_questions": [],
+                  "wrong_solutions": [],
+                  "xp": 10
+                },
+                {
+                  "order": 2,
+                  "kind": "exercicio",
+                  "title": "Seu primeiro print",
+                  "narrative_markdown": "Use `print()` para escrever na tela.",
+                  "starter_files": [{ "path": "main.py", "content": "# Escreva seu código abaixo\n" }],
+                  "solution_files": [{ "path": "main.py", "content": "print(\"Olá, mundo!\")\nprint(\"Ana\")\n" }],
+                  "checkpoints": [
+                    { "id": 1, "instruction": "Use `print()` para exibir exatamente `Olá, mundo!`." },
+                    { "id": 2, "instruction": "Na linha seguinte, exiba seu nome entre aspas." }
+                  ],
+                  "test_cases": [
+                    { "id": "saida", "checkpoint": 1, "kind": "io", "stdin": "", "expected_stdout": "Olá, mundo!", "match": "contains", "name": "Exibe Olá, mundo!", "hint": "A saída precisa ter exatamente o texto Olá, mundo!" },
+                    { "id": "duas-linhas", "checkpoint": 2, "kind": "source", "rule": { "type": "calls", "name": "print" } }
+                  ],
+                  "hints": ["`print` recebe o texto entre aspas.", "Cada `print` escreve em uma linha nova."],
+                  "quiz_questions": [],
+                  "wrong_solutions": [
+                    { "name": "sem aspas", "files": [{ "path": "main.py", "content": "print(Olá, mundo!)\n" }] },
+                    { "name": "texto diferente", "files": [{ "path": "main.py", "content": "print(\"Ola mundo\")\n" }] }
+                  ],
+                  "xp": 20
+                },
+                {
+                  "order": 3,
+                  "kind": "quiz",
+                  "title": "Fixando",
+                  "narrative_markdown": "",
+                  "starter_files": [],
+                  "solution_files": [],
+                  "checkpoints": [],
+                  "test_cases": [],
+                  "hints": [],
+                  "quiz_questions": [
+                    { "prompt": "Qual função exibe texto na tela?", "options": ["show()", "print()", "echo()"], "correct_index": 1, "explanation": "`print()` escreve na saída padrão." }
+                  ],
+                  "wrong_solutions": [],
+                  "xp": 10
+                }
+              ]
+            },
+            {
+              "slug": "n1-m1-02-variaveis",
+              "title": "Variáveis",
+              "description": "Guardando valores com nome.",
+              "difficulty": "iniciante",
+              "lesson_type": "coding",
+              "runtime": "python",
+              "libraries": [],
+              "xp_reward": 100,
+              "time_limit": 20,
+              "published": true,
+              "is_project": false,
+              "solution_after_attempts": 2,
+              "objectives": ["Criar variáveis"],
+              "steps": [
+                {
+                  "order": 1,
+                  "kind": "exercicio",
+                  "title": "Crie uma variável",
+                  "narrative_markdown": "Crie `linguagem` com o texto Python.",
+                  "starter_files": [{ "path": "main.py", "content": "# linguagem = ...\n" }, { "path": "notas.txt", "content": "anotações" }],
+                  "solution_files": [{ "path": "main.py", "content": "linguagem = \"Python\"\n" }],
+                  "checkpoints": [{ "id": 1, "instruction": "Crie a variável `linguagem`.", "hint": "Use aspas." }],
+                  "test_cases": [
+                    { "id": "v1", "checkpoint": 1, "kind": "variable", "variable": "linguagem", "expected": "Python", "type": "str" }
+                  ],
+                  "hints": ["Texto vai entre aspas."],
+                  "quiz_questions": [],
+                  "wrong_solutions": [{ "name": "vazio", "files": [{ "path": "main.py", "content": "\n" }] }],
+                  "xp": 10
+                }
+              ]
+            },
+            {
+              "slug": "n1-m1-03-fixacao",
+              "title": "Fixação do módulo",
+              "description": "Questionário.",
+              "difficulty": "iniciante",
+              "lesson_type": "quiz",
+              "runtime": "python",
+              "libraries": [],
+              "xp_reward": 50,
+              "time_limit": 10,
+              "published": true,
+              "is_project": false,
+              "solution_after_attempts": 0,
+              "objectives": [],
+              "quiz_passing_score": 60,
+              "steps": [
+                {
+                  "order": 1,
+                  "kind": "quiz",
+                  "title": "Questionário",
+                  "narrative_markdown": "Responda.",
+                  "starter_files": [],
+                  "solution_files": [],
+                  "checkpoints": [],
+                  "test_cases": [],
+                  "hints": [],
+                  "quiz_questions": [
+                    { "prompt": "2 + 2?", "options": ["3", "4"], "correct_index": 1, "explanation": "" },
+                    { "prompt": "Tipo de 1.5?", "options": ["int", "float", "str"], "correct_index": 1, "explanation": "Ponto flutuante." }
+                  ],
+                  "wrong_solutions": [],
+                  "xp": 10
+                }
+              ]
+            },
+            {
+              "slug": "n1-m1-04-como-funciona",
+              "title": "Como o computador executa",
+              "description": "Leitura.",
+              "difficulty": "iniciante",
+              "lesson_type": "theory",
+              "runtime": "python",
+              "libraries": [],
+              "xp_reward": 30,
+              "time_limit": 10,
+              "published": false,
+              "is_project": false,
+              "solution_after_attempts": 3,
+              "objectives": [],
+              "steps": [
+                {
+                  "order": 1,
+                  "kind": "leitura",
+                  "title": "Leitura",
+                  "narrative_markdown": "# Como funciona\n\nTexto da leitura.",
+                  "starter_files": [],
+                  "solution_files": [],
+                  "checkpoints": [],
+                  "test_cases": [],
+                  "hints": [],
+                  "quiz_questions": [],
+                  "wrong_solutions": [],
+                  "xp": 10
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "n2-intermediario",
+      "title": "Nível 2 — Intermediário",
+      "description": "Dados com numpy.",
+      "long_description": "",
+      "level": "intermediario",
+      "tags": [],
+      "estimated_hours": 45,
+      "order": 2,
+      "published": false,
+      "prerequisite": "n1-fundamentos",
+      "sequential": false,
+      "exam": null,
+      "modules": [
+        {
+          "slug": "m1-projeto",
+          "title": "Projeto",
+          "description": "",
+          "icon": "Trophy",
+          "color": "bg-level-orange",
+          "sort_order": 1,
+          "lessons": [
+            {
+              "slug": "n2-m1-01-projeto-dados",
+              "title": "Projeto: médias com numpy",
+              "description": "Projeto do nível.",
+              "difficulty": "intermediario",
+              "lesson_type": "guided",
+              "runtime": "python-dados",
+              "libraries": ["numpy"],
+              "xp_reward": 300,
+              "time_limit": 60,
+              "published": true,
+              "is_project": true,
+              "solution_after_attempts": 5,
+              "objectives": ["Calcular médias com numpy"],
+              "steps": [
+                {
+                  "order": 1,
+                  "kind": "exercicio",
+                  "title": "Média",
+                  "narrative_markdown": "Calcule a média.",
+                  "starter_files": [{ "path": "main.py", "content": "import numpy as np\n" }],
+                  "solution_files": [{ "path": "main.py", "content": "import numpy as np\nmedia = float(np.mean([1, 2, 3]))\n" }],
+                  "checkpoints": [{ "id": 1, "instruction": "Guarde a média em `media`." }],
+                  "test_cases": [{ "id": "media", "checkpoint": 1, "kind": "variable", "variable": "media", "expected": 2, "tolerance": 0.001 }],
+                  "hints": [],
+                  "quiz_questions": [],
+                  "wrong_solutions": [{ "name": "errada", "files": [{ "path": "main.py", "content": "media = 0\n" }] }],
+                  "xp": 50
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

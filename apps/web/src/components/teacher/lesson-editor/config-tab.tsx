@@ -17,6 +17,7 @@ const LESSON_TYPE_OPTIONS: Record<LessonType, { label: string; description: stri
   coding: { label: "💻 Com IDE", description: "Aluno escreve código" },
   theory: { label: "📖 Teórica", description: "Só leitura, sem IDE" },
   quiz: { label: "❓ Questionário", description: "Múltipla escolha" },
+  guided: { label: "🧭 Guiada", description: "Passos com leitura, exercícios e quiz" },
 }
 
 /** Valores especiais do seletor (os demais são ids). */

@@ -24,6 +24,9 @@ const COURSE_PATCH: PatchMapping<CourseUpdateInput, CourseInsert> = {
   final_project_title: (finalProjectTitle) => ({ finalProjectTitle }),
   final_project_description: (finalProjectDescription) => ({ finalProjectDescription }),
   final_project_starter_code: (finalProjectStarterCode) => ({ finalProjectStarterCode }),
+  slug: (slug) => ({ slug }),
+  prerequisite_course_id: (prerequisiteCourseId) => ({ prerequisiteCourseId }),
+  sequential: (sequential) => ({ sequential }),
 }
 
 /** Cursos: catálogo público, autoria (dono ou admin) e matrículas. */

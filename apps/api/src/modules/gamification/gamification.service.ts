@@ -90,6 +90,7 @@ export class GamificationService {
       max_streak: profile.maxStreak,
       lessons_completed: profile.lessonsCompleted,
       courses_completed: profile.coursesCompleted,
+      certificates_issued: await this.repo.countCertificates(userId, executor),
     }
     const earnedIds = eligibleBadges(stats, rules, await this.repo.listOwnedBadgeIds(userId, executor))
     if (!earnedIds.length) return []

@@ -14,6 +14,8 @@ const MODULE_PATCH: PatchMapping<ModuleUpdateInput, ModuleInsert> = {
   icon: (icon) => ({ icon }),
   color: (color) => ({ color }),
   sort_order: (sortOrder) => ({ sortOrder }),
+  course_id: (courseId) => ({ courseId }),
+  slug: (slug) => ({ slug }),
 }
 
 /** Módulos temáticos (escrita só por admins, auditada). */
@@ -40,13 +42,7 @@ export class ModulesService {
 
   /** Cria o módulo. */
   async create(actor: AuthUser, input: ModuleInput): Promise<Module> {
-    const module = await this.repo.create({
-      title: input.title,
-      description: input.description,
-      icon: input.icon,
-      color: input.color,
-      sortOrder: input.sort_order,
-    })
+    const module = await this.repo.create({ ...buildPatch(input, MODULE_PATCH), title: input.title })
     await this.audit.log(actor, "module.create", `module:${module.id}`, { title: module.title })
     return toModule(module)
   }

@@ -213,6 +213,8 @@ const CRITERIA_PROGRESS: Record<Exclude<BadgeCriteriaType, "manual">, (profile: 
   max_streak: (profile) => profile.max_streak,
   lessons_completed: (profile) => profile.lessons_completed,
   courses_completed: (profile) => profile.courses_completed,
+  // O perfil não traz o contador de certificados: a badge "Formado(a)" parte do zero aqui.
+  certificates_issued: () => 0,
 }
 
 interface BadgeProgress {

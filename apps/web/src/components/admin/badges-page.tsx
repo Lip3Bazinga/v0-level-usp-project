@@ -36,6 +36,7 @@ const CRITERIA_LABELS: Record<BadgeCriteriaType, string> = {
   max_streak: "Streak máximo",
   lessons_completed: "Lições completas",
   courses_completed: "Cursos completos",
+  certificates_issued: "Certificados emitidos",
   manual: "Manual",
 }
 
