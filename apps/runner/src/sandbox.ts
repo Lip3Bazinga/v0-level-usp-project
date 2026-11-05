@@ -1,8 +1,14 @@
 import { spawn } from "node:child_process"
-import { randomBytes } from "node:crypto"
 import { chmod, copyFile, lstat, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises"
 import path from "node:path"
-import { STRICT_PROBE_KINDS, type Probe, type ProbeObservation, type ProjectFile, type RunnerLimits } from "@levelusp/contracts"
+import { DEFAULT_RUNNER_LIMITS, type Probe, type ProbeObservation, type ProjectFile, type RunnerLimits } from "@levelusp/contracts"
+import type { Engine, EngineBatch, EngineReadiness, EngineStats, EngineVersions } from "./engine.js"
+import { collectObservations, parseObservations, prepareGuestJob, type GuestJob } from "./observations.js"
+
+export { jsonNestingDepth, parseObservations } from "./observations.js"
+
+/** Versões informadas pelo motor WASI na resposta de cada job. */
+export const WASI_ENGINE: EngineVersions = { python: "3.14.0 (WASI)", runtime: "wasmtime 49" }
 
 /** Caminhos do Wasmtime, do CPython WASI e do harness, a pasta de trabalho temporária e a cota de disco. */
 export interface SandboxOptions {
@@ -63,7 +69,6 @@ const MAX_STDOUT_BYTES = 8 * 1024 * 1024
 /** Folga do backstop do host além do timeout interno do Wasmtime. */
 const HOST_KILL_GRACE_MS = 2_000
 const BYTES_PER_MIB = 1024 * 1024
-const NONCE_BYTES = 16
 const READ_ONLY_FILE = 0o444
 const READ_ONLY_DIR = 0o555
 const WRITABLE_DIR = 0o755
@@ -80,21 +85,6 @@ export const DEFAULT_JOB_DISK_BYTES = 32 * BYTES_PER_MIB
 const MAX_JOB_ENTRIES = 2_000
 /** Intervalo da medição do disco do lote (o convidado grava ~250 MB/s: estouro máximo ≈ 25 MB). */
 const DISK_POLL_MS = 100
-/**
- * Uma observação legítima tem no máximo ~1,2 MB (valor + stdout + stderr, 64 000
- * caracteres cada, escapados em ASCII) e profundidade ~70 (20 níveis de valor,
- * pares de `$dict`). Linhas maiores ou mais fundas só vêm de quem forjou o nonce.
- */
-const MAX_OBSERVATION_LINE_CHARS = 4 * 1024 * 1024
-const MAX_OBSERVATION_DEPTH = 256
-
-/** O que o harness lê da entrada padrão (antes de qualquer código do aluno). */
-interface GuestJob {
-  nonce: string
-  entry: string
-  strict: boolean
-  probes: Probe[]
-}
 
 /**
  * Executa um lote de sondas numa instância CPython WASI nova.
@@ -106,24 +96,70 @@ interface GuestJob {
  * (`p0`, `p1`...), então nem o id do caso chega ao sandbox. As observações
  * voltam pela saída padrão, prefixadas pelo nonce. Sem variáveis de ambiente,
  * sem rede, sem processos. Tempo de parede, fuel (CPU) e memória são limitados.
+ *
+ * É o motor `python` do executor (`Engine`): `readiness` reflete o autoteste da
+ * partida e `stats` conta lotes, tempos e falhas.
  */
-export class WasmtimeSandbox {
+export class WasmtimeSandbox implements Engine {
+  readonly name = "wasi"
+  readonly versions: EngineVersions = { ...WASI_ENGINE }
+  readonly readiness: EngineReadiness = { ready: false, reason: "autoteste pendente" }
+  private readonly counters = { batches: 0, timedOut: 0, overflowed: 0, diskExceeded: 0, withoutObservations: 0 }
+
   constructor(private readonly options: SandboxOptions) {}
+
+  /** O motor WASI atende qualquer pedido: as bibliotecas só importam ao Pyodide. */
+  accept(): void {
+    return undefined
+  }
+
+  /** Cada lote sobe um processo novo (~130 ms); não há pool para aquecer. */
+  warmupMs(): number {
+    return 0
+  }
+
+  run(batch: EngineBatch): Promise<ProbeObservation[]> {
+    return this.runBatch(batch)
+  }
+
+  stats(): EngineStats {
+    return { ...this.counters }
+  }
+
+  /**
+   * Autoteste: roda um programa trivial pelo mesmo caminho dos jobs reais. Um `.cwasm`
+   * compilado para outra CPU, um Wasmtime ausente ou uma stdlib fora do lugar derrubam
+   * todas as correções com a mesma mensagem genérica para o aluno; aqui isso vira
+   * `readiness.ready = false` com o motivo (`/healthz` 503, que o compose e a API enxergam).
+   */
+  async selfTest(): Promise<void> {
+    try {
+      const observations = await this.runBatch({
+        files: [{ path: "main.py", content: 'print("levelusp-autoteste")\n' }],
+        entry: "main.py",
+        probes: [{ kind: "run", id: "autoteste", stdin: "" }],
+        limits: { ...DEFAULT_RUNNER_LIMITS },
+      })
+      const observation = observations[0]
+      const isHealthy = observation?.ok === true && observation.stdout?.includes("levelusp-autoteste") === true
+      this.readiness.ready = isHealthy
+      this.readiness.reason = isHealthy ? "" : (observation?.error ?? "sem observação")
+    } catch (error) {
+      this.readiness.ready = false
+      this.readiness.reason = error instanceof Error ? error.message : String(error)
+    }
+  }
 
   async runBatch({ files, entry, probes, limits }: SandboxBatch): Promise<ProbeObservation[]> {
     const directories = await this.createJobDirectories()
     try {
       await this.writeJobFiles(directories, files)
-      const nonce = randomBytes(NONCE_BYTES).toString("hex")
-      const guestJob: GuestJob = {
-        nonce,
-        entry,
-        strict: probes.some((probe) => STRICT_PROBE_KINDS.has(probe.kind)),
-        probes: probes.map((probe, index) => ({ ...probe, id: positionalId(index) })),
-      }
+      const guestJob = prepareGuestJob(probes, entry)
       const guestRun = await this.spawnWasmtime(directories, guestJob, limits)
-      const observed = parseObservations(guestRun.stdout, nonce)
+      this.record(guestRun)
+      const observed = parseObservations(guestRun.stdout, guestJob.nonce)
       if (observed.size === 0 && probes.length > 0) {
+        this.counters.withoutObservations++
         this.options.onGuestFailure?.({
           stderr: guestRun.stderr.slice(0, LOGGED_STDERR_CHARS),
           timedOut: guestRun.timedOut,
@@ -131,14 +167,18 @@ export class WasmtimeSandbox {
           diskExceeded: guestRun.diskExceeded,
         })
       }
-      return probes.map((probe, index) => {
-        const observation = observed.get(positionalId(index))
-        return observation ? { ...observation, id: probe.id } : missingObservation(probe.id, guestRun)
-      })
+      return collectObservations(probes, observed, guestRun)
     } finally {
       await chmod(directories.harnessDir, WRITABLE_DIR).catch(() => undefined)
       await rm(directories.root, { recursive: true, force: true })
     }
+  }
+
+  private record(guestRun: GuestRun): void {
+    this.counters.batches++
+    if (guestRun.timedOut) this.counters.timedOut++
+    if (guestRun.overflowed) this.counters.overflowed++
+    if (guestRun.diskExceeded) this.counters.diskExceeded++
   }
 
   private async createJobDirectories(): Promise<JobDirectories> {
@@ -280,72 +320,4 @@ export function safeJoin(base: string, relativePath: string): string {
   const target = path.resolve(base, relativePath)
   if (!target.startsWith(base + path.sep)) throw new Error(`Caminho inválido: ${relativePath}`)
   return target
-}
-
-function isObservation(value: unknown): value is ProbeObservation {
-  return typeof value === "object" && value !== null && "id" in value && typeof value.id === "string"
-}
-
-function positionalId(index: number): string {
-  return `p${index}`
-}
-
-/**
- * Aceita só linhas com o nonce desta execução. O harness emite exatamente uma
- * observação por sonda: uma segunda linha com o mesmo id só pode ter vindo de
- * quem descobriu o nonce, então a sonda inteira é invalidada.
- */
-export function parseObservations(stdout: string, nonce: string): Map<string, ProbeObservation> {
-  const observations = new Map<string, ProbeObservation>()
-  const duplicated = new Set<string>()
-  const prefix = `${nonce} `
-  for (const line of stdout.split("\n")) {
-    if (!line.startsWith(prefix) || line.length > MAX_OBSERVATION_LINE_CHARS) continue
-    const observation = parseJsonLine(line.slice(prefix.length))
-    if (!isObservation(observation)) continue
-    if (observations.has(observation.id)) duplicated.add(observation.id)
-    else observations.set(observation.id, observation)
-  }
-  for (const id of duplicated) observations.set(id, { id, ok: false, error: "Observação duplicada: resultado descartado." })
-  return observations
-}
-
-/** Linha corrompida (ex.: escrita interrompida pelo timeout) ou funda demais vira undefined e é ignorada. */
-function parseJsonLine(text: string): unknown {
-  if (jsonNestingDepth(text) > MAX_OBSERVATION_DEPTH) return undefined
-  try {
-    return JSON.parse(text)
-  } catch {
-    return undefined
-  }
-}
-
-/** Profundidade máxima de `[`/`{` fora de strings, em uma passada (antes do JSON.parse recursivo dos consumidores). */
-export function jsonNestingDepth(text: string): number {
-  let depth = 0
-  let maxDepth = 0
-  let isInString = false
-  for (let index = 0; index < text.length; index++) {
-    const char = text[index]
-    if (isInString) {
-      if (char === "\\") index++
-      else if (char === '"') isInString = false
-    } else if (char === '"') isInString = true
-    else if (char === "[" || char === "{") maxDepth = Math.max(maxDepth, ++depth)
-    else if (char === "]" || char === "}") depth--
-  }
-  return maxDepth
-}
-
-function missingObservation(probeId: string, guestRun: GuestRun): ProbeObservation {
-  if (guestRun.diskExceeded) return { id: probeId, ok: false, error: "Disco excedido: o programa gravou arquivos demais no projeto." }
-  if (guestRun.overflowed) return { id: probeId, ok: false, error: "Saída grande demais: o programa imprimiu dados demais." }
-  if (guestRun.timedOut) return { id: probeId, ok: false, timedOut: true, error: "Tempo limite excedido (verifique laços infinitos)." }
-  return { id: probeId, ok: false, error: describeCrash(guestRun.stderr) }
-}
-
-function describeCrash(stderr: string): string {
-  if (/memory|out of bounds|grow/i.test(stderr)) return "Memória insuficiente: o programa usou mais memória do que o permitido."
-  if (/stack overflow|call stack exhausted|RecursionError/i.test(stderr)) return "Recursão profunda demais (estouro de pilha)."
-  return "O programa terminou de forma inesperada."
 }

@@ -22,9 +22,14 @@ services:
     build: { context: ../.., dockerfile: infra/docker/runner.Dockerfile }
     environment:
       RUNNER_TOKEN: dev-runner-token-0123456789abcdef
+      # Motor python-dados ligado (a imagem traz o Pyodide); só o perfil dados fica quente.
+      RUNNER_PYODIDE_ENABLED: ${RUNNER_PYODIDE_ENABLED:-true}
+      RUNNER_PYODIDE_WARM: ${RUNNER_PYODIDE_WARM:-dados:1,ml:0}
     ports: ["127.0.0.1:8081:8081"]
     read_only: true
     tmpfs: ["/tmp:size=256m,mode=1777"]
+    # O perfil ml do Pyodide usa ~1,3 GB de heap wasm; dê folga ao contêiner em dev.
+    mem_limit: ${RUNNER_MEMORY:-2g}
 
 volumes:
   pgdata-dev:

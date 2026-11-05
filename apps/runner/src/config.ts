@@ -1,11 +1,59 @@
-import { accessSync, constants, readdirSync } from "node:fs"
+import { accessSync, constants, existsSync, readdirSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { isPublishedSecret } from "@levelusp/contracts"
 import { z } from "zod"
+import { PYODIDE_PROFILE_NAMES, type PyodideProfileName } from "./pyodide-profiles.js"
+import { PYODIDE_POLICIES } from "./pyodide-protocol.js"
 
 const sourceDir = path.dirname(fileURLToPath(import.meta.url))
+
+/** Valor booleano em variável de ambiente (`true`/`1`/`yes` ou `false`/`0`/`no`). */
+const booleanFlag = z
+  .union([z.boolean(), z.string()])
+  .transform((value, ctx) => {
+    if (typeof value === "boolean") return value
+    const normalized = value.trim().toLowerCase()
+    if (["true", "1", "yes", "sim"].includes(normalized)) return true
+    if (["false", "0", "no", "não", "nao"].includes(normalized)) return false
+    ctx.addIssue({ code: "custom", message: "use true ou false" })
+    return z.NEVER
+  })
+
+/**
+ * Workers aquecidos por perfil: um número (vale para todos) ou `perfil:n,perfil:n`
+ * (ex.: `dados:1,ml:0` — o perfil `ml` custa ~1,5 GB ocioso).
+ */
+export function parseWarmPool(value: string): Record<PyodideProfileName, number> {
+  const pool: Record<PyodideProfileName, number> = { dados: 0, ml: 0 }
+  const trimmed = value.trim()
+  if (/^\d+$/.test(trimmed)) {
+    for (const profile of PYODIDE_PROFILE_NAMES) pool[profile] = Number(trimmed)
+    return pool
+  }
+  for (const entry of trimmed.split(",").filter((part) => part.trim() !== "")) {
+    const [name, count] = entry.split(":").map((part) => part.trim())
+    if (name === undefined || count === undefined || !/^\d+$/.test(count) || !isProfileName(name)) {
+      throw new Error(`RUNNER_PYODIDE_WARM inválido: "${value}" (use um número ou dados:n,ml:n)`)
+    }
+    pool[name] = Number(count)
+  }
+  return pool
+}
+
+function isProfileName(name: string): name is PyodideProfileName {
+  return (PYODIDE_PROFILE_NAMES as readonly string[]).includes(name)
+}
+
+const warmPoolSchema = z.string().default("dados:1,ml:0").transform((value, ctx) => {
+  try {
+    return parseWarmPool(value)
+  } catch (error) {
+    ctx.addIssue({ code: "custom", message: error instanceof Error ? error.message : String(error) })
+    return z.NEVER
+  }
+})
 
 const envSchema = z.object({
   PORT: z.coerce.number().int().default(8081),
@@ -38,6 +86,28 @@ const envSchema = z.object({
   /** `production` recusa partir com a stdlib do Python gravável (ver `findWritableRuntimePaths`). */
   NODE_ENV: z.string().default("development"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+
+  // ── Motor python-dados (Pyodide) ──────────────────────────────────────────
+  /** Pasta com o núcleo do Pyodide e os wheels (`scripts/fetch-pyodide.sh`). */
+  PYODIDE_DIR: z.string().default("/opt/levelusp-pyodide"),
+  /** Liga o motor; ausente = ligado quando `PYODIDE_DIR` tem o `pyodide.asm.wasm`. */
+  RUNNER_PYODIDE_ENABLED: booleanFlag.optional(),
+  /** `fresh` (um lote por worker, padrão) ou `reuse` (worker atende vários lotes, com restauração). */
+  RUNNER_PYODIDE_POLICY: z.enum(PYODIDE_POLICIES).default("fresh"),
+  /** Workers aquecidos por perfil: número ou `dados:n,ml:n` (padrão `dados:1,ml:0`: ml ocioso custa ~1,3 GB). */
+  RUNNER_PYODIDE_WARM: warmPoolSchema,
+  /** Política `reuse`: lotes por worker antes de reciclá-lo. */
+  RUNNER_PYODIDE_RECYCLE_AFTER: z.coerce.number().int().min(1).max(10_000).default(25),
+  /** Teto da memória linear do wasm por worker (MB): crescer além disto dá `MemoryError`. */
+  RUNNER_PYODIDE_MAX_HEAP_MB: z.coerce.number().int().min(128).max(4_096).default(512),
+  /** Política `reuse`: worker cujo heap wasm fica acima disto depois do lote é reciclado (MB). */
+  RUNNER_PYODIDE_RECYCLE_HEAP_MB: z.coerce.number().int().min(64).max(4_096).default(256),
+  /** Teto do heap de JS do worker (`resourceLimits.maxOldGenerationSizeMb`); o perfil `ml` usa ~750 MB. */
+  RUNNER_PYODIDE_JS_HEAP_MB: z.coerce.number().int().min(256).max(8_192).default(1_536),
+  /** Prazo do aquecimento de um worker (carregar Pyodide + pacotes do perfil). */
+  RUNNER_PYODIDE_BOOT_TIMEOUT_MS: z.coerce.number().int().min(10_000).max(600_000).default(90_000),
+  /** Script compilado do worker; ausente = `pyodide-worker.js` ao lado do `main.js` (ou em `dist/` no modo dev). */
+  PYODIDE_WORKER_PATH: z.string().optional(),
 }).superRefine((env, ctx) => {
   // Em produção, recusa os tokens de exemplo/dev/CI publicados no repositório (a API faz o mesmo).
   if (env.NODE_ENV === "production" && isPublishedSecret(env.RUNNER_TOKEN)) {
@@ -60,6 +130,22 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): RunnerConfig {
     throw new Error(`Configuração inválida do executor: ${details}`)
   }
   return { ...parsed.data, WASMTIME_BIN: resolveBinary(parsed.data.WASMTIME_BIN, env.PATH) }
+}
+
+/** O motor Pyodide fica ligado por configuração explícita ou, por padrão, quando a distribuição existe. */
+export function isPyodideEnabled(config: Pick<RunnerConfig, "PYODIDE_DIR" | "RUNNER_PYODIDE_ENABLED">): boolean {
+  return config.RUNNER_PYODIDE_ENABLED ?? existsSync(path.join(config.PYODIDE_DIR, "pyodide.asm.wasm"))
+}
+
+/**
+ * Caminho do script do worker: configurado, ao lado deste módulo (`dist/`) ou, rodando
+ * do código-fonte com `tsx`, o compilado em `dist/` (o worker é sempre JavaScript).
+ */
+export function resolvePyodideWorkerPath(configured: string | undefined): string {
+  if (configured !== undefined) return configured
+  const sibling = path.join(sourceDir, "pyodide-worker.js")
+  if (existsSync(sibling)) return sibling
+  return path.resolve(sourceDir, "../dist/pyodide-worker.js")
 }
 
 /**
