@@ -1,0 +1,6 @@
+slug: numpy
+titulo: 'numpy: computação vetorizada'
+descricao: Arrays, vetorização, indexação e máscaras booleanas, broadcasting, álgebra linear básica e simulação com números aleatórios.
+icone: Grid3x3
+cor: bg-level-purple
+ordem: 1

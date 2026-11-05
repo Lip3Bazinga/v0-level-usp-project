@@ -1,0 +1,6 @@
+slug: boas-praticas-de-ml
+titulo: Boas práticas de machine learning
+descricao: Vazamento de dados e validação honesta, dados desbalanceados, engenharia de atributos, ética e viés em modelos.
+icone: Shield
+cor: bg-level-green
+ordem: 7

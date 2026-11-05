@@ -1,0 +1,6 @@
+slug: atencao-e-transformers
+titulo: Atenção e transformers
+descricao: Tokenização BPE, self-attention, multi-head e máscara causal, o bloco transformer, codificação posicional, um mini-GPT treinado em numpy e geração de texto com amostragem.
+icone: Sparkles
+cor: bg-level-green
+ordem: 7

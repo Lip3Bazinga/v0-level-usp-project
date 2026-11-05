@@ -1,0 +1,6 @@
+slug: excecoes-e-robustez
+titulo: Exceções e robustez
+descricao: Hierarquia de exceções, raise e exceções próprias, limpeza com finally e context managers, logging.
+icone: ShieldAlert
+cor: bg-level-green
+ordem: 3

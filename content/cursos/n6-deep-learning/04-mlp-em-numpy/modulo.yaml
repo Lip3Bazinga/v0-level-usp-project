@@ -1,0 +1,6 @@
+slug: mlp-em-numpy
+titulo: MLP vetorizado em numpy
+descricao: Backprop vetorizado com matrizes, classificador de dígitos, regularização (L2, dropout, parada antecipada) e diagnóstico de treino.
+icone: Grid3x3
+cor: bg-level-orange
+ordem: 4

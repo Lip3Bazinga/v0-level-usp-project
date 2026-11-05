@@ -1,0 +1,6 @@
+slug: matematica-para-ml
+titulo: Matemática para machine learning
+descricao: Vetores e matrizes em numpy, derivadas e gradiente, regra da cadeia, funções de custo e otimização, máxima verossimilhança.
+icone: Sigma
+cor: bg-level-purple
+ordem: 1

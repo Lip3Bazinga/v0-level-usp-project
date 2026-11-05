@@ -1,0 +1,36 @@
+slug: n4-analise-de-dados
+titulo: Nível 4 — Análise de dados
+descricao: numpy, pandas, limpeza e transformação, agregação e séries temporais, matplotlib, probabilidade, estatística descritiva e inferencial, testes de hipótese e regressão linear, com um projeto em dados reais.
+descricao_longa: |
+  ## Para quem é
+
+  Para quem já programa bem em Python (Níveis 1 a 3) e quer transformar dados em respostas: carregar, limpar, agregar, visualizar e testar hipóteses com rigor estatístico. O roteiro segue o espírito de *Python para Análise de Dados* (McKinney) e de um curso introdutório de estatística aplicada.
+
+  ## O que você vai construir
+
+  - Análises completas com numpy e pandas: de arquivos bagunçados a tabelas limpas e agregadas.
+  - Gráficos que comunicam (e a lista do que não fazer) com matplotlib.
+  - Simulações de probabilidade, intervalos de confiança, testes t e qui-quadrado, correlação e regressão linear — sempre com interpretação em português claro.
+  - O projeto final: um **relatório de análise sobre um conjunto de dados público brasileiro**, com pergunta, limpeza, gráficos, teste de hipótese e conclusões.
+
+  ## Pré-requisitos
+
+  Certificado do Nível 3. A matemática necessária (probabilidade, somatórios, logaritmos) é retomada quando aparece.
+
+  ## Como é avaliado
+
+  - Os exercícios rodam numpy, pandas, scipy e matplotlib no servidor (`runtime: python-dados`); os casos de verificação comparam valores com tolerância e propriedades das figuras.
+  - Certificado do nível: 100 % das lições + prova (nota mínima 70 %) + projeto final aprovado.
+nivel: intermediario
+tags:
+- numpy
+- pandas
+- matplotlib
+- estatística
+- análise de dados
+- visualização
+horas: 50
+ordem: 4
+publicado: false
+prerequisito: n3-estruturas-de-dados-e-algoritmos
+sequencial: false

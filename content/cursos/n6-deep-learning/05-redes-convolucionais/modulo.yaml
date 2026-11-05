@@ -1,0 +1,6 @@
+slug: redes-convolucionais
+titulo: Redes convolucionais
+descricao: Convolução 2D do zero, camadas conv e pooling com backward, uma CNN pequena para dígitos em numpy e as arquiteturas clássicas (LeNet a ResNet) como leitura.
+icone: Microscope
+cor: bg-level-purple
+ordem: 5

@@ -1,0 +1,115 @@
+titulo: Prova do Nível 7 — Engenharia de IA
+descricao: 'Banco inicial de 12 questões (10 sorteadas por tentativa) sobre APIs de LLM, prompting, embeddings, RAG, agentes, avaliação, segurança, LGPD e MLOps. Nota mínima: 70 %.'
+nota_minima: 70
+tempo_min: 45
+intervalo_min: 60
+questoes_por_tentativa: 10
+questoes:
+- enunciado: 'A latência de uma resposta de LLM cresce principalmente com:'
+  opcoes:
+  - O número de tokens gerados na saída
+  - O tamanho do system prompt apenas
+  - O nome do modelo
+  - A temperatura
+  correta: 0
+  explicacao: A entrada é processada em paralelo (prefill); a saída é gerada token a token.
+  topico: llms-e-apis
+- enunciado: Em qual erro faz sentido repetir a chamada com backoff exponencial?
+  opcoes:
+  - 400 (requisição inválida)
+  - 429 (limite de taxa)
+  - 401 (não autorizado)
+  - Nenhum
+  correta: 1
+  explicacao: Erros transitórios (limite de taxa, 5xx, timeout) podem ser repetidos; erros de requisição ou de autenticação não mudam ao repetir.
+  topico: llms-e-apis
+- enunciado: Por que separar instruções de dados do usuário com delimitadores no prompt?
+  opcoes:
+  - Para economizar tokens
+  - Para o modelo não tratar o dado como instrução, reduzindo o risco de injeção
+  - Por estética
+  - Para acelerar a resposta
+  correta: 1
+  explicacao: Instrução e dado compartilham o mesmo canal; delimitar e rotular o dado como não confiável é a primeira defesa.
+  topico: prompting
+- enunciado: 'Prompts devem ser versionados porque:'
+  opcoes:
+  - Mudam o comportamento do sistema como código e precisam de testes de regressão
+  - A API exige
+  - Economiza custo
+  - Não precisam ser versionados
+  correta: 0
+  explicacao: Uma frase alterada pode mudar as respostas em produção; registrar a versão permite comparar e reverter.
+  topico: prompting
+- enunciado: 'A similaridade de cosseno entre dois embeddings normalizados (norma 1) equivale a:'
+  opcoes:
+  - A distância euclidiana
+  - O produto interno
+  - A soma dos vetores
+  - A correlação de Spearman
+  correta: 1
+  explicacao: cos(a, b) = a·b / (|a||b|); com normas iguais a 1, sobra o produto interno.
+  topico: embeddings-e-busca-vetorial
+- enunciado: 'Um índice IVF com `nprobe` igual a `nlist` realiza:'
+  opcoes:
+  - Busca aproximada rápida
+  - Busca exata, mais lenta que a força bruta
+  - Busca vazia
+  - Erro
+  correta: 1
+  explicacao: Visitar todas as partições equivale à busca exata, com o custo extra de percorrer os centróides.
+  topico: embeddings-e-busca-vetorial
+- enunciado: Qual métrica avalia se a resposta gerada está apoiada nos trechos recuperados?
+  opcoes:
+  - Recall@k
+  - Fidelidade
+  - Latência
+  - Perplexidade
+  correta: 1
+  explicacao: Recall@k avalia a recuperação; fidelidade avalia se a geração não inventou além das fontes.
+  topico: rag
+- enunciado: 'A busca lexical (BM25) tende a superar a busca vetorial em:'
+  opcoes:
+  - Sinônimos e paráfrases
+  - Códigos, siglas e nomes exatos
+  - Perguntas longas
+  - Textos em outra língua
+  correta: 1
+  explicacao: Embeddings capturam semântica, mas tratam mal identificadores raros; por isso a busca híbrida.
+  topico: rag
+- enunciado: 'Um agente ReAct sem limite de passos corre o risco de:'
+  opcoes:
+  - Responder rápido demais
+  - Entrar em loop e consumir custo indefinidamente
+  - Não usar ferramentas
+  - Perder o system prompt
+  correta: 1
+  explicacao: Orçamento de passos, tokens e tempo é um guardrail obrigatório.
+  topico: agentes-e-ferramentas
+- enunciado: 'Prompt injection indireta acontece quando:'
+  opcoes:
+  - O usuário digita 'ignore as instruções anteriores'
+  - Instruções maliciosas chegam por conteúdo recuperado (documentos, páginas, resultados de ferramentas)
+  - A chave de API vaza
+  - O modelo é pequeno demais
+  correta: 1
+  explicacao: 'O atacante não precisa falar com o sistema: basta plantar texto em algo que o sistema vai ler.'
+  topico: avaliacao-seguranca-e-etica
+- enunciado: 'Segundo a LGPD, antes de enviar dados pessoais de alunos a um provedor externo de LLM é preciso:'
+  opcoes:
+  - Nada
+  - Ter base legal e finalidade definida e minimizar os dados (mascarar o que não é necessário)
+  - Apenas um aviso no site
+  - Converter os dados para JSON
+  correta: 1
+  explicacao: Minimização e finalidade são princípios da lei; o envio a terceiros é um tratamento que exige base legal e contrato.
+  topico: avaliacao-seguranca-e-etica
+- enunciado: Por que carregar o modelo uma vez na inicialização do serviço, e não a cada requisição?
+  opcoes:
+  - Por segurança
+  - Para evitar latência e consumo de memória repetidos a cada chamada
+  - Porque o FastAPI exige
+  - Não faz diferença
+  correta: 1
+  explicacao: Desserializar um pipeline leva tempo e memória; o modelo deve viver no processo (lifespan) e ser reutilizado.
+  topico: mlops-e-projeto

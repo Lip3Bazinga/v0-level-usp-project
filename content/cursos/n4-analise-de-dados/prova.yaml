@@ -1,0 +1,115 @@
+titulo: Prova do Nível 4 — Análise de dados
+descricao: 'Banco inicial de 12 questões (10 sorteadas por tentativa) sobre numpy, pandas, limpeza, agregação, visualização, probabilidade e estatística. Nota mínima: 70 %.'
+nota_minima: 70
+tempo_min: 45
+intervalo_min: 60
+questoes_por_tentativa: 10
+questoes:
+- enunciado: O que `np.array([1, 2, 3]) * 2` devolve?
+  opcoes:
+  - '[1, 2, 3, 1, 2, 3]'
+  - array([2, 4, 6])
+  - Erro
+  - A lista [2, 4, 6]
+  correta: 1
+  explicacao: Operações em arrays são elemento a elemento (vetorizadas); em listas, `* 2` repetiria a lista.
+  topico: numpy
+- enunciado: Em `a[(a > 0) & (a < 5)]`, por que não se usa `and`?
+  opcoes:
+  - '`and` não existe no numpy'
+  - '`and` não opera elemento a elemento em arrays e levanta ValueError'
+  - '`&` é apenas mais rápido'
+  - Por convenção de estilo
+  correta: 1
+  explicacao: '`and` tenta converter o array inteiro em um único booleano, o que é ambíguo; `&` combina as máscaras posição a posição.'
+  topico: numpy
+- enunciado: Qual seletor do pandas usa rótulos (nomes de índice e de coluna) em vez de posições?
+  opcoes:
+  - iloc
+  - loc
+  - iat
+  - head
+  correta: 1
+  explicacao: '`loc` seleciona por rótulo (com fatias inclusivas); `iloc` e `iat` usam posições inteiras.'
+  topico: pandas-fundamentos
+- enunciado: Como ler um CSV brasileiro com `;` como separador e vírgula decimal?
+  opcoes:
+  - pd.read_csv(caminho, sep=';', decimal=',')
+  - pd.read_csv(caminho, delimiter=',', decimal=';')
+  - pd.read_csv(caminho) detecta sozinho
+  - pd.read_csv(caminho, sep=',', decimal=',')
+  correta: 0
+  explicacao: Sem `decimal=','` os números viram texto; sem `sep=';'` tudo cai em uma coluna só.
+  topico: pandas-fundamentos
+- enunciado: Por que `df[df.col == np.nan]` devolve sempre um DataFrame vazio?
+  opcoes:
+  - Porque NaN não é igual a nada, nem a si mesmo; use `isna()`
+  - Porque a coluna não existe
+  - Porque `==` não funciona em DataFrames
+  - Porque NaN vale zero
+  correta: 0
+  explicacao: Por definição do padrão de ponto flutuante, `nan == nan` é False.
+  topico: limpeza-e-transformacao
+- enunciado: Em um `merge` com `how='inner'`, o que acontece com as linhas cuja chave existe em apenas uma das tabelas?
+  opcoes:
+  - Recebem NaN nas colunas faltantes
+  - São descartadas
+  - Geram erro
+  - São duplicadas
+  correta: 1
+  explicacao: Inner mantém só as chaves presentes nos dois lados; para manter todas as linhas da esquerda use `left`.
+  topico: limpeza-e-transformacao
+- enunciado: O que `df.groupby('uf')['valor'].transform('mean')` devolve?
+  opcoes:
+  - Uma linha por UF com a média
+  - Uma Series do tamanho original, com a média do grupo repetida em cada linha
+  - Um único número
+  - Um DataFrame com MultiIndex
+  correta: 1
+  explicacao: '`transform` devolve um resultado alinhado com as linhas originais; `agg` é que reduz a uma linha por grupo.'
+  topico: agregacao-e-series-temporais
+- enunciado: Para comparar a distribuição de uma variável entre vários grupos, qual gráfico é mais adequado?
+  opcoes:
+  - Pizza
+  - Boxplot por grupo
+  - Gráfico de linha
+  - Dispersão
+  correta: 1
+  explicacao: O boxplot mostra mediana, quartis e outliers de cada grupo lado a lado.
+  topico: visualizacao
+- enunciado: Qual destes é um erro clássico que torna um gráfico enganoso?
+  opcoes:
+  - Eixo y de um gráfico de barras começando acima de zero
+  - Usar título com a mensagem
+  - Rotular os eixos com unidades
+  - Usar cores acessíveis
+  correta: 0
+  explicacao: Barras codificam valor pelo comprimento; truncar o eixo exagera diferenças pequenas.
+  topico: visualizacao
+- enunciado: Qual medida de tendência central é mais adequada para renda, cuja distribuição é fortemente assimétrica?
+  opcoes:
+  - Média
+  - Mediana
+  - Moda
+  - Desvio padrão
+  correta: 1
+  explicacao: A média é puxada pelos valores extremos; a mediana representa melhor a pessoa 'típica'.
+  topico: probabilidade-e-estatistica
+- enunciado: 'O p-valor de um teste de hipótese é:'
+  opcoes:
+  - A probabilidade de H0 ser verdadeira
+  - A probabilidade de observar dados tão ou mais extremos que os obtidos, supondo H0 verdadeira
+  - A probabilidade de H1 ser verdadeira
+  - O tamanho do efeito
+  correta: 1
+  explicacao: O p-valor é condicional a H0; ele não mede a probabilidade das hipóteses.
+  topico: probabilidade-e-estatistica
+- enunciado: 'Uma correlação de 0,9 entre vendas de sorvete e afogamentos indica mais provavelmente:'
+  opcoes:
+  - Que sorvete causa afogamentos
+  - Uma variável de confusão (o calor) que afeta as duas
+  - Erro nos dados
+  - Causalidade reversa comprovada
+  correta: 1
+  explicacao: Correlação não implica causação; uma terceira variável pode explicar a associação.
+  topico: probabilidade-e-estatistica

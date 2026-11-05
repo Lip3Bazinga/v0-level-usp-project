@@ -1,0 +1,35 @@
+slug: n3-estruturas-de-dados-e-algoritmos
+titulo: Nível 3 — Estruturas de dados e algoritmos
+descricao: Matemática discreta essencial, análise de complexidade, recursão e backtracking, busca e ordenação, pilhas, filas, listas ligadas, árvores, heaps, tabelas hash, grafos e programação dinâmica.
+descricao_longa: |
+  ## Para quem é
+
+  Para quem já escreve programas organizados (Nível 2) e quer entender por que alguns programas são rápidos e outros não terminam nunca — o conteúdo clássico de uma disciplina de estruturas de dados, no espírito do MAC0121 da USP, com implementação de tudo em Python puro.
+
+  ## O que você vai construir
+
+  - Suas próprias versões de `list`, `dict` e `heapq`: listas ligadas, pilhas, filas, tabelas hash e heaps, com testes de desempenho.
+  - Os algoritmos de ordenação (merge sort, quick sort, counting sort), busca binária, percursos em árvores e grafos (BFS, DFS, Dijkstra), union-find e programação dinâmica.
+  - O projeto final: um **planejador de rotas do campus**, que lê um mapa, encontra o caminho mais curto, sugere a ordem de visita e otimiza um orçamento de tempo.
+
+  ## Pré-requisitos
+
+  Certificado do Nível 2 (classes, exceções, geradores, testes). A matemática necessária (indução, contagem, logaritmos) é ensinada no primeiro módulo.
+
+  ## Como é avaliado
+
+  - Lições em passos verificados por casos de teste, inclusive de desempenho (um algoritmo quadrático reprova onde se exige n log n).
+  - Certificado do nível: 100 % das lições + prova (nota mínima 70 %) + projeto final aprovado.
+nivel: intermediario
+tags:
+- algoritmos
+- estruturas de dados
+- complexidade
+- grafos
+- programação dinâmica
+- matemática discreta
+horas: 60
+ordem: 3
+publicado: false
+prerequisito: n2-python-intermediario
+sequencial: false

@@ -1,0 +1,6 @@
+slug: rag
+titulo: 'RAG: geração aumentada por recuperação'
+descricao: Pipeline RAG completo com o simulado, avaliação de recuperação e de resposta, re-ranking e busca híbrida com BM25, e técnicas avançadas (reformulação, citações, roteamento).
+icone: BookOpen
+cor: bg-level-orange
+ordem: 4

@@ -1,0 +1,6 @@
+slug: regressao-linear-do-zero
+titulo: Regressão linear do zero
+descricao: Modelo e MSE, gradiente descendente batch e estocástico, escala de atributos e taxa de aprendizado, equação normal, regressão polinomial e regularização.
+icone: LineChart
+cor: bg-level-blue
+ordem: 2

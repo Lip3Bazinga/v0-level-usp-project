@@ -1,0 +1,6 @@
+slug: arvores-e-ensembles
+titulo: Árvores e ensembles
+descricao: Árvores de decisão (impureza, poda), florestas aleatórias (bagging), gradient boosting por dentro e interpretação (importâncias, dependência parcial).
+icone: Network
+cor: bg-level-purple
+ordem: 5

@@ -1,0 +1,36 @@
+slug: n2-python-intermediario
+titulo: Nível 2 — Python intermediário e engenharia de software
+descricao: Orientação a objetos, módulos e pacotes, exceções, arquivos, iteradores, geradores e decoradores, tipagem, testes com unittest e pytest, git e estilo. Dois projetos.
+descricao_longa: |
+  ## Para quem é
+
+  Para quem concluiu o Nível 1 (ou já programa em Python no nível de condicionais, laços, listas, dicionários e funções) e quer escrever programas maiores sem que eles virem uma bagunça.
+
+  ## O que você vai construir
+
+  - Classes com herança, propriedades e métodos especiais que se comportam como os tipos nativos.
+  - Programas organizados em módulos e pacotes, com dados persistidos em arquivos de texto, CSV e JSON.
+  - Geradores que processam arquivos grandes sem carregar tudo na memória e decoradores que medem e registram o que suas funções fazem.
+  - Dois projetos: uma **biblioteca com empréstimos** (POO + JSON) e um **analisador de logs** (geradores + testes automatizados).
+
+  ## Pré-requisitos
+
+  Certificado do Nível 1. Não é preciso instalar nada: os exercícios rodam no navegador, mas as lições de git e de ambientes virtuais mostram como trabalhar no seu computador.
+
+  ## Como é avaliado
+
+  - Lições em passos verificados automaticamente, com dicas progressivas e solução liberada após 3 tentativas (metade do XP).
+  - Certificado do nível: 100 % das lições + prova de múltipla escolha (nota mínima 70 %) + os dois projetos aprovados pela correção automática.
+nivel: intermediario
+tags:
+- python
+- orientação a objetos
+- testes
+- git
+- engenharia de software
+- intermediário
+horas: 45
+ordem: 2
+publicado: false
+prerequisito: n1-fundamentos
+sequencial: false

@@ -1,0 +1,6 @@
+slug: llms-e-apis
+titulo: LLMs e APIs
+descricao: Como um LLM é servido, anatomia de uma chamada de API, streaming, erros e retries, saída estruturada e chamadas de ferramentas, e a escolha de modelos.
+icone: MessageSquare
+cor: bg-level-purple
+ordem: 1

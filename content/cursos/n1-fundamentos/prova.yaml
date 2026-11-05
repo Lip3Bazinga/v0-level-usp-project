@@ -1,0 +1,415 @@
+titulo: Prova do Nível 1 — Fundamentos de programação e de computação
+descricao: '20 questões sorteadas de um banco de 40, cobrindo os 9 módulos do nível: como o computador funciona, primeiros passos em Python, condicionais, laços, coleções, funções, strings, erros e testes e o projeto final. Nota mínima: 70 %. Você pode refazer a prova depois de 60 minutos.'
+nota_minima: 70
+tempo_min: 60
+intervalo_min: 60
+questoes_por_tentativa: 20
+questoes:
+- enunciado: Qual componente guarda os dados e os programas em uso enquanto o computador está ligado e perde o conteúdo ao desligar?
+  opcoes:
+  - SSD ou HD
+  - Memória RAM
+  - Processador (CPU)
+  - Placa de vídeo
+  correta: 1
+  explicacao: 'A RAM é a memória de trabalho: rápida e volátil. O SSD/HD guarda o que precisa sobreviver ao desligamento.'
+  topico: como-o-computador-funciona
+- enunciado: Quantos valores diferentes podem ser representados com 8 bits (1 byte)?
+  opcoes:
+  - '8'
+  - '128'
+  - '255'
+  - '256'
+  correta: 3
+  explicacao: Cada bit tem 2 estados; 8 bits dão 2⁸ = 256 combinações (de 0 a 255).
+  topico: como-o-computador-funciona
+- enunciado: O número binário 1011 corresponde a qual valor decimal?
+  opcoes:
+  - '11'
+  - '13'
+  - '9'
+  - '1011'
+  correta: 0
+  explicacao: 1011₂ = 1·8 + 0·4 + 1·2 + 1·1 = 11.
+  topico: como-o-computador-funciona
+- enunciado: O que o CPython faz com um arquivo .py antes de executá-lo?
+  opcoes:
+  - Traduz para código de máquina nativo e gera um executável
+  - Compila para bytecode e executa esse bytecode na máquina virtual do Python
+  - Envia o texto para o sistema operacional interpretar linha a linha
+  - Converte o código para JavaScript
+  correta: 1
+  explicacao: O Python compila o código-fonte para bytecode (os arquivos .pyc) e a máquina virtual do CPython executa esse bytecode.
+  topico: como-o-computador-funciona
+- enunciado: O que o programa `print(7 // 2, 7 % 2, 7 / 2)` imprime?
+  opcoes:
+  - 3 1 3.5
+  - 3.5 1 3
+  - 3 1 3
+  - 3 0 3.5
+  correta: 0
+  explicacao: '`//` é a divisão inteira (3), `%` é o resto (1) e `/` sempre devolve float (3.5).'
+  topico: primeiros-passos-em-python
+- enunciado: Qual destes trechos causa um TypeError?
+  opcoes:
+  - '"3" + "4"'
+  - 3 + 4.0
+  - '"Idade: " + 20'
+  - int("20") + 1
+  correta: 2
+  explicacao: Não é possível concatenar texto com número. `"3" + "4"` é "34" (texto com texto), `3 + 4.0` é 7.0 e `int("20") + 1` é 21.
+  topico: primeiros-passos-em-python
+- enunciado: Depois de `x = 5` e `x = x * 2 + 1`, qual é o valor de `x`?
+  opcoes:
+  - '10'
+  - '11'
+  - '25'
+  - '6'
+  correta: 1
+  explicacao: A expressão da direita é avaliada primeiro com o valor atual (5 · 2 + 1 = 11) e o resultado é guardado em x.
+  topico: primeiros-passos-em-python
+- enunciado: O que `input()` devolve quando a pessoa digita 42 e aperta Enter?
+  opcoes:
+  - O inteiro 42
+  - A string "42"
+  - O float 42.0
+  - Um booleano True
+  correta: 1
+  explicacao: '`input()` sempre devolve texto (str). Para fazer contas é preciso converter com `int()` ou `float()`.'
+  topico: primeiros-passos-em-python
+- enunciado: Qual destes nomes de variável é válido em Python?
+  opcoes:
+  - 2nota
+  - nota-final
+  - nota_final
+  - class
+  correta: 2
+  explicacao: Nomes não podem começar com dígito, não aceitam hífen e `class` é palavra reservada. `nota_final` segue a convenção snake_case.
+  topico: primeiros-passos-em-python
+- enunciado: O que o programa `nome = "Ana"` seguido de `print(f"Olá, {nome}!")` imprime?
+  opcoes:
+  - Olá, {nome}!
+  - Olá, Ana!
+  - Olá, nome!
+  - Erro de sintaxe
+  correta: 1
+  explicacao: Em uma f-string, o que está entre chaves é avaliado e substituído pelo valor da variável.
+  topico: primeiros-passos-em-python
+- enunciado: |
+    O que o código abaixo imprime?
+
+    ```python
+    x = 10
+    if x > 5:
+        print("A")
+    if x > 8:
+        print("B")
+    else:
+        print("C")
+    ```
+  opcoes:
+  - Apenas A
+  - A e B
+  - A e C
+  - Apenas B
+  correta: 1
+  explicacao: 'São dois `if` independentes: o primeiro imprime A; o segundo testa x > 8 (verdadeiro) e imprime B. O `else` pertence só ao segundo `if`.'
+  topico: decisoes-condicionais
+- enunciado: Qual destas expressões é verdadeira (True)?
+  opcoes:
+  - 5 == 5.0
+  - '"5" == 5'
+  - '"a" > "b"'
+  - 10 < 2
+  correta: 0
+  explicacao: Inteiros e floats de mesmo valor são iguais. Texto nunca é igual a número, "a" vem antes de "b" e 10 não é menor que 2.
+  topico: decisoes-condicionais
+- enunciado: Com `x = 5`, qual é o valor da expressão `x == 1 or 2`?
+  opcoes:
+  - 'True'
+  - 'False'
+  - '2'
+  - Erro de sintaxe
+  correta: 2
+  explicacao: '`x == 1` é False, e `False or 2` devolve o segundo operando: 2 (que conta como verdadeiro). Por isso `x == 1 or x == 2` é a forma correta.'
+  topico: decisoes-condicionais
+- enunciado: Qual é o erro na linha `if nota = 7:`?
+  opcoes:
+  - Falta o `else`
+  - Usa `=` (atribuição) em vez de `==` (comparação)
+  - Falta indentação
+  - '`nota` precisa estar entre aspas'
+  correta: 1
+  explicacao: Atribuição não é permitida dentro da condição do `if`; a comparação de igualdade é feita com `==`.
+  topico: decisoes-condicionais
+- enunciado: Em uma cadeia `if / elif / else`, quantos blocos podem executar em uma mesma passagem?
+  opcoes:
+  - Todos cujas condições forem verdadeiras
+  - Apenas o primeiro cuja condição for verdadeira
+  - Apenas o último
+  - Sempre dois
+  correta: 1
+  explicacao: A cadeia é avaliada de cima para baixo e para no primeiro bloco verdadeiro; o `else` só roda se nenhum for.
+  topico: decisoes-condicionais
+- enunciado: |
+    Quantas vezes o corpo do laço abaixo executa?
+
+    ```python
+    i = 0
+    while i < 10:
+        i += 3
+    ```
+  opcoes:
+  - '3'
+  - '4'
+  - '10'
+  - Infinitas
+  correta: 1
+  explicacao: i assume 0, 3, 6 e 9 (quatro passagens); quando chega a 12 a condição `i < 10` fica falsa.
+  topico: repeticao-lacos
+- enunciado: O que `list(range(2, 11, 3))` devolve?
+  opcoes:
+  - '[2, 5, 8]'
+  - '[2, 5, 8, 11]'
+  - '[3, 6, 9]'
+  - '[2, 4, 6, 8, 10]'
+  correta: 0
+  explicacao: '`range` começa em 2, avança de 3 em 3 e para antes de 11: 2, 5, 8.'
+  topico: repeticao-lacos
+- enunciado: |
+    O que o código abaixo imprime?
+
+    ```python
+    for i in range(1, 6):
+        if i % 2 == 0:
+            continue
+        print(i, end=" ")
+    ```
+  opcoes:
+  - 1 3 5
+  - 2 4
+  - 1 2 3 4 5
+  - 1 3
+  correta: 0
+  explicacao: '`continue` pula os pares; os ímpares de 1 a 5 são impressos na mesma linha.'
+  topico: repeticao-lacos
+- enunciado: |
+    Com `numeros = [1, 2, 3]`, qual é o valor de `total` ao final do laço abaixo?
+
+    ```python
+    for n in numeros:
+        total = 0
+        total += n
+    ```
+  opcoes:
+  - '6'
+  - '3'
+  - '0'
+  - Erro
+  correta: 1
+  explicacao: O acumulador é zerado a cada volta, então só a última soma sobrevive. O `total = 0` precisa ficar antes do laço.
+  topico: repeticao-lacos
+- enunciado: Para que serve `break` dentro de um laço?
+  opcoes:
+  - Pular para a próxima iteração
+  - Encerrar o laço imediatamente
+  - Reiniciar o contador do laço
+  - Encerrar o programa
+  correta: 1
+  explicacao: '`break` sai do laço mais interno; quem pula para a próxima volta é `continue`.'
+  topico: repeticao-lacos
+- enunciado: Em `for i in range(3):` contendo `for j in range(4):`, quantas vezes o bloco mais interno executa?
+  opcoes:
+  - '7'
+  - '12'
+  - '3'
+  - '4'
+  correta: 1
+  explicacao: 'Para cada uma das 3 voltas do laço externo, o interno roda 4 vezes: 3 · 4 = 12.'
+  topico: repeticao-lacos
+- enunciado: Com `lista = [10, 20, 30, 40]`, o que `lista[-1]` e `lista[1:3]` devolvem, respectivamente?
+  opcoes:
+  - 40 e [20, 30]
+  - 40 e [20, 30, 40]
+  - 10 e [10, 20]
+  - 30 e [20, 30]
+  correta: 0
+  explicacao: O índice -1 é o último elemento; a fatia [1:3] vai do índice 1 até antes do 3.
+  topico: colecoes
+- enunciado: O que acontece ao executar `lista = [3, 1, 2]`, depois `lista = lista.sort()` e `print(lista)`?
+  opcoes:
+  - Imprime [1, 2, 3]
+  - Imprime None
+  - Imprime [3, 1, 2]
+  - Erro
+  correta: 1
+  explicacao: '`sort()` ordena no lugar e devolve None; ao atribuir o retorno, a variável passa a valer None. Use `sorted(lista)` para obter uma nova lista.'
+  topico: colecoes
+- enunciado: Qual estrutura é a mais adequada para contar quantas vezes cada palavra aparece em um texto?
+  opcoes:
+  - Lista
+  - Tupla
+  - Dicionário
+  - Conjunto
+  correta: 2
+  explicacao: Um dicionário associa cada palavra (chave) à sua contagem (valor), com busca e atualização diretas.
+  topico: colecoes
+- enunciado: O que `len({1, 2, 2, 3, 3, 3})` devolve?
+  opcoes:
+  - '6'
+  - '3'
+  - '1'
+  - Erro
+  correta: 1
+  explicacao: 'Conjuntos não guardam repetições: o conjunto é {1, 2, 3}.'
+  topico: colecoes
+- enunciado: O que acontece ao executar `t = (1, 2, 3)` e depois `t[0] = 9`?
+  opcoes:
+  - t passa a ser (9, 2, 3)
+  - 'TypeError: tuplas não podem ser alteradas'
+  - IndexError
+  - Nada acontece
+  correta: 1
+  explicacao: Tuplas são imutáveis; para alterar é preciso criar outra tupla ou usar uma lista.
+  topico: colecoes
+- enunciado: O que a compreensão `[x * 2 for x in range(4) if x % 2 == 0]` produz?
+  opcoes:
+  - '[0, 4]'
+  - '[0, 2, 4, 6]'
+  - '[2, 6]'
+  - '[0, 4, 8]'
+  correta: 0
+  explicacao: Dos valores 0, 1, 2, 3 só os pares (0 e 2) passam no filtro, e cada um é dobrado.
+  topico: colecoes
+- enunciado: 'Dada `def dobro(n): print(n * 2)`, o que `print(dobro(3))` imprime?'
+  opcoes:
+  - '6'
+  - 6 e, na linha seguinte, None
+  - None
+  - Erro
+  correta: 1
+  explicacao: A função imprime 6 e não tem `return`, então devolve None, que é impresso pelo `print` de fora.
+  topico: funcoes
+- enunciado: |
+    O que o código abaixo imprime?
+
+    ```python
+    def f(x, y=2):
+        return x ** y
+    print(f(3), f(2, 3))
+    ```
+  opcoes:
+  - 9 8
+  - 6 6
+  - 9 9
+  - Erro
+  correta: 0
+  explicacao: '`f(3)` usa o padrão y = 2 (3² = 9); `f(2, 3)` calcula 2³ = 8.'
+  topico: funcoes
+- enunciado: |
+    O que acontece ao executar o código abaixo?
+
+    ```python
+    contador = 0
+    def incrementar():
+        contador += 1
+    incrementar()
+    ```
+  opcoes:
+  - contador passa a valer 1
+  - 'UnboundLocalError: a atribuição dentro da função cria uma variável local'
+  - NameError
+  - Nada acontece
+  correta: 1
+  explicacao: Atribuir a `contador` dentro da função torna o nome local; ao tentar ler antes de atribuir, o Python levanta UnboundLocalError.
+  topico: funcoes
+- enunciado: 'Qual é o caso base de `def fatorial(n): return n * fatorial(n - 1)`, como está escrita?'
+  opcoes:
+  - n == 0
+  - n == 1
+  - 'Não há caso base: a recursão nunca para (RecursionError)'
+  - n < 0
+  correta: 2
+  explicacao: 'Toda função recursiva precisa de uma condição que não chama a si mesma; aqui falta `if n == 0: return 1`.'
+  topico: funcoes
+- enunciado: O que `sorted(["banana", "uva", "abacaxi"], key=len)` devolve?
+  opcoes:
+  - '[''uva'', ''banana'', ''abacaxi'']'
+  - '[''abacaxi'', ''banana'', ''uva'']'
+  - '[''banana'', ''uva'', ''abacaxi'']'
+  - '[''uva'', ''abacaxi'', ''banana'']'
+  correta: 0
+  explicacao: 'Com `key=len` a ordenação é pelo tamanho: uva (3), banana (6), abacaxi (7).'
+  topico: funcoes
+- enunciado: 'O que `list(map(lambda x: x + 1, [1, 2, 3]))` devolve?'
+  opcoes:
+  - '[2, 3, 4]'
+  - '[1, 2, 3]'
+  - <map object>
+  - Erro
+  correta: 0
+  explicacao: '`map` aplica a função a cada elemento e `list` materializa o resultado.'
+  topico: funcoes
+- enunciado: O que o código `s = "Python"`, `s.upper()`, `print(s)` imprime?
+  opcoes:
+  - PYTHON
+  - Python
+  - python
+  - Erro
+  correta: 1
+  explicacao: 'Strings são imutáveis: `upper()` devolve uma nova string, que foi descartada. Seria preciso `s = s.upper()`.'
+  topico: strings-e-texto
+- enunciado: O que `"a,b,,c".split(",")` devolve?
+  opcoes:
+  - '[''a'', ''b'', ''c'']'
+  - '[''a'', ''b'', '''', ''c'']'
+  - '[''a,b'', ''c'']'
+  - Erro
+  correta: 1
+  explicacao: Dois separadores seguidos geram uma string vazia entre eles.
+  topico: strings-e-texto
+- enunciado: O que a f-string `f"{3.14159:.2f}"` produz?
+  opcoes:
+  - '3.14'
+  - '3.1'
+  - '3.142'
+  - '03.14'
+  correta: 0
+  explicacao: '`.2f` formata o número com exatamente duas casas decimais.'
+  topico: strings-e-texto
+- enunciado: Qual exceção `int("3.5")` levanta?
+  opcoes:
+  - TypeError
+  - ValueError
+  - SyntaxError
+  - ZeroDivisionError
+  correta: 1
+  explicacao: 'O tipo do argumento está certo (texto), mas o valor não representa um inteiro: ValueError.'
+  topico: erros-testes-e-depuracao
+- enunciado: Qual é o problema de usar `except:` sem especificar a exceção?
+  opcoes:
+  - Não funciona no Python 3
+  - Captura qualquer erro, inclusive bugs e interrupções, escondendo problemas
+  - É muito mais lento
+  - Só captura ValueError
+  correta: 1
+  explicacao: O `except` nu engole até `KeyboardInterrupt` e erros de programação; capture a exceção específica que você sabe tratar.
+  topico: erros-testes-e-depuracao
+- enunciado: Em um traceback com várias chamadas de função, onde está a linha em que o erro realmente ocorreu?
+  opcoes:
+  - Na primeira linha do traceback
+  - Na última entrada de arquivo/linha, logo antes da mensagem de erro
+  - Sempre na linha 1 do arquivo
+  - Na linha que contém `def`
+  correta: 1
+  explicacao: O traceback lista as chamadas da mais antiga para a mais recente ('most recent call last'); a última é onde a exceção foi levantada.
+  topico: erros-testes-e-depuracao
+- enunciado: No projeto do gerenciador de tarefas, por que as funções recebem a lista `tarefas` como parâmetro em vez de usar uma variável global?
+  opcoes:
+  - Porque variáveis globais não existem em Python
+  - Para que as funções sejam testáveis isoladamente e não dependam de estado escondido
+  - Porque é mais rápido
+  - Porque listas não podem ser globais
+  correta: 1
+  explicacao: Funções que recebem e devolvem dados são fáceis de testar e de verificar automaticamente; estado global escondido gera bugs difíceis de reproduzir.
+  topico: projeto-do-nivel

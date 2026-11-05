@@ -1,0 +1,6 @@
+slug: tipagem-testes-e-estilo
+titulo: Tipagem, testes, git e estilo
+descricao: Type hints e mypy, PEP 8, unittest, pytest, TDD na prática, git básico e colaboração com branches e pull requests.
+icone: FlaskConical
+cor: bg-level-blue
+ordem: 6

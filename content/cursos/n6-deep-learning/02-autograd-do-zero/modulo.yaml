@@ -1,0 +1,6 @@
+slug: autograd-do-zero
+titulo: Autograd do zero (micrograd)
+descricao: Derivadas e grafo computacional, a classe Valor com operações e backward por ordenação topológica, mais operações e seus gradientes, neurônio, camada e MLP construídos com Valor.
+icone: Zap
+cor: bg-level-blue
+ordem: 2
