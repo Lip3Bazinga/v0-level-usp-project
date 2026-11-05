@@ -17,6 +17,9 @@
     "db:generate": "pnpm --filter @levelusp/db generate",
     "db:migrate": "pnpm --filter @levelusp/db migrate",
     "db:seed": "pnpm --filter @levelusp/db seed",
+    "content:build": "pnpm --filter @levelusp/api content:build",
+    "content:check": "pnpm --filter @levelusp/api content:check",
+    "content:verify": "pnpm --filter @levelusp/api content:verify",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

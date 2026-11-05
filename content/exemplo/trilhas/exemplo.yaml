@@ -1,0 +1,11 @@
+# Trilha mínima usada pelos testes das ferramentas de conteúdo (não entra no pacote padrão).
+slug: trilha-exemplo
+titulo: Trilha de exemplo
+descricao: Trilha mínima que demonstra o formato dos arquivos de conteúdo.
+icone: Sparkles
+cor: bg-level-purple
+ordem: 1
+publicada: false
+titulo_certificado: Trilha de exemplo
+cursos:
+  - curso-exemplo

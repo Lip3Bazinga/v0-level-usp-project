@@ -1,0 +1,13 @@
+slug: curso-exemplo
+titulo: Curso de exemplo
+descricao: Um curso mínimo com uma lição guiada e uma lição prática.
+descricao_longa: |
+  Este curso existe para documentar e testar o formato `.lvl.md`: uma lição guiada
+  (leitura, exercício e quiz) e uma lição prática clássica, com prova ao final.
+nivel: iniciante
+tags: [python, exemplo]
+horas: 1
+ordem: 1
+publicado: false
+prerequisito: null
+sequencial: true
