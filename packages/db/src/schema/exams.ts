@@ -32,6 +32,8 @@ export const exams = pgTable(
 
 /** Linha de `exams` (regras da prova final de um curso). */
 export type ExamRow = typeof exams.$inferSelect
+/** Valores para inserir ou atualizar em `exams`. */
+export type ExamInsert = typeof exams.$inferInsert
 
 export const examQuestions = pgTable(
   "exam_questions",

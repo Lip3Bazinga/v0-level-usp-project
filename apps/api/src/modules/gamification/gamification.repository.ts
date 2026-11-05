@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common"
 import { and, asc, count, eq, inArray, sql } from "drizzle-orm"
-import { badges, courses, lessonProgress, lessons, profiles, userBadges } from "@levelusp/db"
+import { badges, certificates, courses, lessonProgress, lessons, profiles, userBadges } from "@levelusp/db"
 import { InjectDb, type Database } from "@/infra/database/database.module"
 import type { DbTransaction, DbExecutor, LessonRow, ProfileRow, BadgeRow } from "@levelusp/db"
 
@@ -117,6 +117,12 @@ export class GamificationRepository {
   async findCourseTitle(courseId: string, executor: DbExecutor = this.db): Promise<string | undefined> {
     const course = await executor.query.courses.findFirst({ where: eq(courses.id, courseId), columns: { title: true } })
     return course?.title
+  }
+
+  /** Certificados de curso emitidos ao aluno (critério `certificates_issued` da badge "Formado(a)"). */
+  async countCertificates(userId: string, executor: DbExecutor = this.db): Promise<number> {
+    const [issued] = await executor.select({ total: count() }).from(certificates).where(eq(certificates.userId, userId))
+    return issued?.total ?? 0
   }
 
   /** Perfil com os contadores usados nos critérios de badge. */

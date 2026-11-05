@@ -1,8 +1,11 @@
 import { z } from "zod"
-import { difficultySchema, type Difficulty } from "./common"
+import { difficultySchema, slugSchema, type Difficulty } from "./common"
 import { patchSchemaOf } from "./schema"
 
-/** Módulo temático do catálogo (agrupa lições); só admins criam e editam. */
+/**
+ * Módulo do catálogo (agrupa lições); só admins criam e editam. Os módulos novos
+ * pertencem a um curso (`course_id`); os "globais" antigos (null) seguem válidos.
+ */
 export interface Module {
   id: string
   title: string
@@ -11,6 +14,9 @@ export interface Module {
   color: string
   sort_order: number
   created_at: string
+  course_id: string | null
+  /** Único dentro do curso; null nos módulos globais. */
+  slug: string | null
 }
 
 export const moduleInputSchema = z.object({
@@ -19,6 +25,8 @@ export const moduleInputSchema = z.object({
   icon: z.string().trim().max(60).default("BookOpen"),
   color: z.string().trim().max(60).default("bg-level-purple"),
   sort_order: z.number().int().min(0).default(0),
+  course_id: z.uuid().nullable().optional(),
+  slug: slugSchema.nullable().optional(),
 })
 /** Corpo de `POST /modules` (admin), com os padrões visuais aplicados. */
 export type ModuleInput = z.infer<typeof moduleInputSchema>
@@ -47,6 +55,12 @@ export interface Course {
   final_project_title: string | null
   final_project_description: string | null
   final_project_starter_code: string | null
+  /** Chave do upsert do conteúdo; null nos cursos criados pela UI antiga. */
+  slug: string | null
+  /** Curso cujo certificado libera este (null = liberado). */
+  prerequisite_course_id: string | null
+  /** Lições só podem ser abertas na ordem. */
+  sequential: boolean
   /** Campos agregados opcionais. */
   lesson_count?: number
   enrolled?: boolean
@@ -63,6 +77,9 @@ export const courseInputSchema = z.object({
   final_project_title: z.string().trim().max(160).nullable().optional(),
   final_project_description: z.string().max(20_000).nullable().optional(),
   final_project_starter_code: z.string().max(100_000).nullable().optional(),
+  slug: slugSchema.nullable().optional(),
+  prerequisite_course_id: z.uuid().nullable().optional(),
+  sequential: z.boolean().optional(),
 })
 /** Corpo de `POST /courses` (professor ou admin; o autor vira dono). */
 export type CourseInput = z.infer<typeof courseInputSchema>

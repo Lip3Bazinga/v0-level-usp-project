@@ -33,6 +33,13 @@ const LESSON_PATCH: PatchMapping<LessonUpdateInput, LessonInsert> = {
   xp_reward: (xpReward) => ({ xpReward }),
   time_limit: (timeLimit) => ({ timeLimit }),
   test_cases: (testCases) => ({ testCases }),
+  runtime: (runtime) => ({ runtime }),
+  is_project: (isProject) => ({ isProject }),
+  objectives: (objectives) => ({ objectives }),
+  solution_files: (solutionFiles) => ({ solutionFiles }),
+  solution_after_attempts: (solutionAfterAttempts) => ({ solutionAfterAttempts }),
+  // Passos moram em `lesson_steps`, não em colunas da lição: são gravados pelo serviço de passos.
+  steps: () => ({}),
 }
 
 interface CurrentPlacement {

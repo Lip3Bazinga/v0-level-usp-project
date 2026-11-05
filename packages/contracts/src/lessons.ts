@@ -1,48 +1,33 @@
 import { z } from "zod"
 import { difficultySchema, type Difficulty } from "./common"
+import { projectFileSchema, projectFilesSchema, checkpointSchema, type Checkpoint, type ProjectFile } from "./files"
 import { testCasesSchema, type TestCase } from "./grading"
 import { answerSheetSchema, CORRECT_INDEX_OUT_OF_RANGE, correctIndexWithinOptions, multipleChoiceFields, type AnswerSheetResult } from "./questions"
 import { patchSchemaOf } from "./schema"
+import { lessonStepsSchema, type LessonStep } from "./steps"
 
-export const checkpointSchema = z.object({
-  id: z.number().int(),
-  instruction: z.string().max(2000),
-  hint: z.string().max(2000).optional(),
-})
-/** Etapa guiada de uma lição prática: instrução exibida ao aluno e dica opcional. */
-export type Checkpoint = z.infer<typeof checkpointSchema>
+export { DEFAULT_ENTRY_FILE, checkpointSchema, projectFileSchema, projectFilesSchema, projectPathSchema } from "./files"
+export type { Checkpoint, ProjectFile } from "./files"
 
-/** Arquivo de entrada executado pelo corretor e pelo botão Executar. */
-export const DEFAULT_ENTRY_FILE = "main.py"
-
-/** Arquivo de um projeto multi-arquivo. Pastas são implícitas pelo path. */
-export interface ProjectFile {
-  path: string
-  content: string
-}
-
-/** Caminho relativo seguro: sem "..", sem barra inicial, só .py/.txt/.csv/.json/.md. */
-export const projectPathSchema = z
-  .string()
-  .min(1)
-  .max(200)
-  .regex(/^(?!\/)(?!.*\.\.)[A-Za-z0-9_\-./]+\.(py|txt|csv|json|md)$/, "Caminho de arquivo inválido")
-
-export const projectFileSchema = z.object({
-  path: projectPathSchema,
-  // NUL não existe em código-fonte de verdade e o PostgreSQL recusa \u0000 em jsonb (viraria 500).
-  content: z.string().max(100_000).refine((content) => !content.includes("\u0000"), "O arquivo contém um caractere nulo (\\0)."),
-})
-export const projectFilesSchema = z
-  .array(projectFileSchema)
-  .min(1)
-  .max(30)
-  .refine((files) => files.reduce((totalLength, file) => totalLength + file.content.length, 0) <= 300_000, "Projeto grande demais")
-
-export const LESSON_TYPES = ["coding", "theory", "quiz"] as const
+export const LESSON_TYPES = ["coding", "theory", "quiz", "guided"] as const
 export const lessonTypeSchema = z.enum(LESSON_TYPES)
-/** Tipo de lição: prática com correção (`coding`), leitura (`theory`) ou questionário (`quiz`). */
+/**
+ * Tipo de lição: prática com correção (`coding`), leitura (`theory`), questionário (`quiz`)
+ * ou guiada em passos (`guided`, formato Codecademy: cada passo é lido, verificado ou respondido).
+ */
 export type LessonType = z.infer<typeof lessonTypeSchema>
+
+export const LESSON_RUNTIMES = ["python", "python-dados"] as const
+export const lessonRuntimeSchema = z.enum(LESSON_RUNTIMES)
+/** Motor que corrige a lição: CPython WASI (`python`) ou Pyodide com numpy/pandas/scikit-learn (`python-dados`). */
+export type LessonRuntime = z.infer<typeof lessonRuntimeSchema>
+
+/** Objetivos de aprendizagem por lição. */
+export const MAX_LESSON_OBJECTIVES = 10
+/** Verificações reprovadas antes de liberar a solução, quando não informado. */
+export const DEFAULT_SOLUTION_AFTER_ATTEMPTS = 3
+/** Teto de `solution_after_attempts` (0 = a solução nunca é liberada). */
+export const MAX_SOLUTION_AFTER_ATTEMPTS = 20
 
 /** Lição como o aluno vê (sem gabarito). */
 export interface Lesson {
@@ -68,11 +53,20 @@ export interface Lesson {
   published: boolean
   created_at: string
   updated_at: string
+  runtime: LessonRuntime
+  /** Projeto do nível: conta para o certificado do curso. */
+  is_project: boolean
+  objectives: string[]
+  /** Verificações reprovadas de um passo antes de liberar a solução (0 = nunca). */
+  solution_after_attempts: number
+  /** Passos da lição guiada, na ordem; vazio nas lições clássicas (`coding`/`theory`/`quiz`). */
+  steps: LessonStep[]
 }
 
-/** Lição como o professor dono (ou admin) vê: inclui os casos de teste. */
+/** Lição como o professor dono (ou admin) vê: inclui os casos de teste e a solução de referência. */
 export interface LessonWithTests extends Lesson {
   test_cases: TestCase[]
+  solution_files: ProjectFile[]
 }
 
 /** Lição resumida para listas e trilhas (`GET /lessons/summaries`). */
@@ -101,6 +95,16 @@ export const lessonInputSchema = z.object({
   /** Tempo estimado de estudo, em minutos (informativo). */
   time_limit: z.number().int().min(1).max(300).default(10),
   test_cases: testCasesSchema.default([]),
+  // Campos do curso completo: opcionais (sem default) para que a ausência deixe o padrão do banco
+  // e um cliente antigo continue montando o corpo sem conhecê-los.
+  runtime: lessonRuntimeSchema.optional(),
+  is_project: z.boolean().optional(),
+  objectives: z.array(z.string().trim().min(1).max(300)).max(MAX_LESSON_OBJECTIVES).optional(),
+  /** Solução de referência da lição clássica; nunca sai para o aluno sem a regra de liberação. */
+  solution_files: z.array(projectFileSchema).max(30).optional(),
+  solution_after_attempts: z.number().int().min(0).max(MAX_SOLUTION_AFTER_ATTEMPTS).optional(),
+  /** Passos da lição guiada; quando enviado, substitui todos os passos existentes. */
+  steps: lessonStepsSchema.optional(),
 })
 /** Corpo de `POST /lessons`, com os padrões aplicados. */
 export type LessonInput = z.infer<typeof lessonInputSchema>
@@ -136,6 +140,13 @@ export type SaveSnapshotInput = z.infer<typeof saveSnapshotSchema>
 export const submitCodeSchema = z.object({ files: projectFilesSchema })
 /** Corpo de `POST /lessons/:id/submissions`: o projeto a corrigir. */
 export type SubmitCodeInput = z.infer<typeof submitCodeSchema>
+
+export const SUBMISSION_STATUSES = ["graded", "error"] as const
+/**
+ * Situação de uma submissão: `graded` tem veredito; `error` é falha de infraestrutura
+ * (executor indisponível, timeout do host) e não conta como tentativa nem como reprovação.
+ */
+export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number]
 
 /** Um dia no mapa de atividade (datas em ISO yyyy-mm-dd). */
 export interface ActivityDay {

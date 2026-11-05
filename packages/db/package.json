@@ -23,6 +23,8 @@
     "build": "tsup src/index.ts --format esm,cjs --dts --clean && tsup src/scripts/migrate.ts src/scripts/seed.ts src/scripts/import-supabase.ts --format esm --out-dir dist/scripts --no-dts --external @node-rs/argon2 --external pg --external drizzle-orm",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
+    "test": "vitest run --project unit",
+    "test:db": "vitest run --project db",
     "generate": "drizzle-kit generate",
     "migrate": "tsx src/scripts/migrate.ts",
     "seed": "tsx src/scripts/seed.ts",
@@ -43,6 +45,7 @@
     "tsup": "^9.0.0",
     "tsx": "^4.23.15",
     "typescript": "5.9.3",
-    "typescript-eslint": "^8.46.0"
+    "typescript-eslint": "^8.46.0",
+    "vitest": "^5.0.5"
   }
 }

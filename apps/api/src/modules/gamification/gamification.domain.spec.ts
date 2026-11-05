@@ -20,11 +20,14 @@ describe("nextStreak", () => {
 })
 
 describe("levelForXp", () => {
-  it("sobe um nível a cada 1000 XP", () => {
+  it("segue a curva crescente do contrato (1000, 2500, 4500, 7000…)", () => {
     expect(levelForXp(0)).toBe(1)
     expect(levelForXp(999)).toBe(1)
     expect(levelForXp(1000)).toBe(2)
-    expect(levelForXp(4500)).toBe(5)
+    expect(levelForXp(2499)).toBe(2)
+    expect(levelForXp(2500)).toBe(3)
+    expect(levelForXp(4500)).toBe(4)
+    expect(levelForXp(7000)).toBe(5)
   })
 })
 
@@ -35,7 +38,7 @@ describe("eligibleBadges", () => {
     { id: "manual", criteriaType: "manual" as const, criteriaValue: 0, active: true },
     { id: "off", criteriaType: "total_xp" as const, criteriaValue: 0, active: false },
   ]
-  const stats = { total_xp: 150, current_streak: 2, max_streak: 5, lessons_completed: 3, courses_completed: 0 }
+  const stats = { total_xp: 150, current_streak: 2, max_streak: 5, lessons_completed: 3, courses_completed: 0, certificates_issued: 0 }
 
   it("concede só badges automáticos, ativos, atingidos e ainda não obtidos", () => {
     expect(eligibleBadges(stats, rules, new Set())).toEqual(["xp-100"])

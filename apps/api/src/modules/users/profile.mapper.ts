@@ -21,11 +21,12 @@ export function toProfile(profile: ProfileRow): Profile {
     suspended: profile.suspended,
     created_at: profile.createdAt,
     updated_at: profile.updatedAt,
+    experiment_condition: profile.experimentCondition,
   }
 }
 
-/** Perfil para terceiros: sem e-mail nem a marca de suspensão. */
+/** Perfil para terceiros: sem e-mail, marca de suspensão nem grupo do experimento. */
 export function toPublicProfile(profile: ProfileRow): PublicProfile {
-  const { email: _email, suspended: _suspended, ...publicFields } = toProfile(profile)
+  const { email: _email, suspended: _suspended, experiment_condition: _experimentCondition, ...publicFields } = toProfile(profile)
   return publicFields
 }

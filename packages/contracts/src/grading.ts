@@ -30,6 +30,8 @@ const baseCase = {
   hint: z.string().trim().max(500).optional(),
   /** Se true, a mensagem de falha mostra entrada e valor esperado. Padrão: false. */
   reveal: z.boolean().optional(),
+  /** Id do checkpoint (instrução numerada) que o caso verifica; informativo, para a UI marcar ✓ por instrução. */
+  checkpoint: z.number().int().min(1).optional(),
 }
 
 const PYTHON_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/

@@ -1,6 +1,7 @@
 import { z } from "zod"
+import type { ExperimentCondition } from "./experiment"
 import type { GradeResult } from "./grading"
-import type { LessonProgress, ProjectFile } from "./lessons"
+import type { LessonProgress, ProjectFile, SubmissionStatus } from "./lessons"
 import type { LibraryRequest } from "./library"
 import type { Note } from "./notes"
 import type { Notification, TeacherApproval } from "./platform"
@@ -29,10 +30,12 @@ export interface Profile {
   suspended: boolean
   created_at: string
   updated_at: string
+  /** Grupo do experimento de gamificação (null = fora do experimento); `controle` esconde XP, nível, sequência, badges e ranking na UI. */
+  experiment_condition: ExperimentCondition | null
 }
 
-/** Perfil exposto a terceiros (sem e-mail). */
-export type PublicProfile = Omit<Profile, "email" | "suspended">
+/** Perfil exposto a terceiros (sem e-mail, suspensão nem grupo do experimento). */
+export type PublicProfile = Omit<Profile, "email" | "suspended" | "experiment_condition">
 
 export const MAX_FULL_NAME_LENGTH = 120
 
@@ -89,7 +92,7 @@ export interface SubmissionExport {
   id: string
   lesson_id: string
   files: ProjectFile[]
-  status: "graded" | "error"
+  status: SubmissionStatus
   passed: boolean
   result: GradeResult | null
   engine: string | null

@@ -8,7 +8,9 @@ const LESSON: LessonWithTests = {
   checkpoints: [{ id: 1, instruction: "faça", hint: "" }], libraries: null, xp_reward: 50, time_limit: 10,
   lesson_type: "coding", quiz_passing_score: 70, course_id: null, module_id: null, created_by: "u",
   published: false, created_at: "", updated_at: "",
+  runtime: "python", is_project: false, objectives: [], solution_after_attempts: 3, steps: [],
   test_cases: [{ kind: "io", id: "a", stdin: "", expected_stdout: "1", match: "trimmed" }],
+  solution_files: [],
 }
 
 describe("formulário da lição", () => {

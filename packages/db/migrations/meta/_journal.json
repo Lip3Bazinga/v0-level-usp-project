@@ -29,6 +29,13 @@
       "when": 1793748879711,
       "tag": "0003_indice_ranking",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793888965210,
+      "tag": "0004_curso_completo",
+      "breakpoints": true
     }
   ]
 }

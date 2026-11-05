@@ -7,10 +7,13 @@ export const badgeRaritySchema = z.enum(BADGE_RARITIES)
 export type BadgeRarity = z.infer<typeof badgeRaritySchema>
 
 export const BADGE_CRITERIA_TYPES = [
-  "total_xp", "current_streak", "max_streak", "lessons_completed", "courses_completed", "manual",
+  "total_xp", "current_streak", "max_streak", "lessons_completed", "courses_completed", "certificates_issued", "manual",
 ] as const
 export const badgeCriteriaTypeSchema = z.enum(BADGE_CRITERIA_TYPES)
-/** Métrica do perfil comparada com `criteria_value` para conceder o badge; `manual` nunca é automático. */
+/**
+ * Métrica comparada com `criteria_value` para conceder o badge; `manual` nunca é automático.
+ * `certificates_issued` conta certificados de curso emitidos (badge "Formado(a)").
+ */
 export type BadgeCriteriaType = z.infer<typeof badgeCriteriaTypeSchema>
 
 /** Ids de badge são slugs legíveis (aparecem em URLs e no seed). */
@@ -63,12 +66,38 @@ export const badgeUpdateSchema = patchSchemaOf(badgeInputSchema.omit({ id: true 
 /** Corpo de `PATCH /admin/badges/:id` (o id não muda). */
 export type BadgeUpdateInput = z.infer<typeof badgeUpdateSchema>
 
-/** XP necessário por nível (regra herdada: 1000 XP por nível). */
-export const XP_PER_LEVEL = 1000
 /**
- * Nível correspondente a um total de XP: começa em 1 e sobe a cada {@link XP_PER_LEVEL}.
- * Valores negativos também dão nível 1.
+ * Fator da curva de XP: `xpForLevel(level) = XP_CURVE_FACTOR · (level − 1) · (level + 2)`,
+ * ou seja 0, 1000, 2500, 4500, 7000… — cada nível pede mais que o anterior.
+ */
+export const XP_CURVE_FACTOR = 250
+
+/**
+ * XP por nível da régua linear antiga; não participa mais da curva.
+ *
+ * @deprecated Use {@link xpForLevel} e {@link levelForXp}. Mantido só até a web trocar a barra de nível.
+ */
+export const XP_PER_LEVEL = 1000
+
+/**
+ * XP total acumulado necessário para estar no nível `level` (1 → 0, 2 → 1000, 3 → 2500,
+ * 4 → 4500, 5 → 7000…). Níveis abaixo de 1 valem 0.
+ */
+export function xpForLevel(level: number): number {
+  if (level <= 1) return 0
+  return XP_CURVE_FACTOR * (level - 1) * (level + 2)
+}
+
+/**
+ * Nível correspondente a um total de XP: o maior nível cujo {@link xpForLevel} não passa
+ * de `totalXp` (1000 → 2, 2499 → 2, 2500 → 3). Valores negativos ou inválidos dão nível 1.
  */
 export function levelForXp(totalXp: number): number {
-  return Math.max(1, Math.floor(totalXp / XP_PER_LEVEL) + 1)
+  if (!Number.isFinite(totalXp) || totalXp < xpForLevel(2)) return 1
+  // Inversa de XP_CURVE_FACTOR·(L−1)·(L+2) ≤ xp; os ajustes abaixo cobrem o arredondamento do ponto flutuante.
+  const discriminant = 9 + (4 * totalXp) / XP_CURVE_FACTOR
+  let level = Math.max(1, Math.floor((Math.sqrt(discriminant) - 1) / 2))
+  while (xpForLevel(level + 1) <= totalXp) level++
+  while (level > 1 && xpForLevel(level) > totalXp) level--
+  return level
 }
