@@ -1,6 +1,6 @@
 {
   "format": 2,
-  "generated_at": "2026-11-05T23:03:12.468Z",
+  "generated_at": "2026-11-06T15:06:56.128Z",
   "tracks": [
     {
       "slug": "python-do-zero-a-ia",
@@ -1693,14 +1693,312 @@
                 {
                   "order": 1,
                   "kind": "leitura",
-                  "title": "Roteiro da lição",
-                  "narrative_markdown": "**O que a lição ensina.** Função como receita com nome: `def nome():` + bloco; a definição não executa nada; a chamada `nome()`; ordem (definir antes de chamar); funções que só imprimem; eliminar repetição copiando o bloco uma vez só; nomes verbais (`mostrar_menu`, `calcular_total`). Rastrear a execução no teste de mesa (pular para dentro da função e voltar).\n\n**Passos previstos.** Leitura (def e chamada) → Exercício: definir `linha()` que imprime 20 traços e `cabecalho()` que usa `linha()` duas vezes ao redor de um título, chamando ao final (`io` exato; `source defines_function`) → Exercício: refatorar um programa com três blocos iguais para uma função chamada três vezes (`io` + `source defines_function` + `source calls`) → Quiz (3 perguntas: o que acontece sem os parênteses; chamar antes de definir; para que serve `def`).\n\n**Erros comuns a cobrir.** Chamar sem parênteses; definir dentro de um laço sem querer; indentação errada deixando linhas fora da função; chamar antes do `def`; nome da função diferente do pedido (o caso `defines_function` reprova).",
+                  "title": "Uma receita com nome",
+                  "narrative_markdown": "Desde o módulo 3 você usa `def` de vez em quando, como \"uma receita com nome que devolve um valor\". Agora as funções entram de verdade. Uma **função** é um bloco de código com nome. Você escreve o bloco uma vez e executa quantas vezes quiser, só chamando o nome.\n\nA definição começa com `def`, o nome, parênteses e dois-pontos. O corpo vem indentado, como num `if` ou num `for`:\n\n```python\ndef mostrar_menu():\n    print(\"1 - Cadastrar aluno\")\n    print(\"2 - Listar alunos\")\n    print(\"3 - Sair\")\n\n\nprint(\"Bem-vindo ao sistema do RU\")\nmostrar_menu()\nprint(\"Até a próxima!\")\nmostrar_menu()\n```\n\nSaída:\n\n```\nBem-vindo ao sistema do RU\n1 - Cadastrar aluno\n2 - Listar alunos\n3 - Sair\nAté a próxima!\n1 - Cadastrar aluno\n2 - Listar alunos\n3 - Sair\n```\n\nRepare em três coisas.\n\n**Definir não executa.** Quando o Python lê o `def`, ele apenas guarda a receita com o nome `mostrar_menu`. Nenhum `print` do corpo roda nesse momento. Se o programa tivesse só a definição, a tela ficaria vazia.\n\n**Chamar é escrever o nome com parênteses.** `mostrar_menu()` é a **chamada**: o Python pula para dentro do corpo, executa linha por linha e, ao terminar, volta para a linha seguinte à chamada. Sem os parênteses, `mostrar_menu` sozinho é só o nome da função, e nada acontece.\n\n**A ordem importa.** O Python executa o arquivo de cima para baixo. O `def` precisa ter sido lido antes da primeira chamada; chamar antes de definir dá `NameError: name 'mostrar_menu' is not defined`.\n\nPara que serve? Para eliminar repetição. Três cópias do mesmo bloco viram uma definição e três chamadas. Se o menu ganhar uma opção nova, você muda uma linha, não três. E o programa fica mais fácil de ler: `mostrar_menu()` diz o que acontece sem mostrar como.\n\nPor isso o nome da função costuma ser um verbo no infinitivo, em `snake_case`: `mostrar_menu`, `calcular_total`, `imprimir_recibo`. Quem lê a chamada entende a intenção na hora.",
                   "starter_files": [],
                   "solution_files": [],
                   "checkpoints": [],
                   "test_cases": [],
                   "hints": [],
                   "quiz_questions": [],
+                  "xp": 10,
+                  "wrong_solutions": []
+                },
+                {
+                  "order": 2,
+                  "kind": "exercicio",
+                  "title": "Linha e cabeçalho",
+                  "narrative_markdown": "Um relatório começa com um cabeçalho: uma linha de traços, o título e outra linha de traços. Você vai escrever duas funções, e uma delas vai chamar a outra. A saída do programa deve ser exatamente esta:\n\n```\n--------------------\nRELATÓRIO\n--------------------\n```",
+                  "starter_files": [
+                    {
+                      "path": "main.py",
+                      "content": "# 1. Defina linha()\n\n\n# 2. Defina cabecalho()\n\n\n# 3. Chame cabecalho()\n"
+                    }
+                  ],
+                  "solution_files": [
+                    {
+                      "path": "main.py",
+                      "content": "def linha():\n    print(\"-\" * 20)\n\n\ndef cabecalho():\n    linha()\n    print(\"RELATÓRIO\")\n    linha()\n\n\ncabecalho()\n"
+                    }
+                  ],
+                  "checkpoints": [
+                    {
+                      "id": 1,
+                      "instruction": "Defina a função `linha()`, que imprime uma linha com 20 traços: `--------------------`.",
+                      "hint": "`\"-\" * 20` monta o texto sem contar à mão."
+                    },
+                    {
+                      "id": 2,
+                      "instruction": "Defina a função `cabecalho()`, que chama `linha()`, imprime `RELATÓRIO` e chama `linha()` de novo."
+                    },
+                    {
+                      "id": 3,
+                      "instruction": "No fim do programa, fora das funções, chame `cabecalho()` uma vez."
+                    }
+                  ],
+                  "test_cases": [
+                    {
+                      "id": "define-linha",
+                      "name": "Define a função linha",
+                      "hint": "Comece com def linha(): e o corpo indentado.",
+                      "checkpoint": 1,
+                      "kind": "source",
+                      "rule": {
+                        "type": "defines_function",
+                        "name": "linha"
+                      }
+                    },
+                    {
+                      "id": "define-cabecalho",
+                      "name": "Define a função cabecalho",
+                      "checkpoint": 2,
+                      "kind": "source",
+                      "rule": {
+                        "type": "defines_function",
+                        "name": "cabecalho"
+                      }
+                    },
+                    {
+                      "id": "usa-linha",
+                      "name": "cabecalho reaproveita linha()",
+                      "hint": "Chame linha() dentro de cabecalho em vez de repetir o print dos traços.",
+                      "checkpoint": 2,
+                      "kind": "source",
+                      "rule": {
+                        "type": "calls",
+                        "name": "linha"
+                      }
+                    },
+                    {
+                      "id": "chama-cabecalho",
+                      "name": "O programa chama cabecalho()",
+                      "hint": "Escrever só o nome da função não a executa: são necessários os parênteses.",
+                      "checkpoint": 3,
+                      "kind": "source",
+                      "rule": {
+                        "type": "calls",
+                        "name": "cabecalho"
+                      }
+                    },
+                    {
+                      "id": "saida",
+                      "name": "Saída: traços, RELATÓRIO, traços",
+                      "hint": "Confira a quantidade de traços (20) e o título em maiúsculas, com acento.",
+                      "checkpoint": 3,
+                      "kind": "io",
+                      "stdin": "",
+                      "expected_stdout": "--------------------\nRELATÓRIO\n--------------------",
+                      "match": "trimmed"
+                    }
+                  ],
+                  "hints": [
+                    "A definição sozinha não imprime nada: o corpo só roda quando alguém chama a função.",
+                    "Dentro de `cabecalho()`, `linha()` é uma chamada comum, igual a `print()`.",
+                    "A última linha do arquivo, sem indentação, deve ser a chamada `cabecalho()`."
+                  ],
+                  "quiz_questions": [],
+                  "xp": 10,
+                  "wrong_solutions": [
+                    {
+                      "name": "define as funções mas não chama cabecalho",
+                      "files": [
+                        {
+                          "path": "main.py",
+                          "content": "def linha():\n    print(\"-\" * 20)\n\n\ndef cabecalho():\n    linha()\n    print(\"RELATÓRIO\")\n    linha()\n"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "19 traços em vez de 20",
+                      "files": [
+                        {
+                          "path": "main.py",
+                          "content": "def linha():\n    print(\"-------------------\")\n\n\ndef cabecalho():\n    linha()\n    print(\"RELATÓRIO\")\n    linha()\n\n\ncabecalho()\n"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "chamada sem parênteses",
+                      "files": [
+                        {
+                          "path": "main.py",
+                          "content": "def linha():\n    print(\"-\" * 20)\n\n\ndef cabecalho():\n    linha()\n    print(\"RELATÓRIO\")\n    linha()\n\n\ncabecalho\n"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "cabecalho repete os traços em vez de chamar linha",
+                      "files": [
+                        {
+                          "path": "main.py",
+                          "content": "def linha():\n    print(\"-\" * 20)\n\n\ndef cabecalho():\n    print(\"-\" * 20)\n    print(\"RELATÓRIO\")\n    print(\"-\" * 20)\n\n\ncabecalho()\n"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "chama antes de definir",
+                      "files": [
+                        {
+                          "path": "main.py",
+                          "content": "cabecalho()\n\n\ndef linha():\n    print(\"-\" * 20)\n\n\ndef cabecalho():\n    linha()\n    print(\"RELATÓRIO\")\n    linha()\n"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "order": 3,
+                  "kind": "exercicio",
+                  "title": "Refatore a repetição",
+                  "narrative_markdown": "O programa abaixo imprime a mesma saudação três vezes, uma para cada pessoa que chega à fila do RU. Funciona, mas o bloco de três linhas foi copiado e colado. Se o horário mudar, alguém precisa lembrar de corrigir nos três lugares.\n\nReorganize o programa com uma função. A saída precisa continuar exatamente igual:\n\n```\nOlá! Bem-vindo ao RU.\nAlmoço das 11h às 14h.\nBom apetite!\nOlá! Bem-vindo ao RU.\nAlmoço das 11h às 14h.\nBom apetite!\nOlá! Bem-vindo ao RU.\nAlmoço das 11h às 14h.\nBom apetite!\n```",
+                  "starter_files": [
+                    {
+                      "path": "main.py",
+                      "content": "print(\"Olá! Bem-vindo ao RU.\")\nprint(\"Almoço das 11h às 14h.\")\nprint(\"Bom apetite!\")\nprint(\"Olá! Bem-vindo ao RU.\")\nprint(\"Almoço das 11h às 14h.\")\nprint(\"Bom apetite!\")\nprint(\"Olá! Bem-vindo ao RU.\")\nprint(\"Almoço das 11h às 14h.\")\nprint(\"Bom apetite!\")\n"
+                    }
+                  ],
+                  "solution_files": [
+                    {
+                      "path": "main.py",
+                      "content": "def saudar():\n    print(\"Olá! Bem-vindo ao RU.\")\n    print(\"Almoço das 11h às 14h.\")\n    print(\"Bom apetite!\")\n\n\nsaudar()\nsaudar()\nsaudar()\n"
+                    }
+                  ],
+                  "checkpoints": [
+                    {
+                      "id": 1,
+                      "instruction": "Defina a função `saudar()` com as três linhas da saudação dentro dela, e apague os blocos repetidos.",
+                      "hint": "copie o bloco uma única vez para dentro do def, indentado."
+                    },
+                    {
+                      "id": 2,
+                      "instruction": "Chame `saudar()` três vezes, para a saída ficar idêntica à original."
+                    }
+                  ],
+                  "test_cases": [
+                    {
+                      "id": "define-saudar",
+                      "name": "Define a função saudar",
+                      "hint": "O bloco repetido vira o corpo de def saudar():.",
+                      "checkpoint": 1,
+                      "kind": "source",
+                      "rule": {
+                        "type": "defines_function",
+                        "name": "saudar"
+                      }
+                    },
+                    {
+                      "id": "chama-saudar",
+                      "name": "O programa chama saudar()",
+                      "hint": "A função só executa quando é chamada com parênteses.",
+                      "checkpoint": 2,
+                      "kind": "source",
+                      "rule": {
+                        "type": "calls",
+                        "name": "saudar"
+                      }
+                    },
+                    {
+                      "id": "saida",
+                      "name": "A saída continua igual: três saudações completas",
+                      "hint": "Compare sua saída com a do enunciado linha por linha; a saudação precisa aparecer três vezes, inteira.",
+                      "checkpoint": 2,
+                      "kind": "io",
+                      "stdin": "",
+                      "expected_stdout": "Olá! Bem-vindo ao RU.\nAlmoço das 11h às 14h.\nBom apetite!\nOlá! Bem-vindo ao RU.\nAlmoço das 11h às 14h.\nBom apetite!\nOlá! Bem-vindo ao RU.\nAlmoço das 11h às 14h.\nBom apetite!",
+                      "match": "trimmed"
+                    }
+                  ],
+                  "hints": [
+                    "O `def` fica no topo do arquivo e as chamadas vêm depois, sem indentação.",
+                    "As três linhas do bloco precisam estar indentadas sob o `def`; uma linha fora dele roda uma vez só, antes das chamadas.",
+                    "Cada `saudar()` imprime o bloco inteiro: conte quantas vezes a saudação aparece na saída."
+                  ],
+                  "quiz_questions": [],
+                  "xp": 10,
+                  "wrong_solutions": [
+                    {
+                      "name": "define saudar mas mantém os blocos copiados",
+                      "files": [
+                        {
+                          "path": "main.py",
+                          "content": "def saudar():\n    print(\"Olá! Bem-vindo ao RU.\")\n    print(\"Almoço das 11h às 14h.\")\n    print(\"Bom apetite!\")\n\n\nprint(\"Olá! Bem-vindo ao RU.\")\nprint(\"Almoço das 11h às 14h.\")\nprint(\"Bom apetite!\")\nprint(\"Olá! Bem-vindo ao RU.\")\nprint(\"Almoço das 11h às 14h.\")\nprint(\"Bom apetite!\")\nprint(\"Olá! Bem-vindo ao RU.\")\nprint(\"Almoço das 11h às 14h.\")\nprint(\"Bom apetite!\")\n"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "chama só duas vezes",
+                      "files": [
+                        {
+                          "path": "main.py",
+                          "content": "def saudar():\n    print(\"Olá! Bem-vindo ao RU.\")\n    print(\"Almoço das 11h às 14h.\")\n    print(\"Bom apetite!\")\n\n\nsaudar()\nsaudar()\n"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "chamadas sem parênteses",
+                      "files": [
+                        {
+                          "path": "main.py",
+                          "content": "def saudar():\n    print(\"Olá! Bem-vindo ao RU.\")\n    print(\"Almoço das 11h às 14h.\")\n    print(\"Bom apetite!\")\n\n\nsaudar\nsaudar\nsaudar\n"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "indentação: a última linha ficou fora da função",
+                      "files": [
+                        {
+                          "path": "main.py",
+                          "content": "def saudar():\n    print(\"Olá! Bem-vindo ao RU.\")\n    print(\"Almoço das 11h às 14h.\")\nprint(\"Bom apetite!\")\n\n\nsaudar()\nsaudar()\nsaudar()\n"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "order": 4,
+                  "kind": "quiz",
+                  "title": "Definir ou executar?",
+                  "narrative_markdown": "",
+                  "starter_files": [],
+                  "solution_files": [],
+                  "checkpoints": [],
+                  "test_cases": [],
+                  "hints": [],
+                  "quiz_questions": [
+                    {
+                      "prompt": "O programa abaixo roda sem erro. O que aparece na tela?\n```python\ndef avisar():\n    print(\"Prova amanhã!\")\n\n\navisar\n```",
+                      "options": [
+                        "Nada: sem os parênteses, `avisar` é só o nome da função e ela não é executada",
+                        "`Prova amanhã!`, porque o nome sozinho já chama a função",
+                        "`Prova amanhã!` duas vezes, uma do `def` e outra da última linha",
+                        "Um `NameError`, porque a função foi escrita sem parênteses"
+                      ],
+                      "correct_index": 0,
+                      "explanation": "A chamada exige os parênteses: `avisar()`. Escrever só `avisar` é uma expressão válida que não faz nada visível."
+                    },
+                    {
+                      "prompt": "O que acontece ao executar este programa?\n```python\nsaudar()\n\n\ndef saudar():\n    print(\"Olá!\")\n```",
+                      "options": [
+                        "Imprime `Olá!`, porque o Python lê o arquivo inteiro antes de executar",
+                        "Dá `NameError: name 'saudar' is not defined`, porque a chamada vem antes da definição",
+                        "Imprime `Olá!` duas vezes",
+                        "Dá `SyntaxError`, porque um `def` não pode ficar no fim do arquivo"
+                      ],
+                      "correct_index": 1,
+                      "explanation": "O Python executa de cima para baixo. Na linha 1, o nome `saudar` ainda não existe: o `def` só é lido depois."
+                    },
+                    {
+                      "prompt": "Qual frase descreve corretamente o papel do `def`?",
+                      "options": [
+                        "Executa o corpo da função uma vez, no lugar onde foi escrito",
+                        "Executa o corpo da função e também guarda o nome para chamadas futuras",
+                        "Guarda o bloco com um nome; o corpo só roda quando a função é chamada",
+                        "Imprime o corpo da função na tela"
+                      ],
+                      "correct_index": 2,
+                      "explanation": "`def` define: cria a função e associa o nome ao bloco. Executar é papel da chamada, `nome()`."
+                    }
+                  ],
                   "xp": 10,
                   "wrong_solutions": []
                 }
