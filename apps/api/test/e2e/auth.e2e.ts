@@ -16,7 +16,7 @@ describe("Autenticação (e2e)", () => {
     const visitor = agent(ctx.app)
     const response = await visitor.post("/api/auth/sign-up", { email: "Ana@USP.br", password: "senhaForte123", full_name: "Ana" })
     expect(response.status).toBe(201)
-    expect(bodyOf<SessionResponse>(response).user).toMatchObject({ email: "ana@usp.br", username: "ana", role: "student", current_streak: 1 })
+    expect(bodyOf<SessionResponse>(response).user).toMatchObject({ email: "ana@usp.br", username: "ana", role: "student", current_streak: 0 })
     const cookie = response.headers["set-cookie"]?.[0] ?? ""
     expect(cookie).toMatch(/lvl_session=/)
     expect(cookie).toMatch(/HttpOnly/i)

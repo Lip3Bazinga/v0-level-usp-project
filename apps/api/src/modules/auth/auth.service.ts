@@ -8,7 +8,7 @@ import { AppError, BadRequest, Conflict, Forbidden, ServiceUnavailable, Unauthor
 import type { AuthUser } from "@/common/http/request"
 import { MS_PER_DAY, MS_PER_HOUR, isoAfter, MS_PER_MINUTE } from "@/common/time/time"
 import { MailService } from "@/infra/mail/mail.service"
-import { GamificationService } from "../gamification/gamification.service"
+import { EventsService } from "../experiment/events.service"
 import { toProfile } from "../users/profile.mapper"
 import { UsersRepository } from "../users/users.repository"
 import { displayNameFromEmail, isLocked, LOCK_DURATION_MS, MAX_FAILED_LOGINS, usernameBaseFromEmail, usernameWithSuffix } from "./auth.domain"
@@ -59,7 +59,7 @@ export class AuthService {
     private readonly repo: AuthRepository,
     private readonly users: UsersRepository,
     private readonly passwords: PasswordService,
-    private readonly gamification: GamificationService,
+    private readonly events: EventsService,
     private readonly mail: MailService,
   ) {}
 
@@ -261,9 +261,8 @@ export class AuthService {
       ip: client.ip,
       userAgent: client.userAgent?.slice(0, MAX_USER_AGENT_LENGTH) ?? null,
     })
-    const streak = await this.gamification.touchStreak(userId)
-    const response = await this.getSession(userId)
-    // A animação de sequência só aparece quando a sequência mudou (primeiro acesso do dia).
-    return { token, expiresAt, response: { ...response, ...(streak.increased ? { streak } : {}) } }
+    // Entrar não mexe na sequência (ela conta dias com CONCLUSÃO); o login só vira evento do experimento.
+    await this.events.record(userId, "login")
+    return { token, expiresAt, response: await this.getSession(userId) }
   }
 }

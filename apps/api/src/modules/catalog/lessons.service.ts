@@ -1,16 +1,19 @@
 import { Injectable } from "@nestjs/common"
-import type { Lesson, LessonInput, LessonMetrics, LessonSummary, LessonType, LessonUpdateInput, LessonWithTests, TestCase } from "@levelusp/contracts"
-import type { LessonInsert, LessonRow } from "@levelusp/db"
+import type { Lesson, LessonInput, LessonMetrics, LessonStepsInput, LessonSummary, LessonType, LessonUpdateInput, LessonWithTests, TestCase } from "@levelusp/contracts"
+import type { DbTransaction, LessonInsert, LessonRow } from "@levelusp/db"
 import { canManage, canViewContent, ownerScope } from "@/common/authorization/ownership"
 import { isUniqueViolation } from "@/common/database/pg-errors"
 import { Forbidden, NotFound, Unprocessable } from "@/common/errors/app-error"
 import type { AuthUser } from "@/common/http/request"
 import { buildPatch, type PatchMapping } from "@/common/mapping/patch"
 import { sanitizeRichContent } from "@/common/sanitize/rich-content"
+import { TransactionRunner } from "@/infra/database/database.module"
 import { AuditService } from "../audit/audit.service"
 import { DEFAULT_SLUG, generateSlug, pickUniqueSlug, publishBlocker, withRandomSuffix } from "./catalog.domain"
-import { toLesson, toLessonMetrics, toLessonSummary, toLessonWithTests } from "./catalog.mapper"
+import { toLesson, toLessonMetrics, toLessonSummary, toLessonWithSteps, toLessonWithTests } from "./catalog.mapper"
 import { CoursesRepository } from "./courses.repository"
+import { toLessonStep, toLessonStepInput, toLessonStepInsert } from "./lesson-steps.mapper"
+import { LessonStepsRepository } from "./lesson-steps.repository"
 import { LessonsRepository } from "./lessons.repository"
 import { ModulesRepository } from "./modules.repository"
 
@@ -38,7 +41,7 @@ const LESSON_PATCH: PatchMapping<LessonUpdateInput, LessonInsert> = {
   objectives: (objectives) => ({ objectives }),
   solution_files: (solutionFiles) => ({ solutionFiles }),
   solution_after_attempts: (solutionAfterAttempts) => ({ solutionAfterAttempts }),
-  // Passos moram em `lesson_steps`, não em colunas da lição: são gravados pelo serviço de passos.
+  // Passos moram em `lesson_steps`, não em colunas da lição: `replaceSteps` grava na mesma transação.
   steps: () => ({}),
 }
 
@@ -54,6 +57,8 @@ export class LessonsService {
     private readonly repo: LessonsRepository,
     private readonly courses: CoursesRepository,
     private readonly modules: ModulesRepository,
+    private readonly steps: LessonStepsRepository,
+    private readonly transactions: TransactionRunner,
     private readonly audit: AuditService,
   ) {}
 
@@ -67,11 +72,15 @@ export class LessonsService {
     return (await this.repo.listPublished()).map(toLesson)
   }
 
-  /** Visão do aluno: nunca inclui o gabarito. */
+  /**
+   * Visão do aluno: a lição com os passos públicos (sem solução, casos, dicas nem `correct_index`).
+   *
+   * @throws AppError 404 lição inexistente ou rascunho de outra pessoa.
+   */
   async get(user: AuthUser | undefined, id: string): Promise<Lesson> {
     const lesson = await this.repo.findPublic(id)
     if (!lesson || !canViewContent(user, lesson)) throw NotFound("Lição")
-    return toLesson(lesson)
+    return toLessonWithSteps(lesson, (await this.steps.listByLesson(id)).map(toLessonStep))
   }
 
   /**
@@ -80,7 +89,7 @@ export class LessonsService {
    * @throws AppError 404 lição inexistente/invisível, 403 quem não é dono nem admin.
    */
   async getForAuthoring(user: AuthUser, id: string): Promise<LessonWithTests> {
-    return toLessonWithTests(await this.findManageable(user, id))
+    return this.toAuthoring(await this.findManageable(user, id))
   }
 
   /** Lições do professor (admin: todas), sem gabarito. */
@@ -100,17 +109,18 @@ export class LessonsService {
     const baseSlug = generateSlug(input.title)
     const slug = pickUniqueSlug(baseSlug, await this.repo.listSlugsLike(baseSlug || DEFAULT_SLUG))
     try {
-      return toLessonWithTests(await this.repo.create({ ...values, slug }))
+      return await this.toAuthoring(await this.createWithSteps({ ...values, slug }, input.steps))
     } catch (error) {
       if (!isUniqueViolation(error)) throw error
-      return toLessonWithTests(await this.repo.create({ ...values, slug: withRandomSuffix(slug) }))
+      return this.toAuthoring(await this.createWithSteps({ ...values, slug: withRandomSuffix(slug) }, input.steps))
     }
   }
 
   /**
-   * Atualiza os campos enviados. Lição publicada não pode ficar sem gabarito (código) ou sem questões (quiz).
+   * Atualiza os campos enviados; `steps`, quando vem, substitui todos os passos. Lição publicada
+   * não pode ficar sem gabarito (código), sem questões (quiz) ou sem passos (guiada).
    *
-   * @throws AppError 404/403 como em {@link getForAuthoring}; 422 `NO_TESTS`/`NO_QUESTIONS`,
+   * @throws AppError 404/403 como em {@link getForAuthoring}; 422 `NO_TESTS`/`NO_QUESTIONS`/`NO_STEPS`,
    * `INVALID_MODULE`, `INVALID_COURSE`; 403 ao vincular a curso de outra pessoa.
    */
   async update(user: AuthUser, id: string, input: LessonUpdateInput): Promise<LessonWithTests> {
@@ -118,10 +128,16 @@ export class LessonsService {
     await this.assertReferences(user, input, current)
     const patch = buildPatch(input, LESSON_PATCH)
     // Lição publicada não pode ficar num estado que o aluno não consegue concluir.
-    if (current.published) await this.assertPublishable(id, patch.lessonType ?? current.lessonType, patch.testCases ?? current.testCases)
-    const lesson = Object.keys(patch).length ? await this.repo.update(id, patch) : current
+    if (current.published) {
+      await this.assertPublishable(id, patch.lessonType ?? current.lessonType, patch.testCases ?? current.testCases, input.steps?.length)
+    }
+    const lesson = await this.transactions.run(async (tx: DbTransaction) => {
+      const updated = Object.keys(patch).length ? await this.repo.update(id, patch, tx) : current
+      if (updated && input.steps) await this.steps.replaceAll(id, input.steps.map((step) => toLessonStepInsert(step, id)), tx)
+      return updated
+    })
     if (!lesson) throw NotFound("Lição")
-    return toLessonWithTests(lesson)
+    return this.toAuthoring(lesson)
   }
 
   /**
@@ -140,20 +156,37 @@ export class LessonsService {
   /**
    * Publica ou despublica; só publica lição que o aluno consegue concluir.
    *
-   * @throws AppError 404/403 como em {@link getForAuthoring}; 422 `NO_TESTS` ou `NO_QUESTIONS`.
+   * @throws AppError 404/403 como em {@link getForAuthoring}; 422 `NO_TESTS`, `NO_QUESTIONS` ou `NO_STEPS`.
    */
   async setPublished(user: AuthUser, id: string, published: boolean): Promise<Lesson> {
     const current = await this.findManageable(user, id)
     if (published) await this.assertPublishable(id, current.lessonType, current.testCases)
     const lesson = await this.repo.update(id, { published })
     if (!lesson) throw NotFound("Lição")
-    return toLesson(lesson)
+    return toLessonWithSteps(lesson, (await this.steps.listByLesson(id)).map(toLessonStep))
   }
 
-  private async assertPublishable(id: string, lessonType: LessonType, testCases: readonly TestCase[]): Promise<void> {
+  /** `incomingStepCount`: tamanho da lista de passos que este PATCH vai gravar (ausente = usa o banco). */
+  private async assertPublishable(id: string, lessonType: LessonType, testCases: readonly TestCase[], incomingStepCount?: number): Promise<void> {
     const quizQuestionCount = lessonType === "quiz" ? await this.repo.countQuizQuestions(id) : 0
-    const blocker = publishBlocker({ lessonType, testCaseCount: testCases.length, quizQuestionCount })
+    const stepCount = lessonType === "guided" ? (incomingStepCount ?? (await this.steps.countByLesson(id))) : 0
+    const blocker = publishBlocker({ lessonType, testCaseCount: testCases.length, quizQuestionCount, stepCount })
     if (blocker) throw Unprocessable(blocker.message, blocker.code)
+  }
+
+  /** Insere a lição e os passos na mesma transação (slug repetido desfaz tudo). */
+  private createWithSteps(values: LessonInsert, steps: LessonStepsInput | undefined): Promise<LessonRow> {
+    return this.transactions.run(async (tx: DbTransaction) => {
+      const lesson = await this.repo.create(values, tx)
+      if (steps?.length) await this.steps.replaceAll(lesson.id, steps.map((step) => toLessonStepInsert(step, lesson.id)), tx)
+      return lesson
+    })
+  }
+
+  /** Lição de autoria: passos públicos (prévia) e os mesmos passos com gabarito (edição). */
+  private async toAuthoring(lesson: LessonRow): Promise<LessonWithTests> {
+    const steps = await this.steps.listByLesson(lesson.id)
+    return toLessonWithTests(lesson, steps.map(toLessonStep), steps.map(toLessonStepInput))
   }
 
   /** Módulo precisa existir; curso precisa ser do professor (ou admin). */

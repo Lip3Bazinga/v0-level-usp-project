@@ -4,7 +4,7 @@ import { projectFileSchema, projectFilesSchema, checkpointSchema, type Checkpoin
 import { testCasesSchema, type TestCase } from "./grading"
 import { answerSheetSchema, CORRECT_INDEX_OUT_OF_RANGE, correctIndexWithinOptions, multipleChoiceFields, type AnswerSheetResult } from "./questions"
 import { patchSchemaOf } from "./schema"
-import { lessonStepsSchema, type LessonStep } from "./steps"
+import { lessonStepsSchema, type LessonStep, type LessonStepInput, type LessonStepProgress } from "./steps"
 
 export { DEFAULT_ENTRY_FILE, checkpointSchema, projectFileSchema, projectFilesSchema, projectPathSchema } from "./files"
 export type { Checkpoint, ProjectFile } from "./files"
@@ -49,7 +49,6 @@ export interface Lesson {
   quiz_passing_score: number
   course_id: string | null
   module_id: string | null
-  created_by: string | null
   published: boolean
   created_at: string
   updated_at: string
@@ -67,6 +66,10 @@ export interface Lesson {
 export interface LessonWithTests extends Lesson {
   test_cases: TestCase[]
   solution_files: ProjectFile[]
+  /** Autor da lição; fora do DTO público para não expor o id do professor a qualquer visitante. */
+  created_by: string | null
+  /** Passos COM gabarito (solução, casos e `correct_index`), no formato que `steps` aceita de volta. */
+  authoring_steps: LessonStepInput[]
 }
 
 /** Lição resumida para listas e trilhas (`GET /lessons/summaries`). */
@@ -127,6 +130,14 @@ export interface LessonProgress {
   xp_earned: number
   completed_at: string | null
   created_at: string
+}
+
+/** Progresso do aluno numa lição guiada, passo a passo (`GET /me/lessons/:id/progress`). */
+export interface LessonStepsProgress {
+  lesson_id: string
+  status: LessonStatus
+  /** Só os passos em que o aluno já interagiu; os demais ainda não têm linha. */
+  steps: LessonStepProgress[]
 }
 
 export const saveSnapshotSchema = z.object({ files: projectFilesSchema })

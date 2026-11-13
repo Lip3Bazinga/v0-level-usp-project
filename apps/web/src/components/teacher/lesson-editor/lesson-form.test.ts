@@ -11,6 +11,7 @@ const LESSON: LessonWithTests = {
   runtime: "python", is_project: false, objectives: [], solution_after_attempts: 3, steps: [],
   test_cases: [{ kind: "io", id: "a", stdin: "", expected_stdout: "1", match: "trimmed" }],
   solution_files: [],
+  authoring_steps: [],
 }
 
 describe("formulário da lição", () => {

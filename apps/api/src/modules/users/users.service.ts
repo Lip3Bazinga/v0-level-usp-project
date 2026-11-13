@@ -61,7 +61,7 @@ export class UsersService {
 
   /** Ranking de alunos por XP. */
   async listLeaderboard(limit: number): Promise<PublicProfile[]> {
-    return (await this.repo.listLeaderboard(limit)).map(toPublicProfile)
+    return (await this.repo.listLeaderboard(limit)).map((profile) => toPublicProfile(profile))
   }
 
   /** Um ano, do mais antigo ao mais recente, sem buracos. */

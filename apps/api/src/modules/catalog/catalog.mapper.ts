@@ -1,4 +1,4 @@
-import type { Course, Lesson, LessonMetrics, LessonStep, LessonSummary, LessonWithTests, Module } from "@levelusp/contracts"
+import type { Course, Lesson, LessonMetrics, LessonStep, LessonStepInput, LessonSummary, LessonWithTests, Module } from "@levelusp/contracts"
 import type { CourseRow, LessonRow, ModuleRow } from "@levelusp/db"
 import { passRate } from "./catalog.domain"
 import type { LessonSummaryRow, PublicLessonRow } from "./lesson-columns"
@@ -104,7 +104,6 @@ export function toLessonWithSteps(lesson: PublicLessonRow, steps: LessonStep[]):
     quiz_passing_score: lesson.quizPassingScore,
     course_id: lesson.courseId,
     module_id: lesson.moduleId,
-    created_by: lesson.createdBy,
     published: lesson.published,
     created_at: lesson.createdAt,
     updated_at: lesson.updatedAt,
@@ -117,8 +116,14 @@ export function toLessonWithSteps(lesson: PublicLessonRow, steps: LessonStep[]):
 }
 
 /** Lição com gabarito e solução de referência — SOMENTE para o dono ou admin (telas de autoria). */
-export function toLessonWithTests(lesson: LessonRow, steps: LessonStep[] = []): LessonWithTests {
-  return { ...toLessonWithSteps(lesson, steps), test_cases: lesson.testCases, solution_files: lesson.solutionFiles }
+export function toLessonWithTests(lesson: LessonRow, steps: LessonStep[] = [], authoringSteps: LessonStepInput[] = []): LessonWithTests {
+  return {
+    ...toLessonWithSteps(lesson, steps),
+    test_cases: lesson.testCases,
+    solution_files: lesson.solutionFiles,
+    created_by: lesson.createdBy,
+    authoring_steps: authoringSteps,
+  }
 }
 
 /** Lição resumida para listas e trilhas. */

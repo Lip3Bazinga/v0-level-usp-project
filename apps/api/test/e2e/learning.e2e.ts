@@ -112,7 +112,9 @@ describe("Correção e progresso (e2e)", () => {
     for (let i = 0; i < 13; i++) statuses.push((await agent.post(`/api/lessons/${lesson.id}/submissions`, { files })).status)
     expect(statuses.slice(0, 12).every((s) => s === 200)).toBe(true)
     expect(statuses[12]).toBe(429)
-    expect(await countRows(ctx.db, sql`select count(*)::int as n from submissions`)).toBe(12)
+    expect(await countRows(ctx.db, sql`select count(*)::int as n from submissions where status = 'graded'`)).toBe(12)
+    // As recusas ficam na trilha como falha de infraestrutura: nem tentativa, nem reprovação.
+    expect(await countRows(ctx.db, sql`select count(*)::int as n from submissions where status = 'error' and passed = false and result is null`)).toBe(12)
   })
 
   it("executor fora do ar ou prazo estourado conta no limite (o código pode ter rodado)", async () => {

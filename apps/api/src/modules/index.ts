@@ -5,6 +5,7 @@ import { AuthModule } from "./auth/auth.module"
 import { CatalogModule } from "./catalog/catalog.module"
 import { CertificatesModule } from "./certificates/certificates.module"
 import { ExamsModule } from "./exams/exams.module"
+import { ExperimentModule } from "./experiment/experiment.module"
 import { GamificationModule } from "./gamification/gamification.module"
 import { HealthModule } from "./health/health.module"
 import { LearningModule } from "./learning/learning.module"
@@ -22,6 +23,7 @@ import { UsersModule } from "./users/users.module"
 export const FEATURE_MODULES = [
   HealthModule,
   AuditModule,
+  ExperimentModule,
   GamificationModule,
   AuthModule,
   AccountModule,

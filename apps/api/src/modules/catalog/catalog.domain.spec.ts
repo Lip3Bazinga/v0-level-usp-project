@@ -40,15 +40,19 @@ describe("nextOrder", () => {
 
 describe("publishBlocker", () => {
   it("lição de código exige casos de teste", () => {
-    expect(publishBlocker({ lessonType: "coding", testCaseCount: 0, quizQuestionCount: 0 })?.code).toBe("NO_TESTS")
-    expect(publishBlocker({ lessonType: "coding", testCaseCount: 2, quizQuestionCount: 0 })).toBeNull()
+    expect(publishBlocker({ lessonType: "coding", testCaseCount: 0, quizQuestionCount: 0, stepCount: 0 })?.code).toBe("NO_TESTS")
+    expect(publishBlocker({ lessonType: "coding", testCaseCount: 2, quizQuestionCount: 0, stepCount: 0 })).toBeNull()
   })
   it("quiz exige ao menos uma questão", () => {
-    expect(publishBlocker({ lessonType: "quiz", testCaseCount: 0, quizQuestionCount: 0 })?.code).toBe("NO_QUESTIONS")
-    expect(publishBlocker({ lessonType: "quiz", testCaseCount: 0, quizQuestionCount: 1 })).toBeNull()
+    expect(publishBlocker({ lessonType: "quiz", testCaseCount: 0, quizQuestionCount: 0, stepCount: 0 })?.code).toBe("NO_QUESTIONS")
+    expect(publishBlocker({ lessonType: "quiz", testCaseCount: 0, quizQuestionCount: 1, stepCount: 0 })).toBeNull()
+  })
+  it("lição guiada exige ao menos um passo", () => {
+    expect(publishBlocker({ lessonType: "guided", testCaseCount: 0, quizQuestionCount: 0, stepCount: 0 })?.code).toBe("NO_STEPS")
+    expect(publishBlocker({ lessonType: "guided", testCaseCount: 0, quizQuestionCount: 0, stepCount: 3 })).toBeNull()
   })
   it("teoria publica sem requisitos", () => {
-    expect(publishBlocker({ lessonType: "theory", testCaseCount: 0, quizQuestionCount: 0 })).toBeNull()
+    expect(publishBlocker({ lessonType: "theory", testCaseCount: 0, quizQuestionCount: 0, stepCount: 0 })).toBeNull()
   })
 })
 
