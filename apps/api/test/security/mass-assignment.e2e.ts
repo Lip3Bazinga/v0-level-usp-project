@@ -83,7 +83,7 @@ describe("Mass assignment: campos extras são descartados em toda rota de escrit
     const response = await cast.studentA.agent.patch("/api/me/profile", { bio: "oi", ...PRIVILEGED_FIELDS })
     expect(response.status).toBe(200)
     const profile = bodyOf<Profile>(response)
-    expect(profile).toMatchObject({ role: "student", total_xp: 0, level: 1, current_streak: 1, bio: "oi" })
+    expect(profile).toMatchObject({ role: "student", total_xp: 0, level: 1, current_streak: 0, bio: "oi" })
     const stored = required(await ctx.db.query.profiles.findFirst({ where: eq(profiles.id, cast.studentA.id) }), "perfil")
     expect(stored.role).toBe("student")
     expect(stored.totalXp).toBe(0)

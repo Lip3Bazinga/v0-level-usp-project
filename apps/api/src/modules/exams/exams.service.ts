@@ -7,6 +7,7 @@ import type { AuthUser } from "@/common/http/request"
 import { RATE_LIMITS } from "@/common/rate-limit/rate-limit.policies"
 import { RateLimitService } from "@/common/rate-limit/rate-limit.service"
 import { TransactionRunner } from "@/infra/database/database.module"
+import { EventsService } from "../experiment/events.service"
 import { NotificationsService } from "../notifications/notifications.service"
 import {
   acceptsSubmission, attemptExpiresAt, cooldownUntil, drawQuestions, examEligibility, gradeExam, isInProgress,
@@ -42,6 +43,7 @@ export class ExamsService {
     private readonly transactions: TransactionRunner,
     private readonly notifications: NotificationsService,
     private readonly rateLimit: RateLimitService,
+    private readonly events: EventsService,
   ) {}
 
   /** Status da prova: metadados, elegibilidade e tentativas. Nunca devolve questões. */
@@ -82,7 +84,7 @@ export class ExamsService {
     const eligibility = await this.eligibility(user.id, courseId)
     if (!eligibility.eligible) throw Forbidden(`Conclua todas as lições antes da prova (faltam ${eligibility.remaining}).`, "NOT_ELIGIBLE")
 
-    return this.transactions.run(async (tx: DbTransaction) => {
+    const started = await this.transactions.run(async (tx: DbTransaction) => {
       const owner = { examId: exam.id, userId: user.id }
       await this.repo.lockAttempts(owner, tx)
       const now = new Date()
@@ -98,6 +100,8 @@ export class ExamsService {
       }
       return this.createAttempt(user, exam, now, tx)
     })
+    await this.events.record(user.id, "exam_started", { course_id: courseId, exam_id: exam.id, resumed: started.resumed })
+    return started
   }
 
   /** Corrige no servidor, só sobre as questões sorteadas para a tentativa. */
@@ -123,6 +127,7 @@ export class ExamsService {
     if (!saved) throw Conflict("Esta tentativa já foi enviada.", "ALREADY_SUBMITTED")
     this.logger.log({ userId: user.id, examId: exam.id, attemptId: attemptRow.id, score: examGrade.score, passed: examGrade.passed }, "prova corrigida")
 
+    await this.events.record(user.id, "exam_submitted", { course_id: courseId, exam_id: exam.id, score: examGrade.score, passed: examGrade.passed })
     if (examGrade.passed) await this.notifyPassed(user.id, courseId, examGrade.score)
 
     return {

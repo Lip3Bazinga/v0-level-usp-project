@@ -74,6 +74,8 @@ export interface MyCertificate {
 /** Verificação pública de certificado (sem dados sensíveis). */
 export interface CertificateVerification {
   valid: boolean
+  /** `track`: certificado de trilha (`course_title` traz o nome da trilha e não há nota de prova); null quando inválido. */
+  kind: "course" | "track" | null
   verification_code: string
   student_name: string | null
   course_title: string | null

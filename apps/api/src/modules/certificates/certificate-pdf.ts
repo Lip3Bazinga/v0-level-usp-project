@@ -7,7 +7,8 @@ export interface CertificatePdfData {
   studentName: string
   courseTitle: string
   issuedAt: string
-  examScore: number
+  /** Nota da prova final; null no certificado de trilha (não há prova da trilha). */
+  examScore: number | null
   projectStatus: "passed" | "waived"
   verifyUrl: string
 }
@@ -83,7 +84,11 @@ export function renderCertificatePdf(data: CertificatePdfData): Promise<Buffer> 
     drawCentered("concluiu com aproveitamento o curso", { top: 322, font: "Times-Roman", size: 15, color: GRAY })
     drawCentered(data.courseTitle, { top: 350, font: "Times-Bold", size: 22, color: PURPLE_DARK })
     const projectLabel = data.projectStatus === "waived" ? "dispensado" : "aprovado"
-    drawCentered(`Nota na prova final: ${formatScore(data.examScore)}  ·  Projeto final: ${projectLabel}`, { top: 390, font: "Helvetica", size: 12, color: GRAY })
+    const achievement =
+      data.examScore === null
+        ? "Trilha concluída: todos os cursos certificados"
+        : `Nota na prova final: ${formatScore(data.examScore)}  ·  Projeto final: ${projectLabel}`
+    drawCentered(achievement, { top: 390, font: "Helvetica", size: 12, color: GRAY })
 
     const footerTop = height - 82
     doc.font("Helvetica").fontSize(11).fillColor(GRAY)

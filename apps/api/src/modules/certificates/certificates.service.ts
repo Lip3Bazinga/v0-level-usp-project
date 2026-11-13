@@ -7,10 +7,12 @@ import { ENV } from "@/config/config.module"
 import type { Env } from "@/config/env"
 import { AuditService } from "../audit/audit.service"
 import { ExamsService, type CertificateRequirements } from "../exams/exams.service"
+import { EventsService } from "../experiment/events.service"
+import { GamificationService } from "../gamification/gamification.service"
 import { NotificationsService } from "../notifications/notifications.service"
 import { renderCertificatePdf } from "./certificate-pdf"
 import { generateVerificationCode, normalizeCode, verificationUrl } from "./certificates.domain"
-import { invalidVerification, toCertificateIssue, toMyCertificate, toVerification } from "./certificates.mapper"
+import { invalidVerification, toCertificateIssue, toMyCertificate, toTrackVerification, toVerification } from "./certificates.mapper"
 import { CertificatesRepository } from "./certificates.repository"
 
 const MAX_CODE_RETRIES = 5
@@ -39,12 +41,17 @@ export class CertificatesService {
     private readonly exams: ExamsService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
+    private readonly gamification: GamificationService,
+    private readonly events: EventsService,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
   /**
-   * Emite o certificado se e somente se: todas as lições publicadas do curso
-   * concluídas (inclui o projeto final) e prova final aprovada. Idempotente.
+   * Emite o certificado se e somente se: curso concluído (`course_completions`: 100 % das
+   * lições publicadas, inclusive o projeto) e prova final aprovada. Idempotente. A emissão
+   * avalia o badge "Formado(a)" (`certificates_issued`).
+   *
+   * @throws AppError 404 curso; 422 `NO_LESSONS`/`NO_EXAM`; 403 `NOT_ELIGIBLE`/`EXAM_NOT_PASSED`; 503 sem código único.
    */
   async issue(user: AuthUser, courseId: string): Promise<CertificateIssue> {
     const existing = await this.repo.findByUserCourse(user.id, courseId)
@@ -52,6 +59,9 @@ export class CertificatesService {
 
     const requirements = await this.exams.getCertificateRequirements(user, courseId)
     const passedScore = this.assertEligible(requirements)
+    if (!(await this.gamification.ensureCourseCompletion(user.id, courseId))) {
+      throw Forbidden("Conclua todas as lições do curso antes de emitir o certificado.", "NOT_ELIGIBLE")
+    }
 
     for (let attempt = 0; attempt < MAX_CODE_RETRIES; attempt++) {
       const code = generateVerificationCode()
@@ -79,18 +89,21 @@ export class CertificatesService {
     return (await this.repo.listByUser(user.id)).map(toMyCertificate)
   }
 
-  /** Verificação pública: código inexistente → valid:false (sem erro). */
+  /** Verificação pública de certificado de curso ou de trilha: código inexistente → valid:false (sem erro). */
   async verify(rawCode: string): Promise<CertificateVerification> {
     const code = normalizeCode(rawCode)
-    const certificate = code ? await this.repo.findByCode(code) : null
-    return certificate ? toVerification(certificate) : invalidVerification(code ?? "")
+    if (!code) return invalidVerification("")
+    const certificate = await this.repo.findByCode(code)
+    if (certificate) return toVerification(certificate)
+    const trackCertificate = await this.repo.findTrackCertificateByCode(code)
+    return trackCertificate ? toTrackVerification(trackCertificate) : invalidVerification(code)
   }
 
   /** PDF oficial, público por código (o código é a credencial). */
   async getPdf(rawCode: string): Promise<CertificatePdf> {
     const code = normalizeCode(rawCode)
     const certificate = code ? await this.repo.findByCode(code) : null
-    if (!certificate) throw NotFound("Certificado")
+    if (!certificate) return this.getTrackPdf(code)
     const buffer = await renderCertificatePdf({
       code: certificate.verificationCode,
       studentName: certificate.studentName || FALLBACK_STUDENT_NAME,
@@ -98,6 +111,21 @@ export class CertificatesService {
       issuedAt: toIsoTimestamp(certificate.issuedAt),
       examScore: Number(certificate.examScore ?? 0),
       projectStatus: certificate.projectStatus,
+      verifyUrl: verificationUrl(this.env.PUBLIC_BASE_URL, certificate.verificationCode),
+    })
+    return { code: certificate.verificationCode, buffer }
+  }
+
+  private async getTrackPdf(code: string | null): Promise<CertificatePdf> {
+    const certificate = code ? await this.repo.findTrackCertificateByCode(code) : null
+    if (!certificate) throw NotFound("Certificado")
+    const buffer = await renderCertificatePdf({
+      code: certificate.verificationCode,
+      studentName: certificate.studentName || FALLBACK_STUDENT_NAME,
+      courseTitle: certificate.certificateTitle || certificate.trackTitle,
+      issuedAt: toIsoTimestamp(certificate.issuedAt),
+      examScore: null,
+      projectStatus: "passed",
       verifyUrl: verificationUrl(this.env.PUBLIC_BASE_URL, certificate.verificationCode),
     })
     return { code: certificate.verificationCode, buffer }
@@ -114,10 +142,12 @@ export class CertificatesService {
     return requirements.passedScore
   }
 
-  /** Auditoria e notificação: melhor-esforço, nunca derrubam a emissão. */
+  /** Auditoria, evento, badge "Formado(a)" e notificação: melhor-esforço, nunca derrubam a emissão. */
   private async afterIssue(user: AuthUser, { courseId, courseTitle, code, score }: IssuedCertificate): Promise<void> {
     await this.audit.log(user, "certificate.issued", courseId, { verification_code: code, exam_score: score, course_title: courseTitle })
+    await this.events.record(user.id, "certificate_issued", { course_id: courseId, kind: "course" })
     try {
+      await this.gamification.grantEligibleBadges(user.id)
       await this.notifications.notify(user.id, {
         title: "Certificado emitido! 🎓",
         body: `Seu certificado de ${courseTitle} foi emitido com o código de verificação ${code}. Compartilhe e baixe o PDF quando quiser.`,

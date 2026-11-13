@@ -73,12 +73,12 @@ describe("Lógica de negócio sob ataque", () => {
       expect(await totalXpOf(ctx, teacher.id)).toBe(0)
     })
 
-    it("sequência (streak) não sobe com logins repetidos no mesmo dia", async () => {
+    it("sequência (streak) não sobe com logins: ela conta dias com conclusão, não acessos", async () => {
       for (let login = 0; login < 5; login++) {
         await student.agent.post("/api/auth/sign-in", { email: student.email, password: student.password })
       }
       const stored = required(await ctx.db.query.profiles.findFirst({ where: eq(profiles.id, student.id) }), "perfil")
-      expect(stored.currentStreak).toBe(1)
+      expect(stored.currentStreak).toBe(0)
     })
   })
 

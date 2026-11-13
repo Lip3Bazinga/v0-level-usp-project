@@ -47,6 +47,7 @@ export function toCertificateIssue(certificate: Pick<CertificateSummaryRow, "ver
 export function toVerification(certificate: PublicCertificateRow): CertificateVerification {
   return {
     valid: true,
+    kind: "course",
     verification_code: certificate.verificationCode,
     student_name: certificate.studentName,
     course_title: certificate.courseTitle,
@@ -55,7 +56,29 @@ export function toVerification(certificate: PublicCertificateRow): CertificateVe
   }
 }
 
+/** Certificado de trilha com o aluno, para a verificação pública e o PDF. */
+export interface PublicTrackCertificateRow {
+  verificationCode: string
+  studentName: string
+  trackTitle: string
+  certificateTitle: string
+  issuedAt: string
+}
+
+/** Verificação pública de um certificado de trilha: o "curso" é o nome impresso da trilha; não há nota. */
+export function toTrackVerification(certificate: PublicTrackCertificateRow): CertificateVerification {
+  return {
+    valid: true,
+    kind: "track",
+    verification_code: certificate.verificationCode,
+    student_name: certificate.studentName,
+    course_title: certificate.certificateTitle || certificate.trackTitle,
+    issued_at: toIsoTimestamp(certificate.issuedAt),
+    exam_score: null,
+  }
+}
+
 /** Código inexistente responde `valid: false` (sem erro), ecoando o código normalizado. */
 export function invalidVerification(code: string): CertificateVerification {
-  return { valid: false, verification_code: code, student_name: null, course_title: null, issued_at: null, exam_score: null }
+  return { valid: false, kind: null, verification_code: code, student_name: null, course_title: null, issued_at: null, exam_score: null }
 }

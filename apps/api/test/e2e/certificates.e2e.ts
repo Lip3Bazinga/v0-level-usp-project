@@ -61,6 +61,7 @@ describe("Certificados (e2e)", () => {
     expect(verification.student_name).toMatch(/^Usuário/)
     expect(verification).toEqual({
       valid: true,
+      kind: "course",
       verification_code: code,
       student_name: verification.student_name,
       course_title: "Python do Zero",
@@ -95,7 +96,7 @@ describe("Certificados (e2e)", () => {
     const anonymous = agent(ctx.app)
     const response = await anonymous.get("/api/certificates/LVL-ZZZZ-ZZZZ")
     expect(response.status).toBe(200)
-    expect(response.body).toEqual({ valid: false, verification_code: "LVL-ZZZZ-ZZZZ", student_name: null, course_title: null, issued_at: null, exam_score: null })
+    expect(response.body).toEqual({ valid: false, kind: null, verification_code: "LVL-ZZZZ-ZZZZ", student_name: null, course_title: null, issued_at: null, exam_score: null })
     expect(bodyOf<CertificateVerification>(await anonymous.get("/api/certificates/codigo%20estranho%27")).valid).toBe(false)
     expect((await anonymous.get("/api/certificates/LVL-ZZZZ-ZZZZ/pdf")).status).toBe(404)
   })

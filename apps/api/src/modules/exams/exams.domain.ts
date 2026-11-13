@@ -161,6 +161,8 @@ export interface LessonForEligibility {
   id: string
   module: string | null
   moduleTitle: string | null
+  /** Projeto do nível: a prova não o exige (o certificado, sim). */
+  isProject: boolean
 }
 
 /** Quantas lições obrigatórias faltam para liberar a prova. */
@@ -170,9 +172,9 @@ export interface ExamEligibility {
   total: number
 }
 
-/** Elegibilidade: todas as lições publicadas do curso (fora o módulo de certificação) concluídas. */
+/** Elegibilidade: todas as lições publicadas do curso (fora os projetos e o módulo de certificação antigo) concluídas. */
 export function examEligibility(lessons: LessonForEligibility[], completed: ReadonlySet<string>): ExamEligibility {
-  const required = lessons.filter((lesson) => !isCertificationModule(lesson.module) && !isCertificationModule(lesson.moduleTitle))
+  const required = lessons.filter((lesson) => !lesson.isProject && !isCertificationModule(lesson.module) && !isCertificationModule(lesson.moduleTitle))
   const remaining = required.filter((lesson) => !completed.has(lesson.id)).length
   return { eligible: required.length > 0 && remaining === 0, remaining, total: required.length }
 }

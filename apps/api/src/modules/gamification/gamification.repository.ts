@@ -149,6 +149,15 @@ export class GamificationRepository {
     return inserted.length > 0
   }
 
+  /** Se a conclusão do curso já está registrada para o aluno. */
+  async hasCourseCompletion(userId: string, courseId: string, executor: DbExecutor = this.db): Promise<boolean> {
+    const [completion] = await executor
+      .select({ id: courseCompletions.id })
+      .from(courseCompletions)
+      .where(and(eq(courseCompletions.userId, userId), eq(courseCompletions.courseId, courseId)))
+    return completion !== undefined
+  }
+
   /** Ids das lições publicadas do curso. */
   listPublishedLessonIds(courseId: string, executor: DbExecutor = this.db): Promise<Pick<LessonRow, "id">[]> {
     return executor.select({ id: lessons.id }).from(lessons).where(and(eq(lessons.courseId, courseId), eq(lessons.published, true)))

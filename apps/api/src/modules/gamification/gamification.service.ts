@@ -128,6 +128,18 @@ export class GamificationService {
     return this.transactions.run((tx: DbTransaction) => this.grantBadges(userId, tx))
   }
 
+  /**
+   * Garante o registro de conclusão do curso (pré-condição do certificado) para quem terminou
+   * as lições antes de `course_completions` existir. Devolve se o curso está concluído.
+   */
+  ensureCourseCompletion(userId: string, courseId: string): Promise<boolean> {
+    return this.transactions.run(async (tx: DbTransaction) => {
+      if (await this.repo.hasCourseCompletion(userId, courseId, tx)) return true
+      if (!(await this.repo.lockProgression(userId, tx))) return false
+      return this.markCourseIfCompleted(userId, courseId, tx)
+    })
+  }
+
   private async completeLessonIn(tx: DbTransaction, userId: string, lessonId: string, options: CompletionOptions): Promise<CompletionOutcome> {
     const lesson = await this.repo.findLessonReward(lessonId, tx)
     if (!lesson) throw new Error(`lição ${lessonId} inexistente`)

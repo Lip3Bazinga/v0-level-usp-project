@@ -1,7 +1,8 @@
 import { Injectable } from "@nestjs/common"
 import type { ActivityDay, Badge, Profile, PublicProfile, UpdateMyProfileInput, UserBadge } from "@levelusp/contracts"
 import type { ProfileInsert } from "@levelusp/db"
-import { Conflict, NotFound } from "@/common/errors/app-error"
+import { Conflict, Forbidden, NotFound } from "@/common/errors/app-error"
+import type { AuthUser } from "@/common/http/request"
 import { buildPatch, type PatchMapping } from "@/common/mapping/patch"
 import { MS_PER_DAY, saoPauloDate } from "@/common/time/time"
 import { StorageService } from "@/infra/storage/storage.service"
@@ -64,8 +65,13 @@ export class UsersService {
     return (await this.repo.listLeaderboard(limit)).map((profile) => toPublicProfile(profile))
   }
 
-  /** Um ano, do mais antigo ao mais recente, sem buracos. */
-  async listActivity(userId: string, now = new Date()): Promise<ActivityDay[]> {
+  /**
+   * Atividade de um ano, do dia mais antigo ao mais recente, sem buracos.
+   *
+   * @throws AppError 403 quando quem pede não é o próprio usuário, professor nem admin.
+   */
+  async listActivity(viewer: AuthUser, userId: string, now = new Date()): Promise<ActivityDay[]> {
+    if (viewer.id !== userId && viewer.role === "student") throw Forbidden("Você só pode ver a sua própria atividade.")
     const since = new Date(now.getTime() - ACTIVITY_DAYS * MS_PER_DAY)
     const activityByDay = new Map((await this.repo.listActivity(userId, since)).map((day) => [day.day, day]))
     const days: ActivityDay[] = []

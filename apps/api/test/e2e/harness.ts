@@ -36,6 +36,7 @@ export class FakeRunner implements CodeRunner, RunnerHealthProbe {
   reset(): void {
     this.jobs = []
     this.failures.length = 0
+    this.isHealthy = true
   }
 
   /** Faz as próximas `count` correções falharem com `error` (ex.: executor ocupado). */
@@ -50,8 +51,11 @@ export class FakeRunner implements CodeRunner, RunnerHealthProbe {
     return Promise.resolve({ observations: this.responder(job), engine: { python: "fake", runtime: "fake" }, durationMs: 1 })
   }
 
+  /** Simula o executor fora do ar no healthcheck (`GET /health/ready`). */
+  isHealthy = true
+
   healthy(): Promise<boolean> {
-    return Promise.resolve(true)
+    return Promise.resolve(this.isHealthy)
   }
 }
 
@@ -124,7 +128,8 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
         truncate users, sessions, password_reset_tokens, oauth_accounts, profiles, modules, courses, lessons,
           lesson_quiz_questions, enrollments, lesson_progress, submissions, notes, badges, user_badges, exams,
           exam_questions, exam_attempts, certificates, notifications, audit_log, platform_settings,
-          teacher_approvals, library_catalog, library_requests, uploads cascade`)
+          teacher_approvals, library_catalog, library_requests, uploads, tracks, track_courses, track_certificates,
+          lesson_steps, lesson_step_progress, course_completions, events cascade`)
       runner.reset()
       mail.reset()
     },

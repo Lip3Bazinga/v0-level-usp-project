@@ -189,5 +189,14 @@ export const contentBundleSchema = z
     courses: z.array(bundleCourseSchema).max(100),
   })
   .superRefine(checkUniqueSlugs)
+/** Resposta de `POST /admin/content/import`: quantas linhas de cada tipo o pacote criou ou atualizou. */
+export interface ContentImportSummary {
+  tracks: number
+  courses: number
+  modules: number
+  lessons: number
+  steps: number
+}
+
 /** Pacote inteiro, validado: o que o seed e a importação do admin consomem. */
 export type ContentBundle = z.infer<typeof contentBundleSchema>

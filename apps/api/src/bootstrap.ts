@@ -2,13 +2,17 @@ import type { Server } from "node:http"
 import type { NestExpressApplication } from "@nestjs/platform-express"
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger"
 import cookieParser from "cookie-parser"
+import { json } from "express"
 import helmet from "helmet"
 import { Logger } from "nestjs-pino"
 import { ENV } from "./config/config.module"
 import type { Env } from "./config/env"
 import { SESSION_COOKIE } from "./common/http/request"
+import { CONTENT_IMPORT_PATH } from "./modules/content/content.controller"
 
 const JSON_BODY_LIMIT = "1mb"
+/** O pacote de conteúdo dos 7 níveis passa de 1 MB; só a rota de importação (admin) aceita este tamanho. */
+const CONTENT_IMPORT_BODY_LIMIT = "20mb"
 
 /** Opções de {@link configureApp}; os testes e2e desligam o logger pino (`useLogger: false`). */
 export interface ConfigureAppOptions {
@@ -21,6 +25,8 @@ export function configureApp(app: NestExpressApplication, options: ConfigureAppO
   if (options.useLogger !== false) app.useLogger(app.get(Logger))
   app.set("trust proxy", env.TRUST_PROXY ? 1 : false)
   app.disable("x-powered-by")
+  // Antes do parser global: quem já leu o corpo marca a requisição e o parser de 1 MB não roda de novo.
+  app.use(CONTENT_IMPORT_PATH, json({ limit: CONTENT_IMPORT_BODY_LIMIT }))
   app.useBodyParser("json", { limit: JSON_BODY_LIMIT })
   app.use(
     helmet({
