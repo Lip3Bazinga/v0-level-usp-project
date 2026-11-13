@@ -48,7 +48,6 @@ export const ROUTES = {
     about: "/sobre",
     methodology: "/metodologia",
     tracks: "/trilhas",
-    impact: "/impacto",
     team: "/equipe",
     partners: "/parceiros",
     faq: "/faq",

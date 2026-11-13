@@ -1,6 +1,8 @@
 import Link from "next/link"
 import { GraduationCap } from "lucide-react"
-import { DIFFICULTIES, LESSON_TYPES, type Course, type Difficulty, type LessonType, type Module } from "@levelusp/contracts"
+import {
+  DIFFICULTIES, LESSON_TYPES, lessonRuntimeSchema, MAX_SOLUTION_AFTER_ATTEMPTS, type Course, type Difficulty, type LessonType, type Module,
+} from "@levelusp/contracts"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DIFFICULTY_LABELS, ROUTES } from "@/lib/constants"
 import { cn } from "@/lib/utils"
@@ -229,6 +231,57 @@ export function ConfigTab({ form, onChange: patch, courses, modules }: ConfigTab
           </p>
         </div>
       )}
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <label htmlFor="lesson-runtime" className={LABEL_CLASS}>Motor da correção</label>
+          <select
+            id="lesson-runtime"
+            value={form.runtime}
+            onChange={(event) => patch({ runtime: lessonRuntimeSchema.parse(event.target.value) })}
+            className={INPUT_CLASS}
+          >
+            <option value="python">Python puro</option>
+            <option value="python-dados">Python com dados (numpy, pandas…)</option>
+          </select>
+        </div>
+        <div className="space-y-2">
+          <label htmlFor="lesson-solution-after" className={LABEL_CLASS}>Solução liberada após</label>
+          <div className="relative">
+            <input
+              id="lesson-solution-after"
+              type="number"
+              value={form.solution_after_attempts}
+              onChange={(event) => patch({ solution_after_attempts: Math.max(0, parseIntegerOr(event.target.value, 0)) })}
+              min={0}
+              max={MAX_SOLUTION_AFTER_ATTEMPTS}
+              className={cn(INPUT_CLASS, "pr-28")}
+            />
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">tentativas</span>
+          </div>
+          <p className="text-xs text-muted-foreground">0 = a solução nunca é mostrada. Vale para os passos de exercício.</p>
+        </div>
+      </div>
+
+      <label className="flex items-start gap-3 rounded-xl border-2 border-border p-4">
+        <input type="checkbox" checked={form.is_project} onChange={(event) => patch({ is_project: event.target.checked })} className="mt-1 h-4 w-4 accent-level-purple" />
+        <span>
+          <span className="block text-sm font-medium text-level-purple-dark">Projeto do nível</span>
+          <span className="block text-xs text-muted-foreground">Só abre depois das demais lições do curso e conta para o certificado.</span>
+        </span>
+      </label>
+
+      <div className="space-y-2">
+        <label htmlFor="lesson-objectives" className={LABEL_CLASS}>Objetivos de aprendizagem</label>
+        <textarea
+          id="lesson-objectives"
+          rows={3}
+          defaultValue={form.objectives.join("\n")}
+          onChange={(event) => patch({ objectives: event.target.value.split("\n").map((line) => line.trim()).filter((line) => line !== "") })}
+          placeholder="Um objetivo por linha (até 10)"
+          className={INPUT_CLASS}
+        />
+      </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">

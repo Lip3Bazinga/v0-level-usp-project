@@ -72,7 +72,11 @@ const nextConfig = {
 
   // A antiga página "Configurações" foi para dentro do perfil; links e favoritos antigos continuam funcionando.
   async redirects() {
-    return [{ source: "/settings", destination: "/perfil/me/conta", permanent: true }]
+    return [
+      { source: "/settings", destination: "/perfil/me/conta", permanent: true },
+      // A página de impacto trazia números sem fonte e foi retirada.
+      { source: "/impacto", destination: "/sobre", permanent: true },
+    ]
   },
 
   // Headers de segurança para produção

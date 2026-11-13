@@ -40,7 +40,7 @@ export const FAQ_GROUPS = [
       {
         question: "Quanto tempo leva para concluir uma trilha?",
         answer:
-          "Depende do seu ritmo. Cada trilha indica uma carga horária estimada (por exemplo, 30h para Fundamentos de Python). Como o conteúdo é dividido em microlições, você pode estudar alguns minutos por dia.",
+          "Depende do seu ritmo. Cada trilha indica uma carga horária estimada (por exemplo, cerca de 50 h para o Nível 1 — Fundamentos). Como o conteúdo é dividido em microlições, você pode estudar alguns minutos por dia.",
       },
       {
         question: "Em que língua está o conteúdo?",

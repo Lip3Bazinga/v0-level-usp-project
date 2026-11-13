@@ -17,6 +17,7 @@ import { EditorTabsNav, isTabVisible, type EditorTabId } from "./editor-tabs"
 import { LibrariesTab } from "./libraries-tab"
 import { QuizTab } from "./quiz-tab"
 import { StarterFilesTab } from "./starter-files-tab"
+import { StepsTab } from "./steps-tab"
 import { TestsTab } from "./tests-tab"
 import { useLessonEditor, type EditableLesson } from "./use-lesson-editor"
 
@@ -140,6 +141,7 @@ export function LessonEditorScreen({ initial, onCreated }: LessonEditorScreenPro
               ? { text: `${testErrorCount} erro(s)`, isDanger: true }
               : { text: String(editor.drafts.length), isDanger: editor.drafts.length === 0 },
             ...(form.lesson_type === "quiz" && { questoes: { text: String(editor.quiz.length) } }),
+            ...(form.lesson_type === "guided" && { passos: { text: String(form.steps.length), isDanger: form.steps.length === 0 } }),
           }}
         />
 
@@ -162,6 +164,8 @@ export function LessonEditorScreen({ initial, onCreated }: LessonEditorScreenPro
           />
         )}
 
+        {tab === "passos" && form.lesson_type === "guided" && <StepsTab steps={form.steps} onChange={(steps) => patchForm({ steps })} />}
+
         {tab === "questoes" && form.lesson_type === "quiz" && (
           <QuizTab questions={editor.quiz} onChange={editor.setQuiz} passingScore={form.quiz_passing_score} />
         )}
@@ -178,7 +182,7 @@ export function LessonEditorScreen({ initial, onCreated }: LessonEditorScreenPro
           <CheckpointsTab checkpoints={form.checkpoints} onChange={(checkpoints) => patchForm({ checkpoints })} />
         )}
 
-        {tab === "libs" && form.lesson_type === "coding" && (
+        {tab === "libs" && (form.lesson_type === "coding" || form.lesson_type === "guided") && (
           <LibrariesTab
             selected={form.libraries}
             onChange={(libraries) => patchForm({ libraries })}

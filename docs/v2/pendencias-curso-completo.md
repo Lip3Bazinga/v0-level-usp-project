@@ -1,6 +1,6 @@
 # Pendências do curso completo — branch `feat/curso-completo`
 
-Estado em 2026-11-13 (P1 concluído; próximo passo: P2 — Web). Decisões: `decisoes-curso-2026-11-04.md` (escolhidas: 7 níveis + trilha;
+Estado em 2026-11-13 (P1 e P2 concluídos; próximo passo: P2b — recursos de apresentação das aulas). Decisões: `decisoes-curso-2026-11-04.md` (escolhidas: 7 níveis + trilha;
 Pyodide no runner; certificado = lições 100 % + prova ≥ 70 % + projeto; escopo = estrutura dos 7
 níveis + Nível 1 completo). Especificação técnica: `curso-e-passos.md`.
 
@@ -47,16 +47,25 @@ Decisões tomadas na implementação (ajustar aqui se alguma não for a desejada
 
 O que o P2 precisa acompanhar na web: `Lesson.created_by` não existe mais; `CertificateVerification.kind`; `SessionResponse.streak` deixou de vir (tirar a animação de sequência do login e mostrá-la na conclusão).
 
-### P2 — Web (`apps/web`)
-§5 e §8 de `curso-e-passos.md`:
-1. Player de passos na lição (lista de passos, narrativa, checkpoints ✓/✗, editor, Executar/Verificar, Dica n/3, Ver solução após N tentativas, leitura, quiz com revisão, Continuar, comemoração). Lições sem passos seguem na tela atual. Rascunho por passo em `localStorage` com try/catch.
-2. `/trilhas`, `/trilhas/[slug]`, `/cursos/[id]` com módulos → lições, projeto, prova e certificado; bloco "Sua trilha" no painel; "Trilhas" no menu.
-3. Curva de XP (`lib/utils/gamification.ts` sem `XP_PER_LEVEL`), `certificates_issued` no painel, textos de streak.
-4. Condição `controle` (`useGamificationVisible()` esconde XP/nível/streak/badges/ranking); `lib/events.ts` (fila, lote a cada 5 s/20 eventos, `sendBeacon` no `pagehide`, sem código do aluno).
-5. Limpeza da auditoria: `/settings` → `/perfil`; marketing sem números inventados; sem "Em breve"/"Não disponível"; sem OAuth; sem UI `final_project_*`; editor de lição do professor com `is_project`, `runtime`, `objectives` e editor de passos (envia `steps`).
-6. HSTS em produção no `next.config.mjs`; `next/dynamic` para CodeMirror e Pyodide.
-7. Testes vitest do player, trilhas, condição controle, eventos; `docs/v2/web-ui.md`.
-Pronto quando: `pnpm --filter @levelusp/web typecheck lint test build` verde.
+### P2 — Web (`apps/web`) — CONCLUÍDO em 2026-11-13
+Descrição das telas em `web-ui.md`. `pnpm --filter @levelusp/web typecheck lint test build` verde (55 arquivos de teste, 256 testes).
+
+Feito: player de passos; `/trilhas` e `/trilhas/[slug]` com dados reais; `/cursos/[id]` por módulos com
+projeto do nível, prova e certificado; bloco "Sua trilha" e "Trilhas" no menu; curva de XP; badge de
+certificados no painel; condição `controle`; `lib/events.ts`; limpeza da auditoria; editor do professor
+com passos, `is_project`, `runtime` e objetivos; HSTS; `next/dynamic` para o editor e o player.
+
+Decisões tomadas na implementação (ajustar aqui se alguma não for a desejada):
+- O último lote de eventos sai por `fetch` com `keepalive`, não por `sendBeacon`: o beacon não envia o
+  cabeçalho anti-CSRF e a API devolveria 403.
+- "Configurações" não era inerte (edita perfil e troca senha): em vez de removida, foi para `/perfil/me/conta`.
+- Números inventados: saíram a página `/impacto` e os contadores da home. **Ficaram para revisão do
+  Filipe** a linha do tempo de `/sobre` (anos e "200 estudantes"), as páginas Equipe e Parceiros e as
+  porcentagens com citação da home (+76 %, +50 %): não há como conferi-las pelo repositório.
+- O grupo `controle` continua recebendo XP na API; só a interface esconde.
+
+Não verificado nesta sessão: os testes Playwright (`pnpm --filter @levelusp/web test:e2e`), que
+precisam da pilha inteira no ar; dois deles (`e2e/ux/*.spec.ts`) tiveram só as rotas atualizadas.
 
 ### P2b — Recursos de apresentação das aulas (antes do P3)
 Decidido em 2026-11-13: as lições só são escritas depois que o formato e o player suportarem estes

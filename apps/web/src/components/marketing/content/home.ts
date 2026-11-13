@@ -1,6 +1,5 @@
 import {
   Activity,
-  Award,
   BookOpen,
   Brain,
   BrainCircuit,
@@ -10,14 +9,12 @@ import {
   Globe2,
   HeartHandshake,
   LineChart,
-  MapPin,
   Repeat,
   Rocket,
   Sprout,
   Terminal,
   Trophy,
   Users,
-  type LucideIcon,
 } from "lucide-react"
 import { MAIN_FILE_PATH } from "@/lib/constants"
 import type { IconHighlight } from "./types"
@@ -150,25 +147,10 @@ export const JOURNEY_CHAPTERS = [
   {
     icon: Trophy,
     chapter: "Conquista",
-    title: "Projeto final",
-    description: "Construa um projeto completo e receba seu certificado da USP.",
+    title: "Projeto do nível",
+    description: "Construa um projeto completo, faça a prova e receba o certificado do nível.",
   },
 ] as const satisfies readonly JourneyChapter[]
-
-export interface CountUpStat {
-  icon: LucideIcon
-  target: number
-  suffix: string
-  label: string
-}
-
-/** Números que contam de zero até `target` quando a seção entra na tela. */
-export const IMPACT_COUNTERS = [
-  { icon: Users, target: 50_000, suffix: "+", label: "Estudantes alcançados" },
-  { icon: BookOpen, target: 200, suffix: "+", label: "Lições interativas" },
-  { icon: MapPin, target: 27, suffix: "", label: "Estados brasileiros" },
-  { icon: Award, target: 98, suffix: "%", label: "Satisfação dos alunos" },
-] as const satisfies readonly CountUpStat[]
 
 /** Classe de destaque de sintaxe (cores do tema escuro do VS Code). */
 export type CodeTokenKind =

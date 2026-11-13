@@ -50,12 +50,6 @@ const SCREENS: AuditedScreen[] = [
   },
   {
     persona: "visitante",
-    label: ROUTES.site.impact,
-    route: ROUTES.site.impact,
-    checksContrast: true,
-  },
-  {
-    persona: "visitante",
     label: ROUTES.certificate(MISSING_CERTIFICATE_CODE),
     route: ROUTES.certificate(MISSING_CERTIFICATE_CODE),
     checksContrast: true,

@@ -51,7 +51,6 @@ export const XP_PULSE_DURATION_MS = 900
 /** Animação de contagem dos números do painel e da seção de impacto do site. */
 export const XP_COUNT_UP_DURATION_MS = 900
 export const LESSONS_COUNT_UP_DURATION_MS = 700
-export const IMPACT_COUNT_UP_DURATION_MS = 1_600
 
 /** Atraso para abrir as dicas (tooltip) do mapa de atividade e das conquistas do perfil. */
 export const ACTIVITY_TOOLTIP_DELAY_MS = 100

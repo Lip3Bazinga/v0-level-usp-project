@@ -10,7 +10,6 @@ export const PRIMARY_NAV_LINKS = [
   { href: ROUTES.site.about, label: "Sobre" },
   { href: ROUTES.site.methodology, label: "Metodologia" },
   { href: ROUTES.site.tracks, label: "Trilhas" },
-  { href: ROUTES.site.impact, label: "Impacto" },
 ] as const satisfies readonly SiteLink[]
 
 export interface DescribedSiteLink extends SiteLink {
@@ -36,7 +35,6 @@ export const FOOTER_LINK_GROUPS = [
     links: [
       { label: "Sobre o projeto", href: ROUTES.site.about },
       { label: "Metodologia", href: ROUTES.site.methodology },
-      { label: "Impacto", href: ROUTES.site.impact },
       { label: "Equipe", href: ROUTES.site.team },
       { label: "Parceiros", href: ROUTES.site.partners },
     ],
