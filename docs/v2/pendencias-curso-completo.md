@@ -41,8 +41,44 @@ Pronto quando: `pnpm --filter @levelusp/api typecheck lint test test:e2e test:se
 7. Testes vitest do player, trilhas, condição controle, eventos; `docs/v2/web-ui.md`.
 Pronto quando: `pnpm --filter @levelusp/web typecheck lint test build` verde.
 
+### P2b — Recursos de apresentação das aulas (antes do P3)
+Decidido em 2026-11-13: as lições só são escritas depois que o formato e o player suportarem estes
+recursos, para não reescrever conteúdo depois. Escopo: `content/README.md` + compilador/lint
+(`apps/api/scripts/content/`), contratos (`packages/contracts`), web (player) e, onde houver
+correção nova, API.
+1. **Fórmulas (KaTeX):** `$…$` e `$$…$$` em narrativas, instruções, dicas e quizzes
+   (`remark-math` + `rehype-katex`, CSS do KaTeX local); o lint valida cada fórmula com o parser
+   do KaTeX. Essencial nos Níveis 5–6.
+2. **Diagramas e imagens:** blocos ```mermaid renderizados no player (carregados sob demanda);
+   imagens em `content/cursos/<nível>/<módulo>/assets/` referenciadas como `![texto alternativo](assets/x.svg)`;
+   o compilador inclui os arquivos no pacote (campo `assets`, caminho → conteúdo + tipo, limite por
+   arquivo) e a API os serve; o lint exige texto alternativo, arquivo existente e Mermaid válido.
+3. **Visualizador de execução (estilo Python Tutor):** bloco ```python visualizar na narrativa e botão
+   "Visualizar" no editor: roda no Pyodide do navegador com `sys.settrace`, registra linha, variáveis
+   locais/globais e saída a cada passo (limite de 500 passos) e mostra com anterior/próximo/slider,
+   destacando a linha e as variáveis que mudaram. Não envolve correção.
+4. **Novos formatos de exercício:**
+   - `modo: lacunas` — código com `___` para completar; correção pelos mesmos casos de teste.
+   - `modo: ordenar` (problema de Parsons) — linhas embaralhadas (com distratores opcionais) que o
+     aluno arrasta e indenta; o código montado é corrigido pelos mesmos casos de teste no servidor.
+   - passo `Previsão` — o aluno lê um código e digita a saída que espera; a saída esperada fica só
+     na API (gerada pelo `content:build` executando o código no runner) e é comparada sem espaços
+     extras; dá XP e tem dicas como os demais.
+   Contratos, formato `.lvl.md`, lint, `content:verify` (lacunas/ordenar: a solução montada aprova e
+   a ordem embaralhada reprova), API (correção de `Previsão`) e player.
+5. **Vídeo opcional:** `::video[título](url)` só para YouTube (`youtube-nocookie.com`) e Vimeo,
+   com `frame-src` restrito no CSP; sempre com resumo em texto ao lado (acessibilidade).
+6. **Atualizar `PLANO.md` do Nível 1** para usar os recursos: diagramas no módulo 1 (hardware,
+   compilação, sistema operacional), visualizador nos módulos 3–6 (laços, listas, funções, recursão),
+   `ordenar`/`lacunas` nas primeiras lições de cada módulo, `Previsão` em todo módulo, fórmulas
+   onde houver conta (binário, IMC, juros).
+7. Células estilo notebook ficam para o Nível 4 (P5), em cima do motor `python-dados`.
+Pronto quando: `content/exemplo` usa todos os recursos, `content:check`/`content:verify` passam, o
+player renderiza tudo (testes vitest) e `pnpm build && pnpm lint && pnpm test` estão verdes.
+
 ### P3 — Conteúdo do Nível 1 (46 lições restantes)
 Para cada lição de `content/cursos/n1-fundamentos/<módulo>/` (exceto `06-funcoes/01-definir-e-chamar`, já pronta): manter o frontmatter e substituir o passo "Roteiro da lição" pelos passos reais descritos no `PLANO.md` (seção do módulo), no formato de `content/README.md`. Cada exercício: instruções numeradas (checkpoints), código inicial, solução, 1–3 dicas, verificação JSON com `checkpoint` em cada caso, ≥ 2 soluções erradas (sem laço infinito). Quiz com 2–3 perguntas.
+Use os recursos do P2b (diagramas, visualizador, fórmulas, lacunas, ordenar, Previsão) como o `PLANO.md` atualizado indicar; a lição `06-funcoes/01-definir-e-chamar` também deve ser revista para usá-los.
 Módulos: 01 (5 lições), 02 (6), 03 (5), 04 (7), 05 (7), 06 (6 restantes), 07 (5), 08 (4), 09 projeto (1).
 Pronto quando: `pnpm content:check` OK e `pnpm content:verify --curso n1-fundamentos` com todos os passos `OK` contra o runner real; depois `pnpm content:build`.
 
