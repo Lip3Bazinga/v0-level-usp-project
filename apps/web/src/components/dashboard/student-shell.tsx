@@ -36,7 +36,7 @@ const NAV_ITEMS: Record<StudentNavItemId, StudentNavItem> = {
   leaderboard: { label: "Ranking", icon: Trophy, href: () => ROUTES.leaderboard },
   notes: { label: "Notas", icon: NotebookPen, href: () => ROUTES.notes },
   profile: { label: "Perfil", icon: User, href: (username) => ROUTES.profile(username) },
-  settings: { label: "Configurações", mobileLabel: "Config", icon: Settings, href: () => ROUTES.settings },
+  settings: { label: "Minha conta", mobileLabel: "Conta", icon: Settings, href: () => ROUTES.account },
 }
 
 interface ScreenLayout {
@@ -248,8 +248,8 @@ export function AccountMenuContent({ hasDashboardLink = false, hasRoleLinks = fa
       <DropdownMenuItem onClick={() => router.push(ROUTES.profile(profile?.username))}>
         <User className="mr-2 h-4 w-4" /> Meu Perfil
       </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => router.push(ROUTES.settings)}>
-        <Settings className="mr-2 h-4 w-4" /> Configurações
+      <DropdownMenuItem onClick={() => router.push(ROUTES.account)}>
+        <Settings className="mr-2 h-4 w-4" /> Minha conta
       </DropdownMenuItem>
       {hasRoleLinks && role && TEACHING_ROLES.includes(role) && (
         <DropdownMenuItem onClick={() => router.push(ROUTES.teacher)}>

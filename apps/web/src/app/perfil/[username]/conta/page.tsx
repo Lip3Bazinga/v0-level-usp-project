@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { ChevronLeft, Loader2, LogOut, Shield, User, type LucideIcon } from "lucide-react"
 import type { Profile } from "@levelusp/contracts"
 import { BrandMark } from "@/components/design-system/brand-logo"
@@ -20,12 +20,18 @@ const TABS: readonly { id: SettingsTab; label: string; icon: LucideIcon }[] = [
   { id: "security", label: "Segurança", icon: Shield },
 ]
 
-export default function SettingsPage(): React.JSX.Element {
+export default function AccountPage(): React.JSX.Element {
   const router = useRouter()
+  const { username } = useParams<{ username: string }>()
   const { profile, isLoading: isAuthLoading } = useAuth()
 
+  // A conta é sempre a de quem está logado: `/perfil/<outro>/conta` volta para o perfil público dessa pessoa.
   useEffect(() => {
-    if (!isAuthLoading && !profile) router.push(ROUTES.loginWithNext(ROUTES.settings))
+    if (profile && username !== "me" && username !== profile.username) router.replace(ROUTES.profile(username))
+  }, [profile, username, router])
+
+  useEffect(() => {
+    if (!isAuthLoading && !profile) router.push(ROUTES.loginWithNext(ROUTES.account))
   }, [isAuthLoading, profile, router])
 
   if (isAuthLoading || !profile) {
@@ -51,15 +57,15 @@ function SettingsContent({ profile }: { profile: Profile }): React.JSX.Element {
         <div className="mx-auto flex h-16 max-w-4xl items-center justify-between px-4">
           <div className="flex items-center gap-4">
             <Link
-              href={ROUTES.dashboard}
-              aria-label="Voltar ao painel"
+              href={ROUTES.profile(profile.username)}
+              aria-label="Voltar ao perfil"
               className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-level-purple-light hover:text-level-purple"
             >
               <ChevronLeft className="h-5 w-5" />
             </Link>
             <div className="flex items-center gap-2">
               <BrandMark size="sm" />
-              <h1 className="text-lg font-bold text-level-purple-dark">Configurações</h1>
+              <h1 className="text-lg font-bold text-level-purple-dark">Minha conta</h1>
             </div>
           </div>
         </div>
@@ -67,7 +73,7 @@ function SettingsContent({ profile }: { profile: Profile }): React.JSX.Element {
 
       <main className="mx-auto max-w-4xl px-4 py-8">
         <div className="flex flex-col gap-8 md:flex-row">
-          <nav aria-label="Seções das configurações" className="w-full shrink-0 md:w-56">
+          <nav aria-label="Seções da conta" className="w-full shrink-0 md:w-56">
             <div className="space-y-1">
               {TABS.map((tab) => (
                 <button

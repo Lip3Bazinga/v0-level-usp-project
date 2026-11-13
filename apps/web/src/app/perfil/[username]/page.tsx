@@ -145,7 +145,7 @@ export default function ProfilePage(): React.JSX.Element {
           </Button>
           {isOwnProfile && (
             <Button asChild variant="ghost" size="icon" className="hover:bg-level-purple-light">
-              <Link href={ROUTES.settings} aria-label="Configurações">
+              <Link href={ROUTES.account} aria-label="Configurações">
                 <Settings className="h-5 w-5 text-muted-foreground" />
               </Link>
             </Button>
@@ -200,7 +200,7 @@ function ProfileHeroSection({ user, isOwnProfile }: { user: PublicProfile; isOwn
 
           {isOwnProfile && (
             <Link
-              href={ROUTES.settings}
+              href={ROUTES.account}
               aria-label="Editar perfil"
               className="absolute -right-1 top-0 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md transition-colors hover:bg-level-purple-light"
             >

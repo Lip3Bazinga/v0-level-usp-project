@@ -51,7 +51,7 @@ const ROUTES_BY_PERSONA: { persona: Persona; routes: ScreenRoute[] }[] = [
       lessonRoute,
       ROUTES.leaderboard,
       ROUTES.notes,
-      ROUTES.settings,
+      ROUTES.account,
       ROUTES.profile("aluna_demo"),
     ],
   },

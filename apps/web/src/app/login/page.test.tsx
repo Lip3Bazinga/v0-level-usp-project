@@ -62,11 +62,12 @@ describe("página de login", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Sem conexão com o servidor")
   })
 
-  it("tem link para recuperar a senha e login social desabilitado", async () => {
+  it("tem link para recuperar a senha e não oferece login social (não existe na API)", async () => {
     renderLogin()
     expect(screen.getByRole("link", { name: "Esqueci minha senha" })).toHaveAttribute("href", "/esqueci-senha")
-    expect(screen.getByRole("button", { name: /Google/ })).toBeDisabled()
-    expect(screen.getByRole("button", { name: /GitHub/ })).toBeDisabled()
+    expect(screen.queryByRole("button", { name: /Google/ })).toBeNull()
+    expect(screen.queryByRole("button", { name: /GitHub/ })).toBeNull()
+    expect(screen.queryByText(/em breve/i)).toBeNull()
     await waitFor(() => expect(api.fetchSession).toHaveBeenCalled())
   })
 })

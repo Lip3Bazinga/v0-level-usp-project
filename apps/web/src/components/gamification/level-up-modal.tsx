@@ -2,7 +2,9 @@
 
 import { motion } from "framer-motion"
 import { Trophy, Star, Zap, ArrowUp } from "lucide-react"
+import { xpForLevel } from "@levelusp/contracts"
 import { CELEBRATION_AUTO_CLOSE_MS } from "@/lib/constants"
+import { formatNumber } from "@/lib/utils"
 import { CelebrationModal } from "@/components/gamification/celebration-modal"
 import { fireConfetti, fireConfettiAfter, useCelebration } from "@/components/gamification/celebration"
 
@@ -12,8 +14,6 @@ interface LevelUpModalProps {
   onClose: () => void
 }
 
-/** Mesma regra fixa da API: cada nível exige mais 1.000 XP. */
-const XP_PER_LEVEL = 1_000
 const CONFETTI_COLORS = ["#FACC15", "#F59E0B", "#7C3AED", "#A78BFA", "#FFFFFF"]
 const CONFETTI_LAYER = 10_000
 
@@ -129,7 +129,7 @@ export function LevelUpModal({ isOpen, newLevel, onClose }: LevelUpModalProps): 
         className="relative z-10 mt-4 flex items-center gap-2 rounded-full bg-white/25 px-5 py-2"
       >
         <Zap className="h-4 w-4 text-white" />
-        <span className="text-sm font-bold text-white">{newLevel * XP_PER_LEVEL} XP para o próximo nível</span>
+        <span className="text-sm font-bold text-white">{formatNumber(xpForLevel(newLevel + 1))} XP no total para o próximo nível</span>
       </motion.div>
 
       <motion.button

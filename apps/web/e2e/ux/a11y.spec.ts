@@ -68,7 +68,7 @@ const SCREENS: AuditedScreen[] = [
   { persona: "aluna", label: "/lesson/:id", route: lessonRoute },
   { persona: "aluna", label: ROUTES.leaderboard, route: ROUTES.leaderboard },
   { persona: "aluna", label: ROUTES.notes, route: ROUTES.notes, checksContrast: true },
-  { persona: "aluna", label: ROUTES.settings, route: ROUTES.settings, checksContrast: true },
+  { persona: "aluna", label: ROUTES.account, route: ROUTES.account, checksContrast: true },
   {
     persona: "aluna",
     label: "/perfil/aluna_demo",

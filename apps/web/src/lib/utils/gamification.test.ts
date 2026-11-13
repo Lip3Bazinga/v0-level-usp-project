@@ -8,15 +8,15 @@ describe("computeLevelProgress", () => {
     })
   })
 
-  it("a partir do nível 2 mede o progresso sobre a faixa do nível, não sobre o teto absoluto", () => {
+  it("a partir do nível 2 mede o progresso sobre a faixa do nível, pela curva crescente (1000, 2500, 4500…)", () => {
     expect(computeLevelProgress(1500, 2)).toEqual({
-      xpFloor: 1000, xpCeil: 2000, xpInLevel: 500, xpLevelRange: 1000, levelPercent: 50,
+      xpFloor: 1000, xpCeil: 2500, xpInLevel: 500, xpLevelRange: 1500, levelPercent: 33,
     })
-    expect(computeLevelProgress(2500, 3)).toMatchObject({ xpInLevel: 500, xpLevelRange: 1000, levelPercent: 50 })
+    expect(computeLevelProgress(3500, 3)).toMatchObject({ xpFloor: 2500, xpCeil: 4500, xpInLevel: 1000, xpLevelRange: 2000, levelPercent: 50 })
   })
 
   it("começa em 0% no início do nível", () => {
-    expect(computeLevelProgress(2000, 3).levelPercent).toBe(0)
+    expect(computeLevelProgress(2500, 3).levelPercent).toBe(0)
   })
 })
 

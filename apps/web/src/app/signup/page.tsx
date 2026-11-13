@@ -3,7 +3,6 @@
 import { useState, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
 import { CheckCircle2, Lock, Mail, User } from "lucide-react"
-import { OAuthButtons } from "@/components/auth/oauth-buttons"
 import {
   AuthField,
   AuthSubmitButton,
@@ -12,7 +11,6 @@ import {
 } from "@/components/auth/auth-form"
 import {
   AuthBrandPanel,
-  AuthDivider,
   AuthFooterPrompt,
   AuthHeading,
   AuthSplitLayout,
@@ -85,9 +83,6 @@ export default function SignupPage(): React.JSX.Element {
         title="Crie sua conta"
         description="Comece a aprender programação gratuitamente"
       />
-      <OAuthButtons mode="signup" />
-      <AuthDivider label="ou cadastre com email" />
-
       <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
         {errorMessage && <FormErrorAlert message={errorMessage} />}
 
