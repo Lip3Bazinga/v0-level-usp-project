@@ -4,7 +4,7 @@ import type { ReactNode } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
-  BookOpen, Flame, GraduationCap, LayoutDashboard, LogOut, NotebookPen, Settings, Shield, Star, Trophy, User, Zap,
+  BookOpen, Flame, GraduationCap, LayoutDashboard, LogOut, NotebookPen, Route, Settings, Shield, Star, Trophy, User, Zap,
   type LucideIcon,
 } from "lucide-react"
 import type { UserRole } from "@levelusp/contracts"
@@ -14,11 +14,12 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/contexts/auth-context"
+import { useGamificationVisible } from "@/hooks/use-gamification-visible"
 import { useSignOut } from "@/hooks/use-sign-out"
 import { ROUTES } from "@/lib/constants"
 import { cn, formatXp, getInitials } from "@/lib/utils"
 
-type StudentNavItemId = "learn" | "courses" | "leaderboard" | "notes" | "profile" | "settings"
+type StudentNavItemId = "learn" | "tracks" | "courses" | "leaderboard" | "notes" | "profile" | "settings"
 
 export type StudentScreen = "dashboard" | "courses" | "leaderboard"
 
@@ -32,6 +33,7 @@ interface StudentNavItem {
 
 const NAV_ITEMS: Record<StudentNavItemId, StudentNavItem> = {
   learn: { label: "Aprender", icon: BookOpen, href: () => ROUTES.dashboard },
+  tracks: { label: "Trilhas", icon: Route, href: () => ROUTES.tracks },
   courses: { label: "Cursos", icon: GraduationCap, href: () => ROUTES.courses },
   leaderboard: { label: "Ranking", icon: Trophy, href: () => ROUTES.leaderboard },
   notes: { label: "Notas", icon: NotebookPen, href: () => ROUTES.notes },
@@ -59,8 +61,8 @@ interface ScreenLayout {
 const SCREEN_LAYOUTS: Record<StudentScreen, ScreenLayout> = {
   dashboard: {
     activeItem: "learn",
-    desktopItems: ["learn", "courses", "leaderboard", "notes", "profile"],
-    mobileItems: ["learn", "courses", "leaderboard", "notes", "profile"],
+    desktopItems: ["learn", "tracks", "courses", "leaderboard", "notes", "profile"],
+    mobileItems: ["learn", "tracks", "courses", "leaderboard", "profile"],
     hasAccountMenu: true,
     mobileItemClassName: "px-3",
     hasUniformMobileLabels: false,
@@ -68,8 +70,8 @@ const SCREEN_LAYOUTS: Record<StudentScreen, ScreenLayout> = {
   },
   courses: {
     activeItem: "courses",
-    desktopItems: ["learn", "courses", "leaderboard", "profile"],
-    mobileItems: ["learn", "courses", "leaderboard", "profile"],
+    desktopItems: ["learn", "tracks", "courses", "leaderboard", "profile"],
+    mobileItems: ["learn", "tracks", "courses", "leaderboard", "profile"],
     iconOverrides: { courses: Star },
     hasAccountMenu: true,
     mobileItemClassName: "px-3",
@@ -98,19 +100,22 @@ interface StudentShellProps {
 export function StudentShell({ screen, children }: StudentShellProps): React.JSX.Element {
   const layout = SCREEN_LAYOUTS[screen]
   const { profile } = useAuth()
+  const isGamified = useGamificationVisible()
   const username = profile?.username
+  // Grupo controle do experimento: sem XP, sequência nem ranking na navegação.
+  const visible = (items: readonly StudentNavItemId[]): readonly StudentNavItemId[] => (isGamified ? items : items.filter((itemId) => itemId !== "leaderboard"))
 
   return (
     <div className={cn("min-h-screen bg-background", layout.bottomPaddingClassName)}>
       <StudentHeaderBar>
         <BrandLogo href={ROUTES.dashboard} />
         <nav aria-label="Navegação principal" className="hidden items-center gap-6 lg:flex">
-          {layout.desktopItems.map((itemId) => (
+          {visible(layout.desktopItems).map((itemId) => (
             <DesktopNavLink key={itemId} itemId={itemId} layout={layout} username={username} />
           ))}
         </nav>
         <div className="flex items-center gap-3">
-          {(layout.hasAccountMenu || profile) && (
+          {isGamified && (layout.hasAccountMenu || profile) && (
             <>
               <XpChip totalXp={profile?.total_xp ?? 0} />
               <StreakChip streak={profile?.current_streak ?? 0} />
@@ -124,7 +129,7 @@ export function StudentShell({ screen, children }: StudentShellProps): React.JSX
 
       <nav aria-label="Navegação principal" className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-white lg:hidden">
         <div className="flex items-center justify-around py-2">
-          {layout.mobileItems.map((itemId) => (
+          {visible(layout.mobileItems).map((itemId) => (
             <MobileNavLink key={itemId} itemId={itemId} layout={layout} username={username} />
           ))}
         </div>

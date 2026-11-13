@@ -11,7 +11,8 @@ import { CourseCompleteModal } from "@/components/gamification/course-complete-m
 import { BrandLogo } from "@/components/design-system/brand-logo"
 import { StudentHeaderBar } from "@/components/dashboard/student-shell"
 import { CourseHero, EnrollButton } from "./course-hero"
-import { CertificationSection, CourseLessonList, CourseSidebar, FinalProjectSection } from "./course-sections"
+import { buildCourseOutline } from "@/lib/utils/course-outline"
+import { CertificationSection, CourseLessonList, CourseSidebar, ProjectSection } from "./course-sections"
 import { useCourseDetail } from "./use-course-detail"
 
 export default function CourseDetailPage(): React.JSX.Element {
@@ -43,18 +44,13 @@ export default function CourseDetailPage(): React.JSX.Element {
     )
   }
 
-  const hasFinalProject = Boolean(course.final_project_title?.trim())
-  const isFinalProjectUnlocked = isAllDone && isEnrolled
+  const outline = buildCourseOutline(lessons, statuses)
+  const projectTitles = outline.projects.map(({ lesson }) => lesson.title)
+  const hasProject = outline.projects.length > 0
 
   const handleStartLesson = (): void => {
     const nextLesson = lessons.find((_, index) => statuses[index] !== "completed") ?? lessons[0]
     if (nextLesson) router.push(ROUTES.lesson(nextLesson.id))
-  }
-
-  // O projeto final é a última lição do curso.
-  const handleStartFinalProject = (): void => {
-    const lastLesson = lessons[lessons.length - 1]
-    if (lastLesson) router.push(ROUTES.lesson(lastLesson.id))
   }
 
   return (
@@ -89,7 +85,7 @@ export default function CourseDetailPage(): React.JSX.Element {
           course={course}
           lessonCount={lessons.length}
           completedCount={detail.completedCount}
-          hasFinalProject={hasFinalProject}
+          hasFinalProject={hasProject}
           isEnrolled={isEnrolled}
           isEnrolling={detail.isEnrolling}
           isAllDone={isAllDone}
@@ -115,25 +111,18 @@ export default function CourseDetailPage(): React.JSX.Element {
                   Conteúdo do curso
                   <span className="ml-2 text-sm font-normal text-muted-foreground">({lessons.length} lições)</span>
                 </h2>
-                <CourseLessonList lessons={lessons} statuses={statuses} isEnrolled={isEnrolled} />
+                <CourseLessonList modules={outline.modules} isEnrolled={isEnrolled} />
               </section>
 
               {isEnrolled && detail.examStatus && (
                 <CertificationSection courseId={courseId} examStatus={detail.examStatus} certificateCode={detail.certificateCode} />
               )}
 
-              {hasFinalProject && (
-                <FinalProjectSection
-                  course={course}
-                  lessonCount={lessons.length}
-                  isUnlocked={isFinalProjectUnlocked}
-                  onStart={handleStartFinalProject}
-                />
-              )}
+              {hasProject && <ProjectSection projects={outline.projects} pendingLessons={outline.pendingBeforeProject} isEnrolled={isEnrolled} />}
             </div>
 
             <div className="space-y-5">
-              <CourseSidebar course={course} lessons={lessons} hasFinalProject={hasFinalProject} />
+              <CourseSidebar course={course} lessons={lessons} projectTitles={projectTitles} />
               {!isEnrolled && (
                 <div className="md:hidden">
                   <EnrollButton isEnrolling={detail.isEnrolling} onEnroll={() => void detail.toggleEnrollment()} className="py-3.5" />

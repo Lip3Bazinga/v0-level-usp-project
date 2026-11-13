@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Edit3, Eye, EyeOff, Globe, GraduationCap, Loader2, Plus, Star, Trash2 } from "lucide-react"
+import { Edit3, Eye, EyeOff, Globe, GraduationCap, Loader2, Plus, Trash2 } from "lucide-react"
 import type { Course } from "@levelusp/contracts"
 import { Badge } from "@/components/ui/badge"
 import { ROUTES } from "@/lib/constants"
@@ -105,11 +105,6 @@ function TeacherCourseCard({ course, isToggling, isDeleting, onTogglePublished, 
               <Badge className="border-0 bg-muted text-muted-foreground text-[10px]">Rascunho</Badge>
             )}
             <span className="text-[10px] text-muted-foreground">{course.lesson_count ?? 0} lições</span>
-            {course.final_project_title && (
-              <span title="Tem projeto final">
-                <Star className="h-3 w-3 text-yellow-500" />
-              </span>
-            )}
           </div>
         </div>
       </div>

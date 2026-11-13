@@ -2,7 +2,7 @@
 
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { BookOpen, Clock, Lock, Star } from "lucide-react"
+import { BookOpen, Clock, Lock } from "lucide-react"
 import type { Difficulty, Lesson } from "@levelusp/contracts"
 import { DIFFICULTY_BADGE_CLASSES, DIFFICULTY_LABELS } from "@/lib/constants"
 import { cn } from "@/lib/utils"
@@ -26,7 +26,6 @@ interface CoursePreviewProps {
 
 /** Prévia ao vivo da página pública do curso. */
 export function CoursePreview({ form, coverPreview, lessons }: CoursePreviewProps): React.JSX.Element {
-  const hasFinalProject = Boolean(form.final_project_title.trim())
   const hiddenLessonCount = lessons.length - PREVIEW_LESSON_COUNT
 
   return (
@@ -83,7 +82,7 @@ export function CoursePreview({ form, coverPreview, lessons }: CoursePreviewProp
       {lessons.length > 0 && (
         <div className="border-b border-border px-4 py-3">
           <h3 className="mb-2 text-xs font-bold text-level-purple-dark">
-            Conteúdo <span className="font-normal text-muted-foreground">({lessons.length} lições{hasFinalProject ? " + projeto" : ""})</span>
+            Conteúdo <span className="font-normal text-muted-foreground">({lessons.length} lições)</span>
           </h3>
           <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
             {lessons.slice(0, PREVIEW_LESSON_COUNT).map((lesson, index) => (
@@ -98,17 +97,6 @@ export function CoursePreview({ form, coverPreview, lessons }: CoursePreviewProp
         </div>
       )}
 
-      {hasFinalProject && (
-        <div className="px-4 py-3">
-          <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
-            <div className="mb-1 flex items-center gap-1.5">
-              <Star className="h-3.5 w-3.5 text-yellow-500" />
-              <span className="text-xs font-bold text-level-purple-dark">Projeto Final</span>
-            </div>
-            <p className="line-clamp-2 text-[11px] text-muted-foreground">{form.final_project_title}</p>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
