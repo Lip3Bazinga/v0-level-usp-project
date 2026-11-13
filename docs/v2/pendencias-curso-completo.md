@@ -1,6 +1,6 @@
 # Pendências do curso completo — branch `feat/curso-completo`
 
-Estado em 2026-11-06. Decisões: `decisoes-curso-2026-11-04.md` (escolhidas: 7 níveis + trilha;
+Estado em 2026-11-13 (P1 concluído; próximo passo: P2 — Web). Decisões: `decisoes-curso-2026-11-04.md` (escolhidas: 7 níveis + trilha;
 Pyodide no runner; certificado = lições 100 % + prova ≥ 70 % + projeto; escopo = estrutura dos 7
 níveis + Nível 1 completo). Especificação técnica: `curso-e-passos.md`.
 
@@ -13,22 +13,39 @@ níveis + Nível 1 completo). Especificação técnica: `curso-e-passos.md`.
 | Ferramentas de conteúdo | `pnpm content:build`, `content:check`, `content:verify` (`apps/api/scripts/content/`), guia `content/README.md`, exemplo `content/exemplo/`. |
 | Currículo | `content/`: trilha `python-do-zero-a-ia`, 7 cursos, 54 módulos, 253 lições com roteiro, provas (N1 com 40 questões), `PLANO.md` do N1, `CURRICULO.md`. Pacote compilado `packages/db/seed/trilha-python-ia.json`. |
 | Conteúdo N1 | 1 de 47 lições escrita e verificada: `06-funcoes/01-definir-e-chamar`. |
+| API (P1) | Concluído em 2026-11-13 (commits `31e7fa6` e `a857607`): passos da lição guiada, trilhas, certificado de trilha, importação de conteúdo, experimento, saúde. `pnpm --filter @levelusp/api typecheck lint test test:e2e test:security test:attacks` verde (275 unitários, 138 e2e, 108 de segurança, 40 ataques contra o runner real). Detalhes na seção P1. |
 
 ## O que falta (em ordem)
 
-### P1 — API (`apps/api`)
-Implementar a §4 e §8 de `curso-e-passos.md`:
-1. `GET /lessons/:id` com `steps` (DTO público, sem `solution_files`/`test_cases`/`correct_index`), `runtime`, `is_project`, `objectives`, `solution_after_attempts`; tirar `solutionFiles` de `publicLessonColumns`; gravar `steps` na criação/edição de lição (`LESSON_PATCH.steps` hoje é placeholder).
-2. `GET /me/lessons/:id/progress` com `steps: LessonStepProgress[]`.
-3. Módulo `steps`: `POST /me/lessons/:id/steps/:stepId/{submit|hint|solution|complete|quiz}` — passos sequenciais; matrícula automática; `submissions.step_id`; `attempts++`; XP do passo via `GamificationService` (50 % se viu a solução); última etapa conclui a lição e avalia `course_completions`; solução só após `solution_after_attempts`; dica `hints_revealed++` (409 quando acabar); falha do runner → `status:"error"`, 503, tentativa não conta (também no `POST /me/lessons/:id/submit` atual).
-4. Projeto (`is_project`) e prova só com as demais lições publicadas concluídas.
-5. Certificado de curso = `course_completions` + prova aprovada; `POST /me/tracks/:id/certificate`; verificação pública do código de trilha; badge `certificates_issued`.
-6. `modules/tracks`: `GET /tracks`, `GET /tracks/:slug` (status `locked|available|in_progress|completed|certified`), CRUD `/admin/tracks`.
-7. `POST /admin/content/import` (admin, corpo até 20 MB, usa `importContentBundle`, auditoria).
-8. Experimento: `POST /me/events` (append-only, 600/h), `GET /admin/experiment/export.csv`, `PATCH /admin/users/:id/experiment-condition`, eventos registrados no servidor, `experiment_condition` em `GET /me`.
-9. Nível pela curva nova; streak por conclusão (não login); `GET /users/:id/activity` só dono/professor/admin; `created_by` fora do DTO público; `GET /health/ready` (banco + runner, 503 sem detalhes).
-10. Testes: specs de domínio + e2e ponta a ponta da lição guiada até certificado de trilha; gabarito nunca vaza; importação do pacote real idempotente; suíte de segurança com forja nas rotas novas.
-Pronto quando: `pnpm --filter @levelusp/api typecheck lint test test:e2e test:security test:attacks` verde.
+### P1 — API (`apps/api`) — CONCLUÍDO em 2026-11-13
+O que existe agora (é o contrato que a web do P2 consome):
+
+| Rota | Observação |
+|---|---|
+| `GET /lessons/:id` | traz `steps` públicos (`test_case_count`, `hint_count`, quiz sem `correct_index`/`explanation`). `created_by` saiu do DTO público e ficou em `LessonWithTests`, que ganhou `authoring_steps` (passos com gabarito, no formato que `steps` aceita de volta). |
+| `POST`/`PATCH /lessons` | `steps` substitui todos os passos (id preservado por posição). Lição `guided` publicada sem passos → 422 `NO_STEPS`. |
+| `GET /me/lessons/:id/progress` | `LessonStepsProgress` (`status` da lição + `steps`). |
+| `POST /me/lessons/:id/steps/:stepId/submit` | exercício; 409 `STEP_LOCKED` fora de ordem; 400 `WRONG_STEP_KIND`; 403 `PROJECT_LOCKED`; 503 grava `submissions.status = error` e não conta tentativa. |
+| `POST …/hint` e `GET …/hints` | uma dica por chamada (409 `NO_MORE_HINTS`); o `GET` devolve as já reveladas, para a tela reabrir. |
+| `POST …/solution` | 403 `SOLUTION_LOCKED` antes de `solution_after_attempts`; ver a solução NÃO conclui o passo: marca `solution_viewed` e a aprovação seguinte vale 50 % do XP. |
+| `POST …/complete`, `POST …/quiz` | leitura e quiz. No quiz reprovado a explicação só acompanha a questão acertada. |
+| `GET /tracks`, `GET /tracks/:slug` | públicos; com sessão, `student_status` por curso. Visitante só vê cursos publicados. |
+| `/admin/tracks` (CRUD) | admin. |
+| `POST /me/tracks/:id/certificate`, `GET /me/track-certificates` | código `TRL-XXXX-XXXX`; `GET /certificates/:code` e o PDF aceitam os dois tipos (`kind: "course" \| "track"`). |
+| `POST /admin/content/import` | admin, corpo até 20 MB, transação única, idempotente. |
+| `POST /me/events`, `GET /admin/experiment/export.csv`, `PATCH /admin/users/:id/experiment-condition` | 600 eventos/h por usuário; o servidor registra sozinho `login`, `step_submitted`, `step_completed`, `hint_revealed`, `solution_viewed`, `lesson_completed`, `quiz_answered`, `exam_started`, `exam_submitted`, `certificate_issued`. |
+| `GET /health/ready` | 503 quando banco ou executor falham. |
+| `GET /users/:id/activity` | agora exige sessão: dono, professor ou admin. |
+
+Decisões tomadas na implementação (ajustar aqui se alguma não for a desejada):
+- As rotas clássicas mantiveram os caminhos que já existiam (`POST /lessons/:id/submissions`, `POST /courses/:id/certificate`); só as de passo e de trilha ficam sob `/me`.
+- XP da lição guiada = soma do XP dos passos + `xp_reward` da lição ao fechar o último passo.
+- Sequência (streak) conta dias com conclusão; o login não mexe mais nela e a resposta de login não traz mais `streak`. `current_streak` é calculado na leitura (zera quando a última conclusão não foi hoje nem ontem).
+- A prova libera com as lições que não são projeto; o certificado exige `course_completions` (100 %, com o projeto) + prova.
+- Prévia do professor em lição não publicada conclui o passo sem XP.
+- `express` virou dependência direta da API (parser de 20 MB só na rota de importação).
+
+O que o P2 precisa acompanhar na web: `Lesson.created_by` não existe mais; `CertificateVerification.kind`; `SessionResponse.streak` deixou de vir (tirar a animação de sequência do login e mostrá-la na conclusão).
 
 ### P2 — Web (`apps/web`)
 §5 e §8 de `curso-e-passos.md`:
