@@ -18,6 +18,7 @@ import { useLessonNavigation } from "@/hooks/use-lesson-navigation"
 import { TheoryLessonLayout } from "@/components/ide/theory-lesson-layout"
 import { QuizLessonLayout } from "@/components/ide/quiz-lesson-layout"
 import { ROUTES } from "@/lib/constants"
+import { GuidedLessonLayout } from "@/components/lesson-steps/guided-lesson-layout"
 
 function LessonWorkspace({ lesson, allLessons, currentIndex }: LessonPageData): React.JSX.Element {
   const {
@@ -179,6 +180,11 @@ export default function LessonPage(): React.JSX.Element {
   if (!page.data) return <LessonUnavailable />
 
   const { lesson, allLessons, currentIndex } = page.data
+
+  // Lição guiada: o player de passos. As lições sem passos seguem nas telas clássicas abaixo.
+  if (lesson.steps.length > 0) {
+    return <GuidedLessonLayout key={lesson.id} lesson={lesson} allLessons={allLessons} currentIndex={currentIndex} />
+  }
 
   // Questionário e teoria não usam a IDE; a correção do questionário é feita no servidor.
   if (lesson.lesson_type === "quiz") {

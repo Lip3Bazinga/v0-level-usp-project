@@ -4,4 +4,6 @@ export const SESSION_COOKIE_NAME = "lvl_session"
 /** Chaves de `localStorage` usadas pela web (preferências de UI, nunca dados sensíveis). */
 export const STORAGE_KEYS = {
   adminActivePage: "adminPage",
+  /** Prefixo do rascunho de código de um passo de lição guiada (`<prefixo><id do passo>`). */
+  stepDraftPrefix: "lvl:passo:",
 } as const
