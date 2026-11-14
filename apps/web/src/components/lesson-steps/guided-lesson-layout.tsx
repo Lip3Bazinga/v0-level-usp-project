@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Home } from "lucide-react"
-import type { Lesson, LessonStepProgress, LessonSummary, StepOutcome, StepQuizResult, StepSubmitResult } from "@levelusp/contracts"
+import type { Lesson, LessonStepProgress, LessonSummary, StepOutcome, StepQuizResult } from "@levelusp/contracts"
 import { getLevelUpTransition, SuccessFeedback } from "@/components/ide/success-feedback"
 import { Spinner } from "@/components/design-system/spinner"
 import { useAuth } from "@/contexts/auth-context"
@@ -18,6 +18,7 @@ import { swalToast } from "@/lib/swal"
 import { indexBy } from "@/lib/utils"
 import { firstPendingStepIndex, initialStepFiles, isStepCompleted, mergeStepProgress, readStepDraft, stepStates, toCompletionLike } from "@/lib/utils/step-player"
 import { ExerciseStep } from "./exercise-step"
+import { PredictionStep } from "./prediction-step"
 import { QuizStep } from "./quiz-step"
 import { ReadingStep } from "./reading-step"
 import { StepSidebar } from "./step-sidebar"
@@ -38,7 +39,7 @@ const NO_PROGRESS: LessonStepProgress[] = []
 
 /**
  * Lição guiada em passos (formato Codecademy): lista de passos com a situação de cada um e
- * o passo atual (leitura, exercício ou quiz). Todo veredito, XP e conclusão vêm da API; a
+ * o passo atual (leitura, exercício, previsão ou quiz). Todo veredito, XP e conclusão vêm da API; a
  * tela só reflete o que ela devolveu. Lições sem passos usam as telas clássicas.
  */
 export function GuidedLessonLayout({ lesson, allLessons, currentIndex }: GuidedLessonLayoutProps): React.JSX.Element {
@@ -139,7 +140,8 @@ export function GuidedLessonLayout({ lesson, allLessons, currentIndex }: GuidedL
     }
   }
 
-  const handleVerified = (result: StepSubmitResult): void => {
+  /** Veredito de um "Verificar" (exercício) ou de um "Enviar" (previsão): tentativas e, se aprovado, a conclusão. */
+  const handleVerified = (result: StepOutcome & { attempts: number }): void => {
     if (!step) return
     patchProgress(step.id, { attempts: result.attempts })
     void applyOutcome(step.id, result)
@@ -189,6 +191,18 @@ export function GuidedLessonLayout({ lesson, allLessons, currentIndex }: GuidedL
               progress={stepProgress}
               onProgress={(patch) => patchProgress(step.id, patch)}
               onVerified={handleVerified}
+              onContinue={goToNextStep}
+              onUnauthorized={goToLogin}
+            />
+          )}
+          {step.kind === "previsao" && (
+            <PredictionStep
+              key={step.id}
+              lesson={lesson}
+              step={step}
+              progress={stepProgress}
+              onProgress={(patch) => patchProgress(step.id, patch)}
+              onPredicted={handleVerified}
               onContinue={goToNextStep}
               onUnauthorized={goToLogin}
             />

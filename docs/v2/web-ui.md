@@ -13,9 +13,11 @@ clássicas (IDE, teoria, quiz). Código em `src/components/lesson-steps/`:
 | `guided-lesson-layout.tsx` | estado da lição: progresso por passo (API + ajustes locais), passo na tela, comemoração |
 | `step-sidebar.tsx` | lista de passos com estado (`completed`, `current`, `available`, `locked`) |
 | `reading-step.tsx` | leitura; "Continuar" conclui pela API e avança |
-| `exercise-step.tsx` | narrativa, instruções com ✓/✗, editor, console, Verificar, Dica n/total, Ver solução |
+| `exercise-step.tsx` | narrativa, instruções com ✓/✗, área de resposta conforme o modo (editor, lacunas ou ordenar), console, Verificar, Dica n/total, Ver solução |
+| `prediction-step.tsx` | passo `Previsão`: código somente leitura, saída digitada, Enviar |
 | `quiz-step.tsx` | quiz do passo, revisão por questão, "Tentar de novo" |
-| `step-markdown.tsx` | Markdown do conteúdo (sem HTML bruto); o P2b estende este componente |
+| `step-markdown.tsx` | Markdown do conteúdo (sem HTML bruto), com os recursos de apresentação (seção abaixo) |
+| `use-step-help.ts`, `step-help.tsx` | dicas e solução, comuns ao exercício e à previsão |
 
 Regras da tela (puras e testadas em `lib/utils/step-player.ts`):
 
@@ -30,6 +32,55 @@ Regras da tela (puras e testadas em `lib/utils/step-player.ts`):
 - Sem sessão: a lição é exibida e a primeira ação leva ao login com `next`.
 
 CodeMirror e o player são carregados com `next/dynamic` (lições teóricas e de quiz não baixam o editor).
+
+## Recursos de apresentação das aulas (P2b)
+
+Contrato: `pendencias-curso-completo.md` ("Contrato para o player"). Formato do autor: `content/README.md` §3.5–§3.7.
+
+**Markdown rico** (`step-markdown.tsx`, usado em narrativa, instruções, dicas e quiz):
+
+| Recurso | Como é renderizado | Se o conteúdo for inválido |
+|---|---|---|
+| Fórmulas `$…$` e `$$…$$` | `remark-math` + `rehype-katex`; CSS e fontes do KaTeX vêm do pacote npm (sem CDN) | o texto da fórmula aparece no lugar |
+| ` ```mermaid ` | `mermaid-diagram.tsx`; a biblioteca entra por `import()` dinâmico (`lib/mermaid.ts`), com `securityLevel: "strict"` | o código aparece como bloco comum |
+| Imagens | `<img>` com `alt`, `loading="lazy"` e largura máxima de 100 % | — |
+| ` ```python visualizar ` | `trace-block.tsx`: o código e o botão "Visualizar" | o erro aparece como aviso |
+| `::video[título](url)` | `video-embed.tsx`: o iframe só é criado depois do clique, com `sandbox` e `referrerPolicy` | a linha aparece como texto, sem link |
+
+- Vídeo: só `https://www.youtube-nocookie.com/embed/<id>` e `https://player.vimeo.com/video/<id>`
+  (`parseVideoEmbedUrl` em `lib/utils/rich-markdown.ts`). As mesmas duas origens estão no `frame-src`
+  da CSP (`next.config.mjs`): mudou um lado, mude o outro. O resumo (`> Resumo: …`) é Markdown comum.
+- Os componentes interativos dentro do texto usam a classe `lesson-widget` (`globals.css`) para não
+  herdar a tipografia de `.prose-lesson`.
+
+**Visualizador de execução** (`execution-visualizer.tsx`): roda no MESMO worker do "Executar". O
+protocolo ganhou o comando `trace` (`lib/python/worker-protocol.ts`) e o harness, a função
+`trace_project` (`lib/python/project-execution.ts`), que usa `sys.settrace` e registra, a cada linha do
+arquivo de entrada, a linha, as variáveis globais e locais (`repr` cortado em 80 caracteres; sem
+módulos, funções embutidas nem nomes `__x__`) e quanto já foi impresso. Para em 500 passos
+(`MAX_TRACE_STEPS`) e avisa. A página pede o registro por `requestTrace` (`lib/python/trace-client.ts`),
+com o mesmo tempo limite do "Executar". A tela mostra o código com a linha atual, as variáveis (as que
+mudaram em destaque), a saída até o passo, anterior/próximo, controle deslizante e os atalhos ←, →,
+Home e End; o passo atual é anunciado por `aria-live`. Aparece nos blocos `python visualizar` e no
+botão "Visualizar" do exercício (usa o código da resposta). Não fala com a API nem conta tentativa.
+Regras puras em `lib/utils/execution-trace.ts`.
+
+**Modos do exercício** (`step.exercise_mode`; regras puras em `lib/utils/exercise-modes.ts`):
+
+- `lacunas` (`blanks-editor.tsx`): o `main.py` inicial somente leitura, com um campo de uma linha em
+  cada `___`. "Verificar" envia `{files}` com as lacunas trocadas; lacuna vazia continua `___`.
+  Rascunho em `lvl:passo:<id>:lacunas`.
+- `ordenar` (`parsons-board.tsx`): as linhas vêm embaralhadas da API e a web não as reordena. O aluno
+  arrasta (`@dnd-kit`; soltar mais à direita ou à esquerda muda a indentação) ou usa os botões de cada
+  linha: adicionar, remover, subir, descer, indentar e desindentar (o foco acompanha a linha).
+  "Verificar" envia `{arrangement: [{line_id, indent}]}`; "Executar" monta o código só no navegador.
+  Rascunho (a resposta do aluno) em `lvl:passo:<id>:ordem`.
+- Nos dois, "Ver solução" mostra o código como texto, sem "Copiar para o editor".
+
+**Passo `Previsão`** (`prediction-step.tsx`): não tem "Executar" nem "Visualizar" (rodar entregaria a
+resposta). "Enviar" chama `POST …/predict`; em erro a tela mostra só "Ainda não é isso" e as
+tentativas. "Ver solução" traz `expected_output` depois das tentativas, e o aluno ainda precisa enviá-la.
+A web nunca calcula nem guarda a resposta certa de uma previsão ou de um `ordenar`.
 
 ## Trilhas e curso
 
@@ -56,7 +107,10 @@ CodeMirror e o player são carregados com `next/dynamic` (lições teóricas e d
 
 `/teacher/edit/[id]`: tipo "Guiada" habilita a aba **Passos** (`lesson-editor/steps-tab.tsx`): leitura,
 exercício (instruções por linha → checkpoints, código inicial, solução, dicas, casos em JSON validados
-pelo schema do contrato) e quiz. A aba Configurações ganhou motor da correção, "Projeto do nível",
+pelo schema do contrato), previsão (código, saída esperada digitada pelo professor e dicas) e quiz.
+No exercício, "Como o aluno responde" escolhe o modo: `lacunas` conta os `___` do código inicial;
+`ordenar` troca o código inicial pelos distratores e gera `parsons_lines` a partir da solução
+(`buildParsonsLines` em `steps-form.ts`: embaralhamento estável, ids dados depois de embaralhar). A aba Configurações ganhou motor da correção, "Projeto do nível",
 objetivos e tentativas antes da solução. Salvar envia `steps` inteiro.
 
 ## Limpeza da auditoria
@@ -71,4 +125,7 @@ objetivos e tentativas antes da solução. Salvar envia `steps` inteiro.
 
 `pnpm --filter @levelusp/web typecheck lint test build`. Testes novos: player (`guided-lesson-layout.test.tsx`),
 regras do player, fila de eventos, trilhas (utilitários e página), condição controle (`student-shell.test.tsx`),
-esboço do curso e formulário/abas de passos do professor.
+esboço do curso e formulário/abas de passos do professor. Do P2b: Markdown rico (`step-markdown.test.tsx`),
+visualizador (`execution-visualizer.test.tsx`, `execution-trace.test.ts`), lacunas e ordenar
+(`exercise-modes.test.ts`), o player nos modos novos e na previsão (`guided-lesson-modes.test.tsx`) e a
+aba Passos (`steps-tab.test.tsx`). Pyodide, Mermaid e CodeMirror são simulados nesses testes.

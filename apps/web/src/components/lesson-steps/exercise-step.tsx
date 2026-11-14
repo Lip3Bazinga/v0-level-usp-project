@@ -1,19 +1,29 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import dynamic from "next/dynamic"
-import { ArrowRight, CheckCircle2, Circle, Eye, Lightbulb, Loader2, ShieldCheck, XCircle } from "lucide-react"
-import type { HintReveal, Lesson, LessonStep, LessonStepProgress, ProjectFile, StepCaseResult, StepSubmitResult } from "@levelusp/contracts"
+import { ArrowRight, CheckCircle2, Circle, Loader2, ShieldCheck, XCircle } from "lucide-react"
+import type { ExerciseMode, Lesson, LessonStep, LessonStepProgress, ParsonsPlacement, ProjectFile, StepCaseResult, StepSubmitResult } from "@levelusp/contracts"
 import { ConsolePanel } from "@/components/ide/console-panel"
 import { Spinner } from "@/components/design-system/spinner"
 import { usePython, type ExecutionResult } from "@/hooks/use-python"
-import { fetchRevealedStepHints, getErrorMessage, HTTP_STATUS, isApiError, revealStepHint, revealStepSolution, submitStep } from "@/lib/api"
+import { submitStep, submitStepArrangement } from "@/lib/api"
 import { MAIN_FILE_PATH } from "@/lib/constants"
 import type { ConsoleOutput } from "@/lib/types"
 import { cn, hasFile, updateFileContent } from "@/lib/utils"
+import {
+  arrangementFiles, clearArrangementDraft, clearBlanksDraft, countBlanks, fillBlanksInFiles, readArrangementDraft, readBlanksDraft, writeArrangementDraft, writeBlanksDraft,
+} from "@/lib/utils/exercise-modes"
 import { pythonErrorLines, stderrLines, stdoutLines, toConsoleOutput, type ConsoleLine } from "@/lib/utils/ide-feedback"
-import { canRevealSolution, checkpointStatuses, clearStepDraft, writeStepDraft, type CheckpointStatus } from "@/lib/utils/step-player"
+import { checkpointStatuses, clearStepDraft, writeStepDraft, type CheckpointStatus } from "@/lib/utils/step-player"
+import { BlanksEditor } from "./blanks-editor"
+import { ExecutionVisualizer } from "./execution-visualizer"
+import { ParsonsBoard } from "./parsons-board"
+import { RunToolbar } from "./run-toolbar"
+import { HelpButtons, RevealedHints, SolutionCountdown } from "./step-help"
 import { StepMarkdown } from "./step-markdown"
+import { useExecutionTrace } from "./use-execution-trace"
+import { useStepHelp } from "./use-step-help"
 
 // O CodeMirror pesa e só existe no navegador: carregado sob demanda, fora do bundle inicial da lição.
 const CodeEditor = dynamic(() => import("@/components/ide/code-editor").then((module) => module.CodeEditor), {
@@ -42,45 +52,49 @@ const STATUS_ICON: Readonly<Record<CheckpointStatus, React.JSX.Element>> = {
   failed: <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" aria-label="Ainda não" />,
 }
 
+const WORKSPACE_LABELS: Readonly<Record<ExerciseMode, string>> = { codigo: "Editor e console", lacunas: "Código com lacunas e console", ordenar: "Linhas para ordenar e console" }
+const SOLUTION_NOTES: Readonly<Record<ExerciseMode, string>> = {
+  codigo: "Leia, entenda e clique em Verificar para concluir o passo.",
+  lacunas: "Leia, entenda, preencha as lacunas e clique em Verificar para concluir o passo.",
+  ordenar: "Leia, entenda, monte as linhas nesta ordem e clique em Verificar para concluir o passo.",
+}
+const EMPTY_ARRANGEMENT_MESSAGE = "Leve pelo menos uma linha para a sua resposta antes de continuar."
+
 /**
  * Passo de exercício: narrativa e instruções à esquerda (cada instrução ganha ✓/✗ depois do
- * "Verificar"), editor e console à direita. "Executar" roda no navegador; "Verificar" manda
- * o código para a API, que corrige com os casos ocultos. Dicas saem uma a uma e a solução só
- * aparece depois das tentativas que a lição exige.
+ * "Verificar") e a área de resposta com o console à direita. Conforme o modo, a resposta é o
+ * editor (`codigo`), o código com lacunas (`lacunas`) ou as linhas para ordenar (`ordenar`).
+ * "Executar" e "Visualizar" rodam no navegador; "Verificar" manda a resposta para a API, que
+ * corrige com os casos ocultos. Dicas saem uma a uma e a solução só aparece depois das
+ * tentativas que a lição exige.
  */
 export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress, onVerified, onContinue, onUnauthorized }: ExerciseStepProps): React.JSX.Element {
+  const mode = step.exercise_mode
+  const blanksSource = step.starter_files.find((file) => file.path === MAIN_FILE_PATH)?.content ?? ""
   const [files, setFiles] = useState<ProjectFile[]>(initialFiles)
+  const [blankAnswers, setBlankAnswers] = useState<string[]>(() => (mode === "lacunas" ? readBlanksDraft(step.id, countBlanks(blanksSource)) : []))
+  const [placements, setPlacements] = useState<ParsonsPlacement[]>(() => (mode === "ordenar" ? readArrangementDraft(step.id, step.parsons_lines) : []))
   const [activePath, setActivePath] = useState(() => (hasFile(initialFiles, MAIN_FILE_PATH) ? MAIN_FILE_PATH : (initialFiles[0]?.path ?? MAIN_FILE_PATH)))
   const [outputs, setOutputs] = useState<ConsoleOutput[]>([])
   const [cases, setCases] = useState<StepCaseResult[] | null>(null)
-  const [hints, setHints] = useState<HintReveal[]>([])
-  const [solution, setSolution] = useState<ProjectFile[] | null>(null)
-  const [busy, setBusy] = useState<"verify" | "hint" | "solution" | null>(null)
-  const [message, setMessage] = useState<string | null>(null)
   const { status: pythonStatus, isExecuting, isInstalling, execute, stop } = usePython({ packages: lesson.libraries })
+  const help = useStepHelp({ lessonId: lesson.id, stepId: step.id, progress, onProgress, onUnauthorized })
+  const trace = useExecutionTrace()
 
   const isCompleted = progress?.status === "completed"
-  const hintsRevealed = progress?.hints_revealed ?? 0
+  const isBusy = help.busy !== null
   const statuses = checkpointStatuses(step.checkpoints, cases)
   const failedCases = cases?.filter((result) => !result.passed) ?? []
-
-  // Reabrir a lição traz de volta as dicas que o aluno já tinha revelado.
-  useEffect(() => {
-    if (hintsRevealed === 0) return
-    let isCurrent = true
-    fetchRevealedStepHints(lesson.id, step.id)
-      .then((revealed) => {
-        if (isCurrent) setHints((current) => (current.length >= revealed.length ? current : revealed))
-      })
-      .catch(() => {
-        // Sem as dicas antigas o aluno ainda pode pedir a próxima.
-      })
-    return () => {
-      isCurrent = false
-    }
-  }, [lesson.id, step.id, hintsRevealed])
+  const solutionFiles = help.solution?.files ?? null
 
   const appendLines = useCallback((lines: readonly ConsoleLine[]) => setOutputs((current) => [...current, ...lines.map(toConsoleOutput)]), [])
+
+  /** O projeto que a resposta atual forma, para rodar no navegador; null se ainda não há o que rodar. */
+  const runnableFiles = (): ProjectFile[] | null => {
+    if (mode === "lacunas") return fillBlanksInFiles(step.starter_files, blankAnswers)
+    if (mode === "ordenar") return arrangementFiles(step.parsons_lines, placements)
+    return files
+  }
 
   const handleContentChange = (path: string, content: string): void => {
     const next = updateFileContent(files, path, content)
@@ -88,12 +102,32 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
     writeStepDraft(step.id, next)
   }
 
+  const handleBlanksChange = (answers: string[]): void => {
+    setBlankAnswers(answers)
+    writeBlanksDraft(step.id, answers)
+    // O próximo exercício sem código inicial continua do que foi montado aqui.
+    writeStepDraft(step.id, fillBlanksInFiles(step.starter_files, answers))
+  }
+
+  const handlePlacementsChange = (next: ParsonsPlacement[]): void => {
+    setPlacements(next)
+    writeArrangementDraft(step.id, next)
+  }
+
   const handleReset = (): void => {
-    const starter = step.starter_files.length > 0 ? step.starter_files : initialFiles
-    setFiles(starter)
+    if (mode === "lacunas") {
+      setBlankAnswers(Array.from({ length: countBlanks(blanksSource) }, () => ""))
+      clearBlanksDraft(step.id)
+    } else if (mode === "ordenar") {
+      setPlacements([])
+      clearArrangementDraft(step.id)
+    } else {
+      setFiles(step.starter_files.length > 0 ? step.starter_files : initialFiles)
+    }
     clearStepDraft(step.id)
     setCases(null)
-    setOutputs([toConsoleOutput({ type: "info", message: "Código restaurado para o início do passo." })])
+    trace.close()
+    setOutputs([toConsoleOutput({ type: "info", message: mode === "codigo" ? "Código restaurado para o início do passo." : "Resposta apagada: o passo voltou ao início." })])
   }
 
   const handleRun = (): void => {
@@ -101,10 +135,15 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
       appendLines([{ type: "warning", message: "O Python ainda está carregando. Aguarde um instante." }])
       return
     }
-    const entryPath = hasFile(files, activePath) ? activePath : MAIN_FILE_PATH
+    const project = runnableFiles()
+    if (!project) {
+      appendLines([{ type: "warning", message: EMPTY_ARRANGEMENT_MESSAGE }])
+      return
+    }
+    const entryPath = mode === "codigo" && hasFile(project, activePath) ? activePath : MAIN_FILE_PATH
     setOutputs([toConsoleOutput({ type: "info", message: `Executando ${entryPath}...` })])
     execute(
-      { files, entryPath },
+      { files: project, entryPath },
       {
         onResult: (result: ExecutionResult): void => {
           appendLines([...stdoutLines(result.stdout), ...stderrLines(result.stderr)])
@@ -116,17 +155,25 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
     )
   }
 
-  /** Erro de uma ação: 401 leva ao login; o resto vira a mensagem pt-BR da API. */
-  const handleFailure = (error: unknown, fallback: string): void => {
-    if (isApiError(error, HTTP_STATUS.UNAUTHORIZED)) onUnauthorized()
-    else setMessage(getErrorMessage(error, fallback))
+  const handleVisualize = (): void => {
+    const project = runnableFiles()
+    if (!project) {
+      appendLines([{ type: "warning", message: EMPTY_ARRANGEMENT_MESSAGE }])
+      return
+    }
+    trace.start(project, mode === "codigo" && hasFile(project, activePath) ? activePath : MAIN_FILE_PATH)
   }
 
   const handleVerify = async (): Promise<void> => {
-    setBusy("verify")
-    setMessage(null)
-    try {
-      const result = await submitStep(lesson.id, step.id, files)
+    if (mode === "ordenar" && placements.length === 0) {
+      help.setMessage(EMPTY_ARRANGEMENT_MESSAGE)
+      return
+    }
+    // 400 (arranjo inválido ou formato errado) e 503 (corretor fora do ar: a tentativa não conta) trazem a mensagem da API.
+    await help.run("submit", async () => {
+      const result = mode === "ordenar"
+        ? await submitStepArrangement(lesson.id, step.id, placements)
+        : await submitStep(lesson.id, step.id, mode === "lacunas" ? fillBlanksInFiles(step.starter_files, blankAnswers) : files)
       setCases(result.cases)
       appendLines([
         result.passed
@@ -134,47 +181,14 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
           : { type: "error", message: `✗ ${result.cases.filter((item) => !item.passed).length} de ${result.cases.length} verificações ainda não passaram.` },
       ])
       onVerified(result)
-    } catch (error) {
-      // 503 (corretor fora do ar ou ocupado): a API avisa que a tentativa não contou.
-      handleFailure(error, "Não foi possível verificar agora. Tente novamente.")
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  const handleHint = async (): Promise<void> => {
-    setBusy("hint")
-    setMessage(null)
-    try {
-      const hint = await revealStepHint(lesson.id, step.id)
-      setHints((current) => [...current.filter((item) => item.index !== hint.index), hint].sort((first, second) => first.index - second.index))
-      onProgress({ hints_revealed: Math.max(hintsRevealed, hint.index + 1) })
-    } catch (error) {
-      handleFailure(error, "Não foi possível revelar a dica.")
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  const handleSolution = async (): Promise<void> => {
-    setBusy("solution")
-    setMessage(null)
-    try {
-      const revealed = await revealStepSolution(lesson.id, step.id)
-      setSolution(revealed.files)
-      if (!isCompleted) onProgress({ solution_viewed: true })
-    } catch (error) {
-      handleFailure(error, "A solução ainda não está liberada.")
-    } finally {
-      setBusy(null)
-    }
+    }, "Não foi possível verificar agora. Tente novamente.")
   }
 
   const useSolution = (): void => {
-    if (!solution) return
-    setFiles(solution)
-    writeStepDraft(step.id, solution)
-    setActivePath(hasFile(solution, MAIN_FILE_PATH) ? MAIN_FILE_PATH : (solution[0]?.path ?? MAIN_FILE_PATH))
+    if (!solutionFiles) return
+    setFiles(solutionFiles)
+    writeStepDraft(step.id, solutionFiles)
+    setActivePath(hasFile(solutionFiles, MAIN_FILE_PATH) ? MAIN_FILE_PATH : (solutionFiles[0]?.path ?? MAIN_FILE_PATH))
   }
 
   return (
@@ -210,94 +224,102 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
           </ul>
         )}
 
-        {hints.length > 0 && (
-          <ol className="mt-4 space-y-2" aria-label="Dicas reveladas">
-            {hints.map((hint) => (
-              <li key={hint.index} className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                <p className="mb-1 font-semibold">Dica {hint.index + 1}</p>
-                <StepMarkdown content={hint.text} />
-              </li>
-            ))}
-          </ol>
-        )}
+        <RevealedHints hints={help.hints} />
 
-        {solution && (
+        {solutionFiles && (
           <div className="mt-4 rounded-xl border border-level-purple/30 bg-level-purple-light p-3">
             <p className="mb-2 text-sm font-semibold text-level-purple-dark">Solução de referência</p>
-            {solution.map((file) => (
+            {solutionFiles.map((file) => (
               <pre key={file.path} className="mb-2 overflow-x-auto rounded-lg bg-gray-900 p-3 text-xs text-gray-100"><code>{file.content}</code></pre>
             ))}
-            <button type="button" onClick={useSolution} className="text-sm font-semibold text-level-purple underline">
-              Copiar para o editor
-            </button>
-            {!isCompleted && <p className="mt-2 text-xs text-gray-600">Leia, entenda e clique em Verificar para concluir o passo.</p>}
+            {mode === "codigo" && (
+              <button type="button" onClick={useSolution} className="text-sm font-semibold text-level-purple underline">
+                Copiar para o editor
+              </button>
+            )}
+            {!isCompleted && <p className="mt-2 text-xs text-gray-600">{SOLUTION_NOTES[mode]}</p>}
           </div>
         )}
 
-        {message && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{message}</p>}
+        {help.message && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{help.message}</p>}
 
         <div className="mt-6 flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => void handleVerify()}
-            disabled={busy !== null}
+            disabled={isBusy}
             className={cn("btn-3d flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60", isCompleted ? "bg-green-600 hover:bg-green-700" : "bg-level-purple hover:bg-level-purple-dark")}
           >
-            {busy === "verify" ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <ShieldCheck className="h-4 w-4" aria-hidden="true" />}
+            {help.busy === "submit" ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <ShieldCheck className="h-4 w-4" aria-hidden="true" />}
             {isCompleted ? "Verificar de novo" : "Verificar"}
           </button>
-          {step.hint_count > 0 && (
-            <button
-              type="button"
-              onClick={() => void handleHint()}
-              disabled={busy !== null || hintsRevealed >= step.hint_count}
-              className="flex items-center gap-2 rounded-xl border border-amber-300 px-4 py-2.5 text-sm font-semibold text-amber-800 hover:bg-amber-50 disabled:opacity-50"
-            >
-              <Lightbulb className="h-4 w-4" aria-hidden="true" /> Dica ({hintsRevealed}/{step.hint_count})
-            </button>
-          )}
-          {canRevealSolution(progress, lesson.solution_after_attempts) && !solution && (
-            <button
-              type="button"
-              onClick={() => void handleSolution()}
-              disabled={busy !== null}
-              className="flex items-center gap-2 rounded-xl border border-level-purple px-4 py-2.5 text-sm font-semibold text-level-purple hover:bg-level-purple-light disabled:opacity-50"
-            >
-              <Eye className="h-4 w-4" aria-hidden="true" /> Ver solução
-            </button>
-          )}
+          <HelpButtons
+            hintCount={step.hint_count}
+            progress={progress}
+            solutionAfterAttempts={lesson.solution_after_attempts}
+            isSolutionShown={help.solution !== null}
+            isBusy={isBusy}
+            onHint={() => void help.revealHint()}
+            onSolution={() => void help.revealSolution()}
+          />
           {isCompleted && (
             <button type="button" onClick={onContinue} className="btn-3d ml-auto flex items-center gap-2 rounded-xl bg-level-purple px-5 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark">
               Continuar <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
         </div>
-        {!isCompleted && lesson.solution_after_attempts > 0 && !canRevealSolution(progress, lesson.solution_after_attempts) && (progress?.attempts ?? 0) > 0 && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            A solução fica disponível depois de {lesson.solution_after_attempts} tentativas ({progress?.attempts ?? 0} até agora).
-          </p>
-        )}
+        <SolutionCountdown progress={progress} solutionAfterAttempts={lesson.solution_after_attempts} />
       </section>
 
-      <section aria-label="Editor e console" className="flex min-h-[28rem] flex-1 flex-col lg:min-h-0">
-        <div className="min-h-0 flex-[3]">
-          <CodeEditor
-            tabs={files}
-            activePath={activePath}
-            onTabSelect={setActivePath}
-            onTabClose={() => undefined}
-            onContentChange={handleContentChange}
-            onRun={handleRun}
-            onReset={handleReset}
-            onStop={stop}
-            isRunning={isExecuting}
-            isInstalling={isInstalling}
-            pythonStatus={pythonStatus}
-          />
-        </div>
-        <div className="min-h-0 flex-[2] border-t border-border">
-          <ConsolePanel outputs={outputs} onClear={() => setOutputs([])} isRunning={isExecuting} />
-        </div>
+      <section aria-label={WORKSPACE_LABELS[mode]} className="flex min-h-[28rem] flex-1 flex-col lg:min-h-0">
+        {trace.state.status === "ready" ? (
+          <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50 p-3">
+            <ExecutionVisualizer code={trace.state.code} trace={trace.state.trace} onClose={trace.close} />
+          </div>
+        ) : (
+          <>
+            <div className="flex min-h-0 flex-[3] flex-col">
+              {mode === "codigo" ? (
+                <CodeEditor
+                  tabs={files}
+                  activePath={activePath}
+                  onTabSelect={setActivePath}
+                  onTabClose={() => undefined}
+                  onContentChange={handleContentChange}
+                  onRun={handleRun}
+                  onReset={handleReset}
+                  onStop={stop}
+                  onVisualize={handleVisualize}
+                  isRunning={isExecuting}
+                  isInstalling={isInstalling}
+                  pythonStatus={pythonStatus}
+                />
+              ) : (
+                <>
+                  <RunToolbar
+                    title={mode === "lacunas" ? "Complete as lacunas" : "Ordene as linhas"}
+                    isRunning={isExecuting}
+                    isTracing={trace.state.status === "loading"}
+                    onRun={handleRun}
+                    onStop={stop}
+                    onVisualize={handleVisualize}
+                    onReset={handleReset}
+                  />
+                  <div className="min-h-0 flex-1">
+                    {mode === "lacunas"
+                      ? <BlanksEditor source={blanksSource} answers={blankAnswers} onChange={handleBlanksChange} />
+                      : <ParsonsBoard lines={step.parsons_lines} placements={placements} onChange={handlePlacementsChange} />}
+                  </div>
+                </>
+              )}
+            </div>
+            {trace.state.status === "loading" && <p role="status" className="border-t border-border bg-level-purple-light px-3 py-1.5 text-xs text-level-purple-dark">Preparando a visualização da execução…</p>}
+            {trace.state.status === "error" && <p role="alert" className="border-t border-border bg-red-50 px-3 py-1.5 text-xs text-red-700">{trace.state.message}</p>}
+            <div className="min-h-0 flex-[2] border-t border-border">
+              <ConsolePanel outputs={outputs} onClear={() => setOutputs([])} isRunning={isExecuting} />
+            </div>
+          </>
+        )}
       </section>
     </div>
   )

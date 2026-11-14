@@ -129,6 +129,10 @@ export function usePython({ packages, onStatusChange }: UsePythonOptions = {}): 
         case "packages-loading":
           // Só informativo: a lista pendente já foi montada ao pedir a instalação.
           return
+        case "trace-result":
+        case "trace-error":
+          // Respostas do visualizador: quem pediu (`requestTrace`) é que as trata.
+          return
       }
     }
 

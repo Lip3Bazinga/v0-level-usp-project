@@ -1,11 +1,18 @@
 import {
-  DEFAULT_STEP_XP, lessonStepsSchema, MAX_STEP_HINTS, testCasesSchema,
-  type Checkpoint, type LessonStepInput, type StepKind, type TestCase,
+  DEFAULT_STEP_XP, isParsonsSolutionOrder, lessonStepsSchema, MAX_STEP_HINTS, parsonsSolutionLines, testCasesSchema,
+  type Checkpoint, type ExerciseMode, type LessonStepInput, type ParsonsLine, type StepKind, type TestCase,
 } from "@levelusp/contracts"
 import { MAIN_FILE_PATH } from "@/lib/constants"
 
 /** Rótulo pt-BR de cada tipo de passo. */
 export const STEP_KIND_LABELS: Readonly<Record<StepKind, string>> = { leitura: "Leitura", exercicio: "Exercício", quiz: "Quiz", previsao: "Previsão" }
+
+/** Rótulo pt-BR de cada modo de resposta de um exercício. */
+export const EXERCISE_MODE_LABELS: Readonly<Record<ExerciseMode, string>> = {
+  codigo: "Escrever o código",
+  lacunas: "Completar lacunas (___)",
+  ordenar: "Ordenar linhas (Parsons)",
+}
 
 const DEFAULT_STEP_CASES: TestCase[] = [{ kind: "io", id: "saida", stdin: "", expected_stdout: "Olá, mundo!", match: "contains", checkpoint: 1 }]
 
@@ -44,6 +51,85 @@ export function withMainFileContent(files: LessonStepInput["starter_files"], con
   const others = files.filter((file) => file.path !== MAIN_FILE_PATH)
   if (content === "" && others.length === 0) return []
   return [{ path: MAIN_FILE_PATH, content }, ...others]
+}
+
+const SHUFFLE_ATTEMPTS = 8
+
+/** Gerador pseudoaleatório determinístico (mulberry32): o mesmo texto sempre embaralha igual. */
+function seededRandom(seed: number): () => number {
+  let state = seed >>> 0
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0
+    let mixed = Math.imul(state ^ (state >>> 15), state | 1)
+    mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), mixed | 61)
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function textSeed(texts: readonly string[]): number {
+  let hash = 2166136261
+  for (const character of texts.join("\n")) hash = Math.imul(hash ^ (character.codePointAt(0) ?? 0), 16777619)
+  return hash >>> 0
+}
+
+function shuffled(texts: readonly string[], random: () => number): string[] {
+  const result = [...texts]
+  for (let index = result.length - 1; index > 0; index--) {
+    const target = Math.floor(random() * (index + 1))
+    const current = result[index]
+    const other = result[target]
+    if (current === undefined || other === undefined) continue
+    result[index] = other
+    result[target] = current
+  }
+  return result
+}
+
+const toParsonsLines = (texts: readonly string[]): ParsonsLine[] => texts.map((text, index) => ({ id: `l${index + 1}`, text }))
+
+/**
+ * Linhas de um exercício `ordenar` a partir da solução e dos distratores do professor: sem
+ * indentação, embaralhadas (sempre do mesmo jeito para o mesmo texto) e com ids dados DEPOIS de
+ * embaralhar, para que o id não revele a posição certa. A API recusa linhas na ordem da solução;
+ * por isso o embaralhamento é refeito até sair diferente dela (quando isso é possível).
+ */
+export function buildParsonsLines(solution: string, distractors: readonly string[]): ParsonsLine[] {
+  const texts = [...parsonsSolutionLines(solution).map((line) => line.text), ...distractors.map((line) => line.trim()).filter((line) => line !== "")]
+  const random = seededRandom(textSeed(texts))
+  for (let attempt = 0; attempt < SHUFFLE_ATTEMPTS; attempt++) {
+    const lines = toParsonsLines(shuffled(texts, random))
+    if (!isParsonsSolutionOrder(lines, solution)) return lines
+  }
+  // Poucas linhas podem cair sempre na ordem original: girar uma posição resolve (se houver linhas diferentes).
+  return toParsonsLines([...texts.slice(1), ...texts.slice(0, 1)])
+}
+
+/** Distratores de um exercício `ordenar`: as linhas do passo que sobram depois de casar cada linha da solução. */
+export function parsonsDistractors(lines: readonly ParsonsLine[], solution: string): string[] {
+  const remaining = parsonsSolutionLines(solution).map((line) => line.text)
+  return lines
+    .filter((line) => {
+      const index = remaining.indexOf(line.text)
+      if (index === -1) return true
+      remaining.splice(index, 1)
+      return false
+    })
+    .map((line) => line.text)
+}
+
+/**
+ * Campos que mudam ao trocar o modo de um exercício: `ordenar` não tem código inicial, exige a
+ * solução num único `main.py` e ganha as linhas embaralhadas; os outros modos não têm linhas.
+ */
+export function exerciseModeChanges(step: LessonStepInput, mode: ExerciseMode): Partial<LessonStepInput> {
+  if (mode !== "ordenar") return { exercise_mode: mode, parsons_lines: [] }
+  const solution = mainFileContent(step.solution_files)
+  return { exercise_mode: mode, starter_files: [], solution_files: [{ path: MAIN_FILE_PATH, content: solution }], parsons_lines: buildParsonsLines(solution, []) }
+}
+
+/** Campos de um exercício `ordenar` depois de editar a solução ou os distratores (as linhas são refeitas). */
+export function parsonsContentChanges(solution: string, distractors: readonly string[]): Partial<LessonStepInput> {
+  return { solution_files: [{ path: MAIN_FILE_PATH, content: solution }], parsons_lines: buildParsonsLines(solution, distractors) }
 }
 
 /** Uma linha não vazia por item (instruções, dicas, alternativas). */

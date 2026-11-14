@@ -1,7 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { X, Play, Square, RotateCcw, Copy, Check } from "lucide-react"
+import { X, Play, Square, RotateCcw, Copy, Check, Footprints } from "lucide-react"
 import CodeMirror, { EditorView } from "@uiw/react-codemirror"
 import { python } from "@codemirror/lang-python"
 import { oneDark } from "@codemirror/theme-one-dark"
@@ -25,6 +25,8 @@ interface CodeEditorProps {
   onRun: () => void
   onReset: () => void
   onStop?: () => void
+  /** Abre o visualizador de execução com o código do editor; sem a prop, o botão "Visualizar" não aparece. */
+  onVisualize?: (() => void) | undefined
   isRunning?: boolean
   isInstalling?: boolean
   pythonStatus?: PyodideStatus
@@ -76,6 +78,7 @@ export function CodeEditor({
   onRun,
   onReset,
   onStop,
+  onVisualize,
   isRunning = false,
   isInstalling = false,
   pythonStatus = "idle",
@@ -123,6 +126,20 @@ export function CodeEditor({
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Interromper execução</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+
+            {onVisualize && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="sm" variant="outline" className="ml-2 gap-2 rounded-lg border-level-purple text-level-purple hover:bg-level-purple-light" onClick={onVisualize} disabled={isRunning}>
+                    <Footprints className="h-4 w-4" />
+                    Visualizar
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Ver a execução passo a passo</p>
                 </TooltipContent>
               </Tooltip>
             )}

@@ -2,15 +2,18 @@
 
 import { useState } from "react"
 import { ArrowDown, ArrowUp, ListOrdered, Plus, Trash2 } from "lucide-react"
-import { MAX_LESSON_STEPS, STEP_KINDS, type LessonStepInput, type StepKind, type StepQuizQuestionInput } from "@levelusp/contracts"
+import {
+  BLANK_TOKEN, EXERCISE_MODES, exerciseModeSchema, MAX_EXPECTED_OUTPUT_LENGTH, MAX_LESSON_STEPS, STEP_KINDS,
+  type LessonStepInput, type StepKind, type StepQuizQuestionInput,
+} from "@levelusp/contracts"
+import { countBlanks } from "@/lib/utils/exercise-modes"
 import { moveItem, type MoveDirection } from "@/lib/utils"
 import { ADD_BUTTON_CLASS, EditorPanel, MINI_LABEL_CLASS, SMALL_INPUT_CLASS } from "./panel"
 import {
-  checkpointsFromLines, createStep, hintsFromLines, linesOf, mainFileContent, parseTestCasesJson, renumberSteps, STEP_KIND_LABELS, withMainFileContent,
+  checkpointsFromLines, createStep, EXERCISE_MODE_LABELS, exerciseModeChanges, hintsFromLines, linesOf, mainFileContent, parseTestCasesJson, parsonsContentChanges,
+  parsonsDistractors, renumberSteps, STEP_KIND_LABELS, withMainFileContent,
 } from "./steps-form"
 
-/** Tipos de passo que este editor sabe editar; a Previsão (P2b) ainda só entra pelo pacote de conteúdo. */
-const EDITABLE_STEP_KINDS: readonly StepKind[] = STEP_KINDS.filter((kind) => kind !== "previsao")
 const TEXTAREA_CLASS = `${SMALL_INPUT_CLASS} font-mono`
 const JSON_INDENT = 2
 
@@ -20,8 +23,9 @@ interface StepsTabProps {
 }
 
 /**
- * Editor dos passos da lição guiada: leitura, exercício (código inicial, solução, instruções,
- * dicas e casos de teste) e quiz. Ao salvar, a lista inteira é enviada em `steps` e substitui
+ * Editor dos passos da lição guiada: leitura, exercício (modo de resposta — código, lacunas ou
+ * ordenar —, código inicial, solução, instruções, dicas e casos de teste), previsão (código, saída
+ * esperada e dicas) e quiz. Ao salvar, a lista inteira é enviada em `steps` e substitui
  * os passos da lição (o id de cada posição é preservado pela API).
  */
 export function StepsTab({ steps, onChange }: StepsTabProps): React.JSX.Element {
@@ -50,7 +54,7 @@ export function StepsTab({ steps, onChange }: StepsTabProps): React.JSX.Element 
       subtitle="O aluno percorre os passos em ordem; cada exercício é corrigido pelos casos do próprio passo."
       action={
         <div className="flex flex-wrap gap-2">
-          {EDITABLE_STEP_KINDS.map((kind) => (
+          {STEP_KINDS.map((kind) => (
             <button key={kind} type="button" onClick={() => addStep(kind)} disabled={steps.length >= MAX_LESSON_STEPS} className={ADD_BUTTON_CLASS}>
               <Plus className="h-4 w-4" /> {STEP_KIND_LABELS[kind]}
             </button>
@@ -60,7 +64,7 @@ export function StepsTab({ steps, onChange }: StepsTabProps): React.JSX.Element 
     >
       {steps.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          Nenhum passo ainda. Adicione uma leitura, um exercício ou um quiz.
+          Nenhum passo ainda. Adicione uma leitura, um exercício, um quiz ou uma previsão.
         </p>
       ) : (
         <ol className="space-y-3">
@@ -121,6 +125,7 @@ function StepFields({ step, onChange }: StepFieldsProps): React.JSX.Element {
         <textarea id={fieldId("narrativa")} rows={6} value={step.narrative_markdown} onChange={(event) => onChange({ narrative_markdown: event.target.value })} className={SMALL_INPUT_CLASS} />
       </div>
       {step.kind === "exercicio" && <ExerciseFields step={step} onChange={onChange} fieldId={fieldId} />}
+      {step.kind === "previsao" && <PredictionFields step={step} onChange={onChange} fieldId={fieldId} />}
       {step.kind === "quiz" && <QuizFields questions={step.quiz_questions} onChange={(quiz_questions) => onChange({ quiz_questions })} fieldId={fieldId} />}
     </div>
   )
@@ -142,8 +147,34 @@ function ExerciseFields({ step, onChange, fieldId }: ExerciseFieldsProps): React
     if (parsed.ok) onChange({ test_cases: parsed.cases })
   }
 
+  const mode = step.exercise_mode
+  const solution = mainFileContent(step.solution_files)
+  const starter = mainFileContent(step.starter_files)
+
+  const handleSolutionChange = (content: string): void => {
+    // No modo ordenar as linhas do aluno saem da solução: mudou a solução, as linhas são refeitas.
+    if (mode === "ordenar") onChange(parsonsContentChanges(content, parsonsDistractors(step.parsons_lines, solution)))
+    else onChange({ solution_files: withMainFileContent(step.solution_files, content) })
+  }
+
   return (
     <>
+      <div>
+        <label htmlFor={fieldId("modo")} className={MINI_LABEL_CLASS}>Como o aluno responde</label>
+        <select
+          id={fieldId("modo")}
+          value={mode}
+          onChange={(event) => {
+            const parsed = exerciseModeSchema.safeParse(event.target.value)
+            if (parsed.success) onChange(exerciseModeChanges(step, parsed.data))
+          }}
+          className={SMALL_INPUT_CLASS}
+        >
+          {EXERCISE_MODES.map((option) => (
+            <option key={option} value={option}>{EXERCISE_MODE_LABELS[option]}</option>
+          ))}
+        </select>
+      </div>
       <div>
         <label htmlFor={fieldId("instrucoes")} className={MINI_LABEL_CLASS}>Instruções (uma por linha; viram os checkpoints 1, 2, 3…)</label>
         <textarea
@@ -155,29 +186,56 @@ function ExerciseFields({ step, onChange, fieldId }: ExerciseFieldsProps): React
         />
       </div>
       <div className="grid gap-3 lg:grid-cols-2">
+        {mode === "ordenar" ? (
+          <div>
+            <label htmlFor={fieldId("distratores")} className={MINI_LABEL_CLASS}>Distratores (opcional; uma linha errada por linha, sem indentação)</label>
+            <textarea
+              id={fieldId("distratores")}
+              rows={8}
+              spellCheck={false}
+              defaultValue={parsonsDistractors(step.parsons_lines, solution).join("\n")}
+              onChange={(event) => onChange(parsonsContentChanges(solution, linesOf(event.target.value)))}
+              className={TEXTAREA_CLASS}
+            />
+          </div>
+        ) : (
+          <div>
+            <label htmlFor={fieldId("inicial")} className={MINI_LABEL_CLASS}>
+              {mode === "lacunas" ? `Código inicial (main.py) — marque cada lacuna com ${BLANK_TOKEN}` : "Código inicial (main.py)"}
+            </label>
+            <textarea
+              id={fieldId("inicial")}
+              rows={8}
+              spellCheck={false}
+              value={starter}
+              onChange={(event) => onChange({ starter_files: withMainFileContent(step.starter_files, event.target.value) })}
+              aria-describedby={mode === "lacunas" ? fieldId("inicial-lacunas") : undefined}
+              className={TEXTAREA_CLASS}
+            />
+            {mode === "lacunas" && (
+              <p id={fieldId("inicial-lacunas")} className="mt-1 text-xs text-muted-foreground">
+                Lacunas encontradas: {countBlanks(starter)}. O aluno só edita as lacunas; a correção usa os casos de teste.
+              </p>
+            )}
+          </div>
+        )}
         <div>
-          <label htmlFor={fieldId("inicial")} className={MINI_LABEL_CLASS}>Código inicial (main.py)</label>
-          <textarea
-            id={fieldId("inicial")}
-            rows={8}
-            spellCheck={false}
-            value={mainFileContent(step.starter_files)}
-            onChange={(event) => onChange({ starter_files: withMainFileContent(step.starter_files, event.target.value) })}
-            className={TEXTAREA_CLASS}
-          />
-        </div>
-        <div>
-          <label htmlFor={fieldId("solucao")} className={MINI_LABEL_CLASS}>Solução de referência (o aluno só vê depois das tentativas)</label>
-          <textarea
-            id={fieldId("solucao")}
-            rows={8}
-            spellCheck={false}
-            value={mainFileContent(step.solution_files)}
-            onChange={(event) => onChange({ solution_files: withMainFileContent(step.solution_files, event.target.value) })}
-            className={TEXTAREA_CLASS}
-          />
+          <label htmlFor={fieldId("solucao")} className={MINI_LABEL_CLASS}>
+            {mode === "ordenar" ? "Solução (as linhas dela, embaralhadas, são o que o aluno ordena; indente com 4 espaços)" : "Solução de referência (o aluno só vê depois das tentativas)"}
+          </label>
+          <textarea id={fieldId("solucao")} rows={8} spellCheck={false} value={solution} onChange={(event) => handleSolutionChange(event.target.value)} className={TEXTAREA_CLASS} />
         </div>
       </div>
+      {mode === "ordenar" && (
+        <div>
+          <p className={MINI_LABEL_CLASS}>Linhas que o aluno recebe (já embaralhadas, sem indentação)</p>
+          <ol aria-label="Linhas que o aluno recebe" className="list-decimal space-y-0.5 rounded-xl border border-border bg-muted/40 py-2 pl-8 pr-3 font-mono text-xs">
+            {step.parsons_lines.map((line) => (
+              <li key={line.id}>{line.text}</li>
+            ))}
+          </ol>
+        </div>
+      )}
       <div>
         <label htmlFor={fieldId("dicas")} className={MINI_LABEL_CLASS}>Dicas (uma por linha, até 3; reveladas uma a uma)</label>
         <textarea
@@ -201,6 +259,52 @@ function ExerciseFields({ step, onChange, fieldId }: ExerciseFieldsProps): React
           className={TEXTAREA_CLASS}
         />
         {casesError && <p id={fieldId("casos-erro")} role="alert" className="mt-1 text-xs text-destructive">{casesError} (os últimos casos válidos continuam valendo)</p>}
+      </div>
+    </>
+  )
+}
+
+function PredictionFields({ step, onChange, fieldId }: ExerciseFieldsProps): React.JSX.Element {
+  return (
+    <>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <div>
+          <label htmlFor={fieldId("codigo")} className={MINI_LABEL_CLASS}>Código que o aluno lê (main.py; ele não pode executar)</label>
+          <textarea
+            id={fieldId("codigo")}
+            rows={8}
+            spellCheck={false}
+            value={mainFileContent(step.starter_files)}
+            onChange={(event) => onChange({ starter_files: withMainFileContent(step.starter_files, event.target.value) })}
+            className={TEXTAREA_CLASS}
+          />
+        </div>
+        <div>
+          <label htmlFor={fieldId("saida")} className={MINI_LABEL_CLASS}>Saída esperada (exatamente o que o código imprime)</label>
+          <textarea
+            id={fieldId("saida")}
+            rows={8}
+            spellCheck={false}
+            maxLength={MAX_EXPECTED_OUTPUT_LENGTH}
+            value={step.expected_output}
+            onChange={(event) => onChange({ expected_output: event.target.value })}
+            aria-describedby={fieldId("saida-ajuda")}
+            className={TEXTAREA_CLASS}
+          />
+          <p id={fieldId("saida-ajuda")} className="mt-1 text-xs text-muted-foreground">
+            O editor não executa o código: rode-o antes e copie a saída. A comparação ignora espaços no fim das linhas; o aluno nunca recebe este texto antes das tentativas.
+          </p>
+        </div>
+      </div>
+      <div>
+        <label htmlFor={fieldId("dicas")} className={MINI_LABEL_CLASS}>Dicas (uma por linha, até 3; reveladas uma a uma)</label>
+        <textarea
+          id={fieldId("dicas")}
+          rows={3}
+          defaultValue={step.hints.join("\n")}
+          onChange={(event) => onChange({ hints: hintsFromLines(event.target.value) })}
+          className={SMALL_INPUT_CLASS}
+        />
       </div>
     </>
   )

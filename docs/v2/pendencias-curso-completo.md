@@ -169,6 +169,18 @@ O que renderizar no markdown (`narrative_markdown`; fórmulas também em `checkp
 - Narrativas escritas por professores pela API não passam pelo lint: o renderizador precisa tolerar
   fórmula inválida, diagrama inválido e `::video` com outro host (mostrar como texto).
 
+#### P2b — web e plano concluídos em 2026-11-14
+- Player: fórmulas (KaTeX local), Mermaid sob demanda em modo estrito, imagens, vídeo só após o clique
+  (YouTube nocookie e Vimeo, `frame-src` restrito), visualizador de execução (Pyodide + `sys.settrace`,
+  500 passos), exercícios `lacunas` e `ordenar` (arrasto e teclado) e o passo Previsão. Detalhes e
+  limitações em `web-ui.md`. Web: 62 arquivos de teste, 340 testes, build verde.
+- `content/cursos/n1-fundamentos/PLANO.md` reescrito passo a passo para as 47 lições (281 passos:
+  32 diagramas, 28 blocos visualizar, 22 lacunas, 11 ordenar, 37 previsões, nenhuma imagem).
+- Limitações conhecidas (não bloqueiam o P3): Mermaid só tem validação estrutural no lint; assets são
+  públicos pela URL mesmo com o curso em rascunho; o visualizador só acompanha o arquivo de entrada;
+  no editor do professor a saída da Previsão é digitada à mão; o fluxo novo (arranjo, previsão, assets)
+  só foi exercitado contra a API real nos e2e da API, não num navegador ponta a ponta.
+
 ### P3 — Conteúdo do Nível 1 (46 lições restantes)
 Para cada lição de `content/cursos/n1-fundamentos/<módulo>/` (exceto `06-funcoes/01-definir-e-chamar`, já pronta): manter o frontmatter e substituir o passo "Roteiro da lição" pelos passos reais descritos no `PLANO.md` (seção do módulo), no formato de `content/README.md`. Cada exercício: instruções numeradas (checkpoints), código inicial, solução, 1–3 dicas, verificação JSON com `checkpoint` em cada caso, ≥ 2 soluções erradas (sem laço infinito). Quiz com 2–3 perguntas.
 Use os recursos do P2b (diagramas, visualizador, fórmulas, lacunas, ordenar, Previsão) como o `PLANO.md` atualizado indicar; a lição `06-funcoes/01-definir-e-chamar` também deve ser revista para usá-los.
