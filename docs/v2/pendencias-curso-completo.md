@@ -38,6 +38,7 @@ O que existe agora (é o contrato que a web do P2 consome):
 | `GET /users/:id/activity` | agora exige sessão: dono, professor ou admin. |
 
 Decisões tomadas na implementação (ajustar aqui se alguma não for a desejada):
+- Ver a solução não conclui o passo (confirmado pelo Filipe em 2026-11-14; a D5 foi corrigida em `decisoes-curso-2026-11-04.md`).
 - As rotas clássicas mantiveram os caminhos que já existiam (`POST /lessons/:id/submissions`, `POST /courses/:id/certificate`); só as de passo e de trilha ficam sob `/me`.
 - XP da lição guiada = soma do XP dos passos + `xp_reward` da lição ao fechar o último passo.
 - Sequência (streak) conta dias com conclusão; o login não mexe mais nela e a resposta de login não traz mais `streak`. `current_streak` é calculado na leitura (zera quando a última conclusão não foi hoje nem ontem).

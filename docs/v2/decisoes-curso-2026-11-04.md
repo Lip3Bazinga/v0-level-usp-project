@@ -120,10 +120,17 @@ das lições é rígido demais."* Aceitável porque o aluno pode ver a solução
 ## D5 — Dicas e solução
 
 **Resposta inicial.** Dicas progressivas por passo (até 3, reveladas uma a uma); a solução
-pode ser vista após 3 verificações com falha; ver a solução conclui o passo com 50 % do XP.
+pode ser vista após 3 verificações com falha; ver a solução libera o código; o passo é
+concluído ao enviar, com 50 % do XP.
 **Refutação:** *"USP não mostra solução."* Numa prova não; num curso autoinstrucional o aluno
 sem solução abandona (o motivo nº 1 de evasão em MOOCs). O desconto de XP preserva o
 incentivo e a prova/projeto garantem a competência. **Mantida.**
+
+**Ajuste de 2026-11-14 (Filipe).** Ver a solução não conclui o passo sozinho: o aluno precisa
+enviá-la e passar na correção, e então recebe 50 % do XP. Motivos: (1) respeita a regra central
+do projeto — progresso e XP só mudam depois de um veredito do servidor; (2) obriga o aluno a
+pelo menos digitar ou rodar o código, o que pedagogicamente vale mais que só clicar; (3) mantém
+os dados do experimento limpos — todo passo concluído tem uma submissão aprovada.
 
 ## D6 — Produção do conteúdo
 
