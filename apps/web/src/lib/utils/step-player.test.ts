@@ -7,7 +7,7 @@ import {
 function step(id: string, order: number, kind: LessonStep["kind"] = "exercicio", starter = ""): LessonStep {
   return {
     id, lesson_id: "l", order, kind, title: id, narrative_markdown: "", starter_files: starter ? [{ path: "main.py", content: starter }] : [],
-    checkpoints: [], test_case_count: 1, hint_count: 0, quiz_questions: [], xp: 10,
+    checkpoints: [], test_case_count: 1, hint_count: 0, quiz_questions: [], xp: 10, exercise_mode: "codigo", parsons_lines: [],
   }
 }
 function done(stepId: string): LessonStepProgress {

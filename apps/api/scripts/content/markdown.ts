@@ -67,6 +67,12 @@ const HINT_LINE = /^\s*dica:\s*(.*)$/i
 const CHECKBOX_OPTION = /^\s*[-*]\s+\[([ xX])\]\s+(.*)$/
 const ATTRIBUTE = /\s*([A-Za-z_][A-Za-z0-9_-]*)=("([^"]*)"|'([^']*)'|(\S+))/y
 const LANGUAGE = /^\s*([A-Za-z0-9_+-]+)/
+const BARE_WORD = /\s*([A-Za-z_][A-Za-z0-9_-]*)(?=\s|$)/y
+
+/** Marca do bloco ```python visualizar (visualizador de execução no player). */
+export const FLAG_VISUALIZE = "visualizar"
+/** Palavras soltas aceitas na abertura de um bloco; viram o atributo de mesmo nome com valor "true". */
+const FENCE_FLAGS: readonly string[] = [FLAG_VISUALIZE]
 
 /** Divide o texto em linhas numeradas a partir de `firstLine`; aceita `\r\n`. */
 export function toSourceLines(text: string, firstLine = 1): SourceLine[] {
@@ -75,7 +81,8 @@ export function toSourceLines(text: string, firstLine = 1): SourceLine[] {
 
 /**
  * Linha de abertura de um bloco: `python`, `python path=utils.py`, `python name="sem aspas"`,
- * `text path=dados.csv`. Valores com espaço vão entre aspas.
+ * `text path=dados.csv`, `python visualizar`. Valores com espaço vão entre aspas; `visualizar`
+ * é a única palavra solta aceita (vira o atributo `visualizar: "true"`).
  *
  * @throws MarkdownSyntaxError quando sobra texto que não é `chave=valor`.
  */
@@ -86,6 +93,13 @@ export function parseFenceInfo(info: string, line: number): Pick<FencedBlock, "l
   let position = languageMatch?.[0].length ?? 0
   while (position < info.length) {
     if (info.slice(position).trim() === "") break
+    BARE_WORD.lastIndex = position
+    const flag = BARE_WORD.exec(info)
+    if (flag?.[1] !== undefined && FENCE_FLAGS.includes(flag[1])) {
+      attributes[flag[1]] = "true"
+      position += flag[0].length
+      continue
+    }
     ATTRIBUTE.lastIndex = position
     const match = ATTRIBUTE.exec(info)
     if (!match) throw new MarkdownSyntaxError(line, `atributo inválido no bloco de código: "${info.slice(position).trim()}" (use chave=valor, ex.: path=utils.py ou name="caso")`)

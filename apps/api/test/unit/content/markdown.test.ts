@@ -11,6 +11,11 @@ describe("parseFenceInfo", () => {
     expect(parseFenceInfo("text path=dados.csv", 1)).toEqual({ language: "text", attributes: { path: "dados.csv" } })
   })
 
+  it("aceita a palavra solta visualizar (e só ela) como marca do bloco", () => {
+    expect(parseFenceInfo("python visualizar", 1)).toEqual({ language: "python", attributes: { visualizar: "true" } })
+    expect(() => parseFenceInfo("python executar", 1)).toThrow(MarkdownSyntaxError)
+  })
+
   it("recusa atributo que não é chave=valor, apontando a linha", () => {
     expect(() => parseFenceInfo("python sem-valor", 7)).toThrow(MarkdownSyntaxError)
     try {

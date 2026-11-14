@@ -1,5 +1,5 @@
 import {
-  DEFAULT_ENTRY_FILE, DEFAULT_RUNNER_LIMITS,
+  assembleParsonsCode, DEFAULT_ENTRY_FILE, DEFAULT_RUNNER_LIMITS, parsonsSolutionPlacements,
   type BundleCourse, type BundleLesson, type BundleModule, type BundleStep, type ContentBundle, type GradeResult, type ProjectFile, type RunnerJob, type RunnerResult, type TestCase,
 } from "@levelusp/contracts"
 import { buildProbes, grade } from "../../src/modules/grading/grading.domain"
@@ -8,7 +8,9 @@ import { buildProbes, grade } from "../../src/modules/grading/grading.domain"
  * Verificação do conteúdo com o executor REAL (`pnpm content:verify`), com o
  * mesmo motor de correção da API: para cada passo de exercício, a solução
  * precisa ser APROVADA, o código inicial REPROVADO e cada solução errada
- * REPROVADA (prova de que os casos pegam os erros comuns). Lições
+ * REPROVADA (prova de que os casos pegam os erros comuns). Num exercício
+ * `ordenar`, a "solução" é o código MONTADO com as linhas do passo e o "código
+ * inicial" são as linhas na ordem embaralhada em que o aluno as recebe. Lições
  * `python-dados` pedem o motor e as bibliotecas ao executor.
  */
 
@@ -33,6 +35,8 @@ export interface StarterCode {
   files: ProjectFile[]
   /** `order` do passo de que a solução foi herdada; null quando o passo tem código inicial próprio. */
   inheritedFrom: number | null
+  /** As linhas de um exercício `ordenar` na ordem embaralhada, sem indentação (o que o aluno vê ao abrir). */
+  isShuffledOrder?: true
 }
 
 /** Um passo de exercício a verificar, com o contexto de onde está. */
@@ -128,8 +132,15 @@ export function createPool(limit: number): Scheduler {
 
 const runImmediately: Scheduler = (task) => task()
 
-/** Código inicial efetivo do passo: o próprio ou, em lição guiada, a solução do exercício anterior. */
+/**
+ * Código inicial efetivo do passo: o próprio ou, em lição guiada, a solução do exercício
+ * anterior; num exercício `ordenar`, as linhas na ordem embaralhada (sem indentação).
+ */
 export function resolveStarter(lesson: BundleLesson, step: BundleStep): StarterCode | null {
+  if (step.exercise_mode === "ordenar") {
+    const shuffledCode = assembleParsonsCode(step.parsons_lines, step.parsons_lines.map((line) => ({ line_id: line.id, indent: 0 })))
+    return shuffledCode === null ? null : { files: [{ path: DEFAULT_ENTRY_FILE, content: shuffledCode }], inheritedFrom: null, isShuffledOrder: true }
+  }
   if (step.starter_files.length > 0) return { files: step.starter_files, inheritedFrom: null }
   if (lesson.lesson_type !== "guided") return null
   const previous = lesson.steps.filter((candidate) => candidate.kind === "exercicio" && candidate.order < step.order && candidate.solution_files.length > 0).pop()
@@ -151,6 +162,18 @@ export function listExerciseTargets(bundle: ContentBundle, filter: VerifyFilter 
     }
   }
   return targets
+}
+
+/**
+ * Solução que a verificação roda: num exercício `ordenar`, o código montado com as linhas do
+ * passo (null quando elas não montam a solução); nos demais, os arquivos de `### Solução`.
+ */
+export function resolveSolution(step: BundleStep): ProjectFile[] | null {
+  if (step.exercise_mode !== "ordenar") return step.solution_files
+  const solution = step.solution_files.find((file) => file.path === DEFAULT_ENTRY_FILE)
+  const placements = solution ? parsonsSolutionPlacements(step.parsons_lines, solution.content) : null
+  const assembled = placements ? assembleParsonsCode(step.parsons_lines, placements) : null
+  return assembled === null ? null : [{ path: DEFAULT_ENTRY_FILE, content: assembled }]
 }
 
 /** Pedido ao executor para um projeto contra os casos do passo, com o motor (e as bibliotecas) da lição. */
@@ -184,7 +207,11 @@ function describeProblems(target: ExerciseTarget, solution: GradeResult, starter
   }
   if (starter?.allPassed && target.starter) {
     const origin = target.starter.inheritedFrom === null ? "código inicial" : `código inicial herdado do passo ${target.starter.inheritedFrom}`
-    details.push(`${origin} APROVADO sem o aluno fazer nada (casos que passaram: ${passedCaseIds(starter)})`)
+    details.push(
+      target.starter.isShuffledOrder
+        ? `a ordem embaralhada (linhas como o aluno recebe, sem indentação) foi APROVADA (casos que passaram: ${passedCaseIds(starter)})`
+        : `${origin} APROVADO sem o aluno fazer nada (casos que passaram: ${passedCaseIds(starter)})`,
+    )
   }
   if (target.step.wrong_solutions.length === 0) details.push("sem soluções erradas: adicione ao menos uma em ### Soluções erradas")
   for (const entry of wrong) {
@@ -193,14 +220,18 @@ function describeProblems(target: ExerciseTarget, solution: GradeResult, starter
   return details
 }
 
-/** Verifica um passo: solução aprova, código inicial reprova, cada solução errada reprova. */
+/** Verifica um passo: solução (montada, no modo `ordenar`) aprova, código inicial ou ordem embaralhada reprova, cada solução errada reprova. */
 export async function verifyStep(target: ExerciseTarget, runner: StepRunner, schedule: Scheduler = runImmediately): Promise<StepVerdict> {
   const { lesson, step } = target
   const cases = step.test_cases
   const run = (files: ProjectFile[]): Promise<GradeResult> => schedule(() => gradeOnRunner(runner, lesson, files, cases))
+  const solutionFiles = resolveSolution(step)
+  if (solutionFiles === null) {
+    return { target, status: "falha", solution: null, starter: null, wrong: [], details: ["as linhas do exercício de ordenar não montam a solução"], durationMs: 0 }
+  }
   try {
     const [solution, starter, wrongResults] = await Promise.all([
-      run(step.solution_files),
+      run(solutionFiles),
       target.starter ? run(target.starter.files) : Promise.resolve(null),
       Promise.all(step.wrong_solutions.map((wrongSolution) => run(wrongSolution.files))),
     ])

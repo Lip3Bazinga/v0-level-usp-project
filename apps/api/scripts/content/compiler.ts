@@ -1,7 +1,11 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import path from "node:path"
-import { CONTENT_BUNDLE_FORMAT, nonEmpty, type BundleCourse, type BundleExam, type BundleLesson, type BundleModule, type BundleTrack } from "@levelusp/contracts"
+import {
+  CONTENT_BUNDLE_FORMAT, contentAssetPath, contentAssetUrl, nonEmpty,
+  type BundleAsset, type BundleCourse, type BundleExam, type BundleLesson, type BundleModule, type BundleTrack, type ContentAssetType,
+} from "@levelusp/contracts"
 import { parseLessonFile } from "./lesson-parser"
+import { assetVersion, type AssetSource } from "./rich-content"
 import { SourceMap, type ContentProblem } from "./source-map"
 import { assembleCourse, assembleModule, loadCourseFields, loadExam, loadModuleFields, loadTrack } from "./yaml-content"
 import { readYamlFile, YamlSyntaxError } from "./yaml-file"
@@ -10,6 +14,7 @@ import { readYamlFile, YamlSyntaxError } from "./yaml-file"
  * Percorre a árvore de conteúdo (docs/v2/curso-e-passos.md §6):
  *   <raiz>/trilhas/<trilha>.yaml
  *   <raiz>/cursos/<curso>/curso.yaml, prova.yaml, <modulo>/modulo.yaml, <modulo>/NN-<slug>.lvl.md
+ *   <raiz>/cursos/<curso>/<modulo>/assets/<imagem>   (só as citadas nas narrativas entram no pacote)
  * e monta o pacote (ainda sem a validação final do schema). Arquivos com
  * problema ficam fora do pacote; os problemas saem com `arquivo:linha`.
  */
@@ -19,6 +24,8 @@ export interface CompiledBundle {
   format: typeof CONTENT_BUNDLE_FORMAT
   tracks: BundleTrack[]
   courses: BundleCourse[]
+  /** Imagens citadas nas narrativas: `<curso>/<módulo>/<arquivo>` → tipo e conteúdo em base64. */
+  assets: Record<string, BundleAsset>
 }
 
 /** Contagens para o resumo dos comandos. */
@@ -51,6 +58,7 @@ const COURSES_DIR = "cursos"
 const COURSE_FILE = "curso.yaml"
 const EXAM_FILE = "prova.yaml"
 const MODULE_FILE = "modulo.yaml"
+const ASSETS_DIR = "assets"
 const LESSON_SUFFIX = ".lvl.md"
 const LESSON_FILE_NAME = /^(\d+)-([a-z0-9]+(?:-[a-z0-9]+)*)\.lvl\.md$/
 const YAML_EXTENSIONS = [".yaml", ".yml"]
@@ -62,6 +70,34 @@ interface Walker {
   displayRoot: string
   locations: SourceMap
   problems: ContentProblem[]
+  assets: Record<string, BundleAsset>
+}
+
+/** Curso e módulo de uma lição: formam o caminho público das imagens dela. */
+interface ModuleScope {
+  courseSlug: string
+  moduleSlug: string
+}
+
+/**
+ * Imagens de um módulo: lidas de `<módulo>/assets/` e, quando citadas, incluídas no pacote
+ * sob `<curso>/<módulo>/<arquivo>`. A URL devolvida leva a versão (hash) do conteúdo.
+ */
+function moduleAssets(walker: Walker, moduleDir: string, scope: ModuleScope): AssetSource {
+  const assetsDir = path.join(moduleDir, ASSETS_DIR)
+  return {
+    read(fileName: string): Uint8Array | null {
+      const absolutePath = path.join(assetsDir, fileName)
+      // O nome já foi validado (sem barras), mas o caminho resolvido é conferido de novo antes de ler.
+      if (path.dirname(absolutePath) !== assetsDir || !existsSync(absolutePath) || !statSync(absolutePath).isFile()) return null
+      return new Uint8Array(readFileSync(absolutePath))
+    },
+    publish(fileName: string, contentType: ContentAssetType, bytes: Uint8Array): string {
+      const assetPath = contentAssetPath(scope.courseSlug, scope.moduleSlug, fileName)
+      walker.assets[assetPath] = { content_type: contentType, base64: Buffer.from(bytes).toString("base64") }
+      return contentAssetUrl(assetPath, assetVersion(bytes))
+    },
+  }
 }
 
 /** Caminho relativo à base de exibição; fora dela (ex.: pasta temporária), o caminho absoluto. */
@@ -133,18 +169,19 @@ function listLessonFiles(walker: Walker, moduleDir: string): LessonFile[] {
   return files.sort((left, right) => left.order - right.order)
 }
 
-function compileLessons(walker: Walker, moduleDir: string): BundleLesson[] {
+function compileLessons(walker: Walker, moduleDir: string, scope: ModuleScope): BundleLesson[] {
   const lessons: BundleLesson[] = []
+  const assets = moduleAssets(walker, moduleDir, scope)
   for (const { name } of listLessonFiles(walker, moduleDir)) {
     const absolutePath = path.join(moduleDir, name)
-    const parsed = parseLessonFile(readFileSync(absolutePath, "utf8"), display(walker, absolutePath), walker.locations)
+    const parsed = parseLessonFile(readFileSync(absolutePath, "utf8"), display(walker, absolutePath), walker.locations, { assets })
     walker.problems.push(...parsed.problems)
     if (parsed.lesson) lessons.push(parsed.lesson)
   }
   return lessons
 }
 
-function compileModule(walker: Walker, moduleDir: string): BundleModule | null {
+function compileModule(walker: Walker, moduleDir: string, courseSlug: string): BundleModule | null {
   const moduleFile = path.join(moduleDir, MODULE_FILE)
   if (!existsSync(moduleFile)) {
     walker.problems.push({ file: display(walker, moduleDir), line: null, message: `pasta de módulo sem ${MODULE_FILE} (pastas auxiliares começam com _ ou .)` })
@@ -152,14 +189,15 @@ function compileModule(walker: Walker, moduleDir: string): BundleModule | null {
   }
   const yaml = readYaml(walker, moduleFile)
   const fields = yaml && loadModuleFields(yaml, walker.problems, walker.locations)
-  const lessons = compileLessons(walker, moduleDir)
+  // Módulo com YAML inválido fica fora do pacote; o nome da pasta só serve para ler as lições e apontar os problemas delas.
+  const lessons = compileLessons(walker, moduleDir, { courseSlug, moduleSlug: fields?.slug ?? path.basename(moduleDir) })
   return fields ? assembleModule(fields, lessons, walker.locations) : null
 }
 
-function compileModules(walker: Walker, courseDir: string): BundleModule[] {
+function compileModules(walker: Walker, courseDir: string, courseSlug: string): BundleModule[] {
   const modules: BundleModule[] = []
   for (const name of listDirectories(courseDir)) {
-    const module = compileModule(walker, path.join(courseDir, name))
+    const module = compileModule(walker, path.join(courseDir, name), courseSlug)
     if (module) modules.push(module)
   }
   return modules.sort((left, right) => left.sort_order - right.sort_order || left.slug.localeCompare(right.slug))
@@ -181,7 +219,7 @@ function compileCourse(walker: Walker, courseDir: string): BundleCourse | null {
   const yaml = readYaml(walker, courseFile)
   const fields = yaml && loadCourseFields(yaml, walker.problems, walker.locations)
   const exam = compileExam(walker, courseDir)
-  const modules = compileModules(walker, courseDir)
+  const modules = compileModules(walker, courseDir, fields?.slug ?? path.basename(courseDir))
   return fields ? assembleCourse(fields, exam, modules, walker.locations) : null
 }
 
@@ -218,7 +256,10 @@ export function countContent(bundle: CompiledBundle): ContentStats {
  */
 export function compileContent(options: CompileOptions): CompiledContent {
   const contentDir = path.resolve(options.contentDir)
-  const walker: Walker = { contentDir, displayRoot: path.resolve(options.displayRoot ?? contentDir), locations: new SourceMap(), problems: [] }
-  const bundle: CompiledBundle = { format: CONTENT_BUNDLE_FORMAT, tracks: compileTracks(walker), courses: compileCourses(walker) }
+  const walker: Walker = { contentDir, displayRoot: path.resolve(options.displayRoot ?? contentDir), locations: new SourceMap(), problems: [], assets: {} }
+  const tracks = compileTracks(walker)
+  const courses = compileCourses(walker)
+  const assets = Object.fromEntries(Object.entries(walker.assets).sort(([left], [right]) => left.localeCompare(right)))
+  const bundle: CompiledBundle = { format: CONTENT_BUNDLE_FORMAT, tracks, courses, assets }
   return { bundle, locations: walker.locations, problems: walker.problems, stats: countContent(bundle) }
 }

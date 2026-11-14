@@ -119,4 +119,5 @@ Tipos em `packages/contracts`. Respostas em snake_case.
 ## Infra
 | POST | /uploads/images | 👤 | multipart `file` → {url} |
 | GET | /files/:name | 🔓 | imagem |
+| GET | /content/assets/:course/:module/:file | 🔓 | imagem do conteúdo (pacote importado); `?v=<hash>` dá cache longo |
 | GET | /health/live, /health/ready | 🔓 | |

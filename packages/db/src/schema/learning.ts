@@ -57,7 +57,7 @@ export const lessonStepProgress = pgTable(
     /** Verificações reprovadas (falha de infraestrutura não conta). */
     attempts: integer("attempts").notNull().default(0),
     hintsRevealed: integer("hints_revealed").notNull().default(0),
-    /** Ver a solução conclui o passo com metade do XP. */
+    /** Viu a solução (ou a saída esperada) antes de concluir: o passo passa a valer metade do XP. */
     solutionViewed: boolean("solution_viewed").notNull().default(false),
     xpAwarded: integer("xp_awarded").notNull().default(0),
     completedAt: timestampTz("completed_at"),

@@ -14,18 +14,18 @@ describe("compileContent com content/exemplo", () => {
   it("compila sem problemas, passa no lint e valida no contentBundleSchema", () => {
     expect(compiled.problems).toEqual([])
     expect(lintContent(compiled)).toEqual([])
-    expect(compiled.stats).toEqual({ tracks: 1, courses: 1, modules: 1, lessons: 2, steps: 4 })
+    expect(compiled.stats).toEqual({ tracks: 1, courses: 1, modules: 1, lessons: 3, steps: 9 })
     const validation = validateBundle(compiled, "2026-11-05T00:00:00.000Z")
     expect(validation.problems).toEqual([])
     expect(validation.bundle).not.toBeNull()
-    expect(() => contentBundleSchema.parse(JSON.parse(serializeBundle(validation.bundle ?? { format: 2, tracks: [], courses: [] })))).not.toThrow()
+    expect(() => contentBundleSchema.parse(JSON.parse(serializeBundle(validation.bundle ?? { format: 2, tracks: [], courses: [], assets: {} })))).not.toThrow()
   })
 
   it("tem a estrutura do §6.2: trilha → cursos → módulos → lições → passos", () => {
     const validation = validateBundle(compiled, "2026-11-05T00:00:00.000Z")
     const bundle = validation.bundle
     if (!bundle) throw new Error("pacote inválido")
-    expect(Object.keys(bundle)).toEqual(["format", "generated_at", "tracks", "courses"])
+    expect(Object.keys(bundle)).toEqual(["format", "generated_at", "tracks", "courses", "assets"])
     expect(bundle.tracks).toEqual([
       expect.objectContaining({ slug: "trilha-exemplo", title: "Trilha de exemplo", sort_order: 1, published: false, courses: ["curso-exemplo"] }),
     ])
@@ -34,7 +34,7 @@ describe("compileContent com content/exemplo", () => {
     expect(course?.exam).toMatchObject({ title: "Prova do curso de exemplo", passing_score: 70, time_limit_minutes: 20, cooldown_minutes: 30, questions_per_attempt: null })
     expect(course?.exam?.questions.map((question) => [question.correct_index, question.topic])).toEqual([[1, "Saída"], [1, "Funções"]])
     expect(course?.modules.map((module) => [module.slug, module.sort_order, module.lessons.map((lesson) => lesson.slug)])).toEqual([
-      ["exemplo-m1-primeiros-passos", 1, ["exemplo-m1-01-ola-python", "exemplo-m1-02-funcoes-basicas"]],
+      ["exemplo-m1-primeiros-passos", 1, ["exemplo-m1-01-ola-python", "exemplo-m1-02-funcoes-basicas", "exemplo-m1-03-recursos-de-apresentacao"]],
     ])
     const [guided, practice] = course?.modules[0]?.lessons ?? []
     expect(guided?.lesson_type).toBe("guided")
@@ -47,6 +47,37 @@ describe("compileContent com content/exemplo", () => {
     expect(practice?.steps.map((step) => [step.kind, step.checkpoints.length, step.test_cases.map((testCase) => testCase.kind), step.hints.length])).toEqual([
       ["exercicio", 3, ["call", "call", "call", "call", "expr", "source", "variable"], 3],
     ])
+  })
+
+  it("a lição-modelo do exemplo usa todos os recursos de apresentação e os novos formatos de exercício", () => {
+    const lesson = compiled.bundle.courses[0]?.modules[0]?.lessons[2]
+    expect(lesson?.steps.map((step) => [step.order, step.kind, step.exercise_mode, step.parsons_lines.length, step.expected_output !== ""])).toEqual([
+      [1, "leitura", "codigo", 0, false],
+      [2, "exercicio", "lacunas", 0, false],
+      [3, "exercicio", "ordenar", 7, false],
+      [4, "previsao", "codigo", 0, true],
+      [5, "quiz", "codigo", 0, false],
+    ])
+    const narrative = lesson?.steps[0]?.narrative_markdown ?? ""
+    expect(narrative).toContain("$$\n\\bar{x} = \\frac{1}{n} \\sum_{i=1}^{n} x_i\n$$")
+    expect(narrative).toContain("R\\$ 25,00")
+    expect(narrative).toContain("```mermaid\nflowchart TD")
+    expect(narrative).toContain("```python visualizar\nnotas = [6, 8, 10]")
+    expect(narrative).toContain("::video[Média aritmética em dois minutos](https://www.youtube-nocookie.com/embed/AAAAAAAAAAA)\n> Resumo: ")
+    expect(narrative).toMatch(/!\[Notas 6, 8 e 10[^\]]+\]\(\/api\/content\/assets\/curso-exemplo\/exemplo-m1-primeiros-passos\/media-na-reta\.svg\?v=[0-9a-f]{12}\)/)
+    expect(Object.keys(compiled.bundle.assets)).toEqual(["curso-exemplo/exemplo-m1-primeiros-passos/media-na-reta.svg"])
+    expect(compiled.bundle.assets["curso-exemplo/exemplo-m1-primeiros-passos/media-na-reta.svg"]?.content_type).toBe("image/svg+xml")
+    // O passo de ordenar não tem código inicial e as linhas não saem na ordem da solução nem indentadas.
+    const parsons = lesson?.steps[2]
+    expect(parsons?.starter_files).toEqual([])
+    expect(parsons?.parsons_lines.map((line) => line.text).sort()).toEqual([
+      'def situacao(notas):', 'if media > 6:', 'if media >= 6:', 'media = sum(notas) / len(notas)', 'return "aprovado"', 'return "reprovado"', "return aprovado",
+    ])
+    expect(parsons?.parsons_lines[0]?.text).not.toBe("def situacao(notas):")
+    expect(parsons?.parsons_lines.every((line) => line.text === line.text.trim())).toBe(true)
+    // Compilar de novo dá o mesmo embaralhamento (pacote estável entre compilações).
+    const again = compileContent({ contentDir: EXAMPLE_DIR }).bundle.courses[0]?.modules[0]?.lessons[2]?.steps[2]?.parsons_lines
+    expect(again).toEqual(parsons?.parsons_lines)
   })
 
   it("exibe caminhos relativos à pasta pedida", () => {
@@ -149,6 +180,37 @@ describe("exemplos do content/README.md", () => {
     expect(compiled.problems).toEqual([])
     expect(lintContent(compiled)).toEqual([])
     expect(compiled.bundle.courses[0]?.modules[0]?.lessons[2]?.steps.map((step) => step.kind)).toEqual(["leitura", "exercicio", "quiz"])
+  })
+})
+
+describe("exemplos dos recursos do P2b no content/README.md", () => {
+  let tree: TempTree | null = null
+  afterEach(() => {
+    tree?.cleanup()
+    tree = null
+  })
+
+  it("narrativa rica, lacunas, ordenar e Previsão do README compilam juntos, passam no lint e validam no schema", () => {
+    const readme = readFileSync(path.resolve(EXAMPLE_DIR, "../README.md"), "utf8")
+    const examples = [...readme.matchAll(/^````markdown\n([\s\S]*?)^````$/gm)].map((match) => match[1] ?? "")
+    const find = (marker: string): string => {
+      const example = examples.find((candidate) => candidate.includes(marker))
+      if (example === undefined) throw new Error(`exemplo com "${marker}" não encontrado no README`)
+      return example
+    }
+    const steps = [find("::video["), find("modo: lacunas"), find("modo: ordenar"), find("· Previsão ·")]
+    tree = writeTree({
+      ...validTree(),
+      "cursos/curso-teste/m1/03-readme-p2b.lvl.md": `${frontmatter({ slug: "readme-p2b" })}\n${steps.join("\n")}`,
+      "cursos/curso-teste/m1/assets/media-na-reta.svg": readFileSync(path.resolve(EXAMPLE_DIR, "cursos/curso-exemplo/m1-primeiros-passos/assets/media-na-reta.svg"), "utf8"),
+    })
+    const compiled = compileContent({ contentDir: tree.dir })
+    expect(compiled.problems).toEqual([])
+    expect(lintContent(compiled)).toEqual([])
+    const lesson = compiled.bundle.courses[0]?.modules[0]?.lessons[2]
+    expect(lesson?.steps.map((step) => [step.kind, step.exercise_mode])).toEqual([["leitura", "codigo"], ["exercicio", "lacunas"], ["exercicio", "ordenar"], ["previsao", "codigo"]])
+    expect(Object.keys(compiled.bundle.assets)).toEqual(["curso-teste/modulo-teste/media-na-reta.svg"])
+    expect(validateBundle(compiled, "2026-11-14T00:00:00.000Z").problems).toEqual([])
   })
 })
 

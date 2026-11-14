@@ -1,4 +1,7 @@
-import { MAX_STEP_HINTS, type BundleCourse, type BundleLesson, type BundleModule, type BundleStep, type BundleTrack } from "@levelusp/contracts"
+import {
+  BLANK_PATTERN, BLANK_TOKEN, DEFAULT_ENTRY_FILE, isParsonsSolutionOrder, MAX_PARSONS_LINES, MAX_STEP_HINTS, PARSONS_INDENT_WIDTH, parsonsSolutionLines,
+  type BundleCourse, type BundleLesson, type BundleModule, type BundleStep, type BundleTrack, type ProjectFile,
+} from "@levelusp/contracts"
 import type { CompiledContent } from "./compiler"
 import { problemAt, type ContentProblem, type SourceMap } from "./source-map"
 
@@ -14,6 +17,8 @@ export const MIN_TITLE_LENGTH = 3
 export const MIN_READING_NARRATIVE_LENGTH = 200
 /** Menor número de alternativas de uma pergunta. */
 export const MIN_QUIZ_OPTIONS = 2
+/** Menor número de linhas da solução de um exercício `ordenar` (com menos, a ordem é óbvia). */
+export const MIN_PARSONS_SOLUTION_LINES = 3
 
 /** Marcadores de texto provisório que nunca podem ir para o aluno. */
 const PLACEHOLDER_PATTERNS: readonly { pattern: RegExp; label: string }[] = [
@@ -22,7 +27,7 @@ const PLACEHOLDER_PATTERNS: readonly { pattern: RegExp; label: string }[] = [
   { pattern: /\blorem\b/i, label: "lorem" },
 ]
 
-const KIND_LABELS = { leitura: "Leitura", exercicio: "Exercício", quiz: "Quiz" } as const
+const KIND_LABELS = { leitura: "Leitura", exercicio: "Exercício", quiz: "Quiz", previsao: "Previsão" } as const
 
 interface LintContext {
   locations: SourceMap
@@ -73,10 +78,71 @@ function checkUniqueSlugs(ctx: LintContext, owners: readonly SlugOwner[]): void 
   }
 }
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+/** O arquivo da solução é o do código inicial com cada lacuna trocada por um trecho não vazio da mesma linha. */
+export function fillsBlanks(starter: string, solution: string): boolean {
+  const pieces = starter.trimEnd().split(BLANK_PATTERN).map(escapeRegExp)
+  return new RegExp(`^${pieces.join("[^\\n]+?")}$`).test(solution.trimEnd())
+}
+
+/** `modo: lacunas`: há lacunas no código inicial e a solução é o código inicial com elas preenchidas. */
+function checkBlanksExercise(ctx: LintContext, step: BundleStep, label: string): void {
+  const withBlanks = step.starter_files.filter((file) => file.content.search(BLANK_PATTERN) !== -1)
+  if (withBlanks.length === 0) {
+    flag(ctx, step, "starter_files", `${label} (modo lacunas) sem nenhuma lacuna: marque com ${BLANK_TOKEN} os trechos que o aluno completa em ### Código inicial`)
+    return
+  }
+  const solutionByPath = new Map(step.solution_files.map((file): [string, ProjectFile] => [file.path, file]))
+  for (const starter of step.starter_files) {
+    const solution = solutionByPath.get(starter.path)
+    if (!solution) flag(ctx, step, "solution_files", `${label} (modo lacunas): a solução não tem o arquivo ${starter.path} do código inicial`)
+    else if (!fillsBlanks(starter.content, solution.content)) {
+      flag(ctx, step, "solution_files", `${label} (modo lacunas): a solução de ${starter.path} não é o código inicial com as lacunas preenchidas (fora das lacunas os dois precisam ser idênticos)`)
+    }
+  }
+  if (step.solution_files.length !== step.starter_files.length) flag(ctx, step, "solution_files", `${label} (modo lacunas): a solução tem arquivos que não estão no código inicial`)
+  if (step.solution_files.some((file) => file.content.search(BLANK_PATTERN) !== -1)) flag(ctx, step, "solution_files", `${label} (modo lacunas): a solução ainda tem lacunas (${BLANK_TOKEN})`)
+}
+
+/** `modo: ordenar`: solução num único main.py com indentação regular; linhas suficientes, distintas dos distratores e embaralhadas. */
+function checkParsonsExercise(ctx: LintContext, step: BundleStep, label: string): void {
+  const [solution] = step.solution_files
+  if (!solution) return
+  if (step.solution_files.length !== 1 || solution.path !== DEFAULT_ENTRY_FILE) {
+    flag(ctx, step, "solution_files", `${label} (modo ordenar): a solução precisa ser um único bloco \`\`\`python (${DEFAULT_ENTRY_FILE})`)
+    return
+  }
+  const solutionLines = parsonsSolutionLines(solution.content)
+  if (solutionLines.length < MIN_PARSONS_SOLUTION_LINES) {
+    flag(ctx, step, "solution_files", `${label} (modo ordenar): a solução tem ${solutionLines.length} linha(s) de código; mínimo ${MIN_PARSONS_SOLUTION_LINES}`)
+  }
+  if (solutionLines.some((line) => line.indent === null)) {
+    flag(ctx, step, "solution_files", `${label} (modo ordenar): a solução precisa indentar com múltiplos de ${PARSONS_INDENT_WIDTH} espaços (sem tabulação), porque o aluno indenta por níveis`)
+  }
+  if (step.parsons_lines.length > MAX_PARSONS_LINES) flag(ctx, step, "parsons_lines", `${label} (modo ordenar): ${step.parsons_lines.length} linhas com os distratores (máximo ${MAX_PARSONS_LINES})`)
+  const solutionTexts = solutionLines.map((line) => line.text)
+  const distractors = step.parsons_lines.map((line) => line.text)
+  for (const text of solutionTexts) {
+    const index = distractors.indexOf(text)
+    if (index !== -1) distractors.splice(index, 1)
+  }
+  for (const distractor of distractors) {
+    if (solutionTexts.includes(distractor)) flag(ctx, step, "parsons_lines", `${label} (modo ordenar): o distrator "${distractor}" é igual a uma linha da solução`)
+  }
+  if (new Set(solutionTexts).size < 2) flag(ctx, step, "solution_files", `${label} (modo ordenar): a solução precisa de pelo menos duas linhas diferentes`)
+  else if (isParsonsSolutionOrder(step.parsons_lines, solution.content)) flag(ctx, step, "parsons_lines", `${label} (modo ordenar): as linhas saíram na ordem da solução`)
+}
+
 function checkExerciseStep(ctx: LintContext, lesson: BundleLesson, step: BundleStep, hasPreviousExercise: boolean): void {
   const label = describeStep(step)
+  if (step.exercise_mode !== "codigo" && lesson.lesson_type !== "guided") flag(ctx, step, null, `${label}: modo ${step.exercise_mode} só vale em lição guiada (tipo: guiada)`)
+  if (step.exercise_mode === "lacunas") checkBlanksExercise(ctx, step, label)
+  if (step.exercise_mode === "ordenar") checkParsonsExercise(ctx, step, label)
   if (step.checkpoints.length === 0) flag(ctx, step, null, `${label} sem ### Instruções`)
-  if (step.starter_files.length === 0 && !(lesson.lesson_type === "guided" && hasPreviousExercise)) {
+  if (step.starter_files.length === 0 && step.exercise_mode !== "ordenar" && !(lesson.lesson_type === "guided" && hasPreviousExercise)) {
     flag(ctx, step, null, `${label} sem ### Código inicial (só pode faltar num passo de lição guiada que continua um exercício anterior)`)
   }
   if (step.solution_files.length === 0) flag(ctx, step, null, `${label} sem ### Solução`)
@@ -109,6 +175,15 @@ function checkQuizStep(ctx: LintContext, step: BundleStep): void {
   })
 }
 
+/** Passo `Previsão`: tem o código a ler (`main.py`) e até 3 dicas; a saída esperada é gerada no build. */
+function checkPredictionStep(ctx: LintContext, step: BundleStep): void {
+  const label = describeStep(step)
+  if (!step.starter_files.some((file) => file.path === DEFAULT_ENTRY_FILE)) flag(ctx, step, null, `${label} sem ### Código (o programa que o aluno lê)`)
+  if (step.narrative_markdown.trim() === "") flag(ctx, step, null, `${label} sem enunciado: escreva, antes de ### Código, o que o aluno deve prever`)
+  if (step.hints.length > MAX_STEP_HINTS) flag(ctx, step, "hints", `${label} com ${step.hints.length} dicas (máximo ${MAX_STEP_HINTS})`)
+  checkPlaceholders(ctx, step, "hints", step.hints, `${label}: dicas`)
+}
+
 function checkReadingStep(ctx: LintContext, step: BundleStep): void {
   const length = step.narrative_markdown.trim().length
   if (length < MIN_READING_NARRATIVE_LENGTH) flag(ctx, step, null, `${describeStep(step)} com narrativa curta demais (${length} caracteres; mínimo ${MIN_READING_NARRATIVE_LENGTH})`)
@@ -126,6 +201,9 @@ function checkStep(ctx: LintContext, lesson: BundleLesson, step: BundleStep, has
       break
     case "leitura":
       checkReadingStep(ctx, step)
+      break
+    case "previsao":
+      checkPredictionStep(ctx, step)
       break
   }
 }

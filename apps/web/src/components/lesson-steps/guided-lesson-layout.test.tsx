@@ -41,7 +41,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
 function step(id: string, order: number, kind: LessonStep["kind"], extra: Partial<LessonStep> = {}): LessonStep {
   return {
     id, lesson_id: "l1", order, kind, title: `Passo ${id}`, narrative_markdown: `Texto do passo ${id}`, starter_files: [], checkpoints: [],
-    test_case_count: 0, hint_count: 0, quiz_questions: [], xp: 10, ...extra,
+    test_case_count: 0, hint_count: 0, quiz_questions: [], xp: 10, exercise_mode: "codigo", parsons_lines: [], ...extra,
   }
 }
 
@@ -121,7 +121,7 @@ describe("player de passos da lição guiada", () => {
     vi.mocked(api.fetchMyLessonStepsProgress).mockResolvedValue(progressWith(["leitura"]))
     vi.mocked(api.submitStep).mockResolvedValueOnce(failed(1)).mockResolvedValueOnce(failed(2)).mockResolvedValueOnce(failed(3))
     vi.mocked(api.revealStepHint).mockResolvedValue({ index: 0, text: "Comece pelo def" })
-    vi.mocked(api.revealStepSolution).mockResolvedValue({ files: [{ path: "main.py", content: "print(soma(1, 2))" }] })
+    vi.mocked(api.revealStepSolution).mockResolvedValue({ files: [{ path: "main.py", content: "print(soma(1, 2))" }], expected_output: null })
     renderPlayer()
     const verify = await screen.findByRole("button", { name: "Verificar" })
 

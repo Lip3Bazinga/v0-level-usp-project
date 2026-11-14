@@ -15,7 +15,7 @@ const LESSON: LessonWithTests = {
 }
 
 describe("lição guiada no formulário", () => {
-  const step = { order: 1, kind: "leitura" as const, title: "Leia", narrative_markdown: "", starter_files: [], solution_files: [], checkpoints: [], test_cases: [], hints: [], quiz_questions: [], xp: 10 }
+  const step = { order: 1, kind: "leitura" as const, title: "Leia", narrative_markdown: "", starter_files: [], solution_files: [], checkpoints: [], test_cases: [], hints: [], quiz_questions: [], xp: 10, exercise_mode: "codigo" as const, parsons_lines: [], expected_output: "" }
 
   it("envia os passos só quando o tipo é guiada, com projeto, motor e objetivos", () => {
     const form = { ...DEFAULT_FORM, title: "Guiada", lesson_type: "guided" as const, steps: [step], is_project: true, runtime: "python-dados" as const, objectives: [" Ler ", ""] }

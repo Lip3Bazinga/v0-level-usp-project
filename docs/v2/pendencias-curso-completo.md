@@ -1,6 +1,6 @@
 # Pendências do curso completo — branch `feat/curso-completo`
 
-Estado em 2026-11-13 (P1 e P2 concluídos; próximo passo: P2b — recursos de apresentação das aulas). Decisões: `decisoes-curso-2026-11-04.md` (escolhidas: 7 níveis + trilha;
+Estado em 2026-11-14 (P1 e P2 concluídos; P2b com a base — contratos, banco, conteúdo e API — pronta; próximo passo: player da web do P2b). Decisões: `decisoes-curso-2026-11-04.md` (escolhidas: 7 níveis + trilha;
 Pyodide no runner; certificado = lições 100 % + prova ≥ 70 % + projeto; escopo = estrutura dos 7
 níveis + Nível 1 completo). Especificação técnica: `curso-e-passos.md`.
 
@@ -22,17 +22,19 @@ O que existe agora (é o contrato que a web do P2 consome):
 
 | Rota | Observação |
 |---|---|
-| `GET /lessons/:id` | traz `steps` públicos (`test_case_count`, `hint_count`, quiz sem `correct_index`/`explanation`). `created_by` saiu do DTO público e ficou em `LessonWithTests`, que ganhou `authoring_steps` (passos com gabarito, no formato que `steps` aceita de volta). |
+| `GET /lessons/:id` | traz `steps` públicos (`test_case_count`, `hint_count`, quiz sem `correct_index`/`explanation`; P2b: `exercise_mode` e `parsons_lines`, nunca `expected_output`). `created_by` saiu do DTO público e ficou em `LessonWithTests`, que ganhou `authoring_steps` (passos com gabarito, no formato que `steps` aceita de volta). |
 | `POST`/`PATCH /lessons` | `steps` substitui todos os passos (id preservado por posição). Lição `guided` publicada sem passos → 422 `NO_STEPS`. |
 | `GET /me/lessons/:id/progress` | `LessonStepsProgress` (`status` da lição + `steps`). |
-| `POST /me/lessons/:id/steps/:stepId/submit` | exercício; 409 `STEP_LOCKED` fora de ordem; 400 `WRONG_STEP_KIND`; 403 `PROJECT_LOCKED`; 503 grava `submissions.status = error` e não conta tentativa. |
+| `POST /me/lessons/:id/steps/:stepId/submit` | exercício; 409 `STEP_LOCKED` fora de ordem; 400 `WRONG_STEP_KIND`; 403 `PROJECT_LOCKED`; 503 grava `submissions.status = error` e não conta tentativa. P2b: corpo `{files}` (modos `codigo` e `lacunas`) ou `{arrangement: [{line_id, indent}]}` (modo `ordenar`; a API monta o `main.py`); 400 `WRONG_SUBMISSION_FORMAT` / `INVALID_ARRANGEMENT`. |
+| `POST /me/lessons/:id/steps/:stepId/predict` | **P2b.** passo `previsao`; corpo `{output}` → `StepPredictResult` (`passed`, `attempts`, `solution_available` + efeito na gamificação; sem a saída esperada). Compara ignorando espaços no fim das linhas e linhas em branco no fim. 12/min por aluno, 60/dia por aluno e passo. Evento `step_submitted` com `kind: "previsao"`. |
 | `POST …/hint` e `GET …/hints` | uma dica por chamada (409 `NO_MORE_HINTS`); o `GET` devolve as já reveladas, para a tela reabrir. |
-| `POST …/solution` | 403 `SOLUTION_LOCKED` antes de `solution_after_attempts`; ver a solução NÃO conclui o passo: marca `solution_viewed` e a aprovação seguinte vale 50 % do XP. |
+| `POST …/solution` | 403 `SOLUTION_LOCKED` antes de `solution_after_attempts`; ver a solução NÃO conclui o passo: marca `solution_viewed` e a aprovação seguinte vale 50 % do XP. P2b: resposta `{files, expected_output}` — no exercício `expected_output` é `null`; na previsão `files` é `[]` e `expected_output` traz a saída (o aluno ainda a envia por `predict`). |
 | `POST …/complete`, `POST …/quiz` | leitura e quiz. No quiz reprovado a explicação só acompanha a questão acertada. |
 | `GET /tracks`, `GET /tracks/:slug` | públicos; com sessão, `student_status` por curso. Visitante só vê cursos publicados. |
 | `/admin/tracks` (CRUD) | admin. |
 | `POST /me/tracks/:id/certificate`, `GET /me/track-certificates` | código `TRL-XXXX-XXXX`; `GET /certificates/:code` e o PDF aceitam os dois tipos (`kind: "course" \| "track"`). |
-| `POST /admin/content/import` | admin, corpo até 20 MB, transação única, idempotente. |
+| `POST /admin/content/import` | admin, corpo até 20 MB, transação única, idempotente. P2b: grava também `assets` do pacote em `content_assets` (resumo ganhou `assets`); pacote com SVG ativo ou caminho de asset fora do formato → 400. |
+| `GET /content/assets/:course/:module/:file` | **P2b.** pública; imagem do conteúdo com `Content-Type` correto, `nosniff`, CSP `default-src 'none'; style-src 'unsafe-inline'; sandbox`, `ETag` e cache (1 ano com `?v=<hash>`, 5 min sem). 404 para caminho fora do formato e para conteúdo que não passa na conferência (SVG ativo). |
 | `POST /me/events`, `GET /admin/experiment/export.csv`, `PATCH /admin/users/:id/experiment-condition` | 600 eventos/h por usuário; o servidor registra sozinho `login`, `step_submitted`, `step_completed`, `hint_revealed`, `solution_viewed`, `lesson_completed`, `quiz_answered`, `exam_started`, `exam_submitted`, `certificate_issued`. |
 | `GET /health/ready` | 503 quando banco ou executor falham. |
 | `GET /users/:id/activity` | agora exige sessão: dono, professor ou admin. |
@@ -102,6 +104,70 @@ correção nova, API.
 7. Células estilo notebook ficam para o Nível 4 (P5), em cima do motor `python-dados`.
 Pronto quando: `content/exemplo` usa todos os recursos, `content:check`/`content:verify` passam, o
 player renderiza tudo (testes vitest) e `pnpm build && pnpm lint && pnpm test` estão verdes.
+
+#### P2b — base concluída em 2026-11-14 (falta o player da web)
+
+Pronto: contratos, migração `0005_p2b_recursos_de_apresentacao`, parser/lint/build/verify do conteúdo,
+API (rota `predict`, `submit` com `arrangement`, `solution` da previsão, rota pública de assets),
+`content/README.md` §3.5–§3.7, `content/exemplo` com todos os recursos, `curso-e-passos.md` §6.4.
+Falta: o player (itens abaixo), `frame-src` do CSP da web para os dois domínios de vídeo, editor do
+professor para os campos novos (o botão "Previsão" não aparece no editor; a previsão entra pelo pacote)
+e o item 6 (`PLANO.md` do Nível 1).
+
+Decisões tomadas (ajustar aqui se alguma não for a desejada):
+- Todo `$` fora de código é fórmula; dinheiro se escreve `R\$ 10`. Uma lição existente foi ajustada
+  (`n2-…/07-projetos-do-nivel/01-projeto-biblioteca.lvl.md`: `R$ 1,00/dia` → `R\$ 1,00/dia`).
+- Mermaid: validação estrutural no lint (o parser oficial exige DOM e o pacote `mermaid` pesa ~200 MB).
+- "Ver solução" na previsão mostra a saída esperada depois das tentativas, não conclui o passo e a
+  resposta enviada em seguida vale 50 % do XP.
+- No `ordenar` o aluno envia posições, não texto: a API monta o código só com as linhas do passo.
+- No `lacunas` a API corrige só pelos casos (não exige que o resto do código fique igual ao inicial).
+- `Previsão`, `lacunas` e `ordenar` só existem em lição `guiada` (a lição clássica não guarda o modo).
+- O evento do experimento da previsão é `step_submitted` com `kind: "previsao"` (sem tipo novo).
+
+#### Contrato para o player (web)
+
+Tipos em `@levelusp/contracts` (`steps.ts`, `content-assets.ts`). O que mudou no DTO público do passo
+(`LessonStep`, em `GET /lessons/:id` → `steps`):
+
+| Campo | Valores | O que a web faz |
+|---|---|---|
+| `kind` | ganhou `"previsao"` | passo novo: mostra `narrative_markdown` (enunciado), o `main.py` de `starter_files` **somente leitura** (sem botão Executar) e uma área de texto para a saída. Envia `POST …/predict {output}`; trata `StepPredictResult` como o resultado do quiz (`passed`, `attempts`, `solution_available`, XP/badges). Não existe diff: em erro, mostre só "ainda não é isso" e as dicas. |
+| `exercise_mode` | `"codigo"` \| `"lacunas"` \| `"ordenar"` (sempre `"codigo"` fora de exercício) | `codigo`: editor atual. `lacunas`: cada `___` (regex `BLANK_PATTERN`, `/_{3,}/g`) do `main.py` de `starter_files` vira um campo de texto de uma linha no meio do código (o resto é somente leitura); ao verificar, troque cada lacuna pelo texto digitado e envie `POST …/submit {files}`. `ordenar`: ver `parsons_lines`. |
+| `parsons_lines` | `[{ id, text }]`; vazio fora do modo `ordenar` | já vêm **embaralhadas e sem indentação**, com distratores misturados (a web NÃO embaralha de novo nem tenta adivinhar a ordem). O aluno arrasta as que quer para a área de resposta, na ordem, e ajusta o nível de indentação de cada uma (0 a `MAX_PARSONS_INDENT` = 12; `PARSONS_INDENT_WIDTH` = 4 espaços por nível). Linhas não usadas ficam de fora. Envie `POST …/submit {arrangement: [{ line_id, indent }]}` (sem `files`); a resposta é o `StepSubmitResult` de sempre. `starter_files` vem vazio. Precisa funcionar por teclado (mover para cima/baixo, indentar/desindentar). |
+
+Outras mudanças de contrato:
+- `SolutionReveal` ganhou `expected_output: string | null`. Exercício: `files` com a solução (no `ordenar`,
+  mostre o código da solução como texto). Previsão: `files` vazio e `expected_output` com a saída — mostre-a
+  e deixe o aluno enviá-la por `predict` (ver não conclui; vale 50 % do XP).
+- `StepSubmitInput` agora é `{ files? , arrangement? }` (um dos dois). `submitStep` da web continua válido.
+- `LessonStepInput` (autoria) ganhou `exercise_mode`, `parsons_lines`, `expected_output`; `createStep` do
+  editor já preenche os padrões. `ContentImportSummary` ganhou `assets`.
+- Erros novos a tratar: 400 `WRONG_SUBMISSION_FORMAT`, 400 `INVALID_ARRANGEMENT`; 429 na previsão.
+- Dicas (`POST …/hint`), ordem dos passos (`STEP_LOCKED`) e projeto valem igual para a previsão.
+
+O que renderizar no markdown (`narrative_markdown`; fórmulas também em `checkpoints[].instruction`,
+`checkpoints[].hint`, dicas reveladas, `quiz_questions[].prompt`/`options[]` e `explanation` do quiz):
+- **Fórmulas**: `$…$` em linha e `$$…$$` em bloco (`remark-math` + `rehype-katex`, CSS do KaTeX local).
+  `\$` é o cifrão literal (o escape padrão do markdown já resolve). O lint garante que toda fórmula do
+  pacote passa no parser do KaTeX.
+- **Mermaid**: bloco de código com linguagem `mermaid` → diagrama (carregar a biblioteca sob demanda, com
+  `securityLevel: "strict"`). Se o parser do Mermaid recusar, mostre o código como bloco comum (o lint só
+  valida a estrutura).
+- **Imagens**: `![alt](/api/content/assets/<curso>/<modulo>/<arquivo>?v=<hash>)` — `<img>` comum, mesma
+  origem (o rewrite `/api/*` já cobre); `alt` sempre vem preenchido. Não é preciso tratar `assets/…` relativo.
+- **Visualizador**: bloco de código cuja linha de abertura é `python visualizar` (no `react-markdown`, o
+  `meta` do nó `code` é `"visualizar"`). Mostre o código com o botão "Visualizar" e execute no Pyodide do
+  navegador com `sys.settrace` (limite de 500 passos; anterior/próximo/slider). O lint garante: não vazio,
+  até 60 linhas, sem `input()`; o `content:verify` garante que roda sem erro no CPython do executor.
+- **Vídeo**: uma linha `::video[título](url)` sozinha no parágrafo, em que `url` é SEMPRE
+  `https://www.youtube-nocookie.com/embed/<id>` ou `https://player.vimeo.com/video/<id>` (o compilador
+  normaliza). Renderize um `<iframe>` com `title` = título, `loading="lazy"` e `sandbox="allow-scripts
+  allow-same-origin allow-presentation"`, só depois do clique do aluno; inclua esses dois hosts no
+  `frame-src` do CSP (`apps/web/next.config.mjs`) e recuse qualquer outro host no componente. Logo depois
+  vem sempre uma citação `> Resumo: …` — é markdown comum e deve ficar visível junto do vídeo.
+- Narrativas escritas por professores pela API não passam pelo lint: o renderizador precisa tolerar
+  fórmula inválida, diagrama inválido e `::video` com outro host (mostrar como texto).
 
 ### P3 — Conteúdo do Nível 1 (46 lições restantes)
 Para cada lição de `content/cursos/n1-fundamentos/<módulo>/` (exceto `06-funcoes/01-definir-e-chamar`, já pronta): manter o frontmatter e substituir o passo "Roteiro da lição" pelos passos reais descritos no `PLANO.md` (seção do módulo), no formato de `content/README.md`. Cada exercício: instruções numeradas (checkpoints), código inicial, solução, 1–3 dicas, verificação JSON com `checkpoint` em cada caso, ≥ 2 soluções erradas (sem laço infinito). Quiz com 2–3 perguntas.

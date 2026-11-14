@@ -17,10 +17,11 @@ content/
   cursos/<curso>/prova.yaml                   prova do curso (opcional)
   cursos/<curso>/<modulo>/modulo.yaml         módulo
   cursos/<curso>/<modulo>/NN-<slug>.lvl.md    lições (NN = ordem no módulo: 01, 02…)
+  cursos/<curso>/<modulo>/assets/             imagens citadas nas lições do módulo (§3.5)
   exemplo/                                    curso mínimo usado pelos testes (não entra no pacote)
 ```
 
-- Pastas que começam com `_` ou `.` são ignoradas (rascunhos, imagens). Qualquer outra
+- Pastas que começam com `_` ou `.` são ignoradas (rascunhos). Qualquer outra
   subpasta de `cursos/` precisa de `curso.yaml`, e qualquer subpasta de um curso precisa de
   `modulo.yaml`.
 - Ordem: lições pelo prefixo numérico `NN-` do nome do arquivo (prefixo repetido é erro);
@@ -28,7 +29,8 @@ content/
   lista `cursos` da trilha; cursos no pacote por `ordem` do `curso.yaml`.
 - Um curso que não está em nenhuma trilha também entra no pacote.
 - `content/exemplo/` tem a mesma árvore (`trilhas/`, `cursos/`) e serve de modelo:
-  `pnpm content:check --content content/exemplo`.
+  `pnpm content:check --content content/exemplo`. A lição
+  `03-recursos-de-apresentacao.lvl.md` usa todos os recursos das §3.5 a §3.7.
 
 ## 2. Arquivos YAML
 
@@ -129,7 +131,7 @@ Só `slug`, `titulo` e `tipo` são obrigatórios; o resto usa o padrão do pacot
 
 | `tipo`    | Passos no arquivo                                | No pacote (`lesson_type`) |
 |-----------|--------------------------------------------------|---------------------------|
-| `guiada`  | um ou mais passos (Leitura, Exercício, Quiz)     | `guided`                  |
+| `guiada`  | um ou mais passos (Leitura, Exercício, Quiz, Previsão) | `guided`            |
 | `pratica` | exatamente UM passo `Exercício`                  | `coding`                  |
 | `leitura` | exatamente UM passo `Leitura`                    | `theory`                  |
 | `quiz`    | exatamente UM passo `Quiz`                       | `quiz`                    |
@@ -146,16 +148,19 @@ Cada passo começa com um título de nível 2:
 ## Passo 1 · Leitura · O que é um programa
 ## Passo 2 · Exercício · Seu primeiro print
 ## Passo 3 · Quiz · Fixando
+## Passo 4 · Previsão · O que este laço imprime
 ```
 
 - `N` é sequencial a partir de 1. O separador pode ser `·`, `-` ou `—`; `Exercicio` sem
   acento também vale. Cada passo vale 10 XP (padrão do pacote).
 - **Narrativa** = tudo entre o título do passo e a primeira seção `###`, em markdown. Pode ter
-  blocos ```python ilustrativos (não são executados). Títulos `##` são reservados para passos e
+  blocos ```python ilustrativos (não são executados), fórmulas, diagramas, imagens, blocos
+  `visualizar` e vídeos (§3.5). Títulos `##` são reservados para passos e
   `###` para seções: para subtítulos dentro da narrativa use `####`.
 - Passo `Leitura`: só narrativa (≥ 200 caracteres), nenhuma seção.
-- Passo `Exercício`: seções da §3.3.
+- Passo `Exercício`: seções da §3.3; `modo: lacunas` e `modo: ordenar` na §3.6.
 - Passo `Quiz`: uma ou mais seções `### Pergunta` (§3.4).
+- Passo `Previsão`: o aluno lê um código e digita a saída (§3.7). Só em lição `guiada`.
 
 ### 3.3 Seções do passo `Exercício`
 
@@ -256,6 +261,272 @@ print(2 * 3)
 - Alternativas: `- [ ]` ou `- [x]`; 2 a 8 por pergunta; **exatamente uma** marcada.
 - `> …` depois das alternativas é a explicação (opcional), mostrada após responder.
 - A nota mínima do quiz é `nota_minima_quiz` do cabeçalho.
+
+### 3.5 Recursos de apresentação (narrativas)
+
+Valem na narrativa de qualquer passo. As fórmulas valem também nas instruções, dicas,
+perguntas, alternativas e explicações de quiz. Nada disto é lido dentro de código (blocos
+``` e trechos entre crases).
+
+````markdown
+## Passo 1 · Leitura · O que é a média
+
+A média de $n$ notas é a soma delas dividida por $n$:
+
+$$
+\bar{x} = \frac{1}{n} \sum_{i=1}^{n} x_i
+$$
+
+A apostila custa R\$ 25,00. Em código o cifrão não muda: `preco = "R$ 25,00"`.
+
+![Notas 6, 8 e 10 marcadas em uma reta, com a média 8 circulada](assets/media-na-reta.svg)
+
+```mermaid
+flowchart TD
+    A[total = 0] --> B{ainda há notas?}
+    B -->|sim| C[total += nota]
+    C --> B
+    B -->|não| D["média = total / n"]
+```
+
+```python visualizar
+notas = [6, 8, 10]
+total = 0
+for nota in notas:
+    total += nota
+print(total / len(notas))
+```
+
+::video[Média aritmética em dois minutos](https://www.youtube.com/watch?v=AAAAAAAAAAA)
+> Resumo: o vídeo soma três notas uma a uma em uma variável acumuladora, divide o total pela
+> quantidade de notas e mostra que o resultado fica sempre entre a menor e a maior nota.
+````
+
+**Fórmulas (KaTeX).** `$…$` no meio do texto e `$$…$$` em bloco (pode ocupar várias linhas).
+O `content:check` passa cada fórmula pelo parser do KaTeX e aponta `arquivo:linha`.
+
+- **Todo `$` fora de código é delimitador de fórmula.** Para o cifrão de dinheiro escreva
+  `\$`: `R\$ 25,00`. Um `$` sem par, ou uma fórmula em linha que começa ou termina com espaço
+  (é o que sobra de `R$ 10 e R$ 20`), é erro, com a lembrança do `\$` na mensagem.
+- Dentro de bloco de código e de trecho entre crases o `$` é só um caractere: não escape.
+- Texto com acento dentro da fórmula vai em `\text{…}`: `$\text{média} = 8$`.
+
+**Diagramas (Mermaid).** Bloco ```` ```mermaid ````. A primeira linha é o tipo do diagrama
+(`flowchart`, `graph`, `sequenceDiagram`, `classDiagram`, `stateDiagram-v2`, `erDiagram`,
+`gantt`, `pie`, `mindmap`, `timeline`…). Em fluxograma, texto com parênteses ou colchetes vai
+entre aspas: `D["média = total / n"]`.
+
+> Limitação: o `content:check` faz uma validação **estrutural** (tipo conhecido, corpo não
+> vazio e, em `flowchart`/`graph`, direção, `subgraph`/`end` e colchetes/aspas casados). O parser
+> oficial do Mermaid depende do DOM do navegador e não roda no Node; um erro de sintaxe mais
+> fino só aparece ao abrir a lição no player. Confira o diagrama em https://mermaid.live.
+
+**Imagens.** Arquivos em `cursos/<curso>/<modulo>/assets/`, citados como
+`![texto alternativo](assets/arquivo.svg)`.
+
+- Texto alternativo obrigatório (descreva o que a imagem mostra); o arquivo precisa existir.
+- Tipos: `svg`, `png`, `jpg`/`jpeg`, `webp`, `gif`; até 512 KB por arquivo; nome com letras,
+  dígitos, `-`, `_` e `.`, sem subpastas. Endereço externo (`https://…`) não é aceito.
+- O conteúdo precisa ser do tipo da extensão. **SVG com `<script>`, atributo de evento
+  (`onload=`, `onclick=`…), URL `javascript:`, `foreignObject`/`iframe`/`embed`/`object` ou
+  `<!ENTITY` é recusado.** A conferência é conservadora: um rótulo de texto como
+  `fica onde = aqui` também bate na regra do atributo de evento; reescreva o rótulo.
+- Só as imagens citadas entram no pacote (campo `assets`). O compilador troca a referência
+  pela URL pública `/api/content/assets/<curso>/<modulo>/<arquivo>?v=<hash>`.
+
+**Visualizador de execução.** Bloco ```` ```python visualizar ````: o player mostra o código
+com o botão "Visualizar" e o executa passo a passo no navegador (não há correção). O
+`content:check` exige um bloco não vazio, com até 60 linhas, sem `input()` e estruturalmente
+plausível (parênteses, aspas, indentação depois de `:`); o `content:verify` roda cada bloco
+no executor real e exige que termine sem erro.
+
+**Vídeo (opcional).** Sozinho na linha: `::video[título](url)`, seguido de um resumo em texto.
+
+- Só YouTube e Vimeo, com `https`: `youtube.com/watch?v=…`, `youtu.be/…`,
+  `youtube-nocookie.com/embed/…`, `vimeo.com/<id>`, `player.vimeo.com/video/<id>`. Qualquer
+  outro endereço é erro. No pacote a URL vira sempre
+  `https://www.youtube-nocookie.com/embed/<id>` ou `https://player.vimeo.com/video/<id>`.
+- **Resumo obrigatório** (acessibilidade e quem não pode ver o vídeo): logo abaixo, uma
+  citação que começa com `> Resumo:` (≥ 60 caracteres; linhas `>` seguintes continuam o
+  resumo). O vídeo é complemento: a narrativa precisa fazer sentido sem ele.
+
+### 3.6 Exercício com `modo: lacunas` e `modo: ordenar`
+
+O modo vai na **primeira linha da narrativa** do passo `Exercício` (`modo: codigo` é o padrão
+e pode ser omitido). Os dois modos só valem em lição `guiada` e são corrigidos pelos mesmos
+casos de `### Verificação`.
+
+**`modo: lacunas`** — o código inicial vem com `___` (três sublinhados) em cada trecho que o
+aluno completa:
+
+````markdown
+## Passo 2 · Exercício · Complete a média
+modo: lacunas
+
+Complete as três lacunas (`___`) para que `media` devolva a média da lista.
+
+### Instruções
+1. Comece o acumulador `total` em zero.
+2. Some cada nota ao acumulador.
+3. Divida o total pela quantidade de notas.
+
+### Código inicial
+```python
+def media(notas):
+    total = ___
+    for nota in notas:
+        total += ___
+    return total / ___
+```
+
+### Solução
+```python
+def media(notas):
+    total = 0
+    for nota in notas:
+        total += nota
+    return total / len(notas)
+```
+
+### Verificação
+```json
+[
+  { "id": "media-3", "checkpoint": 2, "kind": "call", "function": "media", "args": [[6, 8, 10]], "expected": 8.0, "tolerance": 1e-9,
+    "name": "media([6, 8, 10]) é 8.0" },
+  { "id": "media-1", "checkpoint": 3, "kind": "call", "function": "media", "args": [[5]], "expected": 5.0, "tolerance": 1e-9,
+    "name": "media([5]) é 5.0" }
+]
+```
+
+### Soluções erradas
+```python name="divide por um número fixo"
+def media(notas):
+    total = 0
+    for nota in notas:
+        total += nota
+    return total / 3
+```
+````
+
+- O código inicial precisa de pelo menos uma lacuna; a **solução é o código inicial com as
+  lacunas preenchidas** — fora das lacunas os dois são idênticos, e cada lacuna vira um
+  trecho não vazio na mesma linha. O `content:check` confere.
+- Lacuna é qualquer sequência de três ou mais `_`; não use `___` como nome no resto do código.
+- O código inicial com as lacunas precisa ser REPROVADO (ele é, porque `___` não existe).
+
+**`modo: ordenar`** (problema de Parsons) — o aluno recebe as linhas da solução embaralhadas,
+ordena e indenta. Não há `### Código inicial`:
+
+````markdown
+## Passo 3 · Exercício · Monte a função situacao
+modo: ordenar
+
+Arraste as linhas para montar `situacao(notas)` e ajuste a indentação de cada uma.
+Duas linhas estão sobrando.
+
+### Instruções
+1. Calcule a média das notas dentro da função.
+2. Devolva `"aprovado"` quando a média for 6 ou mais; senão, `"reprovado"`.
+
+### Solução
+```python
+def situacao(notas):
+    media = sum(notas) / len(notas)
+    if media >= 6:
+        return "aprovado"
+    return "reprovado"
+```
+
+### Distratores
+```python
+if media > 6:
+return aprovado
+```
+
+### Verificação
+```json
+[
+  { "id": "limite", "checkpoint": 2, "kind": "call", "function": "situacao", "args": [[6, 6]], "expected": "aprovado",
+    "name": "média exatamente 6 é aprovado" },
+  { "id": "reprovado", "checkpoint": 2, "kind": "call", "function": "situacao", "args": [[2, 4]], "expected": "reprovado",
+    "name": "situacao([2, 4]) é reprovado" }
+]
+```
+
+### Soluções erradas
+```python name="comparação estrita"
+def situacao(notas):
+    media = sum(notas) / len(notas)
+    if media > 6:
+        return "aprovado"
+    return "reprovado"
+```
+````
+
+- `### Solução`: um único bloco ```python (o `main.py`), com pelo menos 3 linhas de código,
+  indentado com **múltiplos de 4 espaços** (o aluno indenta por níveis). Linhas em branco
+  não viram linhas para ordenar.
+- `### Distratores` (opcional): um bloco ```python; cada linha não vazia é uma linha a mais,
+  que não faz parte da resposta. Um distrator não pode ser igual a uma linha da solução.
+- O compilador tira a indentação e **embaralha** as linhas (solução + distratores) com uma
+  semente fixa (slug da lição + número do passo): o pacote é o mesmo a cada compilação e as
+  linhas nunca saem na ordem da solução. A ordem e a indentação certas são gabarito.
+- O aluno envia a ordem e os níveis de indentação; a API monta o `main.py` só com as linhas
+  do passo e corrige pelos casos. `### Soluções erradas` continua obrigatória (código comum).
+- No `content:verify`, a solução **montada com as linhas** precisa APROVAR e a **ordem
+  embaralhada** (como o aluno recebe, sem indentação) precisa REPROVAR.
+
+### 3.7 Passo `Previsão`
+
+O aluno lê um programa, **sem executar**, e digita a saída. Dá XP, tem dicas e segue a regra
+`solucao_apos_tentativas` como os demais passos.
+
+````markdown
+## Passo 4 · Previsão · O que este laço imprime
+
+Leia o programa com calma e digite exatamente o que ele imprime.
+
+### Código
+```python
+notas = [7, 9, 5]
+total = 0
+for nota in notas:
+    total += nota
+    print(total)
+print("média:", total / len(notas))
+```
+
+### Dicas
+1. O `print(total)` está dentro do laço: ele roda uma vez por nota.
+
+### Saída esperada
+```text
+7
+16
+21
+média: 7.0
+```
+````
+
+| Seção                | Obrigatória | Conteúdo                                                                 |
+|----------------------|-------------|--------------------------------------------------------------------------|
+| narrativa            | sim         | o enunciado (o que prever)                                                |
+| `### Código`         | sim         | bloco ```python (o `main.py` que o aluno lê); arquivos extras com `path=` |
+| `### Dicas`          | não         | lista numerada, até 3                                                    |
+| `### Saída esperada` | não         | um bloco ```text com a saída que você espera — serve só de conferência   |
+
+- **A saída esperada do pacote é gerada pelo `content:build`**, que executa o código no
+  executor real (`RUNNER_URL`, `RUNNER_TOKEN`). Sem executor, o build de um conteúdo com
+  passo `Previsão` falha: a saída nunca é inventada nem copiada do arquivo. Se você escreveu
+  `### Saída esperada`, o build confere com a execução e acusa a diferença.
+- O código roda sem entrada: não use `input()`. Precisa terminar sem erro, imprimir alguma
+  coisa (até 20 linhas e 4 000 caracteres) e ser determinístico (sem `random`, hora, `id()`):
+  o `content:verify` executa de novo e exige a mesma saída.
+- A comparação é feita na API e **ignora espaços no fim das linhas e linhas em branco no
+  fim**; todo o resto conta (maiúsculas, espaços no meio, linhas em branco no meio).
+- A saída esperada nunca vai para o navegador. Depois de `solucao_apos_tentativas` respostas
+  erradas, "Ver solução" mostra a saída esperada; o aluno ainda precisa enviá-la, e o passo
+  vale metade do XP. A resposta de uma tentativa errada não diz onde está a diferença.
 
 ## 4. Casos de verificação (`### Verificação`)
 
@@ -411,6 +682,10 @@ implementação de referência (deve passar) e contra implementações defeituos
   — senão o passo se conclui sozinho.
 - **Narrativa de leitura com substância** (≥ 200 caracteres) e sem marcadores de rascunho
   (`TODO`, `Em breve`, `lorem`): o lint recusa.
+- **Recursos a serviço do conceito**: diagrama para processo ou estrutura, visualizador quando
+  o estado muda a cada linha (laços, listas, chamadas), `Previsão` antes de explicar um
+  comportamento, `ordenar`/`lacunas` nas primeiras práticas de um assunto, fórmula onde há conta.
+  Vídeo é sempre opcional e sempre com resumo.
 - **Slugs** únicos na plataforma inteira (trilhas, cursos, módulos e lições juntos), com o
   prefixo do nível e do módulo: `n1-m2-03-listas`.
 
@@ -517,10 +792,13 @@ Retornos precisam ser tipos embutidos (`float(...)`, `.tolist()`): o executor se
 pnpm content:check                       # lint sem executar código; saída ≠ 0 em falha
 pnpm content:check --content content/exemplo
 pnpm content:build                       # compila content/ → packages/db/seed/trilha-python-ia.json
-pnpm content:build --content content/exemplo --out /tmp/exemplo.json
+RUNNER_URL=... RUNNER_TOKEN=... pnpm content:build --content content/exemplo --out /tmp/exemplo.json   # o exemplo tem Previsão
 RUNNER_URL=http://127.0.0.1:8081 RUNNER_TOKEN=... pnpm content:verify [--curso slug] [--licao slug] [--content pasta]
 ```
 
+- `content:check` valida também os recursos de apresentação (§3.5: fórmulas no KaTeX, Mermaid
+  estrutural, imagens de `assets/`, blocos `visualizar`, vídeos) e os formatos novos (§3.6 e
+  §3.7: lacunas coerentes com a solução, linhas do `ordenar`, código da `Previsão`).
 - `content:check` compila os arquivos e aplica as regras: slugs únicos; passos numerados;
   exercício com instruções, código inicial, solução, verificação e ≥ 1 solução errada;
   dicas ≤ 3; quiz com exatamente uma correta e ≥ 2 opções; `checkpoint` existente;
@@ -528,10 +806,15 @@ RUNNER_URL=http://127.0.0.1:8081 RUNNER_TOKEN=... pnpm content:verify [--curso s
   lições publicadas; `io` com `expected_stdout`; títulos ≥ 3 caracteres; narrativa de leitura
   ≥ 200 caracteres; trilha e `prerequisito` citando cursos existentes; `ordem` de módulo
   única no curso; nenhum caso `legacy`. Relatório por arquivo (`arquivo:linha: causa`).
-- `content:build` roda as mesmas verificações, valida o pacote com `contentBundleSchema` e só
-  então grava o JSON (2 espaços, `generated_at`). Nada é gravado se houver problema.
+- `content:build` roda as mesmas verificações, gera a saída esperada dos passos `Previsão` no
+  executor (só precisa de `RUNNER_URL`/`RUNNER_TOKEN` quando o conteúdo tem `Previsão`), valida
+  o pacote com `contentBundleSchema` e só então grava o JSON (2 espaços, `generated_at`, imagens
+  em `assets`). Nada é gravado se houver problema.
 - `content:verify` usa o executor real e o motor de correção da API: em cada passo de
-  exercício a solução APROVA, o código inicial REPROVA e cada solução errada REPROVA. Até 4
+  exercício a solução APROVA, o código inicial REPROVA e cada solução errada REPROVA (no
+  `modo: ordenar`: a solução montada APROVA e a ordem embaralhada REPROVA); cada `Previsão`
+  é executada de novo e precisa reproduzir a saída gerada; cada bloco `visualizar` precisa
+  rodar sem erro. Até 4
   lotes simultâneos; lições `python-dados` enviam `runtime` e `libraries` ao executor.
   Para subir um executor local: `pnpm --filter @levelusp/runner build` e
   `RUNNER_TOKEN=<24+ caracteres> PORT=8091 node apps/runner/dist/main.js`

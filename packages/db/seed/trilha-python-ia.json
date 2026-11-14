@@ -1,6 +1,6 @@
 {
   "format": 2,
-  "generated_at": "2026-11-06T15:06:56.128Z",
+  "generated_at": "2026-11-14T21:05:05.848Z",
   "tracks": [
     {
       "slug": "python-do-zero-a-ia",
@@ -572,6 +572,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -608,6 +611,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -644,6 +650,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -680,6 +689,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -716,6 +728,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -762,6 +777,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -798,6 +816,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -834,6 +855,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -870,6 +894,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -906,6 +933,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -942,6 +972,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -988,6 +1021,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -1024,6 +1060,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -1060,6 +1099,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -1096,6 +1138,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -1132,6 +1177,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -1178,6 +1226,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -1214,6 +1265,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -1250,6 +1304,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -1286,6 +1343,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -1322,6 +1382,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -1358,6 +1421,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -1394,6 +1460,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -1440,6 +1509,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -1476,6 +1548,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -1512,6 +1587,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -1548,6 +1626,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -1584,6 +1665,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -1620,6 +1704,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -1656,6 +1743,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -1702,6 +1792,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 },
                 {
@@ -1798,6 +1891,9 @@
                   ],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": [
                     {
                       "name": "define as funções mas não chama cabecalho",
@@ -1915,6 +2011,9 @@
                   ],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": [
                     {
                       "name": "define saudar mas mantém os blocos copiados",
@@ -2000,6 +2099,9 @@
                     }
                   ],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -2036,6 +2138,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -2072,6 +2177,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -2108,6 +2216,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -2144,6 +2255,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -2180,6 +2294,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -2216,6 +2333,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -2262,6 +2382,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -2298,6 +2421,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -2334,6 +2460,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -2370,6 +2499,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -2406,6 +2538,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -2452,6 +2587,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -2488,6 +2626,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -2524,6 +2665,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -2560,6 +2704,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -2607,6 +2754,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -2829,6 +2979,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -2865,6 +3018,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -2901,6 +3057,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -2937,6 +3096,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -2973,6 +3135,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3009,6 +3174,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3045,6 +3213,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3091,6 +3262,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3127,6 +3301,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3163,6 +3340,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3199,6 +3379,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3235,6 +3418,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3281,6 +3467,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3317,6 +3506,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3353,6 +3545,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3389,6 +3584,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3435,6 +3633,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3471,6 +3672,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3507,6 +3711,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3543,6 +3750,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3579,6 +3789,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3625,6 +3838,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3661,6 +3877,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3697,6 +3916,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3733,6 +3955,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3769,6 +3994,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3805,6 +4033,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3851,6 +4082,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3887,6 +4121,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3923,6 +4160,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3959,6 +4199,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -3995,6 +4238,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -4031,6 +4277,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -4069,7 +4318,7 @@
                   "order": 1,
                   "kind": "leitura",
                   "title": "Roteiro da lição",
-                  "narrative_markdown": "**O que a lição ensina.** Projeto exigido para o certificado. Especificação: pacote `biblioteca/` com `modelos.py` (dataclasses `Livro`, `Revista` herdando de `Item`; `Usuario` com limite de 3 empréstimos), `erros.py` (`ItemIndisponivel`, `LimiteDeEmprestimos`, `ItemNaoEncontrado`), `servico.py` (classe `Biblioteca` com `cadastrar`, `emprestar`, `devolver` com multa por atraso de R$ 1,00/dia, `relatorio_atrasados(data)`), `persistencia.py` (`salvar`/`carregar` JSON) e `tests/test_servico.py` (`unittest`, mínimo 8 testes). Datas via `datetime.date` com data de referência passada por parâmetro (sem `date.today()` para ser testável).\n\n**Passos previstos.** Leitura (especificação, regras, exemplos de uso e critérios) → modelos e exceções (`expr` + `raises`) → `emprestar`/`devolver` com regras (`expr` em cenários: limite, indisponível, atraso) → persistência ida e volta (`expr`) → relatório (`call`) → suíte de testes (`unittest` `expect: pass` com `min_tests: 8` e mutantes `expect: fail`: ignora limite, ignora atraso, não marca devolução) → quiz de autoavaliação.\n\n**Erros comuns a cobrir.** `date.today()` hardcoded; multa calculada com dias negativos; estado duplicado (lista de empréstimos no usuário e na biblioteca divergindo); JSON sem reconstruir as subclasses certas (`Livro` vs `Revista`); testes sem `setUp` repetindo cadastro.",
+                  "narrative_markdown": "**O que a lição ensina.** Projeto exigido para o certificado. Especificação: pacote `biblioteca/` com `modelos.py` (dataclasses `Livro`, `Revista` herdando de `Item`; `Usuario` com limite de 3 empréstimos), `erros.py` (`ItemIndisponivel`, `LimiteDeEmprestimos`, `ItemNaoEncontrado`), `servico.py` (classe `Biblioteca` com `cadastrar`, `emprestar`, `devolver` com multa por atraso de R\\$ 1,00/dia, `relatorio_atrasados(data)`), `persistencia.py` (`salvar`/`carregar` JSON) e `tests/test_servico.py` (`unittest`, mínimo 8 testes). Datas via `datetime.date` com data de referência passada por parâmetro (sem `date.today()` para ser testável).\n\n**Passos previstos.** Leitura (especificação, regras, exemplos de uso e critérios) → modelos e exceções (`expr` + `raises`) → `emprestar`/`devolver` com regras (`expr` em cenários: limite, indisponível, atraso) → persistência ida e volta (`expr`) → relatório (`call`) → suíte de testes (`unittest` `expect: pass` com `min_tests: 8` e mutantes `expect: fail`: ignora limite, ignora atraso, não marca devolução) → quiz de autoavaliação.\n\n**Erros comuns a cobrir.** `date.today()` hardcoded; multa calculada com dias negativos; estado duplicado (lista de empréstimos no usuário e na biblioteca divergindo); JSON sem reconstruir as subclasses certas (`Livro` vs `Revista`); testes sem `setUp` repetindo cadastro.",
                   "starter_files": [],
                   "solution_files": [],
                   "checkpoints": [],
@@ -4077,6 +4326,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -4114,6 +4366,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -4336,6 +4591,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -4372,6 +4630,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -4408,6 +4669,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -4444,6 +4708,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -4480,6 +4747,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -4526,6 +4796,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -4562,6 +4835,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -4598,6 +4874,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -4634,6 +4913,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -4680,6 +4962,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -4716,6 +5001,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -4752,6 +5040,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -4788,6 +5079,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -4834,6 +5128,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -4870,6 +5167,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -4906,6 +5206,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -4942,6 +5245,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -4978,6 +5284,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5014,6 +5323,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5060,6 +5372,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5096,6 +5411,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5132,6 +5450,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5168,6 +5489,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5214,6 +5538,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5250,6 +5577,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5286,6 +5616,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5322,6 +5655,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5358,6 +5694,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5404,6 +5743,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5440,6 +5782,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5476,6 +5821,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5512,6 +5860,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5548,6 +5899,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5584,6 +5938,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5630,6 +5987,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5666,6 +6026,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5702,6 +6065,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5738,6 +6104,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5775,6 +6144,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -5999,6 +6371,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6037,6 +6412,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6075,6 +6453,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6113,6 +6494,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6151,6 +6535,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6200,6 +6587,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6239,6 +6629,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6278,6 +6671,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6317,6 +6713,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6356,6 +6755,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6405,6 +6807,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6444,6 +6849,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6483,6 +6891,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6522,6 +6933,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6561,6 +6975,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6610,6 +7027,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6649,6 +7069,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6688,6 +7111,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6738,6 +7164,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6778,6 +7207,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6818,6 +7250,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6858,6 +7293,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6908,6 +7346,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6948,6 +7389,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -6988,6 +7432,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -7028,6 +7475,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -7068,6 +7518,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -7108,6 +7561,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -7148,6 +7604,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -7188,6 +7647,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -7240,6 +7702,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -7465,6 +7930,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -7503,6 +7971,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -7541,6 +8012,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -7579,6 +8053,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -7617,6 +8094,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -7665,6 +8145,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -7703,6 +8186,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -7741,6 +8227,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -7779,6 +8268,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -7817,6 +8309,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -7866,6 +8361,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -7905,6 +8403,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -7944,6 +8445,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -7983,6 +8487,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8022,6 +8529,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8061,6 +8571,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8111,6 +8624,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8151,6 +8667,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8191,6 +8710,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8231,6 +8753,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8271,6 +8796,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8311,6 +8839,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8361,6 +8892,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8401,6 +8935,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8441,6 +8978,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8481,6 +9021,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8530,6 +9073,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8569,6 +9115,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8608,6 +9157,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8647,6 +9199,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8686,6 +9241,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8736,6 +9294,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8776,6 +9337,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8816,6 +9380,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8856,6 +9423,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -8907,6 +9477,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9131,6 +9704,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9169,6 +9745,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9207,6 +9786,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9245,6 +9827,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9293,6 +9878,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9331,6 +9919,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9369,6 +9960,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9407,6 +10001,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9445,6 +10042,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9493,6 +10093,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9531,6 +10134,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9569,6 +10175,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9607,6 +10216,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9645,6 +10257,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9694,6 +10309,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9733,6 +10351,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9772,6 +10393,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9811,6 +10435,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9860,6 +10487,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9899,6 +10529,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9938,6 +10571,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -9977,6 +10613,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -10025,6 +10664,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -10063,6 +10705,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -10101,6 +10746,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -10139,6 +10787,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -10177,6 +10828,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -10225,6 +10879,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -10263,6 +10920,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -10301,6 +10961,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -10339,6 +11002,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -10377,6 +11043,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -10415,6 +11084,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -10463,6 +11135,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -10501,6 +11176,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -10540,6 +11218,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -10765,6 +11446,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -10801,6 +11485,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -10837,6 +11524,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -10873,6 +11563,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -10909,6 +11602,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -10955,6 +11651,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -10991,6 +11690,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11027,6 +11729,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11063,6 +11768,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11111,6 +11819,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11149,6 +11860,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11187,6 +11901,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11225,6 +11942,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11273,6 +11993,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11311,6 +12034,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11349,6 +12075,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11387,6 +12116,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11433,6 +12165,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11469,6 +12204,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11505,6 +12243,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11541,6 +12282,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11587,6 +12331,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11623,6 +12370,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11659,6 +12409,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11695,6 +12448,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11741,6 +12497,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11780,6 +12539,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11819,6 +12581,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11856,6 +12621,9 @@
                   "hints": [],
                   "quiz_questions": [],
                   "xp": 10,
+                  "exercise_mode": "codigo",
+                  "parsons_lines": [],
+                  "expected_output": "",
                   "wrong_solutions": []
                 }
               ]
@@ -11864,5 +12632,6 @@
         }
       ]
     }
-  ]
+  ],
+  "assets": {}
 }

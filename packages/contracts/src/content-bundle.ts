@@ -1,15 +1,17 @@
 import { z } from "zod"
 import { difficultySchema, slugSchema } from "./common"
+import { bundleAssetsSchema } from "./content-assets"
 import { projectFileSchema } from "./files"
 import { DEFAULT_SOLUTION_AFTER_ATTEMPTS, lessonRuntimeSchema, lessonTypeSchema, MAX_LESSON_OBJECTIVES, MAX_SOLUTION_AFTER_ATTEMPTS, type LessonType } from "./lessons"
 import { CORRECT_INDEX_OUT_OF_RANGE, correctIndexWithinOptions, multipleChoiceFields } from "./questions"
-import { checkStepContent, checkStepOrders, lessonStepFields, MAX_LESSON_STEPS, type StepKind } from "./steps"
+import { checkStepContent, checkStepOrders, DEFAULT_EXERCISE_MODE, lessonStepFields, MAX_LESSON_STEPS, type ExerciseMode, type StepKind } from "./steps"
 
 /**
  * Pacote compilado de conteúdo (`pnpm content:build` → `packages/db/seed/*.json`),
  * formato 2 (docs/v2/curso-e-passos.md §6.2). O seed e `POST /admin/content/import`
  * validam o pacote com {@link contentBundleSchema} e fazem upsert por `slug`.
  * `wrong_solutions` existe só para a verificação do conteúdo e nunca é gravado.
+ * `assets` leva as imagens das narrativas (ver `content-assets.ts`).
  */
 
 /** Versão do formato aceita por {@link contentBundleSchema}. */
@@ -38,7 +40,7 @@ export const FLAT_STEP_KIND_BY_LESSON_TYPE: Readonly<Record<Exclude<LessonType, 
 
 interface LessonShape {
   lesson_type: LessonType
-  steps: readonly { kind: StepKind }[]
+  steps: readonly { kind: StepKind; exercise_mode: ExerciseMode }[]
 }
 
 /**
@@ -58,6 +60,10 @@ function checkLessonSteps(lesson: LessonShape, ctx: z.RefinementCtx): void {
   const expectedKind = FLAT_STEP_KIND_BY_LESSON_TYPE[lesson.lesson_type]
   if (onlyStep.kind !== expectedKind) {
     ctx.addIssue({ code: "custom", path: ["steps", 0, "kind"], message: `lição ${lesson.lesson_type} exige um passo ${expectedKind}, veio ${onlyStep.kind}` })
+  }
+  // A lição clássica não guarda o modo do exercício: lacunas e ordenar só existem em passos de lição guiada.
+  if (onlyStep.exercise_mode !== DEFAULT_EXERCISE_MODE) {
+    ctx.addIssue({ code: "custom", path: ["steps", 0, "exercise_mode"], message: `o modo ${onlyStep.exercise_mode} só vale em lição guiada` })
   }
 }
 
@@ -187,6 +193,8 @@ export const contentBundleSchema = z
     generated_at: z.string().max(64).optional(),
     tracks: z.array(bundleTrackSchema).max(50).default([]),
     courses: z.array(bundleCourseSchema).max(100),
+    /** Imagens citadas nas narrativas: `<curso>/<módulo>/<arquivo>` → tipo e conteúdo em base64. */
+    assets: bundleAssetsSchema.default({}),
   })
   .superRefine(checkUniqueSlugs)
 /** Resposta de `POST /admin/content/import`: quantas linhas de cada tipo o pacote criou ou atualizou. */
@@ -196,6 +204,7 @@ export interface ContentImportSummary {
   modules: number
   lessons: number
   steps: number
+  assets: number
 }
 
 /** Pacote inteiro, validado: o que o seed e a importação do admin consomem. */

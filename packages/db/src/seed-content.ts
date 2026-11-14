@@ -4,12 +4,13 @@
  * {@link importContentBundle} em `content-import.ts`. `wrong_solutions` existe só para
  * a verificação do conteúdo e nunca vira linha.
  */
+import { createHash } from "node:crypto"
 import {
-  DEFAULT_ENTRY_FILE, FLAT_STEP_KIND_BY_LESSON_TYPE,
-  type BundleCourse, type BundleExam, type BundleLesson, type BundleModule, type BundleStep, type BundleTrack,
+  decodeBase64, DEFAULT_ENTRY_FILE, FLAT_STEP_KIND_BY_LESSON_TYPE,
+  type BundleCourse, type BundleExam, type BundleLesson, type BundleModule, type BundleStep, type BundleTrack, type ContentBundle,
 } from "@levelusp/contracts"
 import type {
-  CourseInsert, ExamInsert, ExamQuestionInsert, LessonInsert, LessonQuizQuestionInsert, LessonStepInsert, ModuleInsert, TrackCourseInsert, TrackInsert,
+  ContentAssetInsert, CourseInsert, ExamInsert, ExamQuestionInsert, LessonInsert, LessonQuizQuestionInsert, LessonStepInsert, ModuleInsert, TrackCourseInsert, TrackInsert,
 } from "./schema/index"
 
 /** Problema do pacote que o schema não detecta sozinho (ex.: pré-requisito que não existe em lugar nenhum). */
@@ -208,7 +209,29 @@ export function toLessonStepInserts(lesson: BundleLesson, lessonId: string): Les
     hints: step.hints,
     quizQuestions: step.quiz_questions,
     xp: step.xp,
+    exerciseMode: step.exercise_mode,
+    parsonsLines: step.parsons_lines,
+    expectedOutput: step.expected_output,
   }))
+}
+
+/**
+ * Assets do pacote → linhas de `content_assets` (tamanho e SHA-256 calculados aqui).
+ *
+ * @throws ContentBundleError quando o base64 de um asset não decodifica (o schema do pacote já recusa antes).
+ */
+export function toContentAssetInserts(assets: ContentBundle["assets"]): ContentAssetInsert[] {
+  return Object.entries(assets).map(([assetPath, asset]) => {
+    const bytes = decodeBase64(asset.base64)
+    if (bytes === null) throw new ContentBundleError(`asset "${assetPath}" com base64 inválido`)
+    return {
+      path: assetPath,
+      contentType: asset.content_type,
+      dataBase64: asset.base64,
+      sizeBytes: bytes.length,
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+    }
+  })
 }
 
 /** Questões do quiz de uma lição clássica `quiz` → linhas de `lesson_quiz_questions`; vazio nos demais tipos. */

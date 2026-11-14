@@ -4,14 +4,14 @@
  * com o mesmo pacote deixa o banco igual; ids de cursos, módulos, lições e passos
  * são preservados (o progresso dos alunos aponta para eles).
  */
-import { and, asc, eq, gt, inArray } from "drizzle-orm"
+import { and, asc, eq, gt, inArray, like, notInArray, or } from "drizzle-orm"
 import type { BundleCourse, BundleExam, BundleLesson, BundleTrack, ContentBundle } from "@levelusp/contracts"
 import type { DbExecutor } from "./index"
 import {
-  courses, examQuestions, exams, lessonQuizQuestions, lessonSteps, lessons, modules, trackCourses, tracks,
+  contentAssets, courses, examQuestions, exams, lessonQuizQuestions, lessonSteps, lessons, modules, trackCourses, tracks,
 } from "./schema/index"
 import {
-  ContentBundleError, listCourseLessons, resolvePrerequisiteId, toCourseInsert, toExamInsert, toExamQuestionInserts, toLessonInsert,
+  ContentBundleError, listCourseLessons, resolvePrerequisiteId, toContentAssetInserts, toCourseInsert, toExamInsert, toExamQuestionInserts, toLessonInsert,
   toLessonQuizQuestionInserts, toLessonStepInserts, toModuleInsert, toTrackCourseInserts, toTrackInsert, type LessonPlacement,
 } from "./seed-content"
 
@@ -27,6 +27,7 @@ export interface ImportContentSummary {
   modules: number
   lessons: number
   steps: number
+  assets: number
 }
 
 /** Linha devolvida pelos upserts: só o id interessa para encadear as dependências. */
@@ -42,12 +43,12 @@ function idOf(rows: IdRow[], what: string): string {
 
 /**
  * Grava o pacote inteiro no executor recebido (passe uma transação para tudo-ou-nada).
- * Ordem: cursos → pré-requisitos → provas → módulos → lições (quiz, passos) → trilhas.
+ * Ordem: cursos → pré-requisitos → provas → módulos → lições (quiz, passos) → trilhas → assets.
  *
  * @throws ContentBundleError quando um slug referenciado (pré-requisito, curso da trilha) não existe no pacote nem no banco.
  */
 export async function importContentBundle(executor: DbExecutor, bundle: ContentBundle, options: ImportContentOptions): Promise<ImportContentSummary> {
-  const summary: ImportContentSummary = { tracks: 0, courses: 0, modules: 0, lessons: 0, steps: 0 }
+  const summary: ImportContentSummary = { tracks: 0, courses: 0, modules: 0, lessons: 0, steps: 0, assets: 0 }
   const courseIdBySlug = new Map<string, string>()
   for (const course of bundle.courses) {
     courseIdBySlug.set(course.slug, await upsertCourse(executor, course, options.authorId))
@@ -66,7 +67,31 @@ export async function importContentBundle(executor: DbExecutor, bundle: ContentB
     await upsertTrack(executor, track, courseIdBySlug)
     summary.tracks++
   }
+  summary.assets = await replaceCourseAssets(executor, bundle)
   return summary
+}
+
+/** Escapa `%`, `_` e `\\` para usar um texto como prefixo literal num LIKE. */
+function likePrefix(prefix: string): string {
+  return `${prefix.replace(/[\\%_]/g, (character) => `\\${character}`)}%`
+}
+
+/**
+ * Assets: upsert pelo caminho; os que pertencem a um curso do pacote (`<slug do curso>/…`) e
+ * não vieram nele são apagados, para a reimportação refletir a pasta `assets/` atual.
+ */
+async function replaceCourseAssets(executor: DbExecutor, bundle: ContentBundle): Promise<number> {
+  const rows = toContentAssetInserts(bundle.assets)
+  for (const row of rows) {
+    const { path: _path, ...updatable } = row
+    await executor.insert(contentAssets).values(row).onConflictDoUpdate({ target: contentAssets.path, set: updatable })
+  }
+  const ownedByBundle = or(...bundle.courses.map((course) => like(contentAssets.path, likePrefix(`${course.slug}/`))))
+  if (ownedByBundle) {
+    const kept = rows.map((row) => row.path)
+    await executor.delete(contentAssets).where(kept.length > 0 ? and(ownedByBundle, notInArray(contentAssets.path, kept)) : ownedByBundle)
+  }
+  return rows.length
 }
 
 /** Completa o mapa slug → id com cursos que já existem no banco (fora do pacote). */

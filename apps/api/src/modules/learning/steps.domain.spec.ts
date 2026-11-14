@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { StepQuizQuestionInput, TestCase } from "@levelusp/contracts"
-import { findBlockingStep, gradeStepQuiz, isSolutionAvailable, toStepCases } from "./steps.domain"
+import { findBlockingStep, gradeStepQuiz, isSolutionAvailable, matchesPrediction, normalizePredictionOutput, toStepCases } from "./steps.domain"
 
 const STEPS = [{ id: "a", order: 1 }, { id: "b", order: 2 }, { id: "c", order: 3 }]
 
@@ -77,5 +77,26 @@ describe("gradeStepQuiz", () => {
   })
   it("quiz sem questões nunca aprova", () => {
     expect(gradeStepQuiz([], [], 1).passed).toBe(false)
+  })
+})
+
+describe("previsão de saída", () => {
+  it("ignora espaços no fim das linhas, linhas em branco no fim e \\r\\n", () => {
+    expect(matchesPrediction("7\n16\nmédia: 7.0", "7  \r\n16\t\r\nmédia: 7.0\n\n  \n")).toBe(true)
+    expect(matchesPrediction("7\n16\n", "7\n16")).toBe(true)
+  })
+
+  it("o resto conta: maiúsculas, espaço no começo ou no meio, linha em branco no meio, linha a mais ou a menos", () => {
+    const expected = "Olá\n7.0"
+    for (const wrong of ["olá\n7.0", " Olá\n7.0", "Olá\n\n7.0", "Olá\n7.0\n8", "Olá", "Olá\n7", "Olá \n 7.0", "", "\nOlá\n7.0"]) {
+      expect(matchesPrediction(expected, wrong), JSON.stringify(wrong)).toBe(false)
+    }
+    expect(matchesPrediction("a b", "a  b")).toBe(false)
+  })
+
+  it("normalizePredictionOutput é idempotente", () => {
+    const once = normalizePredictionOutput("a \n\n b \n\n")
+    expect(once).toBe("a\n\n b")
+    expect(normalizePredictionOutput(once)).toBe(once)
   })
 })

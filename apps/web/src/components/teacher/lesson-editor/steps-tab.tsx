@@ -9,6 +9,8 @@ import {
   checkpointsFromLines, createStep, hintsFromLines, linesOf, mainFileContent, parseTestCasesJson, renumberSteps, STEP_KIND_LABELS, withMainFileContent,
 } from "./steps-form"
 
+/** Tipos de passo que este editor sabe editar; a Previsão (P2b) ainda só entra pelo pacote de conteúdo. */
+const EDITABLE_STEP_KINDS: readonly StepKind[] = STEP_KINDS.filter((kind) => kind !== "previsao")
 const TEXTAREA_CLASS = `${SMALL_INPUT_CLASS} font-mono`
 const JSON_INDENT = 2
 
@@ -48,7 +50,7 @@ export function StepsTab({ steps, onChange }: StepsTabProps): React.JSX.Element 
       subtitle="O aluno percorre os passos em ordem; cada exercício é corrigido pelos casos do próprio passo."
       action={
         <div className="flex flex-wrap gap-2">
-          {STEP_KINDS.map((kind) => (
+          {EDITABLE_STEP_KINDS.map((kind) => (
             <button key={kind} type="button" onClick={() => addStep(kind)} disabled={steps.length >= MAX_LESSON_STEPS} className={ADD_BUTTON_CLASS}>
               <Plus className="h-4 w-4" /> {STEP_KIND_LABELS[kind]}
             </button>

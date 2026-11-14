@@ -5,7 +5,7 @@ import {
 import { MAIN_FILE_PATH } from "@/lib/constants"
 
 /** Rótulo pt-BR de cada tipo de passo. */
-export const STEP_KIND_LABELS: Readonly<Record<StepKind, string>> = { leitura: "Leitura", exercicio: "Exercício", quiz: "Quiz" }
+export const STEP_KIND_LABELS: Readonly<Record<StepKind, string>> = { leitura: "Leitura", exercicio: "Exercício", quiz: "Quiz", previsao: "Previsão" }
 
 const DEFAULT_STEP_CASES: TestCase[] = [{ kind: "io", id: "saida", stdin: "", expected_stdout: "Olá, mundo!", match: "contains", checkpoint: 1 }]
 
@@ -13,7 +13,7 @@ const DEFAULT_STEP_CASES: TestCase[] = [{ kind: "io", id: "saida", stdin: "", ex
 export function createStep(kind: StepKind, order: number): LessonStepInput {
   const base: LessonStepInput = {
     order, kind, title: `${STEP_KIND_LABELS[kind]} ${order}`, narrative_markdown: "", starter_files: [], solution_files: [], checkpoints: [],
-    test_cases: [], hints: [], quiz_questions: [], xp: DEFAULT_STEP_XP,
+    test_cases: [], hints: [], quiz_questions: [], xp: DEFAULT_STEP_XP, exercise_mode: "codigo", parsons_lines: [], expected_output: "",
   }
   if (kind === "exercicio") {
     return {
@@ -24,6 +24,7 @@ export function createStep(kind: StepKind, order: number): LessonStepInput {
       test_cases: DEFAULT_STEP_CASES,
     }
   }
+  if (kind === "previsao") return { ...base, starter_files: [{ path: MAIN_FILE_PATH, content: 'print("Olá, mundo!")\n' }], expected_output: "Olá, mundo!" }
   if (kind === "quiz") return { ...base, quiz_questions: [{ prompt: "Pergunta", options: ["Alternativa A", "Alternativa B"], correct_index: 0, explanation: "" }] }
   return base
 }

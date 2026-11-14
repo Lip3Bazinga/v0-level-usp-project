@@ -19,7 +19,7 @@ objetivos:
 
 ## Passo 1 · Leitura · Roteiro da lição
 
-**O que a lição ensina.** Projeto exigido para o certificado. Especificação: pacote `biblioteca/` com `modelos.py` (dataclasses `Livro`, `Revista` herdando de `Item`; `Usuario` com limite de 3 empréstimos), `erros.py` (`ItemIndisponivel`, `LimiteDeEmprestimos`, `ItemNaoEncontrado`), `servico.py` (classe `Biblioteca` com `cadastrar`, `emprestar`, `devolver` com multa por atraso de R$ 1,00/dia, `relatorio_atrasados(data)`), `persistencia.py` (`salvar`/`carregar` JSON) e `tests/test_servico.py` (`unittest`, mínimo 8 testes). Datas via `datetime.date` com data de referência passada por parâmetro (sem `date.today()` para ser testável).
+**O que a lição ensina.** Projeto exigido para o certificado. Especificação: pacote `biblioteca/` com `modelos.py` (dataclasses `Livro`, `Revista` herdando de `Item`; `Usuario` com limite de 3 empréstimos), `erros.py` (`ItemIndisponivel`, `LimiteDeEmprestimos`, `ItemNaoEncontrado`), `servico.py` (classe `Biblioteca` com `cadastrar`, `emprestar`, `devolver` com multa por atraso de R\$ 1,00/dia, `relatorio_atrasados(data)`), `persistencia.py` (`salvar`/`carregar` JSON) e `tests/test_servico.py` (`unittest`, mínimo 8 testes). Datas via `datetime.date` com data de referência passada por parâmetro (sem `date.today()` para ser testável).
 
 **Passos previstos.** Leitura (especificação, regras, exemplos de uso e critérios) → modelos e exceções (`expr` + `raises`) → `emprestar`/`devolver` com regras (`expr` em cenários: limite, indisponível, atraso) → persistência ida e volta (`expr`) → relatório (`call`) → suíte de testes (`unittest` `expect: pass` com `min_tests: 8` e mutantes `expect: fail`: ignora limite, ignora atraso, não marca devolução) → quiz de autoavaliação.
 

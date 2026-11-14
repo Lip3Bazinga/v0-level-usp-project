@@ -116,13 +116,14 @@ describe("verifyBundle com o executor falso", () => {
     const runner = fakeRunner(bundle)
     const reports: string[] = []
     const { summary } = await verifyBundle(bundle, runner, {}, (report) => reports.push(formatLessonHeading(report)))
-    expect(summary).toEqual({ lessons: 2, steps: 2, failed: 0, errors: 0 })
+    expect(summary).toEqual({ lessons: 3, steps: 4, failed: 0, errors: 0 })
     expect(reports).toEqual([
       "curso-exemplo / exemplo-m1-primeiros-passos / exemplo-m1-01-ola-python — Olá, Python (python)",
       "curso-exemplo / exemplo-m1-primeiros-passos / exemplo-m1-02-funcoes-basicas — Funções básicas (python)",
+      "curso-exemplo / exemplo-m1-primeiros-passos / exemplo-m1-03-recursos-de-apresentacao — Média de notas (todos os recursos) (python)",
     ])
-    // solução + código inicial + soluções erradas: (1 + 1 + 3) + (1 + 1 + 4)
-    expect(runner.jobs).toHaveLength(11)
+    // solução + código inicial (ou ordem embaralhada) + soluções erradas: (1 + 1 + 3) + (1 + 1 + 4) + (1 + 1 + 2) + (1 + 1 + 2)
+    expect(runner.jobs).toHaveLength(19)
     expect(runner.jobs.every((job) => job.runtime === "python" && !("libraries" in job))).toBe(true)
   })
 
@@ -154,7 +155,7 @@ describe("verifyBundle com o executor falso", () => {
 
   it("marca erro de executor sem derrubar a verificação", async () => {
     const { summary, reports } = await verifyBundle(bundle, fakeRunner(bundle, "quebrado"))
-    expect(summary).toEqual({ lessons: 2, steps: 2, failed: 0, errors: 2 })
+    expect(summary).toEqual({ lessons: 3, steps: 4, failed: 0, errors: 4 })
     const [verdict] = reports[0]?.verdicts ?? []
     if (!verdict) throw new Error("sem veredito")
     expect(verdict.details).toEqual(["executor: executor respondeu 503: busy"])

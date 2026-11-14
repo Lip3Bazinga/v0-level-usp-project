@@ -25,7 +25,8 @@ Trilha (track)  ──1:N──▶ Curso (course, = nível certificável) ──
   Codecademy). Lições `coding`/`theory`/`quiz` atuais continuam funcionando sem passos.
   Campos novos: `runtime` (`python` | `python-dados`), `is_project`, `objectives` (text[]),
   `solution_files` (jsonb, NUNCA sai para o aluno antes da regra de liberação).
-- **Passo** (`lesson_steps`): `kind` ∈ {`leitura`, `exercicio`, `quiz`}, `order`, `title`,
+- **Passo** (`lesson_steps`): `kind` ∈ {`leitura`, `exercicio`, `quiz`, `previsao`} (P2b: `exercise_mode`,
+  `parsons_lines` e `expected_output`, ver §6.4), `order`, `title`,
   `narrative_markdown`, `starter_files`, `solution_files` (privado), `checkpoints`
   (`[{id, instruction, hint?}]`), `test_cases` (privado; cada caso pode ter
   `checkpoint: <id>`), `hints` (text[], até 3, reveladas uma a uma), `quiz_questions`
@@ -139,7 +140,7 @@ Módulos novos: `tracks` (`GET /tracks`, `GET /tracks/:slug` com situação do a
 
 Árvore: `content/trilhas/<trilha>.yaml`, `content/cursos/<nivel>/curso.yaml`,
 `content/cursos/<nivel>/prova.yaml`, `content/cursos/<nivel>/<modulo>/modulo.yaml`,
-`content/cursos/<nivel>/<modulo>/<NN>-<slug>.lvl.md`.
+`content/cursos/<nivel>/<modulo>/<NN>-<slug>.lvl.md`, `content/cursos/<nivel>/<modulo>/assets/<imagem>` (P2b).
 
 `curso.yaml`: `slug, titulo, descricao, descricao_longa, nivel (iniciante|intermediario|avancado),
 tags, horas, ordem, publicado, prerequisito (slug|null), sequencial`.
@@ -221,7 +222,8 @@ Qual função exibe texto na tela?
 ```
 
 Regras do formato:
-- Cabeçalho de passo: `## Passo N · <Leitura|Exercício|Quiz> · <Título>`; N sequencial a partir de 1.
+- Cabeçalho de passo: `## Passo N · <Leitura|Exercício|Quiz|Previsão> · <Título>`; N sequencial a partir de 1.
+- Recursos de apresentação, `modo: lacunas`/`modo: ordenar` e o passo `Previsão` (P2b): §6.4.
 - Passo `Exercício` exige `### Instruções` (lista numerada = checkpoints, ids 1..n), `### Código inicial`,
   `### Solução`, `### Verificação` (JSON = `TestCase[]`, validado com `testCasesSchema`) e
   pelo menos **uma** solução errada em `### Soluções erradas`. `### Dicas` tem até 3 itens.
@@ -242,14 +244,19 @@ Regras do formato:
      "exam": { "title", "description", "passing_score", "time_limit_minutes", "cooldown_minutes", "questions_per_attempt", "questions": [{ "prompt", "options", "correct_index", "explanation", "topic" }] } | null,
      "modules": [{ "slug", "title", "description", "icon", "color", "sort_order",
         "lessons": [{ "slug", "title", "description", "difficulty", "lesson_type", "runtime", "libraries", "xp_reward", "time_limit", "published", "is_project", "solution_after_attempts", "objectives",
-           "steps": [{ "order", "kind", "title", "narrative_markdown", "starter_files", "solution_files", "checkpoints", "test_cases", "hints", "quiz_questions", "wrong_solutions", "xp" }] }] }] }] }
+           "steps": [{ "order", "kind", "title", "narrative_markdown", "starter_files", "solution_files", "checkpoints", "test_cases", "hints", "quiz_questions", "wrong_solutions", "xp",
+                       "exercise_mode", "parsons_lines": [{ "id", "text" }], "expected_output" }] }] }] }],
+  "assets": { "<curso>/<modulo>/<arquivo>": { "content_type": "image/svg+xml", "base64": "…" } } }
 ```
 
 `wrong_solutions` existe só no pacote (para a verificação); o seed/importação não grava.
+`exercise_mode` (`codigo` | `lacunas` | `ordenar`), `parsons_lines`, `expected_output` e `assets`
+são do P2b (§6.4); todos têm padrão (`codigo`, `[]`, `""`, `{}`), então um pacote anterior continua válido.
 
 ### 6.3 Ferramentas (`apps/api/scripts`, scripts na raiz)
 
 - `pnpm content:build` → compila `content/` para o pacote; falha com mensagem clara (arquivo:linha).
+  Conteúdo com passo `Previsão` exige o executor (`RUNNER_URL`, `RUNNER_TOKEN`) para gerar a saída esperada.
 - `pnpm content:check` → lint do conteúdo sem executar: slugs únicos, passos numerados, exercício com
   solução + verificação + ≥1 solução errada, dicas ≤ 3, quiz com exatamente uma correta, `checkpoint`
   referenciando instrução existente, `runtime`/`bibliotecas` coerentes, texto sem "TODO".
@@ -257,6 +264,50 @@ Regras do formato:
   (`RUNNER_URL`, `RUNNER_TOKEN`): a solução de cada passo APROVA, o código inicial REPROVA,
   cada solução errada REPROVA. Relatório por lição; código de saída ≠ 0 em falha.
 - O seed (`pnpm db:seed`) lê o pacote v2 (e o v1 atual, para compatibilidade) e faz upsert por slug.
+
+### 6.4 P2b — recursos de apresentação e novos formatos de exercício
+
+Guia do autor com exemplos: `content/README.md` §3.5–§3.7. Modelo completo:
+`content/exemplo/cursos/curso-exemplo/m1-primeiros-passos/03-recursos-de-apresentacao.lvl.md`.
+Código: `apps/api/scripts/content/{rich-content,python-syntax,predictions}.ts`.
+
+| Recurso | No `.lvl.md` | No pacote / banco | Validação |
+|---|---|---|---|
+| Fórmula | `$…$`, `$$…$$`; cifrão literal = `\$`; código nunca é fórmula | texto igual na narrativa, instruções, dicas e quiz | `content:check` passa cada fórmula no parser do KaTeX (`arquivo:linha`) |
+| Diagrama | bloco ```` ```mermaid ```` | bloco igual na narrativa | estrutural (tipo na 1ª linha, corpo, colchetes de fluxograma); o parser do Mermaid não roda sem DOM |
+| Imagem | `![alt](assets/x.svg)` em `<modulo>/assets/` | referência reescrita para `/api/content/assets/<curso>/<modulo>/<arquivo>?v=<hash>`; arquivo em `assets` do pacote → tabela `content_assets` | alt não vazio, arquivo existente, svg/png/jpg/webp/gif ≤ 512 KB, assinatura do formato, SVG sem conteúdo ativo |
+| Visualizador | bloco ```` ```python visualizar ```` | bloco igual (a palavra `visualizar` fica na linha de abertura) | check: não vazio, plausível, sem `input()`, ≤ 60 linhas; verify: executa sem erro |
+| Vídeo | `::video[título](url)` + `> Resumo: …` | `::video[título](https://www.youtube-nocookie.com/embed/<id>)` ou `(https://player.vimeo.com/video/<id>)`; o resumo segue como citação | só YouTube/Vimeo https; título e resumo (≥ 60 caracteres) obrigatórios |
+| `modo: lacunas` | 1ª linha da narrativa do Exercício; `___` no código inicial | `exercise_mode: "lacunas"` | ≥ 1 lacuna; solução = código inicial com as lacunas preenchidas; só lição guiada |
+| `modo: ordenar` | idem; sem `### Código inicial`; `### Distratores` opcional | `exercise_mode: "ordenar"`, `parsons_lines` embaralhadas (semente `slug:passo`), sem indentação, ids `l1…ln` | solução em um `main.py`, ≥ 3 linhas, indentação múltipla de 4; verify: solução montada aprova, ordem embaralhada reprova |
+| `Previsão` | `## Passo N · Previsão · Título` + `### Código` (+ `### Dicas`, `### Saída esperada`) | `kind: "previsao"`, código em `starter_files`, `expected_output` gerado no build pelo executor | check: código plausível, sem `input()`; build: roda sem erro, 1–20 linhas de saída; verify: nova execução reproduz a saída |
+
+Migração `0005_p2b_recursos_de_apresentacao`: `lesson_steps` ganha `exercise_mode text default 'codigo'`
+(CHECK), `parsons_lines jsonb default '[]'`, `expected_output text default ''`; o CHECK de `kind` passa a
+aceitar `previsao`; tabela nova `content_assets(id, path unique, content_type CHECK, data_base64, size_bytes,
+sha256, created_at, updated_at)`.
+
+Regras de servidor:
+- **Previsão**: `POST /me/lessons/:id/steps/:stepId/predict {output}` → `StepPredictResult`. A comparação
+  (`matchesPrediction` em `steps.domain.ts`) ignora espaços/tabulações no fim das linhas, linhas em branco no
+  fim e `\r\n`; o resto conta. Acerto conclui pelo `GamificationService.completeStep`; erro soma tentativa.
+  A resposta não traz a saída esperada nem a diferença. Limites: 12/min por aluno e 60/dia por aluno e passo.
+  Evento do experimento: `step_submitted` com `kind: "previsao"`. Não grava `submissions` (não há código do aluno).
+- **Ver solução** (`POST …/solution`) vale para exercício e previsão: na previsão devolve
+  `{ files: [], expected_output }` depois de `solution_after_attempts` erros, marca `solution_viewed` e **não
+  conclui** — o aluno envia a saída por `predict` e recebe 50 % do XP (mesma regra do exercício).
+- **Ordenar**: `POST …/submit {arrangement: [{line_id, indent}]}`; a API monta o `main.py` só com as linhas do
+  passo (`assembleParsonsCode`, 4 espaços por nível, 0–12 níveis) e corrige pelos casos. `files` num passo
+  `ordenar` → 400 `WRONG_SUBMISSION_FORMAT`; linha inexistente ou repetida → 400 `INVALID_ARRANGEMENT`.
+- **Lacunas**: `POST …/submit {files}` como o exercício comum (a correção é só pelos casos; o servidor não
+  exige que o resto do código fique igual ao código inicial).
+- **Assets**: `GET /content/assets/:course/:module/:file` (pública). Cada parte do caminho é validada por
+  formato e a busca é por chave exata no banco (não há sistema de arquivos); antes de responder, o conteúdo é
+  conferido de novo (tipo pela extensão, assinatura, SVG sem `<script>`/`on…=`/`javascript:`/`foreignObject`).
+  Cabeçalhos: `Content-Type` do tipo, `X-Content-Type-Options: nosniff`,
+  `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox`, `ETag` (SHA-256) e
+  `Cache-Control: public, max-age=31536000, immutable` quando `?v=` é o hash atual (senão 5 min com revalidação).
+  A importação faz upsert por caminho e apaga os assets dos cursos do pacote que não vieram nele.
 
 ## 7. Runner: motor `python-dados` (apps/runner)
 

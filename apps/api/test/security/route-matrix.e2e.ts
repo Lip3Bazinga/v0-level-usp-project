@@ -41,6 +41,7 @@ const PUBLIC_ROUTES = [
   "GET /api/tracks",
   "GET /api/tracks/:slug",
   "GET /api/files/:name",
+  "GET /api/content/assets/:course/:module/:file",
 ] as const
 
 const USER_ROUTES = [
@@ -80,6 +81,7 @@ const USER_ROUTES = [
   "GET /api/users/:id/activity",
   "GET /api/me/lessons/:id/progress",
   "POST /api/me/lessons/:id/steps/:stepId/submit",
+  "POST /api/me/lessons/:id/steps/:stepId/predict",
   "POST /api/me/lessons/:id/steps/:stepId/hint",
   "GET /api/me/lessons/:id/steps/:stepId/hints",
   "POST /api/me/lessons/:id/steps/:stepId/solution",

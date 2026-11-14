@@ -1,12 +1,12 @@
 "use client"
 
-import { BookOpen, CheckCircle2, Code2, HelpCircle, Lock, type LucideIcon } from "lucide-react"
+import { BookOpen, CheckCircle2, Code2, Eye, HelpCircle, Lock, type LucideIcon } from "lucide-react"
 import type { LessonStep, StepKind } from "@levelusp/contracts"
 import { cn } from "@/lib/utils"
 import type { StepState } from "@/lib/utils/step-player"
 
-const KIND_ICONS: Readonly<Record<StepKind, LucideIcon>> = { leitura: BookOpen, exercicio: Code2, quiz: HelpCircle }
-const KIND_LABELS: Readonly<Record<StepKind, string>> = { leitura: "Leitura", exercicio: "Exercício", quiz: "Quiz" }
+const KIND_ICONS: Readonly<Record<StepKind, LucideIcon>> = { leitura: BookOpen, exercicio: Code2, quiz: HelpCircle, previsao: Eye }
+const KIND_LABELS: Readonly<Record<StepKind, string>> = { leitura: "Leitura", exercicio: "Exercício", quiz: "Quiz", previsao: "Previsão" }
 const STATE_LABELS: Readonly<Record<StepState, string>> = { completed: "concluído", current: "passo atual", available: "disponível", locked: "bloqueado" }
 
 interface StepSidebarProps {

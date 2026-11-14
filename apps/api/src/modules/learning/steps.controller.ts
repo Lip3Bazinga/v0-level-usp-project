@@ -1,9 +1,9 @@
 import { Body, Controller, Get, HttpCode, Param, Post } from "@nestjs/common"
 import { ApiTags } from "@nestjs/swagger"
 import {
-  stepQuizSubmitSchema, stepSubmitSchema,
-  type HintReveal, type LessonStepsProgress, type SolutionReveal, type StepCompleteResult, type StepQuizResult, type StepQuizSubmitInput,
-  type StepSubmitInput, type StepSubmitResult,
+  stepPredictSchema, stepQuizSubmitSchema, stepSubmitSchema,
+  type HintReveal, type LessonStepsProgress, type SolutionReveal, type StepCompleteResult, type StepPredictInput, type StepPredictResult,
+  type StepQuizResult, type StepQuizSubmitInput, type StepSubmitInput, type StepSubmitResult,
 } from "@levelusp/contracts"
 import { CurrentUser } from "@/common/decorators/auth.decorators"
 import type { AuthUser } from "@/common/http/request"
@@ -29,7 +29,18 @@ export class StepsController {
     @Param("stepId", UuidPipe) stepId: string,
     @Body(new ZodPipe(stepSubmitSchema)) body: StepSubmitInput,
   ): Promise<StepSubmitResult> {
-    return this.steps.submit(user, id, stepId, body.files)
+    return this.steps.submit(user, id, stepId, body)
+  }
+
+  @HttpCode(200)
+  @Post("steps/:stepId/predict")
+  predict(
+    @CurrentUser() user: AuthUser,
+    @Param("id", UuidPipe) id: string,
+    @Param("stepId", UuidPipe) stepId: string,
+    @Body(new ZodPipe(stepPredictSchema)) body: StepPredictInput,
+  ): Promise<StepPredictResult> {
+    return this.steps.predict(user, id, stepId, body.output)
   }
 
   @HttpCode(200)

@@ -1,9 +1,13 @@
 import { z } from "zod"
 import {
-  bundleLessonSchema, DEFAULT_ENTRY_FILE, DEFAULT_STEP_XP, nonEmpty, projectPathSchema, testCasesSchema,
-  type BundleLesson, type BundleStep, type Checkpoint, type LessonType, type ProjectFile, type StepKind, type StepQuizQuestionInput, type TestCase, type WrongSolution,
+  bundleLessonSchema, DEFAULT_ENTRY_FILE, DEFAULT_EXERCISE_MODE, DEFAULT_STEP_XP, EXERCISE_MODES, isParsonsSolutionOrder, nonEmpty, parsonsSolutionLines,
+  projectPathSchema, testCasesSchema,
+  type BundleLesson, type BundleStep, type Checkpoint, type ExerciseMode, type LessonType, type ParsonsLine, type ProjectFile, type StepKind,
+  type StepQuizQuestionInput, type TestCase, type WrongSolution,
 } from "@levelusp/contracts"
-import { fenceContent, MarkdownSyntaxError, parseNumberedList, parseQuestion, rawText, scanMarkdown, toSourceLines, type FencedBlock, type MarkdownNode, type SourceLine } from "./markdown"
+import { normalizePredictionOutput } from "../../src/modules/learning/steps.domain"
+import { fenceContent, MarkdownSyntaxError, parseNumberedList, parseQuestion, scanMarkdown, toSourceLines, type FencedBlock, type MarkdownNode, type SourceLine } from "./markdown"
+import { checkPythonSnippet, checkTextFormulas, processNarrative, type AssetSource, type RichContentContext } from "./rich-content"
 import type { ContentProblem, SourceMap } from "./source-map"
 import { parseYamlText, translateYamlKeys, validateYaml, YamlSyntaxError, type KeySpecMap } from "./yaml-file"
 
@@ -12,8 +16,12 @@ import { parseYamlText, translateYamlKeys, validateYaml, YamlSyntaxError, type K
  * O arquivo tem um cabeçalho YAML entre `---` e passos `## Passo N · Tipo · Título`;
  * cada passo de exercício tem as seções `### Instruções`, `### Código inicial`,
  * `### Solução`, `### Dicas`, `### Verificação` e `### Soluções erradas`;
- * cada passo de quiz tem uma ou mais `### Pergunta`. Problemas apontam
- * `arquivo:linha`; um arquivo com qualquer problema não entra no pacote.
+ * cada passo de quiz tem uma ou mais `### Pergunta`; cada passo de previsão tem
+ * `### Código` (e, opcionais, `### Dicas` e `### Saída esperada`). Um exercício pode
+ * declarar `modo: lacunas` ou `modo: ordenar` na primeira linha da narrativa.
+ * Narrativas aceitam fórmulas, diagramas, imagens, blocos visualizar e vídeos
+ * (`rich-content.ts`). Problemas apontam `arquivo:linha`; um arquivo com qualquer
+ * problema não entra no pacote.
  */
 
 /** Chaves do cabeçalho da lição → campos do pacote. */
@@ -49,10 +57,11 @@ const STEP_KIND_BY_LESSON_TYPE: Readonly<Record<Exclude<LessonType, "guided">, S
   quiz: "quiz",
 }
 
-const KIND_LABELS: Readonly<Record<StepKind, string>> = { leitura: "Leitura", exercicio: "Exercício", quiz: "Quiz" }
+const KIND_LABELS: Readonly<Record<StepKind, string>> = { leitura: "Leitura", exercicio: "Exercício", quiz: "Quiz", previsao: "Previsão" }
 
 /** Seções `###` conhecidas, pelo nome normalizado (sem acentos, minúsculas). */
-type SectionName = "instrucoes" | "codigo inicial" | "solucao" | "dicas" | "verificacao" | "solucoes erradas" | "pergunta"
+type SectionName =
+  | "instrucoes" | "codigo inicial" | "solucao" | "dicas" | "verificacao" | "solucoes erradas" | "distratores" | "pergunta" | "codigo" | "saida esperada"
 
 const SECTION_LABELS: Readonly<Record<SectionName, string>> = {
   instrucoes: "Instruções",
@@ -61,13 +70,17 @@ const SECTION_LABELS: Readonly<Record<SectionName, string>> = {
   dicas: "Dicas",
   verificacao: "Verificação",
   "solucoes erradas": "Soluções erradas",
+  distratores: "Distratores",
   pergunta: "Pergunta",
+  codigo: "Código",
+  "saida esperada": "Saída esperada",
 }
 
 const SECTIONS_BY_KIND: Readonly<Record<StepKind, readonly SectionName[]>> = {
   leitura: [],
-  exercicio: ["instrucoes", "codigo inicial", "solucao", "dicas", "verificacao", "solucoes erradas"],
+  exercicio: ["instrucoes", "codigo inicial", "solucao", "dicas", "verificacao", "solucoes erradas", "distratores"],
   quiz: ["pergunta"],
+  previsao: ["codigo", "dicas", "saida esperada"],
 }
 
 const STEP_HEADING = /^##\s/
@@ -77,6 +90,10 @@ const STEP_HEADER = /^##\s+passo\s+(\d+)\s*[·\-—–]\s*([^·\-—–]+?)\s*[�
 const FRONTMATTER_DELIMITER = "---"
 const LANGUAGE_PYTHON = "python"
 const LANGUAGE_JSON = "json"
+const LANGUAGE_TEXT = "text"
+const MODE_LINE = /^\s*modo\s*:\s*(.*?)\s*$/i
+/** Tentativas de embaralhar as linhas de um exercício `ordenar` até sair uma ordem diferente da solução. */
+const MAX_SHUFFLE_ATTEMPTS = 64
 const ATTRIBUTE_PATH = "path"
 const ATTRIBUTE_NAME = "name"
 
@@ -97,6 +114,15 @@ interface ParseContext {
   file: string
   problems: ContentProblem[]
   locations: SourceMap
+  rich: RichContentContext
+  /** Slug da lição: semente do embaralhamento determinístico dos exercícios `ordenar`. */
+  slug: string
+}
+
+/** Opções da leitura de uma lição. */
+export interface ParseLessonOptions {
+  /** Pasta `assets/` do módulo; sem ela, qualquer imagem na narrativa é um problema. */
+  assets?: AssetSource | null
 }
 
 function report(ctx: ParseContext, line: number | null, message: string): void {
@@ -118,7 +144,8 @@ export function normalizeName(text: string): string {
     .trim()
 }
 
-const STEP_KIND_BY_NAME: Readonly<Record<string, StepKind>> = { leitura: "leitura", exercicio: "exercicio", quiz: "quiz" }
+const STEP_KIND_BY_NAME: Readonly<Record<string, StepKind>> = { leitura: "leitura", exercicio: "exercicio", quiz: "quiz", previsao: "previsao" }
+const STEP_KIND_NAMES = "Leitura, Exercício, Quiz ou Previsão"
 
 interface StepHeader {
   line: number
@@ -129,10 +156,10 @@ interface StepHeader {
 
 function parseStepHeader(ctx: ParseContext, line: number, text: string): StepHeader {
   const match = STEP_HEADER.exec(text)
-  if (!match) fail(ctx, line, `cabeçalho de passo inválido: "${text}" (use "## Passo N · Leitura|Exercício|Quiz · Título")`)
+  if (!match) fail(ctx, line, `cabeçalho de passo inválido: "${text}" (use "## Passo N · Leitura|Exercício|Quiz|Previsão · Título")`)
   const [, number, kindText, title] = match
   const kind = STEP_KIND_BY_NAME[normalizeName(kindText ?? "")]
-  if (kind === undefined) fail(ctx, line, `tipo de passo desconhecido: "${kindText ?? ""}" (use Leitura, Exercício ou Quiz)`)
+  if (kind === undefined) fail(ctx, line, `tipo de passo desconhecido: "${kindText ?? ""}" (use ${STEP_KIND_NAMES})`)
   return { line, number: Number(number ?? "0"), kind, title: (title ?? "").trim() }
 }
 
@@ -304,6 +331,7 @@ function parseCheckpoints(ctx: ParseContext, section: Section): Checkpoint[] {
   const items = parseNumberedList(section.nodes, "### Instruções")
   if (items.length === 0) fail(ctx, section.line, "### Instruções está vazia: liste o que o aluno precisa fazer (1. …, 2. …)")
   return items.map((item) => {
+    checkTextFormulas(`${item.text}\n\n${item.hint ?? ""}`, item.line, (_line, message) => { report(ctx, item.line, message) })
     const checkpoint: Checkpoint = { id: item.number, instruction: item.text, ...(item.hint === null ? {} : { hint: item.hint }) }
     ctx.locations.set(checkpoint, { file: ctx.file, line: item.line })
     return checkpoint
@@ -315,6 +343,7 @@ function parseHints(ctx: ParseContext, section: Section): string[] {
   for (const item of items) {
     if (item.hint !== null) fail(ctx, item.line, 'a sublinha "Dica:" só vale em ### Instruções; em ### Dicas cada item numerado já é uma dica')
     if (item.text === "") fail(ctx, item.line, "dica vazia em ### Dicas")
+    checkTextFormulas(item.text, item.line, (_line, message) => { report(ctx, item.line, message) })
   }
   return items.map((item) => item.text)
 }
@@ -330,6 +359,9 @@ function parseQuizQuestion(ctx: ParseContext, section: Section): StepQuizQuestio
   if (correctIndex === undefined || correct.length !== 1) {
     fail(ctx, section.line, `a pergunta precisa de exatamente uma alternativa marcada com [x] (veio ${correct.length})`)
   }
+  checkTextFormulas(parsed.prompt, section.line + 1, ctx.rich.report)
+  for (const option of parsed.options) checkTextFormulas(option.text, option.line, (_line, message) => { report(ctx, option.line, message) })
+  checkTextFormulas(parsed.explanation, section.line, (_line, message) => { report(ctx, section.line, `explicação: ${message}`) })
   const question: StepQuizQuestionInput = { prompt: parsed.prompt, options: parsed.options.map((option) => option.text), correct_index: correctIndex, explanation: parsed.explanation }
   ctx.locations.set(question, { file: ctx.file, line: section.line })
   return question
@@ -349,14 +381,113 @@ function emptyStep(header: StepHeader, narrative: string): BundleStep {
     quiz_questions: [],
     wrong_solutions: [],
     xp: DEFAULT_STEP_XP,
+    exercise_mode: DEFAULT_EXERCISE_MODE,
+    parsons_lines: [],
+    expected_output: "",
   }
+}
+
+function isExerciseMode(value: string): value is ExerciseMode {
+  return EXERCISE_MODES.some((mode) => mode === value)
+}
+
+/**
+ * `modo: lacunas|ordenar|codigo` na primeira linha (não vazia) da narrativa de um exercício.
+ * Devolve o modo e a narrativa sem essa linha.
+ */
+function extractExerciseMode(ctx: ParseContext, narrative: readonly MarkdownNode[]): { mode: ExerciseMode; narrative: MarkdownNode[] } {
+  const firstIndex = narrative.findIndex((node) => node.kind === "fence" || node.text.trim() !== "")
+  const first = narrative[firstIndex]
+  const match = first?.kind === "text" ? MODE_LINE.exec(first.text) : null
+  if (!first || !match) return { mode: DEFAULT_EXERCISE_MODE, narrative: [...narrative] }
+  const value = normalizeName(match[1] ?? "")
+  if (!isExerciseMode(value)) fail(ctx, first.line, `modo de exercício desconhecido: "${match[1] ?? ""}" (use ${EXERCISE_MODES.join(", ")})`)
+  return { mode: value, narrative: narrative.filter((_node, index) => index !== firstIndex) }
+}
+
+/** `### Distratores`: um bloco ```python em que cada linha não vazia é uma linha a mais (errada) do exercício `ordenar`. */
+function parseDistractors(ctx: ParseContext, section: Section): string[] {
+  const fences = fencesOf(ctx, section)
+  const [fence] = fences
+  if (!fence || fences.length !== 1 || fence.language !== LANGUAGE_PYTHON || Object.keys(fence.attributes).length > 0) {
+    fail(ctx, section.line, "### Distratores precisa de exatamente um bloco ```python (uma linha de código por distrator)")
+  }
+  const distractors = fence.body.map((line) => line.trim()).filter((line) => line !== "")
+  if (distractors.length === 0) fail(ctx, fence.line, "### Distratores está vazia: escreva ao menos uma linha ou remova a seção")
+  return distractors
+}
+
+/** `### Saída esperada`: um bloco ```text com a saída que o autor espera (o build confere com a execução real). */
+function parseExpectedOutput(ctx: ParseContext, section: Section): string {
+  const fences = fencesOf(ctx, section)
+  const [fence] = fences
+  if (!fence || fences.length !== 1 || fence.language !== LANGUAGE_TEXT || Object.keys(fence.attributes).length > 0) {
+    fail(ctx, section.line, "### Saída esperada precisa de exatamente um bloco ```text (sem atributos)")
+  }
+  const output = normalizePredictionOutput(fence.body.join("\n"))
+  if (output === "") fail(ctx, fence.line, "### Saída esperada está vazia")
+  return output
+}
+
+/** `### Código` de um passo Previsão: os arquivos que o aluno lê (o `main.py` é o que roda). */
+function parsePredictionCode(ctx: ParseContext, section: Section): ProjectFile[] {
+  const files = parseFiles(ctx, section)
+  const mainFence = fencesOf(ctx, section).find((fence) => fence.language === LANGUAGE_PYTHON && fence.attributes[ATTRIBUTE_PATH] === undefined)
+  if (!mainFence) fail(ctx, section.line, `### Código precisa de um bloco \`\`\`python sem path= (o ${DEFAULT_ENTRY_FILE} que o aluno lê)`)
+  checkPythonSnippet(mainFence.body.join("\n"), mainFence.line + 1, "código da previsão", ctx.rich.report)
+  return files
+}
+
+/** Gerador pseudoaleatório determinístico (mulberry32) semeado por um texto (FNV-1a). */
+function seededRandom(seed: string): () => number {
+  let state = 2166136261
+  for (let index = 0; index < seed.length; index++) state = Math.imul(state ^ seed.charCodeAt(index), 16777619)
+  return () => {
+    state = (state + 0x6d2b79f5) | 0
+    let mixed = Math.imul(state ^ (state >>> 15), 1 | state)
+    mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function shuffled(texts: readonly string[], random: () => number): string[] {
+  const result = [...texts]
+  for (let index = result.length - 1; index > 0; index--) {
+    const other = Math.floor(random() * (index + 1))
+    const current = result[index]
+    const swapped = result[other]
+    if (current !== undefined && swapped !== undefined) {
+      result[index] = swapped
+      result[other] = current
+    }
+  }
+  return result
+}
+
+/**
+ * Linhas de um exercício `ordenar`: as da solução (sem indentação, linhas em branco de fora)
+ * mais os distratores, embaralhadas com semente fixa (`slug:passo`) — o mesmo pacote a cada
+ * compilação — e nunca na ordem da solução. Os ids (`l1`, `l2`…) seguem a ordem embaralhada.
+ */
+export function shuffleParsonsLines(solutionSource: string, distractors: readonly string[], seed: string): ParsonsLine[] {
+  const texts = [...parsonsSolutionLines(solutionSource).map((line) => line.text), ...distractors]
+  const toLines = (ordered: readonly string[]): ParsonsLine[] => ordered.map((text, index) => ({ id: `l${index + 1}`, text }))
+  let lines = toLines(texts)
+  for (let attempt = 0; attempt < MAX_SHUFFLE_ATTEMPTS; attempt++) {
+    lines = toLines(shuffled(texts, seededRandom(`${seed}:${attempt}`)))
+    if (!isParsonsSolutionOrder(lines, solutionSource)) return lines
+  }
+  return lines
 }
 
 /** Monta o passo do pacote a partir das seções; seções ausentes ficam vazias (o lint cobra as obrigatórias). */
 function buildStep(ctx: ParseContext, block: StepBlock): BundleStep {
   checkSections(ctx, block)
-  const step = emptyStep(block.header, rawText(block.narrative))
+  const { mode, narrative } = block.header.kind === "exercicio" ? extractExerciseMode(ctx, block.narrative) : { mode: DEFAULT_EXERCISE_MODE, narrative: block.narrative }
+  const step = emptyStep(block.header, processNarrative(narrative, ctx.rich))
+  step.exercise_mode = mode
   ctx.locations.set(step, { file: ctx.file, line: block.header.line })
+  let distractors: string[] | null = null
   for (const section of block.sections) {
     ctx.locations.setField(step, FIELD_BY_SECTION[section.name], section.line)
     switch (section.name) {
@@ -381,9 +512,29 @@ function buildStep(ctx: ParseContext, block: StepBlock): BundleStep {
       case "pergunta":
         step.quiz_questions.push(parseQuizQuestion(ctx, section))
         break
+      case "distratores":
+        if (mode !== "ordenar") fail(ctx, section.line, "### Distratores só vale em exercício com modo: ordenar")
+        distractors = parseDistractors(ctx, section)
+        break
+      case "codigo":
+        step.starter_files = parsePredictionCode(ctx, section)
+        break
+      case "saida esperada":
+        step.expected_output = parseExpectedOutput(ctx, section)
+        break
     }
   }
+  if (mode === "ordenar") buildParsonsLines(ctx, block, step, distractors ?? [])
   return step
+}
+
+/** Exercício `ordenar`: não tem código inicial (o aluno parte das linhas) e as linhas saem da solução. */
+function buildParsonsLines(ctx: ParseContext, block: StepBlock, step: BundleStep, distractors: readonly string[]): void {
+  const starterSection = block.sections.find((section) => section.name === "codigo inicial")
+  if (starterSection) fail(ctx, starterSection.line, "exercício com modo: ordenar não tem ### Código inicial (o aluno parte das linhas embaralhadas)")
+  const solution = step.solution_files.find((file) => file.path === DEFAULT_ENTRY_FILE)
+  if (!solution) return
+  step.parsons_lines = shuffleParsonsLines(solution.content, distractors, `${ctx.slug}:${step.order}`)
 }
 
 const FIELD_BY_SECTION: Readonly<Record<SectionName, keyof BundleStep>> = {
@@ -394,6 +545,9 @@ const FIELD_BY_SECTION: Readonly<Record<SectionName, keyof BundleStep>> = {
   verificacao: "test_cases",
   "solucoes erradas": "wrong_solutions",
   pergunta: "quiz_questions",
+  distratores: "parsons_lines",
+  codigo: "starter_files",
+  "saida esperada": "expected_output",
 }
 
 interface Frontmatter {
@@ -473,14 +627,18 @@ function checkStepNumbers(ctx: ParseContext, steps: readonly StepBlock[]): void 
 /**
  * Lê uma lição `.lvl.md`. `file` é o nome exibido nos problemas; os objetos
  * criados (lição, passos, checkpoints, casos, perguntas, soluções erradas)
- * ficam registrados em `locations`.
+ * ficam registrados em `locations`. As imagens das narrativas são lidas de
+ * `options.assets` e publicadas por ele (o compilador as inclui no pacote).
  */
-export function parseLessonFile(text: string, file: string, locations: SourceMap): ParsedLessonFile {
-  const ctx: ParseContext = { file, problems: [], locations }
+export function parseLessonFile(text: string, file: string, locations: SourceMap, options: ParseLessonOptions = {}): ParsedLessonFile {
+  const problems: ContentProblem[] = []
+  const rich: RichContentContext = { report: (line, message) => { problems.push({ file, line, message }) }, assets: options.assets ?? null }
+  const ctx: ParseContext = { file, problems, locations, rich, slug: "" }
   try {
     const lines = toSourceLines(text)
     const frontmatter = extractFrontmatter(ctx, lines)
     const { fields, fieldLines } = parseFrontmatter(ctx, frontmatter)
+    ctx.slug = fields.slug
     const blocks = splitSteps(ctx, scanMarkdown(lines.slice(frontmatter.endLine)))
     checkStepNumbers(ctx, blocks)
     checkLessonSteps(ctx, fields.lesson_type, blocks, lines.length)

@@ -1,11 +1,14 @@
 import { sql } from "drizzle-orm"
 import { boolean, check, index, integer, jsonb, pgTable, text, unique, uuid, type AnyPgColumn } from "drizzle-orm/pg-core"
 import {
-  DEFAULT_SOLUTION_AFTER_ATTEMPTS, DEFAULT_STEP_XP, DIFFICULTIES, LESSON_RUNTIMES, LESSON_TYPES, STEP_KINDS,
-  type Checkpoint, type ProjectFile, type StepQuizQuestionInput, type TestCase,
+  DEFAULT_EXERCISE_MODE, DEFAULT_SOLUTION_AFTER_ATTEMPTS, DEFAULT_STEP_XP, DIFFICULTIES, EXERCISE_MODES, LESSON_RUNTIMES, LESSON_TYPES, STEP_KINDS,
+  type Checkpoint, type ParsonsLine, type ProjectFile, type StepQuizQuestionInput, type TestCase,
 } from "@levelusp/contracts"
 import { profiles } from "./profiles"
 import { createdAt, id, isOneOf, updatedAt } from "./_helpers"
+
+/** Content-Types aceitos em `content_assets` (os mesmos do pacote de conteúdo). */
+const CONTENT_ASSET_CONTENT_TYPES = ["image/svg+xml", "image/png", "image/jpeg", "image/webp", "image/gif"] as const
 
 export const courses = pgTable(
   "courses",
@@ -148,8 +151,8 @@ export type LessonQuizQuestionRow = typeof lessonQuizQuestions.$inferSelect
 export type LessonQuizQuestionInsert = typeof lessonQuizQuestions.$inferInsert
 
 /**
- * Passos de uma lição guiada (formato Codecademy). `solutionFiles`, `testCases` e o
- * `correct_index` de `quizQuestions` são gabarito: NUNCA saem da API para o aluno.
+ * Passos de uma lição guiada (formato Codecademy). `solutionFiles`, `testCases`, `expectedOutput`
+ * e o `correct_index` de `quizQuestions` são gabarito: NUNCA saem da API para o aluno.
  */
 export const lessonSteps = pgTable(
   "lesson_steps",
@@ -171,6 +174,12 @@ export const lessonSteps = pgTable(
     /** Questões do passo de quiz, com gabarito (privado). */
     quizQuestions: jsonb("quiz_questions").$type<StepQuizQuestionInput[]>().notNull().default([]),
     xp: integer("xp").notNull().default(DEFAULT_STEP_XP),
+    /** Como o exercício é respondido: escrevendo o código, preenchendo lacunas ou ordenando linhas. */
+    exerciseMode: text("exercise_mode", { enum: EXERCISE_MODES }).notNull().default(DEFAULT_EXERCISE_MODE),
+    /** Linhas embaralhadas do exercício `ordenar` (públicas; a ordem certa é a de `solutionFiles`). */
+    parsonsLines: jsonb("parsons_lines").$type<ParsonsLine[]>().notNull().default([]),
+    /** Saída esperada do passo `previsao` (privada: a comparação é feita na API). */
+    expectedOutput: text("expected_output").notNull().default(""),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -178,6 +187,7 @@ export const lessonSteps = pgTable(
     unique("lesson_steps_lesson_id_order_key").on(table.lessonId, table.order),
     check("lesson_steps_order_check", sql`${table.order} >= 1`),
     check("lesson_steps_kind_check", isOneOf(table.kind, STEP_KINDS)),
+    check("lesson_steps_exercise_mode_check", isOneOf(table.exerciseMode, EXERCISE_MODES)),
     check("lesson_steps_xp_check", sql`${table.xp} >= 0`),
   ],
 )
@@ -186,3 +196,31 @@ export const lessonSteps = pgTable(
 export type LessonStepRow = typeof lessonSteps.$inferSelect
 /** Valores para inserir ou atualizar em `lesson_steps`. */
 export type LessonStepInsert = typeof lessonSteps.$inferInsert
+
+/**
+ * Imagens do conteúdo (pacote compilado → banco), servidas pela rota pública de assets.
+ * `path` é `<slug do curso>/<slug do módulo>/<arquivo>`; o conteúdo fica em base64.
+ */
+export const contentAssets = pgTable(
+  "content_assets",
+  {
+    id: id(),
+    path: text("path").notNull().unique(),
+    contentType: text("content_type", { enum: CONTENT_ASSET_CONTENT_TYPES }).notNull(),
+    dataBase64: text("data_base64").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    /** SHA-256 do conteúdo (hex): ETag e versão da URL. */
+    sha256: text("sha256").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    check("content_assets_content_type_check", isOneOf(table.contentType, CONTENT_ASSET_CONTENT_TYPES)),
+    check("content_assets_size_bytes_check", sql`${table.sizeBytes} > 0`),
+  ],
+)
+
+/** Linha de `content_assets` (com o conteúdo em base64). */
+export type ContentAssetRow = typeof contentAssets.$inferSelect
+/** Valores para inserir ou atualizar em `content_assets`. */
+export type ContentAssetInsert = typeof contentAssets.$inferInsert
