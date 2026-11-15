@@ -246,18 +246,58 @@ Corrigido nesta rodada:
 - Marketing: `/sobre` sem "200 estudantes" e sem anos na linha do tempo; `/equipe` e `/parceiros` só com
   Filipe Pio Magalhães (autor), Prof. Evandro Ruiz (orientador) e DCM/FFCLRP-USP; home sem porcentagens.
 
+Segunda rodada local de 2026-11-15 (mesmo PR):
+- **Campo "Entrada (stdin)" — FEITO.** O Executar e o Visualizar leem `input()` de um campo acima do
+  console, nos modos `codigo`, `lacunas` e `ordenar` e também na IDE das lições clássicas. O campo abre
+  sozinho quando o código chama `input()`; o texto não vai para a API (o Verificar usa as entradas dos
+  casos). Testes: Pyodide real (`project-execution.test.ts`), componente (`guided-lesson-modes.test.tsx`)
+  e navegador (`e2e/guided-lesson.spec.ts`, passo de ordenar com `int(input())`).
+- **Projeto bloqueado — FEITO.** A página do projeto mostra um aviso fixo com quantas lições faltam e um
+  link para cada uma; a recusa `PROJECT_LOCKED` deixou de virar aviso passageiro. `LessonSummary` ganhou
+  `is_project` (a regra continua sendo da API; a tela só a espelha). Testes de unidade, de componente e
+  no navegador (conta nova, 46 lições pendentes).
+- **Marketing — FEITO:** `/login` e `/showcase` sem "50K+", "200+" e "15 trilhas"; `/showcase` sem
+  "milhares de brasileiros"; `/sobre` com a origem real (TCC no DCM/FFCLRP-USP) no lugar da linha do
+  tempo; `/parceiros` sem "Seja um parceiro"; rodapé "DCM/FFCLRP-USP — Ribeirão Preto, SP".
+- Resultados: lint 9/9, typecheck 9/9, unitários (web 368, API 315), API e2e 148, Playwright 86/86,
+  ataques do runner em Linux 5 vezes seguidas: 73/73 nas cinco (o teste de id() continua instável: cerca de 0,7% por execução).
+
 Observações abertas:
+- **Teste `id()`/`getallocatedblocks()` (`unittest.attack.ts`) — NÃO alterado; decisão pendente.** Não dá
+  para torná-lo determinístico: o ruído vem de `os.urandom` dentro do sandbox e o teste não tem como
+  fixar a semente. E as medições mostram que a falha esporádica aponta uma fraqueza real do ruído, que
+  uma repetição no teste esconderia. Em 400 execuções da mesma implementação: `sys.getallocatedblocks()`
+  devolveu 0 em todas (o build WASI não usa o pymalloc, então essa parte da medida não prova nada);
+  `id(validar)` teve só 9 valores distintos (quase constante); `id(object())` teve 330, mas o valor mais
+  comum saiu em 5% das execuções. Chance de duas execuções coincidirem: cerca de 0,7% (1 falha em 40
+  repetições do teste isolado). Proposta, para decidir: reforçar `scramble_allocator` no `harness.py`
+  (por exemplo, um bloco grande de tamanho aleatório, que desloca o topo do heap) e trocar a asserção por
+  "N execuções, pelo menos K valores distintos", com `id(validar)` medido à parte.
 - **`-C cache=n` em produção:** a correção está no código do executor (`buildWasmtimeArgs`), então vale
   para qualquer compose; o `compose.yml` de homolog/prod também usa `read_only: true` e não precisa de
   mudança. Falta só confirmar em homolog, com a imagem nova, que o autoteste do sandbox passa.
-- **Executar sem teclado:** nos passos com `input()` o botão Executar sempre termina em "input() sem
-  entrada"; nos modos `lacunas` e `ordenar` o aluno não tem como trocar o `input()` por um valor fixo.
-  Um campo de entrada no player resolveria (o harness do navegador já aceita `stdin`).
-- **Projeto bloqueado:** com lições pendentes, o Continuar do passo 1 do projeto só mostra um aviso
-  passageiro ("faltam N"); a página do projeto não diz que ele está bloqueado.
-- **Marketing ainda ilustrativo:** eventos da linha do tempo de `/sobre`, "Seja um parceiro" e seus
-  benefícios, rodapé ("Cidade Universitária — São Paulo, SP") e os números de `/login` e `/showcase`
-  ("50K+ Estudantes", "200+ Lições") não foram revistos.
+- **Marketing: textos sem fonte que continuam no ar** (levantados em 2026-11-15, não alterados):
+  - o formulário de `/contato` mostra "Mensagem enviada!" sem enviar nada (não há rota na API);
+  - "Dificuldade adaptativa" e "Revisão espaçada" (`methodology.ts`, `home.ts`, `faq.ts`) descrevem
+    recursos que não existem; "+50 XP por lição" é fixo no texto, mas o XP varia;
+  - "iniciativa (de extensão) da USP", "docentes e pesquisadores da USP", "Equipe Pedagógica", "nossa
+    equipe", "metodologia da USP", "© LevelUSP — Universidade de São Paulo" e
+    `authors: Universidade de São Paulo` em `site-metadata.ts`: o projeto é um TCC de um autor;
+  - "Certificados reconhecidos pela USP" (`/signup`) e "Emitido pela plataforma LevelUSP — Universidade
+    de São Paulo" (`/certificado/[code]`): a USP não emite nem reconhece o certificado;
+  - promessas: "sempre será gratuito", "hoje ou no futuro", "Acesso vitalício", "revisado por pares",
+    "Conteúdo aberto" (sem licença definida);
+  - alcance e resultado sem dados: "milhões de brasileiros", "escala nacional", "Formamos talentos",
+    "Muitos educadores usam o LevelUSP", "programa de escolas parceiras", "valorizado por recrutadores";
+  - a jornada da home anuncia capítulos de Ciência de Dados e ML que não existem; `/trilhas` fala em
+    trilhas no plural (há uma, com o Nível 1 pronto); `/signup` diz "do zero ao avançado";
+  - contato: `contato@levelusp.org.br` (conferir se existe), `GITHUB_URL = "https://github.com"`
+    (genérico, exibido como "github.com/levelusp"), "Atendimento Seg. a sex., das 9h às 18h", assuntos
+    "Escola parceira", "Quero ser voluntário" e "Imprensa";
+  - `/showcase` (vitrine do design system) é pública, tem cursos de exemplo que não existem ("Banco de
+    Dados", "Desenvolvimento Web") e um link para o painel admin;
+  - afirmações de ciência além da fonte: "Nosso método é comprovado por pesquisa", "Não é achismo — é
+    evidência", "o maior preditor de domínio", "funciona melhor" que o ensino tradicional.
 - O Playwright precisa de `pnpm --filter @levelusp/web exec playwright install chromium` depois de
   atualizar a dependência; a porta 5432 pode estar ocupada por contêineres de outros projetos no boot.
 
