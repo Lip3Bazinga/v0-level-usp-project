@@ -16,8 +16,10 @@ import { ROUTES } from "@/lib/constants"
 import { trackEvent } from "@/lib/events"
 import { swalToast } from "@/lib/swal"
 import { indexBy } from "@/lib/utils"
+import { listPendingBeforeProject } from "@/lib/utils/course-outline"
 import { firstPendingStepIndex, initialStepFiles, isStepCompleted, mergeStepProgress, readStepDraft, stepStates, toCompletionLike } from "@/lib/utils/step-player"
 import { ExerciseStep } from "./exercise-step"
+import { ProjectLockedNotice } from "./project-locked-notice"
 import { PredictionStep } from "./prediction-step"
 import { QuizStep } from "./quiz-step"
 import { ReadingStep } from "./reading-step"
@@ -36,6 +38,8 @@ interface LessonCelebration {
 }
 
 const NO_PROGRESS: LessonStepProgress[] = []
+const NO_PENDING_LESSONS: LessonSummary[] = []
+const PROJECT_LOCKED_CODE = "PROJECT_LOCKED"
 
 /**
  * Lição guiada em passos (formato Codecademy): lista de passos com a situação de cada um e
@@ -45,7 +49,7 @@ const NO_PROGRESS: LessonStepProgress[] = []
 export function GuidedLessonLayout({ lesson, allLessons, currentIndex }: GuidedLessonLayoutProps): React.JSX.Element {
   const router = useRouter()
   const { profile } = useAuth()
-  const { applyCompletion } = useProgress()
+  const { applyCompletion, isCompleted, isLoading: isProgressLoading } = useProgress()
   const isGamified = useGamificationVisible()
   const navigation = useLessonNavigation(allLessons, currentIndex, lesson)
   const steps = lesson.steps
@@ -57,6 +61,12 @@ export function GuidedLessonLayout({ lesson, allLessons, currentIndex }: GuidedL
     () => new Map([...indexBy(serverProgress, (item) => item.step_id), ...Object.entries(localProgress)]),
     [serverProgress, localProgress],
   )
+  // Mesma regra da API (`PROJECT_LOCKED`): o projeto publicado só aceita respostas com as outras lições do curso concluídas.
+  const pendingBeforeProject = useMemo(
+    () => (profile && !isProgressLoading ? listPendingBeforeProject(lesson, allLessons, isCompleted) : NO_PENDING_LESSONS),
+    [profile, isProgressLoading, lesson, allLessons, isCompleted],
+  )
+  const isProjectLocked = pendingBeforeProject.length > 0
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [isBusy, setIsBusy] = useState(false)
   const [quizResult, setQuizResult] = useState<StepQuizResult | null>(null)
@@ -105,6 +115,8 @@ export function GuidedLessonLayout({ lesson, allLessons, currentIndex }: GuidedL
 
   const handleFailure = (error: unknown, fallback: string): void => {
     if (isApiError(error, HTTP_STATUS.UNAUTHORIZED)) goToLogin()
+    // O aviso fixo no topo da página já explica o bloqueio e lista o que falta.
+    else if (isProjectLocked && isApiError(error) && error.code === PROJECT_LOCKED_CODE) return
     else swalToast({ title: getErrorMessage(error, fallback), icon: "error" })
   }
 
@@ -175,6 +187,8 @@ export function GuidedLessonLayout({ lesson, allLessons, currentIndex }: GuidedL
           <progress className="h-2 w-24" max={steps.length} value={completedCount} aria-label="Passos concluídos" />
         </div>
       </header>
+
+      {isProjectLocked && <ProjectLockedNotice pendingLessons={pendingBeforeProject} />}
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <StepSidebar steps={steps} states={states} onSelect={selectStep} />

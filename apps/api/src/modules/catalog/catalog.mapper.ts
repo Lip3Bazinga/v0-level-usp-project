@@ -140,6 +140,7 @@ export function toLessonSummary(lesson: LessonSummaryRow): LessonSummary {
     xp_reward: lesson.xpReward,
     course_id: lesson.courseId,
     published: lesson.published,
+    is_project: lesson.isProject,
   }
 }
 

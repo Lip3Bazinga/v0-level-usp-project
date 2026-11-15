@@ -6,7 +6,7 @@ import { getLessonPosition } from "./use-lesson-navigation"
 function summary(id: string, courseId: string | null): LessonSummary {
   return {
     id, course_id: courseId, title: id, slug: id, module: "", module_id: null, order: 0,
-    difficulty: "iniciante", lesson_type: "coding", xp_reward: 10, published: true,
+    difficulty: "iniciante", lesson_type: "coding", xp_reward: 10, published: true, is_project: false,
   }
 }
 

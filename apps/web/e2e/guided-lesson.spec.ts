@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test"
 import { ROUTES } from "@/lib/constants"
-import { LESSON_LOAD_TIMEOUT_MS, STUDENT, fetchLessonId, login } from "./helpers"
+import type { LessonSummary } from "@levelusp/contracts"
+import { LESSON_LOAD_TIMEOUT_MS, STUDENT, apiPost, fetchLessonId, login, readJson } from "./helpers"
 
 /**
  * Lição guiada com os recursos de apresentação (diagrama, visualizador de execução, Previsão,
@@ -8,6 +9,8 @@ import { LESSON_LOAD_TIMEOUT_MS, STUDENT, fetchLessonId, login } from "./helpers
  * `SHOTS_DIR=pasta` grava uma captura de tela de cada recurso.
  */
 const WHILE_LESSON_SLUG = "n1-m4-01-while"
+const PROJECT_LESSON_SLUG = "n1-m9-01-gerenciador-de-tarefas"
+const NEW_ACCOUNT_PASSWORD = "senha-de-teste-e2e-123"
 const PYODIDE_TIMEOUT_MS = 60_000
 const GRADING_TIMEOUT_MS = 30_000
 
@@ -77,8 +80,50 @@ test("lição guiada: diagrama, visualizador, previsão, lacunas e ordenar", asy
   }
   await page.getByRole("button", { name: /^Indentar a linha 3/ }).click()
   await page.getByRole("button", { name: /^Indentar a linha 4/ }).click()
+
+  // O programa chama input(): o campo "Entrada (stdin)" já vem aberto e o Executar lê dele.
+  const stdin = page.getByRole("textbox", { name: "Entrada (stdin)" })
+  await expect(stdin).toBeVisible()
+  await stdin.fill("2")
+  await page.getByRole("button", { name: "Executar", exact: true }).click()
+  await expect(page.getByText(/Código executado sem erros/)).toBeVisible({ timeout: PYODIDE_TIMEOUT_MS })
+  await expect(page.getByText("input() sem entrada")).toHaveCount(0)
+  await shot(page, "6-ordenar-entrada-stdin")
+
   await page.getByRole("button", { name: /^Verificar/ }).click()
   await expect(page.getByLabel("Ainda não")).toHaveCount(0, { timeout: GRADING_TIMEOUT_MS })
   await expect(page.getByLabel("Certo").first()).toBeVisible({ timeout: GRADING_TIMEOUT_MS })
-  await shot(page, "6-ordenar-aprovado")
+  await shot(page, "7-ordenar-aprovado")
+})
+
+test("projeto do nível bloqueado: aviso fixo com as lições que faltam e links para elas", async ({ page }) => {
+  // Conta nova: nenhuma lição concluída, então o projeto está bloqueado por todas as outras do curso.
+  const email = `e2e-projeto-${Date.now()}-${Math.floor(Math.random() * 1e6)}@levelusp.dev`
+  const signUp = await apiPost(page, "/auth/sign-up", { email, password: NEW_ACCOUNT_PASSWORD, full_name: "Aluna do Projeto" })
+  expect(signUp.ok()).toBe(true)
+
+  const summaries = await readJson<LessonSummary[]>(await page.request.get("/api/lessons/summaries"))
+  const project = summaries.find((lesson) => lesson.slug === PROJECT_LESSON_SLUG)
+  if (!project) throw new Error(`Lição ${PROJECT_LESSON_SLUG} não encontrada.`)
+  expect(project.is_project).toBe(true)
+  const pending = summaries.filter((lesson) => lesson.course_id === project.course_id && !lesson.is_project)
+  expect(pending.length).toBeGreaterThan(1)
+
+  await page.goto(ROUTES.lesson(project.id))
+  const notice = page.getByRole("region", { name: "Projeto bloqueado" })
+  await expect(notice).toBeVisible({ timeout: LESSON_LOAD_TIMEOUT_MS })
+  await expect(notice).toContainText(`Faltam ${pending.length} lições do curso para liberar o projeto.`)
+  await notice.getByText("Lições que faltam").click()
+  await expect(notice.getByRole("link")).toHaveCount(pending.length)
+  await shot(page, "8-projeto-bloqueado")
+
+  // A API recusa o passo; o aviso continua na página (não é um aviso passageiro).
+  await page.getByRole("button", { name: "Continuar" }).click()
+  await expect(notice).toBeVisible()
+  await expect(page.getByRole("button", { name: /^Passo 2/ })).toBeDisabled()
+
+  const first = pending[0]
+  if (!first) throw new Error("Sem lição pendente.")
+  await notice.getByRole("link", { name: first.title, exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`${ROUTES.lesson(first.id)}$`))
 })

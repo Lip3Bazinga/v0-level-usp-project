@@ -76,7 +76,7 @@ export interface LessonWithTests extends Lesson {
 export type LessonSummary = Pick<
   Lesson,
   | "id" | "title" | "slug" | "module" | "module_id" | "order" | "difficulty"
-  | "lesson_type" | "xp_reward" | "course_id" | "published"
+  | "lesson_type" | "xp_reward" | "course_id" | "published" | "is_project"
 >
 
 export const lessonInputSchema = z.object({

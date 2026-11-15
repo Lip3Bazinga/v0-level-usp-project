@@ -1,11 +1,12 @@
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import type { Lesson, LessonStep, LessonStepsProgress, Profile, StepOutcome, StepPredictResult, StepSubmitResult } from "@levelusp/contracts"
+import type { Lesson, LessonStep, LessonStepsProgress, LessonSummary, Profile, StepOutcome, StepPredictResult, StepSubmitResult } from "@levelusp/contracts"
 import * as api from "@/lib/api"
 import type * as LibApi from "@/lib/api"
 import type { ProjectTrace } from "@/lib/python/project-execution"
 import { requestTrace } from "@/lib/python/trace-client"
+import { swalToast } from "@/lib/swal"
 import { GuidedLessonLayout } from "./guided-lesson-layout"
 
 const push = vi.fn()
@@ -15,7 +16,10 @@ const profile: Partial<Profile> = { id: "u1", level: 1, experiment_condition: nu
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, replace: vi.fn() }) }))
 vi.mock("@/contexts/auth-context", () => ({ useAuth: () => ({ profile, user: { id: "u1" } }) }))
-vi.mock("@/contexts/progress-context", () => ({ useProgress: () => ({ applyCompletion, isCompleted: () => false }) }))
+/** Lições que o aluno já concluiu (só o aviso de projeto bloqueado olha para isto). */
+const completedLessons = new Set<string>()
+const isCompleted = (lessonId: string): boolean => completedLessons.has(lessonId)
+vi.mock("@/contexts/progress-context", () => ({ useProgress: () => ({ applyCompletion, isCompleted, isLoading: false }) }))
 vi.mock("@/hooks/use-python", () => ({ usePython: () => ({ status: "ready", isExecuting: false, isInstalling: false, execute, stop: vi.fn() }) }))
 // O Pyodide não roda no jsdom: o visualizador recebe um registro pronto.
 vi.mock("@/lib/python/trace-client", () => ({ requestTrace: vi.fn() }))
@@ -138,7 +142,7 @@ describe("player: exercício de lacunas", () => {
     await userEvent.type(await screen.findByRole("textbox", { name: "Lacuna 1 de 3" }), "0")
     await userEvent.click(screen.getByRole("button", { name: "Executar" }))
     expect(execute).toHaveBeenCalledWith(
-      { files: [{ path: "main.py", content: "def media(notas):\n    total = 0\n    for nota in notas:\n        total += ___\n    return total / ___\n" }], entryPath: "main.py" },
+      { files: [{ path: "main.py", content: "def media(notas):\n    total = 0\n    for nota in notas:\n        total += ___\n    return total / ___\n" }], entryPath: "main.py", stdin: "" },
       expect.anything(),
     )
     expect(JSON.parse(window.localStorage.getItem("lvl:passo:lacunas:lacunas") ?? "null")).toEqual(["0", "", ""])
@@ -231,7 +235,7 @@ describe("player: exercício de ordenar (pelos botões, sem arrastar)", () => {
     expect(execute).toHaveBeenCalledWith(
       {
         files: [{ path: "main.py", content: 'def situacao(notas):\n    media = sum(notas) / len(notas)\n    if media >= 6:\n        return "aprovado"\n    return "reprovado"\n' }],
-        entryPath: "main.py",
+        entryPath: "main.py", stdin: "",
       },
       expect.anything(),
     )
@@ -369,12 +373,141 @@ describe("player: Visualizar no exercício de código", () => {
     await userEvent.clear(editor)
     await userEvent.type(editor, "total = 5")
     await userEvent.click(screen.getByRole("button", { name: "Visualizar" }))
-    expect(requestTrace).toHaveBeenCalledWith({ files: [{ path: "main.py", content: "total = 5" }], entryPath: "main.py" })
+    expect(requestTrace).toHaveBeenCalledWith({ files: [{ path: "main.py", content: "total = 5" }], entryPath: "main.py", stdin: "" })
     expect(await screen.findByRole("group", { name: /Visualizador de execução/ })).toBeInTheDocument()
     expect(screen.queryByLabelText("Editor de código")).toBeNull()
     expect(api.submitStep).not.toHaveBeenCalled()
 
     await userEvent.click(screen.getByRole("button", { name: "Fechar o visualizador" }))
     expect(screen.getByLabelText("Editor de código")).toHaveValue("total = 5")
+  })
+})
+
+describe("player: campo Entrada (stdin)", () => {
+  const INPUT_CODE = "nome = input()\nprint(nome)\n"
+  const stdinField = (): HTMLElement => screen.getByRole("textbox", { name: "Entrada (stdin)" })
+  const stdinToggle = (): HTMLElement => screen.getByRole("button", { name: /Entrada \(stdin\)/ })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    window.localStorage.clear()
+    vi.mocked(api.fetchMyLessonStepsProgress).mockResolvedValue(EMPTY_PROGRESS)
+    vi.mocked(api.fetchRevealedStepHints).mockResolvedValue([])
+  })
+
+  it("código: abre sozinho quando o programa chama input() e o Visualizar lê a entrada digitada", async () => {
+    vi.mocked(requestTrace).mockResolvedValue({ steps: [], stdout: "", error: null, truncated: false })
+    renderPlayer([step("codigo", 1, "exercicio", { starter_files: [{ path: "main.py", content: INPUT_CODE }] })])
+    await screen.findByLabelText("Editor de código")
+    expect(stdinToggle()).toHaveAttribute("aria-expanded", "true")
+    await userEvent.type(stdinField(), "Ana{Enter}20")
+    expect(stdinToggle()).toHaveTextContent("2 linhas")
+    await userEvent.click(screen.getByRole("button", { name: "Visualizar" }))
+    expect(requestTrace).toHaveBeenCalledWith({ files: [{ path: "main.py", content: INPUT_CODE }], entryPath: "main.py", stdin: "Ana\n20" })
+  })
+
+  it("código: fica fechado sem input(), abre quando o aluno escreve input() e pode ser fechado à mão", async () => {
+    renderPlayer([CODE_STEP])
+    const editor = await screen.findByLabelText("Editor de código")
+    expect(stdinToggle()).toHaveAttribute("aria-expanded", "false")
+    await userEvent.type(editor, "x = input()")
+    expect(stdinToggle()).toHaveAttribute("aria-expanded", "true")
+    await userEvent.click(stdinToggle())
+    expect(stdinToggle()).toHaveAttribute("aria-expanded", "false")
+  })
+
+  it("lacunas: o Executar manda a entrada junto com o código montado", async () => {
+    renderPlayer([step("lacunas", 1, "exercicio", { exercise_mode: "lacunas", starter_files: [{ path: "main.py", content: "nome = ___()\nprint(nome)\n" }] })])
+    const blank = await screen.findByRole("textbox", { name: "Lacuna 1 de 1" })
+    expect(stdinToggle()).toHaveAttribute("aria-expanded", "false")
+    await userEvent.type(blank, "input")
+    expect(stdinToggle()).toHaveAttribute("aria-expanded", "true")
+    await userEvent.type(stdinField(), "Ana")
+    await userEvent.click(screen.getByRole("button", { name: "Executar" }))
+    expect(execute).toHaveBeenCalledWith({ files: [{ path: "main.py", content: INPUT_CODE }], entryPath: "main.py", stdin: "Ana" }, expect.anything())
+  })
+
+  it("ordenar: já abre se alguma linha do banco chama input() e o Executar manda a entrada", async () => {
+    renderPlayer([step("ordenar", 1, "exercicio", { exercise_mode: "ordenar", parsons_lines: [{ id: "a", text: "print(nome)" }, { id: "b", text: "nome = input()" }] })])
+    await screen.findByRole("button", { name: "Adicionar à resposta: nome = input()" })
+    expect(stdinToggle()).toHaveAttribute("aria-expanded", "true")
+    await add("nome = input()")
+    await add("print(nome)")
+    await userEvent.type(stdinField(), "Bia")
+    await userEvent.click(screen.getByRole("button", { name: "Executar" }))
+    expect(execute).toHaveBeenCalledWith({ files: [{ path: "main.py", content: INPUT_CODE }], entryPath: "main.py", stdin: "Bia" }, expect.anything())
+  })
+
+  it("a entrada não vai para a API no Verificar", async () => {
+    vi.mocked(api.submitStep).mockResolvedValue(submitResult("codigo", true, 0))
+    renderPlayer([step("codigo", 1, "exercicio", { starter_files: [{ path: "main.py", content: INPUT_CODE }] })])
+    await screen.findByLabelText("Editor de código")
+    await userEvent.type(stdinField(), "Ana")
+    await userEvent.click(screen.getByRole("button", { name: "Verificar" }))
+    expect(api.submitStep).toHaveBeenCalledWith("l1", "codigo", [{ path: "main.py", content: INPUT_CODE }])
+  })
+})
+
+describe("player: projeto do nível bloqueado", () => {
+  const summary = (id: string, title: string, extra: Partial<LessonSummary> = {}): LessonSummary => ({
+    id, title, slug: id, module: "Módulo 1", module_id: "m1", order: 1, difficulty: "iniciante", lesson_type: "guided", xp_reward: 10, course_id: "c1", published: true, is_project: false, ...extra,
+  })
+  const COURSE: LessonSummary[] = [
+    summary("a", "Olá, Python"),
+    summary("b", "Variáveis"),
+    summary("rascunho", "Lição em rascunho", { published: false }),
+    summary("outro", "Lição de outro curso", { course_id: "c2" }),
+    summary("l1", "Gerenciador de tarefas", { is_project: true }),
+  ]
+  const renderProject = (isProject = true): ReturnType<typeof render> =>
+    render(<GuidedLessonLayout lesson={{ ...lessonWith([step("leitura", 1, "leitura")]), is_project: isProject }} allLessons={COURSE} currentIndex={4} />)
+  const notice = (): HTMLElement | null => screen.queryByRole("region", { name: "Projeto bloqueado" })
+  const noticeLinks = (): (string | null)[][] => {
+    const region = screen.getByRole("region", { name: "Projeto bloqueado" })
+    return within(region).getAllByRole("link").map((link) => [link.textContent, link.getAttribute("href")])
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    completedLessons.clear()
+    window.localStorage.clear()
+    vi.mocked(api.fetchMyLessonStepsProgress).mockResolvedValue(EMPTY_PROGRESS)
+  })
+
+  it("mostra um aviso fixo com a lição que falta e o link para ela", async () => {
+    completedLessons.add("a")
+    renderProject()
+    await screen.findByRole("heading", { name: "Passo leitura" })
+    expect(notice()).toHaveTextContent("Falta 1 lição do curso para liberar o projeto.")
+    expect(noticeLinks()).toEqual([["Variáveis", "/lesson/b"]])
+  })
+
+  it("lista todas as pendentes na ordem do curso, sem rascunhos, outros cursos nem o próprio projeto", async () => {
+    renderProject()
+    await screen.findByRole("heading", { name: "Passo leitura" })
+    expect(notice()).toHaveTextContent("Faltam 2 lições do curso para liberar o projeto.")
+    expect(noticeLinks()).toEqual([["Olá, Python", "/lesson/a"], ["Variáveis", "/lesson/b"]])
+  })
+
+  it("a recusa da API (PROJECT_LOCKED) não vira aviso passageiro: o aviso fixo continua na página", async () => {
+    vi.mocked(api.completeReadingStep).mockRejectedValue(new api.ApiError(403, "PROJECT_LOCKED", "Conclua as outras lições do curso antes do projeto (faltam 2)."))
+    renderProject()
+    await userEvent.click(await screen.findByRole("button", { name: /Continuar/ }))
+    expect(api.completeReadingStep).toHaveBeenCalled()
+    expect(swalToast).not.toHaveBeenCalled()
+    expect(notice()).not.toBeNull()
+  })
+
+  it("some com tudo concluído e não aparece em lição comum", async () => {
+    completedLessons.add("a").add("b")
+    const project = renderProject()
+    await screen.findByRole("heading", { name: "Passo leitura" })
+    expect(notice()).toBeNull()
+    project.unmount()
+
+    completedLessons.clear()
+    renderProject(false)
+    await screen.findByRole("heading", { name: "Passo leitura" })
+    expect(notice()).toBeNull()
   })
 })

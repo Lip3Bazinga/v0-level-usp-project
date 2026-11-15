@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { Lesson } from "@levelusp/contracts"
-import { buildCourseOutline } from "./course-outline"
+import { buildCourseOutline, listPendingBeforeProject } from "./course-outline"
 
 function lesson(id: string, module: string, moduleId: string | null, isProject = false): Lesson {
   return {
@@ -31,5 +31,26 @@ describe("buildCourseOutline", () => {
 
   it("lições sem módulo ficam num grupo com título genérico", () => {
     expect(buildCourseOutline([lesson("x", "", null)], ["in-progress"]).modules[0]?.title).toBe("Lições")
+  })
+})
+
+describe("listPendingBeforeProject", () => {
+  const course = [lesson("a", "Fundamentos", "m1"), lesson("b", "Fundamentos", "m1"), lesson("p", "Projeto", "m9", true), lesson("q", "Projeto", "m9", true)]
+  const done = (...ids: string[]) => (id: string): boolean => ids.includes(id)
+
+  it("devolve, na ordem do curso, as lições comuns não concluídas (outro projeto não trava)", () => {
+    expect(listPendingBeforeProject(lesson("p", "Projeto", "m9", true), course, done("a")).map((item) => item.id)).toEqual(["b"])
+    expect(listPendingBeforeProject(lesson("p", "Projeto", "m9", true), course, done("a", "b"))).toEqual([])
+  })
+
+  it("ignora rascunhos e lições de outros cursos", () => {
+    const mixed = [...course, { ...lesson("r", "Fundamentos", "m1"), published: false }, { ...lesson("x", "Outro", "m1"), course_id: "outro" }]
+    expect(listPendingBeforeProject(lesson("p", "Projeto", "m9", true), mixed, done()).map((item) => item.id)).toEqual(["a", "b"])
+  })
+
+  it("é vazio para lição comum, projeto em rascunho ou sem curso", () => {
+    expect(listPendingBeforeProject(lesson("a", "Fundamentos", "m1"), course, done())).toEqual([])
+    expect(listPendingBeforeProject({ ...lesson("p", "Projeto", "m9", true), published: false }, course, done())).toEqual([])
+    expect(listPendingBeforeProject({ ...lesson("p", "Projeto", "m9", true), course_id: null }, course, done())).toEqual([])
   })
 })

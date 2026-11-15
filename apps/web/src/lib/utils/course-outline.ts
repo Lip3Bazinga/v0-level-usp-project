@@ -1,4 +1,4 @@
-import type { Lesson } from "@levelusp/contracts"
+import type { Lesson, LessonSummary } from "@levelusp/contracts"
 import type { TrailStatus } from "./trail"
 
 /** Lição com a situação do aluno e a posição dela na ordem do curso (1 = primeira). */
@@ -53,4 +53,21 @@ export function buildCourseOutline(lessons: readonly Lesson[], statuses: readonl
     if (entry.status === "completed") group.completedCount++
   })
   return { modules, projects, pendingBeforeProject }
+}
+
+/**
+ * Lições que ainda travam o projeto do nível, na ordem do curso: as publicadas do mesmo curso,
+ * fora os projetos e a própria lição, que o aluno não concluiu. Espelha a regra da API
+ * (`PROJECT_LOCKED`), que é quem decide; aqui é só para avisar na página. Vazio quando a
+ * lição não é um projeto publicado de um curso.
+ */
+export function listPendingBeforeProject(
+  lesson: Pick<Lesson, "id" | "course_id" | "is_project" | "published">,
+  allLessons: readonly LessonSummary[],
+  isCompleted: (lessonId: string) => boolean,
+): LessonSummary[] {
+  if (!lesson.is_project || !lesson.published || !lesson.course_id) return []
+  return allLessons.filter(
+    (summary) => summary.course_id === lesson.course_id && summary.id !== lesson.id && summary.published && !summary.is_project && !isCompleted(summary.id),
+  )
 }

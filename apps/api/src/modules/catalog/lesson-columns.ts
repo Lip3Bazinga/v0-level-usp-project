@@ -23,6 +23,7 @@ export const lessonSummaryColumns = {
   xpReward: lessons.xpReward,
   courseId: lessons.courseId,
   published: lessons.published,
+  isProject: lessons.isProject,
 }
 
 /** Lição resumida, como {@link lessonSummaryColumns} seleciona. */
