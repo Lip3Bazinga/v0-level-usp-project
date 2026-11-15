@@ -18,515 +18,1409 @@ objetivos:
 - Medir o efeito do tamanho do trecho na recuperação com um conjunto de perguntas e respostas
 ---
 
-## Passo 1 · Leitura · Por que e como fatiar documentos antes de indexar
+## Passo 1 · Leitura · Por que fatiar antes de indexar
 
-O regimento de graduação da USP tem dezenas de páginas. Se você tentar transformar um documento inteiro de 40 páginas em um único vetor de embedding, dois problemas acontecem: primeiro, ele estoura o limite de entrada do modelo de embedding; segundo, a média (*pooling*) de milhares de frases sobre assuntos diferentes — matrícula, trancamento, jubilamento, colação de grau — produz um vetor "morno" que não é especificamente similar a nenhuma pergunta pontual.
+O regimento de graduação tem dezenas de páginas: matrícula, trancamento, jubilamento, colação de grau. Embutir o documento inteiro num vetor só dá errado de três jeitos:
 
-Por isso, antes de indexar documentos para um sistema RAG, nós os dividimos em trechos menores chamados **chunks**. Escolher a estratégia de *chunking* envolve equilibrar um dilema fundamental:
-- **Trechos curtos demais** perdem o contexto: uma frase isolada como *"O prazo máximo é de 60 dias"* não diz a que procedimento esse prazo se refere!
-- **Trechos longos demais** diluem a representação vetorial e desperdiçam espaço na janela de contexto do LLM com parágrafos irrelevantes.
+1. **Limite de entrada.** Todo modelo de embedding aceita um número máximo de tokens por texto. Passou disso, a API recusa ou, pior, **corta em silêncio** e embute só o começo.
+2. **Vetor diluído.** O vetor de um texto é uma espécie de média do que ele diz. A média de vinte assuntos não fica perto de nenhuma pergunta específica: "qual o prazo de trancamento?" acha o regimento inteiro meio parecido, e mais nada.
+3. **Contexto do LLM.** No RAG (próximo módulo), o que a busca devolve vai para o prompt. Devolver 40 páginas para responder uma linha custa tokens, tempo e atenção do modelo.
+
+Por isso os documentos são cortados em **trechos** (*chunks*) antes de indexar. O tamanho é um compromisso: trecho curto demais perde o contexto ("O prazo é de 60 dias." prazo de quê?); trecho longo demais volta a diluir o vetor.
 
 ```mermaid
 flowchart TD
-    A["Documento original"] --> B["1. Janela fixa com sobreposição"]
-    A --> C["2. Estrutura Markdown (# e ##)"]
-    A --> D["3. Agrupamento de sentenças"]
-    B --> E["Trechos + Metadados (fonte, título, posição)"]
+    A["Documento"] --> B["Janela fixa com sobreposição"]
+    A --> C["Seções do Markdown"]
+    A --> D["Sentenças agrupadas"]
+    B --> E["Trechos com metadados"]
     C --> E
     D --> E
+    E --> F["Embutir e indexar"]
 ```
 
-Três estratégias complementares são essenciais na caixa de ferramentas:
+As três estratégias desta lição respeitam cada vez mais a estrutura do texto. A **janela fixa** corta a cada tantos caracteres, sem olhar o conteúdo; a **sobreposição** repete o fim de um trecho no começo do seguinte, para que uma frase cortada na fronteira apareça inteira em pelo menos um deles. O corte **por sentenças** nunca parte uma frase. O corte **por seções** usa os títulos que o autor escreveu.
 
-1. **Tamanho fixo com sobreposição (*overlap*):** desliza uma janela de tamanho $T$ avançando de $P = T - S$ em $P$ unidades (onde $S < T$ é a sobreposição). A faixa de sobreposição garante que uma frase importante que caia bem na fronteira do corte apareça inteira em pelo menos um dos dois trechos consecutivos.
-2. **Por estrutura Markdown (`#` e `##`):** corta o documento nas divisões lógicas escritas pelo autor e **injeta o título da seção dentro do texto do trecho e nos metadados**. Assim, o trecho *"Trancamento Parcial: O prazo máximo é de 60 dias"* carrega consigo o assunto a que pertence.
-3. **Por sentenças:** agrupa frases completas (`"."`, `"!"`, `"?"`) até atingir um limite `max_chars`, sem nunca cortar uma palavra ou frase ao meio.
+Todo trecho carrega **metadados**: de que arquivo veio, em que seção, em que posição. Eles servem para citar a fonte na resposta, para filtrar a busca (lição 02) e para achar o trecho vizinho quando o contexto faltar.
 
-Veja no visualizador como a janela com `tamanho = 20` e `sobreposicao = 5` caminha com `passo = 15`:
-
-```python visualizar
-texto = "Artigo 10: O trancamento parcial exige 12 creditos."
-tamanho = 20
-sobreposicao = 5
-passo = tamanho - sobreposicao
-
-trechos = []
-for inicio in range(0, len(texto), passo):
-    fatia = texto[inicio : inicio + tamanho]
-    trechos.append((inicio, inicio + len(fatia), fatia))
-    if inicio + tamanho >= len(texto):
-        break
+```python
+{"fonte": "regimento.md", "titulo": "Regimento > Trancamento", "posicao": 7,
+ "texto": "Regimento > Trancamento: O trancamento parcial pode ser pedido até o 60º dia letivo."}
 ```
 
-## Passo 2 · Exercício · Chunking de tamanho fixo com sobreposição
+Nesta lição o tamanho é medido em **caracteres**, para as contas ficarem simples. Em produção, meça em tokens do tokenizador do modelo de embedding, que é o que o limite de entrada conta.
 
+## Passo 2 · Exercício · Janela fixa com sobreposição
 modo: lacunas
 
-Complete `chunk_fixo(texto, tamanho, sobreposicao=0)`:
-- Se `tamanho <= 0` ou `sobreposicao < 0` ou `sobreposicao >= tamanho`, levante `ValueError("Parâmetros de janela inválidos")` (pois `sobreposicao >= tamanho` resultaria em `passo <= 0`, travando em laço infinito!).
-- Caso contrário, avance com `passo = tamanho - sobreposicao`, coletando fatias `texto[i : i + tamanho]` e parando assim que `i + tamanho >= len(texto)`.
+Complete as lacunas (`___`) de `chunk_fixo(texto, tamanho, sobreposicao=0)`. Ela devolve uma lista de trechos `{"inicio": i, "fim": f, "texto": texto[i:f]}`, cada um com até `tamanho` caracteres, em que cada trecho começa `sobreposicao` caracteres antes do fim do anterior. O último trecho termina exatamente no fim do texto, e nenhum trecho fica inteiro dentro do anterior. Texto vazio dá `[]`.
+
+Parâmetros inválidos levantam `ValueError("a sobreposição precisa ficar entre 0 e tamanho - 1")`: com `sobreposicao >= tamanho`, o passo seria zero ou negativo e o laço nunca terminaria.
+
+Exemplo: `chunk_fixo("ABCDEFGHIJK", 4, 1)` dá os textos `ABCD`, `DEFG`, `GHIJ` e `JK`, com `inicio` 0, 3, 6 e 9.
 
 ### Instruções
-
-1. Valide `sobreposicao >= tamanho` para levantar `ValueError` e calcule `passo = tamanho - sobreposicao`.
-2. Recorte `texto[i : i + tamanho]` em cada passo da janela.
+1. Recuse `sobreposicao` fora do intervalo de 0 a `tamanho - 1` e calcule o passo da janela.
+2. Limite o fim de cada trecho ao tamanho do texto.
+3. Pare assim que um trecho alcançar o fim do texto.
 
 ### Código inicial
-
 ```python
 def chunk_fixo(texto, tamanho, sobreposicao=0):
-    if tamanho <= 0 or sobreposicao < 0 or sobreposicao >= ___:
-        raise ValueError("Parâmetros de janela inválidos")
-    if not texto:
-        return []
+    if tamanho <= 0 or not 0 <= sobreposicao < ___:
+        raise ValueError("a sobreposição precisa ficar entre 0 e tamanho - 1")
     passo = tamanho - ___
     trechos = []
-    for i in range(0, len(texto), passo):
-        trechos.append(texto[i : i + ___])
-        if i + tamanho >= len(texto):
+    inicio = 0
+    while inicio < len(texto):
+        fim = min(inicio + tamanho, ___)
+        trechos.append({"inicio": inicio, "fim": fim, "texto": texto[inicio:fim]})
+        if fim == ___:
             break
+        inicio += passo
     return trechos
-
-
-if __name__ == "__main__":
-    print(chunk_fixo("ABCDEFGHIJ", 4, 1))
 ```
 
 ### Solução
-
 ```python
 def chunk_fixo(texto, tamanho, sobreposicao=0):
-    if tamanho <= 0 or sobreposicao < 0 or sobreposicao >= tamanho:
-        raise ValueError("Parâmetros de janela inválidos")
-    if not texto:
-        return []
+    if tamanho <= 0 or not 0 <= sobreposicao < tamanho:
+        raise ValueError("a sobreposição precisa ficar entre 0 e tamanho - 1")
     passo = tamanho - sobreposicao
     trechos = []
-    for i in range(0, len(texto), passo):
-        trechos.append(texto[i : i + tamanho])
-        if i + tamanho >= len(texto):
+    inicio = 0
+    while inicio < len(texto):
+        fim = min(inicio + tamanho, len(texto))
+        trechos.append({"inicio": inicio, "fim": fim, "texto": texto[inicio:fim]})
+        if fim == len(texto):
             break
+        inicio += passo
     return trechos
-
-
-if __name__ == "__main__":
-    print(chunk_fixo("ABCDEFGHIJ", 4, 1))
 ```
 
 ### Dicas
-
-1. A sobreposição nunca pode ser maior ou igual a `tamanho`; caso contrário, `passo = tamanho - sobreposicao` seria zero ou negativo.
-2. Cada fatia começa em `i` e termina em `i + tamanho`.
+1. A janela anda `tamanho - sobreposicao` caracteres por vez.
+2. Sem limitar o `fim`, o último trecho diria que termina depois do fim do texto.
+3. Sem a parada, a janela daria mais um passo e criaria um trecho que já está inteiro dentro do anterior.
 
 ### Verificação
-
 ```json
 [
-  {
-    "id": "janela-com-overlap",
-    "name": "Fatia texto respeitando tamanho e sobreposição",
-    "checkpoint": 2,
-    "kind": "call",
-    "function": "chunk_fixo",
-    "args": ["ABCDEFGHIJ", 4, 1],
-    "expected": ["ABCD", "DEFG", "GHIJ"]
-  },
-  {
-    "id": "rejeita-overlap-invalido",
-    "name": "Levanta ValueError quando sobreposicao >= tamanho",
-    "checkpoint": 1,
-    "kind": "expr",
-    "expr": "chunk_fixo('Texto de teste', 5, 5)",
-    "raises": "ValueError"
-  }
+  { "id": "exemplo", "checkpoint": 1, "kind": "expr", "expr": "[t['texto'] for t in chunk_fixo('ABCDEFGHIJ', 4, 1)]",
+    "expected": ["ABCD", "DEFG", "GHIJ"], "name": "Janela de 4 com sobreposição de 1" },
+  { "id": "posicoes", "checkpoint": 2, "kind": "expr", "expr": "[[t['inicio'], t['fim']] for t in chunk_fixo('ABCDEFGHIJK', 4, 1)]",
+    "expected": [[0, 4], [3, 7], [6, 10], [9, 11]], "name": "O último trecho é mais curto e termina no fim do texto",
+    "hint": "O fim de um trecho nunca passa do tamanho do texto." },
+  { "id": "sem-sobra", "checkpoint": 3, "kind": "expr", "expr": "[t['texto'] for t in chunk_fixo('ABCDEFG', 4, 1)]",
+    "expected": ["ABCD", "DEFG"], "name": "Quando um trecho chega ao fim, não sobra um trecho repetido",
+    "hint": "Um trecho só com o G estaria inteiro dentro de DEFG." },
+  { "id": "sem-sobreposicao", "checkpoint": 1, "kind": "expr", "expr": "[t['texto'] for t in chunk_fixo('ABCDEFGH', 4)]",
+    "expected": ["ABCD", "EFGH"], "name": "Sobreposição 0: trechos encostados" },
+  { "id": "curto-e-vazio", "checkpoint": 2, "kind": "expr", "expr": "[chunk_fixo('Oi', 10, 3), chunk_fixo('', 5, 1)]",
+    "expected": [[{ "inicio": 0, "fim": 2, "texto": "Oi" }], []], "name": "Texto menor que a janela vira um trecho; texto vazio, nenhum" },
+  { "id": "cobertura", "checkpoint": 3, "kind": "expr",
+    "setup": "texto = 'O trancamento parcial pode ser pedido até o 60º dia letivo, pelo sistema acadêmico.'\nts = chunk_fixo(texto, 20, 5)",
+    "expr": "[ts[0]['inicio'] == 0, ts[-1]['fim'] == len(texto), all(b['inicio'] == a['fim'] - 5 for a, b in zip(ts, ts[1:])), ''.join(t['texto'][5 if i else 0:] for i, t in enumerate(ts)) == texto]",
+    "expected": [true, true, true, true], "name": "Os trechos cobrem o texto inteiro, sem buraco, com 5 caracteres repetidos em cada emenda" },
+  { "id": "invalida-igual", "checkpoint": 1, "kind": "expr", "expr": "chunk_fixo('Texto de teste', 5, 5)", "raises": "ValueError",
+    "message_contains": "sobreposição", "name": "Sobreposição igual ao tamanho é recusada" },
+  { "id": "invalida-negativa", "checkpoint": 1, "kind": "expr", "expr": "chunk_fixo('Texto de teste', 5, -1)", "raises": "ValueError",
+    "message_contains": "sobreposição", "name": "Sobreposição negativa é recusada" }
 ]
 ```
 
 ### Soluções erradas
-
-```python name="Avança de tamanho em tamanho ignorando a sobreposição"
+```python name="passo igual ao tamanho"
 def chunk_fixo(texto, tamanho, sobreposicao=0):
-    if tamanho <= 0 or sobreposicao < 0 or sobreposicao >= tamanho:
-        raise ValueError("Inválido")
-    return [texto[i : i + tamanho] for i in range(0, len(texto), tamanho)]
+    if tamanho <= 0 or not 0 <= sobreposicao < tamanho:
+        raise ValueError("a sobreposição precisa ficar entre 0 e tamanho - 1")
+    passo = tamanho
+    trechos = []
+    inicio = 0
+    while inicio < len(texto):
+        fim = min(inicio + tamanho, len(texto))
+        trechos.append({"inicio": inicio, "fim": fim, "texto": texto[inicio:fim]})
+        if fim == len(texto):
+            break
+        inicio += passo
+    return trechos
 ```
-
-```python name="Não valida sobreposicao >= tamanho"
+```python name="só janelas completas: perde o fim do texto"
 def chunk_fixo(texto, tamanho, sobreposicao=0):
-    passo = max(1, tamanho - sobreposicao)
-    return [texto[i : i + tamanho] for i in range(0, len(texto), passo)]
+    if tamanho <= 0 or not 0 <= sobreposicao < tamanho:
+        raise ValueError("a sobreposição precisa ficar entre 0 e tamanho - 1")
+    passo = tamanho - sobreposicao
+    trechos = []
+    inicio = 0
+    while inicio + tamanho <= len(texto):
+        trechos.append({"inicio": inicio, "fim": inicio + tamanho, "texto": texto[inicio:inicio + tamanho]})
+        inicio += passo
+    return trechos
+```
+```python name="sem parada: trecho repetido no fim"
+def chunk_fixo(texto, tamanho, sobreposicao=0):
+    if tamanho <= 0 or not 0 <= sobreposicao < tamanho:
+        raise ValueError("a sobreposição precisa ficar entre 0 e tamanho - 1")
+    passo = tamanho - sobreposicao
+    trechos = []
+    inicio = 0
+    while inicio < len(texto):
+        fim = min(inicio + tamanho, len(texto))
+        trechos.append({"inicio": inicio, "fim": fim, "texto": texto[inicio:fim]})
+        inicio += passo
+    return trechos
+```
+```python name="fim sem limite"
+def chunk_fixo(texto, tamanho, sobreposicao=0):
+    if tamanho <= 0 or not 0 <= sobreposicao < tamanho:
+        raise ValueError("a sobreposição precisa ficar entre 0 e tamanho - 1")
+    passo = tamanho - sobreposicao
+    trechos = []
+    inicio = 0
+    while inicio < len(texto):
+        fim = inicio + tamanho
+        trechos.append({"inicio": inicio, "fim": fim, "texto": texto[inicio:fim]})
+        if fim >= len(texto):
+            break
+        inicio += passo
+    return trechos
+```
+```python name="aceita sobreposição negativa"
+def chunk_fixo(texto, tamanho, sobreposicao=0):
+    if tamanho <= 0 or sobreposicao >= tamanho:
+        raise ValueError("a sobreposição precisa ficar entre 0 e tamanho - 1")
+    passo = tamanho - sobreposicao
+    trechos = []
+    inicio = 0
+    while inicio < len(texto):
+        fim = min(inicio + tamanho, len(texto))
+        trechos.append({"inicio": inicio, "fim": fim, "texto": texto[inicio:fim]})
+        if fim == len(texto):
+            break
+        inicio += passo
+    return trechos
 ```
 
-## Passo 3 · Exercício · Chunking por estrutura Markdown com metadados
+## Passo 3 · Leitura · Respeitar as fronteiras do texto
 
-Documentos normativos da universidade costumam ser estruturados com títulos `#` e `##`. Implemente `chunk_por_markdown(texto, fonte)` que divide um documento Markdown por suas seções e anexa metadados completos para citação:
+A janela fixa não sabe o que é uma palavra. Com 30 caracteres, "O aluno deve se inscrever em no mínimo 12 créditos." vira "O aluno deve se inscrever em n" e "o mínimo 12 créditos.": nenhum dos dois trechos responde "quantos créditos no mínimo?" sozinho. A sobreposição ameniza, mas o remédio de verdade é **cortar onde o texto já se divide**.
 
-- Percorra `texto.splitlines()`. Sempre que encontrar uma linha que (após `.strip()`) comece com `"#"` (como `"# Regimento"` ou `"## Matrícula"`), extraia o título removendo os caracteres `"#"` da esquerda e espaços (`linha.lstrip("#").strip()`).
-- As demais linhas não vazias pertencem ao corpo da seção atual (junte as linhas do corpo da mesma seção com um espaço `" "`). Se houver linhas antes do primeiro cabeçalho, use `"Introdução"` como título.
-- Ignore seções que tenham corpo vazio (por exemplo, um título `# Geral` seguido imediatamente de `## Específico` sem parágrafos entre eles).
-- Para cada seção com conteúdo, adicione um dicionário:
-  `{"fonte": fonte, "titulo": titulo_atual, "posicao": idx, "texto": f"{titulo_atual}: {corpo}"}` onde `idx` é a posição sequencial `0, 1, 2...` entre os trechos gerados.
+#### Sentenças
 
-### Instruções
+A ideia simples é cortar depois de `.`, `!` ou `?` seguido de espaço. Em texto normativo ela quebra justamente onde não deve: "Art. 5", "Prof. Ana", "inc. II". Um divisor melhor anda palavra por palavra e só fecha a sentença quando a palavra termina em pontuação final **e não é uma abreviação conhecida**. Um número como `2.50` não tem espaço depois do ponto, então não corta.
 
-1. Identifique cabeçalhos Markdown (`linha.strip().startswith("#")`) para atualizar `titulo_atual = linha.strip().lstrip("#").strip()`.
-2. Agrupe as linhas não vazias abaixo de cada cabeçalho formando o `corpo` da seção.
-3. Para cada seção com corpo não vazio, gere `{"fonte": fonte, "titulo": titulo, "posicao": posicao, "texto": f"{titulo}: {corpo}"}`.
+Com as sentenças separadas, o **agrupamento guloso** junta sentenças vizinhas enquanto o trecho couber em `max_chars`, contando o espaço entre elas; a sentença que não cabe abre um trecho novo. Uma sentença maior que `max_chars` vira um trecho sozinha: é melhor um trecho um pouco grande do que uma frase partida ao meio.
 
-### Código inicial
+#### Seções
 
-```python
-def chunk_por_markdown(texto, fonte):
-    # Divida o documento por cabeçalhos # e ## preservando título e metadados
-    pass
+Documentos em Markdown já dizem onde os assuntos mudam: os títulos `#`, `##`, `###`. Cortar por seção dá trechos que tratam de um assunto só. E há um ganho extra: o título **entra no texto do trecho**. Um parágrafo como "O prazo é de 60 dias letivos." não diz de que prazo fala; com o caminho de títulos na frente, "Regimento > Trancamento: O prazo é de 60 dias letivos.", o vetor carrega o assunto e a busca por "prazo de trancamento" o encontra.
 
+O caminho respeita os níveis: um `##` novo troca o `##` anterior e mantém o `#` de cima; um `#` novo zera tudo abaixo dele. E só é título a linha com `#` seguido de **espaço**: `#5` ou `#hashtag` são texto.
 
-if __name__ == "__main__":
-    doc = (
-        "# Regimento USP\n"
-        "## Matrícula\n"
-        "O aluno deve se inscrever em no mínimo 12 créditos.\n"
-        "## Trancamento\n"
-        "O trancamento parcial ocorre até o 60o dia letivo."
-    )
-    print(chunk_por_markdown(doc, "regimento.md"))
+Veja o agrupamento guloso de sentenças em ação:
+
+```python visualizar
+sentencas = [
+    "A matrícula abre na segunda.",
+    "O prazo termina na sexta.",
+    "Pedidos atrasados vão para a secretaria.",
+    "O mínimo é de 12 créditos.",
+]
+max_chars = 60
+trechos = []
+atual = ""
+for s in sentencas:
+    if not atual:
+        atual = s
+    elif len(atual) + 1 + len(s) <= max_chars:
+        atual = atual + " " + s
+    else:
+        trechos.append(atual)
+        atual = s
+trechos.append(atual)
+for t in trechos:
+    print(len(t), t)
 ```
 
-### Solução
+## Passo 4 · Previsão · Onde o ponto engana
 
+O programa usa o corte ingênuo por pontuação seguida de espaço. Leia sem executar e digite o que ele imprime.
+
+### Código
 ```python
-def chunk_por_markdown(texto, fonte):
-    secoes = []
-    titulo_atual = "Introdução"
-    linhas_corpo = []
+import re
 
-    for linha in texto.splitlines():
-        limpa = linha.strip()
-        if not limpa:
-            continue
-        if limpa.startswith("#"):
-            if linhas_corpo:
-                corpo = " ".join(linhas_corpo)
-                secoes.append((titulo_atual, corpo))
-                linhas_corpo = []
-            titulo_atual = limpa.lstrip("#").strip()
-        else:
-            linhas_corpo.append(limpa)
-
-    if linhas_corpo:
-        secoes.append((titulo_atual, " ".join(linhas_corpo)))
-
-    resultado = []
-    for idx, (titulo, corpo) in enumerate(secoes):
-        resultado.append(
-            {
-                "fonte": fonte,
-                "titulo": titulo,
-                "posicao": idx,
-                "texto": f"{titulo}: {corpo}",
-            }
-        )
-    return resultado
-
-
-if __name__ == "__main__":
-    doc = (
-        "# Regimento USP\n"
-        "## Matrícula\n"
-        "O aluno deve se inscrever em no mínimo 12 créditos.\n"
-        "## Trancamento\n"
-        "O trancamento parcial ocorre até o 60o dia letivo."
-    )
-    print(chunk_por_markdown(doc, "regimento.md"))
+texto = "Conforme o Art. 5, o prazo é de 30 dias. A taxa é de R$ 2.50 por via. Fale com a Prof. Ana!"
+partes = re.split(r"(?<=[.!?])\s+", texto)
+print(len(partes))
+for parte in partes:
+    print(parte)
 ```
 
 ### Dicas
+1. `(?<=[.!?])\s+` corta nos espaços que vêm logo depois de `.`, `!` ou `?`; a pontuação fica no pedaço da esquerda.
+2. Em `2.50` o ponto não é seguido de espaço.
+3. O regex não sabe o que é uma abreviação.
 
-1. Quando encontrar uma nova linha começando com `"#"`, se `linhas_corpo` já tiver texto acumulado, feche a seção anterior antes de trocar `titulo_atual`.
-2. Incluir `f"{titulo}: {corpo}"` no campo `"texto"` garante que o modelo de embedding saiba a qual seção aquela regra pertence!
-
-### Verificação
-
-```json
-[
-  {
-    "id": "markdown-secoes-e-metadados",
-    "name": "Extrai seções Markdown com fonte, título, posição e prefixo no texto",
-    "checkpoint": 3,
-    "kind": "call",
-    "function": "chunk_por_markdown",
-    "args": [
-      "# Regimento\n## Matrícula\nMinimo de 12 creditos.\nSempre pelo sistema.\n## Trancamento\nPrazo de 60 dias.",
-      "regimento.md"
-    ],
-    "expected": [
-      {
-        "fonte": "regimento.md",
-        "titulo": "Matrícula",
-        "posicao": 0,
-        "texto": "Matrícula: Minimo de 12 creditos. Sempre pelo sistema."
-      },
-      {
-        "fonte": "regimento.md",
-        "titulo": "Trancamento",
-        "posicao": 1,
-        "texto": "Trancamento: Prazo de 60 dias."
-      }
-    ]
-  }
-]
+### Saída esperada
+```text
+5
+Conforme o Art.
+5, o prazo é de 30 dias.
+A taxa é de R$ 2.50 por via.
+Fale com a Prof.
+Ana!
 ```
 
-### Soluções erradas
+## Passo 5 · Exercício · Sentenças inteiras até max_chars
 
-```python name="Não inclui o título da seção no campo texto do trecho"
-def chunk_por_markdown(texto, fonte):
-    secoes = []
-    titulo_atual = "Introdução"
-    linhas_corpo = []
-    for linha in texto.splitlines():
-        limpa = linha.strip()
-        if not limpa:
-            continue
-        if limpa.startswith("#"):
-            if linhas_corpo:
-                secoes.append((titulo_atual, " ".join(linhas_corpo)))
-                linhas_corpo = []
-            titulo_atual = limpa.lstrip("#").strip()
-        else:
-            linhas_corpo.append(limpa)
-    if linhas_corpo:
-        secoes.append((titulo_atual, " ".join(linhas_corpo)))
-    return [
-        {"fonte": fonte, "titulo": t, "posicao": i, "texto": c}
-        for i, (t, c) in enumerate(secoes)
-    ]
-```
+Escreva duas funções:
 
-```python name="Cria trechos vazios para cabeçalhos sem corpo"
-def chunk_por_markdown(texto, fonte):
-    partes = texto.split("#")
-    res = []
-    for i, p in enumerate(partes):
-        if p.strip():
-            linhas = p.strip().splitlines()
-            t = linhas[0].strip()
-            c = " ".join(linhas[1:]).strip()
-            res.append({"fonte": fonte, "titulo": t, "posicao": i, "texto": f"{t}: {c}"})
-    return res
-```
+1. `dividir_sentencas(texto)`: percorre as palavras de `texto.split()` e fecha uma sentença depois da palavra que termina em `.`, `!` ou `?`, **exceto** quando a palavra termina em `.` e, sem o ponto e em minúsculas, está em `ABREVIACOES` (já no código inicial). As palavras de cada sentença são unidas por um espaço; o que sobrar no fim, mesmo sem pontuação, é a última sentença.
+2. `chunk_por_sentencas(texto, max_chars)`: junta sentenças vizinhas, separadas por um espaço, enquanto o trecho tiver no máximo `max_chars` caracteres; a sentença que não cabe abre um trecho novo; uma sentença maior que `max_chars` fica sozinha num trecho. `max_chars <= 0` levanta `ValueError`. Texto vazio dá `[]`.
 
-## Passo 4 · Exercício · Chunking por sentenças e avaliação na recuperação
-
-Para textos corridos sem cabeçalhos Markdown, dividimos em sentenças completas e agrupamos sentenças consecutivas enquanto couberem em `max_chars`. Em seguida, medimos como a estratégia de *chunking* afeta o `recall@3` na recuperação!
-
-Implemente:
-1. `chunk_por_sentencas(texto, max_chars)`:
-   - Separe `texto` em sentenças usando `re.split(r"(?<=[.!?])\s+", texto.strip())` (filtrando sentenças vazias).
-   - Agrupe sentenças consecutivas separadas por `" "` enquanto `len(atual) + 1 + len(sentenca) <= max_chars`. Quando a próxima sentença fizer estourar `max_chars`, feche o trecho atual e inicie um novo com `sentenca`.
-   - Retorne a lista de strings dos trechos formados.
-2. `avaliar_chunking(estrategia, corpus, perguntas)`:
-   - `corpus` é uma lista de strings (documentos); aplica `estrategia(doc)` a cada documento para formar uma lista única `todos_trechos` (`list[str]`).
-   - Embute cada trecho usando `embedding_simulado(trecho)` fornecido.
-   - Para cada item de `perguntas` (`{"pergunta": str, "termo_esperado": str}`), busca os **3 trechos mais similares** à pergunta e considera acerto se `item["termo_esperado"].lower()` aparecer em pelo menos um desses 3 trechos.
-   - Retorna a fração de perguntas acertadas (`acertos / len(perguntas)`) como `float`.
+Exemplo: `chunk_por_sentencas("Primeira frase curta. Segunda frase media. Terceira frase final.", 45)` dá `["Primeira frase curta. Segunda frase media.", "Terceira frase final."]`: o primeiro trecho tem 42 caracteres e, com a terceira, teria 64.
 
 ### Instruções
-
-1. Implemente `chunk_por_sentencas(texto, max_chars)` agrupando sentenças completas sem ultrapassar `max_chars` (quando já houver sentença no grupo atual).
-2. Implemente `avaliar_chunking(estrategia, corpus, perguntas)` medindo o `recall@3` por presença de `termo_esperado` nos 3 trechos mais similares.
+1. Em `dividir_sentencas`, feche a sentença na pontuação final, menos depois de uma abreviação.
+2. Em `chunk_por_sentencas`, junte as sentenças enquanto o trecho, contando o espaço, couber em `max_chars`.
+3. Deixe sozinha, sem cortar, a sentença maior que `max_chars`, e não esqueça o último trecho.
 
 ### Código inicial
-
 ```python
-import hashlib
-import re
-import numpy as np
+ABREVIACOES = {"art", "prof", "profa", "dr", "dra", "sr", "sra", "inc", "n"}
 
 
-def embedding_simulado(texto, dim=12):
-    vetor = np.zeros(dim, dtype=float)
-    palavras = "".join(c.lower() if c.isalnum() else " " for c in texto).split()
-    for p in palavras:
-        h = hashlib.sha256(p.encode("utf-8")).digest()
-        for j in range(dim):
-            vetor[j] += (1.0 if h[j] % 2 == 0 else -1.0)
-    n = np.linalg.norm(vetor)
-    return vetor / n if n > 0 else vetor
-
-
-def chunk_por_sentencas(texto, max_chars):
-    # Divida em sentenças e agrupe sem estourar max_chars
+def dividir_sentencas(texto):
     pass
 
 
-def avaliar_chunking(estrategia, corpus, perguntas):
-    # Gere os trechos com estrategia, recupere top-3 para cada pergunta e calcule o recall@3
+def chunk_por_sentencas(texto, max_chars):
     pass
 
 
 if __name__ == "__main__":
-    txt = "A matricula abre na segunda. O prazo termina na sexta. O trancamento exige 12 creditos."
-    print(chunk_por_sentencas(txt, 60))
+    texto = "Conforme o Art. 5, o prazo é de 30 dias. A taxa é de R$ 2.50 por via. Fale com a Prof. Ana!"
+    print(dividir_sentencas(texto))
+    print(chunk_por_sentencas(texto, 60))
 ```
 
 ### Solução
-
 ```python
-import hashlib
-import re
-import numpy as np
+ABREVIACOES = {"art", "prof", "profa", "dr", "dra", "sr", "sra", "inc", "n"}
 
 
-def embedding_simulado(texto, dim=12):
-    vetor = np.zeros(dim, dtype=float)
-    palavras = "".join(c.lower() if c.isalnum() else " " for c in texto).split()
-    for p in palavras:
-        h = hashlib.sha256(p.encode("utf-8")).digest()
-        for j in range(dim):
-            vetor[j] += (1.0 if h[j] % 2 == 0 else -1.0)
-    n = np.linalg.norm(vetor)
-    return vetor / n if n > 0 else vetor
+def dividir_sentencas(texto):
+    sentencas = []
+    atual = []
+    for palavra in texto.split():
+        atual.append(palavra)
+        termina = palavra[-1] in ".!?"
+        abreviacao = palavra.endswith(".") and palavra[:-1].lower() in ABREVIACOES
+        if termina and not abreviacao:
+            sentencas.append(" ".join(atual))
+            atual = []
+    if atual:
+        sentencas.append(" ".join(atual))
+    return sentencas
 
 
 def chunk_por_sentencas(texto, max_chars):
-    limpo = texto.strip()
-    if not limpo:
-        return []
-    sentencas = [s.strip() for s in re.split(r"(?<=[.!?])\s+", limpo) if s.strip()]
+    if max_chars <= 0:
+        raise ValueError("max_chars precisa ser positivo")
     trechos = []
     atual = ""
-    for s in sentencas:
+    for sentenca in dividir_sentencas(texto):
         if not atual:
-            atual = s
-        elif len(atual) + 1 + len(s) <= max_chars:
-            atual = f"{atual} {s}"
+            atual = sentenca
+        elif len(atual) + 1 + len(sentenca) <= max_chars:
+            atual = atual + " " + sentenca
         else:
             trechos.append(atual)
-            atual = s
+            atual = sentenca
     if atual:
         trechos.append(atual)
     return trechos
 
 
-def avaliar_chunking(estrategia, corpus, perguntas):
-    if not perguntas:
-        return 0.0
-    todos_trechos = []
-    for doc in corpus:
-        todos_trechos.extend(estrategia(doc))
-    if not todos_trechos:
-        return 0.0
-
-    mat = np.vstack([embedding_simulado(t) for t in todos_trechos])
-    acertos = 0
-    for item in perguntas:
-        q = embedding_simulado(item["pergunta"])
-        scores = mat @ q
-        top3 = np.argsort(-scores)[:3]
-        alvo = item["termo_esperado"].lower()
-        if any(alvo in todos_trechos[int(i)].lower() for i in top3):
-            acertos += 1
-    return float(acertos / len(perguntas))
-
-
 if __name__ == "__main__":
-    txt = "A matricula abre na segunda. O prazo termina na sexta. O trancamento exige 12 creditos."
-    print(chunk_por_sentencas(txt, 60))
+    texto = "Conforme o Art. 5, o prazo é de 30 dias. A taxa é de R$ 2.50 por via. Fale com a Prof. Ana!"
+    print(dividir_sentencas(texto))
+    print(chunk_por_sentencas(texto, 60))
 ```
 
 ### Dicas
-
-1. Em `chunk_por_sentencas`, ao testar se a próxima sentença `s` cabe no trecho `atual`, lembre-se do espaço `" "` entre elas: `len(atual) + 1 + len(s) <= max_chars`.
-2. Não se esqueça de adicionar o último `atual` em `trechos` após o término do laço `for`.
+1. `palavra[:-1].lower()` tira o ponto final e deixa a comparação com `ABREVIACOES` independente de maiúsculas.
+2. O tamanho do trecho depois de juntar é `len(atual) + 1 + len(sentenca)`: o 1 é o espaço.
+3. Começar cada trecho com a sentença atual, quando ele está vazio, evita criar um trecho vazio antes de uma sentença comprida.
 
 ### Verificação
-
 ```json
 [
-  {
-    "id": "sentencas-agrupadas",
-    "name": "Agrupa sentenças completas sem cortar palavras nem estourar max_chars",
-    "checkpoint": 1,
-    "kind": "call",
-    "function": "chunk_por_sentencas",
-    "args": [
-      "Primeira frase curta. Segunda frase media. Terceira frase final.",
-      45
-    ],
-    "expected": [
-      "Primeira frase curta. Segunda frase media.",
-      "Terceira frase final."
-    ]
-  },
-  {
-    "id": "avalia-estrategia-recuperacao",
-    "name": "avaliar_chunking mede o recall@3 superior do chunking por sentenças sobre documento inteiro",
-    "checkpoint": 2,
-    "kind": "expr",
-    "setup": "doc = 'A disciplina MAC0110 ensina introducao a computacao em Python. O trancamento parcial exige manter doze creditos matriculados. O restaurante universitario abre para almoco as onze horas. A biblioteca funciona ate as vinte e duas horas.'\npergs = [{'pergunta': 'quantos creditos manter no trancamento parcial', 'termo_esperado': 'doze'}, {'pergunta': 'ate que horas funciona a biblioteca', 'termo_esperado': 'vinte'}]\nr_bom = avaliar_chunking(lambda d: chunk_por_sentencas(d, 70), [doc], pergs)",
-    "expr": "r_bom",
-    "expected": 1.0,
-    "tolerance": 1e-6
-  }
+  { "id": "basico", "checkpoint": 1, "kind": "call", "function": "dividir_sentencas",
+    "args": ["A matrícula abre na segunda. O prazo termina na sexta! Dúvidas?"],
+    "expected": ["A matrícula abre na segunda.", "O prazo termina na sexta!", "Dúvidas?"], "name": "Corta em ponto, exclamação e interrogação" },
+  { "id": "abreviacao", "checkpoint": 1, "kind": "call", "function": "dividir_sentencas",
+    "args": ["Conforme o Art. 5, o prazo é de 30 dias. Fale com a Prof. Ana!"],
+    "expected": ["Conforme o Art. 5, o prazo é de 30 dias.", "Fale com a Prof. Ana!"], "name": "Não corta depois de Art. nem de Prof.",
+    "hint": "Compare a palavra sem o ponto, em minúsculas, com ABREVIACOES." },
+  { "id": "espacos", "checkpoint": 1, "kind": "call", "function": "dividir_sentencas",
+    "args": ["A taxa é 2.50 reais.\n\nPague   até sexta.\nSem multa"],
+    "expected": ["A taxa é 2.50 reais.", "Pague até sexta.", "Sem multa"], "name": "Decimal não corta, quebras de linha viram espaço e a sobra final é uma sentença" },
+  { "id": "agrupa", "checkpoint": 2, "kind": "call", "function": "chunk_por_sentencas",
+    "args": ["Primeira frase curta. Segunda frase media. Terceira frase final.", 45],
+    "expected": ["Primeira frase curta. Segunda frase media.", "Terceira frase final."], "name": "Agrupa enquanto cabe em max_chars" },
+  { "id": "borda", "checkpoint": 2, "kind": "call", "function": "chunk_por_sentencas",
+    "args": ["Primeira frase curta. Segunda frase media. Terceira frase final.", 42],
+    "expected": ["Primeira frase curta. Segunda frase media.", "Terceira frase final."], "name": "Trecho com exatamente max_chars caracteres cabe" },
+  { "id": "espaco-conta", "checkpoint": 2, "kind": "call", "function": "chunk_por_sentencas",
+    "args": ["Primeira frase curta. Segunda frase media. Terceira frase final.", 41],
+    "expected": ["Primeira frase curta.", "Segunda frase media.", "Terceira frase final."], "name": "O espaço entre as sentenças conta no tamanho",
+    "hint": "21 + 1 + 20 = 42 caracteres." },
+  { "id": "longa-sozinha", "checkpoint": 3, "kind": "call", "function": "chunk_por_sentencas",
+    "args": ["O trancamento total exige parecer da coordenação do curso. Curta. Outra curta.", 20],
+    "expected": ["O trancamento total exige parecer da coordenação do curso.", "Curta. Outra curta."],
+    "name": "Sentença maior que max_chars fica sozinha e inteira, sem trecho vazio antes",
+    "hint": "Nunca corte uma sentença no meio." },
+  { "id": "abreviacao-no-trecho", "checkpoint": 2, "kind": "call", "function": "chunk_por_sentencas",
+    "args": ["Veja o Art. 12 do regimento. O prazo é curto.", 30],
+    "expected": ["Veja o Art. 12 do regimento.", "O prazo é curto."], "name": "A abreviação não vira fronteira de trecho" },
+  { "id": "vazio-invalido", "checkpoint": 3, "kind": "expr", "expr": "chunk_por_sentencas('   ', 50)", "expected": [],
+    "name": "Texto vazio dá []" },
+  { "id": "max-invalido", "checkpoint": 3, "kind": "expr", "expr": "chunk_por_sentencas('Oi.', 0)", "raises": "ValueError",
+    "name": "max_chars zero é recusado" }
 ]
 ```
 
 ### Soluções erradas
-
-```python name="Corta o texto em caracteres fixos quebrando palavras e sentenças ao meio"
-def chunk_por_sentencas(texto, max_chars):
-    return [texto[i : i + max_chars] for i in range(0, len(texto), max_chars)]
-
-
-def avaliar_chunking(estrategia, corpus, perguntas):
-    return 0.0
-```
-
-```python name="Junta todas as sentenças em um único trecho ignorando max_chars"
+```python name="regex ingênuo corta nas abreviações"
 import re
 
+ABREVIACOES = {"art", "prof", "profa", "dr", "dra", "sr", "sra", "inc", "n"}
+
+
+def dividir_sentencas(texto):
+    return [s for s in re.split(r"(?<=[.!?])\s+", texto.strip()) if s]
+
 
 def chunk_por_sentencas(texto, max_chars):
-    sentencas = [s.strip() for s in re.split(r"(?<=[.!?])\s+", texto.strip()) if s.strip()]
-    return [" ".join(sentencas)]
+    if max_chars <= 0:
+        raise ValueError("max_chars precisa ser positivo")
+    trechos = []
+    atual = ""
+    for sentenca in dividir_sentencas(texto):
+        if not atual:
+            atual = sentenca
+        elif len(atual) + 1 + len(sentenca) <= max_chars:
+            atual = atual + " " + sentenca
+        else:
+            trechos.append(atual)
+            atual = sentenca
+    if atual:
+        trechos.append(atual)
+    return trechos
+```
+```python name="menor estrito recusa a borda"
+ABREVIACOES = {"art", "prof", "profa", "dr", "dra", "sr", "sra", "inc", "n"}
 
 
-def avaliar_chunking(estrategia, corpus, perguntas):
-    return 1.0
+def dividir_sentencas(texto):
+    sentencas = []
+    atual = []
+    for palavra in texto.split():
+        atual.append(palavra)
+        termina = palavra[-1] in ".!?"
+        abreviacao = palavra.endswith(".") and palavra[:-1].lower() in ABREVIACOES
+        if termina and not abreviacao:
+            sentencas.append(" ".join(atual))
+            atual = []
+    if atual:
+        sentencas.append(" ".join(atual))
+    return sentencas
+
+
+def chunk_por_sentencas(texto, max_chars):
+    if max_chars <= 0:
+        raise ValueError("max_chars precisa ser positivo")
+    trechos = []
+    atual = ""
+    for sentenca in dividir_sentencas(texto):
+        if not atual:
+            atual = sentenca
+        elif len(atual) + 1 + len(sentenca) < max_chars:
+            atual = atual + " " + sentenca
+        else:
+            trechos.append(atual)
+            atual = sentenca
+    if atual:
+        trechos.append(atual)
+    return trechos
+```
+```python name="não conta o espaço entre sentenças"
+ABREVIACOES = {"art", "prof", "profa", "dr", "dra", "sr", "sra", "inc", "n"}
+
+
+def dividir_sentencas(texto):
+    sentencas = []
+    atual = []
+    for palavra in texto.split():
+        atual.append(palavra)
+        termina = palavra[-1] in ".!?"
+        abreviacao = palavra.endswith(".") and palavra[:-1].lower() in ABREVIACOES
+        if termina and not abreviacao:
+            sentencas.append(" ".join(atual))
+            atual = []
+    if atual:
+        sentencas.append(" ".join(atual))
+    return sentencas
+
+
+def chunk_por_sentencas(texto, max_chars):
+    if max_chars <= 0:
+        raise ValueError("max_chars precisa ser positivo")
+    trechos = []
+    atual = ""
+    for sentenca in dividir_sentencas(texto):
+        if not atual:
+            atual = sentenca
+        elif len(atual) + len(sentenca) <= max_chars:
+            atual = atual + " " + sentenca
+        else:
+            trechos.append(atual)
+            atual = sentenca
+    if atual:
+        trechos.append(atual)
+    return trechos
+```
+```python name="esquece o último trecho"
+ABREVIACOES = {"art", "prof", "profa", "dr", "dra", "sr", "sra", "inc", "n"}
+
+
+def dividir_sentencas(texto):
+    sentencas = []
+    atual = []
+    for palavra in texto.split():
+        atual.append(palavra)
+        termina = palavra[-1] in ".!?"
+        abreviacao = palavra.endswith(".") and palavra[:-1].lower() in ABREVIACOES
+        if termina and not abreviacao:
+            sentencas.append(" ".join(atual))
+            atual = []
+    if atual:
+        sentencas.append(" ".join(atual))
+    return sentencas
+
+
+def chunk_por_sentencas(texto, max_chars):
+    if max_chars <= 0:
+        raise ValueError("max_chars precisa ser positivo")
+    trechos = []
+    atual = ""
+    for sentenca in dividir_sentencas(texto):
+        if not atual:
+            atual = sentenca
+        elif len(atual) + 1 + len(sentenca) <= max_chars:
+            atual = atual + " " + sentenca
+        else:
+            trechos.append(atual)
+            atual = sentenca
+    return trechos
+```
+```python name="corta a sentença comprida no meio"
+ABREVIACOES = {"art", "prof", "profa", "dr", "dra", "sr", "sra", "inc", "n"}
+
+
+def dividir_sentencas(texto):
+    sentencas = []
+    atual = []
+    for palavra in texto.split():
+        atual.append(palavra)
+        termina = palavra[-1] in ".!?"
+        abreviacao = palavra.endswith(".") and palavra[:-1].lower() in ABREVIACOES
+        if termina and not abreviacao:
+            sentencas.append(" ".join(atual))
+            atual = []
+    if atual:
+        sentencas.append(" ".join(atual))
+    return sentencas
+
+
+def chunk_por_sentencas(texto, max_chars):
+    if max_chars <= 0:
+        raise ValueError("max_chars precisa ser positivo")
+    trechos = []
+    atual = ""
+    for sentenca in dividir_sentencas(texto):
+        pedacos = [sentenca[i:i + max_chars] for i in range(0, len(sentenca), max_chars)]
+        for pedaco in pedacos:
+            if not atual:
+                atual = pedaco
+            elif len(atual) + 1 + len(pedaco) <= max_chars:
+                atual = atual + " " + pedaco
+            else:
+                trechos.append(atual)
+                atual = pedaco
+    if atual:
+        trechos.append(atual)
+    return trechos
+```
+```python name="trecho vazio antes da sentença comprida"
+ABREVIACOES = {"art", "prof", "profa", "dr", "dra", "sr", "sra", "inc", "n"}
+
+
+def dividir_sentencas(texto):
+    sentencas = []
+    atual = []
+    for palavra in texto.split():
+        atual.append(palavra)
+        termina = palavra[-1] in ".!?"
+        abreviacao = palavra.endswith(".") and palavra[:-1].lower() in ABREVIACOES
+        if termina and not abreviacao:
+            sentencas.append(" ".join(atual))
+            atual = []
+    if atual:
+        sentencas.append(" ".join(atual))
+    return sentencas
+
+
+def chunk_por_sentencas(texto, max_chars):
+    if max_chars <= 0:
+        raise ValueError("max_chars precisa ser positivo")
+    trechos = []
+    atual = ""
+    for sentenca in dividir_sentencas(texto):
+        if len(atual) + 1 + len(sentenca) <= max_chars:
+            atual = (atual + " " + sentenca).strip()
+        else:
+            trechos.append(atual)
+            atual = sentenca
+    if atual:
+        trechos.append(atual)
+    return trechos
 ```
 
-## Passo 5 · Quiz · Estratégias de chunking e metadados
+## Passo 6 · Exercício · Seções do Markdown com caminho de títulos
+
+As normas da secretaria acadêmica estão em Markdown. Escreva `chunk_por_markdown(texto, fonte)`, que devolve um trecho por seção com corpo:
+
+- Uma linha é **título** quando, sem os espaços das pontas, casa com `#{1,6}`, um ou mais espaços e o texto do título (a expressão `TITULO` já está no código inicial). `#5` e `#hashtag` são texto comum.
+- O **caminho** de títulos respeita os níveis: um título de nível $n$ substitui o de nível $n$ e descarta os mais profundos, mantendo os de nível menor. O `titulo` do trecho é o caminho unido por `" > "`; antes do primeiro título, o `titulo` é `"Introdução"`.
+- O corpo da seção são as linhas não vazias até o próximo título, sem os espaços das pontas, unidas por um espaço. Seção sem corpo não gera trecho.
+- Cada trecho é `{"fonte": fonte, "titulo": titulo, "posicao": p, "linha_inicial": n, "texto": f"{titulo}: {corpo}"}`, com `posicao` 0, 1, 2… entre os trechos gerados e `linha_inicial` o número (a partir de 1) da primeira linha do corpo, para a citação apontar o lugar certo.
+
+Exemplo: `"# Regimento\n## Matrícula\nMínimo de 12 créditos.\n## Trancamento\nAté o 60º dia."` dá dois trechos, `"Regimento > Matrícula"` (linha 3) e `"Regimento > Trancamento"` (linha 5).
+
+### Instruções
+1. Reconheça os títulos com `TITULO.fullmatch` e mantenha o caminho de títulos pelo nível.
+2. Junte as linhas do corpo de cada seção e ignore seções sem corpo.
+3. Monte cada trecho com fonte, caminho, posição, linha inicial e o caminho dentro do texto.
+
+### Código inicial
+```python
+import re
+
+TITULO = re.compile(r"(#{1,6})\s+(.+)")
+
+
+def chunk_por_markdown(texto, fonte):
+    pass
+
+
+if __name__ == "__main__":
+    doc = (
+        "# Regimento\n"
+        "## Matrícula\n"
+        "O aluno deve se inscrever em no mínimo 12 créditos.\n"
+        "## Trancamento\n"
+        "O trancamento parcial pode ser pedido até o 60º dia letivo.\n"
+    )
+    for trecho in chunk_por_markdown(doc, "regimento.md"):
+        print(trecho)
+```
+
+### Solução
+```python
+import re
+
+TITULO = re.compile(r"(#{1,6})\s+(.+)")
+
+
+def chunk_por_markdown(texto, fonte):
+    secoes = []
+    caminho = []
+    atual = None
+    for numero, linha in enumerate(texto.splitlines(), start=1):
+        limpa = linha.strip()
+        titulo = TITULO.fullmatch(limpa)
+        if titulo:
+            nivel = len(titulo.group(1))
+            caminho = caminho[: nivel - 1] + [titulo.group(2).strip()]
+            atual = None
+        elif limpa:
+            if atual is None:
+                atual = {"titulo": " > ".join(caminho) or "Introdução", "linha_inicial": numero, "linhas": []}
+                secoes.append(atual)
+            atual["linhas"].append(limpa)
+    return [
+        {
+            "fonte": fonte,
+            "titulo": secao["titulo"],
+            "posicao": posicao,
+            "linha_inicial": secao["linha_inicial"],
+            "texto": f"{secao['titulo']}: {' '.join(secao['linhas'])}",
+        }
+        for posicao, secao in enumerate(secoes)
+    ]
+
+
+if __name__ == "__main__":
+    doc = (
+        "# Regimento\n"
+        "## Matrícula\n"
+        "O aluno deve se inscrever em no mínimo 12 créditos.\n"
+        "## Trancamento\n"
+        "O trancamento parcial pode ser pedido até o 60º dia letivo.\n"
+    )
+    for trecho in chunk_por_markdown(doc, "regimento.md"):
+        print(trecho)
+```
+
+### Dicas
+1. `caminho[: nivel - 1]` mantém só os títulos de nível menor que o novo.
+2. Crie a seção na primeira linha de corpo, não no título: assim seção vazia nunca existe e a posição não pula números.
+3. `enumerate(..., start=1)` numera as linhas como um editor de texto.
+
+### Verificação
+```json
+[
+  { "id": "exemplo", "checkpoint": 3, "kind": "call", "function": "chunk_por_markdown",
+    "args": ["# Regimento\n## Matrícula\nMínimo de 12 créditos.\nSempre pelo sistema.\n## Trancamento\nAté o 60º dia.", "regimento.md"],
+    "expected": [
+      { "fonte": "regimento.md", "titulo": "Regimento > Matrícula", "posicao": 0, "linha_inicial": 3,
+        "texto": "Regimento > Matrícula: Mínimo de 12 créditos. Sempre pelo sistema." },
+      { "fonte": "regimento.md", "titulo": "Regimento > Trancamento", "posicao": 1, "linha_inicial": 6,
+        "texto": "Regimento > Trancamento: Até o 60º dia." }],
+    "name": "Uma seção por trecho, com caminho de títulos, posição, linha e o título no texto" },
+  { "id": "niveis", "checkpoint": 1, "kind": "expr",
+    "expr": "[t['titulo'] for t in chunk_por_markdown('# A\\n## B\\nx\\n### C\\ny\\n## D\\nz\\n# E\\nw', 'f.md')]",
+    "expected": ["A > B", "A > B > C", "A > D", "E"], "name": "Um título novo descarta os de nível igual ou mais profundo",
+    "hint": "Um ## novo troca o ## anterior; um # novo zera o caminho." },
+  { "id": "nao-titulo", "checkpoint": 1, "kind": "expr",
+    "expr": "[t['texto'] for t in chunk_por_markdown('## Taxas\\n#5 é o número do protocolo.\\n#hashtag da campanha', 'f.md')]",
+    "expected": ["Taxas: #5 é o número do protocolo. #hashtag da campanha"], "name": "# sem espaço depois não é título",
+    "hint": "Título é # seguido de espaço." },
+  { "id": "introducao", "checkpoint": 2, "kind": "expr",
+    "expr": "[[t['titulo'], t['linha_inicial']] for t in chunk_por_markdown('Texto solto no topo.\\n\\n# Seção\\n\\n   Corpo da seção.   ', 'f.md')]",
+    "expected": [["Introdução", 1], ["Seção", 5]], "name": "Texto antes do primeiro título é a Introdução; linhas contam a partir de 1" },
+  { "id": "vazias", "checkpoint": 2, "kind": "expr",
+    "expr": "[[t['titulo'], t['posicao']] for t in chunk_por_markdown('# Geral\\n## Vazia\\n\\n## Cheia\\nconteúdo\\n## Outra vazia', 'f.md')]",
+    "expected": [["Geral > Cheia", 0]], "name": "Seções sem corpo não geram trecho nem pulam posição" },
+  { "id": "corpo", "checkpoint": 2, "kind": "expr",
+    "expr": "chunk_por_markdown('# Bolsas\\n  Edital próprio.  \\n\\n  12 horas semanais.', 'bolsas.md')[0]['texto']",
+    "expected": "Bolsas: Edital próprio. 12 horas semanais.", "name": "Linhas do corpo sem espaços nas pontas, unidas por um espaço" },
+  { "id": "vazio", "checkpoint": 3, "kind": "call", "function": "chunk_por_markdown", "args": ["# Só título\n\n", "f.md"], "expected": [],
+    "name": "Documento sem corpo dá []" }
+]
+```
+
+### Soluções erradas
+```python name="caminho só acumula títulos"
+import re
+
+TITULO = re.compile(r"(#{1,6})\s+(.+)")
+
+
+def chunk_por_markdown(texto, fonte):
+    secoes = []
+    caminho = []
+    atual = None
+    for numero, linha in enumerate(texto.splitlines(), start=1):
+        limpa = linha.strip()
+        titulo = TITULO.fullmatch(limpa)
+        if titulo:
+            caminho = caminho + [titulo.group(2).strip()]
+            atual = None
+        elif limpa:
+            if atual is None:
+                atual = {"titulo": " > ".join(caminho) or "Introdução", "linha_inicial": numero, "linhas": []}
+                secoes.append(atual)
+            atual["linhas"].append(limpa)
+    return [
+        {
+            "fonte": fonte,
+            "titulo": secao["titulo"],
+            "posicao": posicao,
+            "linha_inicial": secao["linha_inicial"],
+            "texto": f"{secao['titulo']}: {' '.join(secao['linhas'])}",
+        }
+        for posicao, secao in enumerate(secoes)
+    ]
+```
+```python name="startswith('#') trata #5 como título"
+import re
+
+TITULO = re.compile(r"(#{1,6})\s+(.+)")
+
+
+def chunk_por_markdown(texto, fonte):
+    secoes = []
+    caminho = []
+    atual = None
+    for numero, linha in enumerate(texto.splitlines(), start=1):
+        limpa = linha.strip()
+        if limpa.startswith("#"):
+            nivel = len(limpa) - len(limpa.lstrip("#"))
+            caminho = caminho[: nivel - 1] + [limpa.lstrip("#").strip()]
+            atual = None
+        elif limpa:
+            if atual is None:
+                atual = {"titulo": " > ".join(caminho) or "Introdução", "linha_inicial": numero, "linhas": []}
+                secoes.append(atual)
+            atual["linhas"].append(limpa)
+    return [
+        {
+            "fonte": fonte,
+            "titulo": secao["titulo"],
+            "posicao": posicao,
+            "linha_inicial": secao["linha_inicial"],
+            "texto": f"{secao['titulo']}: {' '.join(secao['linhas'])}",
+        }
+        for posicao, secao in enumerate(secoes)
+    ]
+```
+```python name="posição conta as seções vazias"
+import re
+
+TITULO = re.compile(r"(#{1,6})\s+(.+)")
+
+
+def chunk_por_markdown(texto, fonte):
+    secoes = []
+    caminho = []
+    atual = None
+    for numero, linha in enumerate(texto.splitlines(), start=1):
+        limpa = linha.strip()
+        titulo = TITULO.fullmatch(limpa)
+        if titulo:
+            nivel = len(titulo.group(1))
+            caminho = caminho[: nivel - 1] + [titulo.group(2).strip()]
+            atual = {"titulo": " > ".join(caminho), "linha_inicial": numero + 1, "linhas": []}
+            secoes.append(atual)
+        elif limpa:
+            if atual is None:
+                atual = {"titulo": "Introdução", "linha_inicial": numero, "linhas": []}
+                secoes.append(atual)
+            if not atual["linhas"]:
+                atual["linha_inicial"] = numero
+            atual["linhas"].append(limpa)
+    return [
+        {
+            "fonte": fonte,
+            "titulo": secao["titulo"],
+            "posicao": posicao,
+            "linha_inicial": secao["linha_inicial"],
+            "texto": f"{secao['titulo']}: {' '.join(secao['linhas'])}",
+        }
+        for posicao, secao in enumerate(secoes)
+        if secao["linhas"]
+    ]
+```
+```python name="texto sem o título da seção"
+import re
+
+TITULO = re.compile(r"(#{1,6})\s+(.+)")
+
+
+def chunk_por_markdown(texto, fonte):
+    secoes = []
+    caminho = []
+    atual = None
+    for numero, linha in enumerate(texto.splitlines(), start=1):
+        limpa = linha.strip()
+        titulo = TITULO.fullmatch(limpa)
+        if titulo:
+            nivel = len(titulo.group(1))
+            caminho = caminho[: nivel - 1] + [titulo.group(2).strip()]
+            atual = None
+        elif limpa:
+            if atual is None:
+                atual = {"titulo": " > ".join(caminho) or "Introdução", "linha_inicial": numero, "linhas": []}
+                secoes.append(atual)
+            atual["linhas"].append(limpa)
+    return [
+        {
+            "fonte": fonte,
+            "titulo": secao["titulo"],
+            "posicao": posicao,
+            "linha_inicial": secao["linha_inicial"],
+            "texto": " ".join(secao["linhas"]),
+        }
+        for posicao, secao in enumerate(secoes)
+    ]
+```
+```python name="linhas contadas a partir de 0"
+import re
+
+TITULO = re.compile(r"(#{1,6})\s+(.+)")
+
+
+def chunk_por_markdown(texto, fonte):
+    secoes = []
+    caminho = []
+    atual = None
+    for numero, linha in enumerate(texto.splitlines()):
+        limpa = linha.strip()
+        titulo = TITULO.fullmatch(limpa)
+        if titulo:
+            nivel = len(titulo.group(1))
+            caminho = caminho[: nivel - 1] + [titulo.group(2).strip()]
+            atual = None
+        elif limpa:
+            if atual is None:
+                atual = {"titulo": " > ".join(caminho) or "Introdução", "linha_inicial": numero, "linhas": []}
+                secoes.append(atual)
+            atual["linhas"].append(limpa)
+    return [
+        {
+            "fonte": fonte,
+            "titulo": secao["titulo"],
+            "posicao": posicao,
+            "linha_inicial": secao["linha_inicial"],
+            "texto": f"{secao['titulo']}: {' '.join(secao['linhas'])}",
+        }
+        for posicao, secao in enumerate(secoes)
+    ]
+```
+```python name="só o último título, sem o caminho"
+import re
+
+TITULO = re.compile(r"(#{1,6})\s+(.+)")
+
+
+def chunk_por_markdown(texto, fonte):
+    secoes = []
+    ultimo = "Introdução"
+    atual = None
+    for numero, linha in enumerate(texto.splitlines(), start=1):
+        limpa = linha.strip()
+        titulo = TITULO.fullmatch(limpa)
+        if titulo:
+            ultimo = titulo.group(2).strip()
+            atual = None
+        elif limpa:
+            if atual is None:
+                atual = {"titulo": ultimo, "linha_inicial": numero, "linhas": []}
+                secoes.append(atual)
+            atual["linhas"].append(limpa)
+    return [
+        {
+            "fonte": fonte,
+            "titulo": secao["titulo"],
+            "posicao": posicao,
+            "linha_inicial": secao["linha_inicial"],
+            "texto": f"{secao['titulo']}: {' '.join(secao['linhas'])}",
+        }
+        for posicao, secao in enumerate(secoes)
+    ]
+```
+
+## Passo 7 · Exercício · Medindo o efeito do chunking na recuperação
+
+Qual estratégia usar não se decide no gosto: mede-se. Monte um pequeno conjunto de avaliação, perguntas reais com o pedaço de texto que responde cada uma, e veja com que frequência a busca traz esse pedaço entre os `k` primeiros trechos.
+
+Escreva `avaliar_chunking(modelo, estrategia, documentos, perguntas, k=3)`:
+
+- `documentos` é um dicionário `{fonte: texto}`; `estrategia(texto)` devolve a lista de trechos (strings) de um texto.
+- Junte os trechos de todos os documentos, na ordem do dicionário, e embuta todos **numa chamada** a `modelo.embutir`; as perguntas, em outra. Normalize os dois lados.
+- Cada item de `perguntas` é `{"pergunta": str, "trecho_esperado": str}`. Há **acerto** quando algum dos `k` trechos mais parecidos com a pergunta (pela regra de `top_k`) contém `trecho_esperado`, sem diferenciar maiúsculas de minúsculas. Cada pergunta acerta no máximo uma vez.
+- Devolva `{"acerto": a, "trechos": n, "media_caracteres": m}`: a fração de perguntas com acerto (`round(..., 4)`), o total de trechos e o tamanho médio deles em caracteres (`round(..., 1)`). Sem trechos ou sem perguntas, `acerto` e `media_caracteres` valem `0.0`.
+
+O tamanho médio vai junto por um motivo: um trecho do tamanho do documento inteiro "acerta" quase tudo, porque contém tudo. Compare as estratégias pelo acerto **e** pelo tamanho do que vai parar no prompt.
+
+### Instruções
+1. Gere os trechos de todos os documentos e embuta-os em lote, normalizados.
+2. Para cada pergunta, veja se o trecho esperado aparece em algum dos `k` melhores trechos.
+3. Devolva o acerto, o número de trechos e o tamanho médio.
+
+### Código inicial
+```python
+import numpy as np
+
+from embedder_simulado import EmbedderSimulado
+
+
+def top_k(scores, k):
+    s = np.asarray(scores, dtype=float)
+    k = min(k, len(s))
+    if k <= 0:
+        return []
+    limiar = s[np.argpartition(-s, k - 1)[k - 1]]
+    candidatos = np.flatnonzero(s >= limiar)
+    ordem = candidatos[np.argsort(-s[candidatos], kind="stable")]
+    return ordem[:k].tolist()
+
+
+def normalizar_linhas(matriz):
+    arr = np.asarray(matriz, dtype=float)
+    normas = np.linalg.norm(arr, axis=1, keepdims=True)
+    return arr / np.where(normas == 0, 1.0, normas)
+
+
+def avaliar_chunking(modelo, estrategia, documentos, perguntas, k=3):
+    pass
+
+
+if __name__ == "__main__":
+    documentos = {
+        "trancamento.md": "O trancamento parcial pode ser pedido até o 60º dia letivo. O trancamento total exige parecer da coordenação.",
+        "biblioteca.md": "A biblioteca funciona das 8h às 22h. O empréstimo vale por 14 dias.",
+    }
+    perguntas = [{"pergunta": "Por quantos dias vale o empréstimo?", "trecho_esperado": "14 dias"}]
+    inteiro = lambda texto: [texto]
+    por_frase = lambda texto: [f.strip() + "." for f in texto.split(".") if f.strip()]
+    for estrategia in [inteiro, por_frase]:
+        print(avaliar_chunking(EmbedderSimulado(), estrategia, documentos, perguntas, k=1))
+```
+```python path=embedder_simulado.py
+"""Modelo de embedding SIMULADO do curso. Não é um modelo treinado.
+
+O que ele faz:
+- quebra o texto em palavras minúsculas e sem acento;
+- descarta palavras vazias ("de", "o", "para"...) e troca os sinônimos de
+  SINONIMOS pela forma canônica ("cancelar" vira "trancar");
+- cada palavra vira um vetor pseudoaleatório fixo de `dim` números, tirado do
+  hash da palavra junto com o nome do modelo;
+- o vetor do texto é a SOMA dos vetores das palavras (saco de palavras).
+
+O que um modelo real faz diferente: lê o texto inteiro com atenção (ordem e
+contexto contam), aprendeu paráfrases no treino em vez de usar um mapa fixo e
+aproxima frases sem nenhuma palavra em comum.
+
+Como alguns provedores, devolve os vetores SEM normalizar.
+"""
+import hashlib
+import unicodedata
+
+import numpy as np
+
+SINONIMOS = {
+    "cancelar": "trancar",
+    "desistir": "trancar",
+    "trancamento": "trancar",
+    "inscrever": "matricular",
+    "inscricao": "matricular",
+    "matricula": "matricular",
+    "boletim": "historico",
+    "notas": "historico",
+    "materia": "disciplina",
+}
+PALAVRAS_VAZIAS = {
+    "a", "o", "as", "os", "de", "da", "do", "das", "dos", "e", "em", "no",
+    "na", "nos", "nas", "um", "uma", "para", "por", "com", "que", "meu", "minha",
+}
+
+
+def tokenizar(texto):
+    decomposto = unicodedata.normalize("NFD", texto.lower())
+    sem_acento = "".join(c for c in decomposto if not unicodedata.combining(c))
+    limpo = "".join(c if c.isalnum() else " " for c in sem_acento)
+    return [SINONIMOS.get(p, p) for p in limpo.split() if p not in PALAVRAS_VAZIAS]
+
+
+class EmbedderSimulado:
+    def __init__(self, dim=64, nome="emb-simulado-v1"):
+        self.dim = dim
+        self.nome = nome
+        self.chamadas = 0
+
+    def vetor_da_palavra(self, palavra):
+        bruto = hashlib.shake_256(f"{self.nome}:{palavra}".encode("utf-8")).digest(self.dim)
+        return np.frombuffer(bruto, dtype=np.uint8) / 127.5 - 1.0
+
+    def embutir(self, textos):
+        """Uma linha por texto: matriz (len(textos), dim), sem normalizar."""
+        self.chamadas += 1
+        matriz = np.zeros((len(textos), self.dim))
+        for i, texto in enumerate(textos):
+            for palavra in tokenizar(texto):
+                matriz[i] += self.vetor_da_palavra(palavra)
+        return matriz
+```
+
+### Solução
+```python
+import numpy as np
+
+from embedder_simulado import EmbedderSimulado
+
+
+def top_k(scores, k):
+    s = np.asarray(scores, dtype=float)
+    k = min(k, len(s))
+    if k <= 0:
+        return []
+    limiar = s[np.argpartition(-s, k - 1)[k - 1]]
+    candidatos = np.flatnonzero(s >= limiar)
+    ordem = candidatos[np.argsort(-s[candidatos], kind="stable")]
+    return ordem[:k].tolist()
+
+
+def normalizar_linhas(matriz):
+    arr = np.asarray(matriz, dtype=float)
+    normas = np.linalg.norm(arr, axis=1, keepdims=True)
+    return arr / np.where(normas == 0, 1.0, normas)
+
+
+def avaliar_chunking(modelo, estrategia, documentos, perguntas, k=3):
+    trechos = [trecho for texto in documentos.values() for trecho in estrategia(texto)]
+    if not trechos or not perguntas:
+        return {"acerto": 0.0, "trechos": len(trechos), "media_caracteres": 0.0}
+    E = normalizar_linhas(modelo.embutir(trechos))
+    Q = normalizar_linhas(modelo.embutir([p["pergunta"] for p in perguntas]))
+    acertos = 0
+    for q, item in zip(Q, perguntas):
+        alvo = item["trecho_esperado"].lower()
+        if any(alvo in trechos[i].lower() for i in top_k(E @ q, k)):
+            acertos += 1
+    return {
+        "acerto": round(acertos / len(perguntas), 4),
+        "trechos": len(trechos),
+        "media_caracteres": round(sum(len(t) for t in trechos) / len(trechos), 1),
+    }
+
+
+if __name__ == "__main__":
+    documentos = {
+        "trancamento.md": "O trancamento parcial pode ser pedido até o 60º dia letivo. O trancamento total exige parecer da coordenação.",
+        "biblioteca.md": "A biblioteca funciona das 8h às 22h. O empréstimo vale por 14 dias.",
+    }
+    perguntas = [{"pergunta": "Por quantos dias vale o empréstimo?", "trecho_esperado": "14 dias"}]
+    inteiro = lambda texto: [texto]
+    por_frase = lambda texto: [f.strip() + "." for f in texto.split(".") if f.strip()]
+    for estrategia in [inteiro, por_frase]:
+        print(avaliar_chunking(EmbedderSimulado(), estrategia, documentos, perguntas, k=1))
+```
+```python path=embedder_simulado.py
+"""Modelo de embedding SIMULADO do curso. Não é um modelo treinado.
+
+O que ele faz:
+- quebra o texto em palavras minúsculas e sem acento;
+- descarta palavras vazias ("de", "o", "para"...) e troca os sinônimos de
+  SINONIMOS pela forma canônica ("cancelar" vira "trancar");
+- cada palavra vira um vetor pseudoaleatório fixo de `dim` números, tirado do
+  hash da palavra junto com o nome do modelo;
+- o vetor do texto é a SOMA dos vetores das palavras (saco de palavras).
+
+O que um modelo real faz diferente: lê o texto inteiro com atenção (ordem e
+contexto contam), aprendeu paráfrases no treino em vez de usar um mapa fixo e
+aproxima frases sem nenhuma palavra em comum.
+
+Como alguns provedores, devolve os vetores SEM normalizar.
+"""
+import hashlib
+import unicodedata
+
+import numpy as np
+
+SINONIMOS = {
+    "cancelar": "trancar",
+    "desistir": "trancar",
+    "trancamento": "trancar",
+    "inscrever": "matricular",
+    "inscricao": "matricular",
+    "matricula": "matricular",
+    "boletim": "historico",
+    "notas": "historico",
+    "materia": "disciplina",
+}
+PALAVRAS_VAZIAS = {
+    "a", "o", "as", "os", "de", "da", "do", "das", "dos", "e", "em", "no",
+    "na", "nos", "nas", "um", "uma", "para", "por", "com", "que", "meu", "minha",
+}
+
+
+def tokenizar(texto):
+    decomposto = unicodedata.normalize("NFD", texto.lower())
+    sem_acento = "".join(c for c in decomposto if not unicodedata.combining(c))
+    limpo = "".join(c if c.isalnum() else " " for c in sem_acento)
+    return [SINONIMOS.get(p, p) for p in limpo.split() if p not in PALAVRAS_VAZIAS]
+
+
+class EmbedderSimulado:
+    def __init__(self, dim=64, nome="emb-simulado-v1"):
+        self.dim = dim
+        self.nome = nome
+        self.chamadas = 0
+
+    def vetor_da_palavra(self, palavra):
+        bruto = hashlib.shake_256(f"{self.nome}:{palavra}".encode("utf-8")).digest(self.dim)
+        return np.frombuffer(bruto, dtype=np.uint8) / 127.5 - 1.0
+
+    def embutir(self, textos):
+        """Uma linha por texto: matriz (len(textos), dim), sem normalizar."""
+        self.chamadas += 1
+        matriz = np.zeros((len(textos), self.dim))
+        for i, texto in enumerate(textos):
+            for palavra in tokenizar(texto):
+                matriz[i] += self.vetor_da_palavra(palavra)
+        return matriz
+```
+
+### Dicas
+1. Os `k` melhores trechos de uma pergunta são `top_k(E @ q, k)`: posições na lista de trechos.
+2. Compare `trecho_esperado.lower()` com `trecho.lower()`; `any(...)` conta a pergunta uma vez só.
+3. Sem normalizar, o trecho mais comprido tende a ganhar todas as buscas.
+
+### Verificação
+```json
+[
+  { "id": "normaliza", "checkpoint": 2, "kind": "expr",
+    "setup": "import numpy as np\nclass ModeloFixo:\n    def __init__(self, vetores):\n        self.vetores = vetores\n        self.chamadas = 0\n    def embutir(self, textos):\n        self.chamadas += 1\n        return np.array([self.vetores[t] for t in textos], dtype=float)\nm = ModeloFixo({'regra longa sobre tudo': [10, 2], 'prazo de 30 dias': [0.1, 1], 'quando?': [0, 1]})\nres = avaliar_chunking(m, lambda t: t.split('|'), {'a.md': 'regra longa sobre tudo|prazo de 30 dias'}, [{'pergunta': 'quando?', 'trecho_esperado': '30 dias'}], k=1)",
+    "expr": "res", "expected": { "acerto": 1.0, "trechos": 2, "media_caracteres": 19.0 }, "tolerance": 1e-6,
+    "name": "O trecho comprido não ganha só pelo comprimento",
+    "hint": "Normalize os trechos e as perguntas." },
+  { "id": "maiusculas", "checkpoint": 2, "kind": "expr",
+    "setup": "import numpy as np\nclass ModeloFixo:\n    def __init__(self, vetores):\n        self.vetores = vetores\n        self.chamadas = 0\n    def embutir(self, textos):\n        self.chamadas += 1\n        return np.array([self.vetores[t] for t in textos], dtype=float)\nm = ModeloFixo({'Prazo de 30 Dias letivos': [1, 0], 'Outro assunto': [0, 1], 'q': [1, 0.1]})\nres = avaliar_chunking(m, lambda t: t.split('|'), {'a.md': 'Prazo de 30 Dias letivos|Outro assunto'}, [{'pergunta': 'q', 'trecho_esperado': '30 dias'}], k=1)",
+    "expr": "res['acerto']", "expected": 1.0, "tolerance": 1e-6, "name": "A comparação ignora maiúsculas e minúsculas" },
+  { "id": "k-e-uma-vez", "checkpoint": 2, "kind": "expr",
+    "setup": "import numpy as np\nclass ModeloFixo:\n    def __init__(self, vetores):\n        self.vetores = vetores\n        self.chamadas = 0\n    def embutir(self, textos):\n        self.chamadas += 1\n        return np.array([self.vetores[t] for t in textos], dtype=float)\nm = ModeloFixo({'x 12 horas': [1, 0], 'y 12 horas': [0.9, 0.1], 'z sem resposta': [0.8, 0.2], 'q1': [1, 0], 'q2': [0, 1]})\ndocs = {'a.md': 'x 12 horas|y 12 horas', 'b.md': 'z sem resposta'}\nps = [{'pergunta': 'q1', 'trecho_esperado': '12 horas'}, {'pergunta': 'q2', 'trecho_esperado': '12 horas'}]\nres = [avaliar_chunking(m, lambda t: t.split('|'), docs, ps, k=1), avaliar_chunking(m, lambda t: t.split('|'), docs, ps, k=3)]",
+    "expr": "[r['acerto'] for r in res]", "expected": [0.5, 1.0], "tolerance": 1e-6,
+    "name": "Cada pergunta acerta no máximo uma vez, e k maior olha mais trechos",
+    "hint": "Dois trechos certos para a mesma pergunta ainda são um acerto." },
+  { "id": "estatisticas", "checkpoint": 3, "kind": "expr",
+    "setup": "import numpy as np\nclass ModeloFixo:\n    def __init__(self, vetores):\n        self.vetores = vetores\n        self.chamadas = 0\n    def embutir(self, textos):\n        self.chamadas += 1\n        return np.array([self.vetores.get(t, [1, 1]) for t in textos], dtype=float)\nm = ModeloFixo({})\nres = [avaliar_chunking(m, lambda t: t.split('|'), {'a.md': 'abc|defgh', 'b.md': 'ij'}, [{'pergunta': 'q', 'trecho_esperado': 'zz'}]), avaliar_chunking(m, lambda t: [], {'a.md': 'abc'}, [{'pergunta': 'q', 'trecho_esperado': 'a'}])]",
+    "expr": "res", "expected": [{ "acerto": 0.0, "trechos": 3, "media_caracteres": 3.3 }, { "acerto": 0.0, "trechos": 0, "media_caracteres": 0.0 }],
+    "tolerance": 1e-6, "name": "Número de trechos e tamanho médio dos trechos (não dos documentos)" },
+  { "id": "lote", "checkpoint": 1, "kind": "expr",
+    "setup": "modelo = EmbedderSimulado()\ndocs = {'a.md': 'O empréstimo vale por 14 dias. A biblioteca abre às 8h. Multas são cobradas por dia.'}\nres = avaliar_chunking(modelo, lambda t: [f.strip() + '.' for f in t.split('.') if f.strip()], docs, [{'pergunta': 'Por quantos dias vale o empréstimo?', 'trecho_esperado': '14 dias'}, {'pergunta': 'Que horas abre a biblioteca?', 'trecho_esperado': '8h'}], k=1)",
+    "expr": "[res['acerto'], res['trechos'], modelo.chamadas <= 2]", "expected": [1.0, 3, true], "tolerance": 1e-6,
+    "name": "Trechos embutidos em lote: no máximo uma chamada para os trechos e outra para as perguntas" },
+  { "id": "estrategias", "checkpoint": 3, "kind": "expr",
+    "setup": "docs = {\n    'matricula.md': 'A matrícula é feita pelo sistema acadêmico na primeira semana. O aluno deve se inscrever em no mínimo 12 créditos. Pedidos fora do prazo vão para a secretaria acadêmica.',\n    'trancamento.md': 'O trancamento parcial pode ser pedido até o 60º dia letivo. O trancamento total exige parecer da coordenação. Disciplinas trancadas não contam para o histórico.',\n    'biblioteca.md': 'A biblioteca funciona das 8h às 22h. O empréstimo vale por 14 dias. Multas por atraso são cobradas por dia.',\n    'bolsas.md': 'As bolsas de monitoria têm edital próprio. O bolsista cumpre 12 horas semanais. O pagamento sai no quinto dia útil.',\n}\nps = [\n    {'pergunta': 'Até quando posso pedir trancamento parcial?', 'trecho_esperado': '60º dia'},\n    {'pergunta': 'Quantos créditos mínimos na matrícula?', 'trecho_esperado': '12 créditos'},\n    {'pergunta': 'Por quantos dias vale o empréstimo da biblioteca?', 'trecho_esperado': '14 dias'},\n    {'pergunta': 'Quantas horas o bolsista de monitoria cumpre?', 'trecho_esperado': '12 horas'},\n    {'pergunta': 'Disciplina trancada entra no histórico?', 'trecho_esperado': 'não contam'},\n]\nsentencas = lambda t: [s if s.endswith('.') else s + '.' for s in t.rstrip('.').split('. ')]\njanela = lambda t: [t[i:i + 30] for i in range(0, len(t), 30)]\nres = [avaliar_chunking(EmbedderSimulado(), e, docs, ps, k=1) for e in [lambda t: [t], sentencas, janela]]",
+    "expr": "res", "expected": [
+      { "acerto": 1.0, "trechos": 4, "media_caracteres": 137.8 },
+      { "acerto": 1.0, "trechos": 12, "media_caracteres": 45.2 },
+      { "acerto": 0.0, "trechos": 20, "media_caracteres": 27.6 }], "tolerance": 1e-6,
+    "name": "Documento inteiro, sentenças e janela de 30 caracteres no mesmo conjunto de perguntas" }
+]
+```
+
+### Soluções erradas
+```python name="pontua sem normalizar"
+import numpy as np
+
+from embedder_simulado import EmbedderSimulado
+
+
+def top_k(scores, k):
+    s = np.asarray(scores, dtype=float)
+    k = min(k, len(s))
+    if k <= 0:
+        return []
+    limiar = s[np.argpartition(-s, k - 1)[k - 1]]
+    candidatos = np.flatnonzero(s >= limiar)
+    ordem = candidatos[np.argsort(-s[candidatos], kind="stable")]
+    return ordem[:k].tolist()
+
+
+def avaliar_chunking(modelo, estrategia, documentos, perguntas, k=3):
+    trechos = [trecho for texto in documentos.values() for trecho in estrategia(texto)]
+    if not trechos or not perguntas:
+        return {"acerto": 0.0, "trechos": len(trechos), "media_caracteres": 0.0}
+    E = np.asarray(modelo.embutir(trechos), dtype=float)
+    Q = np.asarray(modelo.embutir([p["pergunta"] for p in perguntas]), dtype=float)
+    acertos = 0
+    for q, item in zip(Q, perguntas):
+        alvo = item["trecho_esperado"].lower()
+        if any(alvo in trechos[i].lower() for i in top_k(E @ q, k)):
+            acertos += 1
+    return {
+        "acerto": round(acertos / len(perguntas), 4),
+        "trechos": len(trechos),
+        "media_caracteres": round(sum(len(t) for t in trechos) / len(trechos), 1),
+    }
+```
+```python name="diferencia maiúsculas"
+import numpy as np
+
+from embedder_simulado import EmbedderSimulado
+
+
+def top_k(scores, k):
+    s = np.asarray(scores, dtype=float)
+    k = min(k, len(s))
+    if k <= 0:
+        return []
+    limiar = s[np.argpartition(-s, k - 1)[k - 1]]
+    candidatos = np.flatnonzero(s >= limiar)
+    ordem = candidatos[np.argsort(-s[candidatos], kind="stable")]
+    return ordem[:k].tolist()
+
+
+def normalizar_linhas(matriz):
+    arr = np.asarray(matriz, dtype=float)
+    normas = np.linalg.norm(arr, axis=1, keepdims=True)
+    return arr / np.where(normas == 0, 1.0, normas)
+
+
+def avaliar_chunking(modelo, estrategia, documentos, perguntas, k=3):
+    trechos = [trecho for texto in documentos.values() for trecho in estrategia(texto)]
+    if not trechos or not perguntas:
+        return {"acerto": 0.0, "trechos": len(trechos), "media_caracteres": 0.0}
+    E = normalizar_linhas(modelo.embutir(trechos))
+    Q = normalizar_linhas(modelo.embutir([p["pergunta"] for p in perguntas]))
+    acertos = 0
+    for q, item in zip(Q, perguntas):
+        if any(item["trecho_esperado"] in trechos[i] for i in top_k(E @ q, k)):
+            acertos += 1
+    return {
+        "acerto": round(acertos / len(perguntas), 4),
+        "trechos": len(trechos),
+        "media_caracteres": round(sum(len(t) for t in trechos) / len(trechos), 1),
+    }
+```
+```python name="conta um acerto por trecho certo"
+import numpy as np
+
+from embedder_simulado import EmbedderSimulado
+
+
+def top_k(scores, k):
+    s = np.asarray(scores, dtype=float)
+    k = min(k, len(s))
+    if k <= 0:
+        return []
+    limiar = s[np.argpartition(-s, k - 1)[k - 1]]
+    candidatos = np.flatnonzero(s >= limiar)
+    ordem = candidatos[np.argsort(-s[candidatos], kind="stable")]
+    return ordem[:k].tolist()
+
+
+def normalizar_linhas(matriz):
+    arr = np.asarray(matriz, dtype=float)
+    normas = np.linalg.norm(arr, axis=1, keepdims=True)
+    return arr / np.where(normas == 0, 1.0, normas)
+
+
+def avaliar_chunking(modelo, estrategia, documentos, perguntas, k=3):
+    trechos = [trecho for texto in documentos.values() for trecho in estrategia(texto)]
+    if not trechos or not perguntas:
+        return {"acerto": 0.0, "trechos": len(trechos), "media_caracteres": 0.0}
+    E = normalizar_linhas(modelo.embutir(trechos))
+    Q = normalizar_linhas(modelo.embutir([p["pergunta"] for p in perguntas]))
+    acertos = 0
+    for q, item in zip(Q, perguntas):
+        alvo = item["trecho_esperado"].lower()
+        acertos += sum(1 for i in top_k(E @ q, k) if alvo in trechos[i].lower())
+    return {
+        "acerto": round(acertos / len(perguntas), 4),
+        "trechos": len(trechos),
+        "media_caracteres": round(sum(len(t) for t in trechos) / len(trechos), 1),
+    }
+```
+```python name="embute um trecho por chamada"
+import numpy as np
+
+from embedder_simulado import EmbedderSimulado
+
+
+def top_k(scores, k):
+    s = np.asarray(scores, dtype=float)
+    k = min(k, len(s))
+    if k <= 0:
+        return []
+    limiar = s[np.argpartition(-s, k - 1)[k - 1]]
+    candidatos = np.flatnonzero(s >= limiar)
+    ordem = candidatos[np.argsort(-s[candidatos], kind="stable")]
+    return ordem[:k].tolist()
+
+
+def normalizar_linhas(matriz):
+    arr = np.asarray(matriz, dtype=float)
+    normas = np.linalg.norm(arr, axis=1, keepdims=True)
+    return arr / np.where(normas == 0, 1.0, normas)
+
+
+def avaliar_chunking(modelo, estrategia, documentos, perguntas, k=3):
+    trechos = [trecho for texto in documentos.values() for trecho in estrategia(texto)]
+    if not trechos or not perguntas:
+        return {"acerto": 0.0, "trechos": len(trechos), "media_caracteres": 0.0}
+    E = normalizar_linhas(np.vstack([modelo.embutir([t])[0] for t in trechos]))
+    Q = normalizar_linhas(modelo.embutir([p["pergunta"] for p in perguntas]))
+    acertos = 0
+    for q, item in zip(Q, perguntas):
+        alvo = item["trecho_esperado"].lower()
+        if any(alvo in trechos[i].lower() for i in top_k(E @ q, k)):
+            acertos += 1
+    return {
+        "acerto": round(acertos / len(perguntas), 4),
+        "trechos": len(trechos),
+        "media_caracteres": round(sum(len(t) for t in trechos) / len(trechos), 1),
+    }
+```
+```python name="tamanho médio dos documentos"
+import numpy as np
+
+from embedder_simulado import EmbedderSimulado
+
+
+def top_k(scores, k):
+    s = np.asarray(scores, dtype=float)
+    k = min(k, len(s))
+    if k <= 0:
+        return []
+    limiar = s[np.argpartition(-s, k - 1)[k - 1]]
+    candidatos = np.flatnonzero(s >= limiar)
+    ordem = candidatos[np.argsort(-s[candidatos], kind="stable")]
+    return ordem[:k].tolist()
+
+
+def normalizar_linhas(matriz):
+    arr = np.asarray(matriz, dtype=float)
+    normas = np.linalg.norm(arr, axis=1, keepdims=True)
+    return arr / np.where(normas == 0, 1.0, normas)
+
+
+def avaliar_chunking(modelo, estrategia, documentos, perguntas, k=3):
+    trechos = [trecho for texto in documentos.values() for trecho in estrategia(texto)]
+    if not trechos or not perguntas:
+        return {"acerto": 0.0, "trechos": len(trechos), "media_caracteres": 0.0}
+    E = normalizar_linhas(modelo.embutir(trechos))
+    Q = normalizar_linhas(modelo.embutir([p["pergunta"] for p in perguntas]))
+    acertos = 0
+    for q, item in zip(Q, perguntas):
+        alvo = item["trecho_esperado"].lower()
+        if any(alvo in trechos[i].lower() for i in top_k(E @ q, k)):
+            acertos += 1
+    return {
+        "acerto": round(acertos / len(perguntas), 4),
+        "trechos": len(trechos),
+        "media_caracteres": round(sum(len(t) for t in documentos.values()) / len(documentos), 1),
+    }
+```
+
+## Passo 8 · Quiz · Tamanho, sobreposição e avaliação
 
 ### Pergunta
-
-No *chunking* de tamanho fixo com janela deslizante, por que a sobreposição (`sobreposicao`) precisa ser estritamente menor que o tamanho do trecho (`tamanho`)?
-
-- [ ] Porque o modelo de embedding só aceita números primos.
-- [x] Porque o passo de avanço da janela é `passo = tamanho - sobreposicao`; se `sobreposicao >= tamanho`, a janela não avança (passo $\le 0$), gerando um laço infinito ou trechos duplicados.
-- [ ] Porque qualquer sobreposição maior que zero apaga os metadados.
-- [ ] Porque `numpy` não permite fatiar strings.
-
-> A cada iteração a janela avança `tamanho - sobreposicao` posições. Uma sobreposição de $10\%$ a $20\%$ do tamanho do trecho preserva o contexto nas bordas mantendo avanço positivo.
+Um documento de 10 000 caracteres é cortado com `chunk_fixo(texto, 500, 100)`. Quantos trechos saem, e quantos caracteres são embutidos ao todo, aproximadamente?
+- [ ] 20 trechos e 10 000 caracteres, porque a sobreposição não muda nada.
+- [x] 25 trechos e cerca de 12 500 caracteres: a janela anda 400 por vez, e cada emenda repete 100 caracteres.
+- [ ] 25 trechos e 10 000 caracteres, porque os repetidos são descontados.
+- [ ] 100 trechos, um a cada 100 caracteres.
+> O passo é $500 - 100 = 400$. Os inícios são $0, 400, \dots, 9600$: 25 trechos, o último de 400 caracteres. São $24 \cdot 500 + 400 = 12\,400$ caracteres, cerca de 25 % a mais para embutir e guardar. Sobreposição protege as fronteiras, mas custa.
 
 ### Pergunta
-
-Por que em `chunk_por_markdown` concatenamos o título da seção (`"Trancamento: Prazo de 60 dias."`) dentro do texto do próprio trecho antes de gerar o embedding?
-
-- [ ] Apenas para gastar mais tokens na chamada de API.
-- [x] Porque o parágrafo isolado pode omitir o sujeito a que se refere; incluir o título da seção no texto garante que o embedding capture tanto o tópico (`"Trancamento"`) quanto a regra (`"60 dias"`).
-- [ ] Porque o Markdown proíbe guardar o título nos metadados.
-- [ ] Para impedir que o trecho seja citado pelo LLM.
-
-> Em documentos hierárquicos, o cabeçalho da seção contém o contexto semântico que desambigua prazos, valores e regras descritos nos parágrafos filhos.
+O trecho "O prazo é de 60 dias letivos." é recuperado para perguntas sobre colação de grau, bolsas e trancamento, sem distinção. Qual mudança no chunking mais ajuda?
+- [ ] Diminuir o trecho para "60 dias letivos."
+- [x] Colocar o caminho de títulos da seção no texto embutido, como em "Regimento > Trancamento: O prazo é de 60 dias letivos."
+- [ ] Guardar o título só nos metadados, fora do texto embutido.
+- [ ] Aumentar a sobreposição para 50 %.
+> O vetor só sabe o que está no texto embutido. Sem o título, a frase fala de "um prazo" qualquer. Metadados servem para citar e filtrar, mas não mudam o vetor; o título dentro do texto muda.
 
 ### Pergunta
-
-O que costuma acontecer com a qualidade da busca vetorial quando cada *chunk* tem $5\,000$ palavras misturando dezenas de assuntos diferentes?
-
-- [ ] A busca fica mais precisa para perguntas específicas de uma linha.
-- [x] O vetor resultante da agregação (*pooling*) mistura muitos temas distintos, diluindo o sinal de uma informação específica e reduzindo a similaridade com perguntas pontuais.
-- [ ] A dimensão $d$ do vetor é multiplicada por $5\,000$.
-- [ ] O índice vetorial deixa de precisar de normalização L2.
-
-> Um embedding de dimensão fixa tem capacidade limitada: quanto mais assuntos desconexos são comprimidos no mesmo vetor, menor a resolução para recuperar um fato específico.
+No conjunto de avaliação da secretaria, a estratégia A (um trecho por documento) acerta 0,95 das perguntas com trechos de 12 000 caracteres em média; a estratégia B (sentenças agrupadas) acerta 0,90 com trechos de 400 caracteres. Qual leitura está certa?
+- [ ] A é melhor, porque acerta mais.
+- [ ] As duas são equivalentes, porque a diferença de acerto é pequena.
+- [x] O acerto de A é inflado: um trecho que contém o documento inteiro sempre "contém a resposta". B manda ao LLM 30 vezes menos texto por trecho; vale testar B com `k` um pouco maior antes de decidir.
+- [ ] B é pior, porque trechos curtos sempre perdem contexto.
+> "O trecho esperado está entre os recuperados" é uma métrica que trechos gigantes vencem de graça. Compare acerto e tamanho juntos: o que importa para o RAG é trazer a resposta com pouco texto irrelevante em volta.

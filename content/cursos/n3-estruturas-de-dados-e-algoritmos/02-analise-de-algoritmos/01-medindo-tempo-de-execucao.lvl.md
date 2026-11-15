@@ -17,50 +17,107 @@ objetivos:
   - Explicar as limitações da medição (ruído, cache, constantes) e quando analisar em vez de medir
 ---
 
-## Passo 1 · Leitura · Como medir tempo em Python sem cair em armadilhas
+## Passo 1 · Leitura · O relógio certo e o ruído
 
-Antes de estudarmos a matemática assintótica (Big-O), precisamos saber medir o tempo real de execução de um código. Parece simples — basta olhar o relógio antes e depois da função —, mas três erros clássicos invalidam quase todo benchmark amador:
+Quer saber se uma função é rápida? O primeiro impulso é olhar o relógio antes e depois. Três detalhes separam uma medida útil de um número sem sentido.
 
-1. **Usar `time.time()` em vez de `time.perf_counter()`:** `time.time()` lê o relógio de parede do sistema, que tem resolução mais baixa e pode pular para frente ou para trás quando o sistema sincroniza o horário via rede (NTP). Para medir intervalos curtos de execução, use sempre **`time.perf_counter()`**, que acessa o contador monotônico de mais alta resolução da CPU.
-2. **Incluir a geração da entrada dentro do cronômetro:** se você quer medir o tempo de uma busca em uma lista de $100\,000$ elementos, construa a lista **antes** de chamar `perf_counter()`. Caso contrário, o custo $O(n)$ de criar a lista vai mascarar uma operação que deveria ser $O(1)$ (como `x in conjunto`).
-3. **Medir uma única vez ou usar a média simples:** o sistema operacional interrompe o seu processo a todo instante (escalonamento de outras tarefas, coleta de lixo do Python, falhas de cache). Uma única interrupção transforma uma execução de $1\text{ ms}$ em $15\text{ ms}$ e distorce a média. Por isso, medimos várias **repetições** e tomamos a **mediana** (ou o mínimo, como faz o módulo `timeit`), que ignora picos isolados de ruído.
+#### 1. Qual relógio
+
+`time.time()` lê o relógio de parede, o mesmo da barra de tarefas. Ele tem resolução baixa em alguns sistemas e pode **pular** quando o computador acerta a hora pela rede. Para medir intervalos, use `time.perf_counter()`: é **monotônico** (nunca volta) e tem a maior resolução disponível. O valor isolado não significa nada; só a diferença entre duas leituras importa.
+
+#### 2. O que fica dentro do cronômetro
+
+Só a operação que você quer medir. Se a lista de $100\,000$ elementos é criada entre as duas leituras, você mede a criação da lista, e uma consulta $O(1)$ parece linear.
+
+#### 3. Uma medida só não basta
+
+O sistema operacional pausa o seu programa para atender outros, o coletor de lixo do Python roda quando quer e a primeira execução encontra a memória "fria". Esse ruído **só soma** tempo: nada faz o código rodar mais rápido do que ele é. Por isso repetimos a medida e resumimos com a **mediana** (o valor típico, imune a um pico isolado) ou o **mínimo** (a melhor execução, a menos contaminada).
+
+```python
+import time
+
+dados = list(range(100_000))        # preparado FORA do cronômetro
+tempos = []
+for _ in range(5):
+    inicio = time.perf_counter()
+    9_999_999 in dados              # só isto é medido
+    tempos.append(time.perf_counter() - inicio)
+print(sorted(tempos)[2])            # mediana de 5
+```
 
 ```mermaid
 flowchart LR
-    A["Prepara entrada<br/>(fora do cronômetro)"] --> B["Repete k vezes:<br/>t0 = perf_counter()<br/>funcao(entrada)<br/>dt = perf_counter() - t0"]
-    B --> C["Ordena os k tempos"]
-    C --> D["Devolve a mediana<br/>(imune a picos de ruído)"]
+    A["prepara a entrada"] --> B["t0 = perf_counter()"]
+    B --> C["executa a função"]
+    C --> D["guarda perf_counter() - t0"]
+    D -->|"repete k vezes"| B
+    D --> E["ordena e pega a mediana"]
 ```
 
-Quando você quiser fazer medições rápidas no terminal ou em scripts, a biblioteca padrão oferece o módulo `timeit` (ex.: `timeit.repeat(stmt, number=100, repeat=5)`), que já usa `perf_counter` internamente e desativa temporariamente o coletor de lixo durante cada rodada.
+#### Por que a correção desta plataforma nunca usa o relógio
 
-## Passo 2 · Exercício · Medindo com `perf_counter` e mediana
+Seu código é corrigido num executor **compartilhado**: ao mesmo tempo, rodam programas de outros alunos. A mesma solução pode levar $0{,}3\text{ s}$ numa correção e $0{,}9\text{ s}$ na seguinte. Um limite em segundos reprovaria soluções certas em horário de pico e aprovaria lentas de madrugada. Por isso, nos exercícios deste nível, o relógio é **injetado** (você recebe um relógio falso que avança quanto o teste mandar) ou o custo é medido **contando operações**, um número que não muda de uma execução para outra.
+
+## Passo 2 · Previsão · Média, mediana e mínimo
+
+Cinco medidas de uma mesma função, em microssegundos. Na terceira, o sistema operacional pausou o programa. Leia sem executar e digite exatamente o que o programa imprime.
+
+### Código
+```python
+tempos_us = [118, 121, 2400, 119, 120]
+ordenados = sorted(tempos_us)
+media = sum(tempos_us) / len(tempos_us)
+mediana = ordenados[len(ordenados) // 2]
+print("ordenados:", ordenados)
+print("média:", media)
+print("mediana:", mediana)
+print("mínimo:", ordenados[0])
+sem_pico = [118, 121, 119, 120]
+print("média sem o pico:", sum(sem_pico) / len(sem_pico))
+```
+
+### Dicas
+1. A soma das cinco medidas é $2878$.
+2. A mediana de 5 valores ordenados é o do índice 2.
+3. Divisão com `/` sempre dá `float` em Python, mesmo quando a conta é exata.
+
+### Saída esperada
+```text
+ordenados: [118, 119, 120, 121, 2400]
+média: 575.6
+mediana: 120
+mínimo: 118
+média sem o pico: 119.5
+```
+
+## Passo 3 · Exercício · A mediana de k medidas
 modo: lacunas
 
-Complete as lacunas da função `medir(funcao, entrada, repeticoes=5)` para executar `funcao(entrada)` `repeticoes` vezes, registrar a duração de cada execução com `time.perf_counter()` e devolver a **mediana** dos tempos em segundos (`float`).
+Complete as lacunas (`___`) de `medir(funcao, entrada, repeticoes=5, relogio=time.perf_counter)`. Ela executa `funcao(entrada)` `repeticoes` vezes, mede cada execução com `relogio()` e devolve a **mediana** das durações: o elemento do meio quando a quantidade é ímpar, a média dos dois do meio quando é par.
+
+O parâmetro `relogio` é o truque que torna a função testável: no uso normal ele é `time.perf_counter`; na correção, um relógio falso que devolve marcas combinadas, sempre as mesmas. Por isso, chame sempre `relogio()` e nunca `time.perf_counter()` direto.
 
 ### Instruções
-1. Antes de chamar `funcao(entrada)`, registre o instante inicial com `time.perf_counter()`.
-2. Logo após a chamada, calcule a diferença `fim - inicio` e guarde-a na lista `tempos`.
-3. Ordene `tempos` com `sorted(tempos)` e devolva a mediana (o elemento central `ordenados[meio]` se `repeticoes` for ímpar, ou a média dos dois centrais se for par).
+1. Leia o relógio passado em `relogio` logo antes de cada chamada de `funcao(entrada)`.
+2. Leia o relógio de novo logo depois e guarde a duração da chamada em `tempos`.
+3. Devolva a mediana: ordene as durações e escolha o elemento do meio, ou a média dos dois do meio.
 
 ### Código inicial
 ```python
 import time
 
 
-def medir(funcao, entrada, repeticoes=5):
+def medir(funcao, entrada, repeticoes=5, relogio=time.perf_counter):
     tempos = []
     for _ in range(repeticoes):
-        inicio = time.___()
+        inicio = ___
         funcao(entrada)
-        fim = time.perf_counter()
-        tempos.append(___)
+        tempos.append(___ - inicio)
     ordenados = sorted(tempos)
     meio = len(ordenados) // 2
     if len(ordenados) % 2 == 1:
-        return float(ordenados[___])
-    return float((ordenados[meio - 1] + ordenados[meio]) / 2)
+        return ordenados[___]
+    return (ordenados[meio - 1] + ordenados[___]) / 2
 ```
 
 ### Solução
@@ -68,305 +125,509 @@ def medir(funcao, entrada, repeticoes=5):
 import time
 
 
-def medir(funcao, entrada, repeticoes=5):
+def medir(funcao, entrada, repeticoes=5, relogio=time.perf_counter):
     tempos = []
     for _ in range(repeticoes):
-        inicio = time.perf_counter()
+        inicio = relogio()
         funcao(entrada)
-        fim = time.perf_counter()
-        tempos.append(fim - inicio)
+        tempos.append(relogio() - inicio)
     ordenados = sorted(tempos)
     meio = len(ordenados) // 2
     if len(ordenados) % 2 == 1:
-        return float(ordenados[meio])
-    return float((ordenados[meio - 1] + ordenados[meio]) / 2)
+        return ordenados[meio]
+    return (ordenados[meio - 1] + ordenados[meio]) / 2
 ```
 
 ### Dicas
-1. Use `time.perf_counter()` tanto para `inicio` quanto para `fim`.
-2. A duração de uma repetição é `fim - inicio`.
-3. Quando a quantidade de elementos é ímpar, a mediana de `ordenados` está exatamente no índice `meio`.
+1. `relogio` é uma função: para ler o relógio, chame-a com parênteses.
+2. A leitura do início fica **dentro** do laço: cada repetição tem o seu próprio começo.
+3. Com 4 valores ordenados, `meio` é 2 e os do meio estão nos índices 1 e 2.
 
 ### Verificação
 ```json
 [
-  {
-    "id": "usa-perf-counter",
-    "checkpoint": 1,
-    "kind": "source",
-    "rule": { "type": "calls", "name": "perf_counter" },
-    "name": "Usa time.perf_counter()"
-  },
-  {
-    "id": "medir-tipo-float",
-    "checkpoint": 2,
-    "kind": "expr",
-    "expr": "medir(sum, list(range(1000)), 5) >= 0.0",
-    "expected": true,
-    "type": "bool",
-    "name": "medir(sum, range(1000), 5) devolve um float não negativo"
-  },
-  {
-    "id": "medir-mediana-impar",
-    "checkpoint": 3,
-    "kind": "expr",
-    "setup": "import time\n_orig = time.perf_counter\n_vals = iter([0.0, 0.50, 1.0, 1.10, 2.0, 2.20, 3.0, 3.90, 4.0, 4.15])\ntime.perf_counter = lambda: next(_vals)\ntry:\n    res_impar = medir(lambda x: x, 1, 5)\nfinally:\n    time.perf_counter = _orig",
-    "expr": "res_impar",
-    "expected": 0.2,
-    "tolerance": 1e-6,
-    "name": "Calcula a mediana correta para número ímpar de repetições (ignora outlier 0.90)"
-  },
-  {
-    "id": "medir-mediana-par",
-    "checkpoint": 3,
-    "kind": "expr",
-    "setup": "import time\n_orig = time.perf_counter\n_vals = iter([0.0, 0.10, 1.0, 1.30, 2.0, 2.20, 3.0, 4.00])\ntime.perf_counter = lambda: next(_vals)\ntry:\n    res_par = medir(lambda x: x, 1, 4)\nfinally:\n    time.perf_counter = _orig",
-    "expr": "res_par",
-    "expected": 0.25,
-    "tolerance": 1e-6,
-    "name": "Calcula a mediana correta para número par de repetições"
-  }
+  { "id": "usa-relogio", "checkpoint": 1, "kind": "source", "rule": { "type": "calls", "name": "relogio" },
+    "name": "Chama o relógio recebido em relogio" },
+  { "id": "impar-com-pico", "checkpoint": 3, "kind": "expr",
+    "setup": "class Relogio:\n    def __init__(self, marcas):\n        self.marcas = iter(marcas)\n        self.leituras = 0\n    def __call__(self):\n        self.leituras += 1\n        return next(self.marcas)\nr = Relogio([0, 5, 10, 11, 20, 22, 30, 39, 40, 43])\nm = medir(len, [1, 2], 5, r)",
+    "expr": "m", "expected": 3,
+    "name": "Durações 5, 1, 2, 9, 3: a mediana é 3",
+    "hint": "Ordene as durações antes de escolher o elemento do meio." },
+  { "id": "pico-no-meio", "checkpoint": 3, "kind": "expr",
+    "setup": "class Relogio:\n    def __init__(self, marcas):\n        self.marcas = iter(marcas)\n    def __call__(self):\n        return next(self.marcas)\nr = Relogio([0, 3, 10, 11, 20, 120, 130, 132, 140, 144])\nm = medir(len, [1], 5, r)",
+    "expr": "m", "expected": 3,
+    "name": "Durações 3, 1, 100, 2, 4: o pico de 100 não muda a mediana",
+    "hint": "A mediana é o meio da lista ORDENADA, não da lista na ordem em que as medidas chegaram." },
+  { "id": "par", "checkpoint": 3, "kind": "expr",
+    "setup": "class Relogio:\n    def __init__(self, marcas):\n        self.marcas = iter(marcas)\n    def __call__(self):\n        return next(self.marcas)\nr = Relogio([0, 4, 10, 11, 20, 27, 30, 32])\nm = medir(len, [1], 4, r)",
+    "expr": "m", "expected": 3.0, "type": "float",
+    "name": "Durações 4, 1, 7, 2: a mediana é 3.0",
+    "hint": "Com quantidade par, a mediana é a média dos dois valores do meio." },
+  { "id": "uma-repeticao", "checkpoint": 2, "kind": "expr",
+    "setup": "class Relogio:\n    def __init__(self, marcas):\n        self.marcas = iter(marcas)\n    def __call__(self):\n        return next(self.marcas)\nm = medir(len, [1], 1, Relogio([100, 107]))",
+    "expr": "m", "expected": 7, "name": "Com uma repetição, devolve a única duração" },
+  { "id": "leituras-e-chamadas", "checkpoint": 2, "kind": "expr",
+    "setup": "class Relogio:\n    def __init__(self):\n        self.t = 0\n        self.leituras = 0\n    def __call__(self):\n        self.leituras += 1\n        self.t += 1\n        return self.t\nrecebidas = []\ndados = [3, 1, 2]\ndef registra(x):\n    recebidas.append(x)\nr = Relogio()\nmedir(registra, dados, 7, r)",
+    "expr": "[r.leituras, len(recebidas), all(x is dados for x in recebidas)]", "expected": [14, 7, true],
+    "name": "Com 7 repetições: 14 leituras do relógio e 7 chamadas com a mesma entrada",
+    "hint": "Duas leituras por repetição: uma antes e uma depois da chamada." },
+  { "id": "relogio-real", "checkpoint": 1, "kind": "expr", "expr": "medir(sum, list(range(1000)), 3) >= 0",
+    "expected": true, "name": "Sem relógio falso, usa perf_counter e devolve uma duração não negativa" }
 ]
 ```
 
 ### Soluções erradas
-```python name="devolve a média em vez da mediana"
+```python name="lê o início uma vez só, antes do laço"
 import time
 
 
-def medir(funcao, entrada, repeticoes=5):
+def medir(funcao, entrada, repeticoes=5, relogio=time.perf_counter):
     tempos = []
+    inicio = relogio()
     for _ in range(repeticoes):
-        inicio = time.perf_counter()
         funcao(entrada)
-        fim = time.perf_counter()
-        tempos.append(fim - inicio)
-    return float(sum(tempos) / len(tempos))
-```
-```python name="devolve o menor elemento em vez da mediana"
-import time
-
-
-def medir(funcao, entrada, repeticoes=5):
-    tempos = []
-    for _ in range(repeticoes):
-        inicio = time.perf_counter()
-        funcao(entrada)
-        fim = time.perf_counter()
-        tempos.append(fim - inicio)
+        tempos.append(relogio() - inicio)
     ordenados = sorted(tempos)
-    return float(ordenados[0])
+    meio = len(ordenados) // 2
+    if len(ordenados) % 2 == 1:
+        return ordenados[meio]
+    return (ordenados[meio - 1] + ordenados[meio]) / 2
+```
+```python name="ignora o relogio recebido e chama perf_counter"
+import time
+
+
+def medir(funcao, entrada, repeticoes=5, relogio=time.perf_counter):
+    tempos = []
+    for _ in range(repeticoes):
+        inicio = time.perf_counter()
+        funcao(entrada)
+        tempos.append(time.perf_counter() - inicio)
+    ordenados = sorted(tempos)
+    meio = len(ordenados) // 2
+    if len(ordenados) % 2 == 1:
+        return ordenados[meio]
+    return (ordenados[meio - 1] + ordenados[meio]) / 2
+```
+```python name="pega o meio sem ordenar"
+import time
+
+
+def medir(funcao, entrada, repeticoes=5, relogio=time.perf_counter):
+    tempos = []
+    for _ in range(repeticoes):
+        inicio = relogio()
+        funcao(entrada)
+        tempos.append(relogio() - inicio)
+    meio = len(tempos) // 2
+    if len(tempos) % 2 == 1:
+        return tempos[meio]
+    return (tempos[meio - 1] + tempos[meio]) / 2
+```
+```python name="devolve a média"
+import time
+
+
+def medir(funcao, entrada, repeticoes=5, relogio=time.perf_counter):
+    tempos = []
+    for _ in range(repeticoes):
+        inicio = relogio()
+        funcao(entrada)
+        tempos.append(relogio() - inicio)
+    return sum(tempos) / len(tempos)
+```
+```python name="com quantidade par, pega só um dos dois do meio"
+import time
+
+
+def medir(funcao, entrada, repeticoes=5, relogio=time.perf_counter):
+    tempos = []
+    for _ in range(repeticoes):
+        inicio = relogio()
+        funcao(entrada)
+        tempos.append(relogio() - inicio)
+    ordenados = sorted(tempos)
+    return ordenados[len(ordenados) // 2]
 ```
 
-## Passo 3 · Leitura · O experimento de dobrar a entrada: a razão $T(2n) / T(n)$
+## Passo 4 · Leitura · O módulo timeit
 
-Um único número como "$0{,}4\text{ ms}$" depende do processador, da versão do Python e da carga da máquina. Mas se medirmos o tempo $T(n)$ para uma entrada de tamanho $n$ e o tempo $T(2n)$ para uma entrada com o **dobro do tamanho** ($2n$) na mesma máquina, a constante de velocidade do hardware se cancela na divisão!
+Uma chamada de `sum` numa lista curta leva menos de um microssegundo, perto da resolução do relógio. Para medir algo tão curto, execute a operação **muitas vezes seguidas** e divida o total pelo número de execuções. O módulo `timeit` faz isso e cuida de dois detalhes: usa `perf_counter` e **desliga o coletor de lixo** durante a medida, para uma coleta não cair no meio de uma rodada.
 
-Veja o que acontece com a **razão de duplicação** $\frac{T(2n)}{T(n)}$:
+```python
+import timeit
 
-- **Algoritmo constante ($T(n) \approx c$, como `x in conjunto` ou `lista[-1]`):**
-  $$\frac{T(2n)}{T(n)} \approx \frac{c}{c} = 1$$
-  Dobrar a entrada não altera o tempo.
-- **Algoritmo linear ($T(n) \approx c \cdot n$, como `x in lista` ou um laço simples):**
-  $$\frac{T(2n)}{T(n)} \approx \frac{c \cdot (2n)}{c \cdot n} = 2$$
-  Dobrar a entrada **dobra** o tempo.
-- **Algoritmo quadrático ($T(n) \approx c \cdot n^2$, como dois laços aninhados):**
-  $$\frac{T(2n)}{T(n)} \approx \frac{c \cdot (2n)^2}{c \cdot n^2} = \frac{4 c n^2}{c n^2} = 4$$
-  Dobrar a entrada **quadruplica** o tempo!
+dados = list(range(1000))
+totais = timeit.repeat(lambda: sum(dados), number=10_000, repeat=5)
+print(totais)                     # 5 totais, cada um de 10 000 execuções
+print(min(totais) / 10_000)       # segundos por chamada
+```
 
-#### Por que medir não substitui analisar?
+Os dois números contam coisas diferentes:
 
-Embora o teste da razão seja excelente para diagnosticar funções caixa-preta, a medição empírica tem limites claros:
-- **Entradas pequenas enganam:** para $n = 20$, o custo fixo de chamada de função em Python domina tudo, fazendo até uma função quadrática parecer constante ($T(40)/T(20) \approx 1$).
-- **Dependência do caso testado:** se você medir `alvo in lista` procurando sempre o primeiro elemento (`lista[0]`), a medição dirá que a busca em lista é instantânea ($O(1)$), escondendo o pior caso ($O(n)$) quando o elemento está no fim ou não existe.
-- **Algoritmos lentos não terminam:** você não consegue medir um algoritmo $O(2^n)$ para $n = 100$ para "ver quanto dá".
+| Parâmetro | O que é |
+| :--- | :--- |
+| `number` | execuções seguidas dentro de **uma** rodada; o total da rodada é um número da lista |
+| `repeat` | quantas rodadas; o tamanho da lista devolvida |
 
-## Passo 4 · Exercício · Diagnosticando caixas-pretas pela razão $T(2n)/T(n)$
+Os erros mais comuns:
 
-Implemente `razao_de_crescimento(funcao, gerador_de_entrada, n, repeticoes=5)` e `diagnosticar_ordem(razao)`:
-1. `razao_de_crescimento` deve construir `entrada_n = gerador_de_entrada(n)` e `entrada_2n = gerador_de_entrada(2 * n)` **fora** da medição de tempo, medir a mediana de `funcao(entrada_n)` e de `funcao(entrada_2n)` com `repeticoes` execuções cada, e devolver a razão `t_2n / t_n` (`float`).
-2. `diagnosticar_ordem(razao)` recebe uma razão numérica $T(2n)/T(n)$ e devolve:
-   - `"constante"`, se `razao < 1.5`;
-   - `"linear"`, se `1.5 <= razao < 3.0`;
-   - `"quadratica"`, se `razao >= 3.0`.
+- **Esquecer de dividir por `number`.** Cada valor da lista é o tempo de `number` execuções, não de uma.
+- **Passar o resultado em vez da função.** `timeit.repeat(sum(dados), ...)` executa `sum(dados)` uma vez, na hora, e entrega um número ao `timeit`:
+  ```text
+  ValueError: stmt is neither a string nor callable
+  ```
+  O primeiro argumento precisa ser algo que o `timeit` possa chamar: um `lambda` ou uma função sem argumentos.
+- **Preparar a entrada dentro da operação medida.** Em `lambda: sum(list(range(1000)))`, você mede a construção da lista junto com a soma.
+
+Por que o mínimo das rodadas, e não a média? Como o ruído só acrescenta tempo, a rodada mais rápida é a menos contaminada. A documentação do `timeit` recomenda o mínimo. A mediana, do passo anterior, responde a outra pergunta: quanto a operação costuma levar, com o ruído típico incluído. As duas são legítimas. A média é a pior escolha, porque um único pico a desloca.
+
+Por fim, `timeit.repeat` aceita `timer=`: um relógio no lugar do `perf_counter`. É assim que a correção do próximo exercício controla o tempo sem depender da máquina.
+
+## Passo 5 · Exercício · Tempo por chamada com timeit
+
+Escreva `tempo_por_chamada(funcao, entrada, number=1000, repeat=5, timer=time.perf_counter)`. Ela usa `timeit.repeat` para medir `funcao(entrada)` em `repeat` rodadas de `number` execuções cada, com o relógio `timer`, e devolve o **tempo de uma chamada** na melhor rodada, em segundos.
+
+Exemplo: se as rodadas totalizarem `[0.21, 0.20, 0.35]` com `number=100`, a função devolve `0.002`.
 
 ### Instruções
-1. Implemente (ou mantenha) `medir(funcao, entrada, repeticoes=5)` devolvendo a mediana com `time.perf_counter()`.
-2. Em `razao_de_crescimento(funcao, gerador_de_entrada, n, repeticoes=5)`, gere `entrada_n` para `n` e `entrada_2n` para `2 * n` antes de medir, e devolva `medir(funcao, entrada_2n, repeticoes) / medir(funcao, entrada_n, repeticoes)`.
-3. Em `diagnosticar_ordem(razao)`, classifique a razão nos intervalos `< 1.5` (`"constante"`), `< 3.0` (`"linear"`) e `>= 3.0` (`"quadratica"`).
+1. Chame `timeit.repeat` com uma função sem argumentos que execute `funcao(entrada)`, repassando `number`, `repeat` e `timer`.
+2. Escolha a melhor rodada da lista devolvida.
+3. Divida por `number` para obter o tempo de uma chamada.
 
 ### Código inicial
 ```python
 import time
+import timeit
 
 
-def medir(funcao, entrada, repeticoes=5):
-    tempos = []
-    for _ in range(repeticoes):
-        inicio = time.perf_counter()
-        funcao(entrada)
-        fim = time.perf_counter()
-        tempos.append(fim - inicio)
-    ordenados = sorted(tempos)
-    meio = len(ordenados) // 2
-    if len(ordenados) % 2 == 1:
-        return float(ordenados[meio])
-    return float((ordenados[meio - 1] + ordenados[meio]) / 2)
-
-
-def razao_de_crescimento(funcao, gerador_de_entrada, n, repeticoes=5):
-    # Gere as entradas para n e 2*n fora da medição e devolva T(2n) / T(n)
-    pass
-
-
-def diagnosticar_ordem(razao):
-    # Devolva "constante", "linear" ou "quadratica"
+def tempo_por_chamada(funcao, entrada, number=1000, repeat=5, timer=time.perf_counter):
     pass
 ```
 
 ### Solução
 ```python
 import time
+import timeit
 
 
-def medir(funcao, entrada, repeticoes=5):
-    tempos = []
-    for _ in range(repeticoes):
-        inicio = time.perf_counter()
-        funcao(entrada)
-        fim = time.perf_counter()
-        tempos.append(fim - inicio)
-    ordenados = sorted(tempos)
-    meio = len(ordenados) // 2
-    if len(ordenados) % 2 == 1:
-        return float(ordenados[meio])
-    return float((ordenados[meio - 1] + ordenados[meio]) / 2)
-
-
-def razao_de_crescimento(funcao, gerador_de_entrada, n, repeticoes=5):
-    entrada_n = gerador_de_entrada(n)
-    entrada_2n = gerador_de_entrada(2 * n)
-    t_n = medir(funcao, entrada_n, repeticoes)
-    t_2n = medir(funcao, entrada_2n, repeticoes)
-    return float(t_2n / t_n)
-
-
-def diagnosticar_ordem(razao):
-    if razao < 1.5:
-        return "constante"
-    if razao < 3.0:
-        return "linear"
-    return "quadratica"
+def tempo_por_chamada(funcao, entrada, number=1000, repeat=5, timer=time.perf_counter):
+    totais = timeit.repeat(lambda: funcao(entrada), number=number, repeat=repeat, timer=timer)
+    return min(totais) / number
 ```
 
 ### Dicas
-1. Chame `gerador_de_entrada(n)` e `gerador_de_entrada(2 * n)` apenas uma vez cada, antes de chamar `medir`.
-2. Se você gerar a entrada dentro da função medida, uma função $O(1)$ que recebe uma lista gerada em $O(n)$ aparentará ter razão $2$ (linear)!
+1. `timeit.repeat` chama o primeiro argumento várias vezes: entregue um `lambda`, não `funcao(entrada)`.
+2. A melhor rodada é a de menor total.
+3. Cada total é o tempo de `number` execuções.
 
 ### Verificação
 ```json
 [
-  {
-    "id": "gera-fora-da-medicao",
-    "checkpoint": 2,
-    "kind": "expr",
-    "setup": "chamadas_gerador = []\ndef gerador_lento(k):\n    chamadas_gerador.append(k)\n    return list(range(k))\nimport time\n_orig = time.perf_counter\n_t = [0.0]\ndef _fake_clock():\n    _t[0] += 1.0\n    return _t[0]\ntime.perf_counter = _fake_clock\ntry:\n    r = razao_de_crescimento(lambda x: len(x), gerador_lento, 100, 5)\nfinally:\n    time.perf_counter = _orig",
-    "expr": "[chamadas_gerador, round(r, 2)]",
-    "expected": [[100, 200], 1.0],
-    "name": "Gera as entradas n e 2n apenas uma vez, fora do laço de medição"
-  },
-  {
-    "id": "razao-linear-vs-quadratica",
-    "checkpoint": 2,
-    "kind": "expr",
-    "setup": "def caixa_linear(n):\n    s = 0\n    for i in range(n):\n        s += i\n    return s\ndef caixa_quadratica(n):\n    s = 0\n    for i in range(n):\n        for j in range(n):\n            s += 1\n    return s\nr_lin = razao_de_crescimento(caixa_linear, lambda k: k, 20000, 5)\nr_quad = razao_de_crescimento(caixa_quadratica, lambda k: k, 250, 5)",
-    "expr": "[1.3 <= r_lin <= 2.9, 2.8 <= r_quad <= 6.0]",
-    "expected": [true, true],
-    "name": "Mede razão ~2 para função linear e razão ~4 para função quadrática"
-  },
-  {
-    "id": "diagnostica-ordens",
-    "checkpoint": 3,
-    "kind": "expr",
-    "expr": "[diagnosticar_ordem(1.05), diagnosticar_ordem(2.02), diagnosticar_ordem(3.95)]",
-    "expected": ["constante", "linear", "quadratica"],
-    "name": "diagnosticar_ordem classifica razões constante (~1), linear (~2) e quadrática (~4)"
-  }
+  { "id": "usa-timeit", "checkpoint": 1, "kind": "source", "rule": { "type": "calls", "name": "repeat" },
+    "name": "Usa timeit.repeat" },
+  { "id": "melhor-rodada", "checkpoint": 3, "kind": "expr",
+    "setup": "class Relogio:\n    def __init__(self, marcas):\n        self.marcas = iter(marcas)\n    def __call__(self):\n        return next(self.marcas)\nr = Relogio([0, 5000, 10000, 14000, 20000, 29000])\nt = tempo_por_chamada(len, [1, 2], 1000, 3, r)",
+    "expr": "t", "expected": 4.0, "tolerance": 1e-9,
+    "name": "Rodadas de 5000, 4000 e 9000 com number=1000: 4.0 por chamada",
+    "hint": "Escolha a menor rodada e divida pelo número de execuções da rodada." },
+  { "id": "melhor-no-fim", "checkpoint": 2, "kind": "expr",
+    "setup": "class Relogio:\n    def __init__(self, marcas):\n        self.marcas = iter(marcas)\n    def __call__(self):\n        return next(self.marcas)\nr = Relogio([0, 30, 100, 160, 200, 225, 300, 340])\nt = tempo_por_chamada(len, [1], 10, 4, r)",
+    "expr": "t", "expected": 2.5, "tolerance": 1e-9,
+    "name": "Rodadas de 30, 60, 25 e 40 com number=10: 2.5 por chamada",
+    "hint": "A melhor rodada pode ser qualquer uma, não necessariamente a primeira." },
+  { "id": "tipo-float", "checkpoint": 3, "kind": "expr",
+    "setup": "class Relogio:\n    def __init__(self, marcas):\n        self.marcas = iter(marcas)\n    def __call__(self):\n        return next(self.marcas)\nt = tempo_por_chamada(len, [1], 4, 2, Relogio([0, 8, 10, 22]))",
+    "expr": "t", "expected": 2.0, "type": "float", "name": "Devolve float (8 / 4 = 2.0)" },
+  { "id": "execucoes", "checkpoint": 1, "kind": "expr",
+    "setup": "recebidas = []\ndados = [5, 6]\ndef registra(x):\n    recebidas.append(x)\nt = tempo_por_chamada(registra, dados, 7, 3)",
+    "expr": "[len(recebidas), all(x is dados for x in recebidas)]", "expected": [21, true],
+    "name": "number=7 e repeat=3: 21 execuções, todas com a mesma lista recebida",
+    "hint": "Nada de copiar ou reconstruir a entrada dentro da operação medida." },
+  { "id": "relogio-real", "checkpoint": 1, "kind": "expr", "expr": "tempo_por_chamada(sum, [1, 2, 3], 50, 3) >= 0",
+    "expected": true, "name": "Sem relógio falso, devolve um tempo não negativo" }
 ]
 ```
 
 ### Soluções erradas
-```python name="inverte a razão dividindo t_n por t_2n"
+```python name="não divide por number"
 import time
+import timeit
 
 
-def medir(funcao, entrada, repeticoes=5):
-    tempos = []
-    for _ in range(repeticoes):
-        inicio = time.perf_counter()
-        funcao(entrada)
-        fim = time.perf_counter()
-        tempos.append(fim - inicio)
-    ordenados = sorted(tempos)
-    return float(ordenados[len(ordenados) // 2])
-
-
-def razao_de_crescimento(funcao, gerador_de_entrada, n, repeticoes=5):
-    entrada_n = gerador_de_entrada(n)
-    entrada_2n = gerador_de_entrada(2 * n)
-    t_n = medir(funcao, entrada_n, repeticoes)
-    t_2n = medir(funcao, entrada_2n, repeticoes)
-    return float(t_n / t_2n)
-
-
-def diagnosticar_ordem(razao):
-    if razao < 1.5:
-        return "constante"
-    if razao < 3.0:
-        return "linear"
-    return "quadratica"
+def tempo_por_chamada(funcao, entrada, number=1000, repeat=5, timer=time.perf_counter):
+    totais = timeit.repeat(lambda: funcao(entrada), number=number, repeat=repeat, timer=timer)
+    return min(totais)
 ```
-```python name="limiares trocados em diagnosticar_ordem"
+```python name="usa a média das rodadas"
 import time
+import timeit
 
 
-def medir(funcao, entrada, repeticoes=5):
-    tempos = []
-    for _ in range(repeticoes):
-        inicio = time.perf_counter()
-        funcao(entrada)
-        fim = time.perf_counter()
-        tempos.append(fim - inicio)
-    ordenados = sorted(tempos)
-    return float(ordenados[len(ordenados) // 2])
+def tempo_por_chamada(funcao, entrada, number=1000, repeat=5, timer=time.perf_counter):
+    totais = timeit.repeat(lambda: funcao(entrada), number=number, repeat=repeat, timer=timer)
+    return sum(totais) / len(totais) / number
+```
+```python name="passa o resultado em vez da função"
+import time
+import timeit
 
 
-def razao_de_crescimento(funcao, gerador_de_entrada, n, repeticoes=5):
-    entrada_n = gerador_de_entrada(n)
-    entrada_2n = gerador_de_entrada(2 * n)
-    return float(medir(funcao, entrada_2n, repeticoes) / medir(funcao, entrada_n, repeticoes))
+def tempo_por_chamada(funcao, entrada, number=1000, repeat=5, timer=time.perf_counter):
+    totais = timeit.repeat(funcao(entrada), number=number, repeat=repeat, timer=timer)
+    return min(totais) / number
+```
+```python name="copia a entrada dentro da operação medida"
+import time
+import timeit
 
 
-def diagnosticar_ordem(razao):
-    if razao < 2.0:
-        return "linear"
-    return "quadratica"
+def tempo_por_chamada(funcao, entrada, number=1000, repeat=5, timer=time.perf_counter):
+    totais = timeit.repeat(lambda: funcao(list(entrada)), number=number, repeat=repeat, timer=timer)
+    return min(totais) / number
+```
+```python name="mede uma rodada só"
+import time
+import timeit
+
+
+def tempo_por_chamada(funcao, entrada, number=1000, repeat=5, timer=time.perf_counter):
+    total = timeit.timeit(lambda: funcao(entrada), number=number, timer=timer)
+    return total / number
 ```
 
-## Passo 5 · Quiz · Boas práticas de medição de desempenho
+## Passo 6 · Leitura · Dobrar a entrada e contar operações
+
+Um tempo isolado, "$0{,}4\text{ ms}$", depende da máquina. A **razão** entre dois tempos medidos na mesma máquina não depende. Se $T(n) \approx c \cdot n^k$, ao dobrar a entrada:
+
+$$
+\frac{T(2n)}{T(n)} \approx \frac{c\,(2n)^k}{c\,n^k} = 2^k
+\qquad\Longrightarrow\qquad
+k \approx \log_2 \frac{T(2n)}{T(n)}
+$$
+
+A constante $c$, que guarda a velocidade da máquina, se cancela. Razão perto de 1: constante. Perto de 2: linear. Perto de 4: quadrático. Perto de 8: cúbico.
+
+#### O que o experimento não separa
+
+Para $T(n) = n \log_2 n$, a razão é $2 \cdot \frac{\log_2 2n}{\log_2 n} = 2\left(1 + \frac{1}{\log_2 n}\right)$. Com $n = 1024$, dá $2{,}2$. Isso é quase o mesmo que $2$, e o ruído de uma medida de tempo é maior que essa diferença. O experimento de dobrar diz "expoente perto de 1", mas não distingue $n$ de $n \log n$.
+
+#### Contar em vez de cronometrar
+
+Troque o relógio por um contador: some 1 a cada operação que interessa (uma comparação, uma leitura, uma volta do laço mais interno). A contagem é **exata**, não tem ruído e dá o mesmo número em qualquer máquina e em qualquer horário.
+
+```python
+def comparacoes_de_pares(n):
+    ops = 0
+    for i in range(n):
+        for j in range(i + 1, n):
+            ops += 1                 # uma comparação entre os itens i e j
+    return ops
+
+print(comparacoes_de_pares(200) / comparacoes_de_pares(100))   # 4.0202...
+```
+
+A razão sai $4{,}02$, e não exatamente 4, porque a contagem é $\frac{n(n-1)}{2}$: o termo $-n$ ainda pesa com $n = 100$ e some quando $n$ cresce.
+
+#### Os limites de qualquer experimento
+
+- **Entrada pequena engana.** Com $n = 20$, o custo fixo de chamar a função domina, e até um algoritmo quadrático parece constante.
+- **O caso escolhido engana.** Medir `alvo in lista` com o alvo na posição 0 dá "constante" e esconde o caso em que o alvo está no fim.
+- **Algoritmo lento não termina.** Não dá para medir $2^n$ com $n = 100$ para "ver quanto dá".
+
+O experimento sugere uma hipótese; a análise das próximas lições é que a confirma.
+
+## Passo 7 · Exercício · O experimento de dobrar
+
+Escreva duas funções.
+
+- `experimento_de_dobra(contar, n0, vezes)`: `contar(n)` devolve quantas operações um algoritmo faz com entrada de tamanho `n`. Chame `contar` **uma vez** para cada tamanho $n_0, 2n_0, 4n_0, \dots, 2^{\text{vezes}} n_0$ e devolva a lista com as `vezes` razões entre tamanhos vizinhos, `contar(2n) / contar(n)`, em ordem.
+- `expoente_estimado(razao)`: devolve o inteiro mais próximo de $\log_2(\text{razao})$, o $k$ de $n^k$.
+
+Exemplo: se `contar(n)` devolve `n * n`, `experimento_de_dobra(contar, 10, 2)` chama `contar` com 10, 20 e 40 e devolve `[4.0, 4.0]`, e `expoente_estimado(4.0)` devolve `2`.
+
+### Instruções
+1. Em `experimento_de_dobra`, gere os tamanhos dobrando a partir de `n0` e conte cada tamanho uma única vez.
+2. Devolva as razões entre cada contagem e a **anterior**.
+3. Em `expoente_estimado`, arredonde $\log_2$ da razão para o inteiro mais próximo.
+
+### Código inicial
+```python
+import math
+
+
+def experimento_de_dobra(contar, n0, vezes):
+    pass
+
+
+def expoente_estimado(razao):
+    pass
+```
+
+### Solução
+```python
+import math
+
+
+def experimento_de_dobra(contar, n0, vezes):
+    contagens = []
+    n = n0
+    for _ in range(vezes + 1):
+        contagens.append(contar(n))
+        n *= 2
+    return [contagens[i + 1] / contagens[i] for i in range(vezes)]
+
+
+def expoente_estimado(razao):
+    return round(math.log2(razao))
+```
+
+### Dicas
+1. Para `vezes` razões você precisa de `vezes + 1` contagens.
+2. Guarde as contagens numa lista e só depois calcule as razões: assim cada tamanho é contado uma vez.
+3. `int()` corta a parte decimal; arredondar é outra coisa.
+
+### Verificação
+```json
+[
+  { "id": "tamanhos", "checkpoint": 1, "kind": "expr",
+    "setup": "pedidos = []\ndef conta(n):\n    pedidos.append(n)\n    return n\nexperimento_de_dobra(conta, 10, 3)",
+    "expr": "pedidos", "expected": [10, 20, 40, 80],
+    "name": "n0=10 e vezes=3: conta os tamanhos 10, 20, 40 e 80, uma vez cada",
+    "hint": "Os tamanhos dobram a cada passo, e cada um é contado uma única vez." },
+  { "id": "linear", "checkpoint": 2, "kind": "expr",
+    "setup": "def conta_laco(n):\n    ops = 0\n    for _ in range(n):\n        ops += 1\n    return ops",
+    "expr": "experimento_de_dobra(conta_laco, 7, 3)", "expected": [2.0, 2.0, 2.0],
+    "name": "Laço simples: razões [2.0, 2.0, 2.0]" },
+  { "id": "pares", "checkpoint": 2, "kind": "expr",
+    "setup": "def conta_pares(n):\n    ops = 0\n    for i in range(n):\n        for j in range(i + 1, n):\n            ops += 1\n    return ops\nr = experimento_de_dobra(conta_pares, 50, 3)",
+    "expr": "[round(x, 3) for x in r]", "expected": [4.041, 4.02, 4.01],
+    "name": "Todos os pares a partir de 50: razões perto de 4, diminuindo",
+    "hint": "Cada razão compara uma contagem com a do tamanho imediatamente anterior." },
+  { "id": "constante", "checkpoint": 2, "kind": "expr",
+    "expr": "experimento_de_dobra(lambda n: 12, 100, 2)", "expected": [1.0, 1.0],
+    "name": "Custo constante: razões [1.0, 1.0]" },
+  { "id": "uma-razao", "checkpoint": 2, "kind": "expr",
+    "expr": "experimento_de_dobra(lambda n: n ** 3, 5, 1)", "expected": [8.0],
+    "name": "vezes=1 devolve uma razão só" },
+  { "id": "expoentes-exatos", "checkpoint": 3, "kind": "expr",
+    "expr": "[expoente_estimado(1.0), expoente_estimado(2.0), expoente_estimado(4.0), expoente_estimado(8.0)]",
+    "expected": [0, 1, 2, 3], "name": "Razões 1, 2, 4 e 8 dão expoentes 0, 1, 2 e 3" },
+  { "id": "expoentes-ruido", "checkpoint": 3, "kind": "expr",
+    "expr": "[expoente_estimado(1.3), expoente_estimado(2.25), expoente_estimado(3.9), expoente_estimado(7.4)]",
+    "expected": [0, 1, 2, 3], "name": "Razões 1.3, 2.25, 3.9 e 7.4 dão 0, 1, 2 e 3",
+    "hint": "3.9 está muito mais perto de 4 do que de 2." },
+  { "id": "nlogn", "checkpoint": 3, "kind": "expr",
+    "setup": "def conta_nlogn(n):\n    ops = 0\n    for i in range(n):\n        k = 1\n        while k < n:\n            ops += 1\n            k *= 2\n    return ops",
+    "expr": "[expoente_estimado(r) for r in experimento_de_dobra(conta_nlogn, 64, 3)]", "expected": [1, 1, 1],
+    "name": "n log n também dá expoente 1: o experimento não o separa do linear" }
+]
+```
+
+### Soluções erradas
+```python name="divide pela primeira contagem, não pela anterior"
+import math
+
+
+def experimento_de_dobra(contar, n0, vezes):
+    contagens = []
+    n = n0
+    for _ in range(vezes + 1):
+        contagens.append(contar(n))
+        n *= 2
+    return [contagens[i + 1] / contagens[0] for i in range(vezes)]
+
+
+def expoente_estimado(razao):
+    return round(math.log2(razao))
+```
+```python name="soma n0 em vez de dobrar"
+import math
+
+
+def experimento_de_dobra(contar, n0, vezes):
+    contagens = []
+    n = n0
+    for _ in range(vezes + 1):
+        contagens.append(contar(n))
+        n += n0
+    return [contagens[i + 1] / contagens[i] for i in range(vezes)]
+
+
+def expoente_estimado(razao):
+    return round(math.log2(razao))
+```
+```python name="conta cada tamanho duas vezes"
+import math
+
+
+def experimento_de_dobra(contar, n0, vezes):
+    razoes = []
+    n = n0
+    for _ in range(vezes):
+        razoes.append(contar(2 * n) / contar(n))
+        n *= 2
+    return razoes
+
+
+def expoente_estimado(razao):
+    return round(math.log2(razao))
+```
+```python name="razão invertida"
+import math
+
+
+def experimento_de_dobra(contar, n0, vezes):
+    contagens = []
+    n = n0
+    for _ in range(vezes + 1):
+        contagens.append(contar(n))
+        n *= 2
+    return [contagens[i] / contagens[i + 1] for i in range(vezes)]
+
+
+def expoente_estimado(razao):
+    return round(math.log2(razao))
+```
+```python name="trunca o logaritmo com int"
+import math
+
+
+def experimento_de_dobra(contar, n0, vezes):
+    contagens = []
+    n = n0
+    for _ in range(vezes + 1):
+        contagens.append(contar(n))
+        n *= 2
+    return [contagens[i + 1] / contagens[i] for i in range(vezes)]
+
+
+def expoente_estimado(razao):
+    return int(math.log2(razao))
+```
+
+## Passo 8 · Quiz · Medir com honestidade
 
 ### Pergunta
-Por que preferimos a **mediana** (ou o mínimo) das repetições em vez da **média aritmética** ao medir o tempo de execução de uma função?
-- [ ] Porque a mediana é mais rápida de calcular que a média em Python.
-- [x] Porque o ruído do sistema operacional (interrupções de CPU, escalonador, coleta de lixo) sempre atrasa a execução, criando picos positivos extremos que inflam a média, mas não afetam a mediana.
-- [ ] Porque a média só funciona para algoritmos lineares.
-- [ ] Porque `time.perf_counter()` devolve valores inteiros.
-> Interrupções do sistema operacional nunca deixam o código mais rápido do que ele é; elas apenas adicionam atrasos ocasionais. Um único pico de $50\text{ ms}$ em 5 medições de $1\text{ ms}$ eleva a média para $10{,}8\text{ ms}$, enquanto a mediana continua sendo $1\text{ ms}$.
+A mesma solução, enviada duas vezes seguidas, levou $0{,}31\text{ s}$ e $0{,}84\text{ s}$ no executor de correção. Por que os exercícios deste nível não usam um limite em segundos para cobrar complexidade?
+- [ ] Porque `perf_counter` não funciona dentro do executor
+- [ ] Porque bastaria tirar a mediana de 5 execuções para o limite ficar justo
+- [x] Porque o executor é compartilhado: a carga de outros programas muda o tempo de uma mesma solução, e só uma contagem de operações dá o mesmo resultado em toda correção
+- [ ] Porque Python é lento demais para algoritmos quadráticos
+> A mediana reduz o efeito de um pico isolado, mas não corrige uma máquina inteira mais carregada durante todas as repetições. Contar comparações, leituras ou chamadas mede o algoritmo, não a máquina.
 
 ### Pergunta
-Você mede uma função misteriosa `f(lista)` para $n = 50\,000$ e obtém $0{,}012\text{ s}$. Em seguida, mede para $2n = 100\,000$ e obtém $0{,}049\text{ s}$. Qual é a hipótese mais forte sobre o crescimento de `f`?
-- [ ] `f` tem comportamento linear, pois o tempo aumentou menos de um décimo de segundo.
-- [x] `f` tem comportamento quadrático, pois ao dobrar o tamanho da entrada o tempo multiplicou por $\approx 4$ ($0{,}049 / 0{,}012 \approx 4{,}08$).
-- [ ] `f` tem comportamento exponencial ($2^n$).
-- [ ] Não é possível inferir nada porque os tempos são menores que $1$ segundo.
-> A razão $T(2n)/T(n) = 0{,}049 / 0{,}012 \approx 4{,}08 = 2^2$, assinatura clássica de um algoritmo cujo tempo cresce proporcionalmente a $n^2$.
+Você conta as operações de uma função para $n = 1000$ e $n = 2000$ e obtém razão $2{,}2$, estável em várias duplicações. O que dá para concluir?
+- [ ] O algoritmo é certamente $\Theta(n \log n)$
+- [ ] O algoritmo é quadrático, porque a razão passou de 2
+- [x] O crescimento é compatível com $n$ e com $n \log n$; o experimento de dobrar não separa os dois
+- [ ] Nada, porque razões só valem para tempos, não para contagens
+> Para $n \log_2 n$ com $n = 1000$, a razão é $2(1 + 1/\log_2 1000) \approx 2{,}2$. Um algoritmo linear com um custo fixo por chamada também pode dar $2{,}2$. Para decidir, é preciso analisar o código.
+
+### Pergunta
+`timeit.repeat(lambda: f(dados), number=100, repeat=5)` devolveu `[0.21, 0.20, 0.35, 0.20, 0.22]`. Qual é a melhor estimativa do tempo de uma chamada de `f(dados)`?
+- [ ] $0{,}20\text{ s}$
+- [ ] $0{,}236\text{ s}$, a média das rodadas
+- [ ] $2{,}36\text{ ms}$, a média dividida por 100
+- [x] $2\text{ ms}$, a melhor rodada dividida por 100
+> Cada número é o total de 100 execuções. O ruído só acrescenta tempo, então a melhor rodada ($0{,}20\text{ s}$) é a menos contaminada; dividida por `number`, dá $0{,}002\text{ s}$. A média carrega o pico de $0{,}35$.
