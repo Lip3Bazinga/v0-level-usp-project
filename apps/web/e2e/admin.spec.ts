@@ -23,8 +23,12 @@ test("professora vê suas lições com métricas", async ({ page }) => {
   expect(response.ok()).toBeTruthy()
   expect(Array.isArray(await response.json())).toBeTruthy()
   // O professor dono enxerga o gabarito na edição
-  const [firstLesson] = await readJson<Lesson[]>(await page.request.get("/api/teacher/lessons"))
-  expect(firstLesson, "lição da professora no seed").toBeTruthy()
-  const authoring = await readJson<LessonWithTests>(await page.request.get(`/api/lessons/${firstLesson?.id ?? ""}/authoring`))
-  expect(authoring.test_cases.length).toBeGreaterThan(0)
+  const lessons = await readJson<Lesson[]>(await page.request.get("/api/teacher/lessons"))
+  // O pacote traz lições ainda sem conteúdo (rascunhos dos níveis 2–7): usa uma publicada com exercício.
+  const exerciseLesson = lessons.find((lesson) => lesson.slug === "n1-m2-01-ola-python")
+  expect(exerciseLesson, "lição com exercício no seed").toBeTruthy()
+  const authoring = await readJson<LessonWithTests>(await page.request.get(`/api/lessons/${exerciseLesson?.id ?? ""}/authoring`))
+  // Lição guiada: o gabarito fica nos passos de exercício.
+  const stepTestCases = authoring.authoring_steps.flatMap((step) => step.test_cases)
+  expect(authoring.test_cases.length + stepTestCases.length).toBeGreaterThan(0)
 })

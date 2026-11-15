@@ -56,7 +56,7 @@ export default function DashboardPage(): React.JSX.Element {
 
         {error && <div className="mb-6 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>}
 
-        <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
           {/* No celular os widgets vêm antes da trilha. */}
           <aside className="order-1 space-y-4 lg:order-2">
             {isGamified && (

@@ -18,7 +18,8 @@ describe("parseContentArgs", () => {
 
   it("resolve caminhos relativos a partir de onde o pnpm foi chamado e lê os filtros", () => {
     const options = parseContentArgs(["--content", "content/exemplo", "--out", "/tmp/x.json", "--curso", "n1", "--licao", "n1-m1-01"], REPO_ROOT, { INIT_CWD: "/repo" })
-    expect(options).toEqual({ contentDir: "/repo/content/exemplo", displayRoot: "/repo", out: "/tmp/x.json", course: "n1", lesson: "n1-m1-01" })
+    // `path.resolve` no esperado: no Windows o resultado ganha a letra da unidade.
+    expect(options).toEqual({ contentDir: path.resolve("/repo", "content/exemplo"), displayRoot: "/repo", out: path.resolve("/tmp/x.json"), course: "n1", lesson: "n1-m1-01" })
   })
 
   it("sem INIT_CWD cai no diretório atual", () => {
