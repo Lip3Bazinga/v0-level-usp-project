@@ -279,6 +279,9 @@ export function buildWasmtimeArgs({ pythonDir, harnessDir, workDir }: GuestMount
   return [
     "run",
     "--allow-precompiled",
+    // O módulo já vem pré-compilado: sem isto o Wasmtime 49 tenta criar ~/.cache/wasmtime
+    // e aborta no contêiner com sistema de arquivos somente leitura.
+    "-C", "cache=n",
     "-W", [
       `fuel=${Math.round(FUEL_PER_SECOND * budgetSeconds)}`,
       `max-memory-size=${limits.memoryMb * BYTES_PER_MIB}`,

@@ -21,6 +21,8 @@ services:
     profiles: ["runner"]
     build: { context: ../.., dockerfile: infra/docker/runner.Dockerfile }
     environment:
+      # A imagem vem com NODE_ENV=production, que recusa o token de dev publicado abaixo.
+      NODE_ENV: development
       RUNNER_TOKEN: dev-runner-token-0123456789abcdef
       # Motor python-dados ligado (a imagem traz o Pyodide); só o perfil dados fica quente.
       RUNNER_PYODIDE_ENABLED: ${RUNNER_PYODIDE_ENABLED:-true}
