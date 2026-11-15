@@ -55,13 +55,134 @@ Repare em três coisas.
 
 **Chamar é escrever o nome com parênteses.** `mostrar_menu()` é a **chamada**: o Python pula para dentro do corpo, executa linha por linha e, ao terminar, volta para a linha seguinte à chamada. Sem os parênteses, `mostrar_menu` sozinho é só o nome da função, e nada acontece.
 
+Acompanhe no visualizador uma versão mais curta do mesmo programa. Clique em "Visualizar" e avance linha por linha: veja a execução pular para dentro da função a cada chamada e voltar para a linha seguinte quando o corpo termina.
+
+```python visualizar
+def mostrar_menu():
+    print("1 - Cadastrar aluno")
+    print("2 - Sair")
+
+
+print("Bem-vindo ao sistema do RU")
+mostrar_menu()
+print("Até a próxima!")
+mostrar_menu()
+```
+
 **A ordem importa.** O Python executa o arquivo de cima para baixo. O `def` precisa ter sido lido antes da primeira chamada; chamar antes de definir dá `NameError: name 'mostrar_menu' is not defined`.
 
 Para que serve? Para eliminar repetição. Três cópias do mesmo bloco viram uma definição e três chamadas. Se o menu ganhar uma opção nova, você muda uma linha, não três. E o programa fica mais fácil de ler: `mostrar_menu()` diz o que acontece sem mostrar como.
 
 Por isso o nome da função costuma ser um verbo no infinitivo, em `snake_case`: `mostrar_menu`, `calcular_total`, `imprimir_recibo`. Quem lê a chamada entende a intenção na hora.
 
-## Passo 2 · Exercício · Linha e cabeçalho
+## Passo 2 · Previsão · Definir não executa
+
+Leia o programa com calma, sem executar, e digite exatamente o que ele imprime (uma linha de saída por linha da sua resposta). Preste atenção em quando o `print` de dentro da função roda.
+
+### Código
+```python
+def avisar():
+    print("dentro da função")
+
+
+print("início")
+avisar()
+print("meio")
+avisar()
+print("fim")
+```
+
+### Dicas
+1. O `def` só guarda a receita: ao passar por ele, o Python não imprime nada.
+2. Cada chamada `avisar()` executa o corpo inteiro e volta para a linha seguinte à chamada.
+
+### Saída esperada
+```text
+início
+dentro da função
+meio
+dentro da função
+fim
+```
+
+## Passo 3 · Exercício · Monte o programa do aviso
+modo: ordenar
+
+As linhas de um programa pequeno foram embaralhadas. Arraste-as para a ordem certa e ajuste a indentação de cada uma. O programa define a função `mostrar_aviso()` e a chama entre duas mensagens. Uma linha está sobrando: ela não faz parte da resposta.
+
+A saída do programa deve ser exatamente esta:
+
+```
+Início
+Atenção!
+O RU fecha às 14h
+Fim
+```
+
+### Instruções
+1. Defina a função `mostrar_aviso()` com os dois `print` do aviso dentro dela.
+   Dica: as linhas do corpo ficam um nível à direita do def.
+2. No programa principal, sem indentação, imprima `Início`, chame a função e imprima `Fim`.
+
+### Solução
+```python
+def mostrar_aviso():
+    print("Atenção!")
+    print("O RU fecha às 14h")
+print("Início")
+mostrar_aviso()
+print("Fim")
+```
+
+### Distratores
+```python
+mostrar_aviso
+```
+
+### Dicas
+1. O corpo da função fica um nível à direita do `def`; o que vem depois da função volta para a margem.
+2. A chamada tem parênteses: o nome sozinho não executa a função.
+
+### Verificação
+```json
+[
+  { "id": "define-aviso", "checkpoint": 1, "kind": "source", "rule": { "type": "defines_function", "name": "mostrar_aviso" },
+    "name": "Define a função mostrar_aviso", "hint": "A linha com def vem primeiro, sem indentação." },
+  { "id": "chama-aviso", "checkpoint": 2, "kind": "source", "rule": { "type": "calls", "name": "mostrar_aviso" },
+    "name": "O programa chama mostrar_aviso()", "hint": "Use a linha que tem os parênteses depois do nome." },
+  { "id": "saida", "checkpoint": 2, "kind": "io", "stdin": "", "expected_stdout": "Início\nAtenção!\nO RU fecha às 14h\nFim",
+    "name": "Saída: Início, o aviso e Fim, nessa ordem", "hint": "O aviso só pode aparecer quando a função é chamada, entre Início e Fim." }
+]
+```
+
+### Soluções erradas
+```python name="define a função mas não chama"
+def mostrar_aviso():
+    print("Atenção!")
+    print("O RU fecha às 14h")
+print("Início")
+mostrar_aviso
+print("Fim")
+```
+```python name="os print do aviso ficaram fora da função"
+def mostrar_aviso():
+    pass
+print("Atenção!")
+print("O RU fecha às 14h")
+print("Início")
+mostrar_aviso()
+print("Fim")
+```
+```python name="só o primeiro print ficou dentro da função"
+def mostrar_aviso():
+    print("Atenção!")
+print("O RU fecha às 14h")
+print("Início")
+mostrar_aviso()
+print("Fim")
+```
+
+## Passo 4 · Exercício · Linha e cabeçalho
 
 Um relatório começa com um cabeçalho: uma linha de traços, o título e outra linha de traços. Você vai escrever duas funções, e uma delas vai chamar a outra. A saída do programa deve ser exatamente esta:
 
@@ -188,7 +309,7 @@ def cabecalho():
     linha()
 ```
 
-## Passo 3 · Exercício · Refatore a repetição
+## Passo 5 · Exercício · Refatore a repetição
 
 O programa abaixo imprime a mesma saudação três vezes, uma para cada pessoa que chega à fila do RU. Funciona, mas o bloco de três linhas foi copiado e colado. Se o horário mudar, alguém precisa lembrar de corrigir nos três lugares.
 
@@ -306,7 +427,7 @@ saudar()
 saudar()
 ```
 
-## Passo 4 · Quiz · Definir ou executar?
+## Passo 6 · Quiz · Definir ou executar?
 
 ### Pergunta
 O programa abaixo roda sem erro. O que aparece na tela?
