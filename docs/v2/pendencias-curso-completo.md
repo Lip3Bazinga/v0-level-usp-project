@@ -188,17 +188,24 @@ de exercício e 65 previsões/blocos visualizar, todos verificados (solução ap
 soluções erradas reprovam). `pnpm content:build` regravou `packages/db/seed/trilha-python-ia.json`.
 
 Pontos de conteúdo para revisão humana (nenhum impede a publicação; todos passam na verificação):
-- **Diagramas Mermaid (32):** passaram só na validação estrutural do lint; ninguém os viu renderizados.
+- **Diagramas Mermaid (32):** continuam só com validação estrutural no lint. Em 2026-11-15 foram vistos
+  renderizados no navegador os das lições m1-03 e m4-01; os demais ainda não foram vistos um a um.
 - **Tracebacks citados:** os dos módulos 5 e 8 foram copiados do CPython 3.14 do executor; os dos módulos
   1 e 2 foram conferidos num CPython 3.13 e podem diferir em detalhe do que o player mostra.
-- **Exercícios que aceitam o valor pronto** (não há regra `source` para operador): m2-03 passos 3, 4 e 6
-  e m2-04 passos 5 e 7. Em m4-04 passo 4, resolver sem `continue` também passa. Em m4-07 passo 5,
-  `seed` e `randint` dentro do laço passam (a saída é idêntica).
-- **Funções antes do módulo 6:** o plano usa `def`/`return` em 11 dos 21 exercícios do módulo 5, e
-  `range(len(lista))`/`lista[i]` aparecem no módulo 4, antes de listas. Segue o plano; é a maior carga
-  para o iniciante e vale uma segunda opinião didática.
-- **Restrições de forma no projeto do nível (m9):** o passo 5 exige `sorted` (quem ordena uma cópia com
-  `.sort()` reprova) e o passo 3 exige "maior id + 1". O enunciado avisa; decidir se ficam.
+- **Exercícios que aceitavam o valor pronto — RESOLVIDO em 2026-11-15** (m2-03 passos 3, 4 e 6; m2-04
+  passos 5 e 7). Os valores continuam fixos nas primeiras linhas do código inicial e a verificação ganhou
+  casos `expr` cujo `setup` relê o `main.py`, troca esses valores e executa de novo: só a conta passa, e
+  cada passo tem uma solução errada "digitado pronto" que reprova. Não foi usado `input()` porque o botão
+  Executar roda sem teclado (`input()` dá `EOFError`) e `input` só é ensinado na lição 05. O aluno não
+  pode alterar as linhas dos valores (o enunciado avisa). O m2-04 passo 7 passou a medir o título com
+  `len`. Seguem abertos: em m4-04 passo 4, resolver sem `continue` também passa; em m4-07 passo 5, `seed`
+  e `randint` dentro do laço passam (a saída é idêntica).
+- **Funções antes do módulo 6 — DECIDIDO em 2026-11-15 (Filipe): fica como está.** O módulo 5 usa
+  `def`/`return` na forma mínima, como no plano. `range(len(lista))`/`lista[i]` no módulo 4, antes de
+  listas, não entrou nessa decisão.
+- **Projeto do nível (m9), passo 5 — RESOLVIDO em 2026-11-15:** a regra `source calls sorted` saiu; a
+  verificação é só de comportamento (ordem, lista nova, original intacta). Passam `sorted` com `key` e
+  `.sort()` numa cópia; `.sort()` na lista recebida reprova. O passo 3 ainda exige "maior id + 1".
 - **Mini-projeto de IMC (m3-05) passo 5** exige chamar as três funções; saída certa sem elas reprova.
 - **m6-05 passo 2** exige a palavra "devolve" na docstring ("retorna" reprova); o enunciado avisa.
 - **Leituras acima de ~400 palavras** em m4 (lições 04 a 07), m5 (05 e 07) e m9: o lint não mede.
@@ -209,24 +216,60 @@ Pontos de conteúdo para revisão humana (nenhum impede a publicação; todos pa
 - **XP total do nível:** as lições ganharam passos; se o total em "Estrutura do nível" do PLANO.md conta
   o XP dos passos, precisa ser refeito.
 - Os passos sem `### Código inicial` dos mini-projetos dependem de o player manter o código do passo
-  anterior; isso está implementado e testado em vitest, mas não foi visto num navegador com a API real.
+  anterior: visto no navegador com a API real em 2026-11-15, no projeto do nível (passos 3 a 6).
 
-### P4 — Integração e entrega — parte local CONCLUÍDA em 2026-11-14
-Feito nesta rodada: `pnpm build`, `pnpm lint` e `pnpm test` de todos os pacotes verdes; e2e (148),
-segurança (111) e ataques (40) da API; testes (62) e ataques (73) do runner com o Pyodide instalado;
-`arquitetura.md`, `testes.md`, `divida-tecnica.md` e `CURRICULO.md` atualizados.
+### P4 — Integração e entrega — parte local CONCLUÍDA; PR aberto em 2026-11-15
+Rodada do Cowork (2026-11-14): `pnpm build`, `pnpm lint` e `pnpm test` verdes; e2e, segurança e ataques da
+API; testes e ataques do runner; `arquitetura.md`, `testes.md`, `divida-tecnica.md` e `CURRICULO.md`.
+
+Rodada local de 2026-11-15 (Windows 11, Postgres e runner do `compose.dev.yml`, migrações 0000–0005):
+- `pnpm build`, `pnpm lint`, `pnpm typecheck` e `pnpm test` verdes (contracts 43, db 11, security 15,
+  load 22, API 315, web 340; os testes do runner que precisam do Wasmtime são pulados no Windows).
+- API: e2e 148, segurança 151, ataques contra o runner real 40.
+- Runner, dentro do estágio `build` da imagem (Linux): testes 62/62; ataques 73/73 em duas de três
+  execuções. Na outra, falhou `unittest.attack.ts` › "id() e sys.getallocatedblocks() variam entre duas
+  execuções da MESMA implementação": o teste depende de ruído do alocador e é instável (passa sozinho).
+- `content:check`, `content:verify --curso n1-fundamentos` (133 exercícios e 65 previsões/blocos
+  visualizar), `verify:seed` (todas as lições) e `test:paridade` (73 execuções) verdes.
+- Playwright da web com a pilha no ar: 85/85. Entrou `e2e/guided-lesson.spec.ts`, que percorre uma lição
+  guiada no navegador contra a API e o executor reais (diagrama Mermaid, visualizador, Previsão, lacunas e
+  ordenar). Os testes de admin precisam do admin no seed (`SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD`).
+- Visto no navegador como `aluna@levelusp.dev`: m1-03 (diagramas), m4-01 (visualizador, Previsão, lacunas,
+  ordenar) e o projeto do nível (passos 1 a 6).
+
+Corrigido nesta rodada:
+- Rolagem horizontal no celular (390 px) em `/dashboard` e `/cursos/:id`: grades sem coluna explícita.
+- `apps/api/test/unit/content/cli.test.ts` esperava caminho POSIX e falhava no Windows.
+- `e2e/admin.spec.ts` pegava a primeira lição da professora, que agora é um rascunho sem gabarito.
+- Executor: `-C cache=n` no Wasmtime (o 49 tenta criar `~/.cache/wasmtime` e aborta com a raiz somente
+  leitura) e `NODE_ENV=development` no runner do `compose.dev.yml` (a imagem recusa o token de dev).
+- Marketing: `/sobre` sem "200 estudantes" e sem anos na linha do tempo; `/equipe` e `/parceiros` só com
+  Filipe Pio Magalhães (autor), Prof. Evandro Ruiz (orientador) e DCM/FFCLRP-USP; home sem porcentagens.
+
+Observações abertas:
+- **`-C cache=n` em produção:** a correção está no código do executor (`buildWasmtimeArgs`), então vale
+  para qualquer compose; o `compose.yml` de homolog/prod também usa `read_only: true` e não precisa de
+  mudança. Falta só confirmar em homolog, com a imagem nova, que o autoteste do sandbox passa.
+- **Executar sem teclado:** nos passos com `input()` o botão Executar sempre termina em "input() sem
+  entrada"; nos modos `lacunas` e `ordenar` o aluno não tem como trocar o `input()` por um valor fixo.
+  Um campo de entrada no player resolveria (o harness do navegador já aceita `stdin`).
+- **Projeto bloqueado:** com lições pendentes, o Continuar do passo 1 do projeto só mostra um aviso
+  passageiro ("faltam N"); a página do projeto não diz que ele está bloqueado.
+- **Marketing ainda ilustrativo:** eventos da linha do tempo de `/sobre`, "Seja um parceiro" e seus
+  benefícios, rodapé ("Cidade Universitária — São Paulo, SP") e os números de `/login` e `/showcase`
+  ("50K+ Estudantes", "200+ Lições") não foram revistos.
+- O Playwright precisa de `pnpm --filter @levelusp/web exec playwright install chromium` depois de
+  atualizar a dependência; a porta 5432 pode estar ocupada por contêineres de outros projetos no boot.
 
 Falta, e depende do Filipe:
-1. `git push origin feat/curso-completo` (esta sessão não tem permissão de push).
-2. PR `feat/curso-completo` → `develop` com merge commit (nunca squash), CI verde, imagens GHCR.
-3. Rodar o Playwright da web (`pnpm --filter @levelusp/web test:e2e`) com a pilha no ar — não foi
-   rodado; não há fluxo escrito para o player de passos, as trilhas nem os recursos do P2b.
-4. Homolog (notebook servidor, PowerShell em `C:\dev\v0-level-usp-project`):
+1. Revisar e fazer o merge do PR `feat/curso-completo` → `develop` com merge commit (nunca squash),
+   com o CI verde; conferir as imagens GHCR.
+2. Homolog (notebook servidor, PowerShell em `C:\dev\v0-level-usp-project`):
    `.\infra\scripts\levelusp.ps1 update -Env homolog` (aplica as migrações 0004 e 0005), importar o
    pacote (`POST /admin/content/import` ou `pnpm db:seed`) e testar como aluno uma lição guiada:
    erro → dica → solução após 3 tentativas → aprovação → XP. Testar também uma lição com diagrama,
-   visualizador, lacunas, ordenar e Previsão.
-5. Operações acumuladas (confirmar antes de executar): apagar as 13 submissões falsas e a conta
+   visualizador, lacunas, ordenar e Previsão, e conferir o autoteste do runner.
+3. Operações acumuladas (confirmar antes de executar): apagar as 13 submissões falsas e a conta
    `aluno.teste.claude@levelusp.dev`; push do `fix/ps1-utf8-bom`; SMTP; promover professores; rotacionar
    a chave do Supabase e desligar Supabase/Vercel.
 
