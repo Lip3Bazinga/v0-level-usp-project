@@ -263,7 +263,9 @@ Segunda rodada local de 2026-11-15 (mesmo PR):
   ataques do runner em Linux 5 vezes seguidas: 73/73 nas cinco (o teste de id() continua instável: cerca de 0,7% por execução).
 
 Observações abertas:
-- **Teste `id()`/`getallocatedblocks()` (`unittest.attack.ts`) — NÃO alterado; decisão pendente.** Não dá
+- **TESTE INSTÁVEL A RESOLVER — `id()`/`getallocatedblocks()` (`unittest.attack.ts`): NÃO foi alterado.** As
+  cinco execuções seguidas de `test:attacks` passaram com o teste como estava (73/73), o que é o
+  esperado com cerca de 0,7% de falha por execução; ele segue instável. Não dá
   para torná-lo determinístico: o ruído vem de `os.urandom` dentro do sandbox e o teste não tem como
   fixar a semente. E as medições mostram que a falha esporádica aponta uma fraqueza real do ruído, que
   uma repetição no teste esconderia. Em 400 execuções da mesma implementação: `sys.getallocatedblocks()`
@@ -276,28 +278,34 @@ Observações abertas:
 - **`-C cache=n` em produção:** a correção está no código do executor (`buildWasmtimeArgs`), então vale
   para qualquer compose; o `compose.yml` de homolog/prod também usa `read_only: true` e não precisa de
   mudança. Falta só confirmar em homolog, com a imagem nova, que o autoteste do sandbox passa.
-- **Marketing: textos sem fonte que continuam no ar** (levantados em 2026-11-15, não alterados):
-  - o formulário de `/contato` mostra "Mensagem enviada!" sem enviar nada (não há rota na API);
-  - "Dificuldade adaptativa" e "Revisão espaçada" (`methodology.ts`, `home.ts`, `faq.ts`) descrevem
-    recursos que não existem; "+50 XP por lição" é fixo no texto, mas o XP varia;
-  - "iniciativa (de extensão) da USP", "docentes e pesquisadores da USP", "Equipe Pedagógica", "nossa
-    equipe", "metodologia da USP", "© LevelUSP — Universidade de São Paulo" e
-    `authors: Universidade de São Paulo` em `site-metadata.ts`: o projeto é um TCC de um autor;
-  - "Certificados reconhecidos pela USP" (`/signup`) e "Emitido pela plataforma LevelUSP — Universidade
-    de São Paulo" (`/certificado/[code]`): a USP não emite nem reconhece o certificado;
-  - promessas: "sempre será gratuito", "hoje ou no futuro", "Acesso vitalício", "revisado por pares",
-    "Conteúdo aberto" (sem licença definida);
-  - alcance e resultado sem dados: "milhões de brasileiros", "escala nacional", "Formamos talentos",
-    "Muitos educadores usam o LevelUSP", "programa de escolas parceiras", "valorizado por recrutadores";
-  - a jornada da home anuncia capítulos de Ciência de Dados e ML que não existem; `/trilhas` fala em
-    trilhas no plural (há uma, com o Nível 1 pronto); `/signup` diz "do zero ao avançado";
-  - contato: `contato@levelusp.org.br` (conferir se existe), `GITHUB_URL = "https://github.com"`
-    (genérico, exibido como "github.com/levelusp"), "Atendimento Seg. a sex., das 9h às 18h", assuntos
-    "Escola parceira", "Quero ser voluntário" e "Imprensa";
-  - `/showcase` (vitrine do design system) é pública, tem cursos de exemplo que não existem ("Banco de
-    Dados", "Desenvolvimento Web") e um link para o painel admin;
-  - afirmações de ciência além da fonte: "Nosso método é comprovado por pesquisa", "Não é achismo — é
-    evidência", "o maior preditor de domínio", "funciona melhor" que o ensino tradicional.
+- **Marketing: textos da auditoria — CORRIGIDOS em 2026-11-15 (terceira rodada, mesmo PR).** Regras
+  aplicadas (decisão do Filipe):
+  - certificado: "Certificado emitido pela plataforma LevelUSP, projeto de TCC desenvolvido no
+    DCM/FFCLRP-USP" em `/signup`, em `/certificado/[code]` e no PDF (`certificate-pdf.ts`, que dizia
+    "Universidade de São Paulo" sob a marca); o FAQ diz que não é documento emitido nem reconhecido
+    pela USP;
+  - atribuição: só "projeto desenvolvido no DCM/FFCLRP-USP" ou "trabalho de conclusão de curso"; o
+    copyright do rodapé e `authors` dos metadados são Filipe Pio Magalhães;
+  - saíram as promessas ("sempre será gratuito", "acesso vitalício", "revisado por pares") e "Conteúdo
+    aberto" (o repositório não tem arquivo de licença);
+  - saíram as afirmações de alcance e de ciência sem fonte; a seção de pesquisas diz que os estudos são
+    sobre as ideias em geral e que a plataforma ainda não foi avaliada;
+  - a trilha é descrita como é: 7 níveis, do zero à IA, Nível 1 disponível (home, `/trilhas`, `/signup`,
+    FAQ); os cartões da home usam os títulos dos 7 cursos do pacote;
+  - contato: sem e-mail, horário e assuntos; o canal é o repositório
+    (`github.com/Lip3Bazinga/v0-level-usp-project`, issues). O formulário de `/contato`, que mostrava
+    "Mensagem enviada!" sem enviar nada, foi removido;
+  - `/showcase` foi removida (404), junto com o link público para o painel admin;
+  - "+50 XP por lição" saiu da home; o FAQ explica que o XP varia por passo;
+  - "Dificuldade adaptativa" e "Revisão espaçada" deram lugar a recursos que existem (dicas e solução
+    comentada; passos de previsão).
+  Conferido com grep nas páginas públicas: da lista só restam o nome por extenso do departamento
+  ("... da Universidade de São Paulo", em `/equipe` e `/parceiros`) e a ressalva do FAQ.
+  Sobras para decidir: `components/design-system/{course-card,level-progress,streak-counter,xp-badge}.tsx`
+  só eram usados pela `/showcase` e ficaram sem uso; `ROUTES.landing` também; a imagem
+  `public/og-image.png` não foi conferida; os títulos e descrições dos níveis 2 a 7 na home vêm do
+  currículo planejado.
+
 - O Playwright precisa de `pnpm --filter @levelusp/web exec playwright install chromium` depois de
   atualizar a dependência; a porta 5432 pode estar ocupada por contêineres de outros projetos no boot.
 
