@@ -229,13 +229,15 @@ Preço: 12.50
 ## Passo 5 · Exercício · Recibo
 modo: lacunas
 
-Uma papelaria imprime uma linha de recibo para cada produto vendido: o nome, a quantidade e o total. Os dados da venda já estão em três variáveis, e a f-string está montada pela metade. Complete as três lacunas para que a saída seja exatamente esta:
+Uma papelaria imprime uma linha de recibo para cada produto vendido: o nome, a quantidade e o total. Os dados da venda já estão em três variáveis, nas três primeiras linhas, e a f-string está montada pela metade.
+
+Complete as três lacunas para que a saída seja exatamente esta:
 
 ```
 Caderno x3: R$ 37.50
 ```
 
-Use as variáveis dentro das chaves, sem digitar os valores prontos: se a quantidade mudar, o recibo tem de mudar junto. O total é o preço multiplicado pela quantidade.
+Use as variáveis dentro das chaves, sem digitar os valores prontos: a correção troca os dados das três primeiras linhas por outra venda e roda o programa de novo, e o recibo tem de mudar junto. O total é o preço multiplicado pela quantidade.
 
 ### Instruções
 1. Complete as duas primeiras lacunas com a variável que guarda o nome do produto e a que guarda a quantidade.
@@ -266,12 +268,11 @@ print(f"{produto} x{quantidade}: R$ {preco * quantidade:.2f}")
 ### Verificação
 ```json
 [
-  { "id": "usa-f-string", "checkpoint": 1, "kind": "source", "rule": { "type": "uses", "construct": "f_string" },
-    "name": "O recibo é montado com uma f-string", "hint": "Mantenha o f antes das aspas: sem ele, as chaves viram texto comum." },
-  { "id": "produto-e-quantidade", "checkpoint": 1, "kind": "io", "stdin": "", "expected_stdout": "^Caderno x3: R\\$ ", "match": "regex",
-    "name": "Começa com o produto e a quantidade", "hint": "A primeira lacuna é a variável do nome do produto; a segunda, a da quantidade." },
-  { "id": "recibo", "checkpoint": 2, "kind": "io", "stdin": "", "expected_stdout": "Caderno x3: R$ 37.50\n", "match": "exact",
-    "name": "Recibo completo, com o total em duas casas", "hint": "O total é o preço vezes a quantidade, mostrado com duas casas decimais." }
+  {"id": "usa-f-string", "checkpoint": 1, "kind": "source", "rule": {"type": "uses", "construct": "f_string"}, "name": "O recibo é montado com uma f-string", "hint": "Mantenha o f antes das aspas: sem ele, as chaves viram texto comum."},
+  {"id": "produto-e-quantidade", "checkpoint": 1, "kind": "io", "stdin": "", "expected_stdout": "^Caderno x3: R\\$ ", "match": "regex", "name": "Começa com o produto e a quantidade", "hint": "A primeira lacuna é a variável do nome do produto; a segunda, a da quantidade."},
+  {"id": "produto-e-quantidade-outra-venda", "checkpoint": 1, "kind": "expr", "setup": "import re\n_fonte = open(\"main.py\", encoding=\"utf-8\").read()\n_trocas = 0\n_fonte, _n = re.subn(r\"(?m)^produto[ ]*=.*$\", \"produto = \\\"Mochila\\\"\", _fonte, count=1)\n_trocas += _n\n_fonte, _n = re.subn(r\"(?m)^preco[ ]*=.*$\", \"preco = 89.9\", _fonte, count=1)\n_trocas += _n\n_fonte, _n = re.subn(r\"(?m)^quantidade[ ]*=.*$\", \"quantidade = 2\", _fonte, count=1)\n_trocas += _n\n_ns = {}\nexec(compile(_fonte, \"main.py\", \"exec\"), _ns)", "expr": "_trocas", "expected": 3, "expected_stdout": "^Mochila x2: R\\$ ", "match": "regex", "name": "O produto e a quantidade mudam com a venda", "hint": "Use as variáveis dentro das chaves, e não o texto Caderno nem o número 3. A correção troca os dados da venda e roda o programa de novo."},
+  {"id": "recibo", "checkpoint": 2, "kind": "io", "stdin": "", "expected_stdout": "Caderno x3: R$ 37.50\n", "match": "exact", "name": "Recibo completo, com o total em duas casas", "hint": "O total é o preço vezes a quantidade, mostrado com duas casas decimais."},
+  {"id": "recibo-outra-venda", "checkpoint": 2, "kind": "expr", "setup": "import re\n_fonte = open(\"main.py\", encoding=\"utf-8\").read()\n_trocas = 0\n_fonte, _n = re.subn(r\"(?m)^produto[ ]*=.*$\", \"produto = \\\"Mochila\\\"\", _fonte, count=1)\n_trocas += _n\n_fonte, _n = re.subn(r\"(?m)^preco[ ]*=.*$\", \"preco = 89.9\", _fonte, count=1)\n_trocas += _n\n_fonte, _n = re.subn(r\"(?m)^quantidade[ ]*=.*$\", \"quantidade = 2\", _fonte, count=1)\n_trocas += _n\n_ns = {}\nexec(compile(_fonte, \"main.py\", \"exec\"), _ns)", "expr": "_trocas", "expected": 3, "expected_stdout": "Mochila x2: R$ 179.80\n", "match": "exact", "name": "O total é calculado para outra venda", "hint": "Escreva a conta preço vezes quantidade dentro das chaves: um total digitado pronto só vale para uma venda."}
 ]
 ```
 
@@ -300,6 +301,12 @@ preco = 12.5
 quantidade = 3
 print(f"{quantidade} x{produto}: R$ {preco * quantidade:.2f}")
 ```
+```python name="total digitado pronto"
+produto = "Caderno"
+preco = 12.5
+quantidade = 3
+print(f"{produto} x{quantidade}: R$ {37.5:.2f}")
+```
 
 ## Passo 6 · Quiz · Strings
 
@@ -324,67 +331,85 @@ Qual é o valor de `f"{2 + 3}"`?
 
 ## Passo 7 · Exercício · Título decorado
 
-Relatórios em modo texto costumam destacar o título com uma linha de sinais em cima e outra embaixo. Escreva um programa que mostre exatamente isto:
+Relatórios em modo texto costumam destacar o título com uma linha de sinais em cima e outra embaixo, do mesmo tamanho do título. Para o título `RELATÓRIO DE NOTAS`, que tem 18 caracteres, fica assim:
 
 ```
-====================
+==================
 RELATÓRIO DE NOTAS
-====================
+==================
 ```
 
-Cada linha decorada tem 20 sinais de igual. Não conte os sinais à mão: use a repetição de strings.
+A primeira linha do programa já está pronta e guarda o título na variável `titulo`: deixe-a como está.
+
+A correção troca o título da primeira linha por outros, de tamanhos diferentes, e roda o programa de novo. Por isso não dá para contar os sinais à mão: use `len` para medir o título e a repetição de strings para montar a linha.
 
 ### Instruções
-1. Mostre uma linha com 20 sinais de igual (`=`), montada com o operador de repetição.
-2. Na linha seguinte, mostre o título `RELATÓRIO DE NOTAS`, em maiúsculas e com acento.
-3. Feche com outra linha de 20 sinais de igual.
+1. Mostre uma linha de sinais de igual (`=`) com o mesmo número de caracteres do título.
+   Dica: `len(titulo)` é o tamanho do título, e `*` repete um texto.
+2. Na linha seguinte, mostre o título, usando a variável.
+3. Feche com outra linha de sinais, igual à primeira.
 
 ### Código inicial
 ```python
+titulo = "RELATÓRIO DE NOTAS"
+
 # Mostre a linha de sinais, o título e a linha de sinais de novo
 ```
 
 ### Solução
 ```python
-print("=" * 20)
-print("RELATÓRIO DE NOTAS")
-print("=" * 20)
+titulo = "RELATÓRIO DE NOTAS"
+
+# Mostre a linha de sinais, o título e a linha de sinais de novo
+print("=" * len(titulo))
+print(titulo)
+print("=" * len(titulo))
 ```
 
 ### Dicas
-1. `*` entre uma string e um número repete o texto.
+1. `*` entre uma string e um número repete o texto, e `len(titulo)` é o número de caracteres do título.
 2. São três `print`: a linha de sinais, o título e a linha de sinais outra vez.
-3. A linha decorada é `print("=" * 20)`.
+3. A linha decorada é `print("=" * len(titulo))`.
 
 ### Verificação
 ```json
 [
-  { "id": "primeira-linha", "checkpoint": 1, "kind": "io", "stdin": "", "expected_stdout": "^={20}\\n", "match": "regex",
-    "name": "Começa com uma linha de 20 sinais de igual", "hint": "Nem 19 nem 21: deixe a repetição de strings contar por você." },
-  { "id": "titulo", "checkpoint": 2, "kind": "io", "stdin": "", "expected_stdout": "\\nRELATÓRIO DE NOTAS\\n", "match": "regex",
-    "name": "O título vem na segunda linha", "hint": "O título é em maiúsculas, com acento em RELATÓRIO, sozinho na linha." },
-  { "id": "completo", "checkpoint": 3, "kind": "io", "stdin": "", "expected_stdout": "====================\nRELATÓRIO DE NOTAS\n====================\n", "match": "exact",
-    "name": "As três linhas, iguais às do enunciado", "hint": "São três linhas: sinais, título, sinais. As duas linhas de sinais têm o mesmo tamanho." }
+  {"id": "primeira-linha", "checkpoint": 1, "kind": "io", "stdin": "", "expected_stdout": "^={18}\\n", "match": "regex", "name": "Começa com uma linha de sinais do tamanho do título", "hint": "Nem um sinal a mais nem a menos: deixe o len e a repetição de strings contarem por você."},
+  {"id": "primeira-linha-titulo-curto", "checkpoint": 1, "kind": "expr", "setup": "import re\n_fonte = open(\"main.py\", encoding=\"utf-8\").read()\n_trocas = 0\n_fonte, _n = re.subn(r\"(?m)^titulo[ ]*=.*$\", \"titulo = \\\"Notas\\\"\", _fonte, count=1)\n_trocas += _n\n_ns = {}\nexec(compile(_fonte, \"main.py\", \"exec\"), _ns)", "expr": "_trocas", "expected": 1, "expected_stdout": "^={5}\\n", "match": "regex", "name": "A linha de sinais acompanha um título curto", "hint": "O número de sinais vem de len(titulo), e não de um número fixo. A correção troca o título e roda o programa de novo."},
+  {"id": "titulo", "checkpoint": 2, "kind": "io", "stdin": "", "expected_stdout": "\\nRELATÓRIO DE NOTAS\\n", "match": "regex", "name": "O título vem na segunda linha", "hint": "Mostre a variável titulo, sozinha na linha."},
+  {"id": "titulo-outro", "checkpoint": 2, "kind": "expr", "setup": "import re\n_fonte = open(\"main.py\", encoding=\"utf-8\").read()\n_trocas = 0\n_fonte, _n = re.subn(r\"(?m)^titulo[ ]*=.*$\", \"titulo = \\\"Notas\\\"\", _fonte, count=1)\n_trocas += _n\n_ns = {}\nexec(compile(_fonte, \"main.py\", \"exec\"), _ns)", "expr": "_trocas", "expected": 1, "expected_stdout": "\\nNotas\\n", "match": "regex", "name": "A segunda linha mostra o título que estiver na variável", "hint": "O programa precisa funcionar com qualquer título: use a variável titulo e len(titulo), e deixe a primeira linha como está. A correção troca o título e roda o programa de novo."},
+  {"id": "completo", "checkpoint": 3, "kind": "io", "stdin": "", "expected_stdout": "==================\nRELATÓRIO DE NOTAS\n==================\n", "match": "exact", "name": "As três linhas, iguais às do enunciado", "hint": "São três linhas: sinais, título, sinais. As duas linhas de sinais têm o mesmo tamanho."},
+  {"id": "completo-outro-titulo", "checkpoint": 3, "kind": "expr", "setup": "import re\n_fonte = open(\"main.py\", encoding=\"utf-8\").read()\n_trocas = 0\n_fonte, _n = re.subn(r\"(?m)^titulo[ ]*=.*$\", \"titulo = \\\"Lista de presença da turma A\\\"\", _fonte, count=1)\n_trocas += _n\n_ns = {}\nexec(compile(_fonte, \"main.py\", \"exec\"), _ns)", "expr": "_trocas", "expected": 1, "expected_stdout": "============================\nLista de presença da turma A\n============================\n", "match": "exact", "name": "As três linhas, com outro título", "hint": "O programa precisa funcionar com qualquer título: use a variável titulo e len(titulo), e deixe a primeira linha como está. A correção troca o título e roda o programa de novo."}
 ]
 ```
 
 ### Soluções erradas
-```python name="19 sinais digitados à mão"
-print("===================")
-print("RELATÓRIO DE NOTAS")
-print("===================")
+```python name="sinais digitados à mão"
+titulo = "RELATÓRIO DE NOTAS"
+print("==================")
+print(titulo)
+print("==================")
 ```
-```python name="título em minúsculas"
-print("=" * 20)
-print("Relatório de notas")
-print("=" * 20)
+```python name="número fixo de sinais"
+titulo = "RELATÓRIO DE NOTAS"
+print("=" * 18)
+print(titulo)
+print("=" * 18)
+```
+```python name="título digitado pronto"
+titulo = "RELATÓRIO DE NOTAS"
+print("=" * len(titulo))
+print("RELATÓRIO DE NOTAS")
+print("=" * len(titulo))
 ```
 ```python name="sem a linha de baixo"
-print("=" * 20)
-print("RELATÓRIO DE NOTAS")
+titulo = "RELATÓRIO DE NOTAS"
+print("=" * len(titulo))
+print(titulo)
 ```
 ```python name="repetição dentro das aspas"
-print("= * 20")
-print("RELATÓRIO DE NOTAS")
-print("= * 20")
+titulo = "RELATÓRIO DE NOTAS"
+print("= * len(titulo)")
+print(titulo)
+print("= * len(titulo)")
 ```

@@ -1,6 +1,6 @@
 {
   "format": 2,
-  "generated_at": "2026-11-15T01:03:48.950Z",
+  "generated_at": "2026-11-15T05:39:38.776Z",
   "tracks": [
     {
       "slug": "python-do-zero-a-ia",
@@ -2856,32 +2856,32 @@
                   "order": 3,
                   "kind": "exercicio",
                   "title": "Seis contas",
-                  "narrative_markdown": "Cada linha do programa abaixo faz uma conta, e falta um pedaço em cada uma: o operador, um dos valores ou o número de casas. Complete as lacunas para que a saída seja exatamente esta:\n\n```\n3.5\n3\n1\n1024\n14\n2.33\n```\n\nAs três primeiras linhas dividem 7 por 2 de três jeitos diferentes. A quarta eleva 2 à décima potência. Na quinta, a lacuna é a soma de 3 com 4, que precisa ser calculada **antes** da multiplicação por 2. A sexta arredonda o resultado de 7 dividido por 3.",
+                  "narrative_markdown": "O programa abaixo guarda dois números inteiros em `a` e `b` e faz seis contas com eles. As duas primeiras linhas já estão prontas. Em cada uma das outras falta um pedaço: o operador, um dos valores ou o número de casas.\n\nComplete as lacunas para que a saída seja exatamente esta:\n\n```\n3.5\n3\n1\n49\n18\n2.33\n```\n\nAs três primeiras linhas dividem `a` por `b` de três jeitos diferentes. A quarta eleva `a` à potência `b`. Na quinta, a lacuna é a soma de `a` com `b`, que precisa ser calculada **antes** da multiplicação por 2. A sexta arredonda `a / 3` para duas casas decimais.\n\nA correção também roda o seu programa com outros valores em `a` e `b`, e não só com 7 e 2. Por isso as lacunas têm de usar `a` e `b`: um resultado digitado pronto só acerta com um dos pares.",
                   "starter_files": [
                     {
                       "path": "main.py",
-                      "content": "print(7 ___ 2)\nprint(7 ___ 2)\nprint(7 ___ 2)\nprint(2 ___ 10)\nprint(___ * 2)\nprint(round(7 / 3, ___))\n"
+                      "content": "a = 7\nb = 2\nprint(a ___ b)\nprint(a ___ b)\nprint(a ___ b)\nprint(a ___ b)\nprint(___ * 2)\nprint(round(a / 3, ___))\n"
                     }
                   ],
                   "solution_files": [
                     {
                       "path": "main.py",
-                      "content": "print(7 / 2)\nprint(7 // 2)\nprint(7 % 2)\nprint(2 ** 10)\nprint((3 + 4) * 2)\nprint(round(7 / 3, 2))\n"
+                      "content": "a = 7\nb = 2\nprint(a / b)\nprint(a // b)\nprint(a % b)\nprint(a ** b)\nprint((a + b) * 2)\nprint(round(a / 3, 2))\n"
                     }
                   ],
                   "checkpoints": [
                     {
                       "id": 1,
-                      "instruction": "Complete as três divisões de 7 por 2, nesta ordem: a divisão normal (`3.5`), a divisão inteira (`3`) e o resto (`1`)."
+                      "instruction": "Complete as três divisões de `a` por `b`, nesta ordem: a divisão normal, a divisão inteira e o resto."
                     },
                     {
                       "id": 2,
-                      "instruction": "Complete a potência (`1024`) e a conta da quinta linha, em que 3 + 4 é somado antes de multiplicar (`14`).",
+                      "instruction": "Complete a potência e a conta da quinta linha, em que `a + b` é somado antes de multiplicar por 2.",
                       "hint": "sem parênteses, a multiplicação é feita primeiro."
                     },
                     {
                       "id": 3,
-                      "instruction": "Complete o arredondamento para duas casas decimais (`2.33`)."
+                      "instruction": "Complete o arredondamento para duas casas decimais."
                     }
                   ],
                   "test_cases": [
@@ -2896,13 +2896,39 @@
                       "match": "regex"
                     },
                     {
+                      "id": "tres-divisoes-outros",
+                      "name": "As três divisões, com outros valores em a e b",
+                      "hint": "A correção troca os valores das primeiras linhas e roda o programa de novo. Deixe essas linhas como estão e calcule a partir das variáveis, sem digitar resultados prontos.",
+                      "checkpoint": 1,
+                      "kind": "expr",
+                      "setup": "import re\n_fonte = open(\"main.py\", encoding=\"utf-8\").read()\n_trocas = 0\n_fonte, _n = re.subn(r\"(?m)^a[ ]*=.*$\", \"a = 10\", _fonte, count=1)\n_trocas += _n\n_fonte, _n = re.subn(r\"(?m)^b[ ]*=.*$\", \"b = 4\", _fonte, count=1)\n_trocas += _n\n_ns = {}\nexec(compile(_fonte, \"main.py\", \"exec\"), _ns)",
+                      "expr": "_trocas",
+                      "stdin": "",
+                      "expected": 2,
+                      "expected_stdout": "^2\\.5\\n2\\n2\\n",
+                      "match": "regex"
+                    },
+                    {
                       "id": "potencia-e-parenteses",
                       "name": "A potência e a conta com parênteses",
-                      "hint": "A quarta linha é uma potência. Na quinta, a soma 3 + 4 precisa acontecer antes da multiplicação.",
+                      "hint": "A quarta linha é uma potência. Na quinta, a soma a + b precisa acontecer antes da multiplicação.",
                       "checkpoint": 2,
                       "kind": "io",
                       "stdin": "",
-                      "expected_stdout": "\\n1024\\n14\\n",
+                      "expected_stdout": "\\n49\\n18\\n",
+                      "match": "regex"
+                    },
+                    {
+                      "id": "potencia-e-parenteses-outros",
+                      "name": "A potência e a conta com parênteses, com outros valores",
+                      "hint": "Na quinta linha, escreva a soma de a com b entre parênteses, e não o resultado dela. A correção troca os valores de a e b e roda o programa de novo.",
+                      "checkpoint": 2,
+                      "kind": "expr",
+                      "setup": "import re\n_fonte = open(\"main.py\", encoding=\"utf-8\").read()\n_trocas = 0\n_fonte, _n = re.subn(r\"(?m)^a[ ]*=.*$\", \"a = 10\", _fonte, count=1)\n_trocas += _n\n_fonte, _n = re.subn(r\"(?m)^b[ ]*=.*$\", \"b = 4\", _fonte, count=1)\n_trocas += _n\n_ns = {}\nexec(compile(_fonte, \"main.py\", \"exec\"), _ns)",
+                      "expr": "_trocas",
+                      "stdin": "",
+                      "expected": 2,
+                      "expected_stdout": "\\n10000\\n28\\n",
                       "match": "regex"
                     },
                     {
@@ -2912,13 +2938,26 @@
                       "checkpoint": 3,
                       "kind": "io",
                       "stdin": "",
-                      "expected_stdout": "3.5\n3\n1\n1024\n14\n2.33\n",
+                      "expected_stdout": "3.5\n3\n1\n49\n18\n2.33\n",
+                      "match": "exact"
+                    },
+                    {
+                      "id": "seis-contas-outros",
+                      "name": "As seis linhas, com outros valores em a e b",
+                      "hint": "A correção troca os valores das primeiras linhas e roda o programa de novo. Deixe essas linhas como estão e calcule a partir das variáveis, sem digitar resultados prontos.",
+                      "checkpoint": 3,
+                      "kind": "expr",
+                      "setup": "import re\n_fonte = open(\"main.py\", encoding=\"utf-8\").read()\n_trocas = 0\n_fonte, _n = re.subn(r\"(?m)^a[ ]*=.*$\", \"a = 10\", _fonte, count=1)\n_trocas += _n\n_fonte, _n = re.subn(r\"(?m)^b[ ]*=.*$\", \"b = 4\", _fonte, count=1)\n_trocas += _n\n_ns = {}\nexec(compile(_fonte, \"main.py\", \"exec\"), _ns)",
+                      "expr": "_trocas",
+                      "stdin": "",
+                      "expected": 2,
+                      "expected_stdout": "2.5\n2\n2\n10000\n28\n3.33\n",
                       "match": "exact"
                     }
                   ],
                   "hints": [
                     "`/` é a divisão normal, `//` é a divisão inteira e `%` é o resto.",
-                    "A potência é `**`. Na quinta linha, a soma vai dentro de parênteses.",
+                    "A potência é `**`. Na quinta linha, a soma vai dentro de parênteses: `(a + b)`.",
                     "O segundo valor do `round` é o número de casas decimais que você quer manter."
                   ],
                   "quiz_questions": [],
@@ -2932,7 +2971,7 @@
                       "files": [
                         {
                           "path": "main.py",
-                          "content": "print(7 / 2)\nprint(7 // 2)\nprint(7 % 2)\nprint(2 ** 10)\nprint(3 + 4 * 2)\nprint(round(7 / 3, 2))\n"
+                          "content": "a = 7\nb = 2\nprint(a / b)\nprint(a // b)\nprint(a % b)\nprint(a ** b)\nprint(a + b * 2)\nprint(round(a / 3, 2))\n"
                         }
                       ]
                     },
@@ -2941,7 +2980,7 @@
                       "files": [
                         {
                           "path": "main.py",
-                          "content": "print(7 / 2)\nprint(7 / 2)\nprint(7 % 2)\nprint(2 ** 10)\nprint((3 + 4) * 2)\nprint(round(7 / 3, 2))\n"
+                          "content": "a = 7\nb = 2\nprint(a / b)\nprint(a / b)\nprint(a % b)\nprint(a ** b)\nprint((a + b) * 2)\nprint(round(a / 3, 2))\n"
                         }
                       ]
                     },
@@ -2950,7 +2989,7 @@
                       "files": [
                         {
                           "path": "main.py",
-                          "content": "print(7 / 2)\nprint(7 // 2)\nprint(7 % 2)\nprint(2 ^ 10)\nprint((3 + 4) * 2)\nprint(round(7 / 3, 2))\n"
+                          "content": "a = 7\nb = 2\nprint(a / b)\nprint(a // b)\nprint(a % b)\nprint(a ^ b)\nprint((a + b) * 2)\nprint(round(a / 3, 2))\n"
                         }
                       ]
                     },
@@ -2959,7 +2998,16 @@
                       "files": [
                         {
                           "path": "main.py",
-                          "content": "print(7 / 2)\nprint(7 // 2)\nprint(7 % 2)\nprint(2 ** 10)\nprint((3 + 4) * 2)\nprint(round(7 / 3, 0))\n"
+                          "content": "a = 7\nb = 2\nprint(a / b)\nprint(a // b)\nprint(a % b)\nprint(a ** b)\nprint((a + b) * 2)\nprint(round(a / 3, 0))\n"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "resultado da soma digitado pronto",
+                      "files": [
+                        {
+                          "path": "main.py",
+                          "content": "a = 7\nb = 2\nprint(a / b)\nprint(a // b)\nprint(a % b)\nprint(a ** b)\nprint(9 * 2)\nprint(round(a / 3, 2))\n"
                         }
                       ]
                     }
@@ -2969,7 +3017,7 @@
                   "order": 4,
                   "kind": "exercicio",
                   "title": "Segundos em h:m:s",
-                  "narrative_markdown": "Um cronômetro marcou 7384 segundos. Quanto é isso em horas, minutos e segundos? A divisão inteira e o resto resolvem: `//` responde \"quantas vezes cabe\" e `%` responde \"quanto sobra\".\n\nUma hora tem 3600 segundos e um minuto tem 60. Primeiro descubra quantas horas inteiras cabem no total. O que sobrar é menos de uma hora: dele saem os minutos. O que sobrar dos minutos são os segundos.\n\nPara conferir sua resposta: $7384 = 2 \\cdot 3600 + 3 \\cdot 60 + 4$, ou seja, 2 horas, 3 minutos e 4 segundos.\n\nFaça as contas com `//` e `%` a partir de `total_segundos`; não digite os resultados prontos. Você pode criar variáveis auxiliares, como uma para guardar o que sobra das horas.",
+                  "narrative_markdown": "Um cronômetro marcou 7384 segundos. Quanto é isso em horas, minutos e segundos? A divisão inteira e o resto resolvem: `//` responde \"quantas vezes cabe\" e `%` responde \"quanto sobra\".\n\nUma hora tem 3600 segundos e um minuto tem 60. Primeiro descubra quantas horas inteiras cabem no total. O que sobrar é menos de uma hora: dele saem os minutos. O que sobrar dos minutos são os segundos.\n\nA primeira linha do programa já está pronta e guarda o total em `total_segundos`: deixe-a como está. Para conferir a sua resposta: $7384 = 2 \\cdot 3600 + 3 \\cdot 60 + 4$, ou seja, 2 horas, 3 minutos e 4 segundos.\n\nA correção troca o valor da primeira linha por outros totais e roda o programa de novo. Faça as contas com `//` e `%` a partir de `total_segundos`: resultados digitados prontos só acertam um deles. Você pode criar variáveis auxiliares, como uma para guardar o que sobra das horas.",
                   "starter_files": [
                     {
                       "path": "main.py",
@@ -3009,6 +3057,23 @@
                       "type": "int"
                     },
                     {
+                      "id": "horas-outro-total",
+                      "name": "horas vale para outro total de segundos",
+                      "hint": "A correção troca os valores das primeiras linhas e roda o programa de novo. Deixe essas linhas como estão e calcule a partir das variáveis, sem digitar resultados prontos.",
+                      "checkpoint": 1,
+                      "kind": "expr",
+                      "setup": "import re\n_fonte = open(\"main.py\", encoding=\"utf-8\").read()\n_trocas = 0\n_fonte, _n = re.subn(r\"(?m)^total_segundos[ ]*=.*$\", \"total_segundos = 86399\", _fonte, count=1)\n_trocas += _n\n_ns = {}\nexec(compile(_fonte, \"main.py\", \"exec\"), _ns)",
+                      "expr": "[_trocas, [_ns.get(\"horas\")]]",
+                      "stdin": "",
+                      "expected": [
+                        1,
+                        [
+                          23
+                        ]
+                      ],
+                      "match": "trimmed"
+                    },
+                    {
                       "id": "minutos",
                       "name": "minutos conta só o que sobrou das horas",
                       "hint": "Tire as horas primeiro: os minutos saem do resto da divisão por 3600, não do total.",
@@ -3019,6 +3084,23 @@
                       "type": "int"
                     },
                     {
+                      "id": "minutos-outro-total",
+                      "name": "minutos vale para outro total de segundos",
+                      "hint": "A correção troca os valores das primeiras linhas e roda o programa de novo. Deixe essas linhas como estão e calcule a partir das variáveis, sem digitar resultados prontos.",
+                      "checkpoint": 2,
+                      "kind": "expr",
+                      "setup": "import re\n_fonte = open(\"main.py\", encoding=\"utf-8\").read()\n_trocas = 0\n_fonte, _n = re.subn(r\"(?m)^total_segundos[ ]*=.*$\", \"total_segundos = 3725\", _fonte, count=1)\n_trocas += _n\n_ns = {}\nexec(compile(_fonte, \"main.py\", \"exec\"), _ns)",
+                      "expr": "[_trocas, [_ns.get(\"minutos\")]]",
+                      "stdin": "",
+                      "expected": [
+                        1,
+                        [
+                          2
+                        ]
+                      ],
+                      "match": "trimmed"
+                    },
+                    {
                       "id": "segundos",
                       "name": "segundos é o que sobra dos minutos",
                       "hint": "É o resto da divisão por 60 do que sobrou das horas.",
@@ -3027,6 +3109,42 @@
                       "variable": "segundos",
                       "expected": 4,
                       "type": "int"
+                    },
+                    {
+                      "id": "segundos-outro-total",
+                      "name": "segundos vale para outro total de segundos",
+                      "hint": "A correção troca os valores das primeiras linhas e roda o programa de novo. Deixe essas linhas como estão e calcule a partir das variáveis, sem digitar resultados prontos.",
+                      "checkpoint": 3,
+                      "kind": "expr",
+                      "setup": "import re\n_fonte = open(\"main.py\", encoding=\"utf-8\").read()\n_trocas = 0\n_fonte, _n = re.subn(r\"(?m)^total_segundos[ ]*=.*$\", \"total_segundos = 3725\", _fonte, count=1)\n_trocas += _n\n_ns = {}\nexec(compile(_fonte, \"main.py\", \"exec\"), _ns)",
+                      "expr": "[_trocas, [_ns.get(\"segundos\")]]",
+                      "stdin": "",
+                      "expected": [
+                        1,
+                        [
+                          5
+                        ]
+                      ],
+                      "match": "trimmed"
+                    },
+                    {
+                      "id": "menos-de-um-minuto",
+                      "name": "Com 59 segundos, horas e minutos são zero",
+                      "hint": "A correção troca os valores das primeiras linhas e roda o programa de novo. Deixe essas linhas como estão e calcule a partir das variáveis, sem digitar resultados prontos.",
+                      "checkpoint": 3,
+                      "kind": "expr",
+                      "setup": "import re\n_fonte = open(\"main.py\", encoding=\"utf-8\").read()\n_trocas = 0\n_fonte, _n = re.subn(r\"(?m)^total_segundos[ ]*=.*$\", \"total_segundos = 59\", _fonte, count=1)\n_trocas += _n\n_ns = {}\nexec(compile(_fonte, \"main.py\", \"exec\"), _ns)",
+                      "expr": "[_trocas, [_ns.get(\"horas\"), _ns.get(\"minutos\"), _ns.get(\"segundos\")]]",
+                      "stdin": "",
+                      "expected": [
+                        1,
+                        [
+                          0,
+                          0,
+                          59
+                        ]
+                      ],
+                      "match": "trimmed"
                     },
                     {
                       "id": "total-intacto",
@@ -3074,6 +3192,15 @@
                         {
                           "path": "main.py",
                           "content": "total_segundos = 7384\nhoras = total_segundos // 3600\nresto = total_segundos % 3600\nminutos = resto // 60\nsegundos = resto\n"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "resultados digitados prontos",
+                      "files": [
+                        {
+                          "path": "main.py",
+                          "content": "total_segundos = 7384\nhoras = 2\nminutos = 3\nsegundos = 4\n"
                         }
                       ]
                     }
@@ -3134,7 +3261,7 @@
                   "order": 6,
                   "kind": "exercicio",
                   "title": "Troco em notas",
-                  "narrative_markdown": "Um caixa eletrônico precisa entregar R\\$ 186 usando o menor número possível de notas. As notas disponíveis são de 50, 20, 10, 5 e 1 real. A estratégia é sempre a mesma: usar o máximo que der da maior nota e repetir o raciocínio com o valor que ainda falta.\n\nCom `//` você descobre quantas notas cabem; com `%`, quanto ainda falta entregar. Veja o começo: `186 // 50` é 3 (três notas de 50) e `186 % 50` é 36 (ainda faltam R\\$ 36). As notas de 20 são calculadas sobre os 36, não sobre os 186.\n\nO mesmo `%` serve para separar os dígitos de um número: `186 % 10` é `6`, o último dígito, e `186 // 10` é `18`, o número sem ele.\n\nCalcule a quantidade de cada nota a partir de `valor`, guardando em `notas_50`, `notas_20`, `notas_10`, `notas_5` e `notas_1`. Não digite as quantidades prontas. Uma variável auxiliar para \"o que falta\" ajuda bastante.",
+                  "narrative_markdown": "Um caixa eletrônico precisa entregar R\\$ 186 usando o menor número possível de notas. As notas disponíveis são de 50, 20, 10, 5 e 1 real. A estratégia é sempre a mesma: usar o máximo que der da maior nota e repetir o raciocínio com o valor que ainda falta.\n\nCom `//` você descobre quantas notas cabem; com `%`, quanto ainda falta entregar. Veja o começo: `186 // 50` é 3 (três notas de 50) e `186 % 50` é 36 (ainda faltam R\\$ 36). As notas de 20 são calculadas sobre os 36, não sobre os 186.\n\nO mesmo `%` serve para separar os dígitos de um número: `186 % 10` é `6`, o último dígito, e `186 // 10` é `18`, o número sem ele.\n\nA primeira linha do programa já está pronta e guarda o valor do saque em `valor`: deixe-a como está. Calcule a quantidade de cada nota a partir de `valor`, guardando em `notas_50`, `notas_20`, `notas_10`, `notas_5` e `notas_1`. A correção troca o valor da primeira linha por outros saques e roda o programa de novo, então quantidades digitadas prontas não passam. Uma variável auxiliar para \"o que falta\" ajuda bastante.",
                   "starter_files": [
                     {
                       "path": "main.py",
@@ -3174,6 +3301,23 @@
                       "type": "int"
                     },
                     {
+                      "id": "notas-50-outro-valor",
+                      "name": "notas_50 vale para outro valor de saque",
+                      "hint": "A correção troca os valores das primeiras linhas e roda o programa de novo. Deixe essas linhas como estão e calcule a partir das variáveis, sem digitar resultados prontos.",
+                      "checkpoint": 1,
+                      "kind": "expr",
+                      "setup": "import re\n_fonte = open(\"main.py\", encoding=\"utf-8\").read()\n_trocas = 0\n_fonte, _n = re.subn(r\"(?m)^valor[ ]*=.*$\", \"valor = 93\", _fonte, count=1)\n_trocas += _n\n_ns = {}\nexec(compile(_fonte, \"main.py\", \"exec\"), _ns)",
+                      "expr": "[_trocas, [_ns.get(\"notas_50\")]]",
+                      "stdin": "",
+                      "expected": [
+                        1,
+                        [
+                          1
+                        ]
+                      ],
+                      "match": "trimmed"
+                    },
+                    {
                       "id": "notas-20",
                       "name": "notas_20 é calculada sobre o que falta",
                       "hint": "Divida por 20 o que sobrou depois das notas de 50, não o valor inteiro.",
@@ -3194,6 +3338,24 @@
                       "type": "int"
                     },
                     {
+                      "id": "notas-20-e-10-outro-valor",
+                      "name": "notas_20 e notas_10 valem para outro valor de saque",
+                      "hint": "A correção troca os valores das primeiras linhas e roda o programa de novo. Deixe essas linhas como estão e calcule a partir das variáveis, sem digitar resultados prontos.",
+                      "checkpoint": 2,
+                      "kind": "expr",
+                      "setup": "import re\n_fonte = open(\"main.py\", encoding=\"utf-8\").read()\n_trocas = 0\n_fonte, _n = re.subn(r\"(?m)^valor[ ]*=.*$\", \"valor = 93\", _fonte, count=1)\n_trocas += _n\n_ns = {}\nexec(compile(_fonte, \"main.py\", \"exec\"), _ns)",
+                      "expr": "[_trocas, [_ns.get(\"notas_20\"), _ns.get(\"notas_10\")]]",
+                      "stdin": "",
+                      "expected": [
+                        1,
+                        [
+                          2,
+                          0
+                        ]
+                      ],
+                      "match": "trimmed"
+                    },
+                    {
                       "id": "notas-5",
                       "name": "notas_5 é calculada sobre o que falta",
                       "hint": "Divida por 5 o que sobrou depois das notas de 10.",
@@ -3212,6 +3374,45 @@
                       "variable": "notas_1",
                       "expected": 1,
                       "type": "int"
+                    },
+                    {
+                      "id": "notas-5-e-1-outro-valor",
+                      "name": "notas_5 e notas_1 valem para outro valor de saque",
+                      "hint": "A correção troca os valores das primeiras linhas e roda o programa de novo. Deixe essas linhas como estão e calcule a partir das variáveis, sem digitar resultados prontos.",
+                      "checkpoint": 3,
+                      "kind": "expr",
+                      "setup": "import re\n_fonte = open(\"main.py\", encoding=\"utf-8\").read()\n_trocas = 0\n_fonte, _n = re.subn(r\"(?m)^valor[ ]*=.*$\", \"valor = 93\", _fonte, count=1)\n_trocas += _n\n_ns = {}\nexec(compile(_fonte, \"main.py\", \"exec\"), _ns)",
+                      "expr": "[_trocas, [_ns.get(\"notas_5\"), _ns.get(\"notas_1\")]]",
+                      "stdin": "",
+                      "expected": [
+                        1,
+                        [
+                          0,
+                          3
+                        ]
+                      ],
+                      "match": "trimmed"
+                    },
+                    {
+                      "id": "saque-pequeno",
+                      "name": "Um saque de 8 reais sai em uma nota de 5 e três de 1",
+                      "hint": "Quando a nota não cabe no valor, a quantidade dela é zero. A correção troca o valor da primeira linha e roda o programa de novo.",
+                      "checkpoint": 3,
+                      "kind": "expr",
+                      "setup": "import re\n_fonte = open(\"main.py\", encoding=\"utf-8\").read()\n_trocas = 0\n_fonte, _n = re.subn(r\"(?m)^valor[ ]*=.*$\", \"valor = 8\", _fonte, count=1)\n_trocas += _n\n_ns = {}\nexec(compile(_fonte, \"main.py\", \"exec\"), _ns)",
+                      "expr": "[_trocas, [_ns.get(\"notas_50\"), _ns.get(\"notas_20\"), _ns.get(\"notas_10\"), _ns.get(\"notas_5\"), _ns.get(\"notas_1\")]]",
+                      "stdin": "",
+                      "expected": [
+                        1,
+                        [
+                          0,
+                          0,
+                          0,
+                          1,
+                          3
+                        ]
+                      ],
+                      "match": "trimmed"
                     }
                   ],
                   "hints": [
@@ -3249,6 +3450,15 @@
                         {
                           "path": "main.py",
                           "content": "valor = 186\nnotas_50 = valor / 50\nfalta = valor % 50\nnotas_20 = falta / 20\nfalta = falta % 20\nnotas_10 = falta / 10\nfalta = falta % 10\nnotas_5 = falta / 5\nfalta = falta % 5\nnotas_1 = falta\n"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "quantidades digitadas prontas",
+                      "files": [
+                        {
+                          "path": "main.py",
+                          "content": "valor = 186\nnotas_50 = 3\nnotas_20 = 1\nnotas_10 = 1\nnotas_5 = 1\nnotas_1 = 1\n"
                         }
                       ]
                     }
@@ -3463,7 +3673,7 @@
                   "order": 5,
                   "kind": "exercicio",
                   "title": "Recibo",
-                  "narrative_markdown": "Uma papelaria imprime uma linha de recibo para cada produto vendido: o nome, a quantidade e o total. Os dados da venda já estão em três variáveis, e a f-string está montada pela metade. Complete as três lacunas para que a saída seja exatamente esta:\n\n```\nCaderno x3: R$ 37.50\n```\n\nUse as variáveis dentro das chaves, sem digitar os valores prontos: se a quantidade mudar, o recibo tem de mudar junto. O total é o preço multiplicado pela quantidade.",
+                  "narrative_markdown": "Uma papelaria imprime uma linha de recibo para cada produto vendido: o nome, a quantidade e o total. Os dados da venda já estão em três variáveis, nas três primeiras linhas, e a f-string está montada pela metade.\n\nComplete as três lacunas para que a saída seja exatamente esta:\n\n```\nCaderno x3: R$ 37.50\n```\n\nUse as variáveis dentro das chaves, sem digitar os valores prontos: a correção troca os dados das três primeiras linhas por outra venda e roda o programa de novo, e o recibo tem de mudar junto. O total é o preço multiplicado pela quantidade.",
                   "starter_files": [
                     {
                       "path": "main.py",
@@ -3510,6 +3720,19 @@
                       "match": "regex"
                     },
                     {
+                      "id": "produto-e-quantidade-outra-venda",
+                      "name": "O produto e a quantidade mudam com a venda",
+                      "hint": "Use as variáveis dentro das chaves, e não o texto Caderno nem o número 3. A correção troca os dados da venda e roda o programa de novo.",
+                      "checkpoint": 1,
+                      "kind": "expr",
+                      "setup": "import re\n_fonte = open(\"main.py\", encoding=\"utf-8\").read()\n_trocas = 0\n_fonte, _n = re.subn(r\"(?m)^produto[ ]*=.*$\", \"produto = \\\"Mochila\\\"\", _fonte, count=1)\n_trocas += _n\n_fonte, _n = re.subn(r\"(?m)^preco[ ]*=.*$\", \"preco = 89.9\", _fonte, count=1)\n_trocas += _n\n_fonte, _n = re.subn(r\"(?m)^quantidade[ ]*=.*$\", \"quantidade = 2\", _fonte, count=1)\n_trocas += _n\n_ns = {}\nexec(compile(_fonte, \"main.py\", \"exec\"), _ns)",
+                      "expr": "_trocas",
+                      "stdin": "",
+                      "expected": 3,
+                      "expected_stdout": "^Mochila x2: R\\$ ",
+                      "match": "regex"
+                    },
+                    {
                       "id": "recibo",
                       "name": "Recibo completo, com o total em duas casas",
                       "hint": "O total é o preço vezes a quantidade, mostrado com duas casas decimais.",
@@ -3517,6 +3740,19 @@
                       "kind": "io",
                       "stdin": "",
                       "expected_stdout": "Caderno x3: R$ 37.50\n",
+                      "match": "exact"
+                    },
+                    {
+                      "id": "recibo-outra-venda",
+                      "name": "O total é calculado para outra venda",
+                      "hint": "Escreva a conta preço vezes quantidade dentro das chaves: um total digitado pronto só vale para uma venda.",
+                      "checkpoint": 2,
+                      "kind": "expr",
+                      "setup": "import re\n_fonte = open(\"main.py\", encoding=\"utf-8\").read()\n_trocas = 0\n_fonte, _n = re.subn(r\"(?m)^produto[ ]*=.*$\", \"produto = \\\"Mochila\\\"\", _fonte, count=1)\n_trocas += _n\n_fonte, _n = re.subn(r\"(?m)^preco[ ]*=.*$\", \"preco = 89.9\", _fonte, count=1)\n_trocas += _n\n_fonte, _n = re.subn(r\"(?m)^quantidade[ ]*=.*$\", \"quantidade = 2\", _fonte, count=1)\n_trocas += _n\n_ns = {}\nexec(compile(_fonte, \"main.py\", \"exec\"), _ns)",
+                      "expr": "_trocas",
+                      "stdin": "",
+                      "expected": 3,
+                      "expected_stdout": "Mochila x2: R$ 179.80\n",
                       "match": "exact"
                     }
                   ],
@@ -3566,6 +3802,15 @@
                           "content": "produto = \"Caderno\"\npreco = 12.5\nquantidade = 3\nprint(f\"{quantidade} x{produto}: R$ {preco * quantidade:.2f}\")\n"
                         }
                       ]
+                    },
+                    {
+                      "name": "total digitado pronto",
+                      "files": [
+                        {
+                          "path": "main.py",
+                          "content": "produto = \"Caderno\"\npreco = 12.5\nquantidade = 3\nprint(f\"{produto} x{quantidade}: R$ {37.5:.2f}\")\n"
+                        }
+                      ]
                     }
                   ]
                 },
@@ -3613,52 +3858,79 @@
                   "order": 7,
                   "kind": "exercicio",
                   "title": "Título decorado",
-                  "narrative_markdown": "Relatórios em modo texto costumam destacar o título com uma linha de sinais em cima e outra embaixo. Escreva um programa que mostre exatamente isto:\n\n```\n====================\nRELATÓRIO DE NOTAS\n====================\n```\n\nCada linha decorada tem 20 sinais de igual. Não conte os sinais à mão: use a repetição de strings.",
+                  "narrative_markdown": "Relatórios em modo texto costumam destacar o título com uma linha de sinais em cima e outra embaixo, do mesmo tamanho do título. Para o título `RELATÓRIO DE NOTAS`, que tem 18 caracteres, fica assim:\n\n```\n==================\nRELATÓRIO DE NOTAS\n==================\n```\n\nA primeira linha do programa já está pronta e guarda o título na variável `titulo`: deixe-a como está.\n\nA correção troca o título da primeira linha por outros, de tamanhos diferentes, e roda o programa de novo. Por isso não dá para contar os sinais à mão: use `len` para medir o título e a repetição de strings para montar a linha.",
                   "starter_files": [
                     {
                       "path": "main.py",
-                      "content": "# Mostre a linha de sinais, o título e a linha de sinais de novo\n"
+                      "content": "titulo = \"RELATÓRIO DE NOTAS\"\n\n# Mostre a linha de sinais, o título e a linha de sinais de novo\n"
                     }
                   ],
                   "solution_files": [
                     {
                       "path": "main.py",
-                      "content": "print(\"=\" * 20)\nprint(\"RELATÓRIO DE NOTAS\")\nprint(\"=\" * 20)\n"
+                      "content": "titulo = \"RELATÓRIO DE NOTAS\"\n\n# Mostre a linha de sinais, o título e a linha de sinais de novo\nprint(\"=\" * len(titulo))\nprint(titulo)\nprint(\"=\" * len(titulo))\n"
                     }
                   ],
                   "checkpoints": [
                     {
                       "id": 1,
-                      "instruction": "Mostre uma linha com 20 sinais de igual (`=`), montada com o operador de repetição."
+                      "instruction": "Mostre uma linha de sinais de igual (`=`) com o mesmo número de caracteres do título.",
+                      "hint": "`len(titulo)` é o tamanho do título, e `*` repete um texto."
                     },
                     {
                       "id": 2,
-                      "instruction": "Na linha seguinte, mostre o título `RELATÓRIO DE NOTAS`, em maiúsculas e com acento."
+                      "instruction": "Na linha seguinte, mostre o título, usando a variável."
                     },
                     {
                       "id": 3,
-                      "instruction": "Feche com outra linha de 20 sinais de igual."
+                      "instruction": "Feche com outra linha de sinais, igual à primeira."
                     }
                   ],
                   "test_cases": [
                     {
                       "id": "primeira-linha",
-                      "name": "Começa com uma linha de 20 sinais de igual",
-                      "hint": "Nem 19 nem 21: deixe a repetição de strings contar por você.",
+                      "name": "Começa com uma linha de sinais do tamanho do título",
+                      "hint": "Nem um sinal a mais nem a menos: deixe o len e a repetição de strings contarem por você.",
                       "checkpoint": 1,
                       "kind": "io",
                       "stdin": "",
-                      "expected_stdout": "^={20}\\n",
+                      "expected_stdout": "^={18}\\n",
+                      "match": "regex"
+                    },
+                    {
+                      "id": "primeira-linha-titulo-curto",
+                      "name": "A linha de sinais acompanha um título curto",
+                      "hint": "O número de sinais vem de len(titulo), e não de um número fixo. A correção troca o título e roda o programa de novo.",
+                      "checkpoint": 1,
+                      "kind": "expr",
+                      "setup": "import re\n_fonte = open(\"main.py\", encoding=\"utf-8\").read()\n_trocas = 0\n_fonte, _n = re.subn(r\"(?m)^titulo[ ]*=.*$\", \"titulo = \\\"Notas\\\"\", _fonte, count=1)\n_trocas += _n\n_ns = {}\nexec(compile(_fonte, \"main.py\", \"exec\"), _ns)",
+                      "expr": "_trocas",
+                      "stdin": "",
+                      "expected": 1,
+                      "expected_stdout": "^={5}\\n",
                       "match": "regex"
                     },
                     {
                       "id": "titulo",
                       "name": "O título vem na segunda linha",
-                      "hint": "O título é em maiúsculas, com acento em RELATÓRIO, sozinho na linha.",
+                      "hint": "Mostre a variável titulo, sozinha na linha.",
                       "checkpoint": 2,
                       "kind": "io",
                       "stdin": "",
                       "expected_stdout": "\\nRELATÓRIO DE NOTAS\\n",
+                      "match": "regex"
+                    },
+                    {
+                      "id": "titulo-outro",
+                      "name": "A segunda linha mostra o título que estiver na variável",
+                      "hint": "O programa precisa funcionar com qualquer título: use a variável titulo e len(titulo), e deixe a primeira linha como está. A correção troca o título e roda o programa de novo.",
+                      "checkpoint": 2,
+                      "kind": "expr",
+                      "setup": "import re\n_fonte = open(\"main.py\", encoding=\"utf-8\").read()\n_trocas = 0\n_fonte, _n = re.subn(r\"(?m)^titulo[ ]*=.*$\", \"titulo = \\\"Notas\\\"\", _fonte, count=1)\n_trocas += _n\n_ns = {}\nexec(compile(_fonte, \"main.py\", \"exec\"), _ns)",
+                      "expr": "_trocas",
+                      "stdin": "",
+                      "expected": 1,
+                      "expected_stdout": "\\nNotas\\n",
                       "match": "regex"
                     },
                     {
@@ -3668,14 +3940,27 @@
                       "checkpoint": 3,
                       "kind": "io",
                       "stdin": "",
-                      "expected_stdout": "====================\nRELATÓRIO DE NOTAS\n====================\n",
+                      "expected_stdout": "==================\nRELATÓRIO DE NOTAS\n==================\n",
+                      "match": "exact"
+                    },
+                    {
+                      "id": "completo-outro-titulo",
+                      "name": "As três linhas, com outro título",
+                      "hint": "O programa precisa funcionar com qualquer título: use a variável titulo e len(titulo), e deixe a primeira linha como está. A correção troca o título e roda o programa de novo.",
+                      "checkpoint": 3,
+                      "kind": "expr",
+                      "setup": "import re\n_fonte = open(\"main.py\", encoding=\"utf-8\").read()\n_trocas = 0\n_fonte, _n = re.subn(r\"(?m)^titulo[ ]*=.*$\", \"titulo = \\\"Lista de presença da turma A\\\"\", _fonte, count=1)\n_trocas += _n\n_ns = {}\nexec(compile(_fonte, \"main.py\", \"exec\"), _ns)",
+                      "expr": "_trocas",
+                      "stdin": "",
+                      "expected": 1,
+                      "expected_stdout": "============================\nLista de presença da turma A\n============================\n",
                       "match": "exact"
                     }
                   ],
                   "hints": [
-                    "`*` entre uma string e um número repete o texto.",
+                    "`*` entre uma string e um número repete o texto, e `len(titulo)` é o número de caracteres do título.",
                     "São três `print`: a linha de sinais, o título e a linha de sinais outra vez.",
-                    "A linha decorada é `print(\"=\" * 20)`."
+                    "A linha decorada é `print(\"=\" * len(titulo))`."
                   ],
                   "quiz_questions": [],
                   "xp": 10,
@@ -3684,20 +3969,29 @@
                   "expected_output": "",
                   "wrong_solutions": [
                     {
-                      "name": "19 sinais digitados à mão",
+                      "name": "sinais digitados à mão",
                       "files": [
                         {
                           "path": "main.py",
-                          "content": "print(\"===================\")\nprint(\"RELATÓRIO DE NOTAS\")\nprint(\"===================\")\n"
+                          "content": "titulo = \"RELATÓRIO DE NOTAS\"\nprint(\"==================\")\nprint(titulo)\nprint(\"==================\")\n"
                         }
                       ]
                     },
                     {
-                      "name": "título em minúsculas",
+                      "name": "número fixo de sinais",
                       "files": [
                         {
                           "path": "main.py",
-                          "content": "print(\"=\" * 20)\nprint(\"Relatório de notas\")\nprint(\"=\" * 20)\n"
+                          "content": "titulo = \"RELATÓRIO DE NOTAS\"\nprint(\"=\" * 18)\nprint(titulo)\nprint(\"=\" * 18)\n"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "título digitado pronto",
+                      "files": [
+                        {
+                          "path": "main.py",
+                          "content": "titulo = \"RELATÓRIO DE NOTAS\"\nprint(\"=\" * len(titulo))\nprint(\"RELATÓRIO DE NOTAS\")\nprint(\"=\" * len(titulo))\n"
                         }
                       ]
                     },
@@ -3706,7 +4000,7 @@
                       "files": [
                         {
                           "path": "main.py",
-                          "content": "print(\"=\" * 20)\nprint(\"RELATÓRIO DE NOTAS\")\n"
+                          "content": "titulo = \"RELATÓRIO DE NOTAS\"\nprint(\"=\" * len(titulo))\nprint(titulo)\n"
                         }
                       ]
                     },
@@ -3715,7 +4009,7 @@
                       "files": [
                         {
                           "path": "main.py",
-                          "content": "print(\"= * 20\")\nprint(\"RELATÓRIO DE NOTAS\")\nprint(\"= * 20\")\n"
+                          "content": "titulo = \"RELATÓRIO DE NOTAS\"\nprint(\"= * len(titulo)\")\nprint(titulo)\nprint(\"= * len(titulo)\")\n"
                         }
                       ]
                     }
@@ -27279,7 +27573,7 @@
                   "order": 5,
                   "kind": "exercicio",
                   "title": "buscar e ordenar_por_prioridade",
-                  "narrative_markdown": "Duas funções de consulta. Nenhuma altera a lista recebida.\n\n**`buscar(tarefas, termo)`** devolve a lista das tarefas cujo título contém o termo, na ordem em que estão. A busca não diferencia maiúsculas de minúsculas e ignora os espaços nas pontas do termo. O termo pode ser um trecho qualquer do título. Sem resultado, devolve lista vazia.\n\n```\ntítulos: \"Estudar para a prova\", \"Lavar a louça\", \"Entregar a PROVA de Cálculo\"\n\nbuscar(tarefas, \"prova\")       devolve a primeira e a terceira tarefa\nbuscar(tarefas, \"  LOUÇA \")    devolve a segunda\nbuscar(tarefas, \"dentista\")    devolve []\n```\n\nOs títulos guardados não mudam: `\"Entregar a PROVA de Cálculo\"` continua com as maiúsculas.\n\n**`ordenar_por_prioridade(tarefas)`** devolve uma lista **nova** com as mesmas tarefas: primeiro as de prioridade `alta`, depois as `media`, depois as `baixa`. Dentro da mesma prioridade, a de menor id vem antes. A lista recebida pode estar em qualquer ordem e continua como estava. Use `sorted` com `key`.\n\n```\ntarefas, nesta ordem: 5 (media), 3 (baixa), 4 (alta), 1 (alta), 2 (media)\n\nordenar_por_prioridade(tarefas)    devolve, nesta ordem: 1, 4, 2, 5, 3\n```\n\nCuidado com a ordem alfabética: nela, `\"baixa\"` vem antes de `\"media\"`. A ordem do projeto é outra, e o Python não a conhece. Você precisa informar que posição cada prioridade ocupa.",
+                  "narrative_markdown": "Duas funções de consulta. Nenhuma altera a lista recebida.\n\n**`buscar(tarefas, termo)`** devolve a lista das tarefas cujo título contém o termo, na ordem em que estão. A busca não diferencia maiúsculas de minúsculas e ignora os espaços nas pontas do termo. O termo pode ser um trecho qualquer do título. Sem resultado, devolve lista vazia.\n\n```\ntítulos: \"Estudar para a prova\", \"Lavar a louça\", \"Entregar a PROVA de Cálculo\"\n\nbuscar(tarefas, \"prova\")       devolve a primeira e a terceira tarefa\nbuscar(tarefas, \"  LOUÇA \")    devolve a segunda\nbuscar(tarefas, \"dentista\")    devolve []\n```\n\nOs títulos guardados não mudam: `\"Entregar a PROVA de Cálculo\"` continua com as maiúsculas.\n\n**`ordenar_por_prioridade(tarefas)`** devolve uma lista **nova** com as mesmas tarefas: primeiro as de prioridade `alta`, depois as `media`, depois as `baixa`. Dentro da mesma prioridade, a de menor id vem antes. A lista recebida pode estar em qualquer ordem e continua como estava. O caminho mais curto é `sorted` com `key`, que já devolve uma lista nova; ordenar uma **cópia** com `.sort()` também vale. O que não pode é reordenar a lista recebida.\n\n```\ntarefas, nesta ordem: 5 (media), 3 (baixa), 4 (alta), 1 (alta), 2 (media)\n\nordenar_por_prioridade(tarefas)    devolve, nesta ordem: 1, 4, 2, 5, 3\n```\n\nCuidado com a ordem alfabética: nela, `\"baixa\"` vem antes de `\"media\"`. A ordem do projeto é outra, e o Python não a conhece. Você precisa informar que posição cada prioridade ocupa.",
                   "starter_files": [],
                   "solution_files": [
                     {
@@ -27295,8 +27589,8 @@
                     },
                     {
                       "id": 2,
-                      "instruction": "Defina `ordenar_por_prioridade(tarefas)` com `sorted`: devolve uma lista nova, `alta` antes de `media` antes de `baixa`, com o empate decidido pelo menor id.",
-                      "hint": "o `sorted` compara tuplas item por item, como você viu ao ordenar pares no módulo 7."
+                      "instruction": "Defina `ordenar_por_prioridade(tarefas)`: devolve uma lista nova, `alta` antes de `media` antes de `baixa`, com o empate decidido pelo menor id.",
+                      "hint": "o `sorted` (e também o `.sort()`) compara tuplas item por item, como você viu ao ordenar pares no módulo 7."
                     }
                   ],
                   "test_cases": [
@@ -27686,17 +27980,6 @@
                       "match": "trimmed"
                     },
                     {
-                      "id": "usa-sorted",
-                      "name": "ordenar_por_prioridade usa sorted",
-                      "hint": "sorted devolve uma lista nova e aceita key.",
-                      "checkpoint": 2,
-                      "kind": "source",
-                      "rule": {
-                        "type": "calls",
-                        "name": "sorted"
-                      }
-                    },
-                    {
                       "id": "ordenar-exemplo",
                       "name": "alta antes de media, media antes de baixa",
                       "hint": "A ordem alfabética não serve: baixa viria antes de media. Dê um número a cada prioridade.",
@@ -27837,7 +28120,7 @@
                     {
                       "id": "ordenar-nao-altera",
                       "name": "A lista recebida continua na ordem em que estava",
-                      "hint": "sorted(lista) devolve uma lista nova; lista.sort() reordena a própria lista.",
+                      "hint": "sorted(lista) devolve uma lista nova; lista.sort() reordena a própria lista. Se preferir o sort, aplique-o a uma cópia.",
                       "checkpoint": 2,
                       "kind": "expr",
                       "setup": "t = [{'id': 5, 'titulo': 'Ligar para a Bia', 'prioridade': 'media', 'concluida': False}, {'id': 3, 'titulo': 'Comprar PÃO e leite', 'prioridade': 'baixa', 'concluida': False}, {'id': 4, 'titulo': 'Entregar a PROVA de Cálculo', 'prioridade': 'alta', 'concluida': False}, {'id': 1, 'titulo': 'Estudar para a prova', 'prioridade': 'alta', 'concluida': False}, {'id': 2, 'titulo': 'Lavar a louça', 'prioridade': 'media', 'concluida': True}]\nr = ordenar_por_prioridade(t)",
