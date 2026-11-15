@@ -181,18 +181,54 @@ O que renderizar no markdown (`narrative_markdown`; fórmulas também em `checkp
   no editor do professor a saída da Previsão é digitada à mão; o fluxo novo (arranjo, previsão, assets)
   só foi exercitado contra a API real nos e2e da API, não num navegador ponta a ponta.
 
-### P3 — Conteúdo do Nível 1 (46 lições restantes)
-Para cada lição de `content/cursos/n1-fundamentos/<módulo>/` (exceto `06-funcoes/01-definir-e-chamar`, já pronta): manter o frontmatter e substituir o passo "Roteiro da lição" pelos passos reais descritos no `PLANO.md` (seção do módulo), no formato de `content/README.md`. Cada exercício: instruções numeradas (checkpoints), código inicial, solução, 1–3 dicas, verificação JSON com `checkpoint` em cada caso, ≥ 2 soluções erradas (sem laço infinito). Quiz com 2–3 perguntas.
-Use os recursos do P2b (diagramas, visualizador, fórmulas, lacunas, ordenar, Previsão) como o `PLANO.md` atualizado indicar; a lição `06-funcoes/01-definir-e-chamar` também deve ser revista para usá-los.
-Módulos: 01 (5 lições), 02 (6), 03 (5), 04 (7), 05 (7), 06 (6 restantes), 07 (5), 08 (4), 09 projeto (1).
-Pronto quando: `pnpm content:check` OK e `pnpm content:verify --curso n1-fundamentos` com todos os passos `OK` contra o runner real; depois `pnpm content:build`.
+### P3 — Conteúdo do Nível 1 — CONCLUÍDO em 2026-11-14
+As 47 lições estão escritas (281 passos) e verificadas no executor real, com um commit por módulo.
+`pnpm content:check`: 253 lições, 487 passos. `pnpm content:verify --curso n1-fundamentos`: 133 passos
+de exercício e 65 previsões/blocos visualizar, todos verificados (solução aprova, código inicial e
+soluções erradas reprovam). `pnpm content:build` regravou `packages/db/seed/trilha-python-ia.json`.
 
-### P4 — Integração e entrega
-1. Merge de P1–P3 na branch; `pnpm build && pnpm lint && pnpm test`; e2e da API; `test:attacks` do runner (com `PYODIDE_DIR`).
-2. Docs: `arquitetura.md`, `testes.md`, `divida-tecnica.md` (notebook/células, migrar módulos globais, remover `final_project_*` e `legacy/`, SMTP), atualizar `CURRICULO.md` com o estado.
-3. Push da branch, PR para `develop` (merge commit, nunca squash), CI verde, imagens GHCR.
-4. Homolog: `levelusp.ps1 update -Env homolog` (aplica migração 0004), importar o pacote (`POST /admin/content/import` ou `pnpm db:seed`), testar como aluno uma lição guiada ponta a ponta.
-5. Operações pendentes de antes: apagar as 13 submissões falsas e a conta `aluno.teste.claude@levelusp.dev`; push do `fix/ps1-utf8-bom`; SMTP; promover professores; rotacionar a chave do Supabase e desligar Supabase/Vercel.
+Pontos de conteúdo para revisão humana (nenhum impede a publicação; todos passam na verificação):
+- **Diagramas Mermaid (32):** passaram só na validação estrutural do lint; ninguém os viu renderizados.
+- **Tracebacks citados:** os dos módulos 5 e 8 foram copiados do CPython 3.14 do executor; os dos módulos
+  1 e 2 foram conferidos num CPython 3.13 e podem diferir em detalhe do que o player mostra.
+- **Exercícios que aceitam o valor pronto** (não há regra `source` para operador): m2-03 passos 3, 4 e 6
+  e m2-04 passos 5 e 7. Em m4-04 passo 4, resolver sem `continue` também passa. Em m4-07 passo 5,
+  `seed` e `randint` dentro do laço passam (a saída é idêntica).
+- **Funções antes do módulo 6:** o plano usa `def`/`return` em 11 dos 21 exercícios do módulo 5, e
+  `range(len(lista))`/`lista[i]` aparecem no módulo 4, antes de listas. Segue o plano; é a maior carga
+  para o iniciante e vale uma segunda opinião didática.
+- **Restrições de forma no projeto do nível (m9):** o passo 5 exige `sorted` (quem ordena uma cópia com
+  `.sort()` reprova) e o passo 3 exige "maior id + 1". O enunciado avisa; decidir se ficam.
+- **Mini-projeto de IMC (m3-05) passo 5** exige chamar as três funções; saída certa sem elas reprova.
+- **m6-05 passo 2** exige a palavra "devolve" na docstring ("retorna" reprova); o enunciado avisa.
+- **Leituras acima de ~400 palavras** em m4 (lições 04 a 07), m5 (05 e 07) e m9: o lint não mede.
+- **Instalação do Python no Windows (m1-04):** o roteiro descreve o instalador do python.org; conferir
+  contra a página atual antes de divulgar.
+- **PLANO.md do módulo 6** ainda cita `uses recursion` com `function`, que o harness não suporta
+  (as lições usam a regra sem `function`); ver `divida-tecnica.md`.
+- **XP total do nível:** as lições ganharam passos; se o total em "Estrutura do nível" do PLANO.md conta
+  o XP dos passos, precisa ser refeito.
+- Os passos sem `### Código inicial` dos mini-projetos dependem de o player manter o código do passo
+  anterior; isso está implementado e testado em vitest, mas não foi visto num navegador com a API real.
+
+### P4 — Integração e entrega — parte local CONCLUÍDA em 2026-11-14
+Feito nesta rodada: `pnpm build`, `pnpm lint` e `pnpm test` de todos os pacotes verdes; e2e (148),
+segurança (111) e ataques (40) da API; testes (62) e ataques (73) do runner com o Pyodide instalado;
+`arquitetura.md`, `testes.md`, `divida-tecnica.md` e `CURRICULO.md` atualizados.
+
+Falta, e depende do Filipe:
+1. `git push origin feat/curso-completo` (esta sessão não tem permissão de push).
+2. PR `feat/curso-completo` → `develop` com merge commit (nunca squash), CI verde, imagens GHCR.
+3. Rodar o Playwright da web (`pnpm --filter @levelusp/web test:e2e`) com a pilha no ar — não foi
+   rodado; não há fluxo escrito para o player de passos, as trilhas nem os recursos do P2b.
+4. Homolog (notebook servidor, PowerShell em `C:\dev\v0-level-usp-project`):
+   `.\infra\scripts\levelusp.ps1 update -Env homolog` (aplica as migrações 0004 e 0005), importar o
+   pacote (`POST /admin/content/import` ou `pnpm db:seed`) e testar como aluno uma lição guiada:
+   erro → dica → solução após 3 tentativas → aprovação → XP. Testar também uma lição com diagrama,
+   visualizador, lacunas, ordenar e Previsão.
+5. Operações acumuladas (confirmar antes de executar): apagar as 13 submissões falsas e a conta
+   `aluno.teste.claude@levelusp.dev`; push do `fix/ps1-utf8-bom`; SMTP; promover professores; rotacionar
+   a chave do Supabase e desligar Supabase/Vercel.
 
 ### P5 — Níveis 2–7 (sessões futuras)
 Um nível por sessão: escrever o `PLANO.md` do nível a partir dos roteiros, escrever as lições, provas com 40 questões, `content:verify` (níveis 4–6 usam `runtime: python-dados`; precisa do Pyodide no runner: `pnpm --filter @levelusp/runner setup:pyodide`), publicar.

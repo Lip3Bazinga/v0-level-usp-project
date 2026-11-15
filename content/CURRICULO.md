@@ -9,10 +9,12 @@ obrigatório; concluir os 7 dá o certificado da trilha.
 
 Os arquivos de conteúdo vivem em `content/` (formato em `docs/v2/curso-e-passos.md` §6):
 `content/trilhas/python-do-zero-a-ia.yaml` → `content/cursos/<nível>/curso.yaml` + `prova.yaml`
-→ `<NN>-<módulo>/modulo.yaml` → `<NN>-<lição>.lvl.md`. O Nível 1 está publicado e tem um plano de
-autoria detalhado em `content/cursos/n1-fundamentos/PLANO.md`; os Níveis 2 a 7 têm a estrutura
-completa (módulos, lições com objetivos e roteiro, provas iniciais) e ficam despublicados até o
-conteúdo de cada lição ser escrito e verificado.
+→ `<NN>-<módulo>/modulo.yaml` → `<NN>-<lição>.lvl.md`. O Nível 1 está publicado e **completo**
+(estado em 2026-11-14): as 47 lições escritas a partir do plano de autoria
+(`content/cursos/n1-fundamentos/PLANO.md`), com 281 passos — 133 exercícios e 65 previsões e blocos de
+visualização verificados no executor real (`pnpm content:verify --curso n1-fundamentos`). Os Níveis 2
+a 7 têm a estrutura completa (módulos, lições com objetivos e roteiro, provas iniciais) e ficam
+despublicados até o conteúdo de cada lição ser escrito e verificado, um nível por vez.
 
 ## Tabela de níveis
 
