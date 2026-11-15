@@ -35,6 +35,6 @@ tags:
 - LGPD
 horas: 40
 ordem: 7
-publicado: false
+publicado: true
 prerequisito: n6-deep-learning
 sequencial: false
