@@ -1,7 +1,7 @@
 ---
 slug: n3-m3-03-divisao-e-conquista
 titulo: Divisão e conquista
-descricao: 'Dividir, resolver e combinar: máximo recursivo, contagem de inversões, par de pontos mais próximo (versão simplificada) e a ideia do merge sort.'
+descricao: 'Dividir, resolver e combinar: máximo recursivo, busca binária recursiva, intercalação, contagem de inversões e soma máxima com o trecho que cruza a fronteira.'
 dificuldade: intermediario
 tipo: guiada
 runtime: python
@@ -19,47 +19,57 @@ objetivos:
 
 ## Passo 1 · Leitura · Dividir, conquistar e combinar
 
-O paradigma de **Divisão e Conquista (*Divide and Conquer*)** resolve um problema de tamanho $n$ em três etapas bem definidas:
+**Divisão e conquista** resolve um problema de tamanho $n$ em três etapas:
 
-1. **Dividir:** partir a instância atual em subproblemas menores do mesmo tipo (geralmente dividindo o intervalo $[ini, fim]$ ao meio em `meio = (ini + fim) // 2`).
-2. **Conquistar:** resolver cada subproblema recursivamente (ou diretamente, quando o tamanho chega ao caso base $n \le 1$).
-3. **Combinar:** juntar as respostas dos subproblemas para formar a resposta do problema original.
+1. **Dividir:** partir a entrada em pedaços menores do mesmo tipo, quase sempre ao meio. Com o trecho `v[ini..fim]`, inclusive nas duas pontas, `meio = (ini + fim) // 2` e as metades são `v[ini..meio]` e `v[meio+1..fim]`.
+2. **Conquistar:** resolver cada pedaço com a própria função, até o caso base (um elemento só, ou nenhum).
+3. **Combinar:** juntar as respostas dos pedaços na resposta do todo.
 
 ```mermaid
 flowchart TD
-    A["Problema [0..n-1]"] --> B["Dividir ao meio"]
-    B --> C["Conquistar metade esquerda<br/>[0..meio]"]
-    B --> D["Conquistar metade direita<br/>[meio+1..n-1]"]
-    C --> E["Combinar resultados"]
-    D --> E
+    A["v[ini..fim]"] --> B["v[ini..meio]"]
+    A --> C["v[meio+1..fim]"]
+    B --> D["resposta da esquerda"]
+    C --> E["resposta da direita"]
+    D --> F["combinar"]
+    E --> F
 ```
 
-#### Dois exemplos fundamentais
+O custo se lê nas etapas. Se cada chamada faz $a$ chamadas de tamanho $n/2$ e gasta $f(n)$ para dividir e combinar, então $T(n) = a\,T(n/2) + f(n)$. Dois exemplos com $f(n)$ constante mostram que o número de chamadas manda:
 
-1. **Máximo por divisão e conquista (2 ramos):** para achar o maior elemento de `lista[ini..fim]` sem usar `max()`, dividimos ao meio, achamos o máximo da esquerda `m_esq`, o máximo da direita `m_dir` e combinamos em $O(1)$ devolvendo `m_esq if m_esq >= m_dir else m_dir`. A recorrência é $T(n) = 2T(n/2) + O(1) \implies \Theta(n)$.
-2. **Busca binária recursiva (1 ramo só!):** em uma lista ordenada, comparamos `alvo` com `lista[meio]`. Se `alvo < lista[meio]`, descartamos toda a metade direita e chamamos apenas `busca_binaria_rec(lista, alvo, ini, meio - 1)`; se `alvo > lista[meio]`, chamamos apenas `busca_binaria_rec(lista, alvo, meio + 1, fim)`. Como fazemos **1 única chamada recursiva** de tamanho $n/2$, a recorrência é $T(n) = T(n/2) + O(1) \implies \Theta(\log n)$.
+```python
+def soma_dc(v, ini, fim):
+    if ini == fim:
+        return v[ini]
+    meio = (ini + fim) // 2
+    return soma_dc(v, ini, meio) + soma_dc(v, meio + 1, fim)   # duas chamadas
+```
 
-> **Cuidado clássico:** na busca binária recursiva, os novos limites devem ser `meio - 1` (à esquerda) e `meio + 1` (à direita). Se você passar `meio` sem somar 1 quando `ini + 1 == fim`, como `(ini + fim) // 2 == ini`, o intervalo nunca diminui e a função entra em recursão infinita!
+`soma_dc` resolve as duas metades: $T(n) = 2T(n/2) + \Theta(1)$. A árvore tem $n$ folhas e $n - 1$ nós internos, e o total é $\Theta(n)$, o mesmo de um laço. Para somar, dividir não compensa; serve só para ver a forma.
 
-## Passo 2 · Exercício · Máximo por divisão e conquista e busca binária recursiva
+A **busca binária** numa lista ordenada compara o alvo com `v[meio]` e descarta uma metade inteira: **uma** chamada só, $T(n) = T(n/2) + \Theta(1)$, que dá $\Theta(\log n)$. Atenção aos limites. Os novos trechos são `[ini, meio - 1]` e `[meio + 1, fim]`, porque `v[meio]` já foi testado. Passar `meio` no lugar de `meio + 1` parece inofensivo, mas quando `fim == ini + 1` o meio é o próprio `ini`, o trecho não diminui e a chamada se repete até o `RecursionError`.
 
-Implemente duas funções recursivas (sem usar a função embutida `max`):
-1. `maximo_dc(lista)`: recebe uma lista não vazia de números e devolve o maior elemento dividindo o intervalo `[ini, fim]` ao meio recursivamente.
-2. `busca_binaria_rec(lista, alvo, ini=0, fim=None)`: procura `alvo` na sublista ordenada `lista[ini..fim]` (se `fim is None`, use `len(lista) - 1`). Devolve o índice de `alvo` ou `-1` se não existir.
+Então quando dividir compensa? Quando combinar sai **barato** comparado ao que a força bruta faz através da fronteira. Contar pares fora de ordem numa lista testa $\frac{n(n-1)}{2}$ pares; com as duas metades já ordenadas, os pares que atravessam a fronteira se contam numa passada linear, e o total cai para $\Theta(n \log n)$. É o assunto dos próximos passos.
+
+## Passo 2 · Exercício · Máximo e busca binária recursivos
+
+Escreva duas funções recursivas.
+
+- `maximo_dc(lista)` devolve o maior elemento de uma lista não vazia, dividindo o trecho ao meio, sem `max()`. A verificação usa uma lista de 5 000 elementos.
+- `busca_binaria_rec(lista, alvo, ini=0, fim=None)` procura `alvo` na lista ordenada, no trecho `lista[ini..fim]` (com `fim` `None`, use o último índice), e devolve o índice dele ou `-1`. Sem fatias: a verificação conta quantas vezes a lista é lida e quantas fatias são criadas.
 
 ### Instruções
-1. Em `maximo_dc(lista)`, defina uma função auxiliar recursiva ` resolver(ini, fim)` (ou passe índices): se `ini == fim`, devolva `lista[ini]`; caso contrário, calcule `meio = (ini + fim) // 2`, obtenha `esq = resolver(ini, meio)` e `dir = resolver(meio + 1, fim)`, e devolva o maior dos dois com `if/else` (sem `max()`).
-2. Em `busca_binaria_rec(lista, alvo, ini=0, fim=None)`, inicialize `fim = len(lista) - 1` quando `fim is None`. Se `ini > fim`, devolva `-1`. Calcule `meio = (ini + fim) // 2`: se `lista[meio] == alvo`, devolva `meio`; se `alvo < lista[meio]`, recurse em `[ini, meio - 1]`; senão, recurse em `[meio + 1, fim]`.
+1. Em `maximo_dc`, use uma função auxiliar com `ini` e `fim`: um elemento é o caso base; senão, divida em `[ini, meio]` e `[meio + 1, fim]` e combine com uma comparação.
+2. Em `busca_binaria_rec`, trate o trecho vazio como caso base e compare o alvo com o elemento do meio.
+3. Continue só na metade em que o alvo pode estar, excluindo o meio já testado.
 
 ### Código inicial
 ```python
 def maximo_dc(lista):
-    # Encontre o maior elemento por divisão e conquista (sem usar max())
     pass
 
 
 def busca_binaria_rec(lista, alvo, ini=0, fim=None):
-    # Procure alvo recursivamente em lista[ini..fim] e devolva o índice ou -1
     pass
 ```
 
@@ -91,84 +101,195 @@ def busca_binaria_rec(lista, alvo, ini=0, fim=None):
 ```
 
 ### Dicas
-1. Em `maximo_dc`, use índices `(ini, fim)` em vez de fatiar `lista[:meio]`, assim não há cópia de sublistas e o caso base é simplesmente `if ini == fim: return lista[ini]`.
-2. Em `busca_binaria_rec`, o caso base de falha é `if ini > fim: return -1` (que também trata automaticamente `lista == []`, pois `ini = 0` e `fim = -1`).
+1. Com `ini` e `fim` inclusivos, as metades `[ini, meio]` e `[meio + 1, fim]` nunca ficam vazias quando o trecho tem 2 ou mais elementos.
+2. O trecho fica vazio quando `ini` passa de `fim`; com a lista vazia, isso já vale na primeira chamada.
+3. Um trecho de um elemento ainda precisa ser examinado: ele pode ser o alvo.
 
 ### Verificação
 ```json
 [
-  {
-    "id": "sem-max",
-    "checkpoint": 1,
-    "kind": "source",
-    "rule": { "type": "not_calls", "name": "max" },
-    "name": "Não usa a função embutida max()"
-  },
-  {
-    "id": "usa-recursao",
-    "checkpoint": 1,
-    "kind": "source",
-    "rule": { "type": "uses", "construct": "recursion" },
-    "name": "Utiliza recursão"
-  },
-  {
-    "id": "maximo-dc-casos",
-    "checkpoint": 1,
-    "kind": "expr",
-    "expr": "[maximo_dc([42]), maximo_dc([3, 19, 7, 25, 2, 18]), maximo_dc([-10, -3, -50, -1, -8])]",
-    "expected": [42, 25, -1],
-    "name": "maximo_dc funciona para 1 elemento, positivos e todos negativos"
-  },
-  {
-    "id": "busca-binaria-rec-casos",
-    "checkpoint": 2,
-    "kind": "expr",
-    "setup": "v = [2, 5, 8, 12, 16, 23, 38, 56, 72, 91]",
-    "expr": "[busca_binaria_rec(v, 2), busca_binaria_rec(v, 23), busca_binaria_rec(v, 91), busca_binaria_rec(v, 50), busca_binaria_rec([], 10)]",
-    "expected": [0, 5, 9, -1, -1],
-    "name": "busca_binaria_rec encontra início, meio, fim e devolve -1 quando ausente ou vazia"
-  }
+  { "id": "sem-max", "checkpoint": 1, "kind": "source", "rule": { "type": "not_calls", "name": "max" },
+    "name": "Não usa max()" },
+  { "id": "usa-recursao", "checkpoint": 1, "kind": "source", "rule": { "type": "uses", "construct": "recursion" },
+    "name": "Usa recursão" },
+  { "id": "max-basicos", "checkpoint": 1, "kind": "expr", "expr": "[maximo_dc([42]), maximo_dc([3, 19, 7, 25, 2, 18]), maximo_dc([-10, -3, -50, -1, -8])]", "expected": [42, 25, -1],
+    "name": "maximo_dc com 1 elemento, positivos e negativos" },
+  { "id": "max-pontas", "checkpoint": 1, "kind": "expr", "expr": "[maximo_dc([9, 1, 2]), maximo_dc([1, 2, 9]), maximo_dc([4, 4])]", "expected": [9, 9, 4],
+    "name": "O maior na primeira posição, na última e empatado" },
+  { "id": "max-5000", "checkpoint": 1, "kind": "expr", "expr": "maximo_dc([(i * 7919) % 5000 for i in range(5000)])", "expected": 4999,
+    "name": "5000 elementos sem RecursionError", "hint": "Tirar um elemento por chamada empilha 5000 chamadas; dividir ao meio empilha cerca de 13." },
+  { "id": "busca-achados", "checkpoint": 2, "kind": "expr", "setup": "v = [2, 5, 8, 12, 16, 23, 38, 56, 72, 91]",
+    "expr": "[busca_binaria_rec(v, 2), busca_binaria_rec(v, 23), busca_binaria_rec(v, 91), busca_binaria_rec(v, 12)]", "expected": [0, 5, 9, 3],
+    "name": "Acha o primeiro, o do meio, o último e o 12", "hint": "Um trecho de um elemento ainda pode conter o alvo." },
+  { "id": "busca-ausentes", "checkpoint": 3, "kind": "expr", "setup": "v = [2, 5, 8, 12, 16, 23, 38, 56, 72, 91]",
+    "expr": "[busca_binaria_rec(v, 1), busca_binaria_rec(v, 50), busca_binaria_rec(v, 100)]", "expected": [-1, -1, -1],
+    "name": "Ausentes abaixo, no meio e acima devolvem -1", "hint": "Se o trecho não diminui a cada chamada, a recursão não para." },
+  { "id": "busca-pequenas", "checkpoint": 2, "kind": "expr", "expr": "[busca_binaria_rec([], 10), busca_binaria_rec([7], 7), busca_binaria_rec([7], 3), busca_binaria_rec([4, 9], 9), busca_binaria_rec([4, 9], 4)]", "expected": [-1, 0, -1, 1, 0],
+    "name": "Listas com 0, 1 e 2 elementos" },
+  { "id": "busca-trecho", "checkpoint": 3, "kind": "expr", "expr": "[busca_binaria_rec([1, 3, 5, 7, 9], 3, 2, 4), busca_binaria_rec([1, 3, 5, 7, 9], 7, 2, 4)]", "expected": [-1, 3],
+    "name": "Respeita ini e fim recebidos" },
+  { "id": "busca-leituras", "checkpoint": 3, "kind": "expr",
+    "setup": "class Lida(list):\n    leituras = 0\n    fatias = 0\n    def __getitem__(self, k):\n        if isinstance(k, slice):\n            Lida.fatias += 1\n        else:\n            Lida.leituras += 1\n        return list.__getitem__(self, k)\nv = Lida(range(0, 200000, 2))\nr = [busca_binaria_rec(v, 0), busca_binaria_rec(v, 123456), busca_binaria_rec(v, 199998), busca_binaria_rec(v, 77777)]",
+    "expr": "[r, Lida.leituras <= 4 * 40, Lida.fatias]", "expected": [[0, 61728, 99999, -1], true, 0],
+    "name": "100 mil elementos: no máximo 40 leituras por busca e nenhuma fatia",
+    "hint": "Fatias copiam metade da lista a cada chamada: passe ini e fim." }
 ]
 ```
 
 ### Soluções erradas
-```python name="esquece de excluir meio (meio em vez de meio + 1) e entra em recursão infinita"
+```python name="busca continua do meio, sem excluí-lo"
 def maximo_dc(lista):
-    return lista[0]
+    def resolver(ini, fim):
+        if ini == fim:
+            return lista[ini]
+        meio = (ini + fim) // 2
+        esq = resolver(ini, meio)
+        dir = resolver(meio + 1, fim)
+        return esq if esq >= dir else dir
+
+    return resolver(0, len(lista) - 1)
+
+
+def busca_binaria_rec(lista, alvo, ini=0, fim=None):
+    if fim is None:
+        fim = len(lista) - 1
+    if ini > fim:
+        return -1
+    meio = (ini + fim) // 2
+    if lista[meio] == alvo:
+        return meio
+    if alvo < lista[meio]:
+        return busca_binaria_rec(lista, alvo, ini, meio - 1)
+    return busca_binaria_rec(lista, alvo, meio, fim)
+```
+```python name="busca para com um elemento sem testá-lo"
+def maximo_dc(lista):
+    def resolver(ini, fim):
+        if ini == fim:
+            return lista[ini]
+        meio = (ini + fim) // 2
+        esq = resolver(ini, meio)
+        dir = resolver(meio + 1, fim)
+        return esq if esq >= dir else dir
+
+    return resolver(0, len(lista) - 1)
 
 
 def busca_binaria_rec(lista, alvo, ini=0, fim=None):
     if fim is None:
         fim = len(lista) - 1
     if ini >= fim:
-        return ini if (lista and lista[ini] == alvo) else -1
+        return -1
     meio = (ini + fim) // 2
     if lista[meio] == alvo:
         return meio
     if alvo < lista[meio]:
-        return busca_binaria_rec(lista, alvo, ini, meio)
-    return busca_binaria_rec(lista, alvo, meio, fim)
+        return busca_binaria_rec(lista, alvo, ini, meio - 1)
+    return busca_binaria_rec(lista, alvo, meio + 1, fim)
 ```
-```python name="falha para listas com números negativos em maximo_dc"
+```python name="busca com fatias e deslocamento"
 def maximo_dc(lista):
-    maior = 0
-    for x in lista:
-        if x > maior:
-            maior = x
-    return maior
+    def resolver(ini, fim):
+        if ini == fim:
+            return lista[ini]
+        meio = (ini + fim) // 2
+        esq = resolver(ini, meio)
+        dir = resolver(meio + 1, fim)
+        return esq if esq >= dir else dir
+
+    return resolver(0, len(lista) - 1)
 
 
 def busca_binaria_rec(lista, alvo, ini=0, fim=None):
-    return -1
+    if fim is None:
+        fim = len(lista) - 1
+    if ini > fim:
+        return -1
+    meio = (ini + fim) // 2
+    if lista[meio] == alvo:
+        return meio
+    if alvo < lista[meio]:
+        return busca_binaria_rec(lista[:meio], alvo)
+    r = busca_binaria_rec(lista[meio + 1:fim + 1], alvo)
+    return -1 if r == -1 else meio + 1 + r
+```
+```python name="busca com fatias perde o deslocamento"
+def maximo_dc(lista):
+    def resolver(ini, fim):
+        if ini == fim:
+            return lista[ini]
+        meio = (ini + fim) // 2
+        esq = resolver(ini, meio)
+        dir = resolver(meio + 1, fim)
+        return esq if esq >= dir else dir
+
+    return resolver(0, len(lista) - 1)
+
+
+def busca_binaria_rec(lista, alvo, ini=0, fim=None):
+    if not lista:
+        return -1
+    meio = len(lista) // 2
+    if lista[meio] == alvo:
+        return meio
+    if alvo < lista[meio]:
+        return busca_binaria_rec(lista[:meio], alvo)
+    return busca_binaria_rec(lista[meio + 1:], alvo)
+```
+```python name="máximo divide em [ini, meio - 1] e [meio, fim]"
+def maximo_dc(lista):
+    def resolver(ini, fim):
+        if ini == fim:
+            return lista[ini]
+        meio = (ini + fim) // 2
+        esq = resolver(ini, meio - 1)
+        dir = resolver(meio, fim)
+        return esq if esq >= dir else dir
+
+    return resolver(0, len(lista) - 1)
+
+
+def busca_binaria_rec(lista, alvo, ini=0, fim=None):
+    if fim is None:
+        fim = len(lista) - 1
+    if ini > fim:
+        return -1
+    meio = (ini + fim) // 2
+    if lista[meio] == alvo:
+        return meio
+    if alvo < lista[meio]:
+        return busca_binaria_rec(lista, alvo, ini, meio - 1)
+    return busca_binaria_rec(lista, alvo, meio + 1, fim)
+```
+```python name="máximo tira um elemento por chamada"
+def maximo_dc(lista):
+    def resolver(ini):
+        if ini == len(lista) - 1:
+            return lista[ini]
+        resto = resolver(ini + 1)
+        return lista[ini] if lista[ini] >= resto else resto
+
+    return resolver(0)
+
+
+def busca_binaria_rec(lista, alvo, ini=0, fim=None):
+    if fim is None:
+        fim = len(lista) - 1
+    if ini > fim:
+        return -1
+    meio = (ini + fim) // 2
+    if lista[meio] == alvo:
+        return meio
+    if alvo < lista[meio]:
+        return busca_binaria_rec(lista, alvo, ini, meio - 1)
+    return busca_binaria_rec(lista, alvo, meio + 1, fim)
 ```
 
-## Passo 3 · Leitura · Intercalação linear e contagem de inversões em $O(n \log n)$
+## Passo 3 · Leitura · Intercalar e contar inversões
 
-A etapa de **combinação** mais famosa da computação é a **intercalação (*merge*)** de duas listas já ordenadas `a` e `b` em uma única lista ordenada. Mantemos dois índices `i = 0` (em `a`) e `j = 0` (em `b`): a cada passo, comparamos `a[i]` com `b[j]`, anexamos o menor em `resultado` e avançamos apenas o índice daquele que foi escolhido. Quando uma das listas termina, copiamos o restante da outra com `.extend()`.
+A etapa de combinar mais usada é a **intercalação**: juntar duas listas já ordenadas `a` e `b` numa só, ordenada. Dois índices, `i` em `a` e `j` em `b`, apontam o menor elemento que falta em cada lista. A cada volta, o menor dos dois vai para o resultado, e só o índice dele avança. Quando uma lista acaba, o resto da outra já está em ordem e entra inteiro.
 
-Como cada comparação avança `i` ou `j` em $+1$, intercalar duas listas de tamanhos $n_1$ e $n_2$ leva tempo estritamente **linear $\Theta(n_1 + n_2)$**! *(Jamais use `a.pop(0)` para intercalar: como vimos no Módulo 2, `pop(0)` custa $O(n)$ e estraga a intercalação para $O(n^2)$!)*
-
-Veja a intercalação em ação no visualizador:
+Cada comparação coloca um elemento no resultado, então intercalar listas de tamanhos $n_1$ e $n_2$ faz no máximo $n_1 + n_2 - 1$ comparações: custo $\Theta(n_1 + n_2)$. O jeito tentador de escrever, com `a.pop(0)`, esconde um custo $\Theta(n)$ em cada retirada, porque todos os elementos seguintes andam uma posição (módulo 2). A intercalação vira quadrática e ainda esvazia as listas de quem chamou.
 
 ```python visualizar
 def intercalar(a, b):
@@ -185,28 +306,31 @@ def intercalar(a, b):
     res.extend(b[j:])
     return res
 
+
 print(intercalar([1, 4, 7], [2, 3, 9]))
 ```
 
-#### Contando inversões em $O(n \log n)$
+Uma **inversão** numa lista `v` é um par de posições $p < q$ com `v[p] > v[q]`: um elemento maior antes de um menor. A lista ordenada tem 0 inversões e a lista em ordem decrescente tem $\frac{n(n-1)}{2}$, o máximo. O número mede o quanto a lista está fora de ordem. Comparar o ranking de uma turma em duas provas, por exemplo, é contar as inversões de uma ordem em relação à outra.
 
-Em uma lista `v`, uma **inversão** é qualquer par de índices $(p, q)$ com $p < q$ tal que $v[p] > v[q]$ (um elemento maior aparecendo antes de um menor). O número de inversões mede o quão "fora de ordem" a lista está ($0$ se ordenada; $\frac{n(n-1)}{2}$ se invertida).
+A força bruta testa todos os pares: $\Theta(n^2)$ comparações, mais de 500 mil com $n = 1\,024$. Com divisão e conquista:
 
-Testar todos os pares $(p, q)$ custa $\Theta(n^2)$. Com divisão e conquista, contamos as inversões em **$\Theta(n \log n)$** acoplando a contagem ao *Merge Sort*:
-1. Dividimos a lista ao meio e contamos recursivamente as inversões internas da metade esquerda (`inv_esq`, que já devolve a metade esquerda ordenada) e da metade direita (`inv_dir`, que já devolve a metade direita ordenada).
-2. Ao intercalar as duas metades ordenadas `esq` e `dir`:
-   - Se `esq[i] <= dir[j]`, `esq[i]` não forma inversão com `dir[j]`.
-   - Se `esq[i] > dir[j]`, então **todos os elementos restantes em `esq` a partir de `i`** (`esq[i], esq[i+1], ..., esq[-1]`, que são `len(esq) - i` elementos!) também são maiores que `dir[j]`, pois `esq` está ordenada! Somamos **`len(esq) - i`** ao contador de inversões de uma só vez!
+1. Conte as inversões da metade esquerda e as da direita, recursivamente. Cada chamada também devolve sua metade **ordenada**.
+2. Faltam as inversões **cruzadas**, com um elemento em cada metade. Ordenar uma metade não muda quantas existem, porque todo elemento da esquerda continua antes de todo elemento da direita.
+3. Conte-as durante a intercalação. Quando `esq[i] > dir[j]`, o `dir[j]` forma inversão com `esq[i]` e com **todos** os que vêm depois de `esq[i]`, que são maiores ou iguais a ele. São `len(esq) - i` inversões de uma vez, contadas em $O(1)$.
 
-## Passo 4 · Exercício · Intercalando duas listas ordenadas em $O(n + m)$
+Empates não são inversões: com `esq[i] == dir[j]`, o da esquerda sai primeiro, sem contar nada. Por isso a comparação é `<=`.
+
+O trabalho fora das chamadas é a intercalação, $\Theta(n)$: $T(n) = 2T(n/2) + \Theta(n)$, que dá $\Theta(n \log n)$. É o padrão que o merge sort vai repetir no módulo 4.
+
+## Passo 4 · Exercício · Monte a intercalação
 modo: ordenar
 
-Ordene e indente as linhas para montar `intercalar(a, b)`, que recebe duas listas ordenadas `a` e `b` e devolve uma nova lista ordenada com todos os elementos de ambas em tempo linear $O(\text{len}(a) + \text{len}(b))$. Há duas linhas distratoras.
+Ordene e indente as linhas para montar `intercalar(a, b)`, que recebe duas listas ordenadas e devolve uma lista nova, ordenada, com os elementos das duas. As listas recebidas não podem mudar. Duas linhas estão sobrando.
 
 ### Instruções
-1. Inicialize `res = []`, `i = 0` e `j = 0`.
-2. Enquanto `i < len(a) and j < len(b)`, compare `a[i] <= b[j]`: se verdadeiro, anexe `a[i]` e incremente `i += 1`; senão, anexe `b[j]` e incremente `j += 1`.
-3. Ao sair do laço, estenda `res` com `a[i:]` e `b[j:]` e devolva `res`.
+1. Comece o resultado vazio e os dois índices no começo das listas.
+2. Enquanto as duas listas tiverem elementos, copie o menor dos dois atuais e avance só o índice dele.
+3. Ao sair do laço, copie o que sobrou de cada lista e devolva o resultado.
 
 ### Solução
 ```python
@@ -232,50 +356,37 @@ res.append(a.pop(0))
 ```
 
 ### Dicas
-1. O laço `while` deve rodar apenas enquanto **ambas** as listas ainda têm elementos (`i < len(a) and j < len(b)`).
-2. Os dois `.extend()` após o `while` copiam as sobras da lista que ainda não chegou ao fim.
+1. O laço só pode comparar `a[i]` com `b[j]` enquanto os dois índices são válidos.
+2. Quando o laço termina, não dá para saber de antemão qual das listas ainda tem elementos.
+3. `pop(0)` altera a lista de quem chamou e desloca todos os elementos restantes.
 
 ### Verificação
 ```json
 [
-  {
-    "id": "sem-pop",
-    "checkpoint": 2,
-    "kind": "source",
-    "rule": { "type": "not_calls", "name": "pop" },
-    "name": "Não usa pop() (percorre com índices i e j em O(n + m))"
-  },
-  {
-    "id": "intercalar-basico",
-    "checkpoint": 2,
-    "kind": "call",
-    "function": "intercalar",
-    "args": [[1, 3, 5, 7], [2, 4, 6, 8, 10]],
-    "expected": [1, 2, 3, 4, 5, 6, 7, 8, 10],
-    "name": "Intercala [1, 3, 5, 7] e [2, 4, 6, 8, 10]"
-  },
-  {
-    "id": "intercalar-vazias-e-repetidos",
-    "checkpoint": 3,
-    "kind": "expr",
-    "expr": "[intercalar([], [1, 2]), intercalar([1, 2], []), intercalar([1, 2, 2], [2, 3])]",
-    "expected": [[1, 2], [1, 2], [1, 2, 2, 2, 3]],
-    "name": "Trata listas vazias e elementos repetidos"
-  },
-  {
-    "id": "intercalar-100k-linear",
-    "checkpoint": 3,
-    "kind": "expr",
-    "setup": "a = list(range(0, 100000, 2))\nb = list(range(1, 100000, 2))\nc = intercalar(a, b)",
-    "expr": "[len(c), c[:5], c[-2:]]",
-    "expected": [100000, [0, 1, 2, 3, 4], [99998, 99999]],
-    "name": "Intercala 100.000 elementos em tempo linear O(n)"
-  }
+  { "id": "sem-pop", "checkpoint": 2, "kind": "source", "rule": { "type": "not_calls", "name": "pop" },
+    "name": "Não usa pop()" },
+  { "id": "intercala", "checkpoint": 2, "kind": "call", "function": "intercalar", "args": [[1, 3, 5, 7], [2, 4, 6, 8, 10]], "expected": [1, 2, 3, 4, 5, 6, 7, 8, 10],
+    "name": "intercalar([1, 3, 5, 7], [2, 4, 6, 8, 10])" },
+  { "id": "sobra-a", "checkpoint": 3, "kind": "call", "function": "intercalar", "args": [[4, 8, 9], [1, 2]], "expected": [1, 2, 4, 8, 9],
+    "name": "Sobra em a", "hint": "Quando b acaba, o resto de a ainda precisa entrar." },
+  { "id": "sobra-b", "checkpoint": 3, "kind": "call", "function": "intercalar", "args": [[1, 3], [2, 5, 7]], "expected": [1, 2, 3, 5, 7],
+    "name": "Sobra em b" },
+  { "id": "vazias", "checkpoint": 1, "kind": "expr", "expr": "[intercalar([], [1, 2]), intercalar([1, 2], []), intercalar([], [])]", "expected": [[1, 2], [1, 2], []],
+    "name": "Listas vazias" },
+  { "id": "repetidos", "checkpoint": 2, "kind": "call", "function": "intercalar", "args": [[1, 2, 2], [2, 3]], "expected": [1, 2, 2, 2, 3],
+    "name": "Elementos repetidos" },
+  { "id": "nao-altera", "checkpoint": 1, "kind": "expr", "setup": "a = [1, 4]\nb = [2, 3]\nr = intercalar(a, b)",
+    "expr": "[r, a, b]", "expected": [[1, 2, 3, 4], [1, 4], [2, 3]],
+    "name": "Não altera as listas recebidas" },
+  { "id": "comparacoes", "checkpoint": 2, "kind": "expr",
+    "setup": "class K:\n    n = 0\n    def __init__(self, v):\n        self.v = v\n    def __lt__(self, o):\n        K.n += 1\n        return self.v < o.v\n    def __le__(self, o):\n        K.n += 1\n        return self.v <= o.v\n    def __gt__(self, o):\n        K.n += 1\n        return self.v > o.v\n    def __ge__(self, o):\n        K.n += 1\n        return self.v >= o.v\nr = intercalar([K(2 * i) for i in range(50)], [K(2 * i + 1) for i in range(50)])",
+    "expr": "[[x.v for x in r] == list(range(100)), K.n <= 99]", "expected": [true, true],
+    "name": "50 + 50 elementos com no máximo 99 comparações" }
 ]
 ```
 
 ### Soluções erradas
-```python name="esquece de anexar o restante da segunda lista"
+```python name="esquece a sobra de b"
 def intercalar(a, b):
     res = []
     i, j = 0, 0
@@ -286,12 +397,25 @@ def intercalar(a, b):
         else:
             res.append(b[j])
             j += 1
+    res.extend(a[i:])
     return res
 ```
-```python name="usa pop(0) quadrático e estoura tempo para 100k"
+```python name="esquece a sobra de a"
 def intercalar(a, b):
-    a = list(a)
-    b = list(b)
+    res = []
+    i, j = 0, 0
+    while i < len(a) and j < len(b):
+        if a[i] <= b[j]:
+            res.append(a[i])
+            i += 1
+        else:
+            res.append(b[j])
+            j += 1
+    res.extend(b[j:])
+    return res
+```
+```python name="retira com pop(0)"
+def intercalar(a, b):
     res = []
     while a and b:
         if a[0] <= b[0]:
@@ -302,21 +426,34 @@ def intercalar(a, b):
     res.extend(b)
     return res
 ```
+```python name="laço com or passa do fim de uma lista"
+def intercalar(a, b):
+    res = []
+    i, j = 0, 0
+    while i < len(a) or j < len(b):
+        if a[i] <= b[j]:
+            res.append(a[i])
+            i += 1
+        else:
+            res.append(b[j])
+            j += 1
+    return res
+```
 
-## Passo 5 · Exercício · Contando inversões em $O(n \log n)$
+## Passo 5 · Exercício · Contar inversões em n log n
 
-Implemente `contar_inversoes(lista)`, que recebe uma lista de números e devolve o número total de pares $(i, j)$ com $i < j$ e `lista[i] > lista[j]`. Sua implementação será testada com uma lista de $20\,000$ elementos, portanto o algoritmo quadrático de força bruta estourará o tempo limite!
+Escreva `contar_inversoes(lista)`, que devolve o número de pares $p < q$ com `lista[p] > lista[q]`, por divisão e conquista. A lista recebida não pode mudar. A verificação conta as comparações entre elementos: com 1 024 elementos, aceite no máximo 12 000 (a força bruta faz mais de 500 mil).
+
+Exemplo: `contar_inversoes([2, 4, 1, 3, 5])` é `3`, pelos pares (2, 1), (4, 1) e (4, 3).
 
 ### Instruções
-1. Defina uma função auxiliar recursiva `ordenar_e_contar(sublista)` que devolve uma tupla `(lista_ordenada, total_inversoes)`.
-2. Caso base: se `len(sublista) <= 1`, devolva `(sublista, 0)`.
-3. Divida `sublista` ao meio, chame `esq, inv_esq = ordenar_e_contar(sublista[:meio])` e `dir, inv_dir = ordenar_e_contar(sublista[meio:])`.
-4. Intercale `esq` e `dir`: sempre que `esq[i] <= dir[j]`, anexe `esq[i]` e avance `i`; quando `esq[i] > dir[j]`, anexe `dir[j]`, avance `j` e some `len(esq) - i` ao contador `inv_cruzadas`. Devolva `(intercalada, inv_esq + inv_dir + inv_cruzadas)` e, em `contar_inversoes(lista)`, retorne apenas o total de inversões.
+1. Use uma função auxiliar que devolve a tupla `(sublista_ordenada, inversões)`, com caso base para listas de 0 ou 1 elemento.
+2. Some as inversões das duas metades às cruzadas, contadas durante a intercalação delas.
+3. Quando o elemento da direita sair antes, some de uma vez todos os elementos que ainda restam na esquerda; empates não contam.
 
 ### Código inicial
 ```python
 def contar_inversoes(lista):
-    # Conte o total de inversões (i < j e lista[i] > lista[j]) em O(n log n)
     pass
 ```
 
@@ -324,89 +461,15 @@ def contar_inversoes(lista):
 ```python
 def contar_inversoes(lista):
     def ordenar_e_contar(v):
-        n = len(v)
-        if n <= 1:
-            return v, 0
-        meio = n // 2
+        if len(v) <= 1:
+            return list(v), 0
+        meio = len(v) // 2
         esq, inv_esq = ordenar_e_contar(v[:meio])
         dir, inv_dir = ordenar_e_contar(v[meio:])
         res = []
         i = 0
         j = 0
-        inv_cruzadas = 0
-        tam_esq = len(esq)
-        tam_dir = len(dir)
-        while i < tam_esq and j < tam_dir:
-            if esq[i] <= dir[j]:
-                res.append(esq[i])
-                i += 1
-            else:
-                res.append(dir[j])
-                j += 1
-                inv_cruzadas += tam_esq - i
-        res.extend(esq[i:])
-        res.extend(dir[j:])
-        return res, inv_esq + inv_dir + inv_cruzadas
-
-    _, total = ordenar_e_contar(lista)
-    return total
-```
-
-### Dicas
-1. Para elementos iguais (`esq[i] == dir[j]`), isso **não** é uma inversão: por isso usamos `if esq[i] <= dir[j]:` para consumir primeiro o elemento da esquerda sem incrementar `inv_cruzadas`.
-2. Quando `esq[i] > dir[j]`, todos os `len(esq) - i` elementos que restam em `esq` são maiores que `dir[j]`.
-
-### Verificação
-```json
-[
-  {
-    "id": "inversoes-pequenas",
-    "checkpoint": 1,
-    "kind": "expr",
-    "expr": "[contar_inversoes([1, 2, 3, 4]), contar_inversoes([2, 4, 1, 3, 5]), contar_inversoes([5, 4, 3, 2, 1])]",
-    "expected": [0, 3, 10],
-    "name": "Calcula inversões para lista ordenada (0), [2, 4, 1, 3, 5] (3) e reversa de 5 itens (10)"
-  },
-  {
-    "id": "inversoes-Com-iguais",
-    "checkpoint": 4,
-    "kind": "call",
-    "function": "contar_inversoes",
-    "args": [[2, 2, 1, 2]],
-    "expected": 2,
-    "name": "Não conta elementos iguais como inversão ([2, 2, 1, 2] -> 2)"
-  },
-  {
-    "id": "inversoes-20k-desempenho",
-    "checkpoint": 4,
-    "kind": "expr",
-    "setup": "v = list(range(20000, 0, -1))",
-    "expr": "contar_inversoes(v)",
-    "expected": 199990000,
-    "name": "Conta as 199.990.000 inversões de 20.000 elementos em ordem reversa em O(n log n)"
-  }
-]
-```
-
-### Soluções erradas
-```python name="conta apenas inversões entre elementos vizinhos adjacentes"
-def contar_inversoes(lista):
-    cont = 0
-    for i in range(len(lista) - 1):
-        if lista[i] > lista[i + 1]:
-            cont += 1
-    return cont
-```
-```python name="soma apenas 1 em vez de len(esq) - i quando esq[i] > dir[j]"
-def contar_inversoes(lista):
-    def ordenar_e_contar(v):
-        if len(v) <= 1:
-            return v, 0
-        meio = len(v) // 2
-        esq, ie = ordenar_e_contar(v[:meio])
-        dir, idir = ordenar_e_contar(v[meio:])
-        res = []
-        i = j = ic = 0
+        cruzadas = 0
         while i < len(esq) and j < len(dir):
             if esq[i] <= dir[j]:
                 res.append(esq[i])
@@ -414,28 +477,474 @@ def contar_inversoes(lista):
             else:
                 res.append(dir[j])
                 j += 1
-                ic += 1
+                cruzadas += len(esq) - i
         res.extend(esq[i:])
         res.extend(dir[j:])
-        return res, ie + idir + ic
+        return res, inv_esq + inv_dir + cruzadas
 
     return ordenar_e_contar(lista)[1]
 ```
 
-## Passo 6 · Quiz · Divisão e conquista
+### Dicas
+1. A contagem das cruzadas só funciona se as duas metades chegarem ordenadas à intercalação.
+2. Quando `esq[i] > dir[j]`, quantos elementos da esquerda são maiores que `dir[j]`?
+3. Dois elementos iguais não formam inversão: no empate, o da esquerda sai primeiro.
+
+### Verificação
+```json
+[
+  { "id": "usa-recursao", "checkpoint": 1, "kind": "source", "rule": { "type": "uses", "construct": "recursion" },
+    "name": "Usa recursão" },
+  { "id": "pequenas", "checkpoint": 2, "kind": "expr", "expr": "[contar_inversoes([1, 2, 3, 4]), contar_inversoes([2, 4, 1, 3, 5]), contar_inversoes([5, 4, 3, 2, 1])]", "expected": [0, 3, 10],
+    "name": "Ordenada (0), [2, 4, 1, 3, 5] (3) e decrescente de 5 (10)", "hint": "Pares não vizinhos também são inversões." },
+  { "id": "bordas", "checkpoint": 1, "kind": "expr", "expr": "[contar_inversoes([]), contar_inversoes([7]), contar_inversoes([2, 1])]", "expected": [0, 0, 1],
+    "name": "Listas com 0, 1 e 2 elementos" },
+  { "id": "iguais", "checkpoint": 3, "kind": "expr", "expr": "[contar_inversoes([2, 2, 1, 2]), contar_inversoes([3, 3, 3]), contar_inversoes([1, 3, 3, 2])]", "expected": [2, 0, 2],
+    "name": "Iguais não são inversões", "hint": "No empate, o elemento da esquerda sai primeiro, sem contar." },
+  { "id": "cruzadas", "checkpoint": 3, "kind": "call", "function": "contar_inversoes", "args": [[6, 7, 8, 1, 2]], "expected": 6,
+    "name": "contar_inversoes([6, 7, 8, 1, 2]) é 6", "hint": "Quando um elemento da direita sai, ele forma inversão com todos os que restam na esquerda." },
+  { "id": "confere-bruta", "checkpoint": 2, "kind": "expr", "setup": "w = [(i * 37) % 101 for i in range(200)]",
+    "expr": "contar_inversoes(w) == sum(1 for p in range(200) for q in range(p + 1, 200) if w[p] > w[q])", "expected": true,
+    "name": "Confere com a força bruta em 200 elementos", "hint": "As metades precisam voltar ordenadas para a intercalação de cima." },
+  { "id": "nao-altera", "checkpoint": 1, "kind": "expr", "setup": "v = [3, 1, 2]\nr = contar_inversoes(v)",
+    "expr": "[r, v]", "expected": [2, [3, 1, 2]], "name": "Não altera a lista recebida" },
+  { "id": "comparacoes", "checkpoint": 2, "kind": "expr",
+    "setup": "class K:\n    n = 0\n    def __init__(self, v):\n        self.v = v\n    def __lt__(self, o):\n        K.n += 1\n        return self.v < o.v\n    def __le__(self, o):\n        K.n += 1\n        return self.v <= o.v\n    def __gt__(self, o):\n        K.n += 1\n        return self.v > o.v\n    def __ge__(self, o):\n        K.n += 1\n        return self.v >= o.v\nv = [K((i * 389) % 1024) for i in range(1024)]\nr = contar_inversoes(v)",
+    "expr": "[r, K.n <= 12000]", "expected": [262092, true],
+    "name": "1024 elementos: 262092 inversões com no máximo 12000 comparações",
+    "hint": "Testar todos os pares faz mais de 500 mil comparações." }
+]
+```
+
+### Soluções erradas
+```python name="força bruta com todos os pares"
+def contar_inversoes(lista):
+    total = 0
+    for p in range(len(lista)):
+        for q in range(p + 1, len(lista)):
+            if lista[p] > lista[q]:
+                total += 1
+    return total
+```
+```python name="< na intercalação conta os empates"
+def contar_inversoes(lista):
+    def ordenar_e_contar(v):
+        if len(v) <= 1:
+            return list(v), 0
+        meio = len(v) // 2
+        esq, inv_esq = ordenar_e_contar(v[:meio])
+        dir, inv_dir = ordenar_e_contar(v[meio:])
+        res = []
+        i = 0
+        j = 0
+        cruzadas = 0
+        while i < len(esq) and j < len(dir):
+            if esq[i] < dir[j]:
+                res.append(esq[i])
+                i += 1
+            else:
+                res.append(dir[j])
+                j += 1
+                cruzadas += len(esq) - i
+        res.extend(esq[i:])
+        res.extend(dir[j:])
+        return res, inv_esq + inv_dir + cruzadas
+
+    return ordenar_e_contar(lista)[1]
+```
+```python name="soma 1 em vez de len(esq) - i"
+def contar_inversoes(lista):
+    def ordenar_e_contar(v):
+        if len(v) <= 1:
+            return list(v), 0
+        meio = len(v) // 2
+        esq, inv_esq = ordenar_e_contar(v[:meio])
+        dir, inv_dir = ordenar_e_contar(v[meio:])
+        res = []
+        i = 0
+        j = 0
+        cruzadas = 0
+        while i < len(esq) and j < len(dir):
+            if esq[i] <= dir[j]:
+                res.append(esq[i])
+                i += 1
+            else:
+                res.append(dir[j])
+                j += 1
+                cruzadas += 1
+        res.extend(esq[i:])
+        res.extend(dir[j:])
+        return res, inv_esq + inv_dir + cruzadas
+
+    return ordenar_e_contar(lista)[1]
+```
+```python name="soma o que resta na direita"
+def contar_inversoes(lista):
+    def ordenar_e_contar(v):
+        if len(v) <= 1:
+            return list(v), 0
+        meio = len(v) // 2
+        esq, inv_esq = ordenar_e_contar(v[:meio])
+        dir, inv_dir = ordenar_e_contar(v[meio:])
+        res = []
+        i = 0
+        j = 0
+        cruzadas = 0
+        while i < len(esq) and j < len(dir):
+            if esq[i] <= dir[j]:
+                res.append(esq[i])
+                i += 1
+            else:
+                res.append(dir[j])
+                j += 1
+                cruzadas += len(dir) - j
+        res.extend(esq[i:])
+        res.extend(dir[j:])
+        return res, inv_esq + inv_dir + cruzadas
+
+    return ordenar_e_contar(lista)[1]
+```
+```python name="devolve a metade original, sem ordenar"
+def contar_inversoes(lista):
+    def ordenar_e_contar(v):
+        if len(v) <= 1:
+            return list(v), 0
+        meio = len(v) // 2
+        esq, inv_esq = ordenar_e_contar(v[:meio])
+        dir, inv_dir = ordenar_e_contar(v[meio:])
+        i = 0
+        j = 0
+        cruzadas = 0
+        while i < len(esq) and j < len(dir):
+            if esq[i] <= dir[j]:
+                i += 1
+            else:
+                j += 1
+                cruzadas += len(esq) - i
+        return list(v), inv_esq + inv_dir + cruzadas
+
+    return ordenar_e_contar(lista)[1]
+```
+```python name="conta só vizinhos fora de ordem"
+def contar_inversoes(lista):
+    total = 0
+    for p in range(len(lista) - 1):
+        if lista[p] > lista[p + 1]:
+            total += 1
+    return total
+```
+
+## Passo 6 · Leitura · Soma máxima: o que cruza a fronteira
+
+Uma lanchonete do campus anotou o saldo de cada dia: `[-2, 1, -3, 4, -1, 2, 1, -5, 4]`. Qual sequência de **dias seguidos** deu o maior saldo total? A resposta é `[4, -1, 2, 1]`, com soma 6. Formalmente: a maior soma de um trecho contíguo **não vazio** de `v`. Com todos os dias negativos, a resposta é o menos negativo deles, e não 0.
+
+A força bruta testa todo início `i` e estende o fim `j`, reaproveitando a soma anterior:
+
+```python
+def soma_maxima_bruta(v):
+    melhor = v[0]
+    for i in range(len(v)):
+        soma = 0
+        for j in range(i, len(v)):
+            soma += v[j]              # soma de v[i..j] a partir de v[i..j-1]
+            if soma > melhor:
+                melhor = soma
+    return melhor
+```
+
+São $\frac{n(n+1)}{2}$ somas: $\Theta(n^2)$.
+
+Divida no meio. O melhor trecho de `v[ini..fim]` está em um de três lugares:
+
+1. inteiro na metade esquerda: a recursão resolve;
+2. inteiro na metade direita: a recursão resolve;
+3. **cruzando a fronteira**, com pelo menos `v[meio]` e `v[meio + 1]`.
+
+O terceiro caso é o combinar, e é onde moram os erros. Um trecho que cruza é um pedaço que **termina** em `meio` grudado num pedaço que **começa** em `meio + 1`. As duas escolhas são independentes: o melhor trecho que cruza é a melhor soma terminando em `meio` mais a melhor soma começando em `meio + 1`. Cada uma sai de uma varredura que parte da fronteira:
+
+```python
+soma = 0
+melhor_esq = v[meio]
+for i in range(meio, ini - 1, -1):    # de meio para a esquerda
+    soma += v[i]
+    if soma > melhor_esq:
+        melhor_esq = soma
+```
+
+O lado direito é o espelho, de `meio + 1` até `fim`. Três erros comuns na fronteira:
+
+- **Esquecer o terceiro caso** e devolver só o melhor das duas metades: em `[-5, 4, -1, 3, -9, 2]`, perde o `[4, -1, 3]`, que atravessa o meio.
+- **Varrer a esquerda a partir de `ini`.** Isso calcula somas que **começam** em `ini`, e não que terminam em `meio`: o pedaço não encosta na fronteira.
+- **Começar `melhor_esq` em 0.** Isso deixa um lado vazio, e o trecho "cruzando" pode não cruzar nada. Com todos os valores negativos, a resposta sai 0.
+
+A varredura custa $\Theta(n)$ por nível, então $T(n) = 2T(n/2) + \Theta(n)$: $\Theta(n \log n)$. Com $n = 10^5$, são cerca de $1{,}7 \times 10^6$ somas, contra $5 \times 10^9$ da força bruta. Existe uma solução em $\Theta(n)$ para esse problema, o algoritmo de Kadane; aqui, o objetivo é acertar o combinar na fronteira.
+
+## Passo 7 · Exercício · Soma máxima por divisão e conquista
+
+Escreva `soma_maxima(v)`, que recebe uma lista **não vazia** de inteiros e devolve a maior soma de um trecho contíguo não vazio, por divisão e conquista. A lista recebida não pode mudar. A verificação conta as somas feitas com os elementos: com 1 024 elementos, aceite no máximo 15 000 (a força bruta faz mais de 500 mil).
+
+Exemplo: `soma_maxima([-2, 1, -3, 4, -1, 2, 1, -5, 4])` é `6`.
+
+### Instruções
+1. Use uma função auxiliar com `ini` e `fim`; um elemento só é o caso base.
+2. Resolva as duas metades recursivamente.
+3. Calcule o melhor trecho que cruza a fronteira: a melhor soma que termina em `meio` mais a melhor que começa em `meio + 1`.
+4. Devolva o maior dos três candidatos.
+
+### Código inicial
+```python
+def soma_maxima(v):
+    pass
+```
+
+### Solução
+```python
+def soma_maxima(v):
+    def resolver(ini, fim):
+        if ini == fim:
+            return v[ini]
+        meio = (ini + fim) // 2
+        melhor_esq = resolver(ini, meio)
+        melhor_dir = resolver(meio + 1, fim)
+
+        soma = 0
+        termina_no_meio = v[meio]
+        for i in range(meio, ini - 1, -1):
+            soma = soma + v[i]
+            if soma > termina_no_meio:
+                termina_no_meio = soma
+
+        soma = 0
+        comeca_depois = v[meio + 1]
+        for j in range(meio + 1, fim + 1):
+            soma = soma + v[j]
+            if soma > comeca_depois:
+                comeca_depois = soma
+
+        cruzando = termina_no_meio + comeca_depois
+        melhor = melhor_esq
+        if melhor_dir > melhor:
+            melhor = melhor_dir
+        if cruzando > melhor:
+            melhor = cruzando
+        return melhor
+
+    return resolver(0, len(v) - 1)
+```
+
+### Dicas
+1. Um trecho de um elemento só tem uma soma possível.
+2. As varreduras do trecho que cruza partem da fronteira e se afastam dela.
+3. Os melhores lados do trecho que cruza começam valendo o primeiro elemento junto à fronteira, e não 0.
+
+### Verificação
+```json
+[
+  { "id": "usa-recursao", "checkpoint": 2, "kind": "source", "rule": { "type": "uses", "construct": "recursion" },
+    "name": "Usa recursão" },
+  { "id": "classico", "checkpoint": 4, "kind": "call", "function": "soma_maxima", "args": [[-2, 1, -3, 4, -1, 2, 1, -5, 4]], "expected": 6,
+    "name": "soma_maxima([-2, 1, -3, 4, -1, 2, 1, -5, 4]) é 6" },
+  { "id": "um", "checkpoint": 1, "kind": "expr", "expr": "[soma_maxima([5]), soma_maxima([-7])]", "expected": [5, -7],
+    "name": "Um elemento só" },
+  { "id": "negativos", "checkpoint": 3, "kind": "call", "function": "soma_maxima", "args": [[-8, -3, -6, -2, -5, -4]], "expected": -2,
+    "name": "Todos negativos: o menos negativo", "hint": "O trecho não pode ser vazio: os melhores lados não começam em 0." },
+  { "id": "cruza", "checkpoint": 3, "kind": "call", "function": "soma_maxima", "args": [[-5, 4, -1, 3, -9, 2]], "expected": 6,
+    "name": "O melhor trecho atravessa o meio", "hint": "O melhor trecho pode ter um pedaço em cada metade." },
+  { "id": "positivos-zeros", "checkpoint": 4, "kind": "expr", "expr": "[soma_maxima([3, 1, 4, 1, 5]), soma_maxima([0, -1, 0]), soma_maxima([2, -1, 2, -1, 2])]", "expected": [14, 0, 4],
+    "name": "Todos positivos, zeros e alternados" },
+  { "id": "confere-bruta", "checkpoint": 3, "kind": "expr",
+    "setup": "w = [((i * 73) % 41) - 20 for i in range(300)]\nbruta = w[0]\nfor i in range(300):\n    s = 0\n    for j in range(i, 300):\n        s += w[j]\n        if s > bruta:\n            bruta = s",
+    "expr": "[soma_maxima(w), bruta]", "expected": [46, 46],
+    "name": "Confere com a força bruta em 300 elementos", "hint": "A melhor soma que cruza termina em meio e começa em meio + 1." },
+  { "id": "nao-altera", "checkpoint": 1, "kind": "expr", "setup": "v = [2, -5, 3]\nr = soma_maxima(v)",
+    "expr": "[r, v]", "expected": [3, [2, -5, 3]], "name": "Não altera a lista recebida" },
+  { "id": "somas", "checkpoint": 2, "kind": "expr",
+    "setup": "class N:\n    somas = 0\n    def __init__(self, v):\n        self.v = v\n    @staticmethod\n    def _x(o):\n        return o.v if isinstance(o, N) else o\n    def __add__(self, o):\n        N.somas += 1\n        return N(self.v + N._x(o))\n    __radd__ = __add__\n    def __sub__(self, o):\n        N.somas += 1\n        return N(self.v - N._x(o))\n    def __rsub__(self, o):\n        N.somas += 1\n        return N(N._x(o) - self.v)\n    def __lt__(self, o):\n        return self.v < N._x(o)\n    def __le__(self, o):\n        return self.v <= N._x(o)\n    def __gt__(self, o):\n        return self.v > N._x(o)\n    def __ge__(self, o):\n        return self.v >= N._x(o)\n    def __eq__(self, o):\n        return self.v == N._x(o)\n    def __int__(self):\n        return self.v\nr = soma_maxima([N(((i * 389) % 1024) - 512) for i in range(1024)])",
+    "expr": "[int(r), N.somas <= 15000]", "expected": [1666, true],
+    "name": "1024 elementos com no máximo 15000 somas",
+    "hint": "Testar todos os inícios e fins faz mais de 500 mil somas." }
+]
+```
+
+### Soluções erradas
+```python name="esquece o trecho que cruza o meio"
+def soma_maxima(v):
+    def resolver(ini, fim):
+        if ini == fim:
+            return v[ini]
+        meio = (ini + fim) // 2
+        melhor_esq = resolver(ini, meio)
+        melhor_dir = resolver(meio + 1, fim)
+        return melhor_esq if melhor_esq >= melhor_dir else melhor_dir
+
+    return resolver(0, len(v) - 1)
+```
+```python name="lados do trecho que cruza começam em 0"
+def soma_maxima(v):
+    def resolver(ini, fim):
+        if ini == fim:
+            return v[ini]
+        meio = (ini + fim) // 2
+        melhor_esq = resolver(ini, meio)
+        melhor_dir = resolver(meio + 1, fim)
+
+        soma = 0
+        termina_no_meio = 0
+        for i in range(meio, ini - 1, -1):
+            soma = soma + v[i]
+            if soma > termina_no_meio:
+                termina_no_meio = soma
+
+        soma = 0
+        comeca_depois = 0
+        for j in range(meio + 1, fim + 1):
+            soma = soma + v[j]
+            if soma > comeca_depois:
+                comeca_depois = soma
+
+        cruzando = termina_no_meio + comeca_depois
+        melhor = melhor_esq
+        if melhor_dir > melhor:
+            melhor = melhor_dir
+        if cruzando > melhor:
+            melhor = cruzando
+        return melhor
+
+    return resolver(0, len(v) - 1)
+```
+```python name="varre a esquerda a partir de ini"
+def soma_maxima(v):
+    def resolver(ini, fim):
+        if ini == fim:
+            return v[ini]
+        meio = (ini + fim) // 2
+        melhor_esq = resolver(ini, meio)
+        melhor_dir = resolver(meio + 1, fim)
+
+        soma = 0
+        termina_no_meio = v[ini]
+        for i in range(ini, meio + 1):
+            soma = soma + v[i]
+            if soma > termina_no_meio:
+                termina_no_meio = soma
+
+        soma = 0
+        comeca_depois = v[meio + 1]
+        for j in range(meio + 1, fim + 1):
+            soma = soma + v[j]
+            if soma > comeca_depois:
+                comeca_depois = soma
+
+        cruzando = termina_no_meio + comeca_depois
+        melhor = melhor_esq
+        if melhor_dir > melhor:
+            melhor = melhor_dir
+        if cruzando > melhor:
+            melhor = cruzando
+        return melhor
+
+    return resolver(0, len(v) - 1)
+```
+```python name="v[meio] entra nos dois lados do trecho que cruza"
+def soma_maxima(v):
+    def resolver(ini, fim):
+        if ini == fim:
+            return v[ini]
+        meio = (ini + fim) // 2
+        melhor_esq = resolver(ini, meio)
+        melhor_dir = resolver(meio + 1, fim)
+
+        soma = 0
+        termina_no_meio = v[meio]
+        for i in range(meio, ini - 1, -1):
+            soma = soma + v[i]
+            if soma > termina_no_meio:
+                termina_no_meio = soma
+
+        soma = 0
+        comeca_depois = v[meio]
+        for j in range(meio, fim + 1):
+            soma = soma + v[j]
+            if soma > comeca_depois:
+                comeca_depois = soma
+
+        cruzando = termina_no_meio + comeca_depois
+        melhor = melhor_esq
+        if melhor_dir > melhor:
+            melhor = melhor_dir
+        if cruzando > melhor:
+            melhor = cruzando
+        return melhor
+
+    return resolver(0, len(v) - 1)
+```
+```python name="divide em [ini, meio] e [meio, fim]"
+def soma_maxima(v):
+    def resolver(ini, fim):
+        if ini == fim:
+            return v[ini]
+        meio = (ini + fim) // 2
+        melhor_esq = resolver(ini, meio)
+        melhor_dir = resolver(meio, fim)
+
+        soma = 0
+        termina_no_meio = v[meio]
+        for i in range(meio, ini - 1, -1):
+            soma = soma + v[i]
+            if soma > termina_no_meio:
+                termina_no_meio = soma
+
+        soma = 0
+        comeca_depois = v[meio + 1]
+        for j in range(meio + 1, fim + 1):
+            soma = soma + v[j]
+            if soma > comeca_depois:
+                comeca_depois = soma
+
+        cruzando = termina_no_meio + comeca_depois
+        melhor = melhor_esq
+        if melhor_dir > melhor:
+            melhor = melhor_dir
+        if cruzando > melhor:
+            melhor = cruzando
+        return melhor
+
+    return resolver(0, len(v) - 1)
+```
+```python name="força bruta com todos os inícios e fins"
+def soma_maxima(v):
+    melhor = v[0]
+    for i in range(len(v)):
+        soma = 0
+        for j in range(i, len(v)):
+            soma = soma + v[j]
+            if soma > melhor:
+                melhor = soma
+    return melhor
+```
+
+## Passo 8 · Quiz · Dividir, combinar e o custo
 
 ### Pergunta
-Qual é a diferença estrutural entre as recorrências de `maximo_dc(lista)` e `busca_binaria_rec(lista, alvo)` que explica por que o primeiro é $\Theta(n)$ e o segundo é $\Theta(\log n)$?
-- [ ] `maximo_dc` faz trabalho $\Theta(n)$ para combinar, enquanto `busca_binaria_rec` faz trabalho $\Theta(1)$.
-- [x] `maximo_dc` precisa resolver **as duas metades** ($T(n) = 2T(n/2) + O(1) \implies \Theta(n)$), enquanto `busca_binaria_rec` usa a ordenação para descartar uma metade inteira e fazer **apenas uma chamada recursiva** ($T(n) = T(n/2) + O(1) \implies \Theta(\log n)$).
-- [ ] `busca_binaria_rec` não usa a pilha de chamadas.
-- [ ] `maximo_dc` divide a lista em 4 partes em vez de 2.
-> Ambos fazem trabalho constante $O(1)$ fora da recursão, mas fazer $2$ chamadas de tamanho $n/2$ cria uma árvore com $n$ folhas ($\Theta(n)$), enquanto fazer $1$ chamada de tamanho $n/2$ cria apenas um caminho único de comprimento $\log_2 n$.
+`maximo_dc` e `busca_binaria_rec` dividem a entrada ao meio e fazem trabalho constante fora das chamadas. Por que um é $\Theta(n)$ e o outro $\Theta(\log n)$?
+- [ ] Porque `maximo_dc` gasta $\Theta(n)$ para combinar, e a busca gasta $\Theta(1)$
+- [x] Porque `maximo_dc` resolve as duas metades, $T(n) = 2T(n/2) + \Theta(1)$, e a busca descarta uma metade e faz uma chamada só, $T(n) = T(n/2) + \Theta(1)$
+- [ ] Porque a busca binária não usa a pilha de chamadas
+- [ ] Porque `maximo_dc` divide a lista em quatro partes
+> Com duas chamadas por nível, a árvore tem $n$ folhas e cerca de $2n$ nós: $\Theta(n)$. Com uma chamada por nível, as chamadas formam um caminho de $\log_2 n$ nós. O número de chamadas recursivas pesa tanto quanto o trabalho de combinar.
 
 ### Pergunta
-Na contagem de inversões por divisão e conquista, durante a intercalação de duas metades já ordenadas `esq` e `dir`, encontramos `esq[i] > dir[j]`. Quantas inversões envolvendo `dir[j]` e elementos de `esq` acabamos de descobrir nesse exato passo?
-- [ ] Apenas $1$ inversão (o par `(esq[i], dir[j])`).
-- [ ] `i` inversões (todos os elementos de `esq` antes de `i`).
-- [x] `len(esq) - i` inversões, pois como `esq` está ordenada, `esq[i]` e todos os elementos à direita dele em `esq` são maiores que `dir[j]` e estavam originalmente à esquerda de `dir[j]`.
-- [ ] `len(dir) - j` inversões.
-> É justamente somar `len(esq) - i` em $O(1)$ que permite contar até $\frac{n(n-1)}{2} \approx 2 \times 10^8$ inversões fazendo apenas $\approx n \log_2 n$ passos de intercalação!
+Na contagem de inversões, a intercalação das metades ordenadas `esq = [2, 5, 9]` e `dir = [3, 4]` começa. Quando `dir[0] = 3` sai para o resultado, quantas inversões cruzadas são somadas nesse instante?
+- [ ] 1, o par (2, 3)
+- [x] 2, os pares (5, 3) e (9, 3)
+- [ ] 3, todos os elementos de `esq`
+- [ ] 1, o par (5, 3)
+> O 2 já saiu antes, porque $2 \le 3$; então `i = 1`. O 3 sai agora porque é menor que `esq[1] = 5`, e como `esq` está ordenada, todos de `esq[1:]` são maiores que 3: `len(esq) - i = 2` inversões, somadas de uma vez.
+
+### Pergunta
+Na soma máxima, por que o melhor trecho que cruza o meio sai em $\Theta(n)$, sem testar todos os pares de início na esquerda e fim na direita?
+- [ ] Porque o trecho que cruza é sempre a lista inteira
+- [ ] Porque basta somar `v[meio] + v[meio + 1]`
+- [x] Porque a parte esquerda (que termina em `meio`) e a direita (que começa em `meio + 1`) se escolhem independentemente: a melhor de cada lado sai de uma varredura a partir da fronteira
+- [ ] Porque as duas metades já voltaram ordenadas da recursão
+> A soma de um trecho que cruza é a soma da parte esquerda mais a da direita, e a escolha de um lado não muda as opções do outro. Então o melhor par é o melhor sufixo da esquerda mais o melhor prefixo da direita: duas varreduras lineares, em vez de $\Theta(n^2)$ pares. Ordenar as metades destruiria a contiguidade, que é o que o problema exige.
