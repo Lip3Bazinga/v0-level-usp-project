@@ -26,6 +26,22 @@ const pyodidePackageOrigin = externalOrigin(
 const scriptOrigins = [pyodideIndexOrigin].filter(Boolean)
 const connectOrigins = [...new Set([pyodideIndexOrigin, pyodidePackageOrigin].filter(Boolean))]
 
+/*
+ * Vídeos das lições (`::video[título](url)`): só estes dois reprodutores podem ser carregados em
+ * iframe. São as MESMAS origens que o player confere antes de criar o iframe
+ * (VIDEO_EMBED_ORIGINS em src/lib/utils/rich-markdown.ts) — mudou um lado, mude o outro.
+ */
+const VIDEO_FRAME_ORIGINS = ["https://www.youtube-nocookie.com", "https://player.vimeo.com"]
+
+/*
+ * O que os recursos de apresentação das aulas exigem da CSP (nada além do que já havia, fora o frame-src):
+ * - KaTeX: o CSS e as fontes (.woff2) vêm do pacote npm e são servidos em /_next/static → 'self'
+ *   em style-src e font-src. As fórmulas usam atributos style inline → 'unsafe-inline' em style-src.
+ * - Mermaid: carregado como chunk do próprio site (script-src 'self'); o SVG gerado traz uma tag
+ *   <style> e atributos style → o mesmo 'unsafe-inline' de style-src. Não busca nada na rede.
+ * - Imagens das lições: /api/content/assets/… (mesma origem) → 'self' em img-src.
+ * - Visualizador de execução: roda no mesmo worker do Pyodide (worker-src e script-src abaixo).
+ */
 const CSP = [
   "default-src 'self'",
   ["script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'", ...scriptOrigins].join(" "),
@@ -34,11 +50,22 @@ const CSP = [
   "img-src 'self' data: blob: https:",
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
+  // Sem 'self': o site não se incorpora em iframe e nenhuma outra origem é aceita.
+  ["frame-src", ...VIDEO_FRAME_ORIGINS].join(" "),
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
 ].join("; ")
+
+/**
+ * HSTS só em produção: depois de visto uma vez, o navegador recusa HTTP para o domínio
+ * por um ano — em desenvolvimento (http://localhost) isso só atrapalharia.
+ */
+const HSTS_HEADERS =
+  process.env.NODE_ENV === "production"
+    ? [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }]
+    : []
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -61,6 +88,15 @@ const nextConfig = {
     return [{ source: "/api/:path*", destination: `${apiUrl}/api/:path*` }]
   },
 
+  // A antiga página "Configurações" foi para dentro do perfil; links e favoritos antigos continuam funcionando.
+  async redirects() {
+    return [
+      { source: "/settings", destination: "/perfil/me/conta", permanent: true },
+      // A página de impacto trazia números sem fonte e foi retirada.
+      { source: "/impacto", destination: "/sobre", permanent: true },
+    ]
+  },
+
   // Headers de segurança para produção
   async headers() {
     return [
@@ -78,6 +114,7 @@ const nextConfig = {
           // CSP: impede exfiltração para domínios externos e plugins. 'unsafe-eval' e
           // 'wasm-unsafe-eval' são exigidos pelo Pyodide (WebAssembly no navegador).
           { key: "Content-Security-Policy",   value: CSP },
+          ...HSTS_HEADERS,
         ],
       },
       {

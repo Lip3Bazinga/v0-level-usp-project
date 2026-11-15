@@ -9,7 +9,7 @@ import type { LessonProgressRow, LessonRow } from "@levelusp/db"
 /** Lição com o gabarito (`testCases`) e o que a correção e o crédito de XP precisam. */
 export type GradableLessonRow = Pick<
   LessonRow,
-  "id" | "lessonType" | "published" | "createdBy" | "testCases" | "timeLimit" | "xpReward" | "courseId"
+  "id" | "lessonType" | "published" | "createdBy" | "testCases" | "timeLimit" | "xpReward" | "courseId" | "runtime" | "libraries" | "isProject"
 >
 
 /** Progresso do aluno, rascunhos de código e submissões. */
@@ -21,7 +21,10 @@ export class LearningRepository {
   findLessonForGrading(id: string): Promise<GradableLessonRow | undefined> {
     return this.db.query.lessons.findFirst({
       where: eq(lessons.id, id),
-      columns: { id: true, lessonType: true, published: true, createdBy: true, testCases: true, timeLimit: true, xpReward: true, courseId: true },
+      columns: {
+        id: true, lessonType: true, published: true, createdBy: true, testCases: true, timeLimit: true, xpReward: true, courseId: true,
+        runtime: true, libraries: true, isProject: true,
+      },
     })
   }
 

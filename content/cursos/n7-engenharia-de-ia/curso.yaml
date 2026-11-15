@@ -1,0 +1,40 @@
+slug: n7-engenharia-de-ia
+titulo: Nível 7 — Engenharia de IA
+descricao: APIs de LLM, prompting, embeddings e busca vetorial, RAG, agentes com ferramentas, avaliação, segurança (prompt injection), MLOps básico com FastAPI, ética e LGPD, e um projeto final de assistente.
+descricao_longa: |
+  ## Para quem é
+
+  Para quem entende como os modelos funcionam por dentro (Nível 6) e quer construir produtos com eles: assistentes, busca semântica, agentes com ferramentas e modelos servidos em produção — com avaliação, segurança e responsabilidade.
+
+  ## O que você vai construir
+
+  - Um cliente de API de LLM com retries, streaming e saída estruturada, e uma biblioteca de prompts versionados.
+  - Busca vetorial do zero, um pipeline RAG completo com avaliação de recuperação e re-ranking híbrido.
+  - Agentes com ferramentas (loop ReAct), memória e guardrails, com defesas contra prompt injection.
+  - Um serviço de modelo com FastAPI, empacotamento, monitoramento e detecção de drift.
+  - O projeto final: um **assistente de atendimento da secretaria do curso** (RAG + agente + avaliação + API).
+
+  ## Pré-requisitos
+
+  Certificado do Nível 6. Os exercícios usam um **cliente de LLM simulado** (determinístico, sem rede) que reproduz a interface das APIs reais; cada lição indica como trocar pelo cliente real no seu computador com uma chave de API.
+
+  ## Como é avaliado
+
+  - Exercícios verificados no servidor com Python puro (e numpy nas lições de busca vetorial e MLOps). Como não há rede, o comportamento do LLM é simulado por um módulo fornecido.
+  - Certificado do nível: 100 % das lições + prova (nota mínima 70 %) + projeto final aprovado.
+nivel: avancado
+tags:
+- LLM
+- prompting
+- RAG
+- agentes
+- embeddings
+- MLOps
+- FastAPI
+- segurança
+- LGPD
+horas: 40
+ordem: 7
+publicado: false
+prerequisito: n6-deep-learning
+sequencial: false

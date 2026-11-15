@@ -1,0 +1,6 @@
+slug: agentes-e-ferramentas
+titulo: Agentes e ferramentas
+descricao: Loop de agente (ReAct) com ferramentas simuladas, definição e roteamento de ferramentas, memória e estado, falhas de agentes e guardrails.
+icone: Bot
+cor: bg-level-purple
+ordem: 5

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { AccountMenuContent } from "@/components/dashboard/student-shell"
+import { useGamificationVisible } from "@/hooks/use-gamification-visible"
 import { useAuth } from "@/contexts/auth-context"
 import { useTransientFlag } from "@/hooks/use-transient-value"
 import { computeLevelProgress, formatNumber, formatXp, getInitials } from "@/lib/utils"
@@ -22,6 +23,7 @@ interface HeaderProps {
 
 export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps): React.JSX.Element {
   const { profile } = useAuth()
+  const isGamified = useGamificationVisible()
   const level = profile?.level ?? 1
   const totalXp = profile?.total_xp ?? 0
   const streak = profile?.current_streak ?? 0
@@ -46,10 +48,12 @@ export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps)
       </div>
 
       <div className="hidden flex-1 items-center justify-center gap-3 px-8 md:flex">
-        <div className="flex items-center gap-2 rounded-full bg-level-purple-light px-3 py-1">
-          <Trophy className="h-4 w-4 text-level-purple" />
-          <span className="text-xs font-semibold text-level-purple-dark">Nível {level}</span>
-        </div>
+        {isGamified && (
+          <div className="flex items-center gap-2 rounded-full bg-level-purple-light px-3 py-1">
+            <Trophy className="h-4 w-4 text-level-purple" />
+            <span className="text-xs font-semibold text-level-purple-dark">Nível {level}</span>
+          </div>
+        )}
         <div className="relative w-64">
           <div className="h-3 w-full overflow-hidden rounded-full bg-level-purple-subtle">
             <div
@@ -62,8 +66,12 @@ export function Header({ lessonTitle, lessonProgress, xpBadgeRef }: HeaderProps)
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">
-        <XpPill totalXp={totalXp} level={level} badgeRef={xpBadgeRef} />
-        <StreakPill streak={streak} />
+        {isGamified && (
+          <>
+            <XpPill totalXp={totalXp} level={level} badgeRef={xpBadgeRef} />
+            <StreakPill streak={streak} />
+          </>
+        )}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

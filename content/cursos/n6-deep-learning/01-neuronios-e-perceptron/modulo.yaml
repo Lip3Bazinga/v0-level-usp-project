@@ -1,0 +1,6 @@
+slug: neuronios-e-perceptron
+titulo: Neurônios e perceptron
+descricao: Do neurônio biológico ao artificial, perceptron e o problema do XOR, funções de ativação, e o forward pass de uma camada em numpy.
+icone: Brain
+cor: bg-level-purple
+ordem: 1

@@ -10,6 +10,20 @@ import { jsonSchema, type Json } from "./grading"
 /** Orçamento padrão de uma execução no executor. */
 export const DEFAULT_RUNNER_LIMITS = { timeoutMs: 10_000, memoryMb: 128 } as const
 
+/**
+ * Motores do executor: `python` é o CPython WASI (Wasmtime); `python-dados` é o Pyodide
+ * (numpy, pandas, scikit-learn...) em workers do Node. Os mesmos valores de
+ * `LESSON_RUNTIMES` em `lessons.ts` (a unificação dos dois fica para depois).
+ */
+export const PYTHON_RUNTIMES = ["python", "python-dados"] as const
+export const pythonRuntimeSchema = z.enum(PYTHON_RUNTIMES)
+/** Motor pedido num job do executor. */
+export type PythonRuntime = z.infer<typeof pythonRuntimeSchema>
+/** Motor usado quando o job não informa `runtime`. */
+export const DEFAULT_PYTHON_RUNTIME: PythonRuntime = "python"
+/** Bibliotecas (nomes de pacotes do Pyodide) que um job pode pedir, no máximo. */
+export const MAX_JOB_LIBRARIES = 20
+
 export const probeSchema = z.discriminatedUnion("kind", [
   z.object({ id: z.string(), kind: z.literal("run"), stdin: z.string().max(100_000).default("") }),
   z.object({
@@ -61,8 +75,15 @@ export const runnerJobSchema = z.object({
       memoryMb: z.number().int().min(32).max(512).default(DEFAULT_RUNNER_LIMITS.memoryMb),
     })
     .default({ ...DEFAULT_RUNNER_LIMITS }),
+  /** Motor que roda o lote; ausente = `DEFAULT_PYTHON_RUNTIME` (CPython WASI). */
+  runtime: pythonRuntimeSchema.optional(),
+  /**
+   * Pacotes do Pyodide que o lote precisa (`numpy`, `pandas`, `scikit-learn`...); só
+   * vale para `python-dados`, que escolhe o perfil de worker por eles. Ausente = `[]`.
+   */
+  libraries: z.array(z.string().trim().min(1).max(60)).max(MAX_JOB_LIBRARIES).optional(),
 })
-/** Pedido da API ao executor: o projeto, o arquivo de entrada, as sondas e os limites. */
+/** Pedido da API ao executor: o projeto, o arquivo de entrada, as sondas, os limites e o motor. */
 export type RunnerJob = z.infer<typeof runnerJobSchema>
 /** Orçamento de tempo e memória de uma execução. */
 export type RunnerLimits = RunnerJob["limits"]

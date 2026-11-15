@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common"
 import { asc, count, eq, like, or, sql } from "drizzle-orm"
-import { lessonQuizQuestions, lessons, type LessonInsert } from "@levelusp/db"
+import { lessonQuizQuestions, lessons, type DbExecutor, type LessonInsert } from "@levelusp/db"
 import { requireRow } from "@/common/database/rows"
 import { InjectDb, type Database } from "@/infra/database/database.module"
 import type { LessonMetricsRow } from "./catalog.mapper"
@@ -73,13 +73,13 @@ export class LessonsRepository {
   }
 
   /** Insere a lição. Slug repetido lança o erro de unicidade do Postgres. */
-  async create(values: LessonInsert): Promise<LessonRow> {
-    return requireRow(await this.db.insert(lessons).values(values).returning(), "lessons")
+  async create(values: LessonInsert, executor: DbExecutor = this.db): Promise<LessonRow> {
+    return requireRow(await executor.insert(lessons).values(values).returning(), "lessons")
   }
 
   /** Atualiza os campos enviados; `undefined` quando a lição não existe. */
-  async update(id: string, patch: Partial<LessonInsert>): Promise<LessonRow | undefined> {
-    const [lesson] = await this.db.update(lessons).set(patch).where(eq(lessons.id, id)).returning()
+  async update(id: string, patch: Partial<LessonInsert>, executor: DbExecutor = this.db): Promise<LessonRow | undefined> {
+    const [lesson] = await executor.update(lessons).set(patch).where(eq(lessons.id, id)).returning()
     return lesson
   }
 

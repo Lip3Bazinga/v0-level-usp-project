@@ -36,3 +36,28 @@ pnpm load:turma --cenario rajada --alunos 20,40,80,120 --janela 10 --ip-por-alun
 Scripts de backup/restauração: além do `verify` semanal na VM, eles rodam contra um PostgreSQL
 local com `BACKUP_MODE=direct` (`PGHOST`/`PGUSER`/`PGPASSWORD`, `DB_NAME`, `UPLOADS_DIR`,
 `BACKUP_DIR` num arquivo apontado por `LEVELUSP_ENV_FILE`) — útil para testar mudanças neles.
+
+## Curso completo (medido em 14/11/2026, branch `feat/curso-completo`)
+
+A tabela acima é o retrato de 03/11. Com a API de passos e trilhas, o player e o conteúdo do Nível 1:
+
+| Camada | Comando | Resultado |
+|---|---|---|
+| Contratos | `pnpm --filter @levelusp/contracts test` | 43 |
+| Banco (seed e importação do pacote) | `pnpm --filter @levelusp/db test` | 11 |
+| API — domínio, serviços e ferramentas de conteúdo | `pnpm --filter @levelusp/api test` | 315 |
+| API ponta a ponta (lição guiada até o certificado de trilha, importação idempotente do pacote real, recursos de apresentação) | `test:e2e` | 148 |
+| Ataques à API (inclui forja nas rotas de passo, previsão e assets) | `test:security` | 111 |
+| Falsificação de veredito contra o executor real | `test:attacks` (API) | 40 |
+| Executor (WASI + Pyodide) | `pnpm --filter @levelusp/runner test` com `PYODIDE_DIR` | 62 |
+| Ataques ao executor (WASI + Pyodide) | `test:attacks` (runner) com `PYODIDE_DIR` | 73 |
+| Front | `pnpm --filter @levelusp/web test` | 340 |
+| Conteúdo — lint | `pnpm content:check` | 253 lições, 487 passos |
+| Conteúdo — Nível 1 no executor real | `pnpm content:verify --curso n1-fundamentos` | 47 lições: 133 exercícios e 65 previsões/blocos visualizar verificados |
+
+Não rodados nesta rodada: Playwright (`apps/web/e2e`, precisa da pilha inteira no ar), `verify:seed`
+e `test:paridade`. Os e2e da API rodaram em PostgreSQL 16 local; a produção usa 17.
+
+Para repetir a verificação de conteúdo: suba o executor (`pnpm --filter @levelusp/runner setup:python`,
+`build`, e `RUNNER_TOKEN=… PORT=8091 node apps/runner/dist/main.js`) e rode
+`RUNNER_URL=http://127.0.0.1:8091 RUNNER_TOKEN=… pnpm content:verify --curso n1-fundamentos`.

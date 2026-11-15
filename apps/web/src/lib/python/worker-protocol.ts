@@ -1,5 +1,5 @@
 import type { ProjectFile } from "@levelusp/contracts"
-import type { ProjectRunResult } from "./project-execution"
+import type { ProjectRunResult, ProjectTrace } from "./project-execution"
 
 /*
  * Mensagens trocadas entre a página (pyodide-worker.ts) e o Web Worker
@@ -21,8 +21,11 @@ export type WorkerCommand =
       /** URL absoluta de onde vêm os wheels dos pacotes extras (numpy, matplotlib…). */
       packageBaseUrl: string
     }
-  | { type: "execute"; files: readonly ProjectFile[]; entryPath: string }
+  /** `stdin`: o que `input()` lê (campo "Entrada (stdin)"); vazio = sem entrada. */
+  | { type: "execute"; files: readonly ProjectFile[]; entryPath: string; stdin: string }
   | { type: "install"; packages: readonly string[] }
+  /** Visualizador: executa registrando cada passo. `requestId` volta na resposta para casar pedido e resultado. */
+  | { type: "trace"; requestId: number; files: readonly ProjectFile[]; entryPath: string; stdin: string }
 
 /** Mensagens que o worker envia à página. */
 export type WorkerMessage =
@@ -33,3 +36,5 @@ export type WorkerMessage =
   | { type: "packages-loading"; packages: string[] }
   | { type: "package-installed"; package: string }
   | { type: "package-error"; package: string; error: string }
+  | { type: "trace-result"; requestId: number; trace: ProjectTrace }
+  | { type: "trace-error"; requestId: number; error: string }

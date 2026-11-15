@@ -1,3 +1,5 @@
+import type { Engine, EngineStats } from "./engine.js"
+
 /** Quantos jobs recentes ficam guardados para os percentis de `/v1/stats`. */
 export const RECENT_JOBS_CAPACITY = 2_000
 
@@ -28,6 +30,8 @@ export interface RunnerStatsSnapshot {
   jobs: { completed: number; rejected: number; cancelled: number; failed: number }
   /** Últimos jobs (no máximo {@link RECENT_JOBS_CAPACITY}), do mais antigo ao mais novo. */
   recent: JobTiming[]
+  /** Contadores de cada motor (`wasi`, `pyodide`): lotes, falhas, workers aquecidos... */
+  engines: Record<string, EngineStats>
 }
 
 /** O que a fotografia precisa saber da fila (o semáforo). */
@@ -47,7 +51,10 @@ export class RunnerStats {
   private peakPending = 0
   private readonly jobs = { completed: 0, rejected: 0, cancelled: 0, failed: 0 }
 
-  constructor(private readonly gauge: QueueGauge) {}
+  constructor(
+    private readonly gauge: QueueGauge,
+    private readonly engines: readonly Engine[] = [],
+  ) {}
 
   /** Registra um job concluído e os seus tempos. */
   recordCompleted(timing: JobTiming): void {
@@ -87,6 +94,7 @@ export class RunnerStats {
       peakPending: this.peakPending,
       jobs: { ...this.jobs },
       recent: [...this.recent],
+      engines: Object.fromEntries(this.engines.map((engine) => [engine.name, engine.stats()])),
     }
   }
 }

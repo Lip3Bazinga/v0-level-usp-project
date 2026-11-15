@@ -2,7 +2,7 @@
 import { loadPyodide } from "pyodide"
 import { beforeAll, describe, expect, it } from "vitest"
 import { BROWSER_PYTHON_VERSION } from "./runtime-config"
-import { createProjectRunner, readPythonVersion, type ProjectRunner, type ProjectRunResult } from "./project-execution"
+import { createProjectRunner, createProjectTracer, readPythonVersion, type ProjectRunner, type ProjectRunResult, type ProjectTracer } from "./project-execution"
 
 /*
  * Roda o harness do "Executar" no Pyodide real (pacote npm). A paridade com o
@@ -12,11 +12,13 @@ import { createProjectRunner, readPythonVersion, type ProjectRunner, type Projec
 const PYODIDE_LOAD_TIMEOUT_MS = 60_000
 
 let runProject: ProjectRunner
+let traceProject: ProjectTracer
 let pythonVersion: string
 
 beforeAll(async () => {
   const pyodide = await loadPyodide()
   runProject = createProjectRunner(pyodide)
+  traceProject = createProjectTracer(pyodide)
   pythonVersion = readPythonVersion(pyodide)
 }, PYODIDE_LOAD_TIMEOUT_MS)
 
@@ -65,5 +67,23 @@ describe("execução de projetos no Pyodide", () => {
       stdin: "Ana\n",
     })
     expect(result).toMatchObject({ stdout: "Ana\n", error: null })
+  })
+
+  it("cada input() lê uma linha da entrada; quando ela acaba, o erro é EOFError (como no servidor)", () => {
+    const files = [main("nome = input()\nidade = int(input())\nprint(nome, idade + 1)")]
+    expect(runProject({ files, entryPath: "main.py", stdin: "Ana\n20" })).toMatchObject({ stdout: "Ana 21\n", error: null })
+    expect(runProject({ files, entryPath: "main.py", stdin: "Ana" }).error?.summary).toBe("EOFError: EOF when reading a line")
+    expect(runProject({ files, entryPath: "main.py" }).error?.type).toBe("EOFError")
+  })
+
+  it("a entrada de uma execução não sobra para a seguinte", () => {
+    runProject({ files: [main("print(input())")], entryPath: "main.py", stdin: "um\ndois\n" })
+    expect(runProject({ files: [main("print(input())")], entryPath: "main.py" }).error?.type).toBe("EOFError")
+  })
+
+  it("o visualizador lê a mesma entrada", () => {
+    const trace = traceProject({ files: [main("nome = input()\nprint(nome)")], entryPath: "main.py", stdin: "Bia\n" })
+    expect(trace).toMatchObject({ stdout: "Bia\n", error: null })
+    expect(trace.steps.at(-1)?.globals).toContainEqual({ name: "nome", value: "'Bia'" })
   })
 })

@@ -52,14 +52,14 @@ export function Hero(): React.JSX.Element {
           className="mb-8 inline-flex items-center gap-2 rounded-full border border-[#E9D5FF] bg-white/70 px-4 py-2 text-sm font-medium text-level-purple backdrop-blur"
         >
           <GraduationCap className="h-4 w-4" />
-          Uma iniciativa da Universidade de São Paulo
+          Projeto desenvolvido no DCM/FFCLRP-USP
         </motion.div>
 
         <motion.h1
           {...entranceMotion({ offsetY: 28, delaySeconds: 0.1 })}
           className="mx-auto max-w-4xl text-balance text-4xl font-bold leading-tight tracking-tight text-level-purple-dark sm:text-6xl lg:text-7xl"
         >
-          Democratizando a <span className="gradient-text">computação</span> para todo o Brasil
+          Aprenda <span className="gradient-text">Python</span> do zero, no navegador
         </motion.h1>
 
         <motion.p

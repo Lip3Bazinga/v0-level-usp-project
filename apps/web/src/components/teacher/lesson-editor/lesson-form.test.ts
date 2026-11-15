@@ -8,8 +8,30 @@ const LESSON: LessonWithTests = {
   checkpoints: [{ id: 1, instruction: "faça", hint: "" }], libraries: null, xp_reward: 50, time_limit: 10,
   lesson_type: "coding", quiz_passing_score: 70, course_id: null, module_id: null, created_by: "u",
   published: false, created_at: "", updated_at: "",
+  runtime: "python", is_project: false, objectives: [], solution_after_attempts: 3, steps: [],
   test_cases: [{ kind: "io", id: "a", stdin: "", expected_stdout: "1", match: "trimmed" }],
+  solution_files: [],
+  authoring_steps: [],
 }
+
+describe("lição guiada no formulário", () => {
+  const step = { order: 1, kind: "leitura" as const, title: "Leia", narrative_markdown: "", starter_files: [], solution_files: [], checkpoints: [], test_cases: [], hints: [], quiz_questions: [], xp: 10, exercise_mode: "codigo" as const, parsons_lines: [], expected_output: "" }
+
+  it("envia os passos só quando o tipo é guiada, com projeto, motor e objetivos", () => {
+    const form = { ...DEFAULT_FORM, title: "Guiada", lesson_type: "guided" as const, steps: [step], is_project: true, runtime: "python-dados" as const, objectives: [" Ler ", ""] }
+    expect(toLessonInput(form, [])).toMatchObject({ steps: [step], is_project: true, runtime: "python-dados", objectives: ["Ler"], solution_after_attempts: 3 })
+    expect(toLessonInput({ ...form, lesson_type: "coding" }, []).steps).toEqual([])
+  })
+
+  it("lição guiada sem passos não passa na validação", () => {
+    expect(validateLessonForm({ ...DEFAULT_FORM, title: "Guiada", lesson_type: "guided" })).toBe("Uma lição guiada precisa de pelo menos um passo.")
+    expect(validateLessonForm({ ...DEFAULT_FORM, title: "Guiada", lesson_type: "guided", steps: [step] })).toBeNull()
+  })
+
+  it("abre a lição existente com os passos de autoria (com gabarito)", () => {
+    expect(formFromLesson({ ...LESSON, lesson_type: "guided", authoring_steps: [step] }).steps).toEqual([step])
+  })
+})
 
 describe("formulário da lição", () => {
   it("usa starter_code como main.py quando não há starter_files", () => {

@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm"
 import { boolean, check, date, index, integer, pgTable, text, uuid } from "drizzle-orm/pg-core"
-import { USER_ROLES } from "@levelusp/contracts"
+import { EXPERIMENT_CONDITIONS, USER_ROLES } from "@levelusp/contracts"
 import { users } from "./auth"
 import { createdAt, isOneOf, updatedAt } from "./_helpers"
 
@@ -22,11 +22,14 @@ export const profiles = pgTable(
     lessonsCompleted: integer("lessons_completed").notNull().default(0),
     lastLoginDate: date("last_login_date", { mode: "string" }),
     suspended: boolean("suspended").notNull().default(false),
+    /** Grupo do experimento de gamificação; null = fora do experimento. */
+    experimentCondition: text("experiment_condition", { enum: EXPERIMENT_CONDITIONS }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (table) => [
     check("profiles_role_check", isOneOf(table.role, USER_ROLES)),
+    check("profiles_experiment_condition_check", isOneOf(table.experimentCondition, EXPERIMENT_CONDITIONS)),
     // Ranking (`GET /leaderboard`, rota pública): com 50 mil perfis, 13 ms de varredura +
     // ordenação por chamada viram 0,08 ms (docs/v2/desempenho-e-carga.md). `nullsFirst` casa
     // com o `ORDER BY total_xp DESC` da consulta (sem ele o planejador não usa o índice).

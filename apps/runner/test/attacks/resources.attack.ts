@@ -10,7 +10,8 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import type { Probe, RunnerJob } from "@levelusp/contracts"
 import { afterAll, describe, expect, it } from "vitest"
-import { Executor, type BatchRunner } from "../../src/executor"
+import type { Engine } from "../../src/engine"
+import { Executor } from "../../src/executor"
 import { buildWasmtimeArgs, isWithinDiskQuota, jsonNestingDepth, parseObservations } from "../../src/sandbox"
 import { Semaphore } from "../../src/semaphore"
 import { buildServer } from "../../src/server"
@@ -173,14 +174,20 @@ describe("abuso de recursos: limites do Wasmtime aplicados", () => {
 /** Executor real atrás do servidor HTTP: fila, 503 e cancelamento. */
 describe.skipIf(!isPythonAvailable)("abuso de recursos: concorrência", () => {
   const ranJobs: number[] = []
-  const counting: BatchRunner = {
-    runBatch: (batch) => {
+  const counting: Engine = {
+    name: "wasi",
+    versions: sandbox.versions,
+    readiness: sandbox.readiness,
+    accept: () => undefined,
+    warmupMs: () => 0,
+    stats: () => sandbox.stats(),
+    run: (batch) => {
       ranJobs.push(batch.probes.length)
       return sandbox.runBatch(batch)
     },
   }
   const token = "t".repeat(32)
-  const server: Server = buildServer({ executor: new Executor(counting, new Semaphore(1, 1)), token, log: () => undefined })
+  const server: Server = buildServer({ executor: new Executor({ python: counting }, new Semaphore(1, 1)), token, log: () => undefined })
   const ready = new Promise<string>((resolve) => server.listen(0, "127.0.0.1", () => resolve(`http://127.0.0.1:${(server.address() as AddressInfo).port}`)))
   afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())))
 

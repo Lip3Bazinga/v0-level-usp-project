@@ -12,6 +12,7 @@ import { formatNumber, formatXp, getInitials, cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { LoadErrorAlert } from "@/components/design-system/load-error-alert"
 import { StudentShell } from "@/components/dashboard/student-shell"
+import { useGamificationVisible } from "@/hooks/use-gamification-visible"
 
 const NO_USERS: PublicProfile[] = []
 const ROW_GRID_CLASS = "grid grid-cols-[32px_1fr_64px_48px] gap-2 px-3 sm:grid-cols-[48px_1fr_100px_96px] sm:gap-4 sm:px-4"
@@ -24,6 +25,24 @@ function RankIcon({ rank }: { rank: number }): React.JSX.Element {
 }
 
 export default function LeaderboardPage(): React.JSX.Element {
+  // Grupo controle do experimento: a plataforma funciona sem ranking.
+  if (!useGamificationVisible()) {
+    return (
+      <StudentShell screen="dashboard">
+        <main className="mx-auto max-w-4xl px-4 py-16 text-center">
+          <h1 className="text-xl font-semibold text-level-purple-dark">Página indisponível</h1>
+          <p className="mt-2 text-muted-foreground">Esta página não faz parte da sua versão da plataforma.</p>
+          <Link href={ROUTES.dashboard} className="mt-6 inline-block rounded-xl bg-level-purple px-6 py-2.5 text-sm font-semibold text-white hover:bg-level-purple-dark">
+            Voltar ao painel
+          </Link>
+        </main>
+      </StudentShell>
+    )
+  }
+  return <Leaderboard />
+}
+
+function Leaderboard(): React.JSX.Element {
   const leaderboard = useAsyncResource(() => fetchLeaderboard(), [])
   const users = leaderboard.status === "success" ? leaderboard.data : NO_USERS
   const podium = podiumOf(users)

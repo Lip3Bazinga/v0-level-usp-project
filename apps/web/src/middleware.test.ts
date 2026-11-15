@@ -50,7 +50,9 @@ describe("middleware", () => {
     expect(isProtectedPath("/admin/users")).toBe(true)
     expect(isProtectedPath("/adminx")).toBe(false)
     expect(isProtectedPath("/teacher/edit/1")).toBe(true)
-    expect(isProtectedPath("/settings")).toBe(true)
+    expect(isProtectedPath("/perfil/me/conta")).toBe(true)
+    // O perfil público continua aberto.
+    expect(isProtectedPath("/perfil/ana")).toBe(false)
     expect(isProtectedPath("/notas")).toBe(true)
   })
 

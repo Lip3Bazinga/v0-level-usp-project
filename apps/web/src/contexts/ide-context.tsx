@@ -80,6 +80,9 @@ export interface IDERuntime {
   pythonStatus: PyodideStatus
   isExecuting: boolean
   isInstalling: boolean
+  /** Texto que `input()` lê no Executar (campo "Entrada (stdin)"), uma linha por chamada. */
+  stdin: string
+  setStdin: (stdin: string) => void
   stop: () => void
   run: () => void
   reset: () => Promise<void>
@@ -163,6 +166,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
   const markEdited = useSnapshotAutosave(lesson.id, userId, files)
 
   const [hasRun, setHasRun] = useState(false)
+  const [stdin, setStdin] = useState("")
   const [hasOutput, setHasOutput] = useState(false)
   const [runSucceeded, setRunSucceeded] = useState(false)
   const [lessonProgress, setLessonProgress] = useState(0)
@@ -340,10 +344,10 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
     reachProgress(LESSON_PROGRESS.ran)
     replaceWithLine({ type: "info", message: `Executando ${entryPath}...` })
     execute(
-      { files, entryPath },
+      { files, entryPath, stdin },
       { onResult: (result) => handleRunResult(entryPath, result), onError: handleRunError },
     )
-  }, [files, tabs.activePath, pythonStatus, isInstalling, execute, addOutput, replaceWithLine, reachProgress, handleRunResult, handleRunError])
+  }, [files, tabs.activePath, stdin, pythonStatus, isInstalling, execute, addOutput, replaceWithLine, reachProgress, handleRunResult, handleRunError])
 
   const handleVerificationResult = useCallback(
     async (result: SubmissionResult, levelAtStart: number | null) => {
@@ -456,6 +460,8 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
       pythonStatus,
       isExecuting,
       isInstalling,
+      stdin,
+      setStdin,
       stop,
       run,
       reset,
@@ -473,7 +479,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
     }),
     [
       files, tabs, setActivePath, openFile, closeTab, handleContentChange, createFile, renameFile, deleteFile,
-      consoleOutputs, clearConsole, addOutput, runConsoleCommand, pythonStatus, isExecuting, isInstalling, stop,
+      consoleOutputs, clearConsole, addOutput, runConsoleCommand, pythonStatus, isExecuting, isInstalling, stdin, stop,
       run, reset, verify, hasRun, hasOutput, runSucceeded, lessonProgress, allPassed, isVerifying, lastResult,
       levelBefore, isSuccessOpen,
     ],

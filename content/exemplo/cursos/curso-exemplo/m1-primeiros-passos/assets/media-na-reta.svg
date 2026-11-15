@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 120" role="img" aria-labelledby="titulo">
+  <title id="titulo">Notas 6, 8 e 10 em uma reta, com a média 8 destacada</title>
+  <style>
+    text { font-family: sans-serif; font-size: 14px; fill: #1f2937; }
+    .eixo { stroke: #6b7280; stroke-width: 2; }
+    .nota { fill: #7c3aed; }
+    .media { fill: none; stroke: #f59e0b; stroke-width: 3; }
+  </style>
+  <line class="eixo" x1="30" y1="70" x2="390" y2="70" />
+  <circle class="nota" cx="110" cy="70" r="7" />
+  <circle class="nota" cx="210" cy="70" r="7" />
+  <circle class="nota" cx="310" cy="70" r="7" />
+  <circle class="media" cx="210" cy="70" r="14" />
+  <text x="104" y="100">6</text>
+  <text x="204" y="100">8</text>
+  <text x="300" y="100">10</text>
+  <text x="170" y="40">média = 8</text>
+</svg>

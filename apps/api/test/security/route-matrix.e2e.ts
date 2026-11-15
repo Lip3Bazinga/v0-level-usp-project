@@ -25,7 +25,6 @@ const PUBLIC_ROUTES = [
   "POST /api/auth/password/reset",
   "GET /api/leaderboard",
   "GET /api/users/by-username/:username",
-  "GET /api/users/:id/activity",
   "GET /api/users/:id/badges",
   "GET /api/badges",
   "GET /api/modules",
@@ -39,7 +38,10 @@ const PUBLIC_ROUTES = [
   "GET /api/certificates/:code",
   "GET /api/certificates/:code/pdf",
   "GET /api/library",
+  "GET /api/tracks",
+  "GET /api/tracks/:slug",
   "GET /api/files/:name",
+  "GET /api/content/assets/:course/:module/:file",
 ] as const
 
 const USER_ROUTES = [
@@ -76,6 +78,18 @@ const USER_ROUTES = [
   "POST /api/me/notifications/:id/read",
   "POST /api/me/teacher-request",
   "GET /api/me/teacher-request",
+  "GET /api/users/:id/activity",
+  "GET /api/me/lessons/:id/progress",
+  "POST /api/me/lessons/:id/steps/:stepId/submit",
+  "POST /api/me/lessons/:id/steps/:stepId/predict",
+  "POST /api/me/lessons/:id/steps/:stepId/hint",
+  "GET /api/me/lessons/:id/steps/:stepId/hints",
+  "POST /api/me/lessons/:id/steps/:stepId/solution",
+  "POST /api/me/lessons/:id/steps/:stepId/complete",
+  "POST /api/me/lessons/:id/steps/:stepId/quiz",
+  "POST /api/me/events",
+  "GET /api/me/track-certificates",
+  "POST /api/me/tracks/:id/certificate",
 ] as const
 
 const TEACHER_ROUTES = [
@@ -135,6 +149,13 @@ const ADMIN_ROUTES = [
   "POST /api/admin/badges",
   "PATCH /api/admin/badges/:id",
   "DELETE /api/admin/badges/:id",
+  "GET /api/admin/experiment/export.csv",
+  "PATCH /api/admin/users/:id/experiment-condition",
+  "GET /api/admin/tracks",
+  "POST /api/admin/tracks",
+  "PATCH /api/admin/tracks/:id",
+  "DELETE /api/admin/tracks/:id",
+  "POST /api/admin/content/import",
 ] as const
 
 const MATRIX: ReadonlyMap<string, Access> = new Map<string, Access>([

@@ -1,0 +1,6 @@
+slug: treinando-redes
+titulo: Treinando redes
+descricao: Funções de perda e softmax, loop de treino e gradiente descendente, mini-batches e SGD, otimizadores (momentum, RMSProp, Adam), inicialização, taxa de aprendizado e normalização.
+icone: Gauge
+cor: bg-level-green
+ordem: 3

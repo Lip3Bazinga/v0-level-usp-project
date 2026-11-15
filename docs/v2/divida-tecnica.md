@@ -7,7 +7,18 @@
 | Patch do Python: navegador 3.14.2 (Pyodide 314.0.7), executor 3.14.0 (WASI) | Nenhuma lição afetada; o teste de paridade documenta as diferenças restantes (`sqlite3` só no navegador, mensagens de `zoneinfo`/`subprocess`) | Atualizar o CPython WASI do executor para 3.14.2 e rodar `test:paridade` ([paridade-python.md](./paridade-python.md)) |
 | Pacotes via `micropip` (fora do `pyodide-lock.json`) | A CSP não libera o PyPI: só os pacotes do lock instalam no navegador | Espelhar os wheels necessários em `NEXT_PUBLIC_PYODIDE_PACKAGE_BASE_URL` ou liberar o PyPI na CSP |
 | `input()` e botão Parar no navegador | Parar recarrega o runtime; sem `input()` interativo | `SharedArrayBuffer` + cabeçalhos COOP/COEP + `setInterruptBuffer` |
-| Login com Google/GitHub | Botões desabilitados ("em breve") | Tabela `oauth_accounts` pronta; implementar fluxo OAuth na API |
+| Login com Google/GitHub | Os botões foram retirados da tela (não existe o fluxo) | Tabela `oauth_accounts` pronta; implementar fluxo OAuth na API |
+| Notebook/células | Lições de dados (níveis 4 a 6) ainda são arquivos `main.py` | Células em cima do motor `python-dados`, junto com o Nível 4 |
+| Módulos "globais" (sem curso) do conteúdo antigo | Dois modelos convivendo (`modules.course_id` nulo) | Migrar os dados quando o conteúdo antigo for aposentado |
+| Colunas `courses.final_project_*` | Sem uso: o projeto agora é uma lição `is_project`; a UI já saiu | Remover as colunas numa migração e apagar `legacy/` |
+| SMTP | E-mails (recuperação de senha, convites) não saem em homolog | Configurar o provedor e testar com `pnpm --filter @levelusp/api mail:test` |
+| Mermaid só tem validação estrutural no lint | Erro fino de sintaxe de diagrama só aparece no player | Validar com o parser oficial num passo com navegador (Playwright) |
+| Imagens das lições (`content_assets`) | Públicas pela URL mesmo com o curso em rascunho; guardadas em base64 no Postgres | Checar a publicação do curso na rota e mover para o volume `uploads` se crescerem |
+| Sem regra `source` para operadores e `continue` | Alguns exercícios do Nível 1 aceitam o valor final digitado à mão ou outra construção equivalente (listados em `pendencias-curso-completo.md`) | Acrescentar regras de AST para operador e `continue` no motor |
+| `uses recursion` por função | O harness só registra recursão no projeto inteiro; com `function` até a solução reprova | Registrar recursão por função em `apps/runner/python/harness.py` |
+| Visualizador de execução | Só acompanha o arquivo de entrada; sem `input()` | Rastrear os outros arquivos do projeto |
+| Editor do professor | A saída da Previsão é digitada à mão; no modo ordenar os ids das linhas mudam a cada edição | Gerar a saída executando o código; ids estáveis |
+| Testes Playwright | Não cobrem o player de passos, as trilhas nem os recursos novos | Escrever os fluxos e rodar com a pilha no ar |
 | SMTP | Links de redefinição vão para o log da API | Configurar `SMTP_URL` |
 | Rate limit em memória | Não compartilha entre réplicas | Trocar por Postgres/Redis ao escalar |
 | Diálogos do admin feitos à mão (`AdminModal`, paleta de comandos) | Usam `useModalA11y`, não o `Dialog` do Radix | Migrar para `components/ui` quando houver um `Dialog` gerado pelo shadcn |

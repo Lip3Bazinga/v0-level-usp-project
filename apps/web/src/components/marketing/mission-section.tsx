@@ -11,7 +11,7 @@ export function MissionSection(): React.JSX.Element {
         <SectionIntro
           eyebrow="Nossa missão social"
           title="Educação em computação é um direito, não um privilégio"
-          description="A LevelUSP nasceu dentro da Universidade de São Paulo com um propósito claro: expandir o acesso ao conhecimento de programação por todos os cantos do Brasil — começando por quem mais precisa."
+          description="O LevelUSP é um projeto desenvolvido no DCM/FFCLRP-USP com um propósito: facilitar o acesso ao ensino de programação para quem está começando."
         />
 
         <Stagger className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">

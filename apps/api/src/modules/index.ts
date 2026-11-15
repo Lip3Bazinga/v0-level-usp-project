@@ -4,7 +4,9 @@ import { AuditModule } from "./audit/audit.module"
 import { AuthModule } from "./auth/auth.module"
 import { CatalogModule } from "./catalog/catalog.module"
 import { CertificatesModule } from "./certificates/certificates.module"
+import { ContentModule } from "./content/content.module"
 import { ExamsModule } from "./exams/exams.module"
+import { ExperimentModule } from "./experiment/experiment.module"
 import { GamificationModule } from "./gamification/gamification.module"
 import { HealthModule } from "./health/health.module"
 import { LearningModule } from "./learning/learning.module"
@@ -13,6 +15,7 @@ import { NotesModule } from "./notes/notes.module"
 import { NotificationsModule } from "./notifications/notifications.module"
 import { QuizzesModule } from "./quizzes/quizzes.module"
 import { TeacherRequestsModule } from "./teacher-requests/teacher-requests.module"
+import { TracksModule } from "./tracks/tracks.module"
 import { UsersModule } from "./users/users.module"
 
 /**
@@ -22,11 +25,13 @@ import { UsersModule } from "./users/users.module"
 export const FEATURE_MODULES = [
   HealthModule,
   AuditModule,
+  ExperimentModule,
   GamificationModule,
   AuthModule,
   AccountModule,
   UsersModule,
   CatalogModule,
+  TracksModule,
   LearningModule,
   QuizzesModule,
   ExamsModule,
@@ -36,4 +41,5 @@ export const FEATURE_MODULES = [
   LibraryModule,
   TeacherRequestsModule,
   AdminModule,
+  ContentModule,
 ]

@@ -7,7 +7,7 @@ import { Reveal } from "./motion-primitives"
 
 const DEFAULT_TITLE = "Comece sua jornada hoje. É de graça."
 const DEFAULT_DESCRIPTION =
-  "Junte-se a milhares de brasileiros aprendendo programação com a metodologia da USP. Sem mensalidade, sem pegadinhas — e com certificado verificável para o seu currículo."
+  "Aprenda programação praticando no navegador. Sem mensalidade — e com certificado com código de verificação ao concluir o nível."
 
 interface FinalCtaProps {
   title?: string

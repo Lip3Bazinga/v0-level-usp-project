@@ -15,7 +15,7 @@ export const FAQ_GROUPS = [
       {
         question: "O LevelUSP é realmente gratuito?",
         answer:
-          "Sim, 100%. Todo o conteúdo, a IDE no navegador, os exercícios e os certificados são e sempre serão gratuitos. Somos uma iniciativa de extensão da USP, sem mensalidades ou cobranças escondidas.",
+          "Sim. O conteúdo, a IDE no navegador, os exercícios e os certificados são gratuitos, sem mensalidade. O LevelUSP é um trabalho de conclusão de curso desenvolvido no DCM/FFCLRP-USP.",
       },
       {
         question: "Preciso instalar algum programa para estudar?",
@@ -35,12 +35,17 @@ export const FAQ_GROUPS = [
       {
         question: "Preciso ter conhecimento prévio em programação?",
         answer:
-          "Não. Nossas trilhas começam do absoluto zero, assumindo que você nunca escreveu uma linha de código. A dificuldade aumenta de forma gradual e adaptada ao seu ritmo.",
+          "Não. A trilha começa do zero, para quem nunca escreveu uma linha de código, e a dificuldade aumenta aos poucos, de um nível para o outro.",
       },
       {
-        question: "Quanto tempo leva para concluir uma trilha?",
+        question: "O que já está disponível?",
         answer:
-          "Depende do seu ritmo. Cada trilha indica uma carga horária estimada (por exemplo, 30h para Fundamentos de Python). Como o conteúdo é dividido em microlições, você pode estudar alguns minutos por dia.",
+          "A trilha tem 7 níveis, do zero à IA. Hoje o Nível 1 (Fundamentos) está disponível; os demais estão em preparação. Cada curso mostra a carga horária estimada na própria página e é dividido em lições curtas.",
+      },
+      {
+        question: "Como funciona o XP?",
+        answer:
+          "O XP varia por passo: cada passo de uma lição (leitura, exercício, previsão ou quiz) vale uma quantidade própria, creditada quando você o conclui. O total de uma lição é a soma dos seus passos.",
       },
       {
         question: "Em que língua está o conteúdo?",
@@ -53,29 +58,24 @@ export const FAQ_GROUPS = [
     title: "Certificados e reconhecimento",
     items: [
       {
-        question: "Recebo certificado ao concluir uma trilha?",
+        question: "Recebo certificado ao concluir um curso?",
         answer:
-          "Sim. Ao concluir uma trilha completa você recebe um certificado digital verificável emitido pela iniciativa LevelUSP, que pode ser compartilhado no LinkedIn e em currículos.",
+          "Sim. Ao concluir as lições, o projeto e a prova de um nível, você recebe um certificado digital com código de verificação. É um certificado emitido pela plataforma LevelUSP, projeto de TCC desenvolvido no DCM/FFCLRP-USP; não é um documento emitido nem reconhecido pela USP.",
       },
       {
         question: "O certificado tem validade no mercado de trabalho?",
         answer:
-          "O certificado comprova as competências praticadas na plataforma. Embora não substitua um diploma, ele demonstra dedicação e domínio prático — algo valorizado por recrutadores da área de tecnologia.",
+          "O certificado registra que você concluiu as lições, o projeto e a prova do curso na plataforma. Ele não é um diploma nem um certificado oficial da USP.",
       },
     ],
   },
   {
-    title: "Escolas e instituições",
+    title: "Professores",
     items: [
       {
         question: "Sou professor(a). Posso usar com minha turma?",
         answer:
-          "Com certeza. Muitos educadores usam o LevelUSP em sala de aula. Entre em contato pela página de contato para conhecer o programa de escolas parceiras e acessar relatórios de acompanhamento.",
-      },
-      {
-        question: "Como minha instituição pode se tornar parceira?",
-        answer:
-          "Visite a página de Parceiros e fale com nossa equipe. Avaliamos parcerias com escolas, universidades, secretarias de educação e empresas que compartilham nossa missão.",
+          "Pode. A plataforma é gratuita e seus alunos podem criar conta e estudar por conta própria. Não há um programa de escolas nem relatórios por turma.",
       },
     ],
   },

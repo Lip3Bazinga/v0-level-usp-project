@@ -1,9 +1,11 @@
-import type {
-  Checkpoint, Difficulty, LessonInput, LessonType, LessonUpdateInput, LessonWithTests, ProjectFile, QuizQuestionFull,
-  QuizQuestionInput, TestCase,
+import {
+  DEFAULT_SOLUTION_AFTER_ATTEMPTS, MAX_LESSON_OBJECTIVES, MAX_SOLUTION_AFTER_ATTEMPTS,
+  type Checkpoint, type Difficulty, type LessonInput, type LessonRuntime, type LessonStepInput, type LessonType, type LessonUpdateInput,
+  type LessonWithTests, type ProjectFile, type QuizQuestionFull, type QuizQuestionInput, type TestCase,
 } from "@levelusp/contracts"
 import { MAIN_FILE_PATH } from "@/lib/constants"
 import { diffChangedFields, isNonEmpty, resolveStarterFiles, type NonEmptyArray } from "@/lib/utils"
+import { validateSteps } from "./steps-form"
 
 const MAX_TITLE_LENGTH = 160
 const MIN_TITLE_LENGTH = 3
@@ -19,6 +21,7 @@ const LIMITS = {
   order: { min: 1, max: 10_000 },
   xpReward: { min: 0, max: 5_000 },
   quizPassingScore: { min: 1, max: 100 },
+  solutionAfterAttempts: { min: 0, max: MAX_SOLUTION_AFTER_ATTEMPTS },
 } as const
 
 /** Estado do formulário do editor de lição (tudo que vai em `LessonInput`, menos os casos). */
@@ -39,6 +42,15 @@ export interface LessonFormState {
   /** Minutos (1–300). */
   time_limit: number
   quiz_passing_score: number
+  /** Motor da correção: `python` (CPython WASI) ou `python-dados` (Pyodide com numpy/pandas…). */
+  runtime: LessonRuntime
+  /** Projeto do nível: só abre com as demais lições concluídas e conta para o certificado. */
+  is_project: boolean
+  objectives: string[]
+  /** Verificações reprovadas antes de liberar a solução do passo (0 = nunca). */
+  solution_after_attempts: number
+  /** Passos da lição guiada, com gabarito; só são enviados quando o tipo é `guided`. */
+  steps: LessonStepInput[]
 }
 
 export const DEFAULT_STARTER = `# Escreva sua solução aqui
@@ -83,6 +95,11 @@ export const DEFAULT_FORM: LessonFormState = {
   xp_reward: 50,
   time_limit: 10,
   quiz_passing_score: DEFAULT_QUIZ_PASSING_SCORE,
+  runtime: "python",
+  is_project: false,
+  objectives: [],
+  solution_after_attempts: DEFAULT_SOLUTION_AFTER_ATTEMPTS,
+  steps: [],
 }
 
 export function formFromLesson(lesson: LessonWithTests): LessonFormState {
@@ -102,6 +119,11 @@ export function formFromLesson(lesson: LessonWithTests): LessonFormState {
     xp_reward: lesson.xp_reward,
     time_limit: clampInteger(lesson.time_limit, LIMITS.timeLimitMinutes),
     quiz_passing_score: lesson.quiz_passing_score,
+    runtime: lesson.runtime,
+    is_project: lesson.is_project,
+    objectives: lesson.objectives,
+    solution_after_attempts: lesson.solution_after_attempts,
+    steps: lesson.authoring_steps,
   }
 }
 
@@ -136,6 +158,12 @@ export function toLessonInput(form: LessonFormState, testCases: TestCase[]): Les
     time_limit: clampInteger(form.time_limit, LIMITS.timeLimitMinutes),
     quiz_passing_score: clampInteger(form.quiz_passing_score, LIMITS.quizPassingScore),
     test_cases: testCases,
+    runtime: form.runtime,
+    is_project: form.is_project,
+    objectives: form.objectives.map((objective) => objective.trim()).filter((objective) => objective !== "").slice(0, MAX_LESSON_OBJECTIVES),
+    solution_after_attempts: clampInteger(form.solution_after_attempts, LIMITS.solutionAfterAttempts),
+    // Lição que deixou de ser guiada perde os passos (a tela dela não os mostraria).
+    steps: form.lesson_type === "guided" ? form.steps : [],
   }
 }
 
@@ -154,6 +182,7 @@ export function validateLessonForm(form: LessonFormState): string | null {
     if (!paths.includes(MAIN_FILE_PATH)) return "O exercício precisa de um arquivo main.py."
     if (new Set(paths).size !== paths.length) return "Há arquivos do exercício com o mesmo nome."
   }
+  if (form.lesson_type === "guided") return validateSteps(form.steps)
   return null
 }
 

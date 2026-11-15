@@ -56,7 +56,7 @@ export function nextOrder(orders: readonly number[]): number {
 
 /** Por que uma lição ainda não pode ser publicada (o `code` vai na resposta 422). */
 export interface PublishBlocker {
-  code: "NO_TESTS" | "NO_QUESTIONS"
+  code: "NO_TESTS" | "NO_QUESTIONS" | "NO_STEPS"
   message: string
 }
 
@@ -65,11 +65,12 @@ export interface PublishCandidate {
   lessonType: LessonType
   testCaseCount: number
   quizQuestionCount: number
+  stepCount: number
 }
 
 /**
  * Uma lição só pode ficar publicada se o aluno conseguir concluí-la:
- * exercício de código precisa de gabarito; quiz precisa de questões.
+ * exercício de código precisa de gabarito; quiz precisa de questões; lição guiada precisa de passos.
  */
 export function publishBlocker(lesson: PublishCandidate): PublishBlocker | null {
   if (lesson.lessonType === "coding" && lesson.testCaseCount === 0) {
@@ -77,6 +78,9 @@ export function publishBlocker(lesson: PublishCandidate): PublishBlocker | null 
   }
   if (lesson.lessonType === "quiz" && lesson.quizQuestionCount === 0) {
     return { code: "NO_QUESTIONS", message: "Cadastre ao menos uma questão antes de publicar o quiz." }
+  }
+  if (lesson.lessonType === "guided" && lesson.stepCount === 0) {
+    return { code: "NO_STEPS", message: "Cadastre ao menos um passo antes de publicar a lição guiada." }
   }
   return null
 }

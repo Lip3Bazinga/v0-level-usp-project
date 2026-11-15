@@ -1,0 +1,20 @@
+titulo: Prova do curso de exemplo
+descricao: Duas questões sobre o conteúdo do curso.
+nota_minima: 70
+tempo_min: 20
+intervalo_min: 30
+questoes_por_tentativa: null
+questoes:
+  - enunciado: O que `print("Olá")` faz?
+    opcoes:
+      - Lê um texto do teclado
+      - Escreve Olá na saída padrão
+      - Cria uma variável chamada Olá
+    correta: 1
+    explicacao: "`print` escreve na saída padrão."
+    topico: Saída
+  - enunciado: "Para `def dobro(n): return 2 * n`, qual é o resultado de `dobro(4)`?"
+    opcoes: ["4", "8", "16"]
+    correta: 1
+    explicacao: A função devolve 2 × 4 = 8.
+    topico: Funções

@@ -11,7 +11,6 @@ import { swalConfirm, swalError, swalToast, swalWarning } from "@/lib/swal"
 import { CourseBasicsSection } from "./course-basics-section"
 import { CourseCoverSection } from "./course-cover-section"
 import { CourseEditorHeader } from "./course-editor-header"
-import { CourseFinalProjectSection } from "./course-final-project-section"
 import { validateCourseForm } from "./course-form"
 import { CourseLessonsSection } from "./course-lessons-section"
 import { CoursePreview } from "./course-preview"
@@ -121,7 +120,6 @@ export function CourseEditorScreen({ initial, onCreated }: CourseEditorScreenPro
               )}
             </EditorSection>
 
-            <CourseFinalProjectSection form={form} onChange={patchForm} />
           </div>
 
           <div className="min-w-0 xl:sticky xl:top-24 xl:self-start">

@@ -23,6 +23,7 @@ function profile(overrides: Partial<Profile>): Profile {
     id: "u", email: "u@usp.br", full_name: "Usuário", username: "usuario", avatar_url: null, bio: null, role: "student",
     level: 1, total_xp: 0, current_streak: 0, max_streak: 0, courses_completed: 0, lessons_completed: 0,
     last_login_date: null, suspended: false, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z",
+    experiment_condition: null,
     ...overrides,
   }
 }

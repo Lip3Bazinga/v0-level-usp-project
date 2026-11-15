@@ -1,0 +1,35 @@
+slug: n1-fundamentos
+titulo: Nível 1 — Fundamentos de programação e de computação
+descricao: 'Como o computador funciona por dentro e o Python do zero: tipos, condicionais, laços, coleções, funções, texto, erros e testes. Termina com um gerenciador de tarefas em modo texto.'
+descricao_longa: |
+  ## Para quem é
+
+  Para quem nunca programou — ou tentou e desistiu. Você não precisa saber matemática além da do ensino médio nem ter computador potente: tudo roda no navegador.
+
+  ## O que você vai construir
+
+  - Uma calculadora de IMC com classificação, um jogo de adivinhação e um analisador de texto (mini-projetos dos módulos).
+  - Dezenas de funções pequenas e testadas com `assert`.
+  - O projeto final: um **gerenciador de tarefas em modo texto**, com menu, prioridades, busca e relatório.
+
+  ## Pré-requisitos
+
+  Nenhum. Os dois primeiros módulos explicam o que acontece dentro do computador antes da primeira linha de código.
+
+  ## Como é avaliado
+
+  - Cada lição é dividida em passos (leitura, exercício, quiz). Um exercício só é concluído quando todos os casos de verificação passam no servidor.
+  - Dicas progressivas em cada exercício; depois de 3 tentativas você pode ver a solução (vale metade do XP).
+  - Certificado do nível: 100 % das lições concluídas + prova de múltipla escolha (20 questões sorteadas de 40, nota mínima 70 %) + projeto final aprovado pela correção automática.
+nivel: iniciante
+tags:
+- python
+- fundamentos
+- computação
+- lógica de programação
+- iniciante
+horas: 50
+ordem: 1
+publicado: true
+prerequisito: null
+sequencial: false

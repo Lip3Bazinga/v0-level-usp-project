@@ -1,0 +1,115 @@
+titulo: Prova do Nível 5 — Machine Learning
+descricao: 'Banco inicial de 12 questões (10 sorteadas por tentativa) sobre matemática para ML, regressão, classificação, scikit-learn, validação, árvores e ensembles, aprendizado não supervisionado e boas práticas. Nota mínima: 70 %.'
+nota_minima: 70
+tempo_min: 45
+intervalo_min: 60
+questoes_por_tentativa: 10
+questoes:
+- enunciado: 'O gradiente de uma função em um ponto aponta na direção de:'
+  opcoes:
+  - Menor crescimento da função
+  - Maior crescimento da função
+  - Sempre para a origem
+  - O mínimo global
+  correta: 1
+  explicacao: Por isso o gradiente descendente anda no sentido oposto ao gradiente.
+  topico: matematica-para-ml
+- enunciado: 'Se a curva de custo do gradiente descendente sobe e oscila, a causa mais provável é:'
+  opcoes:
+  - Taxa de aprendizado alta demais
+  - Poucos dados
+  - Custo não convexo
+  - Épocas demais
+  correta: 0
+  explicacao: Passos grandes demais 'pulam' o vale e divergem; reduza a taxa.
+  topico: regressao-linear-do-zero
+- enunciado: Qual regularização pode zerar coeficientes exatamente, servindo como seleção de atributos?
+  opcoes:
+  - Ridge (L2)
+  - Lasso (L1)
+  - Nenhuma
+  - As duas igualmente
+  correta: 1
+  explicacao: A penalidade L1 tem 'quinas' que levam coeficientes a exatamente zero; a L2 só os encolhe.
+  topico: regressao-linear-do-zero
+- enunciado: 'Em um problema com 1 % de positivos, um modelo que prevê sempre ''negativo'' tem acurácia de:'
+  opcoes:
+  - 1 %
+  - 50 %
+  - 99 %
+  - 0 %
+  correta: 2
+  explicacao: 'Por isso acurácia engana em classes desbalanceadas: use precisão, recall, F1 ou PR-AUC.'
+  topico: classificacao
+- enunciado: Qual métrica prioriza não deixar passar casos positivos (por exemplo, fraudes)?
+  opcoes:
+  - Precisão
+  - Recall
+  - Acurácia
+  - Especificidade
+  correta: 1
+  explicacao: Recall = positivos encontrados / positivos existentes; mede o quanto o modelo deixa escapar.
+  topico: classificacao
+- enunciado: Qual é a sequência correta de uso de um `StandardScaler`?
+  opcoes:
+  - fit_transform no treino e transform no teste
+  - fit_transform no teste e transform no treino
+  - fit no conjunto inteiro e transform nos dois
+  - transform sem fit
+  correta: 0
+  explicacao: As estatísticas (média e desvio) devem vir só do treino; usar o teste é vazamento.
+  topico: scikit-learn-na-pratica
+- enunciado: Para que serve a validação cruzada k-fold?
+  opcoes:
+  - Treinar mais rápido
+  - Estimar o desempenho com menos variância usando várias divisões treino/validação
+  - Substituir o conjunto de teste
+  - Aumentar a quantidade de dados
+  correta: 1
+  explicacao: Cada fold serve de validação uma vez; a média e o desvio das pontuações são a estimativa.
+  topico: scikit-learn-na-pratica
+- enunciado: 'Erro de treino baixo e erro de validação alto indicam:'
+  opcoes:
+  - Viés alto (subajuste)
+  - Variância alta (sobreajuste)
+  - Dados perfeitos
+  - Taxa de aprendizado baixa
+  correta: 1
+  explicacao: O modelo decorou o treino; regularizar, simplificar ou obter mais dados ajuda.
+  topico: scikit-learn-na-pratica
+- enunciado: O que a floresta aleatória faz para que suas árvores sejam diferentes entre si?
+  opcoes:
+  - Usa o mesmo conjunto em todas
+  - Bootstrap das linhas e subamostragem de atributos a cada divisão
+  - Limita a profundidade a 1
+  - Muda só o critério de impureza
+  correta: 1
+  explicacao: A diversidade entre árvores é o que faz a média reduzir a variância.
+  topico: arvores-e-ensembles
+- enunciado: 'No gradient boosting, cada nova árvore é ajustada a:'
+  opcoes:
+  - O alvo original
+  - Os resíduos (gradiente negativo da perda) do modelo atual
+  - Uma amostra sem reposição
+  - Os atributos mais importantes
+  correta: 1
+  explicacao: Cada estágio corrige os erros do conjunto anterior, com um fator de encolhimento (taxa de aprendizado).
+  topico: arvores-e-ensembles
+- enunciado: 'Antes de aplicar PCA, é essencial:'
+  opcoes:
+  - Normalizar os rótulos
+  - Centralizar (e, com escalas diferentes, padronizar) os atributos
+  - Remover todos os outliers
+  - Converter os dados para inteiros
+  correta: 1
+  explicacao: O PCA busca direções de maior variância; sem centralizar a primeira componente aponta para a média, e escalas desiguais dominam.
+  topico: svm-e-aprendizado-nao-supervisionado
+- enunciado: 'Padronizar os dados com estatísticas do conjunto inteiro antes de dividir em treino e teste causa:'
+  opcoes:
+  - Nada
+  - Vazamento de informação do teste para o treino
+  - Erro de shape
+  - Uma melhora legítima
+  correta: 1
+  explicacao: O teste deixa de ser uma amostra 'nunca vista'; a avaliação fica otimista.
+  topico: boas-praticas-de-ml

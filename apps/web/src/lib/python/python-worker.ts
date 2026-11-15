@@ -1,9 +1,9 @@
 import type { loadPyodide, PyodideAPI } from "pyodide"
-import { createProjectRunner, readPythonVersion, type ProjectRunner } from "./project-execution"
+import { createProjectRunner, createProjectTracer, readPythonVersion, type ProjectRunner, type ProjectTracer } from "./project-execution"
 import type { WorkerCommand, WorkerMessage } from "./worker-protocol"
 
 /*
- * Web Worker do botão "Executar": carrega o Pyodide e roda o projeto do aluno
+ * Web Worker dos botões "Executar" e "Visualizar": carrega o Pyodide e roda o projeto do aluno
  * fora da thread da interface. Laço infinito ou "Parar" matam este worker
  * inteiro (pyodide-worker.ts sobe outro), então nada aqui precisa ser interrompível.
  */
@@ -11,6 +11,7 @@ import type { WorkerCommand, WorkerMessage } from "./worker-protocol"
 interface PythonRuntime {
   pyodide: PyodideAPI
   runProject: ProjectRunner
+  traceProject: ProjectTracer
 }
 
 interface PyodideModule {
@@ -51,7 +52,7 @@ async function bootRuntime(indexURL: string, packageBaseUrl: string): Promise<Py
   })
   // O harness troca sys.stdin por uma string; ler o stdin "de verdade" é erro, nunca um prompt().
   pyodide.setStdin({ error: true })
-  return { pyodide, runProject: createProjectRunner(pyodide) }
+  return { pyodide, runProject: createProjectRunner(pyodide), traceProject: createProjectTracer(pyodide) }
 }
 
 function startRuntime(indexURL: string, packageBaseUrl: string): Promise<PythonRuntime> {
@@ -82,9 +83,23 @@ async function handleExecute(command: Extract<WorkerCommand, { type: "execute" }
   }
   post({ type: "execution-start" })
   try {
-    post({ type: "execution-result", result: runtime.runProject({ files: command.files, entryPath: command.entryPath }) })
+    post({ type: "execution-result", result: runtime.runProject({ files: command.files, entryPath: command.entryPath, stdin: command.stdin }) })
   } catch (error) {
     post({ type: "execution-error", error: errorMessage(error) })
+  }
+}
+
+async function handleTrace(command: Extract<WorkerCommand, { type: "trace" }>): Promise<void> {
+  const { requestId } = command
+  const runtime = await readyRuntime()
+  if (!runtime) {
+    post({ type: "trace-error", requestId, error: "O Python não está disponível. Tente recarregar a página." })
+    return
+  }
+  try {
+    post({ type: "trace-result", requestId, trace: runtime.traceProject({ files: command.files, entryPath: command.entryPath, stdin: command.stdin }) })
+  } catch (error) {
+    post({ type: "trace-error", requestId, error: errorMessage(error) })
   }
 }
 
@@ -137,6 +152,8 @@ function handleCommand(command: WorkerCommand): Promise<void> {
       return handleExecute(command)
     case "install":
       return handleInstall(command.packages)
+    case "trace":
+      return handleTrace(command)
   }
 }
 

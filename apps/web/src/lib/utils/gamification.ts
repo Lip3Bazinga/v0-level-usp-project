@@ -1,9 +1,4 @@
-import { XP_PER_LEVEL } from "@levelusp/contracts"
-
-/** XP total acumulado ao concluir o nível `level` (régua linear da API). */
-function xpForLevel(level: number): number {
-  return level * XP_PER_LEVEL
-}
+import { xpForLevel } from "@levelusp/contracts"
 
 /** Onde o XP total cai dentro do nível atual (para barras de progresso). */
 export interface LevelProgress {
@@ -20,13 +15,14 @@ export interface LevelProgress {
 }
 
 /**
- * Posição do usuário dentro do nível atual. A barra de nível mede o XP ganho no nível
- * sobre a faixa do nível, e não sobre o teto absoluto: com 1.500 XP no nível 2 são
- * "500/1.000 XP" (50%), e não "500/2.000 XP" (25%).
+ * Posição do usuário dentro do nível atual, pela curva crescente do contrato
+ * (`xpForLevel`: 0, 1000, 2500, 4500, 7000…). A barra mede o XP ganho no nível sobre a
+ * faixa do nível, e não sobre o teto absoluto: com 1.500 XP no nível 2 (faixa 1000–2500)
+ * são "500/1.500 XP" (33%).
  */
 export function computeLevelProgress(totalXp: number, level: number): LevelProgress {
-  const xpFloor = xpForLevel(level - 1)
-  const xpCeil = xpForLevel(level)
+  const xpFloor = xpForLevel(level)
+  const xpCeil = xpForLevel(level + 1)
   const xpInLevel = totalXp - xpFloor
   const xpLevelRange = xpCeil - xpFloor
   return { xpFloor, xpCeil, xpInLevel, xpLevelRange, levelPercent: toClampedPercent(xpInLevel, xpLevelRange) }

@@ -1,0 +1,115 @@
+titulo: Prova do Nível 3 — Estruturas de dados e algoritmos
+descricao: 'Banco inicial de 12 questões (10 sorteadas por tentativa) sobre matemática discreta, complexidade, recursão, busca e ordenação, estruturas lineares, árvores, hash, grafos e programação dinâmica. Nota mínima: 70 %.'
+nota_minima: 70
+tempo_min: 45
+intervalo_min: 60
+questoes_por_tentativa: 10
+questoes:
+- enunciado: Qual é a negação de 'todo aluno passou'?
+  opcoes:
+  - Nenhum aluno passou
+  - Existe pelo menos um aluno que não passou
+  - Todo aluno não passou
+  - Alguns alunos passaram
+  correta: 1
+  explicacao: A negação de 'para todo x, P(x)' é 'existe x tal que não P(x)'.
+  topico: matematica-discreta-essencial
+- enunciado: Quantos subconjuntos de 2 elementos tem um conjunto com 5 elementos?
+  opcoes:
+  - '5'
+  - '10'
+  - '20'
+  - '25'
+  correta: 1
+  explicacao: C(5, 2) = 5! / (2! · 3!) = 10. A ordem não importa, por isso não é arranjo (20).
+  topico: matematica-discreta-essencial
+- enunciado: Qual é a complexidade de tempo de `for i in range(n):` contendo `for j in range(i):`?
+  opcoes:
+  - O(n)
+  - O(n log n)
+  - O(n²)
+  - O(2ⁿ)
+  correta: 2
+  explicacao: O laço interno roda 0 + 1 + … + (n−1) = n(n−1)/2 vezes, que é Θ(n²).
+  topico: analise-de-algoritmos
+- enunciado: Qual destas operações custa O(n) em uma lista do Python?
+  opcoes:
+  - lista[i]
+  - lista.append(x)
+  - x in lista
+  - len(lista)
+  correta: 2
+  explicacao: '`in` percorre a lista até achar (ou até o fim); as outras são O(1) (append amortizado).'
+  topico: analise-de-algoritmos
+- enunciado: No backtracking, o que acontece logo depois da chamada recursiva voltar?
+  opcoes:
+  - Nada
+  - A escolha é desfeita (pop) para tentar a próxima alternativa
+  - A lista de escolhas é copiada
+  - O laço reinicia do zero
+  correta: 1
+  explicacao: 'Escolher → recursar → desfazer: sem desfazer, o estado contamina as próximas tentativas.'
+  topico: recursao-e-divisao-e-conquista
+- enunciado: 'A busca binária exige que a lista esteja:'
+  opcoes:
+  - Sem elementos repetidos
+  - Ordenada
+  - Com tamanho par
+  - Composta só de números
+  correta: 1
+  explicacao: A cada passo ela descarta metade com base na comparação com o meio, o que só vale em dados ordenados.
+  topico: busca-e-ordenacao
+- enunciado: Qual algoritmo de ordenação tem pior caso O(n²), mas O(n log n) esperado com pivô aleatório?
+  opcoes:
+  - Merge sort
+  - Quick sort
+  - Insertion sort
+  - Counting sort
+  correta: 1
+  explicacao: O quick sort degenera com pivôs ruins (dados ordenados e pivô fixo); a escolha aleatória torna isso improvável.
+  topico: busca-e-ordenacao
+- enunciado: Qual estrutura devolve os elementos na ordem inversa da inserção (o último a entrar é o primeiro a sair)?
+  opcoes:
+  - Fila
+  - Pilha
+  - Lista ligada
+  - Tabela hash
+  correta: 1
+  explicacao: Pilha é LIFO; a fila é FIFO.
+  topico: estruturas-lineares
+- enunciado: Por que `lista.pop(0)` é inadequado para implementar uma fila grande?
+  opcoes:
+  - Devolve o último elemento
+  - Custa O(n), porque desloca todos os elementos restantes
+  - Não existe em listas
+  - Remove dois elementos
+  correta: 1
+  explicacao: Use `collections.deque`, cujo `popleft()` é O(1).
+  topico: estruturas-lineares
+- enunciado: Qual percurso de uma árvore de busca binária produz as chaves em ordem crescente?
+  opcoes:
+  - Pré-ordem
+  - Em-ordem
+  - Pós-ordem
+  - Por níveis
+  correta: 1
+  explicacao: Em-ordem visita esquerda, raiz e direita; pela propriedade da BST isso sai ordenado.
+  topico: arvores-e-tabelas-hash
+- enunciado: Qual algoritmo encontra o caminho com menor número de arestas entre dois vértices de um grafo sem pesos?
+  opcoes:
+  - DFS
+  - BFS
+  - Dijkstra
+  - Kruskal
+  correta: 1
+  explicacao: A busca em largura visita por camadas de distância; o Dijkstra é para pesos e o Kruskal para árvore geradora.
+  topico: grafos
+- enunciado: Quais duas propriedades caracterizam um problema adequado à programação dinâmica?
+  opcoes:
+  - Entrada ordenada e pequena
+  - Subproblemas sobrepostos e subestrutura ótima
+  - Grafo acíclico e pesos positivos
+  - Escolha gulosa e recursão de cauda
+  correta: 1
+  explicacao: Sem sobreposição, memoizar não ajuda; sem subestrutura ótima, combinar soluções parciais não dá a ótima.
+  topico: programacao-dinamica-e-projeto

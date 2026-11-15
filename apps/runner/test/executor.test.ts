@@ -1,20 +1,26 @@
 import type { AddressInfo } from "node:net"
 import { describe, expect, it } from "vitest"
 import type { Probe, ProbeObservation, RunnerJob } from "@levelusp/contracts"
-import { Executor, type BatchRunner } from "../src/executor"
+import type { Engine, EngineBatch } from "../src/engine"
+import { Executor } from "../src/executor"
 import { QueueFullError, Semaphore } from "../src/semaphore"
 import { buildServer } from "../src/server"
-import type { SandboxBatch } from "../src/sandbox"
 import { RunnerStats } from "../src/stats"
 
 const sleep = (ms: number): Promise<void> => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
-/** Sandbox falso: cada lote demora `delayMs` e devolve ok para cada sonda; registra o que rodou. */
-function fakeSandbox(delayMs: number): BatchRunner & { ran: string[][] } {
+/** Motor falso: cada lote demora `delayMs` e devolve ok para cada sonda; registra o que rodou. */
+function fakeSandbox(delayMs: number): Engine & { ran: string[][] } {
   const ran: string[][] = []
   return {
     ran,
-    async runBatch(batch: SandboxBatch): Promise<ProbeObservation[]> {
+    name: "wasi",
+    versions: { python: "falso", runtime: "falso" },
+    readiness: { ready: true, reason: "" },
+    accept: () => undefined,
+    warmupMs: () => 0,
+    stats: () => ({ batches: ran.length }),
+    async run(batch: EngineBatch): Promise<ProbeObservation[]> {
       ran.push(batch.probes.map((probe) => probe.id))
       await sleep(delayMs)
       return batch.probes.map((probe) => ({ id: probe.id, ok: true }))
@@ -30,7 +36,7 @@ const job = (probes: Probe[]): RunnerJob => ({ files: [{ path: "main.py", conten
 describe("Executor: admissão na fila", () => {
   it("recusa o job inteiro quando nem todos os lotes cabem (nenhum lote dele roda)", async () => {
     const sandbox = fakeSandbox(30)
-    const executor = new Executor(sandbox, new Semaphore(1, 2))
+    const executor = new Executor({ python: sandbox }, new Semaphore(1, 2))
     const first = executor.execute(job([callProbe("a1")]))
     const second = executor.execute(job([callProbe("b1")]))
     // 3 lotes (execução + 2 unittest) para 1 lugar livre na fila: recusado sem enfileirar nada.
@@ -42,7 +48,7 @@ describe("Executor: admissão na fila", () => {
 
   it("aceita uma turma inteira de lotes rápidos (a fila é limitada pelo tempo estimado)", async () => {
     const sandbox = fakeSandbox(5)
-    const executor = new Executor(sandbox, new Semaphore(2, 500), { maxQueueWaitMs: 20_000 })
+    const executor = new Executor({ python: sandbox }, new Semaphore(2, 500), { maxQueueWaitMs: 20_000 })
     for (let index = 0; index < 5; index++) await executor.execute(job([callProbe(`aquece${index}`)]))
     const results = await Promise.all(Array.from({ length: 120 }, (_unused, index) => executor.execute(job([callProbe(`p${index}`), astProbe(`s${index}`)]))))
     expect(results).toHaveLength(120)
@@ -51,7 +57,7 @@ describe("Executor: admissão na fila", () => {
 
   it("recusa com espera sugerida quando os lotes medidos são lentos", async () => {
     const sandbox = fakeSandbox(60)
-    const executor = new Executor(sandbox, new Semaphore(1, 500), { maxQueueWaitMs: 1_000 })
+    const executor = new Executor({ python: sandbox }, new Semaphore(1, 500), { maxQueueWaitMs: 1_000 })
     // Calibra a estimativa com lotes lentos.
     for (let index = 0; index < 8; index++) await executor.execute(job([callProbe(`aquece${index}`)]))
     expect(executor.estimatedBatchMs).toBeGreaterThan(50)
@@ -68,7 +74,7 @@ describe("Executor: admissão na fila", () => {
     const sandbox = fakeSandbox(10)
     const semaphore = new Semaphore(1, 10)
     const stats = new RunnerStats(semaphore)
-    const executor = new Executor(sandbox, semaphore, { stats })
+    const executor = new Executor({ python: sandbox }, semaphore, { stats })
     const result = await executor.execute(job([callProbe("a"), astProbe("s1"), astProbe("s2"), astProbe("s3")]))
     expect(sandbox.ran).toEqual([["a"], ["s1", "s2", "s3"]])
     expect(result.observations.map((observation) => observation.id)).toEqual(["a", "s1", "s2", "s3"])
@@ -84,7 +90,7 @@ describe("servidor: /v1/stats e 503 com Retry-After", () => {
     const token = "s".repeat(32)
     const semaphore = new Semaphore(1, 1)
     const stats = new RunnerStats(semaphore)
-    const executor = new Executor(fakeSandbox(200), semaphore, { stats })
+    const executor = new Executor({ python: fakeSandbox(200) }, semaphore, { stats })
     const server = buildServer({ executor, token, log: () => undefined, stats })
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
     const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`

@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils"
 export const metadata: Metadata = {
   title: "Metodologia — Como ensinamos no LevelUSP",
   description:
-    "Conheça a metodologia do LevelUSP: aprendizagem ativa, prática deliberada numa IDE no navegador e gamificação, tudo fundamentado em ciência cognitiva.",
+    "Conheça a metodologia do LevelUSP: aprendizagem ativa, prática deliberada numa IDE no navegador e gamificação.",
 }
 
 function PillarsSection(): React.JSX.Element {
@@ -22,7 +22,7 @@ function PillarsSection(): React.JSX.Element {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
           title="Os pilares do nosso ensino"
-          description="Seis princípios pedagógicos que estruturam cada trilha e cada lição da plataforma."
+          description="Seis princípios que estruturam as lições da plataforma."
         />
 
         <Stagger className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -50,7 +50,7 @@ function ComparisonSection(): React.JSX.Element {
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
           title="O que nos torna diferentes"
-          description="Por que a experiência LevelUSP funciona melhor."
+          description="Como o LevelUSP se compara a um curso tradicional."
           className="mb-12 text-center"
         />
 
@@ -91,7 +91,7 @@ export default function MethodologyPage(): React.JSX.Element {
             Aprender programação <span className="gradient-text">fazendo</span>, não decorando
           </>
         }
-        description="Nossa abordagem une o que há de mais consolidado na ciência da aprendizagem com uma plataforma gamificada que coloca você escrevendo código real desde o primeiro minuto."
+        description="Nossa abordagem parte de ideias da ciência da aprendizagem e de uma plataforma gamificada que coloca você escrevendo código real desde a primeira lição."
       />
       <PillarsSection />
       <MethodSection />

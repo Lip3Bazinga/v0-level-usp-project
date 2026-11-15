@@ -55,7 +55,7 @@ export function AuthFooterPrompt({ prompt, href, linkLabel }: AuthFooterPromptPr
 
 interface AuthBrandPanelProps {
   description: string
-  children: ReactNode
+  children?: ReactNode
 }
 
 /** Coluna roxa com a marca, visível só em telas largas. */
@@ -78,7 +78,7 @@ export function AuthBrandPanel({ description, children }: AuthBrandPanelProps): 
 
 interface AuthSplitLayoutProps {
   brandPanel: ReactNode
-  children: ReactNode
+  children?: ReactNode
 }
 
 /** Login e cadastro: marca à esquerda (desktop) e formulário à direita. */
@@ -104,7 +104,7 @@ export function AuthSplitLayout({ brandPanel, children }: AuthSplitLayoutProps):
 interface AuthCenteredLayoutProps {
   title: string
   description: string
-  children: ReactNode
+  children?: ReactNode
 }
 
 /** Telas de senha: uma coluna centralizada com a marca, o título e o conteúdo. */

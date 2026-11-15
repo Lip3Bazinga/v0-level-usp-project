@@ -179,32 +179,30 @@ export function LessonPanel({
             </div>
           </div>
 
-          <div className="mt-8 space-y-2 border-t border-gray-100 pt-6">
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <FileText className="h-3.5 w-3.5 shrink-0 text-level-purple" />
-              <span>Revisão do conceito: </span>
-              {cheatsheetUrl ? (
-                <a href={cheatsheetUrl} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 font-medium text-level-purple hover:underline">
-                  Ver cheatsheet <ExternalLink className="h-3 w-3" />
-                </a>
-              ) : (
-                <span className="italic text-gray-500">Não disponível</span>
+          {(Boolean(cheatsheetUrl) || Boolean(communityUrl)) && (
+            <div className="mt-8 space-y-2 border-t border-gray-100 pt-6">
+              {cheatsheetUrl && (
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <FileText className="h-3.5 w-3.5 shrink-0 text-level-purple" />
+                  <span>Revisão do conceito: </span>
+                  <a href={cheatsheetUrl} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-medium text-level-purple hover:underline">
+                    Ver cheatsheet <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
+              {communityUrl && (
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <MessageCircle className="h-3.5 w-3.5 shrink-0 text-level-purple" />
+                  <span>Apoio comunitário: </span>
+                  <a href={communityUrl} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-medium text-level-purple hover:underline">
+                    Fórum <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
               )}
             </div>
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <MessageCircle className="h-3.5 w-3.5 shrink-0 text-level-purple" />
-              <span>Apoio comunitário: </span>
-              {communityUrl ? (
-                <a href={communityUrl} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 font-medium text-level-purple hover:underline">
-                  Fórum <ExternalLink className="h-3 w-3" />
-                </a>
-              ) : (
-                <span className="italic text-gray-500">Em breve</span>
-              )}
-            </div>
-          </div>
+          )}
 
           {/* Folga para o conteúdo não encostar no botão fixo de Verificar. */}
           {onVerify && <div className="h-4" />}

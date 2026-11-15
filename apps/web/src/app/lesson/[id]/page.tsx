@@ -1,11 +1,11 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import { useParams, useRouter } from "next/navigation"
 import { ResponsiveWorkspace } from "@/components/ide/responsive-workspace"
 import { Header } from "@/components/ide/header"
 import { LessonPanel } from "@/components/ide/lesson-panel"
 import { LessonFooter } from "@/components/ide/lesson-footer"
-import { CodeEditor } from "@/components/ide/code-editor"
 import { ConsolePanel } from "@/components/ide/console-panel"
 import { FileExplorer } from "@/components/ide/file-explorer"
 import { getLevelUpTransition, SuccessFeedback } from "@/components/ide/success-feedback"
@@ -18,13 +18,31 @@ import { useLessonNavigation } from "@/hooks/use-lesson-navigation"
 import { TheoryLessonLayout } from "@/components/ide/theory-lesson-layout"
 import { QuizLessonLayout } from "@/components/ide/quiz-lesson-layout"
 import { ROUTES } from "@/lib/constants"
+import { callsInput } from "@/lib/utils/stdin"
+import { StdinField } from "@/components/lesson-steps/stdin-field"
+
+// CodeMirror e o player de passos só entram no bundle de quem abre esse tipo de lição
+// (lições teóricas e de quiz não baixam o editor).
+const CodeEditor = dynamic(() => import("@/components/ide/code-editor").then((module) => module.CodeEditor), { ssr: false, loading: EditorLoading })
+const GuidedLessonLayout = dynamic(() => import("@/components/lesson-steps/guided-lesson-layout").then((module) => module.GuidedLessonLayout), {
+  ssr: false,
+  loading: EditorLoading,
+})
+
+function EditorLoading(): React.JSX.Element {
+  return (
+    <div className="flex h-full min-h-40 items-center justify-center" role="status" aria-label="Carregando">
+      <Loader2 className="h-6 w-6 animate-spin text-level-purple" />
+    </div>
+  )
+}
 
 function LessonWorkspace({ lesson, allLessons, currentIndex }: LessonPageData): React.JSX.Element {
   const {
     files, activePath, openPaths, setActivePath, openFile, closeTab, updateFileContent,
     createFile, renameFile, deleteFile,
     consoleOutputs, clearConsole, runConsoleCommand,
-    pythonStatus, isExecuting, isInstalling, stop,
+    pythonStatus, isExecuting, isInstalling, stop, stdin, setStdin,
     run, reset, verify,
     hasRun, hasOutput, canVerify, lessonProgress, allPassed, isVerifying,
     lastResult, levelBefore, isSuccessOpen, setIsSuccessOpen,
@@ -70,12 +88,17 @@ function LessonWorkspace({ lesson, allLessons, currentIndex }: LessonPageData): 
             />
           }
           console={
-            <ConsolePanel
-              outputs={consoleOutputs}
-              onClear={clearConsole}
-              isRunning={isExecuting}
-              onRunCommand={runConsoleCommand}
-            />
+            <div className="flex h-full flex-col">
+              <StdinField value={stdin} onChange={setStdin} isSuggested={files.some((file) => callsInput(file.content))} />
+              <div className="min-h-0 flex-1">
+                <ConsolePanel
+                  outputs={consoleOutputs}
+                  onClear={clearConsole}
+                  isRunning={isExecuting}
+                  onRunCommand={runConsoleCommand}
+                />
+              </div>
+            </div>
           }
           fileExplorer={
             <FileExplorer
@@ -179,6 +202,11 @@ export default function LessonPage(): React.JSX.Element {
   if (!page.data) return <LessonUnavailable />
 
   const { lesson, allLessons, currentIndex } = page.data
+
+  // Lição guiada: o player de passos. As lições sem passos seguem nas telas clássicas abaixo.
+  if (lesson.steps.length > 0) {
+    return <GuidedLessonLayout key={lesson.id} lesson={lesson} allLessons={allLessons} currentIndex={currentIndex} />
+  }
 
   // Questionário e teoria não usam a IDE; a correção do questionário é feita no servidor.
   if (lesson.lesson_type === "quiz") {

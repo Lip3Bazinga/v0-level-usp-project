@@ -138,14 +138,18 @@ describe("sorteio", () => {
 
 describe("elegibilidade", () => {
   const lessons = [
-    { id: "l1", module: "Básico", moduleTitle: null },
-    { id: "l2", module: "", moduleTitle: "Intermediário" },
-    { id: "proj", module: "Certificação", moduleTitle: null },
+    { id: "l1", module: "Básico", moduleTitle: null, isProject: false },
+    { id: "l2", module: "", moduleTitle: "Intermediário", isProject: false },
+    { id: "proj", module: "Certificação", moduleTitle: null, isProject: false },
   ]
   it("ignora o módulo de certificação", () => {
     expect(isCertificationModule("CERTIFICACAO final")).toBe(true)
     expect(isCertificationModule("Básico")).toBe(false)
     expect(examEligibility(lessons, new Set(["l1", "l2"]))).toEqual({ eligible: true, remaining: 0, total: 2 })
+  })
+  it("a prova não exige a lição de projeto (o certificado, sim)", () => {
+    const withProject = [...lessons, { id: "projeto", module: "Projeto", moduleTitle: "Projeto do nível", isProject: true }]
+    expect(examEligibility(withProject, new Set(["l1", "l2"]))).toEqual({ eligible: true, remaining: 0, total: 2 })
   })
   it("conta as lições que faltam", () => {
     expect(examEligibility(lessons, new Set(["l1"]))).toEqual({ eligible: false, remaining: 1, total: 2 })

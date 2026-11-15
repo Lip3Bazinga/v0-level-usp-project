@@ -22,14 +22,13 @@ function ContactCallout(): React.JSX.Element {
             <MessageCircle className="mb-4 h-10 w-10 text-level-purple" />
             <h2 className="text-2xl font-bold text-level-purple-dark">Ainda tem dúvidas?</h2>
             <p className="mt-3 max-w-md text-gray-600">
-              Nossa equipe está pronta para ajudar. Envie sua mensagem e responderemos o quanto
-              antes.
+              Abra uma issue no repositório do projeto, no GitHub.
             </p>
             <Link
               href={ROUTES.site.contact}
               className="mt-6 inline-block rounded-2xl bg-level-purple px-8 py-4 font-semibold text-white btn-3d"
             >
-              Falar com a equipe
+              Ver como entrar em contato
             </Link>
           </div>
         </Reveal>

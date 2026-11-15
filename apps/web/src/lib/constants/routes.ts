@@ -20,12 +20,16 @@ export const ROUTES = {
   dashboardModule: (moduleTitle: string) => `/dashboard?modulo=${encodeURIComponent(moduleTitle)}`,
   courses: "/cursos",
   course: (courseId: string) => `/cursos/${courseId}`,
+  /** Catálogo de trilhas (sequências de cursos certificáveis); público. */
+  tracks: "/trilhas",
+  track: (trackSlug: string) => `/trilhas/${trackSlug}`,
   courseExam: (courseId: string) => `/cursos/${courseId}/prova`,
   lesson: (lessonId: string) => `${LESSON_ROUTE_PREFIX}/${lessonId}`,
   ide: "/ide",
   notes: "/notas",
   leaderboard: "/leaderboard",
-  settings: "/settings",
+  /** Dados da conta e senha do usuário logado (antiga página "Configurações", agora dentro do perfil). */
+  account: "/perfil/me/conta",
   /** Perfil público; sem username cai em `/perfil/me` (a página resolve o usuário logado). */
   profile: (username?: string | null) => `/perfil/${nonEmpty(username) ?? "me"}`,
   certificate: (verificationCode: string) => `/certificado/${verificationCode}`,
@@ -37,14 +41,12 @@ export const ROUTES = {
   teacherCourse: (courseId: string) => `/teacher/curso/${courseId}`,
 
   admin: "/admin",
-  showcase: "/showcase",
   landing: "/landing",
 
   site: {
     about: "/sobre",
     methodology: "/metodologia",
     tracks: "/trilhas",
-    impact: "/impacto",
     team: "/equipe",
     partners: "/parceiros",
     faq: "/faq",
@@ -61,7 +63,7 @@ export const PROTECTED_ROUTE_PREFIXES: readonly string[] = [
   LESSON_ROUTE_PREFIX,
   ROUTES.ide,
   ROUTES.notes,
-  ROUTES.settings,
+  ROUTES.account,
   ROUTES.teacher,
   ROUTES.admin,
 ]

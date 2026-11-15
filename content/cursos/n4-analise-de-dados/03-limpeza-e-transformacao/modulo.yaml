@@ -1,0 +1,6 @@
+slug: limpeza-e-transformacao
+titulo: Limpeza e transformação
+descricao: Valores ausentes, tipos e conversões (datas e strings), duplicatas e outliers, dados tidy (melt/pivot) e combinação de tabelas (merge/concat).
+icone: Sparkles
+cor: bg-level-green
+ordem: 3

@@ -24,6 +24,7 @@ permissions:
 env:
   NODE_VERSION: 22
   PYTHON_WASI_DIR: /opt/levelusp-python
+  PYODIDE_DIR: /opt/levelusp-pyodide
   TEST_DATABASE_URL: postgres://levelusp:levelusp@localhost:5432/levelusp_test
 
 jobs:
@@ -107,10 +108,18 @@ jobs:
           key: python-wasi-${{ hashFiles('apps/runner/scripts/fetch-python-wasi.sh') }}
       - name: Wasmtime + CPython WASI (SHA-256 verificado)
         run: sudo -E env "PATH=$PATH" bash apps/runner/scripts/fetch-python-wasi.sh && sudo chown -R "$USER" /opt/levelusp-python
+      # O tarball do Pyodide (337 MB) é cacheado pela versão, que está no próprio script.
+      - name: Cache do tarball do Pyodide
+        uses: actions/cache@v4
+        with:
+          path: /tmp/pyodide-cache
+          key: pyodide-tarball-${{ hashFiles('apps/runner/scripts/fetch-pyodide.sh') }}
+      - name: Pyodide 314 (núcleo + numpy/pandas/scikit-learn, SHA-256 verificado)
+        run: sudo -E env "PATH=$PATH" PYODIDE_TARBALL_CACHE=/tmp/pyodide-cache bash apps/runner/scripts/fetch-pyodide.sh && sudo chown -R "$USER" /opt/levelusp-pyodide /tmp/pyodide-cache
       - run: pnpm --filter @levelusp/contracts build && pnpm --filter @levelusp/runner build
-      - name: Testes do executor (inclui ataques da auditoria)
+      - name: Testes do executor (WASI + Pyodide; inclui ataques da auditoria)
         run: pnpm --filter @levelusp/runner test
-      - name: Catálogo de ataques ao executor (fuga, recursos, modo estrito, unittest)
+      - name: Catálogo de ataques ao executor (fuga, recursos, modo estrito, unittest, Pyodide)
         run: pnpm --filter @levelusp/runner test:attacks
       - name: Sobe o executor
         run: |

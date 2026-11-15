@@ -14,9 +14,6 @@ export interface CourseFormState {
   level: Difficulty
   tags: string[]
   estimated_hours: number
-  final_project_title: string
-  final_project_description: string
-  final_project_starter_code: string
   cover_image_url: string | null
 }
 
@@ -27,9 +24,6 @@ export const EMPTY_COURSE_FORM: CourseFormState = {
   level: "iniciante",
   tags: [],
   estimated_hours: 0,
-  final_project_title: "",
-  final_project_description: "",
-  final_project_starter_code: "",
   cover_image_url: null,
 }
 
@@ -41,16 +35,8 @@ export function formFromCourse(course: Course): CourseFormState {
     level: course.level,
     tags: course.tags,
     estimated_hours: course.estimated_hours,
-    final_project_title: course.final_project_title ?? "",
-    final_project_description: course.final_project_description ?? "",
-    final_project_starter_code: course.final_project_starter_code ?? "",
     cover_image_url: course.cover_image_url ?? null,
   }
-}
-
-/** Texto vazio (só espaços) vira `null`, que a API grava como "sem valor". */
-function textOrNull(text: string): string | null {
-  return text.trim() ? text : null
 }
 
 export function toCourseInput(form: CourseFormState): CourseInput {
@@ -62,9 +48,6 @@ export function toCourseInput(form: CourseFormState): CourseInput {
     level: form.level,
     tags: form.tags,
     estimated_hours: Math.max(0, Math.min(MAX_ESTIMATED_HOURS, Math.round(form.estimated_hours || 0))),
-    final_project_title: textOrNull(form.final_project_title.trim()),
-    final_project_description: textOrNull(form.final_project_description),
-    final_project_starter_code: textOrNull(form.final_project_starter_code),
   }
 }
 

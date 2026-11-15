@@ -1,0 +1,6 @@
+slug: grafos
+titulo: Grafos
+descricao: Representações, BFS e menor caminho sem pesos, DFS e componentes, ordenação topológica, Dijkstra, árvore geradora mínima e union-find.
+icone: Workflow
+cor: bg-level-green
+ordem: 7

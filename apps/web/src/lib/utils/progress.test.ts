@@ -30,7 +30,7 @@ describe("summarizeGamification", () => {
   })
 
   it("calcula o progresso dentro da faixa do nível atual", () => {
-    const summary = summarizeGamification({ level: 3, total_xp: 2500, current_streak: 2, max_streak: 7 })
-    expect(summary).toMatchObject({ xpInLevel: 500, xpCeil: 3000, xpLevelRange: 1000, xpProgress: 50 })
+    const summary = summarizeGamification({ level: 3, total_xp: 3500, current_streak: 2, max_streak: 7 })
+    expect(summary).toMatchObject({ xpInLevel: 1000, xpCeil: 4500, xpLevelRange: 2000, xpProgress: 50 })
   })
 })

@@ -1,0 +1,115 @@
+titulo: 'Prova do Nível 6 — Deep Learning: a IA por dentro'
+descricao: 'Banco inicial de 12 questões (10 sorteadas por tentativa) sobre perceptron, autograd, treino de redes, MLP, CNN, RNN, atenção, transformers e limitações. Nota mínima: 70 %.'
+nota_minima: 70
+tempo_min: 45
+intervalo_min: 60
+questoes_por_tentativa: 10
+questoes:
+- enunciado: Por que um único perceptron não resolve o XOR?
+  opcoes:
+  - Precisa de mais épocas
+  - O XOR não é linearmente separável
+  - Falta o viés
+  - A taxa de aprendizado é baixa
+  correta: 1
+  explicacao: Nenhuma reta separa (0,0) e (1,1) de (0,1) e (1,0); é preciso uma camada escondida com não linearidade.
+  topico: neuronios-e-perceptron
+- enunciado: 'Compor duas camadas lineares sem função de ativação entre elas equivale a:'
+  opcoes:
+  - Uma rede mais profunda e mais expressiva
+  - Uma única transformação linear
+  - Uma ReLU
+  - 'Nada: é inválido'
+  correta: 1
+  explicacao: W₂(W₁x) = (W₂W₁)x; sem não linearidade a profundidade não acrescenta capacidade.
+  topico: neuronios-e-perceptron
+- enunciado: No autograd, por que o gradiente dos filhos é acumulado com `+=` em vez de atribuído com `=`?
+  opcoes:
+  - Por desempenho
+  - Porque um nó pode ser usado em mais de um lugar e as contribuições se somam
+  - Porque o numpy exige
+  - Por convenção de estilo
+  correta: 1
+  explicacao: Pela regra da cadeia, o gradiente de uma variável é a soma dos gradientes por todos os caminhos em que ela aparece.
+  topico: autograd-do-zero
+- enunciado: Em qual ordem o `backward` percorre o grafo computacional?
+  opcoes:
+  - Topológica direta
+  - Topológica inversa (da saída para as entradas)
+  - Aleatória
+  - Por níveis a partir das entradas
+  correta: 1
+  explicacao: Um nó só pode propagar seu gradiente depois de receber as contribuições de todos os que dependem dele.
+  topico: autograd-do-zero
+- enunciado: 'A perda inicial esperada de um classificador de 10 classes com softmax e pesos pequenos é aproximadamente:'
+  opcoes:
+  - '0'
+  - ln(10) ≈ 2,3
+  - '10'
+  - '1'
+  correta: 1
+  explicacao: Com probabilidades uniformes, a entropia cruzada é −ln(1/10) = ln 10. É o primeiro teste de sanidade do treino.
+  topico: treinando-redes
+- enunciado: O que o otimizador Adam combina?
+  opcoes:
+  - Momentum e taxa adaptativa por parâmetro
+  - Dropout e L2
+  - BatchNorm e warmup
+  - SGD e parada antecipada
+  correta: 0
+  explicacao: Adam mantém médias móveis do gradiente (momento) e do gradiente ao quadrado (escala), com correção de viés.
+  topico: treinando-redes
+- enunciado: 'Durante a avaliação, o dropout deve estar:'
+  opcoes:
+  - Ativo com probabilidade maior
+  - Desligado (com a escala invertida aplicada no treino)
+  - Ativo com a mesma máscara do treino
+  - Depende do otimizador
+  correta: 1
+  explicacao: O dropout é um ruído de treino; na avaliação usa-se a rede completa, e o dropout invertido já compensa a escala.
+  topico: mlp-em-numpy
+- enunciado: Qual é a principal vantagem de uma camada convolucional sobre uma densa em imagens?
+  opcoes:
+  - Tem mais parâmetros
+  - 'Compartilhamento de pesos e localidade: menos parâmetros e invariância a translação'
+  - Treina sem gradiente
+  - Dispensa função de ativação
+  correta: 1
+  explicacao: O mesmo filtro percorre a imagem inteira, detectando o padrão onde quer que ele apareça.
+  topico: redes-convolucionais
+- enunciado: O que causa o gradiente que some em RNNs com sequências longas?
+  opcoes:
+  - Taxa de aprendizado alta
+  - Produtos repetidos de derivadas da ativação e de W_hh ao longo do tempo
+  - Dropout
+  - Falta de viés
+  correta: 1
+  explicacao: O BPTT multiplica os mesmos fatores a cada passo; se forem menores que 1, o gradiente decai exponencialmente.
+  topico: sequencias-embeddings-e-rnn
+- enunciado: 'A máscara causal na self-attention serve para:'
+  opcoes:
+  - Acelerar o softmax
+  - Impedir que uma posição use informação de posições futuras
+  - Normalizar as pontuações
+  - Reduzir o número de parâmetros
+  correta: 1
+  explicacao: No treino todas as posições são previstas em paralelo; sem a máscara o modelo 'veria' a resposta.
+  topico: atencao-e-transformers
+- enunciado: Por que os transformers precisam de codificação posicional?
+  opcoes:
+  - Porque a atenção, sozinha, é invariante à ordem dos tokens
+  - Para reduzir o custo computacional
+  - Porque o softmax exige
+  - Para evitar overflow
+  correta: 0
+  explicacao: Sem informação de posição, 'o gato viu o rato' e 'o rato viu o gato' teriam a mesma representação.
+  topico: atencao-e-transformers
+- enunciado: 'A alucinação em modelos de linguagem decorre principalmente de:'
+  opcoes:
+  - Bugs de implementação
+  - O objetivo de treino ser prever o próximo token plausível, não o verdadeiro
+  - Falta de GPU
+  - Temperatura zero
+  correta: 1
+  explicacao: O modelo maximiza plausibilidade estatística; nada no objetivo exige que o texto seja factual.
+  topico: limites-e-projeto

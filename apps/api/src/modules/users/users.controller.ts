@@ -31,10 +31,10 @@ export class UsersController {
     return this.users.getByUsername(username)
   }
 
-  @Public()
+  /** Mapa de atividade: só o próprio usuário, professores e admins (é dado de estudo, não vitrine). */
   @Get("users/:id/activity")
-  listActivity(@Param("id", UuidPipe) id: string): Promise<ActivityDay[]> {
-    return this.users.listActivity(id)
+  listActivity(@CurrentUser() viewer: AuthUser, @Param("id", UuidPipe) id: string): Promise<ActivityDay[]> {
+    return this.users.listActivity(viewer, id)
   }
 
   @Public()

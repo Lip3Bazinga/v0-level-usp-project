@@ -1,8 +1,8 @@
 import { Injectable } from "@nestjs/common"
 import { and, desc, eq } from "drizzle-orm"
-import { certificates, courses, profiles, type CertificateRow } from "@levelusp/db"
+import { certificates, courses, profiles, trackCertificates, tracks, type CertificateRow } from "@levelusp/db"
 import { InjectDb, type Database } from "@/infra/database/database.module"
-import type { CertificateSummaryRow, PublicCertificateRow } from "./certificates.mapper"
+import type { CertificateSummaryRow, PublicCertificateRow, PublicTrackCertificateRow } from "./certificates.mapper"
 
 const summaryColumns = {
   verificationCode: certificates.verificationCode,
@@ -77,6 +77,24 @@ export class CertificatesRepository {
       .innerJoin(profiles, eq(profiles.id, certificates.userId))
       .innerJoin(courses, eq(courses.id, certificates.courseId))
       .where(eq(certificates.verificationCode, code))
+      .limit(1)
+    return certificate ?? null
+  }
+
+  /** Verificação pública de certificado de trilha: nome do aluno, trilha e data. */
+  async findTrackCertificateByCode(code: string): Promise<PublicTrackCertificateRow | null> {
+    const [certificate] = await this.db
+      .select({
+        verificationCode: trackCertificates.verificationCode,
+        studentName: profiles.fullName,
+        trackTitle: tracks.title,
+        certificateTitle: tracks.certificateTitle,
+        issuedAt: trackCertificates.issuedAt,
+      })
+      .from(trackCertificates)
+      .innerJoin(profiles, eq(profiles.id, trackCertificates.userId))
+      .innerJoin(tracks, eq(tracks.id, trackCertificates.trackId))
+      .where(eq(trackCertificates.verificationCode, code))
       .limit(1)
     return certificate ?? null
   }

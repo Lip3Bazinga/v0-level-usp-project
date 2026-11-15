@@ -5,10 +5,15 @@ import { SAO_PAULO_TIME_ZONE } from "@/common/time/time"
 export const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 const CODE_BLOCK_LENGTH = 4
 
-/** Código de verificação legível: LVL-XXXX-XXXX (31^8 ≈ 2^39,6 combinações). */
-export function generateVerificationCode(randomBelow: (max: number) => number = randomInt): string {
+/** Prefixo dos certificados de curso. */
+export const COURSE_CODE_PREFIX = "LVL"
+/** Prefixo dos certificados de trilha: o código já diz de que tipo é e nunca colide com um de curso. */
+export const TRACK_CODE_PREFIX = "TRL"
+
+/** Código de verificação legível: LVL-XXXX-XXXX (31^8 ≈ 2^39,6 combinações); trilhas usam o prefixo TRL. */
+export function generateVerificationCode(randomBelow: (max: number) => number = randomInt, prefix: string = COURSE_CODE_PREFIX): string {
   const block = (): string => Array.from({ length: CODE_BLOCK_LENGTH }, () => CODE_ALPHABET.charAt(randomBelow(CODE_ALPHABET.length))).join("")
-  return `LVL-${block()}-${block()}`
+  return `${prefix}-${block()}-${block()}`
 }
 
 /**

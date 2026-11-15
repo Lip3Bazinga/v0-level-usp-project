@@ -57,7 +57,7 @@ function SiteLogo(): React.JSX.Element {
       href={ROUTES.home}
       markClassName="shadow-lg shadow-purple-300/40"
       wordmarkClassName="text-lg"
-      tagline="Iniciativa da USP"
+      tagline="DCM/FFCLRP-USP"
       taglineClassName="text-[10px] font-medium text-level-purple"
     />
   )

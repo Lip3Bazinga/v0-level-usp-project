@@ -1,0 +1,6 @@
+slug: funcoes
+titulo: Funções
+descricao: Definir e chamar, parâmetros e retorno, escopo, argumentos padrão e nomeados, docstrings e assert, recursão e funções como valores.
+icone: FunctionSquare
+cor: bg-level-blue
+ordem: 6

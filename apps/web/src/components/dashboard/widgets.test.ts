@@ -36,4 +36,10 @@ describe("pickNextBadge", () => {
     const next = pickNextBadge([badge("xp-100", { criteria_value: 100 })], new Set(), profile)
     expect(next?.current).toBe(100)
   })
+
+  it("a badge Formado(a) acompanha os certificados emitidos", () => {
+    const formado = badge("formado", { criteria_type: "certificates_issued", criteria_value: 1 })
+    expect(pickNextBadge([formado], new Set(), { ...profile, certificates_issued: 0 })?.current).toBe(0)
+    expect(pickNextBadge([formado], new Set(), { ...profile, certificates_issued: 3 })?.current).toBe(1)
+  })
 })

@@ -1,10 +1,10 @@
 import {
-  Code2, FileText, FlaskConical, HelpCircle, ListChecks, Package, Settings, type LucideIcon,
+  Code2, FileText, FlaskConical, HelpCircle, ListChecks, ListOrdered, Package, Settings, type LucideIcon,
 } from "lucide-react"
 import { LESSON_TYPES, type LessonType } from "@levelusp/contracts"
 import { cn } from "@/lib/utils"
 
-export type EditorTabId = "config" | "conteudo" | "questoes" | "exercicio" | "testes" | "checkpoints" | "libs"
+export type EditorTabId = "config" | "conteudo" | "passos" | "questoes" | "exercicio" | "testes" | "checkpoints" | "libs"
 
 interface EditorTab {
   id: EditorTabId
@@ -15,12 +15,13 @@ interface EditorTab {
 
 export const EDITOR_TABS: readonly EditorTab[] = [
   { id: "config", label: "Configurações", icon: Settings, types: LESSON_TYPES },
-  { id: "conteudo", label: "Conteúdo", icon: FileText, types: LESSON_TYPES },
+  { id: "conteudo", label: "Conteúdo", icon: FileText, types: ["coding", "theory", "quiz"] },
+  { id: "passos", label: "Passos", icon: ListOrdered, types: ["guided"] },
   { id: "questoes", label: "Questões", icon: HelpCircle, types: ["quiz"] },
   { id: "exercicio", label: "Exercício", icon: Code2, types: ["coding"] },
   { id: "testes", label: "Testes", icon: FlaskConical, types: ["coding"] },
   { id: "checkpoints", label: "Checkpoints", icon: ListChecks, types: ["coding"] },
-  { id: "libs", label: "Bibliotecas", icon: Package, types: ["coding"] },
+  { id: "libs", label: "Bibliotecas", icon: Package, types: ["coding", "guided"] },
 ]
 
 export function isTabVisible(id: EditorTabId, type: LessonType): boolean {

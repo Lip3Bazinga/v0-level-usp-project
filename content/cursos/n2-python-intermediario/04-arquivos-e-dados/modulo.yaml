@@ -1,0 +1,6 @@
+slug: arquivos-e-dados
+titulo: Arquivos e dados
+descricao: Ler e escrever texto, CSV e JSON, caminhos com pathlib e um mini-projeto de agenda persistente.
+icone: FileText
+cor: bg-level-orange
+ordem: 4

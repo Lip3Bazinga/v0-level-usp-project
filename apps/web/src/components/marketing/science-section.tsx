@@ -11,8 +11,8 @@ export function ScienceSection(): React.JSX.Element {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionIntro
           eyebrow="Base científica"
-          title="Nosso método é comprovado por pesquisa"
-          description="Cada decisão pedagógica da LevelUSP é fundamentada em décadas de pesquisa em ciência da aprendizagem e psicologia cognitiva. Não é achismo — é evidência."
+          title="As pesquisas em que o método se apoia"
+          description="O formato das lições segue ideias da pesquisa em aprendizagem. Os estudos abaixo são sobre essas ideias em geral; a plataforma em si ainda não foi avaliada."
         />
 
         <Stagger className="mt-16 grid gap-6 lg:grid-cols-3">
@@ -26,11 +26,8 @@ export function ScienceSection(): React.JSX.Element {
               whileHover={{ y: -6 }}
               className="group flex flex-col rounded-3xl border border-gray-100 bg-white p-8 shadow-sm transition-shadow hover:shadow-xl hover:shadow-purple-100"
             >
-              <div className="mb-5 flex items-center gap-4">
-                <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-level-purple-light">
-                  <evidence.icon className="h-7 w-7 text-level-purple" />
-                </div>
-                <span className="text-4xl font-bold text-level-purple-dark">{evidence.stat}</span>
+              <div className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-level-purple-light">
+                <evidence.icon className="h-7 w-7 text-level-purple" />
               </div>
               <h3 className="mb-2 text-lg font-bold text-level-purple-dark">{evidence.title}</h3>
               <p className="flex-1 text-sm leading-relaxed text-gray-600">{evidence.description}</p>
@@ -50,7 +47,7 @@ export function ScienceSection(): React.JSX.Element {
               desde o primeiro minuto, com a teoria sempre a um clique de distância.”
             </p>
             <p className="mt-6 text-sm font-semibold text-level-purple">
-              Equipe Pedagógica — LevelUSP / Universidade de São Paulo
+              LevelUSP — projeto desenvolvido no DCM/FFCLRP-USP
             </p>
           </div>
         </Reveal>

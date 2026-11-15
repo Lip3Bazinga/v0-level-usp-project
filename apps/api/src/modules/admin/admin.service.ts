@@ -72,7 +72,7 @@ export class AdminService {
 
   /** Todos os perfis, inclusive suspensos. */
   async listUsers(): Promise<Profile[]> {
-    return (await this.users.list()).map(toProfile)
+    return (await this.users.list()).map((profile) => toProfile(profile))
   }
 
   /**

@@ -1,8 +1,8 @@
 import { Injectable } from "@nestjs/common"
 import { and, asc, count, eq, inArray, sql } from "drizzle-orm"
-import { badges, courses, lessonProgress, lessons, profiles, userBadges } from "@levelusp/db"
+import { badges, certificates, courseCompletions, courses, lessonProgress, lessonStepProgress, lessonSteps, lessons, profiles, userBadges } from "@levelusp/db"
 import { InjectDb, type Database } from "@/infra/database/database.module"
-import type { DbTransaction, DbExecutor, LessonRow, ProfileRow, BadgeRow } from "@levelusp/db"
+import type { DbTransaction, DbExecutor, LessonRow, LessonStepProgressRow, LessonStepRow, ProfileRow, BadgeRow } from "@levelusp/db"
 
 /** Conclusão a gravar; `score` só nos questionários. */
 export interface CompletionRecord {
@@ -27,7 +27,13 @@ export interface ProgressionUpdate {
   level: number
 }
 
-/** Escritas de XP, nível, sequência e badges — usadas SOMENTE pelo GamificationService. */
+/** Conclusão de passo a gravar, com o XP já calculado (metade se a solução foi vista). */
+export interface StepCompletionRecord {
+  userId: string
+  stepId: string
+  xpAwarded: number
+}
+
 /** Estado da sequência diária: último dia com atividade (São Paulo) e dias seguidos. */
 export interface StreakRow {
   lastActivityDate: string | null
@@ -94,6 +100,64 @@ export class GamificationRepository {
       .where(eq(profiles.id, userId))
   }
 
+  /** Grava o novo XP e nível sem contar lição (crédito de passo). */
+  async creditXp({ userId, totalXp, level }: ProgressionUpdate, executor: DbExecutor = this.db): Promise<void> {
+    await executor.update(profiles).set({ totalXp, level }).where(eq(profiles.id, userId))
+  }
+
+  /** XP e lição do passo (o XP vem do banco, nunca do cliente). */
+  async findStepReward(stepId: string, executor: DbExecutor = this.db): Promise<Pick<LessonStepRow, "id" | "lessonId" | "xp"> | undefined> {
+    const [step] = await executor.select({ id: lessonSteps.id, lessonId: lessonSteps.lessonId, xp: lessonSteps.xp }).from(lessonSteps).where(eq(lessonSteps.id, stepId))
+    return step
+  }
+
+  /** Situação do aluno no passo e se ele viu a solução; `undefined` se nunca interagiu. */
+  async findStepProgress(userId: string, stepId: string, executor: DbExecutor = this.db): Promise<Pick<LessonStepProgressRow, "status" | "solutionViewed"> | undefined> {
+    const [progress] = await executor
+      .select({ status: lessonStepProgress.status, solutionViewed: lessonStepProgress.solutionViewed })
+      .from(lessonStepProgress)
+      .where(and(eq(lessonStepProgress.userId, userId), eq(lessonStepProgress.stepId, stepId)))
+    return progress
+  }
+
+  /** Marca o passo como concluído (insere ou atualiza o progresso), preservando tentativas e dicas. */
+  async markStepCompleted({ userId, stepId, xpAwarded }: StepCompletionRecord, executor: DbExecutor = this.db): Promise<void> {
+    const completion = { status: "completed" as const, xpAwarded, completedAt: sql`now()`, updatedAt: sql`now()` }
+    await executor
+      .insert(lessonStepProgress)
+      .values({ userId, stepId, ...completion })
+      .onConflictDoUpdate({ target: [lessonStepProgress.userId, lessonStepProgress.stepId], set: completion })
+  }
+
+  /** Quantos passos da lição o aluno ainda NÃO concluiu. */
+  async countPendingSteps(userId: string, lessonId: string, executor: DbExecutor = this.db): Promise<number> {
+    const [pending] = await executor
+      .select({ total: count() })
+      .from(lessonSteps)
+      .where(
+        and(
+          eq(lessonSteps.lessonId, lessonId),
+          sql`not exists (select 1 from lesson_step_progress p where p.step_id = ${lessonSteps.id} and p.user_id = ${userId} and p.status = 'completed')`,
+        ),
+      )
+    return pending?.total ?? 0
+  }
+
+  /** Registra a conclusão do curso; `false` quando já estava registrada (não conta de novo). */
+  async createCourseCompletion(userId: string, courseId: string, executor: DbExecutor = this.db): Promise<boolean> {
+    const inserted = await executor.insert(courseCompletions).values({ userId, courseId }).onConflictDoNothing().returning({ id: courseCompletions.id })
+    return inserted.length > 0
+  }
+
+  /** Se a conclusão do curso já está registrada para o aluno. */
+  async hasCourseCompletion(userId: string, courseId: string, executor: DbExecutor = this.db): Promise<boolean> {
+    const [completion] = await executor
+      .select({ id: courseCompletions.id })
+      .from(courseCompletions)
+      .where(and(eq(courseCompletions.userId, userId), eq(courseCompletions.courseId, courseId)))
+    return completion !== undefined
+  }
+
   /** Ids das lições publicadas do curso. */
   listPublishedLessonIds(courseId: string, executor: DbExecutor = this.db): Promise<Pick<LessonRow, "id">[]> {
     return executor.select({ id: lessons.id }).from(lessons).where(and(eq(lessons.courseId, courseId), eq(lessons.published, true)))
@@ -117,6 +181,12 @@ export class GamificationRepository {
   async findCourseTitle(courseId: string, executor: DbExecutor = this.db): Promise<string | undefined> {
     const course = await executor.query.courses.findFirst({ where: eq(courses.id, courseId), columns: { title: true } })
     return course?.title
+  }
+
+  /** Certificados de curso emitidos ao aluno (critério `certificates_issued` da badge "Formado(a)"). */
+  async countCertificates(userId: string, executor: DbExecutor = this.db): Promise<number> {
+    const [issued] = await executor.select({ total: count() }).from(certificates).where(eq(certificates.userId, userId))
+    return issued?.total ?? 0
   }
 
   /** Perfil com os contadores usados nos critérios de badge. */

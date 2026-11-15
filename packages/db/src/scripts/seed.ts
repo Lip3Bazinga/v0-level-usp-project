@@ -4,19 +4,22 @@
  *   DATABASE_URL=...  SEED_ADMIN_EMAIL=... SEED_ADMIN_PASSWORD=...  pnpm db:seed
  *   SEED_DEMO_USERS=true  → cria professor(a) e aluno(a) de demonstração (fora de banco local,
  *                           exige SEED_DEMO_PASSWORD: a senha padrão é pública)
+ *   SEED_CONTENT=false    → só badges e contas (produção, onde o conteúdo vem da importação)
  *
- * Cria badges padrão, módulos, o curso "Python Completo" (22 exercícios com
- * gabarito declarativo, verificado contra soluções de referência) e uma prova
- * de demonstração. Em produção, o conteúdo real vem da importação do Supabase
- * (src/scripts/import-supabase.ts) — o seed só cria o admin e as badges.
+ * Cria as badges padrão e lê TODOS os pacotes de `packages/db/seed/*.json`:
+ *   - formato 2 (docs/v2/curso-e-passos.md §6.2): trilhas, cursos (com pré-requisito e prova),
+ *     módulos, lições e passos, com upsert por `slug` (rodar de novo atualiza sem duplicar);
+ *   - `python-completo.json` (formato 1): o curso "Python Completo" de 22 exercícios, criado
+ *     uma vez e mantido depois.
  */
-import { readFileSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { Algorithm, hash } from "@node-rs/argon2"
 import { eq, sql } from "drizzle-orm"
-import { DEFAULT_ENTRY_FILE, type ProjectFile, type TestCase, type UserRole } from "@levelusp/contracts"
-import { createDb } from "../index"
+import { CONTENT_BUNDLE_FORMAT, contentBundleSchema, DEFAULT_ENTRY_FILE, type ContentBundle, type ProjectFile, type TestCase, type UserRole } from "@levelusp/contracts"
+import { importContentBundle } from "../content-import"
+import { createDb, type DbTransaction } from "../index"
 import { resolveDemoPassword } from "../seed-policy"
 import { badges, courses, exams, examQuestions, lessons, modules, profiles, users } from "../schema/index"
 
@@ -24,6 +27,7 @@ const configuredDatabaseUrl = process.env.DATABASE_URL
 if (!configuredDatabaseUrl) throw new Error("DATABASE_URL não definida")
 const databaseUrl: string = configuredDatabaseUrl
 const scriptDir = path.dirname(fileURLToPath(import.meta.url))
+const seedDir = path.resolve(scriptDir, "../../seed")
 const shouldSeedContent = process.env.SEED_CONTENT !== "false"
 const { db, close } = createDb(databaseUrl, { max: 1, applicationName: "levelusp-seed" })
 
@@ -31,6 +35,8 @@ const { db, close } = createDb(databaseUrl, { max: 1, applicationName: "levelusp
 const PASSWORD_HASH_OPTIONS = { algorithm: Algorithm.Argon2id, memoryCost: 19_456, timeCost: 2, parallelism: 1 } as const
 const MIN_ADMIN_PASSWORD_LENGTH = 12
 
+/** Pacote do formato 1 (anterior às trilhas), ainda aceito. */
+const LEGACY_SEED_FILE = "python-completo.json"
 const COURSE_TITLE = "Python Completo"
 const FINAL_PROJECT_ORDER = 24
 const LESSON_XP = 100
@@ -46,7 +52,8 @@ const BADGES = [
   { id: "xp-2000", name: "Pythonista", description: "Acumulou 2.000 XP", icon: "Star", rarity: "rare", criteriaType: "total_xp", criteriaValue: 2000, sortOrder: 5 },
   { id: "sequencia-3", name: "Constância", description: "3 dias seguidos de estudo", icon: "Flame", rarity: "common", criteriaType: "current_streak", criteriaValue: 3, sortOrder: 6 },
   { id: "sequencia-7", name: "Semana perfeita", description: "7 dias seguidos de estudo", icon: "Flame", rarity: "epic", criteriaType: "max_streak", criteriaValue: 7, sortOrder: 7 },
-  { id: "curso-completo", name: "Formado(a)", description: "Concluiu um curso inteiro", icon: "Trophy", rarity: "legendary", criteriaType: "courses_completed", criteriaValue: 1, sortOrder: 8 },
+  // "Formado(a)" exige o certificado (lições + prova + projeto), não só concluir as lições.
+  { id: "curso-completo", name: "Formado(a)", description: "Recebeu o certificado de um curso", icon: "Trophy", rarity: "legendary", criteriaType: "certificates_issued", criteriaValue: 1, sortOrder: 8 },
 ] as const
 
 /** `lessonOrders`: faixa (inclusiva) de posições do curso que pertencem ao módulo. */
@@ -93,11 +100,25 @@ function moduleForOrder(order: number): SeedModule | undefined {
   return MODULES.find(({ lessonOrders: [first, last] }) => order >= first && order <= last)
 }
 
-function loadSeedLessons(): SeedLesson[] {
-  const seedFile = path.resolve(scriptDir, "../../seed/python-completo.json")
+function readSeedJson(fileName: string): unknown {
+  return JSON.parse(readFileSync(path.join(seedDir, fileName), "utf8"))
+}
+
+function isContentBundle(json: unknown): boolean {
+  return typeof json === "object" && json !== null && "format" in json && json.format === CONTENT_BUNDLE_FORMAT
+}
+
+/** Valida o pacote; um erro de validação aponta o arquivo e os caminhos com problema. */
+function parseContentBundle(fileName: string, json: unknown): ContentBundle {
+  const parsed = contentBundleSchema.safeParse(json)
+  if (parsed.success) return parsed.data
+  const problems = parsed.error.issues.slice(0, 20).map((issue) => `  ${issue.path.join(".") || "(raiz)"}: ${issue.message}`)
+  throw new Error(`pacote seed/${fileName} inválido:\n${problems.join("\n")}`)
+}
+
+function loadLegacyLessons(json: unknown): SeedLesson[] {
   // Arquivo versionado no repositório; o gabarito é validado pelo `verify:seed` no CI.
-  const seed = JSON.parse(readFileSync(seedFile, "utf8")) as { lessons: SeedLesson[] }
-  return seed.lessons
+  return (json as { lessons: SeedLesson[] }).lessons
 }
 
 async function upsertAdmin(): Promise<void> {
@@ -121,7 +142,16 @@ async function ensureUser({ email, password, fullName, username, role }: SeedUse
   return user.id
 }
 
-/** Id de cada módulo por posição de lição no curso. */
+/** Badges padrão: cria as que faltam e atualiza as existentes (o seed é a fonte dos critérios). */
+async function upsertBadges(): Promise<void> {
+  for (const badge of BADGES) {
+    const { id: _id, ...fields } = badge
+    await db.insert(badges).values(badge).onConflictDoUpdate({ target: badges.id, set: fields })
+  }
+  console.log(`· ${BADGES.length} badges`)
+}
+
+/** Id de cada módulo por posição de lição no curso (formato 1). */
 async function ensureModules(): Promise<Map<number, string>> {
   const moduleIdByOrder = new Map<number, string>()
   for (const seedModule of MODULES) {
@@ -134,11 +164,11 @@ async function ensureModules(): Promise<Map<number, string>> {
   return moduleIdByOrder
 }
 
-async function seedContent(authorId: string | null): Promise<void> {
+/** Curso "Python Completo" do pacote de formato 1: criado uma vez, mantido nas rodadas seguintes. */
+async function seedLegacyCourse(authorId: string | null, seedLessons: SeedLesson[]): Promise<void> {
   const moduleIdByOrder = await ensureModules()
-  if (await db.query.courses.findFirst({ where: eq(courses.title, COURSE_TITLE) })) return console.log("· curso já existe — conteúdo mantido")
+  if (await db.query.courses.findFirst({ where: eq(courses.title, COURSE_TITLE) })) return console.log(`· curso "${COURSE_TITLE}" já existe — conteúdo mantido`)
 
-  const seedLessons = loadSeedLessons()
   const course = firstRow(
     await db
       .insert(courses)
@@ -187,6 +217,23 @@ async function seedContent(authorId: string | null): Promise<void> {
   console.log(`· curso "${COURSE_TITLE}" com ${seedLessons.length} lições e prova de demonstração`)
 }
 
+/** Pacote de formato 2: upsert por slug, tudo-ou-nada por arquivo. */
+async function seedContentBundle(authorId: string | null, fileName: string, json: unknown): Promise<void> {
+  const bundle = parseContentBundle(fileName, json)
+  const summary = await db.transaction((tx: DbTransaction) => importContentBundle(tx, bundle, { authorId }))
+  console.log(`· pacote ${fileName}: ${summary.tracks} trilhas, ${summary.courses} cursos, ${summary.modules} módulos, ${summary.lessons} lições, ${summary.steps} passos`)
+}
+
+async function seedContent(authorId: string | null): Promise<void> {
+  const fileNames = readdirSync(seedDir).filter((name) => name.endsWith(".json")).sort()
+  for (const fileName of fileNames) {
+    const json = readSeedJson(fileName)
+    if (isContentBundle(json)) await seedContentBundle(authorId, fileName, json)
+    else if (fileName === LEGACY_SEED_FILE) await seedLegacyCourse(authorId, loadLegacyLessons(json))
+    else console.log(`· seed/${fileName}: formato desconhecido — ignorado`)
+  }
+}
+
 async function seedDemoUsers(): Promise<string> {
   const password = resolveDemoPassword(databaseUrl, process.env.SEED_DEMO_PASSWORD)
   const teacherId = await ensureUser({ email: "professora@levelusp.dev", password, fullName: "Professora Demo", username: "professora_demo", role: "teacher" })
@@ -195,8 +242,7 @@ async function seedDemoUsers(): Promise<string> {
 }
 
 try {
-  for (const badge of BADGES) await db.insert(badges).values(badge).onConflictDoNothing()
-  console.log(`· ${BADGES.length} badges`)
+  await upsertBadges()
   await upsertAdmin()
   const teacherId = process.env.SEED_DEMO_USERS === "true" ? await seedDemoUsers() : null
   if (shouldSeedContent) {

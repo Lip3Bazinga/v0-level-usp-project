@@ -2,23 +2,24 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { BookOpen, CheckCircle2, ChevronRight, Clock, FlaskConical, Lock, Play, Star, Trophy, Zap, type LucideIcon } from "lucide-react"
+import { BookOpen, CheckCircle2, ChevronRight, Clock, Lock, Play, Star, Trophy, Zap, type LucideIcon } from "lucide-react"
 import type { Course, ExamStatus, Lesson } from "@levelusp/contracts"
 import { DIFFICULTY_BADGE_CLASSES, DIFFICULTY_LABELS, ROUTES } from "@/lib/constants"
 import { formatPercent, type TrailStatus, cn } from "@/lib/utils"
+import type { OutlineLesson, OutlineModule } from "@/lib/utils/course-outline"
 
 const COMPLETED_STARS = [0, 1, 2]
 /** Quantas lições o quadro "O que você vai aprender" lista antes de resumir o resto. */
 const LEARNING_PREVIEW_SIZE = 6
 
 interface CourseLessonListProps {
-  lessons: readonly Lesson[]
-  statuses: readonly TrailStatus[]
+  modules: readonly OutlineModule[]
   isEnrolled: boolean
 }
 
-export function CourseLessonList({ lessons, statuses, isEnrolled }: CourseLessonListProps): React.JSX.Element {
-  if (lessons.length === 0) {
+/** Conteúdo do curso: módulos na ordem, cada um com as suas lições e quantas já foram concluídas. */
+export function CourseLessonList({ modules, isEnrolled }: CourseLessonListProps): React.JSX.Element {
+  if (modules.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
         Nenhuma lição publicada ainda.
@@ -26,15 +27,19 @@ export function CourseLessonList({ lessons, statuses, isEnrolled }: CourseLesson
     )
   }
   return (
-    <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-white">
-      {lessons.map((lesson, index) => (
-        <CourseLessonRow
-          key={lesson.id}
-          lesson={lesson}
-          position={index + 1}
-          status={statuses[index] ?? "locked"}
-          isEnrolled={isEnrolled}
-        />
+    <div className="space-y-5">
+      {modules.map((module, index) => (
+        <section key={module.key} aria-label={`Módulo ${index + 1}: ${module.title}`}>
+          <h3 className="mb-2 flex items-baseline justify-between gap-3 text-sm font-bold text-level-purple-dark">
+            <span>Módulo {index + 1} · {module.title}</span>
+            <span className="text-xs font-normal text-muted-foreground">{module.completedCount}/{module.lessons.length} concluídas</span>
+          </h3>
+          <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-white">
+            {module.lessons.map(({ lesson, status, position }) => (
+              <CourseLessonRow key={lesson.id} lesson={lesson} position={position} status={status} isEnrolled={isEnrolled} />
+            ))}
+          </div>
+        </section>
       ))}
     </div>
   )
@@ -105,7 +110,7 @@ function CourseLessonRow({ lesson, position, status, isEnrolled }: CourseLessonR
 function describeExamStatus(examStatus: ExamStatus): string {
   const { exam } = examStatus
   if (examStatus.passed) {
-    return `Aprovado com ${formatPercent(examStatus.passedScore ?? 0)} — conclua o projeto final para emitir o certificado`
+    return `Aprovado com ${formatPercent(examStatus.passedScore ?? 0)} — conclua o projeto do nível para emitir o certificado`
   }
   if (examStatus.eligible) {
     return `${exam.questionCount} questões · nota mínima ${exam.passingScore}% · ${exam.timeLimitMinutes} min`
@@ -171,70 +176,53 @@ export function CertificationSection({ courseId, examStatus, certificateCode }: 
   )
 }
 
-interface FinalProjectSectionProps {
-  course: Course
-  lessonCount: number
-  /** Matriculado com todas as lições concluídas: o projeto fica liberado. */
-  isUnlocked: boolean
-  onStart: () => void
+interface ProjectSectionProps {
+  projects: readonly OutlineLesson[]
+  /** Lições comuns que ainda faltam: enquanto houver, o projeto fica trancado (a API também recusa). */
+  pendingLessons: number
+  isEnrolled: boolean
 }
 
-export function FinalProjectSection({ course, lessonCount, isUnlocked, onStart }: FinalProjectSectionProps): React.JSX.Element {
+/** Projeto do nível: uma lição como as outras, que só abre depois das demais e conta para o certificado. */
+export function ProjectSection({ projects, pendingLessons, isEnrolled }: ProjectSectionProps): React.JSX.Element {
+  const isUnlocked = isEnrolled && pendingLessons === 0
   return (
     <section>
-      <h2 className="mb-4 text-xl font-bold text-level-purple-dark">Projeto Final</h2>
-      <div
-        className={cn(
-          "overflow-hidden rounded-2xl border-2 transition-all",
-          isUnlocked ? "border-yellow-400 shadow-lg shadow-yellow-100" : "border-border opacity-75",
-        )}
-      >
-        <div className={cn(
-          "flex items-center gap-3 px-5 py-4",
-          isUnlocked ? "bg-linear-to-r from-yellow-400 to-amber-500 text-white" : "bg-muted/50",
-        )}>
-          <div className={cn(
-            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-            isUnlocked ? "bg-white/20" : "bg-muted",
-          )}>
-            {isUnlocked ? <Star className="h-5 w-5 text-white" /> : <Lock className="h-5 w-5 text-muted-foreground" />}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className={cn("text-sm font-bold", isUnlocked ? "text-white" : "text-level-purple-dark")}>{course.final_project_title}</p>
-            <p className={cn("text-xs", isUnlocked ? "text-white/80" : "text-muted-foreground")}>
-              {isUnlocked ? "Você desbloqueou o projeto final!" : `Complete todas as ${lessonCount} lições para desbloquear`}
-            </p>
-          </div>
-          {isUnlocked && (
-            <span className="shrink-0 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">Desbloqueado</span>
-          )}
-        </div>
-
-        <div className="bg-white px-5 py-4">
-          <p className="text-sm leading-relaxed text-muted-foreground">{course.final_project_description}</p>
-
-          {isUnlocked && course.final_project_starter_code && (
-            <div className="mt-4">
-              <div className="mb-1.5 flex items-center gap-2">
-                <FlaskConical className="h-4 w-4 text-level-purple" />
-                <span className="text-xs font-semibold text-level-purple-dark">Código inicial</span>
+      <h2 className="mb-4 text-xl font-bold text-level-purple-dark">Projeto do nível</h2>
+      <div className="space-y-3">
+        {projects.map(({ lesson, status }) => (
+          <div
+            key={lesson.id}
+            className={cn("overflow-hidden rounded-2xl border-2 bg-white", isUnlocked ? "border-yellow-400 shadow-lg shadow-yellow-100" : "border-border opacity-75")}
+          >
+            <div className="flex items-start gap-3 px-5 py-4">
+              <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", isUnlocked ? "bg-yellow-100" : "bg-muted")}>
+                {status === "completed" ? <CheckCircle2 className="h-5 w-5 text-green-600" /> : isUnlocked ? <Star className="h-5 w-5 text-yellow-600" /> : <Lock className="h-5 w-5 text-muted-foreground" />}
               </div>
-              <pre className="overflow-x-auto rounded-xl bg-[#1e1e1e] p-4 text-xs leading-relaxed text-gray-300">
-                <code>{course.final_project_starter_code}</code>
-              </pre>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-level-purple-dark">{lesson.title}</p>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{lesson.description}</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {status === "completed"
+                    ? "Projeto concluído."
+                    : isUnlocked
+                      ? "Liberado: o projeto é corrigido automaticamente e conta para o certificado."
+                      : isEnrolled
+                        ? `Conclua as ${pendingLessons} lições restantes para liberar o projeto.`
+                        : "Matricule-se e conclua as lições para liberar o projeto."}
+                </p>
+              </div>
+              {isUnlocked && (
+                <Link
+                  href={ROUTES.lesson(lesson.id)}
+                  className="flex shrink-0 items-center gap-2 rounded-xl bg-level-purple px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-level-purple-dark"
+                >
+                  <Play className="h-4 w-4" /> {status === "completed" ? "Rever" : "Abrir projeto"}
+                </Link>
+              )}
             </div>
-          )}
-
-          {isUnlocked && (
-            <button
-              onClick={onStart}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-level-purple py-3 text-sm font-bold text-white transition-colors hover:bg-level-purple-dark"
-            >
-              <Play className="h-4 w-4" />
-              Iniciar Projeto Final
-            </button>
-          )}
-        </div>
+          </div>
+        ))}
       </div>
     </section>
   )
@@ -243,7 +231,8 @@ export function FinalProjectSection({ course, lessonCount, isUnlocked, onStart }
 interface CourseSidebarProps {
   course: Course
   lessons: readonly Lesson[]
-  hasFinalProject: boolean
+  /** Títulos das lições de projeto do nível (vazio quando o curso não tem projeto). */
+  projectTitles: readonly string[]
 }
 
 interface CourseStat {
@@ -255,7 +244,7 @@ interface CourseStat {
   badgeClassName?: string
 }
 
-function courseStats(course: Course, lessonCount: number, hasFinalProject: boolean): CourseStat[] {
+function courseStats(course: Course, lessonCount: number, hasProject: boolean): CourseStat[] {
   const stats: CourseStat[] = [
     { icon: BookOpen, label: "Lições", value: String(lessonCount), colorClassName: "" },
     { icon: Zap, label: "XP Total", value: String(course.total_xp), colorClassName: "text-yellow-500" },
@@ -268,11 +257,11 @@ function courseStats(course: Course, lessonCount: number, hasFinalProject: boole
       badgeClassName: DIFFICULTY_BADGE_CLASSES[course.level],
     },
   ]
-  if (hasFinalProject) stats.push({ icon: Star, label: "Projeto Final", value: "Incluído", colorClassName: "text-yellow-500" })
+  if (hasProject) stats.push({ icon: Star, label: "Projeto do nível", value: "Incluído", colorClassName: "text-yellow-500" })
   return stats
 }
 
-export function CourseSidebar({ course, lessons, hasFinalProject }: CourseSidebarProps): React.JSX.Element {
+export function CourseSidebar({ course, lessons, projectTitles }: CourseSidebarProps): React.JSX.Element {
   const hiddenLessonCount = lessons.length - LEARNING_PREVIEW_SIZE
   return (
     <>
@@ -285,12 +274,12 @@ export function CourseSidebar({ course, lessons, hasFinalProject }: CourseSideba
               {lesson.title}
             </li>
           ))}
-          {hasFinalProject && (
-            <li className="flex items-start gap-2 text-xs font-medium text-amber-600">
+          {projectTitles.map((title) => (
+            <li key={title} className="flex items-start gap-2 text-xs font-medium text-amber-600">
               <Star className="mt-0.5 h-3.5 w-3.5 shrink-0 text-yellow-500" />
-              {course.final_project_title}
+              {title}
             </li>
-          )}
+          ))}
           {hiddenLessonCount > 0 && <li className="text-xs font-medium text-level-purple">+ {hiddenLessonCount} mais...</li>}
         </ul>
       </div>
@@ -298,7 +287,7 @@ export function CourseSidebar({ course, lessons, hasFinalProject }: CourseSideba
       <div className="rounded-2xl border border-border bg-white p-5">
         <h3 className="mb-3 text-sm font-bold text-level-purple-dark">Estatísticas</h3>
         <div className="space-y-3">
-          {courseStats(course, lessons.length, hasFinalProject).map((stat) => (
+          {courseStats(course, lessons.length, projectTitles.length > 0).map((stat) => (
             <div key={stat.label} className="flex items-center justify-between text-sm">
               <span className="flex items-center gap-2 text-muted-foreground">
                 <stat.icon className={cn("h-4 w-4", stat.colorClassName)} /> {stat.label}

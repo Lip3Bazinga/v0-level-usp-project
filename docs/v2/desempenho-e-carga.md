@@ -309,6 +309,43 @@ para depois da pintura da lição foi testado e **não mudou o LCP da lição** 
 dentro do ruído: o LCP é o enunciado, que espera o JS da página e as chamadas da API) nem o
 tempo até "Pronto"; a mudança foi descartada.
 
+### 4.9 Motor python-dados (Pyodide no servidor)
+
+Medições do segundo motor do executor (Pyodide em `worker_threads`;
+[motor-de-correcao.md](./motor-de-correcao.md#motor-python-dados-pyodide)) numa
+VM de nuvem de 1 vCPU, processo novo a cada linha. "Lote" é uma correção inteira
+num worker já aquecido (o código de exemplo é pequeno; soma-se o tempo do código
+do aluno).
+
+| Etapa | Tempo | RSS do processo |
+|---|---|---|
+| Aquecer um worker do perfil `dados` (Pyodide + numpy + pandas) + autoteste | ~6,2 s | ~540 MB |
+| Lote `dados` num worker **aquecido** (numpy + pandas) | **~80 ms** | estável |
+| Lote `dados` pesado (`DataFrame` de 200 000 × 8, soma) | ~200 ms | +~25 MB |
+| Aquecer um worker do perfil `ml` + um lote (scikit-learn: `LinearRegression`) a frio | ~19 s | +~1,3 GB |
+
+- **Por que um pool aquecido.** O custo do Pyodide está quase todo no
+  **aquecimento** (descompactar os wheels no MEMFS e importar numpy/pandas): ~6 s
+  para o `dados`, ~15–18 s para o `ml`. Depois disso um lote custa dezenas de ms.
+  Um snapshot de memória seria o ideal, mas o `makeMemorySnapshot()` do Pyodide
+  falha com pacotes carregados (`Unexpected hiwire entry`) e uma segunda instância
+  no mesmo processo não é mais rápida — por isso o pool (`RUNNER_PYODIDE_WARM`, por
+  padrão `dados:1,ml:0`) mantém workers prontos e a admissão da fila soma o
+  aquecimento só quando o pool do perfil está vazio.
+- **Memória é o limite, não a CPU.** Cada worker `dados` segura ~500–600 MB e um
+  `ml` ~1,3 GB de heap wasm (que o `makeMemorySnapshot` não compartilha). Em 2 vCPU
+  / 4 GB cabe o WASI + um `dados` aquecido + um lote; para lições `ml` em turma,
+  suba `RUNNER_MEMORY` (2 GB+) e, se o `ml` for frequente, `RUNNER_PYODIDE_WARM`
+  (ex.: `dados:1,ml:1`) para não pagar os ~18 s de aquecimento a cada Verificar. O
+  heap de cada worker tem teto (`RUNNER_PYODIDE_MAX_HEAP_MB`, padrão 512), então um
+  lote que aloca demais recebe `MemoryError` sem derrubar o worker.
+- **Política `reuse`.** Troca os ~6 s de aquecimento por lote por ~20–50 ms de
+  restauração do interpretador entre lotes (mais o canário), com reciclagem após 25
+  lotes ou quando o heap passa do teto. Vale quando há muitos lotes `dados`
+  seguidos e a memória é folgada; a `fresh` (padrão) é o isolamento mais forte.
+- O botão **Executar** continua rodando no navegador do aluno (§2.1): este motor é
+  só da correção (Verificar) das lições `python-dados`.
+
 ## 5. Otimizações (antes × depois)
 
 ### 5.1 Executor: fila limitada pelo tempo estimado, admissão atômica e 1 instância por CPU

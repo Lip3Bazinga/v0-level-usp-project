@@ -34,7 +34,7 @@ export const config = {
     "/lesson/:path*",
     "/ide/:path*",
     "/notas/:path*",
-    "/settings/:path*",
+    "/perfil/me/conta/:path*",
     "/teacher/:path*",
     "/admin/:path*",
     "/cursos/:id/prova/:path*",

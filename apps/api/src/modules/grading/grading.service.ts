@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common"
-import { DEFAULT_ENTRY_FILE, DEFAULT_RUNNER_LIMITS, testCasesSchema, type GradeResult, type ProjectFile, type TestCase } from "@levelusp/contracts"
+import { DEFAULT_ENTRY_FILE, DEFAULT_RUNNER_LIMITS, testCasesSchema, type GradeResult, type LessonRuntime, type ProjectFile, type TestCase } from "@levelusp/contracts"
 import { Unprocessable } from "@/common/errors/app-error"
 import { MS_PER_SECOND } from "@/common/time/time"
 import { CODE_RUNNER, type CodeRunner } from "@/infra/runner/code-runner"
@@ -16,6 +16,15 @@ export interface GradedSubmission extends GradeResult {
   engine: string
 }
 
+/** Motor e pacotes da lição; ausentes = CPython WASI sem bibliotecas. */
+export interface GradingEngineOptions {
+  runtime?: LessonRuntime
+  /** Pacotes do Pyodide (`numpy`, `pandas`…); só valem para `python-dados`. */
+  libraries?: readonly string[]
+  /** Orçamento de execução da correção (2–25 s). Não confundir com `lessons.time_limit` (minutos de estudo). */
+  timeoutSeconds?: number
+}
+
 /** Orquestra correção: monta sondas → executor → comparação local. */
 @Injectable()
 export class GradingService {
@@ -25,11 +34,11 @@ export class GradingService {
    * Corrige o projeto contra o gabarito: normaliza os casos, roda as sondas no executor e
    * compara aqui (o executor nunca vê os valores esperados).
    *
-   * @param timeoutSeconds orçamento de execução da correção (2–25 s). Não confundir
-   *        com `lessons.time_limit`, que é o tempo ESTIMADO de estudo, em minutos.
-   * @throws AppError 422 `INVALID_TESTS` quando o gabarito gravado não passa no schema.
+   * @throws AppError 422 `INVALID_TESTS` quando o gabarito gravado não passa no schema;
+   *         503 quando o executor está fora do ar, ocupado ou respondeu fora do formato.
    */
-  async grade(files: ProjectFile[], rawCases: TestCase[], timeoutSeconds = GRADING_TIMEOUT_SECONDS): Promise<GradedSubmission> {
+  async grade(files: ProjectFile[], rawCases: TestCase[], options: GradingEngineOptions = {}): Promise<GradedSubmission> {
+    const timeoutSeconds = options.timeoutSeconds ?? GRADING_TIMEOUT_SECONDS
     // Normaliza (defaults do schema) e recusa gabaritos corrompidos no banco.
     const parsed = testCasesSchema.safeParse(rawCases)
     if (!parsed.success) throw Unprocessable("O gabarito desta lição está inválido. Avise o professor.", "INVALID_TESTS")
@@ -40,6 +49,8 @@ export class GradingService {
       entry: DEFAULT_ENTRY_FILE,
       probes: buildProbes(cases),
       limits: { timeoutMs, memoryMb: DEFAULT_RUNNER_LIMITS.memoryMb },
+      // Só as lições de dados mandam motor e pacotes: o job das lições de Python puro fica como sempre foi.
+      ...(options.runtime === "python-dados" ? { runtime: options.runtime, libraries: [...(options.libraries ?? [])] } : {}),
     })
     return { ...grade(cases, result.observations, result.durationMs), engine: `${result.engine.python} / ${result.engine.runtime}` }
   }

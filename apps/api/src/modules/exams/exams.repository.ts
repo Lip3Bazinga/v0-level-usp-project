@@ -70,7 +70,7 @@ export class ExamsRepository {
   /** Lições publicadas do curso com o nome do módulo (texto legado e tabela de módulos). */
   listPublishedLessons(courseId: string): Promise<LessonForEligibility[]> {
     return this.db
-      .select({ id: lessons.id, module: lessons.module, moduleTitle: modules.title })
+      .select({ id: lessons.id, module: lessons.module, moduleTitle: modules.title, isProject: lessons.isProject })
       .from(lessons)
       .leftJoin(modules, eq(modules.id, lessons.moduleId))
       .where(and(eq(lessons.courseId, courseId), eq(lessons.published, true)))

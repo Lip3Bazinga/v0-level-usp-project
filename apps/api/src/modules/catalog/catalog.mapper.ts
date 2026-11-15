@@ -1,4 +1,4 @@
-import type { Course, Lesson, LessonMetrics, LessonSummary, LessonWithTests, Module } from "@levelusp/contracts"
+import type { Course, Lesson, LessonMetrics, LessonStep, LessonStepInput, LessonSummary, LessonWithTests, Module } from "@levelusp/contracts"
 import type { CourseRow, LessonRow, ModuleRow } from "@levelusp/db"
 import { passRate } from "./catalog.domain"
 import type { LessonSummaryRow, PublicLessonRow } from "./lesson-columns"
@@ -36,6 +36,8 @@ export function toModule(module: ModuleRow): Module {
     color: module.color,
     sort_order: module.sortOrder,
     created_at: module.createdAt,
+    course_id: module.courseId,
+    slug: module.slug,
   }
 }
 
@@ -58,6 +60,9 @@ export function toCourse(course: CourseRow, aggregates: CourseAggregates = {}): 
     final_project_title: course.finalProjectTitle,
     final_project_description: course.finalProjectDescription,
     final_project_starter_code: course.finalProjectStarterCode,
+    slug: course.slug,
+    prerequisite_course_id: course.prerequisiteCourseId,
+    sequential: course.sequential,
     ...(aggregates.lessonCount !== undefined ? { lesson_count: aggregates.lessonCount } : {}),
     ...(aggregates.enrolled !== undefined ? { enrolled: aggregates.enrolled } : {}),
   }
@@ -68,11 +73,18 @@ export function toCourseWithAggregates({ course, lessonCount, enrolled }: Course
   return toCourse(course, { lessonCount, ...(enrolled === null ? {} : { enrolled }) })
 }
 
+/** Lição como o ALUNO vê, sem passos (listagens e lições clássicas); ver {@link toLessonWithSteps}. */
+export function toLesson(lesson: PublicLessonRow): Lesson {
+  return toLessonWithSteps(lesson, [])
+}
+
 /**
  * Lição como o ALUNO vê. Lista os campos um a um (sem spread) para que o
- * gabarito nunca seja serializado por acidente, mesmo recebendo a linha cheia.
+ * gabarito (`testCases`, `solutionFiles`) nunca seja serializado por acidente,
+ * mesmo recebendo a linha cheia. `steps` são os passos públicos da lição guiada
+ * (já sem gabarito), carregados por quem monta a resposta.
  */
-export function toLesson(lesson: PublicLessonRow): Lesson {
+export function toLessonWithSteps(lesson: PublicLessonRow, steps: LessonStep[]): Lesson {
   return {
     id: lesson.id,
     title: lesson.title,
@@ -92,16 +104,26 @@ export function toLesson(lesson: PublicLessonRow): Lesson {
     quiz_passing_score: lesson.quizPassingScore,
     course_id: lesson.courseId,
     module_id: lesson.moduleId,
-    created_by: lesson.createdBy,
     published: lesson.published,
     created_at: lesson.createdAt,
     updated_at: lesson.updatedAt,
+    runtime: lesson.runtime,
+    is_project: lesson.isProject,
+    objectives: lesson.objectives,
+    solution_after_attempts: lesson.solutionAfterAttempts,
+    steps,
   }
 }
 
-/** Lição com gabarito — SOMENTE para o dono ou admin (telas de autoria). */
-export function toLessonWithTests(lesson: LessonRow): LessonWithTests {
-  return { ...toLesson(lesson), test_cases: lesson.testCases }
+/** Lição com gabarito e solução de referência — SOMENTE para o dono ou admin (telas de autoria). */
+export function toLessonWithTests(lesson: LessonRow, steps: LessonStep[] = [], authoringSteps: LessonStepInput[] = []): LessonWithTests {
+  return {
+    ...toLessonWithSteps(lesson, steps),
+    test_cases: lesson.testCases,
+    solution_files: lesson.solutionFiles,
+    created_by: lesson.createdBy,
+    authoring_steps: authoringSteps,
+  }
 }
 
 /** Lição resumida para listas e trilhas. */
@@ -118,6 +140,7 @@ export function toLessonSummary(lesson: LessonSummaryRow): LessonSummary {
     xp_reward: lesson.xpReward,
     course_id: lesson.courseId,
     published: lesson.published,
+    is_project: lesson.isProject,
   }
 }
 

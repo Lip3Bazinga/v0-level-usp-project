@@ -10,8 +10,8 @@ const COURSE_GRADIENTS: Record<Difficulty, string> = {
   avancado: "from-rose-500 to-red-700",
 }
 
-const BASE_PERKS = ["100% gratuito", "Acesso vitalício", "Certificado ao concluir"]
-const FINAL_PROJECT_PERK = "Projeto final integrador"
+const BASE_PERKS = ["Gratuito", "No seu ritmo", "Certificado ao concluir"]
+const FINAL_PROJECT_PERK = "Projeto do nível com correção automática"
 
 interface CourseHeroProps {
   course: Course
@@ -72,7 +72,7 @@ export function CourseHero({
             <div className="mt-4 flex flex-wrap items-center gap-5 text-sm text-white/80">
               <span className="flex items-center gap-1.5">
                 <BookOpen className="h-4 w-4" />
-                {lessonCount} lições{hasFinalProject ? " + projeto final" : ""}
+                {lessonCount} lições{hasFinalProject ? " (inclui o projeto do nível)" : ""}
               </span>
               <span className="flex items-center gap-1.5">
                 <Zap className="h-4 w-4 text-yellow-300" />

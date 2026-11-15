@@ -14,6 +14,8 @@ import { formatNumber, formatXp, type GamificationSummary } from "@/lib/utils"
 import { CourseCard } from "@/components/dashboard/course-trail"
 import { countCompletedLessons, groupLessonsByCourse } from "@/components/dashboard/course-groups"
 import { StudentShell } from "@/components/dashboard/student-shell"
+import { TrackProgressCard } from "@/components/dashboard/track-progress-card"
+import { useGamificationVisible } from "@/hooks/use-gamification-visible"
 import { StatCards, DailyGoalRing, WeeklyActivity, NextBadge, useStudyDays } from "@/components/dashboard/widgets"
 
 const NO_COURSES: Course[] = []
@@ -35,26 +37,40 @@ export default function DashboardPage(): React.JSX.Element {
   const lessonsCompleted = useMemo(() => countCompletedLessons(progressMap), [progressMap])
   const isLoading = isProgressLoading || coursesResource.status === "loading"
   const firstName = profile?.full_name.split(" ")[0] ?? "Estudante"
+  // Grupo controle do experimento: o painel mostra só o progresso (lições, trilha), sem XP, nível, sequência e badges.
+  const isGamified = useGamificationVisible()
 
   return (
     <StudentShell screen="dashboard">
       <main className="mx-auto max-w-6xl px-4 py-8">
-        <DashboardHero firstName={firstName} isAuthLoading={isAuthLoading} gamification={gamification} />
+        {isGamified ? (
+          <DashboardHero firstName={firstName} isAuthLoading={isAuthLoading} gamification={gamification} />
+        ) : (
+          <div className="mb-8 rounded-3xl bg-level-purple p-6 text-white sm:p-8">
+            <h1 className="text-2xl font-extrabold sm:text-3xl">{isAuthLoading ? "Carregando..." : `Olá, ${firstName}!`}</h1>
+            <p className="mt-1 text-sm text-purple-200">
+              {lessonsCompleted === 1 ? "1 lição concluída" : `${formatNumber(lessonsCompleted)} lições concluídas`}
+            </p>
+          </div>
+        )}
 
         {error && <div className="mb-6 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>}
 
-        <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
           {/* No celular os widgets vêm antes da trilha. */}
           <aside className="order-1 space-y-4 lg:order-2">
-            <StatCards
-              streak={gamification.streak}
-              totalXp={gamification.totalXp}
-              lessonsCompleted={lessonsCompleted}
-              level={gamification.level}
-            />
+            {isGamified && (
+              <StatCards
+                streak={gamification.streak}
+                totalXp={gamification.totalXp}
+                lessonsCompleted={lessonsCompleted}
+                level={gamification.level}
+              />
+            )}
+            <TrackProgressCard />
             <DailyGoalRing studyDays={studyDays} />
             <WeeklyActivity studyDays={studyDays} />
-            <NextBadge profile={profile} />
+            {isGamified && <NextBadge profile={profile} />}
           </aside>
 
           <div className="order-2 space-y-4 lg:order-1">

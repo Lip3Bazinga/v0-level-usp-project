@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation"
 import { Trophy, Zap, Flame, Settings, ChevronLeft, Calendar, BookOpen, Share2, Edit3, User, Loader2, Award, Download } from "lucide-react"
 import type { ActivityDay, MyCertificate, PublicProfile } from "@levelusp/contracts"
 import { useAuth } from "@/contexts/auth-context"
+import { useGamificationVisible } from "@/hooks/use-gamification-visible"
 import { useAsyncResource } from "@/hooks/use-async-resource"
 import {
   certificatePdfUrl,
@@ -85,6 +86,7 @@ export default function ProfilePage(): React.JSX.Element {
   const { username } = useParams<{ username: string }>()
   const router = useRouter()
   const { user, isLoading, isOwnProfile, currentUserId } = useDisplayedProfile(username)
+  const isGamified = useGamificationVisible()
   const userId = user?.id
 
   const activity = useAsyncResource(
@@ -145,7 +147,7 @@ export default function ProfilePage(): React.JSX.Element {
           </Button>
           {isOwnProfile && (
             <Button asChild variant="ghost" size="icon" className="hover:bg-level-purple-light">
-              <Link href={ROUTES.settings} aria-label="Configurações">
+              <Link href={ROUTES.account} aria-label="Configurações">
                 <Settings className="h-5 w-5 text-muted-foreground" />
               </Link>
             </Button>
@@ -154,12 +156,16 @@ export default function ProfilePage(): React.JSX.Element {
       </StudentHeaderBar>
 
       <main className="mx-auto max-w-6xl px-4 py-8">
-        <ProfileHeroSection user={user} isOwnProfile={isOwnProfile} />
+        <ProfileHeroSection user={user} isOwnProfile={isOwnProfile} isGamified={isGamified} />
 
         <section className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Nível Atual" value={user.level} icon={Trophy} iconColor="text-level-purple" />
-          <StatCard label="Total XP" value={formatNumber(user.total_xp)} icon={Zap} iconColor="text-yellow-500" />
-          <StatCard label="Maior sequência" value={`${user.max_streak} dias`} icon={Flame} iconColor="text-orange-500" />
+          {isGamified && (
+            <>
+              <StatCard label="Nível Atual" value={user.level} icon={Trophy} iconColor="text-level-purple" />
+              <StatCard label="Total XP" value={formatNumber(user.total_xp)} icon={Zap} iconColor="text-yellow-500" />
+              <StatCard label="Maior sequência" value={`${user.max_streak} dias`} icon={Flame} iconColor="text-orange-500" />
+            </>
+          )}
           <StatCard label="Lições concluídas" value={user.lessons_completed} icon={BookOpen} iconColor="text-success" />
         </section>
 
@@ -173,15 +179,24 @@ export default function ProfilePage(): React.JSX.Element {
           </section>
         )}
 
-        <section className="mb-8">
-          <BadgesSection badges={badges.status === "success" ? badges.data : NO_BADGES} />
-        </section>
+        {isGamified && (
+          <section className="mb-8">
+            <BadgesSection badges={badges.status === "success" ? badges.data : NO_BADGES} />
+          </section>
+        )}
       </main>
     </div>
   )
 }
 
-function ProfileHeroSection({ user, isOwnProfile }: { user: PublicProfile; isOwnProfile: boolean }): React.JSX.Element {
+interface ProfileHeroSectionProps {
+  user: PublicProfile
+  isOwnProfile: boolean
+  /** false para quem está no grupo controle: o perfil aparece sem nível e sem barra de XP. */
+  isGamified: boolean
+}
+
+function ProfileHeroSection({ user, isOwnProfile, isGamified }: ProfileHeroSectionProps): React.JSX.Element {
   const { xpInLevel, xpLevelRange, levelPercent } = computeLevelProgress(user.total_xp, user.level)
   return (
     <section className="mb-8">
@@ -194,13 +209,15 @@ function ProfileHeroSection({ user, isOwnProfile }: { user: PublicProfile; isOwn
             </AvatarFallback>
           </Avatar>
 
-          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-level-purple px-4 py-1 shadow-lg">
-            <span className="whitespace-nowrap text-sm font-bold text-white">Nível {user.level}</span>
-          </div>
+          {isGamified && (
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-level-purple px-4 py-1 shadow-lg">
+              <span className="whitespace-nowrap text-sm font-bold text-white">Nível {user.level}</span>
+            </div>
+          )}
 
           {isOwnProfile && (
             <Link
-              href={ROUTES.settings}
+              href={ROUTES.account}
               aria-label="Editar perfil"
               className="absolute -right-1 top-0 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md transition-colors hover:bg-level-purple-light"
             >
@@ -219,28 +236,32 @@ function ProfileHeroSection({ user, isOwnProfile }: { user: PublicProfile; isOwn
               <Calendar className="h-4 w-4 text-level-purple" />
               <span className="text-sm text-level-purple-dark">Membro desde {formatDate(user.created_at, "monthYear")}</span>
             </div>
-            <div className="flex items-center gap-2 rounded-full bg-orange-50 px-4 py-2">
-              <Flame className="h-4 w-4 text-orange-600" />
-              <span className="text-sm text-orange-800">
-                {user.current_streak} {user.current_streak === 1 ? "dia" : "dias"} de sequência
-              </span>
-            </div>
+            {isGamified && (
+              <div className="flex items-center gap-2 rounded-full bg-orange-50 px-4 py-2">
+                <Flame className="h-4 w-4 text-orange-600" />
+                <span className="text-sm text-orange-800">
+                  {user.current_streak} {user.current_streak === 1 ? "dia" : "dias"} de sequência
+                </span>
+              </div>
+            )}
           </div>
 
-          <div className="mt-6 max-w-md">
-            <div className="mb-2 flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Progresso para o Nível {user.level + 1}</span>
-              <span className="font-medium text-level-purple">
-                {formatNumber(xpInLevel)}/{formatXp(xpLevelRange)}
-              </span>
+          {isGamified && (
+            <div className="mt-6 max-w-md">
+              <div className="mb-2 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Progresso para o Nível {user.level + 1}</span>
+                <span className="font-medium text-level-purple">
+                  {formatNumber(xpInLevel)}/{formatXp(xpLevelRange)}
+                </span>
+              </div>
+              <div className="h-3 w-full overflow-hidden rounded-full bg-level-purple-subtle">
+                <div
+                  className="h-full rounded-full bg-linear-to-r from-level-purple to-level-purple-medium transition-all duration-500"
+                  style={{ width: `${levelPercent}%` }}
+                />
+              </div>
             </div>
-            <div className="h-3 w-full overflow-hidden rounded-full bg-level-purple-subtle">
-              <div
-                className="h-full rounded-full bg-linear-to-r from-level-purple to-level-purple-medium transition-all duration-500"
-                style={{ width: `${levelPercent}%` }}
-              />
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </section>

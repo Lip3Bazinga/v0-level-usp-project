@@ -24,10 +24,10 @@ export function JourneyScroll(): React.JSX.Element {
 
         <div className="relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#C4B5FD]">
-            Sua trilha de aprendizado
+            7 níveis, do zero à IA
           </p>
           <h2 className="max-w-2xl text-balance text-4xl font-bold text-white sm:text-5xl">
-            Role para percorrer a jornada
+            O Nível 1 está disponível. Role para ver a trilha
           </h2>
 
           <div className="mt-8 h-1.5 w-full max-w-md overflow-hidden rounded-full bg-white/15">

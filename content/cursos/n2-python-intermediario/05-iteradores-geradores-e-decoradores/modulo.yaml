@@ -1,0 +1,6 @@
+slug: iteradores-geradores-e-decoradores
+titulo: Iteradores, geradores e decoradores
+descricao: Protocolo de iteração, geradores com yield, expressões geradoras, closures, decoradores e *args/**kwargs.
+icone: Layers
+cor: bg-level-purple
+ordem: 5

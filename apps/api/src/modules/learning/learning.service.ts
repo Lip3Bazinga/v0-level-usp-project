@@ -1,16 +1,17 @@
-import { Injectable, Logger } from "@nestjs/common"
+import { Injectable } from "@nestjs/common"
 import type { LessonCompletion, LessonProgress, LessonSnapshot, ProjectFile, SubmissionResult } from "@levelusp/contracts"
 import { canViewContent } from "@/common/authorization/ownership"
-import { AppError, BadRequest, NotFound, Unprocessable } from "@/common/errors/app-error"
+import { BadRequest, Forbidden, NotFound, Unprocessable } from "@/common/errors/app-error"
 import type { AuthUser } from "@/common/http/request"
 import { RATE_LIMITS } from "@/common/rate-limit/rate-limit.policies"
 import { RateLimitService } from "@/common/rate-limit/rate-limit.service"
-import { RUNNER_BUSY_CODE } from "@/infra/runner/code-runner"
 import { GamificationService } from "../gamification/gamification.service"
-import { GradingService, type GradedSubmission } from "../grading/grading.service"
+import { EventsService } from "../experiment/events.service"
 import { hasEntryFile, parseSnapshot } from "./learning.domain"
 import { toLessonCompletion, toLessonProgress } from "./learning.mapper"
 import { LearningRepository, type GradableLessonRow } from "./learning.repository"
+import { StepsRepository } from "./steps.repository"
+import { SubmissionGrader } from "./submission-grader"
 
 /** Exercício aprovado pelo corretor vale nota cheia (a nota parcial é só do quiz). */
 const FULL_SCORE = 100
@@ -18,13 +19,13 @@ const FULL_SCORE = 100
 /** Submissão de código (correção no servidor), conclusão de lições teóricas, progresso e rascunhos. */
 @Injectable()
 export class LearningService {
-  private readonly logger = new Logger(LearningService.name)
-
   constructor(
     private readonly repo: LearningRepository,
-    private readonly grading: GradingService,
+    private readonly stepsRepo: StepsRepository,
+    private readonly grader: SubmissionGrader,
     private readonly gamification: GamificationService,
     private readonly rateLimit: RateLimitService,
+    private readonly events: EventsService,
   ) {}
 
   /** Progresso do usuário em todas as lições. */
@@ -60,52 +61,29 @@ export class LearningService {
 
   /**
    * "Verificar resposta": corrige no executor isolado e, se aprovado, conclui
-   * a lição e credita XP — tudo no servidor, a partir do veredito do servidor.
+   * a lição e credita XP — tudo no servidor, a partir do veredito do servidor. Falha do
+   * executor responde 503 e grava a submissão com `status: "error"` (não conta como tentativa).
+   *
+   * @throws AppError 404 lição; 400 lição sem exercício ou projeto sem `main.py`; 422 `NO_TESTS`;
+   *         403 `PROJECT_LOCKED`; 429 limites; 503 executor indisponível.
    */
   async submit(user: AuthUser, lessonId: string, files: ProjectFile[]): Promise<SubmissionResult> {
     const lesson = await this.findAccessibleLesson(user, lessonId)
     if (lesson.lessonType !== "coding") throw BadRequest("Esta lição não tem exercício de código.")
     if (!lesson.testCases.length) throw Unprocessable("Esta lição ainda não tem gabarito. Avise o professor.", "NO_TESTS")
     if (!hasEntryFile(files)) throw BadRequest("O projeto precisa de um arquivo main.py.")
-    this.rateLimit.consume(RATE_LIMITS.codeSubmission, user.id)
-    this.rateLimit.consume(RATE_LIMITS.codeSubmissionPerLessonDay, `${user.id}:${lessonId}`)
-
-    const { engine, ...gradeResult } = await this.gradeOrRefund(user.id, lessonId, files, lesson.testCases)
-    const submissionId = await this.repo.createSubmission({
-      userId: user.id,
-      lessonId,
-      files,
-      status: "graded",
-      passed: gradeResult.allPassed,
-      result: gradeResult,
-      engine,
-      durationMs: gradeResult.durationMs,
+    await this.assertProjectUnlocked(user.id, lesson)
+    const { submissionId, result: gradeResult } = await this.grader.grade({
+      userId: user.id, lessonId, stepId: null, files, testCases: lesson.testCases, engine: { runtime: lesson.runtime, libraries: lesson.libraries },
     })
 
     // Prévia do professor numa lição não publicada não credita XP.
     const shouldCredit = gradeResult.allPassed && lesson.published
     const outcome = shouldCredit ? await this.gamification.completeLesson(user.id, lessonId, { score: FULL_SCORE }) : null
     if (shouldCredit) await this.repo.upsertSnapshot(user.id, lessonId, files)
-    this.logger.log({ userId: user.id, lessonId, passed: gradeResult.allPassed, ms: gradeResult.durationMs }, "submissão corrigida")
+    if (outcome?.newlyCompleted) await this.events.record(user.id, "lesson_completed", { lesson_id: lessonId })
 
     return { ...gradeResult, submission_id: submissionId, ...toLessonCompletion(outcome) }
-  }
-
-  /**
-   * Corrige; se o executor recusou o job por fila cheia (`RUNNER_BUSY`: o código nem rodou),
-   * devolve as cotas de verificação — o aluno não perde tentativas por causa da fila da turma.
-   * Outras falhas (executor fora do ar, prazo estourado) não devolvem: o código pode ter rodado.
-   */
-  private async gradeOrRefund(userId: string, lessonId: string, files: ProjectFile[], testCases: GradableLessonRow["testCases"]): Promise<GradedSubmission> {
-    try {
-      return await this.grading.grade(files, testCases)
-    } catch (error) {
-      if (error instanceof AppError && error.code === RUNNER_BUSY_CODE) {
-        this.rateLimit.refund(RATE_LIMITS.codeSubmission, userId)
-        this.rateLimit.refund(RATE_LIMITS.codeSubmissionPerLessonDay, `${userId}:${lessonId}`)
-      }
-      throw error
-    }
   }
 
   /** Lições teóricas não têm avaliação: concluir = ter lido. */
@@ -114,7 +92,17 @@ export class LearningService {
     const lesson = await this.findAccessibleLesson(user, lessonId)
     if (lesson.lessonType !== "theory") throw BadRequest("Só lições teóricas podem ser concluídas sem avaliação.")
     if (!lesson.published) return toLessonCompletion(null)
-    return toLessonCompletion(await this.gamification.completeLesson(user.id, lessonId))
+    await this.assertProjectUnlocked(user.id, lesson)
+    const outcome = await this.gamification.completeLesson(user.id, lessonId)
+    if (outcome.newlyCompleted) await this.events.record(user.id, "lesson_completed", { lesson_id: lessonId })
+    return toLessonCompletion(outcome)
+  }
+
+  /** O projeto do nível só abre com as demais lições publicadas do curso concluídas. */
+  private async assertProjectUnlocked(userId: string, lesson: GradableLessonRow): Promise<void> {
+    if (!lesson.isProject || !lesson.courseId || !lesson.published) return
+    const pending = await this.stepsRepo.countPendingLessonsBeforeProject(userId, lesson.courseId, lesson.id)
+    if (pending > 0) throw Forbidden(`Conclua as outras lições do curso antes do projeto (faltam ${pending}).`, "PROJECT_LOCKED")
   }
 
   /** Publicada para todos; rascunho só para o autor e admins. */

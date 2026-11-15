@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { BookOpen, Clock, Edit3, Eye, EyeOff, Globe, GraduationCap, Loader2, Search, Star, Trash2, Zap } from "lucide-react"
+import { BookOpen, Clock, Edit3, Eye, EyeOff, Globe, GraduationCap, Loader2, Search, Trash2, Zap } from "lucide-react"
 import type { Course } from "@levelusp/contracts"
 import { useAsyncResource } from "@/hooks/use-async-resource"
 import { deleteCourse, fetchTeacherCourses, getErrorMessage, setCoursePublished } from "@/lib/api"
@@ -152,11 +152,6 @@ function CourseRow({ course, isToggling, isDeleting, onTogglePublished, onDelete
             <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">Publicado</span>
           ) : (
             <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">Rascunho</span>
-          )}
-          {course.final_project_title && (
-            <span className="flex items-center gap-0.5 rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold text-yellow-700">
-              <Star className="h-2.5 w-2.5" /> Projeto final
-            </span>
           )}
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground truncate max-w-md">{course.description}</p>

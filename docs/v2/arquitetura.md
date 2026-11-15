@@ -75,6 +75,13 @@ submissões), `grading` (motor de correção), `quizzes`, `gamification`
 `certificates` (PDF + verificação pública), `notes`, `notifications`,
 `library`, `teacher-requests`, `admin`, `audit`, `health`.
 
+Com o curso completo (2026-11) entraram: `learning/steps*` (lição guiada em passos: verificar,
+dica, solução após as tentativas, leitura, quiz e previsão), `tracks` (trilhas, situação do aluno
+por curso e certificado de trilha), `content` (importação do pacote de conteúdo e imagens das
+lições em `GET /content/assets/…`) e `experiment` (log de eventos append-only, exportação CSV e
+grupo do participante). Especificação em [curso-e-passos.md](./curso-e-passos.md); telas em
+[web-ui.md](./web-ui.md).
+
 ## Decisões e trade-offs
 
 | Decisão | Por quê | Custo |
@@ -88,3 +95,24 @@ submissões), `grading` (motor de correção), `quizzes`, `gamification`
 | Pyodide no navegador para "Executar" | CPU do aluno, resposta imediata, gráficos; mesmo Python 3.14 do executor, com paridade testada ([paridade-python.md](./paridade-python.md)) | Download inicial do runtime (~13 MB, servido pelo próprio front com cache de 1 ano) |
 | Notebook + Cloudflare Tunnel | Custo zero e controle total na fase de testes | Disponibilidade depende do notebook |
 | VM Linux + túnel nomeado ou Caddy ([producao-vm.md](./producao-vm.md)) | Dados de alunos em servidor institucional, endereço fixo, backups cifrados e monitorados | Operação (atualizações, backups, chaves) passa a ser responsabilidade da equipe |
+
+## Conteúdo do curso
+
+```
+content/*.lvl.md ──content:check──▶ lint (formato, fórmulas, diagramas, imagens, vídeo)
+        │
+        ├──content:verify──▶ runner real: solução aprova, código inicial e soluções erradas reprovam,
+        │                    previsões batem, blocos visualizar rodam
+        └──content:build───▶ packages/db/seed/trilha-python-ia.json (pacote formato 2, com assets)
+                                   │
+                 pnpm db:seed ou POST /admin/content/import (upsert por slug, ids preservados)
+```
+
+- O conteúdo é texto versionado (`content/`), não dado digitado no admin: cada lição passa pelo
+  lint e pelo executor real antes de entrar no pacote. Guia do formato: `content/README.md`.
+- O gabarito de cada passo (casos, solução, saída esperada da previsão, ordem do Parsons) vai no
+  pacote e fica só na API; o DTO público do passo não o carrega.
+- Dois motores de correção atrás da mesma interface: CPython WASI (`runtime: python`, todo o
+  Nível 1) e Pyodide em workers do Node (`runtime: python-dados`, níveis 4 a 6).
+- Trilha → curso (nível certificável) → módulo → lição → passo. Certificado do curso = 100 % das
+  lições (com o projeto) + prova ≥ nota mínima; certificado da trilha = todos os cursos certificados.

@@ -6,7 +6,7 @@ import { Flame, Zap, Trophy, CheckCircle2, Sparkles, Lock, type LucideIcon } fro
 import type { Badge, BadgeCriteriaType, BadgeRarity, LessonProgress, Profile } from "@levelusp/contracts"
 import { BadgeIcon } from "@/components/design-system/badge-icon"
 import { useAsyncResource } from "@/hooks/use-async-resource"
-import { fetchBadges, fetchUserBadges } from "@/lib/api"
+import { fetchBadges, fetchUserBadges, fetchMyCertificates } from "@/lib/api"
 import { formatNumber, localDateKey, todayKey, PLATFORM_TIMEZONE, toClampedPercent, cn } from "@/lib/utils"
 import { XP_COUNT_UP_DURATION_MS, LESSONS_COUNT_UP_DURATION_MS } from "@/lib/constants"
 
@@ -204,7 +204,10 @@ const RARITY_GRADIENTS: Record<BadgeRarity, string> = {
   legendary: "from-amber-400 to-orange-500",
 }
 
-type ProgressFields = Pick<Profile, "total_xp" | "current_streak" | "max_streak" | "lessons_completed" | "courses_completed">
+/** Contadores do aluno usados nos critérios de badge; os certificados vêm de `GET /me/certificates` (o perfil não os conta). */
+export type ProgressFields = Pick<Profile, "total_xp" | "current_streak" | "max_streak" | "lessons_completed" | "courses_completed"> & {
+  certificates_issued?: number
+}
 
 /** Valor atual do aluno para cada critério automático de badge. */
 const CRITERIA_PROGRESS: Record<Exclude<BadgeCriteriaType, "manual">, (profile: ProgressFields) => number> = {
@@ -213,6 +216,7 @@ const CRITERIA_PROGRESS: Record<Exclude<BadgeCriteriaType, "manual">, (profile: 
   max_streak: (profile) => profile.max_streak,
   lessons_completed: (profile) => profile.lessons_completed,
   courses_completed: (profile) => profile.courses_completed,
+  certificates_issued: (profile) => profile.certificates_issued ?? 0,
 }
 
 interface BadgeProgress {
@@ -234,11 +238,13 @@ export function pickNextBadge(catalog: readonly Badge[], ownedBadgeIds: Readonly
 interface BadgeCatalogState {
   catalog: Badge[]
   ownedBadgeIds: Set<string>
+  /** Certificados de curso emitidos (critério da badge "Formado(a)"). */
+  certificatesIssued: number
 }
 
 async function loadBadgeCatalogState(userId: string): Promise<BadgeCatalogState> {
-  const [catalog, ownedBadges] = await Promise.all([fetchBadges(), fetchUserBadges(userId)])
-  return { catalog, ownedBadgeIds: new Set(ownedBadges.map((owned) => owned.badge_id)) }
+  const [catalog, ownedBadges, certificates] = await Promise.all([fetchBadges(), fetchUserBadges(userId), fetchMyCertificates().catch(() => [])])
+  return { catalog, ownedBadgeIds: new Set(ownedBadges.map((owned) => owned.badge_id)), certificatesIssued: certificates.length }
 }
 
 export function NextBadge({ profile }: { profile: Profile | null }): React.JSX.Element | null {
@@ -254,7 +260,7 @@ export function NextBadge({ profile }: { profile: Profile | null }): React.JSX.E
   }
   if (badgeState.status === "error" || !badgeState.data) return null
 
-  const next = pickNextBadge(badgeState.data.catalog, badgeState.data.ownedBadgeIds, profile)
+  const next = pickNextBadge(badgeState.data.catalog, badgeState.data.ownedBadgeIds, { ...profile, certificates_issued: badgeState.data.certificatesIssued })
   if (!next) return null
   return <NextBadgeCard badge={next.badge} current={next.current} />
 }

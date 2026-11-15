@@ -202,7 +202,7 @@ export function IdeShowcase(): React.JSX.Element {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionIntro
           eyebrow="Aprenda fazendo"
-          title="Uma IDE completa dentro do navegador"
+          title="Uma IDE dentro do navegador"
           description="Escreva, execute e teste código Python real — sem instalar nada. A prática acontece no mesmo lugar onde você lê a teoria."
         />
 
@@ -212,8 +212,8 @@ export function IdeShowcase(): React.JSX.Element {
           <FloatingBadge
             icon={Zap}
             iconBackgroundClass="bg-level-purple"
-            caption="XP ganho"
-            value="+50 XP"
+            caption="Passo concluído"
+            value="+XP"
             valueClass="text-level-purple-dark"
             floatOffsetPx={-10}
             floatDurationSeconds={4}

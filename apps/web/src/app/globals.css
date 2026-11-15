@@ -387,6 +387,29 @@ textarea:focus {
   color: #4C1D95;
 }
 
+.prose-lesson img {
+  max-width: 100%;
+  height: auto;
+  margin: 0.75rem auto;
+  border-radius: 0.5rem;
+}
+
+/* Fórmula em bloco maior que a coluna rola na horizontal em vez de estourar a página. */
+.prose-lesson .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25rem 0;
+}
+
+/*
+ * Componentes interativos dentro do Markdown (visualizador de execução, diagrama Mermaid): não
+ * herdam a tipografia do texto. As regras de .prose-lesson não estão em @layer e, por isso,
+ * venceriam as classes utilitárias; `revert-layer` devolve estes elementos às camadas do Tailwind.
+ */
+.prose-lesson .lesson-widget :is(p, strong, ul, ol, li, pre, code, table, th, td, a, h1, h2, h3, blockquote) {
+  all: revert-layer;
+}
+
 /* Botão com efeito 3D */
 .btn-3d {
   position: relative;

@@ -36,6 +36,23 @@ export const RATE_LIMITS = {
   libraryRequest: { scope: "library.request", limit: 20, windowMs: MS_PER_HOUR, message: TRY_LATER },
   teacherRequest: { scope: "teacher.request", limit: 5, windowMs: MS_PER_HOUR, message: TRY_LATER },
   adminPasswordReset: { scope: "admin.password_reset", limit: 5, windowMs: MS_PER_HOUR, message: "Muitos links enviados para esta conta. Aguarde um pouco." },
+  /** Eventos de uso do experimento: 600/h cobre uma sessão intensa de estudo e barra enchimento do log. */
+  experimentEvents: { scope: "experiment.events", limit: 600, windowMs: MS_PER_HOUR, message: TRY_LATER },
+  /** Previsões de saída por minuto (como o quiz: não há execução de código). */
+  predictionSubmission: { scope: "predict", limit: 12, windowMs: MS_PER_MINUTE, message: "Muitas respostas seguidas. Aguarde um instante." },
+  /**
+   * Teto diário de previsões por aluno e passo: saídas curtas (`True`, um número pequeno)
+   * seriam adivinhadas por tentativa e erro.
+   */
+  predictionPerStepDay: {
+    scope: "predict-step-day",
+    limit: 60,
+    windowMs: MS_PER_DAY,
+    message: "Você atingiu o limite de respostas deste passo por hoje. Releia o código com calma e tente amanhã.",
+  },
+  /** Dicas e soluções reveladas por minuto (cada uma é uma escrita no progresso). */
+  stepReveal: { scope: "step.reveal", limit: 30, windowMs: MS_PER_MINUTE },
+  contentImport: { scope: "admin.content_import", limit: 20, windowMs: MS_PER_HOUR, message: TRY_LATER },
   adminInvite: { scope: "admin.invite", limit: 50, windowMs: MS_PER_HOUR, message: "Muitos convites seguidos. Aguarde um pouco." },
 } as const satisfies Record<string, RateLimitPolicy>
 

@@ -1,0 +1,6 @@
+slug: classificacao
+titulo: Classificação
+descricao: Regressão logística do zero, métricas (acurácia, precisão, recall, F1, matriz de confusão), ROC/AUC e limiares, kNN, Naive Bayes e classificação multiclasse.
+icone: Target
+cor: bg-level-green
+ordem: 3

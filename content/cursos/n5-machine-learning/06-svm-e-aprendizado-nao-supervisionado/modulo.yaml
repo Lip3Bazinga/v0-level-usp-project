@@ -1,0 +1,6 @@
+slug: svm-e-aprendizado-nao-supervisionado
+titulo: SVM e aprendizado não supervisionado
+descricao: Máquinas de vetores de suporte e kernels, k-means do zero, clustering hierárquico e DBSCAN, PCA do zero e redução de dimensionalidade para visualização, detecção de anomalias.
+icone: Compass
+cor: bg-level-blue
+ordem: 6

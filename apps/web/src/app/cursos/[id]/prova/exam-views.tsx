@@ -74,7 +74,7 @@ function ExamStatusAction({ status, certificateCode, isBusy, onStart, onIssueCer
           <CheckCircle2 className="h-8 w-8 shrink-0 text-green-600" />
           <div>
             <p className="font-bold text-green-800">Aprovado com {formatPercent(status.passedScore ?? 0)}! 🎉</p>
-            <p className="text-sm text-green-700">Agora conclua o projeto final do curso para emitir seu certificado.</p>
+            <p className="text-sm text-green-700">Agora conclua o projeto do nível para emitir seu certificado.</p>
           </div>
         </div>
         {certificateCode ? (
@@ -92,7 +92,7 @@ function ExamStatusAction({ status, certificateCode, isBusy, onStart, onIssueCer
           </button>
         )}
         <p className="text-center text-xs text-muted-foreground">
-          A emissão exige: todas as lições concluídas (inclusive o projeto final) + prova aprovada.
+          A emissão exige: todas as lições concluídas (inclusive o projeto do nível) + prova aprovada.
         </p>
       </div>
     )

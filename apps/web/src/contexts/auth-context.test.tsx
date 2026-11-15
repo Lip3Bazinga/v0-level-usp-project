@@ -36,6 +36,7 @@ const profile: Profile = {
   suspended: false,
   created_at: "2026-01-01T00:00:00.000Z",
   updated_at: "2026-01-01T00:00:00.000Z",
+  experiment_condition: null,
 }
 
 function renderAuth(): RenderHookResult<AuthContextValue, unknown> {

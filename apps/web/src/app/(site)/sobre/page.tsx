@@ -1,23 +1,20 @@
 import type { Metadata } from "next"
 import { Eye, Sparkles, Target } from "lucide-react"
 import {
+  ABOUT_ORIGIN,
   ABOUT_PRINCIPLES,
-  ABOUT_TIMELINE,
   ABOUT_VALUES,
 } from "@/components/marketing/content/about"
 import { FinalCta } from "@/components/marketing/final-cta"
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion-primitives"
 import { PageHero } from "@/components/marketing/page-hero"
 import { SectionHeading } from "@/components/marketing/section-heading"
-import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = {
   title: "Sobre o LevelUSP — Nossa missão e história",
   description:
-    "Conheça a missão, a visão, os valores e a história do LevelUSP, a iniciativa gratuita da Universidade de São Paulo para democratizar o ensino de computação no Brasil.",
+    "Conheça a missão, a visão, os valores e a origem do LevelUSP, plataforma gratuita de ensino de programação desenvolvida no DCM/FFCLRP-USP.",
 }
-
-const TIMELINE_REVEAL_STAGGER_SECONDS = 0.05
 
 function IntroSection(): React.JSX.Element {
   return (
@@ -33,12 +30,12 @@ function IntroSection(): React.JSX.Element {
             </p>
             <p>
               Acreditamos que a universidade pública tem o dever de devolver à sociedade o
-              conhecimento que produz. Por isso, reunimos docentes, pesquisadores e estudantes da
-              USP para construir uma plataforma{" "}
+              conhecimento que produz. Por isso, o LevelUSP é desenvolvido no DCM/FFCLRP-USP, como
+              trabalho de conclusão de curso, na forma de uma plataforma{" "}
               <strong className="text-level-purple-dark">
-                gratuita, gamificada e cientificamente embasada
+                gratuita, gamificada e baseada em prática
               </strong>{" "}
-              — capaz de levar a programação a qualquer pessoa, em qualquer lugar do país.
+              — que roda no navegador, sem instalar nada.
             </p>
           </div>
         </Reveal>
@@ -83,9 +80,8 @@ function MissionVisionSection(): React.JSX.Element {
               </div>
               <h2 className="text-2xl font-bold text-white">Nossa visão</h2>
               <p className="mt-4 text-lg leading-relaxed text-purple-100">
-                Ser a porta de entrada para a tecnologia de milhões de brasileiros, formando uma
-                nova geração de profissionais e cidadãos digitais — e provando que a universidade
-                pública pode educar em escala nacional.
+                Ser uma porta de entrada para a programação: uma trilha completa, do zero à IA,
+                que qualquer pessoa possa seguir de graça e no próprio ritmo.
               </p>
             </div>
           </Reveal>
@@ -125,47 +121,21 @@ function ValuesSection(): React.JSX.Element {
   )
 }
 
-function TimelineSection(): React.JSX.Element {
+function OriginSection(): React.JSX.Element {
   return (
     <section className="py-20">
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
-          title="Nossa trajetória"
-          description="De uma ideia na universidade a uma iniciativa nacional."
-          className="mb-14 text-center"
+          title="De onde vem o projeto"
+          description="O LevelUSP nasceu na universidade pública."
+          className="mb-10 text-center"
         />
-
-        <div className="relative">
-          <div
-            className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-[#E9D5FF] sm:left-1/2 sm:-translate-x-1/2"
-            aria-hidden
-          />
-          <div className="space-y-10">
-            {ABOUT_TIMELINE.map((event, index) => (
-              <Reveal key={event.year} delay={index * TIMELINE_REVEAL_STAGGER_SECONDS}>
-                <div
-                  className={cn(
-                    "relative flex items-start gap-6 sm:w-1/2",
-                    index % 2 === 0 ? "sm:ml-auto sm:flex-row-reverse sm:pl-10" : "sm:pr-10",
-                  )}
-                >
-                  <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-level-purple ring-4 ring-level-purple-light">
-                    <span className="h-2 w-2 rounded-full bg-white" />
-                  </div>
-                  <div className="flex-1 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                    <span className="text-sm font-bold text-level-purple">{event.year}</span>
-                    <h3 className="mt-1 text-lg font-semibold text-level-purple-dark">
-                      {event.title}
-                    </h3>
-                    <p className="mt-2 text-sm leading-relaxed text-gray-600">
-                      {event.description}
-                    </p>
-                  </div>
-                </div>
-              </Reveal>
-            ))}
+        <Reveal>
+          <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm">
+            <h3 className="text-lg font-semibold text-level-purple-dark">{ABOUT_ORIGIN.title}</h3>
+            <p className="mt-2 leading-relaxed text-gray-600">{ABOUT_ORIGIN.description}</p>
           </div>
-        </div>
+        </Reveal>
       </div>
     </section>
   )
@@ -183,12 +153,12 @@ export default function AboutPage(): React.JSX.Element {
             <span className="gradient-text">transformação social</span>
           </>
         }
-        description="O LevelUSP é uma iniciativa de extensão da Universidade de São Paulo que nasceu para enfrentar uma desigualdade concreta: o acesso ao ensino de computação no Brasil."
+        description="O LevelUSP é um projeto desenvolvido no DCM/FFCLRP-USP para enfrentar uma desigualdade concreta: o acesso ao ensino de computação no Brasil."
       />
       <IntroSection />
       <MissionVisionSection />
       <ValuesSection />
-      <TimelineSection />
+      <OriginSection />
       <FinalCta />
     </>
   )

@@ -8,12 +8,28 @@ export { levelForXp }
 
 /**
  * Sequência diária: atividade hoje mantém, ontem incrementa, antes disso
- * reinicia em 1. Login e conclusão de lição contam como atividade.
+ * reinicia em 1. Atividade = CONCLUIR algo (passo, lição ou quiz); entrar na
+ * plataforma não conta.
  */
 export function nextStreak(lastActivity: string | null, today: string, current: number): StreakResult {
   if (lastActivity === today) return { streak: Math.max(current, 1), increased: false, reset: false }
   if (lastActivity && lastActivity === previousDate(today)) return { streak: current + 1, increased: true, reset: false }
   return { streak: 1, increased: current !== 1 || lastActivity === null, reset: lastActivity !== null && current > 0 }
+}
+
+/**
+ * Sequência que o aluno VÊ: a gravada só vale enquanto a última conclusão foi hoje ou
+ * ontem; depois disso ela já quebrou (0), mesmo que o banco ainda guarde o número antigo
+ * (ele só é reescrito na próxima conclusão).
+ */
+export function effectiveStreak(lastActivity: string | null, today: string, current: number): number {
+  if (lastActivity === today || (lastActivity !== null && lastActivity === previousDate(today))) return current
+  return 0
+}
+
+/** XP de um passo: metade (arredondada para baixo) quando o aluno viu a solução antes de concluir. */
+export function stepXp(xp: number, solutionViewed: boolean): number {
+  return solutionViewed ? Math.floor(xp / 2) : xp
 }
 
 /** Critérios avaliados automaticamente; "manual" só é concedido pelo admin. */
