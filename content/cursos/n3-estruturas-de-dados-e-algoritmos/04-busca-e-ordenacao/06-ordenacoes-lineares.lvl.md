@@ -17,213 +17,260 @@ objetivos:
   - Enunciar o limite inferior Ω(n log n) de ordenações por comparação e por que as lineares escapam dele
 ---
 
-## Passo 1 · Leitura · O limite $\Omega(n \log n)$ por comparação e o Counting Sort estável
+## Passo 1 · Leitura · Por que comparar custa pelo menos n log n
 
-Por que nenhum algoritmo de ordenação baseado **apenas em comparações** entre elementos (`a <= b`) consegue ser mais rápido que $\Omega(n \log n)$ no pior caso?
+Merge sort, quick sort aleatorizado, Timsort: os melhores algoritmos que você viu ficam em $\Theta(n \log n)$. Não é falta de esperteza. **Todo** algoritmo que só descobre a ordem comparando pares de elementos precisa de $\Omega(n \log n)$ comparações no pior caso. A prova é curta.
 
-Imagine uma **árvore de decisão** onde cada nó interno é uma comparação `x <= y` (2 ramos: Sim ou Não) e cada folha é uma das **$n!$ permutações possíveis** da entrada. Para conseguir distinguir todas as $n!$ ordens possíveis, uma árvore binária de altura $h$ precisa ter pelo menos $n!$ folhas ($2^h \ge n!$). Pela aproximação de Stirling:
+Fixe um algoritmo de comparação e um $n$. Cada execução é uma sequência de perguntas "`a[i] <= a[j]`?", e a próxima pergunta depende das respostas anteriores. Desenhe todas as execuções possíveis como uma **árvore de decisão**: cada nó interno é uma comparação, com dois ramos (sim e não), e cada folha é uma resposta final, uma permutação que põe a entrada em ordem.
+
+1. **A árvore precisa de pelo menos $n!$ folhas.** Para entradas com valores distintos, cada uma das $n!$ ordens iniciais exige uma permutação diferente para ser desfeita. Se duas ordens chegassem à mesma folha, o algoritmo erraria uma delas.
+2. **Uma árvore binária de altura $h$ tem no máximo $2^h$ folhas.** A altura é o número de comparações do pior caso.
+
+Juntando: $2^h \ge n!$, ou seja, $h \ge \log_2(n!)$. Falta ver que $\log_2(n!)$ cresce como $n \log n$. Metade dos fatores de $n!$ são pelo menos $n/2$, então $n! \ge (n/2)^{n/2}$, e
 
 $$
-h \ge \log_2(n!) \approx n \log_2 n - 1{,}44n \implies h = \Omega(n \log n)
+h \;\ge\; \log_2(n!) \;\ge\; \frac{n}{2}\log_2 \frac{n}{2} \;=\; \Omega(n \log n).
 $$
 
-Como escapar desse limite? **Não comparando elementos entre si**, mas usando o próprio valor inteiro da chave como **índice direto em um vetor de contadores**!
+```python
+import math
 
-#### Counting Sort estável em $\Theta(n + k)$
+for n in [3, 10, 1000]:
+    minimo = math.ceil(math.log2(math.factorial(n)))
+    print(n, minimo)        # 3 3 | 10 22 | 1000 8530
+```
 
-Suponha que queremos ordenar $n$ registros `(chave, valor)` onde cada `chave` é um inteiro no intervalo $[0, k]$:
-1. **Contagem (histograma):** criamos `cont = [0] * (k + 1)` e contamos quantas vezes cada chave aparece.
-2. **Soma de prefixos (posições acumuladas):** fazemos `cont[c] += cont[c - 1]` para `c` de `1` até `k`. Agora, `cont[c]` indica quantos elementos têm chave $\le c$ (ou seja, a posição final logo após o último elemento de chave `c`).
-3. **Posicionamento estável (de trás para frente!):** criamos `saida = [None] * n` e percorremos a lista original **do fim para o início** (`for item in reversed(lista):`). Para cada `item` de chave `c`, decrementamos `cont[c] -= 1` e colocamos `saida[cont[c]] = item`.
+Para 3 elementos, nenhum algoritmo de comparação garante a resposta com menos de 3 comparações; para 1000, com menos de 8530.
 
-Por que percorrer **de trás para frente**? Porque como `cont[c]` começa na última vaga disponível para a chave `c` e vai recuando (`cont[c] -= 1`), o último elemento de chave `c` da entrada ocupa a última vaga de `c` na saída, preservando a **estabilidade**!
+O limite vale para algoritmos de **comparação**. A saída é não comparar: se as chaves são inteiros num intervalo pequeno, o próprio valor da chave pode virar um **índice de lista**. Ler `cont[chave]` não é uma pergunta de sim ou não; é um acesso que escolhe entre $k$ posições de uma vez, e a árvore de decisão deixa de descrever o algoritmo. É o que fazem as ordenações desta lição.
 
-> **Quando usar (e quando NÃO usar):** o Counting Sort custa $\Theta(n + k)$ em tempo e memória. Se $k = O(n)$ (ex.: ordenar $100\,000$ notas inteiras de $0$ a $100$), ele é $\Theta(n)$! Mas se $n = 10$ e uma das chaves for $k = 10^9$, alocar `[0] * (10**9 + 1)` estoura a memória!
+## Passo 2 · Leitura · Counting sort estável
 
-## Passo 2 · Exercício · Histograma de notas e Counting Sort estável
+O **counting sort** ordena registros cuja chave é um inteiro entre `menor` e `maior`. Seja $k$ = `maior - menor + 1` o tamanho do intervalo. São três passagens:
 
-Implemente duas funções (**sem usar `sorted()` nem `.sort()`**):
-1. `histograma_de_notas(notas)`: recebe uma lista de notas inteiras no intervalo `[0, 10]` e devolve uma lista de tamanho `11` onde a posição `i` contém quantas vezes a nota `i` apareceu.
-2. `counting_sort(registros, k)`: recebe uma lista de tuplas `(chave, valor)` onde `0 <= chave <= k` e devolve uma nova lista ordenada de forma **estável** pela `chave`, usando o algoritmo Counting Sort em tempo $O(n + k)$.
+1. **Contar.** `cont[c]` guarda quantos registros têm a chave `menor + c`. O deslocamento `- menor` é o que permite chaves negativas: a menor chave vai para o índice 0.
+2. **Somar prefixos.** Faça `cont[c] += cont[c - 1]` da esquerda para a direita. Agora `cont[c]` é quantos registros têm chave **até** `menor + c`, ou seja, a posição logo **depois** do último lugar reservado para essa chave na saída.
+3. **Posicionar de trás para frente.** Percorra a entrada do fim para o começo. Para cada registro, decremente `cont[c]` e ponha o registro em `saida[cont[c]]`.
+
+Por que de trás para frente? O último registro com chave `c` na entrada ocupa a última vaga de `c`; o penúltimo, a penúltima; e assim por diante. Registros com chaves iguais saem na ordem em que entraram: o algoritmo é **estável**. Percorrendo do começo para o fim com o mesmo decremento, os iguais sairiam **invertidos**.
+
+Cuidado com chaves negativas sem o deslocamento. `cont[-1]` não dá erro em Python: é o **último** elemento da lista. A chave $-1$ é contada como se fosse a maior, e a saída fica errada em silêncio.
+
+Custo: as passagens 1 e 3 são $\Theta(n)$ e a passagem 2 é $\Theta(k)$. Total $\Theta(n + k)$ de tempo e $\Theta(n + k)$ de memória. Com $k = O(n)$, como $100\,000$ notas inteiras de 0 a 10, isso é linear. Com $k$ enorme, não: ordenar 10 números entre 0 e $10^9$ aloca uma lista de um bilhão de contadores. O counting sort só vale quando o intervalo das chaves é pequeno perto de $n$.
+
+No visualizador, observe `cont` depois das somas de prefixo e as vagas sendo ocupadas de trás para frente.
+
+```python visualizar
+registros = [(2, "Ana"), (0, "Bia"), (2, "Caio"), (1, "Davi"), (0, "Eva")]
+cont = [0] * 3
+for chave, _ in registros:
+    cont[chave] += 1
+for c in range(1, 3):
+    cont[c] += cont[c - 1]
+saida = [None] * len(registros)
+for registro in reversed(registros):
+    cont[registro[0]] -= 1
+    saida[cont[registro[0]]] = registro
+print(saida)
+```
+
+## Passo 3 · Exercício · counting_sort com chaves negativas
+modo: lacunas
+
+Complete as lacunas (`___`) de `counting_sort(registros)`. Cada registro é uma tupla `(chave, valor)` com chave inteira, que pode ser negativa. A função devolve uma **lista nova** ordenada pela chave, de forma estável, sem `sorted()` nem `.sort()`, e sem alterar a recebida.
 
 ### Instruções
-1. Em `histograma_de_notas(notas)`, crie `freq = [0] * 11`, percorra `notas` incrementando `freq[nota] += 1` e devolva `freq`.
-2. Em `counting_sort(registros, k)`, se `not registros` devolva `[]`. Crie `cont = [0] * (k + 1)` (cuidado com o `+ 1` para incluir a chave `k`!), conte as frequências de `item[0]`, acumule as somas de prefixo (`for c in range(1, k + 1): cont[c] += cont[c - 1]`) e preencha `saida = [None] * len(registros)` percorrendo `reversed(registros)`.
+1. Crie um contador para cada chave possível entre a menor e a maior, inclusive as duas.
+2. Conte cada chave deslocada pela menor, e some os prefixos.
+3. Posicione os registros percorrendo a entrada de trás para frente.
 
 ### Código inicial
 ```python
-def histograma_de_notas(notas):
-    # Devolva uma lista de 11 posições com a frequência de cada nota de 0 a 10
-    pass
-
-
-def counting_sort(registros, k):
-    # Ordene registros (chave, valor) de forma estável em O(n + k) sem usar sorted/sort
-    pass
+def counting_sort(registros):
+    if not registros:
+        return []
+    menor = min(chave for chave, _ in registros)
+    maior = max(chave for chave, _ in registros)
+    cont = [0] * (maior - menor + ___)
+    for chave, _ in registros:
+        cont[chave - ___] += 1
+    for c in range(1, len(cont)):
+        cont[c] += cont[___]
+    saida = [None] * len(registros)
+    for registro in ___(registros):
+        c = registro[0] - menor
+        cont[c] -= 1
+        saida[cont[c]] = registro
+    return saida
 ```
 
 ### Solução
 ```python
-def histograma_de_notas(notas):
-    freq = [0] * 11
-    for nota in notas:
-        freq[nota] += 1
-    return freq
-
-
-def counting_sort(registros, k):
-    n = len(registros)
-    if n == 0:
+def counting_sort(registros):
+    if not registros:
         return []
-    cont = [0] * (k + 1)
+    menor = min(chave for chave, _ in registros)
+    maior = max(chave for chave, _ in registros)
+    cont = [0] * (maior - menor + 1)
     for chave, _ in registros:
-        cont[chave] += 1
-    for c in range(1, k + 1):
+        cont[chave - menor] += 1
+    for c in range(1, len(cont)):
         cont[c] += cont[c - 1]
-    saida = [None] * n
-    for item in reversed(registros):
-        chave = item[0]
-        cont[chave] -= 1
-        saida[cont[chave]] = item
+    saida = [None] * len(registros)
+    for registro in reversed(registros):
+        c = registro[0] - menor
+        cont[c] -= 1
+        saida[cont[c]] = registro
     return saida
 ```
 
 ### Dicas
-1. Também é possível implementar o Counting Sort estável com uma lista de listas (baldes): `baldes = [[] for _ in range(k + 1)]`, fazendo `baldes[chave].append(item)` na ordem normal e depois concatenando todos os baldes! Ambas as abordagens têm tempo e espaço $\Theta(n + k)$ e são estáveis.
-2. Não se esqueça de alocar `k + 1` posições para que a chave máxima `k` não levante `IndexError`.
+1. De 2 a 5 há 4 chaves possíveis, não 3.
+2. A soma de prefixo acumula o contador anterior.
+3. Qual percurso faz o último registro de cada chave ocupar a última vaga dela?
 
 ### Verificação
 ```json
 [
-  {
-    "id": "sem-sorted",
-    "checkpoint": 2,
-    "kind": "source",
-    "rule": { "type": "not_calls", "name": "sorted" },
-    "name": "Não usa sorted()"
-  },
-  {
-    "id": "sem-sort",
-    "checkpoint": 2,
-    "kind": "source",
-    "rule": { "type": "not_calls", "name": "sort" },
-    "name": "Não usa .sort()"
-  },
-  {
-    "id": "histograma-teste",
-    "checkpoint": 1,
-    "kind": "call",
-    "function": "histograma_de_notas",
-    "args": [[10, 7, 8, 10, 0, 7, 10]],
-    "expected": [1, 0, 0, 0, 0, 0, 0, 2, 1, 0, 3],
-    "name": "histograma_de_notas conta frequências de 0 a 10 corretamente"
-  },
-  {
-    "id": "counting-sort-estavel",
-    "checkpoint": 2,
-    "kind": "call",
-    "function": "counting_sort",
-    "args": [[[3, "a"], [1, "b"], [3, "c"], [0, "d"], [1, "e"], [3, "f"]], 3],
+  { "id": "sem-sorted", "checkpoint": 2, "kind": "source", "rule": { "type": "not_calls", "name": "sorted" },
+    "name": "Não usa sorted()" },
+  { "id": "estavel", "checkpoint": 3, "kind": "call", "function": "counting_sort",
+    "args": [[[3, "a"], [1, "b"], [3, "c"], [0, "d"], [1, "e"], [3, "f"]]],
     "expected": [[0, "d"], [1, "b"], [1, "e"], [3, "a"], [3, "c"], [3, "f"]],
-    "name": "counting_sort ordena e preserva a ordem relativa de chaves iguais (estabilidade)"
-  }
+    "name": "Ordena pela chave e mantém a ordem de chegada dos empates", "hint": "Percorrendo do começo, os empates saem invertidos." },
+  { "id": "negativas", "checkpoint": 2, "kind": "call", "function": "counting_sort",
+    "args": [[[2, "Ana"], [-3, "Bia"], [0, "Caio"], [-3, "Davi"], [2, "Eva"]]],
+    "expected": [[-3, "Bia"], [-3, "Davi"], [0, "Caio"], [2, "Ana"], [2, "Eva"]],
+    "name": "Chaves negativas", "hint": "cont[-3] não dá erro em Python: é a terceira posição a partir do fim. Desloque as chaves pela menor." },
+  { "id": "chave-maxima", "checkpoint": 1, "kind": "call", "function": "counting_sort",
+    "args": [[[5, "x"], [2, "y"], [4, "z"]]], "expected": [[2, "y"], [4, "z"], [5, "x"]],
+    "name": "A maior chave também tem contador", "hint": "O intervalo inclui as duas pontas." },
+  { "id": "todas-iguais", "checkpoint": 3, "kind": "call", "function": "counting_sort",
+    "args": [[[7, "p"], [7, "q"], [7, "r"]]], "expected": [[7, "p"], [7, "q"], [7, "r"]],
+    "name": "Todas as chaves iguais: a ordem não muda" },
+  { "id": "bordas", "checkpoint": 1, "kind": "expr", "expr": "[counting_sort([]), counting_sort([(-1, 'só')])]",
+    "expected": [[], [[-1, "só"]]], "name": "Listas com 0 e 1 registro" },
+  { "id": "nao-altera", "checkpoint": 3, "kind": "expr", "setup": "v = [(1, 'b'), (0, 'a')]\nr = counting_sort(v)",
+    "expr": "[r, v]", "expected": [[[0, "a"], [1, "b"]], [[1, "b"], [0, "a"]]], "name": "Devolve lista nova e não altera a recebida" }
 ]
 ```
 
 ### Soluções erradas
-```python name="percorre de frente para trás ao decrementar cont e inverte a ordem de iguais"
-def histograma_de_notas(notas):
-    freq = [0] * 11
-    for nota in notas:
-        freq[nota] += 1
-    return freq
-
-
-def counting_sort(registros, k):
-    n = len(registros)
-    cont = [0] * (k + 1)
+```python name="posiciona do começo para o fim e inverte os empates"
+def counting_sort(registros):
+    if not registros:
+        return []
+    menor = min(chave for chave, _ in registros)
+    maior = max(chave for chave, _ in registros)
+    cont = [0] * (maior - menor + 1)
     for chave, _ in registros:
-        cont[chave] += 1
-    for c in range(1, k + 1):
+        cont[chave - menor] += 1
+    for c in range(1, len(cont)):
         cont[c] += cont[c - 1]
-    saida = [None] * n
-    for item in registros:
-        chave = item[0]
-        cont[chave] -= 1
-        saida[cont[chave]] = item
+    saida = [None] * len(registros)
+    for registro in registros:
+        c = registro[0] - menor
+        cont[c] -= 1
+        saida[cont[c]] = registro
     return saida
 ```
-```python name="aloca k posições em vez de k + 1 e falha quando chave == k"
-def histograma_de_notas(notas):
-    return [0] * 11
-
-
-def counting_sort(registros, k):
-    baldes = [[] for _ in range(k)]
-    for item in registros:
-        baldes[item[0]].append(item)
-    return [x for b in baldes for x in b]
+```python name="sem deslocamento: chave negativa vira índice do fim"
+def counting_sort(registros):
+    if not registros:
+        return []
+    maior = max(chave for chave, _ in registros)
+    cont = [0] * (maior + 1)
+    for chave, _ in registros:
+        cont[chave] += 1
+    for c in range(1, len(cont)):
+        cont[c] += cont[c - 1]
+    saida = [None] * len(registros)
+    for registro in reversed(registros):
+        cont[registro[0]] -= 1
+        saida[cont[registro[0]]] = registro
+    return saida
+```
+```python name="um contador a menos"
+def counting_sort(registros):
+    if not registros:
+        return []
+    menor = min(chave for chave, _ in registros)
+    maior = max(chave for chave, _ in registros)
+    cont = [0] * (maior - menor)
+    for chave, _ in registros:
+        cont[chave - menor] += 1
+    for c in range(1, len(cont)):
+        cont[c] += cont[c - 1]
+    saida = [None] * len(registros)
+    for registro in reversed(registros):
+        c = registro[0] - menor
+        cont[c] -= 1
+        saida[cont[c]] = registro
+    return saida
+```
+```python name="esquece as somas de prefixo"
+def counting_sort(registros):
+    if not registros:
+        return []
+    menor = min(chave for chave, _ in registros)
+    maior = max(chave for chave, _ in registros)
+    cont = [0] * (maior - menor + 1)
+    for chave, _ in registros:
+        cont[chave - menor] += 1
+    saida = [None] * len(registros)
+    for registro in reversed(registros):
+        c = registro[0] - menor
+        cont[c] -= 1
+        saida[cont[c]] = registro
+    return saida
 ```
 
-## Passo 3 · Leitura · Radix Sort LSD: ordenando números grandes dígito a dígito
+## Passo 4 · Leitura · Radix sort LSD e bucket sort
 
-E se precisarmos ordenar $n = 100\,000$ números que vão até $10^9$ (ou CPFs de 11 dígitos, ou CEPs de 8 dígitos)?
-O Counting Sort direto é inviável porque $k = 10^9$. Mas entra em cena o **Radix Sort LSD (*Least Significant Digit*)**:
-
-Em vez de ordenar pelo número inteiro de uma vez, ordenamos os números **dígito por dígito, do menos significativo (unidades) para o mais significativo**, usando um **Counting Sort estável** de base $10$ ($k = 9$, apenas 10 baldes de `0` a `9`!) em cada passagem!
+Para ordenar $100\,000$ números de até 9 dígitos, o counting sort direto precisaria de um bilhão de contadores. O **radix sort LSD** (*least significant digit*, dígito menos significativo) contorna isso: ordena **dígito por dígito**, das unidades para a casa mais alta, com uma ordenação **estável** em cada passagem. Cada passagem só tem 10 chaves possíveis, de 0 a 9.
 
 ```mermaid
 flowchart LR
-    A["Entrada:<br/>[329, 457, 657, 839, 436, 720, 355]"] --> B["1ª passagem (unidades):<br/>[720, 355, 436, 457, 657, 329, 839]"]
-    B --> C["2ª passagem (dezenas, estável!):<br/>[720, 329, 436, 839, 355, 457, 657]"]
-    C --> D["3ª passagem (centenas, estável!):<br/>[329, 355, 436, 457, 657, 720, 839]"]
+    A["329 457 657 839 436 720 355"] --> B["unidades: 720 355 436 457 657 329 839"]
+    B --> C["dezenas: 720 329 436 839 355 457 657"]
+    C --> D["centenas: 329 355 436 457 657 720 839"]
 ```
 
-Por que é obrigatório começar pelo dígito **menos significativo** e usar uma ordenação **estável** em cada dígito?
-Porque quando empatamos na casa das centenas (ex.: `436` e `457`, ambos com centena `4`), a **estabilidade** preserva a ordem em que eles já estavam da passagem anterior — que era a ordem correta das dezenas e unidades (`36 < 57`)!
+A correção é um invariante, provado por indução: **depois da passagem pelo dígito $d$, a lista está ordenada pelos $d$ últimos dígitos.** Na passagem seguinte, dois números com dígitos diferentes na nova casa saem na ordem certa por causa dela. Dois números com o **mesmo** dígito, como 436 e 457 na casa das centenas, mantêm a ordem em que estavam, por estabilidade, e essa ordem já era a dos dígitos de baixo, pela hipótese. Sem estabilidade, a passagem das centenas poderia pôr 457 antes de 436 e desfazer o trabalho anterior.
 
-Com $d$ dígitos na base $b$, o Radix Sort executa $d$ passagens de custo $\Theta(n + b)$, totalizando **$\Theta(d \cdot (n + b))$**. Para CEPs de 8 dígitos ($d = 8, b = 10$), ele ordena qualquer lista em exatamente 8 passagens lineares!
+Em Python, a ordenação estável de cada passagem cabe em 10 listas, os **baldes**: `append` preserva a ordem de chegada, e concatenar os baldes de 0 a 9 dá a passagem.
 
-Veja o Radix Sort LSD em ação no visualizador:
-
-```python visualizar
-def radix_sort(lista):
-    if not lista:
-        return []
-    v = list(lista)
-    maior = max(v)
-    exp = 1
-    while maior // exp > 0:
-        baldes = [[] for _ in range(10)]
-        for num in v:
-            digito = (num // exp) % 10
-            baldes[digito].append(num)
-        v = [num for balde in baldes for num in balde]
-        exp *= 10
-    return v
-
-print(radix_sort([329, 457, 657, 839, 436, 720, 355]))
+```python
+def passagem(v, exp):
+    baldes = [[] for _ in range(10)]
+    for x in v:
+        baldes[(x // exp) % 10].append(x)    # dígito da casa exp
+    return [x for balde in baldes for x in balde]
 ```
 
-## Passo 4 · Exercício · Radix Sort LSD para inteiros e ordenação de CEPs
+Com $d$ dígitos na base $b$, o custo é $\Theta(d \cdot (n + b))$. Para inteiros de até 9 dígitos, são 9 passagens lineares. A quantidade de passagens sai do maior número: continue enquanto `maior // exp > 0`. O erro comum é `while exp < maior`, que para cedo quando o maior é uma potência de 10: com `maior = 100`, a casa das centenas nunca é processada.
 
-Implemente duas funções (**sem usar `sorted()` nem `.sort()`**):
-1. `radix_sort(lista)`: ordena uma lista de inteiros não negativos (até $10^9$) usando Radix Sort LSD em base 10 (ou base 256) e devolve a nova lista ordenada. Deve ordenar $20\,000$ números rapidamente.
-2. `ordenar_ceps(ceps)`: recebe uma lista de strings de CEPs de exatamente 8 dígitos numéricos (ex.: `["05508090", "01310100", "05508000"]`) e devolve uma nova lista ordenada aplicando Counting Sort estável dígito a dígito, da última posição (`pos = 7`) até a primeira (`pos = 0`).
+O **bucket sort** é outra ordenação sem comparação global. Para $n$ números reais espalhados **uniformemente** em $[0, 1)$, crie $n$ baldes, ponha cada $x$ no balde $\lfloor n x \rfloor$, ordene cada balde (são pequenos) e concatene. O tempo **esperado** é $\Theta(n)$, mas ele depende da suposição: se todos os valores caírem no mesmo balde, o custo é o da ordenação usada dentro dele.
+
+## Passo 5 · Exercício · Radix sort e CEPs
+
+Escreva duas funções, sem `sorted()` nem `.sort()`:
+
+- `radix_sort(lista)`: recebe inteiros **não negativos** e devolve uma lista nova, ordenada pelo radix sort LSD em base 10.
+- `ordenar_ceps(ceps)`: recebe CEPs como **textos** de exatamente 8 dígitos, como `"05508090"`, e devolve uma lista nova de textos ordenados, com uma passagem estável por posição, da última (índice 7) para a primeira (índice 0). Os zeros à esquerda fazem parte do CEP.
 
 ### Instruções
-1. Em `radix_sort(lista)`, se `not lista` devolva `[]`. Enquanto `maior // exp > 0` (começando em `exp = 1` e multiplicando `exp *= 10`), distribua cada número `num` no balde `(num // exp) % 10` e reconstrua a lista concatenando os 10 baldes em ordem.
-2. Em `ordenar_ceps(ceps)`, percorra `pos` de `7` até `0` (`range(7, -1, -1)`): em cada posição, distribua cada string `cep` em 10 baldes segundo `int(cep[pos])` e reconstrua a lista concatenando os baldes.
+1. Em `radix_sort`, faça passagens estáveis por casa decimal, das unidades para cima, enquanto houver dígito no maior número.
+2. Em `ordenar_ceps`, faça uma passagem estável por posição do texto, da direita para a esquerda.
+3. Nas duas, devolva uma lista nova sem alterar a recebida.
 
 ### Código inicial
 ```python
 def radix_sort(lista):
-    # Ordene inteiros não negativos usando Radix Sort LSD (sem sorted/sort)
     pass
 
 
 def ordenar_ceps(ceps):
-    # Ordene strings de 8 dígitos ("05508090") dígito a dígito da direita para a esquerda
     pass
 ```
 
@@ -237,10 +284,9 @@ def radix_sort(lista):
     exp = 1
     while maior // exp > 0:
         baldes = [[] for _ in range(10)]
-        for num in v:
-            digito = (num // exp) % 10
-            baldes[digito].append(num)
-        v = [num for balde in baldes for num in balde]
+        for x in v:
+            baldes[(x // exp) % 10].append(x)
+        v = [x for balde in baldes for x in balde]
         exp *= 10
     return v
 
@@ -256,68 +302,104 @@ def ordenar_ceps(ceps):
 ```
 
 ### Dicas
-1. Para extrair o dígito da casa `exp` ($1, 10, 100, \dots$) de um inteiro `num`, use `(num // exp) % 10`.
-2. Em `ordenar_ceps`, percorrer `pos` de `7` até `0` garante que o dígito mais significativo (`pos = 0`, à esquerda) seja processado por último, decidindo a ordem final com desempate estável dos dígitos anteriores!
+1. O dígito da casa `exp` (1, 10, 100...) de `x` é `(x // exp) % 10`.
+2. Se o maior número é 100, ainda há um dígito na casa das centenas.
+3. Converter o CEP para `int` perde os zeros à esquerda: trate cada posição do texto.
 
 ### Verificação
 ```json
 [
-  {
-    "id": "sem-sorted",
-    "checkpoint": 1,
-    "kind": "source",
-    "rule": { "type": "not_calls", "name": "sorted" },
-    "name": "Não usa sorted()"
-  },
-  {
-    "id": "sem-sort",
-    "checkpoint": 1,
-    "kind": "source",
-    "rule": { "type": "not_calls", "name": "sort" },
-    "name": "Não usa .sort()"
-  },
-  {
-    "id": "radix-casos",
-    "checkpoint": 1,
-    "kind": "expr",
-    "expr": "[radix_sort([]), radix_sort([0, 0, 0]), radix_sort([170, 45, 75, 90, 802, 24, 2, 66])]",
-    "expected": [[], [0, 0, 0], [2, 24, 45, 66, 75, 90, 170, 802]],
-    "name": "radix_sort ordena lista vazia, zeros e números com quantidades diferentes de dígitos"
-  },
-  {
-    "id": "radix-20k-grandes",
-    "checkpoint": 1,
-    "kind": "expr",
+  { "id": "sem-sorted", "checkpoint": 1, "kind": "source", "rule": { "type": "not_calls", "name": "sorted" },
+    "name": "Não usa sorted()" },
+  { "id": "sem-sort", "checkpoint": 1, "kind": "source", "rule": { "type": "not_calls", "name": "sort" },
+    "name": "Não usa .sort()" },
+  { "id": "radix-misturada", "checkpoint": 1, "kind": "call", "function": "radix_sort", "args": [[170, 45, 75, 90, 802, 24, 2, 66]],
+    "expected": [2, 24, 45, 66, 75, 90, 170, 802], "name": "Números com quantidades diferentes de dígitos" },
+  { "id": "radix-potencia-10", "checkpoint": 1, "kind": "call", "function": "radix_sort", "args": [[100, 5, 10, 99]],
+    "expected": [5, 10, 99, 100], "name": "O maior número é uma potência de 10", "hint": "Com maior = 100, a casa das centenas ainda precisa de uma passagem." },
+  { "id": "radix-bordas", "checkpoint": 3, "kind": "expr", "expr": "[radix_sort([]), radix_sort([0, 0, 0]), radix_sort([7])]",
+    "expected": [[], [0, 0, 0], [7]], "name": "Lista vazia, só zeros e um elemento" },
+  { "id": "radix-grande", "checkpoint": 1, "kind": "expr",
     "setup": "v = [(i * 104729) % 1000000000 for i in range(20000)]\nr = radix_sort(v)",
-    "expr": "[len(r), r[0], all(r[i] <= r[i+1] for i in range(len(r)-1))]",
-    "expected": [20000, 0, true],
-    "name": "radix_sort ordena 20.000 inteiros de até 9 dígitos rapidamente"
-  },
-  {
-    "id": "ceps-teste",
-    "checkpoint": 2,
-    "kind": "call",
-    "function": "ordenar_ceps",
-    "args": [["05508090", "01310100", "05508000", "01310000", "13566590"]],
-    "expected": ["01310000", "01310100", "05508000", "05508090", "13566590"],
-    "name": "ordenar_ceps ordena CEPs de 8 dígitos corretamente"
-  }
+    "expr": "[len(r), r == sorted(v)]", "expected": [20000, true], "name": "20000 inteiros de até 9 dígitos",
+    "hint": "Cada passagem precisa ser estável: o balde preserva a ordem de chegada." },
+  { "id": "radix-nao-altera", "checkpoint": 3, "kind": "expr", "setup": "v = [30, 1, 20]\nr = radix_sort(v)",
+    "expr": "[r, v]", "expected": [[1, 20, 30], [30, 1, 20]], "name": "radix_sort não altera a lista recebida" },
+  { "id": "ceps", "checkpoint": 2, "kind": "call", "function": "ordenar_ceps",
+    "args": [["05508090", "01310100", "13566590", "05508000", "01310000", "80010000"]],
+    "expected": ["01310000", "01310100", "05508000", "05508090", "13566590", "80010000"],
+    "name": "Ordena CEPs com zeros à esquerda", "hint": "As passagens vão da última posição para a primeira." },
+  { "id": "ceps-texto", "checkpoint": 2, "kind": "expr", "expr": "[type(c).__name__ for c in ordenar_ceps(['09000000', '01000000'])]",
+    "expected": ["str", "str"], "name": "ordenar_ceps devolve textos, com os zeros à esquerda", "hint": "Não converta o CEP inteiro para int." },
+  { "id": "ceps-vazia", "checkpoint": 2, "kind": "call", "function": "ordenar_ceps", "args": [[]], "expected": [],
+    "name": "ordenar_ceps([]) é []" }
 ]
 ```
 
 ### Soluções erradas
-```python name="processa dígitos do mais significativo para o menos significativo no Radix Sort"
+```python name="while exp < maior para cedo"
 def radix_sort(lista):
     if not lista:
         return []
     v = list(lista)
-    exp = 1000
-    while exp >= 1:
+    maior = max(v)
+    exp = 1
+    while exp < maior:
         baldes = [[] for _ in range(10)]
-        for num in v:
-            baldes[(num // exp) % 10].append(num)
-        v = [num for b in baldes for num in b]
-        exp //= 10
+        for x in v:
+            baldes[(x // exp) % 10].append(x)
+        v = [x for balde in baldes for x in balde]
+        exp *= 10
+    return v
+
+
+def ordenar_ceps(ceps):
+    v = list(ceps)
+    for pos in range(7, -1, -1):
+        baldes = [[] for _ in range(10)]
+        for cep in v:
+            baldes[int(cep[pos])].append(cep)
+        v = [cep for balde in baldes for cep in balde]
+    return v
+```
+```python name="balde que insere no começo não é estável"
+def radix_sort(lista):
+    if not lista:
+        return []
+    v = list(lista)
+    maior = max(v)
+    exp = 1
+    while maior // exp > 0:
+        baldes = [[] for _ in range(10)]
+        for x in v:
+            baldes[(x // exp) % 10].insert(0, x)
+        v = [x for balde in baldes for x in balde]
+        exp *= 10
+    return v
+
+
+def ordenar_ceps(ceps):
+    v = list(ceps)
+    for pos in range(7, -1, -1):
+        baldes = [[] for _ in range(10)]
+        for cep in v:
+            baldes[int(cep[pos])].append(cep)
+        v = [cep for balde in baldes for cep in balde]
+    return v
+```
+```python name="CEPs da primeira posição para a última"
+def radix_sort(lista):
+    if not lista:
+        return []
+    v = list(lista)
+    maior = max(v)
+    exp = 1
+    while maior // exp > 0:
+        baldes = [[] for _ in range(10)]
+        for x in v:
+            baldes[(x // exp) % 10].append(x)
+        v = [x for balde in baldes for x in balde]
+        exp *= 10
     return v
 
 
@@ -327,37 +409,51 @@ def ordenar_ceps(ceps):
         baldes = [[] for _ in range(10)]
         for cep in v:
             baldes[int(cep[pos])].append(cep)
-        v = [cep for b in baldes for cep in b]
+        v = [cep for balde in baldes for cep in balde]
     return v
 ```
-```python name="ordena apenas pelo último dígito e para"
+```python name="converte o CEP para int e perde os zeros"
 def radix_sort(lista):
     if not lista:
         return []
-    baldes = [[] for _ in range(10)]
-    for num in lista:
-        baldes[num % 10].append(num)
-    return [num for b in baldes for num in b]
+    v = list(lista)
+    maior = max(v)
+    exp = 1
+    while maior // exp > 0:
+        baldes = [[] for _ in range(10)]
+        for x in v:
+            baldes[(x // exp) % 10].append(x)
+        v = [x for balde in baldes for x in balde]
+        exp *= 10
+    return v
 
 
 def ordenar_ceps(ceps):
-    return list(ceps)
+    return [str(c) for c in radix_sort([int(c) for c in ceps])]
 ```
 
-## Passo 5 · Quiz · Quando as ordenações lineares vencem (e quando falham)
+## Passo 6 · Quiz · Quando ordenar sem comparar
 
 ### Pergunta
-Por que o Counting Sort e o Radix Sort conseguem ordenar em tempo linear $O(n)$ (quando $k = O(n)$ e $d$ é constante), aparentando "quebrar" o limite inferior teórico $\Omega(n \log n)$ da ordenação?
-- [ ] Porque o limite $\Omega(n \log n)$ estava matematicamente errado.
-- [x] Porque o limite $\Omega(n \log n)$ aplica-se exclusivamente a algoritmos **baseados em comparações** (onde cada decisão tem apenas 2 saídas: $\le$ ou $>$). O Counting Sort usa o valor da chave como índice de array ($k$ saídas simultâneas em $O(1)$), explorando a estrutura interna dos inteiros sem compará-los entre si.
-- [ ] Porque eles usam recursão de cauda.
-- [ ] Porque eles só funcionam para listas já ordenadas.
-> Na árvore de decisão de um algoritmo por comparação, cada passo ramifica em 2 ($\log_2(n!) = \Omega(n \log n)$). Já indexar um vetor de $k$ posições a partir do valor inteiro da chave não é uma comparação binária!
+Um colega diz: "o radix sort ordena inteiros de 9 dígitos em tempo linear, então o limite $\Omega(n \log n)$ está errado". O que responder?
+- [ ] Ele tem razão: o limite só vale para listas pequenas
+- [x] O limite vale para algoritmos que só comparam pares; o radix sort usa os dígitos como índices de baldes, o que a árvore de decisão não descreve
+- [ ] O radix sort também faz $\Omega(n \log n)$ comparações, só que escondidas na concatenação dos baldes
+- [ ] O limite vale só no caso médio; no pior caso, qualquer algoritmo pode ser linear
+> A prova conta folhas de uma árvore em que cada nó é uma pergunta de sim ou não. `baldes[digito]` escolhe entre 10 destinos num acesso só; o radix sort não é um algoritmo de comparação, e o limite não se aplica a ele.
 
 ### Pergunta
-O que acontece no **Radix Sort LSD** se o algoritmo usado para ordenar cada dígito individual **não for estável**?
-- [ ] O algoritmo continua funcionando perfeitamente, apenas um pouco mais lento.
-- [x] O algoritmo produz uma saída **incorreta**, pois ao ordenar pelo dígito mais significativo (ex.: centenas), elementos com a mesma centena (`457` e `436`) podem trocar de posição entre si, destruindo a ordenação das dezenas e unidades conquistada nas passagens anteriores!
-- [ ] Apenas elementos duplicados ficam fora de ordem.
-- [ ] O algoritmo levanta `ValueError`.
-> A corretude do Radix Sort LSD depende crucialmente da **estabilidade** de cada passagem: quando dois números empatam no dígito atual, eles precisam manter a ordem relativa determinada pelos dígitos menos significativos já processados.
+No radix sort LSD, a passagem de cada dígito usa uma ordenação que **não** é estável. O que acontece?
+- [ ] Nada: a última passagem, pelo dígito mais alto, decide a ordem sozinha
+- [ ] Só os números repetidos ficam fora de ordem
+- [x] A saída pode sair errada: números com o mesmo dígito na casa atual podem trocar de lugar e desfazer a ordem dos dígitos de baixo
+- [ ] O algoritmo fica mais lento, mas continua correto
+> O invariante "ordenado pelos $d$ últimos dígitos" depende da estabilidade: nos empates do dígito atual, a ordem precisa ser a deixada pelas passagens anteriores. Sem isso, 457 pode passar à frente de 436 na passagem das centenas.
+
+### Pergunta
+Qual destas tarefas é um bom caso para o counting sort?
+- [x] Ordenar $500\,000$ respostas de uma pesquisa com notas inteiras de 1 a 5, mantendo a ordem de chegada nos empates
+- [ ] Ordenar 20 números inteiros entre 0 e $10^{12}$
+- [ ] Ordenar $10\,000$ nomes de alunos em ordem alfabética
+- [ ] Ordenar $10^6$ números reais entre 0 e 1 com muitas casas decimais
+> O custo é $\Theta(n + k)$: com $k = 5$ e $n = 500\,000$, é linear e estável. Com $k = 10^{12}$, a lista de contadores não cabe na memória. Nomes não são inteiros pequenos, e reais não servem como índice; para reais uniformes em $[0, 1)$, o bucket sort é a opção.

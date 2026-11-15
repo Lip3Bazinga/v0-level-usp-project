@@ -19,736 +19,1405 @@ objetivos:
 
 ## Passo 1 · Leitura · Mensagens, papéis e o objeto Resposta
 
-Servidores de LLMs são **sem estado** (*stateless*): o modelo não guarda memória da sua conversa entre uma requisição HTTP e outra. A sensação de diálogo contínuo acontece porque **a sua aplicação guarda a lista de mensagens e a reenvia inteira a cada turno**.
+Uma API de chat recebe uma **lista de mensagens** e devolve a próxima. Cada mensagem é um dicionário com papel e texto, `{"role": ..., "content": ...}`, e há três papéis:
 
-Cada mensagem é um dicionário `{"role": "<papel>", "content": "<texto>"}`. Os três papéis fundamentais são:
+- `system`: as regras fixas do assistente (tom, escopo, o que recusar). Vai na primeira posição.
+- `user`: o que a pessoa (ou o seu programa) pergunta.
+- `assistant`: o que o modelo respondeu nos turnos anteriores.
 
-- `system`: define as diretrizes permanentes do assistente (tom, regras de negócio, limites de atuação). Vai sempre na primeira posição da lista.
-- `user`: a pergunta, documento ou comando enviado pelo usuário (ou pela aplicação).
-- `assistant`: as respostas que o próprio modelo deu nos turnos anteriores.
+O servidor **não guarda a conversa**. Cada chamada é independente: se o modelo parece lembrar do turno anterior, é porque a sua aplicação reenviou o histórico inteiro. Duas consequências práticas: quem cuida do histórico é você, e cada turno paga de novo, como entrada, todos os tokens da conversa até ali.
 
 ```mermaid
 sequenceDiagram
     participant App as Aplicação
     participant LLM as ClienteLLM
-    App->>LLM: completar([system, user_1])
-    LLM-->>App: Resposta(assistant_1, finish_reason="stop", usage)
-    App->>LLM: completar([system, user_1, assistant_1, user_2])
-    LLM-->>App: Resposta(assistant_2, finish_reason="stop", usage)
+    App->>LLM: [system, user 1]
+    LLM-->>App: Resposta 1
+    App->>LLM: [system, user 1, assistant 1, user 2]
+    LLM-->>App: Resposta 2
 ```
 
-Neste curso, como o código roda em um ambiente isolado e reprodutível sem acesso à internet, usamos um `ClienteLLM` simulado com a mesma anatomia dos SDKs reais. O método `cliente.completar(mensagens, max_tokens=...)` devolve um objeto `Resposta` com três atributos essenciais:
+A chamada devolve um objeto com três campos que você precisa ler sempre:
 
-1. `resposta.conteudo`: o texto gerado pelo modelo (`str`).
-2. `resposta.finish_reason`: o motivo pelo qual a geração parou — `"stop"` quando o modelo concluiu o raciocínio naturalmente, ou `"length"` quando foi cortado ao atingir `max_tokens`. Tratar uma resposta cortada por `"length"` como se estivesse completa é uma fonte clássica de bugs silenciosos (por exemplo, JSONs truncados pela metade).
-3. `resposta.usage`: dicionário com `"prompt_tokens"`, `"completion_tokens"` e `"total_tokens"`.
+```python
+resposta = cliente.completar(mensagens, max_tokens=200)
+resposta.conteudo        # o texto gerado
+resposta.finish_reason   # por que parou: "stop", "length" ou "tool_calls"
+resposta.usage           # {"prompt_tokens": 61, "completion_tokens": 13, "total_tokens": 74}
+```
 
-Observe no visualizador como a lista `historico` e o consumo de tokens evoluem ao longo de dois turnos de conversa:
+- `finish_reason == "stop"`: o modelo terminou a resposta.
+- `finish_reason == "length"`: bateu em `max_tokens` e foi **cortado no meio**. O texto existe, parece normal e está incompleto. Um JSON cortado assim não abre; um resumo cortado perde a conclusão. Tratar `"length"` como sucesso é um defeito silencioso clássico.
+- `finish_reason == "tool_calls"`: o modelo pediu para chamar uma ferramenta (lição 04).
+
+O `usage` traz a contagem **oficial** de tokens: é por ela que a fatura é calculada, e não pela sua estimativa da lição anterior. `prompt_tokens` é a entrada inteira (todas as mensagens, com a formatação de cada uma); `completion_tokens` é a saída.
+
+#### A chave de API
+
+Para falar com um provedor real você precisa de uma chave secreta. Ela **nunca** vai no código: há robôs que varrem repositórios públicos atrás de chaves expostas, e quem achar a sua gasta por sua conta. O padrão é ler do ambiente, `chave = os.environ["LLM_API_KEY"]`, e configurar a variável no servidor.
+
+## Passo 2 · Leitura · O cliente simulado do curso
+
+O executor desta plataforma não tem rede, então as lições usam o arquivo `llm_simulado.py`, que imita a interface de um SDK real e mostra, de propósito, o comportamento que você vai encontrar na prática. Ele é aberto: leia o arquivo nos exercícios.
+
+```python
+from llm_simulado import ClienteLLM
+
+cliente = ClienteLLM(["Pode trancar até a 8ª semana.", "O prazo vai até a 8ª semana."], seed=1)
+r = cliente.completar([{"role": "user", "content": "Até quando posso trancar?"}], max_tokens=50)
+print(r.conteudo, r.finish_reason, r.usage, r.latencia_ms)
+```
+
+O que ele simula, e como:
+
+| Comportamento real | No simulador |
+|---|---|
+| Tokens ≠ palavras | Tokenizador de brinquedo (pedaços de até 4 caracteres) + 4 tokens de formatação por mensagem |
+| Mesma pergunta, respostas diferentes | Com `temperature > 0`, sorteia entre as respostas candidatas com `random.Random(seed)` |
+| Corte por `max_tokens` | Corta no token e devolve `finish_reason = "length"` |
+| Latência | `ttft_ms + tokens × ms_por_token`, somada a um relógio falso (`cliente.relogio`) |
+| Falhas 429, 5xx, timeout, 400 | Fila `falhas=[...]`, consumida uma por chamada (lição 03) |
+
+Os preços do curso são fictícios. Em vez de uma lista de respostas, o simulador também aceita uma função que recebe as mensagens e devolve o texto: é assim que os testes criam "modelos" que reagem ao histórico.
+
+Para usar um provedor real fora daqui, você escreve uma classe com o mesmo método `completar(mensagens, max_tokens=...)` que faz a requisição HTTP e devolve um `Resposta`. Se o resto do seu código só conhece essa interface, trocar o simulador pelo real é trocar **um objeto**.
+
+No visualizador, acompanhe a lista `mensagens` crescer e o custo de entrada de cada turno subir, porque o histórico inteiro é reenviado:
 
 ```python visualizar
-def simular_chamada(mensagens):
-    prompt_t = sum(len(m["content"].split()) for m in mensagens)
-    ultima = mensagens[-1]["content"]
-    texto = f"Recebi ({len(mensagens)} msgs): {ultima}"
-    comp_t = len(texto.split())
-    return {
-        "conteudo": texto,
-        "finish_reason": "stop",
-        "usage": {
-            "prompt_tokens": prompt_t,
-            "completion_tokens": comp_t,
-            "total_tokens": prompt_t + comp_t,
-        },
-    }
+def tokens(texto):
+    return sum((len(p) + 3) // 4 for p in texto.split()) + 4
 
-mensagens = [{"role": "system", "content": "Atenda a secretaria da USP."}]
-total_acumulado = 0
 
-for pergunta in ["Prazo de trancamento?", "E para calouros?"]:
+mensagens = [{"role": "system", "content": "Atenda alunos da secretaria."}]
+entrada_por_turno = []
+for pergunta in ["Como tranco uma disciplina?", "E qual é o prazo?"]:
     mensagens.append({"role": "user", "content": pergunta})
-    resp = simular_chamada(mensagens)
-    mensagens.append({"role": "assistant", "content": resp["conteudo"]})
-    total_acumulado += resp["usage"]["total_tokens"]
+    entrada = sum(tokens(m["content"]) for m in mensagens)
+    entrada_por_turno.append(entrada)
+    resposta = "Resposta sobre: " + pergunta
+    mensagens.append({"role": "assistant", "content": resposta})
+print(entrada_por_turno)
+print(len(mensagens))
 ```
 
-Quando você leva seu código para produção com um provedor externo, basta trocar a instância de `ClienteLLM` passada no construtor da sua classe `Assistente`. E atenção a uma regra de ouro de segurança: **chaves de API nunca devem ser escritas no código-fonte**. Elas são lidas do ambiente com `os.environ["LLM_API_KEY"]` para nunca vazarem em repositórios Git.
+## Passo 3 · Previsão · O que o modelo lembra
 
-## Passo 2 · Exercício · Montando a lista de mensagens
+O "modelo" abaixo só sabe o que está na lista que recebe. Leia o programa sem executar e digite exatamente o que ele imprime.
 
+### Código
+```python
+def modelo(mensagens):
+    for m in mensagens:
+        if m["role"] == "user" and m["content"].startswith("Meu nome é "):
+            return "Olá, " + m["content"][len("Meu nome é "):] + "!"
+    return "Não sei o seu nome."
+
+
+historico = []
+for pergunta in ["Meu nome é Ana", "Qual é o meu nome?"]:
+    historico.append({"role": "user", "content": pergunta})
+    resposta = modelo(historico)
+    historico.append({"role": "assistant", "content": resposta})
+    print(resposta)
+
+print(modelo([{"role": "user", "content": "Qual é o meu nome?"}]))
+print(len(historico))
+```
+
+### Dicas
+1. Na segunda volta do laço, a lista enviada ainda tem a primeira pergunta.
+2. A chamada fora do laço recebe uma lista nova, só com uma mensagem.
+3. Cada volta acrescenta duas mensagens ao histórico.
+
+### Saída esperada
+```text
+Olá, Ana!
+Olá, Ana!
+Não sei o seu nome.
+4
+```
+
+## Passo 4 · Exercício · Montando a lista de mensagens
 modo: lacunas
 
-Complete a função `montar_mensagens(sistema, historico, pergunta)` para construir a lista de mensagens que será enviada ao modelo em um turno de conversa, **sem modificar** a lista `historico` original passada como argumento.
+A cada turno, a aplicação monta a lista que vai para a API: a mensagem `system`, depois o histórico (só mensagens `user` e `assistant`, na ordem em que aconteceram) e, por último, a pergunta nova. A função **não pode alterar** a lista `historico` recebida: quem decide se a pergunta entra no histórico é quem chama, depois de ver se a resposta deu certo.
+
+Complete as três lacunas (`___`) de `montar_mensagens(sistema, historico, pergunta)`.
 
 ### Instruções
-
-1. Comece a lista `mensagens` com um dicionário de papel `"system"` e conteúdo `sistema`.
-2. Copie todas as mensagens de `historico` para `mensagens` e adicione ao final a pergunta atual com papel `"user"` e conteúdo `pergunta`.
+1. A primeira mensagem é a de sistema, com o texto recebido em `sistema`.
+2. A pergunta nova entra por último, com o papel de quem pergunta.
+3. O histórico fica entre as duas, sem ser modificado.
+   Dica: somar listas com `+` cria uma lista nova.
 
 ### Código inicial
-
-```python path=main.py
+```python
 def montar_mensagens(sistema, historico, pergunta):
-    mensagens = [{"role": "___", "content": sistema}]
-    for item in historico:
-        mensagens.append(dict(item))
-    mensagens.append({"role": "___", "content": ___})
-    return mensagens
-
-
-if __name__ == "__main__":
-    hist = [
-        {"role": "user", "content": "Oi"},
-        {"role": "assistant", "content": "Olá! Como posso ajudar?"},
-    ]
-    print(montar_mensagens("Seja conciso.", hist, "Qual o código de Cálculo I?"))
+    inicio = [{"role": "system", "content": ___}]
+    nova = {"role": ___, "content": pergunta}
+    return inicio + ___ + [nova]
 ```
 
 ### Solução
-
-```python path=main.py
+```python
 def montar_mensagens(sistema, historico, pergunta):
-    mensagens = [{"role": "system", "content": sistema}]
-    for item in historico:
-        mensagens.append(dict(item))
-    mensagens.append({"role": "user", "content": pergunta})
-    return mensagens
-
-
-if __name__ == "__main__":
-    hist = [
-        {"role": "user", "content": "Oi"},
-        {"role": "assistant", "content": "Olá! Como posso ajudar?"},
-    ]
-    print(montar_mensagens("Seja conciso.", hist, "Qual o código de Cálculo I?"))
+    inicio = [{"role": "system", "content": sistema}]
+    nova = {"role": "user", "content": pergunta}
+    return inicio + historico + [nova]
 ```
 
 ### Dicas
-
-1. A primeira mensagem da conversa tem sempre `"role": "system"`.
-2. A nova pergunta do aluno entra no final com `"role": "user"` e `"content": pergunta`.
+1. Os papéis possíveis são `system`, `user` e `assistant`. Quem faz a pergunta nova?
+2. A ordem da lista é a ordem da conversa: regras, passado, pergunta atual.
 
 ### Verificação
-
 ```json
 [
-  {
-    "id": "sem-historico",
-    "name": "Monta conversa sem histórico prévio",
-    "checkpoint": 1,
-    "kind": "call",
-    "function": "montar_mensagens",
-    "args": ["Responda em pt-BR.", [], "Qual o horário da secretaria?"],
-    "expected": [
-      {"role": "system", "content": "Responda em pt-BR."},
-      {"role": "user", "content": "Qual o horário da secretaria?"}
-    ]
-  },
-  {
-    "id": "com-historico",
-    "name": "Inclui histórico entre system e a pergunta atual",
-    "checkpoint": 2,
-    "kind": "call",
-    "function": "montar_mensagens",
-    "args": [
-      "Sistema",
-      [
-        {"role": "user", "content": "P1"},
-        {"role": "assistant", "content": "R1"}
-      ],
-      "P2"
-    ],
-    "expected": [
-      {"role": "system", "content": "Sistema"},
-      {"role": "user", "content": "P1"},
-      {"role": "assistant", "content": "R1"},
-      {"role": "user", "content": "P2"}
-    ]
-  },
-  {
-    "id": "nao-muta-historico",
-    "name": "Não altera a lista historico original",
-    "checkpoint": 2,
-    "kind": "expr",
-    "setup": "h = [{'role': 'user', 'content': 'A'}]\n_ = montar_mensagens('Sys', h, 'B')",
-    "expr": "len(h)",
-    "expected": 1
-  }
+  { "id": "sem-historico", "checkpoint": 1, "kind": "call", "function": "montar_mensagens",
+    "args": ["Responda em português.", [], "Qual o horário da secretaria?"],
+    "expected": [{ "role": "system", "content": "Responda em português." }, { "role": "user", "content": "Qual o horário da secretaria?" }],
+    "name": "Sem histórico: system e a pergunta" },
+  { "id": "papel-user", "checkpoint": 2, "kind": "expr", "expr": "montar_mensagens('S', [], 'P')[-1]['role']", "expected": "user",
+    "name": "A pergunta nova tem papel user", "hint": "assistant é o papel das respostas do modelo." },
+  { "id": "com-historico", "checkpoint": 3, "kind": "call", "function": "montar_mensagens",
+    "args": ["Sistema", [{ "role": "user", "content": "P1" }, { "role": "assistant", "content": "R1" }], "P2"],
+    "expected": [{ "role": "system", "content": "Sistema" }, { "role": "user", "content": "P1" },
+      { "role": "assistant", "content": "R1" }, { "role": "user", "content": "P2" }],
+    "name": "Histórico entre o system e a pergunta atual" },
+  { "id": "dois-turnos", "checkpoint": 3, "kind": "expr",
+    "setup": "h = [{'role': 'user', 'content': 'A'}, {'role': 'assistant', 'content': 'B'}, {'role': 'user', 'content': 'C'}, {'role': 'assistant', 'content': 'D'}]",
+    "expr": "[m['content'] for m in montar_mensagens('S', h, 'E')]", "expected": ["S", "A", "B", "C", "D", "E"],
+    "name": "Dois turnos de histórico, na ordem" },
+  { "id": "nao-muta", "checkpoint": 3, "kind": "expr",
+    "setup": "h = [{'role': 'user', 'content': 'A'}, {'role': 'assistant', 'content': 'B'}]\nr = montar_mensagens('S', h, 'C')",
+    "expr": "[len(h), r is h, len(r)]", "expected": [2, false, 4],
+    "name": "A lista historico original não muda", "hint": "Não use append no histórico recebido." }
 ]
 ```
 
 ### Soluções erradas
-
-```python name="Coloca o papel assistant na pergunta do usuário"
+```python name="acrescenta a pergunta no próprio histórico"
 def montar_mensagens(sistema, historico, pergunta):
-    mensagens = [{"role": "system", "content": sistema}]
-    for item in historico:
-        mensagens.append(dict(item))
-    mensagens.append({"role": "assistant", "content": pergunta})
-    return mensagens
+    historico.append({"role": "user", "content": pergunta})
+    return [{"role": "system", "content": sistema}] + historico
+```
+```python name="pergunta antes do histórico"
+def montar_mensagens(sistema, historico, pergunta):
+    inicio = [{"role": "system", "content": sistema}]
+    nova = {"role": "user", "content": pergunta}
+    return inicio + [nova] + historico
+```
+```python name="pergunta com papel assistant"
+def montar_mensagens(sistema, historico, pergunta):
+    inicio = [{"role": "system", "content": sistema}]
+    nova = {"role": "assistant", "content": pergunta}
+    return inicio + historico + [nova]
+```
+```python name="esquece a mensagem system"
+def montar_mensagens(sistema, historico, pergunta):
+    nova = {"role": "user", "content": pergunta}
+    return historico + [nova]
 ```
 
-```python name="Esquece a mensagem de sistema no início"
-def montar_mensagens(sistema, historico, pergunta):
-    mensagens = []
-    for item in historico:
-        mensagens.append(dict(item))
-    mensagens.append({"role": "user", "content": pergunta})
-    return mensagens
-```
+## Passo 5 · Exercício · Conversar e truncar o histórico
 
-## Passo 3 · Exercício · Conversar e truncar histórico
+Duas funções que toda aplicação de chat precisa. Use o `llm_simulado.py` (aba ao lado) sem alterá-lo.
 
-À medida que uma conversa se alonga, o histórico cresce e pode estourar a janela de contexto. Quando precisamos descartar mensagens antigas, há uma regra essencial: **nunca descartar a mensagem `system` inicial**, pois ela contém as instruções de comportamento e segurança do assistente.
+**`conversar(cliente, mensagens, max_tokens=200)`** chama o cliente repassando `max_tokens`. Se a resposta foi cortada (`finish_reason == "length"`), levanta `RuntimeError("Resposta truncada")`; senão, devolve a tupla `(conteudo, total_tokens)`.
 
-Além disso, ao chamar `cliente.completar(mensagens, max_tokens=max_tokens)`, precisamos inspecionar `resposta.finish_reason`. Se o valor for `"length"`, a resposta foi cortada no meio e nossa função deve levantar `RuntimeError("Resposta truncada")`.
+**`truncar_historico(mensagens, limite_tokens)`** encurta uma conversa longa para caber num orçamento de tokens. O custo de cada mensagem é `contar_tokens(m["content"]) + SOBRECARGA_POR_MENSAGEM`, ambos do simulador. As regras:
+
+- Se a primeira mensagem é `system`, ela fica sempre, e o custo dela entra no orçamento.
+- Das outras, fica o **trecho mais recente** que cabe: percorra de trás para frente e pare na primeira mensagem que não couber (pular uma e manter outra mais antiga deixaria um buraco na conversa).
+- Se o trecho mantido começa com uma mensagem `assistant`, descarte-a: uma resposta sem a pergunta que a originou confunde o modelo.
+- Devolva uma lista nova, sem alterar `mensagens`.
+
+Exemplo: com `system` de custo 6 e quatro mensagens de custo 5 (`P1`, `R1`, `P2`, `R2`), o limite 21 mantém `R1`, `P2` e `R2`; como `R1` é uma resposta, ela sai e o resultado é `[system, P2, R2]`.
 
 ### Instruções
-
-1. Implemente `conversar(cliente, mensagens, max_tokens=200)` que chama `cliente.completar(mensagens, max_tokens=max_tokens)`. Se `resposta.finish_reason == "length"`, levante `RuntimeError("Resposta truncada")`; caso contrário, retorne a tupla `(resposta.conteudo, resposta.usage["total_tokens"])`.
-2. Implemente `truncar_historico(mensagens, max_mensagens)` que retorna uma nova lista com no máximo `max_mensagens` itens. Se `len(mensagens) <= max_mensagens`, retorne uma cópia da lista. Caso contrário, se a primeira mensagem tiver `"role": "system"`, preserve essa primeira mensagem e mantenha as últimas `max_mensagens - 1` mensagens do restante; se a primeira não for `"system"`, mantenha as últimas `max_mensagens` mensagens.
+1. `conversar` repassa `max_tokens` ao cliente e devolve `(conteudo, total_tokens)` quando a resposta terminou normalmente.
+2. `conversar` levanta `RuntimeError("Resposta truncada")` quando a resposta foi cortada.
+3. `truncar_historico` preserva a mensagem `system` inicial e conta o custo dela no limite.
+4. `truncar_historico` mantém o trecho final mais longo que cabe, sem buracos, e sem começar por `assistant`.
+5. `truncar_historico` não altera a lista recebida.
 
 ### Código inicial
-
-```python path=main.py
-class Resposta:
-    def __init__(self, conteudo, finish_reason, prompt_tokens, completion_tokens):
-        self.conteudo = conteudo
-        self.finish_reason = finish_reason
-        self.usage = {
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": prompt_tokens + completion_tokens,
-        }
-
-
-class ClienteLLM:
-    def __init__(self, resposta_padrao="Ok, entendido."):
-        self.resposta_padrao = resposta_padrao
-
-    def completar(self, mensagens, max_tokens=200):
-        p_tokens = sum(len(m["content"].split()) for m in mensagens)
-        palavras_saida = self.resposta_padrao.split()
-        if len(palavras_saida) > max_tokens:
-            cortado = " ".join(palavras_saida[:max_tokens])
-            return Resposta(cortado, "length", p_tokens, max_tokens)
-        return Resposta(self.resposta_padrao, "stop", p_tokens, len(palavras_saida))
+```python
+from llm_simulado import ClienteLLM, contar_tokens, SOBRECARGA_POR_MENSAGEM
 
 
 def conversar(cliente, mensagens, max_tokens=200):
-    # Chame cliente.completar e verifique finish_reason
     pass
 
 
-def truncar_historico(mensagens, max_mensagens):
-    # Preserve a mensagem system inicial ao truncar
+def truncar_historico(mensagens, limite_tokens):
     pass
-
-
-if __name__ == "__main__":
-    cli = ClienteLLM("A matrícula em MAC0110 ocorre pelo JúpiterWeb.")
-    msgs = [
-        {"role": "system", "content": "Você é o atendente da secretaria."},
-        {"role": "user", "content": "Como faço matrícula?"},
-    ]
-    print(conversar(cli, msgs))
 ```
+```python path=llm_simulado.py
+"""Cliente de LLM simulado do curso: a interface de um SDK real, sem rede.
 
-### Solução
+Aproximações declaradas (tudo reproduzível):
+- tokens: brinquedo, cada palavra vira pedaços de até 4 caracteres;
+  o tokenizador de um modelo real dá outros números;
+- preços: fictícios, em R$ por milhão de tokens;
+- latência: TTFT + ms por token de saída, somada a um relógio falso;
+- sorteio: random.Random(seed); com temperature > 0 a resposta pode variar;
+- falhas: fila programada (429, 503, "timeout", 400), consumida em ordem.
+"""
+import random
 
-```python path=main.py
+PRECO_ENTRADA = 2.0  # R$ por milhão de tokens de entrada (fictício)
+PRECO_SAIDA = 8.0  # R$ por milhão de tokens de saída (fictício)
+SOBRECARGA_POR_MENSAGEM = 4  # tokens de formatação de cada mensagem
+
+
+class ErroDeTaxa(Exception):  # HTTP 429: transitório
+    def __init__(self, mensagem="429 Too Many Requests", retry_after=None):
+        super().__init__(mensagem)
+        self.retry_after = retry_after  # espera sugerida pelo servidor, em s
+
+
+class ErroDeServidor(Exception):  # HTTP 5xx: transitório
+    pass
+
+
+class ErroDeTimeout(Exception):  # resposta não chegou no prazo: transitório
+    pass
+
+
+class ErroDeRequisicao(Exception):  # HTTP 400/401: permanente, não repita
+    pass
+
+
+def tokenizar(texto):
+    tokens = []
+    for i, palavra in enumerate(texto.split()):
+        pedacos = [palavra[j:j + 4] for j in range(0, len(palavra), 4)]
+        if i > 0:
+            pedacos[0] = " " + pedacos[0]
+        tokens.extend(pedacos)
+    return tokens
+
+
+def contar_tokens(texto):
+    return len(tokenizar(texto))
+
+
 class Resposta:
-    def __init__(self, conteudo, finish_reason, prompt_tokens, completion_tokens):
+    def __init__(self, conteudo, finish_reason, prompt_tokens, completion_tokens,
+                 latencia_ms=0, tool_calls=None):
         self.conteudo = conteudo
-        self.finish_reason = finish_reason
-        self.usage = {
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": prompt_tokens + completion_tokens,
-        }
+        self.finish_reason = finish_reason  # "stop", "length" ou "tool_calls"
+        self.usage = {"prompt_tokens": prompt_tokens,
+                      "completion_tokens": completion_tokens,
+                      "total_tokens": prompt_tokens + completion_tokens}
+        self.latencia_ms = latencia_ms
+        self.tool_calls = tool_calls or []
+
+
+class Relogio:  # relógio falso: só anda quando alguém manda
+    def __init__(self):
+        self.agora_ms = 0
+
+    def avancar(self, ms):
+        self.agora_ms += ms
 
 
 class ClienteLLM:
-    def __init__(self, resposta_padrao="Ok, entendido."):
-        self.resposta_padrao = resposta_padrao
+    """respostas: lista de textos candidatos, ou função(mensagens) que devolve
+    um texto ou uma lista de tool_calls."""
 
-    def completar(self, mensagens, max_tokens=200):
-        p_tokens = sum(len(m["content"].split()) for m in mensagens)
-        palavras_saida = self.resposta_padrao.split()
-        if len(palavras_saida) > max_tokens:
-            cortado = " ".join(palavras_saida[:max_tokens])
-            return Resposta(cortado, "length", p_tokens, max_tokens)
-        return Resposta(self.resposta_padrao, "stop", p_tokens, len(palavras_saida))
+    def __init__(self, respostas, seed=None, falhas=(), relogio=None,
+                 ttft_ms=300, ms_por_token=20):
+        self.respostas = respostas
+        self.rng = random.Random(seed)
+        self.falhas = list(falhas)
+        self.relogio = relogio or Relogio()
+        self.ttft_ms = ttft_ms
+        self.ms_por_token = ms_por_token
+        self.chamadas = 0
+
+    def _preparar(self, mensagens, temperature):
+        self.chamadas += 1
+        falha = self.falhas.pop(0) if self.falhas else None
+        if falha == 429:
+            raise ErroDeTaxa(retry_after=2.0)
+        if falha == 503:
+            raise ErroDeServidor("503 Service Unavailable")
+        if falha == "timeout":
+            self.relogio.avancar(10_000)
+            raise ErroDeTimeout("sem resposta em 10 s")
+        if falha == 400:
+            raise ErroDeRequisicao("400 Bad Request")
+        if callable(self.respostas):
+            return self.respostas(mensagens)
+        if temperature == 0:
+            return self.respostas[0]  # num servidor real, nem isso é garantido
+        return self.rng.choice(self.respostas)
+
+    def completar(self, mensagens, max_tokens=256, temperature=1.0):
+        gerado = self._preparar(mensagens, temperature)
+        entrada = sum(contar_tokens(m["content"]) + SOBRECARGA_POR_MENSAGEM
+                      for m in mensagens)
+        if isinstance(gerado, list):  # o modelo pediu ferramentas
+            self.relogio.avancar(self.ttft_ms)
+            return Resposta("", "tool_calls", entrada, 10, self.ttft_ms, gerado)
+        tokens, motivo = tokenizar(gerado), "stop"
+        if len(tokens) > max_tokens:
+            tokens, motivo = tokens[:max_tokens], "length"
+        latencia = self.ttft_ms + len(tokens) * self.ms_por_token
+        self.relogio.avancar(latencia)
+        return Resposta("".join(tokens), motivo, entrada, len(tokens), latencia)
+
+    def completar_stream(self, mensagens, max_tokens=256, temperature=1.0, cair_apos=None):
+        """Gera eventos {"delta": texto}; o último traz "finish_reason".
+        cair_apos=n: a conexão cai depois de n tokens, sem o evento final."""
+        tokens, motivo = tokenizar(self._preparar(mensagens, temperature)), "stop"
+        if len(tokens) > max_tokens:
+            tokens, motivo = tokens[:max_tokens], "length"
+        self.relogio.avancar(self.ttft_ms)
+        for i, token in enumerate(tokens):
+            if i == cair_apos:
+                return
+            self.relogio.avancar(self.ms_por_token)
+            yield {"delta": token}
+        yield {"delta": "", "finish_reason": motivo}
+```
+
+### Solução
+```python
+from llm_simulado import ClienteLLM, contar_tokens, SOBRECARGA_POR_MENSAGEM
 
 
 def conversar(cliente, mensagens, max_tokens=200):
     resposta = cliente.completar(mensagens, max_tokens=max_tokens)
     if resposta.finish_reason == "length":
         raise RuntimeError("Resposta truncada")
-    return (resposta.conteudo, resposta.usage["total_tokens"])
+    return resposta.conteudo, resposta.usage["total_tokens"]
 
 
-def truncar_historico(mensagens, max_mensagens):
-    if len(mensagens) <= max_mensagens:
-        return list(mensagens)
-    if mensagens and mensagens[0].get("role") == "system":
-        if max_mensagens <= 1:
-            return [mensagens[0]]
-        return [mensagens[0]] + list(mensagens[-(max_mensagens - 1) :])
-    return list(mensagens[-max_mensagens:])
+def custo(mensagem):
+    return contar_tokens(mensagem["content"]) + SOBRECARGA_POR_MENSAGEM
 
 
-if __name__ == "__main__":
-    cli = ClienteLLM("A matrícula em MAC0110 ocorre pelo JúpiterWeb.")
-    msgs = [
-        {"role": "system", "content": "Você é o atendente da secretaria."},
-        {"role": "user", "content": "Como faço matrícula?"},
-    ]
-    print(conversar(cli, msgs))
+def truncar_historico(mensagens, limite_tokens):
+    fixas = []
+    resto = list(mensagens)
+    if resto and resto[0]["role"] == "system":
+        fixas = [resto[0]]
+        resto = resto[1:]
+    usados = sum(custo(m) for m in fixas)
+    mantidas = []
+    for mensagem in reversed(resto):
+        if usados + custo(mensagem) > limite_tokens:
+            break
+        mantidas.append(mensagem)
+        usados += custo(mensagem)
+    mantidas.reverse()
+    while mantidas and mantidas[0]["role"] == "assistant":
+        mantidas.pop(0)
+    return fixas + mantidas
+```
+```python path=llm_simulado.py
+"""Cliente de LLM simulado do curso: a interface de um SDK real, sem rede.
+
+Aproximações declaradas (tudo reproduzível):
+- tokens: brinquedo, cada palavra vira pedaços de até 4 caracteres;
+  o tokenizador de um modelo real dá outros números;
+- preços: fictícios, em R$ por milhão de tokens;
+- latência: TTFT + ms por token de saída, somada a um relógio falso;
+- sorteio: random.Random(seed); com temperature > 0 a resposta pode variar;
+- falhas: fila programada (429, 503, "timeout", 400), consumida em ordem.
+"""
+import random
+
+PRECO_ENTRADA = 2.0  # R$ por milhão de tokens de entrada (fictício)
+PRECO_SAIDA = 8.0  # R$ por milhão de tokens de saída (fictício)
+SOBRECARGA_POR_MENSAGEM = 4  # tokens de formatação de cada mensagem
+
+
+class ErroDeTaxa(Exception):  # HTTP 429: transitório
+    def __init__(self, mensagem="429 Too Many Requests", retry_after=None):
+        super().__init__(mensagem)
+        self.retry_after = retry_after  # espera sugerida pelo servidor, em s
+
+
+class ErroDeServidor(Exception):  # HTTP 5xx: transitório
+    pass
+
+
+class ErroDeTimeout(Exception):  # resposta não chegou no prazo: transitório
+    pass
+
+
+class ErroDeRequisicao(Exception):  # HTTP 400/401: permanente, não repita
+    pass
+
+
+def tokenizar(texto):
+    tokens = []
+    for i, palavra in enumerate(texto.split()):
+        pedacos = [palavra[j:j + 4] for j in range(0, len(palavra), 4)]
+        if i > 0:
+            pedacos[0] = " " + pedacos[0]
+        tokens.extend(pedacos)
+    return tokens
+
+
+def contar_tokens(texto):
+    return len(tokenizar(texto))
+
+
+class Resposta:
+    def __init__(self, conteudo, finish_reason, prompt_tokens, completion_tokens,
+                 latencia_ms=0, tool_calls=None):
+        self.conteudo = conteudo
+        self.finish_reason = finish_reason  # "stop", "length" ou "tool_calls"
+        self.usage = {"prompt_tokens": prompt_tokens,
+                      "completion_tokens": completion_tokens,
+                      "total_tokens": prompt_tokens + completion_tokens}
+        self.latencia_ms = latencia_ms
+        self.tool_calls = tool_calls or []
+
+
+class Relogio:  # relógio falso: só anda quando alguém manda
+    def __init__(self):
+        self.agora_ms = 0
+
+    def avancar(self, ms):
+        self.agora_ms += ms
+
+
+class ClienteLLM:
+    """respostas: lista de textos candidatos, ou função(mensagens) que devolve
+    um texto ou uma lista de tool_calls."""
+
+    def __init__(self, respostas, seed=None, falhas=(), relogio=None,
+                 ttft_ms=300, ms_por_token=20):
+        self.respostas = respostas
+        self.rng = random.Random(seed)
+        self.falhas = list(falhas)
+        self.relogio = relogio or Relogio()
+        self.ttft_ms = ttft_ms
+        self.ms_por_token = ms_por_token
+        self.chamadas = 0
+
+    def _preparar(self, mensagens, temperature):
+        self.chamadas += 1
+        falha = self.falhas.pop(0) if self.falhas else None
+        if falha == 429:
+            raise ErroDeTaxa(retry_after=2.0)
+        if falha == 503:
+            raise ErroDeServidor("503 Service Unavailable")
+        if falha == "timeout":
+            self.relogio.avancar(10_000)
+            raise ErroDeTimeout("sem resposta em 10 s")
+        if falha == 400:
+            raise ErroDeRequisicao("400 Bad Request")
+        if callable(self.respostas):
+            return self.respostas(mensagens)
+        if temperature == 0:
+            return self.respostas[0]  # num servidor real, nem isso é garantido
+        return self.rng.choice(self.respostas)
+
+    def completar(self, mensagens, max_tokens=256, temperature=1.0):
+        gerado = self._preparar(mensagens, temperature)
+        entrada = sum(contar_tokens(m["content"]) + SOBRECARGA_POR_MENSAGEM
+                      for m in mensagens)
+        if isinstance(gerado, list):  # o modelo pediu ferramentas
+            self.relogio.avancar(self.ttft_ms)
+            return Resposta("", "tool_calls", entrada, 10, self.ttft_ms, gerado)
+        tokens, motivo = tokenizar(gerado), "stop"
+        if len(tokens) > max_tokens:
+            tokens, motivo = tokens[:max_tokens], "length"
+        latencia = self.ttft_ms + len(tokens) * self.ms_por_token
+        self.relogio.avancar(latencia)
+        return Resposta("".join(tokens), motivo, entrada, len(tokens), latencia)
+
+    def completar_stream(self, mensagens, max_tokens=256, temperature=1.0, cair_apos=None):
+        """Gera eventos {"delta": texto}; o último traz "finish_reason".
+        cair_apos=n: a conexão cai depois de n tokens, sem o evento final."""
+        tokens, motivo = tokenizar(self._preparar(mensagens, temperature)), "stop"
+        if len(tokens) > max_tokens:
+            tokens, motivo = tokens[:max_tokens], "length"
+        self.relogio.avancar(self.ttft_ms)
+        for i, token in enumerate(tokens):
+            if i == cair_apos:
+                return
+            self.relogio.avancar(self.ms_por_token)
+            yield {"delta": token}
+        yield {"delta": "", "finish_reason": motivo}
 ```
 
 ### Dicas
-
-1. Em `conversar`, passe `max_tokens=max_tokens` para `cliente.completar(...)` e cheque `if resposta.finish_reason == "length":`.
-2. Em `truncar_historico`, use fatiamento negativo `mensagens[-(max_mensagens - 1):]` para pegar as mensagens mais recentes depois de separar `mensagens[0]`.
+1. Em `conversar`, o cliente só sabe do limite se você passar `max_tokens=max_tokens` na chamada.
+2. Em `truncar_historico`, separe a `system` primeiro; depois percorra o resto com `reversed(...)` e use `break`, não `continue`.
+3. Para não alterar a lista recebida, trabalhe sobre `list(mensagens)` ou fatias, nunca com `pop` na original.
 
 ### Verificação
-
 ```json
 [
-  {
-    "id": "conversar-stop",
-    "name": "conversar retorna conteúdo e total de tokens quando finish_reason é stop",
-    "checkpoint": 1,
-    "kind": "expr",
-    "setup": "cli = ClienteLLM('Solicitação registrada com sucesso')\nmsgs = [{'role': 'system', 'content': 'Atenda bem'}, {'role': 'user', 'content': 'Trancar disciplina'}]",
-    "expr": "conversar(cli, msgs, max_tokens=20)",
-    "expected": ["Solicitação registrada com sucesso", 8]
-  },
-  {
-    "id": "conversar-length",
-    "name": "conversar levanta RuntimeError quando finish_reason é length",
-    "checkpoint": 1,
-    "kind": "expr",
-    "setup": "cli = ClienteLLM('Esta resposta tem muito mais do que três palavras')",
-    "expr": "conversar(cli, [{'role': 'user', 'content': 'Oi'}], max_tokens=3)",
-    "raises": "RuntimeError",
-    "message_contains": "Resposta truncada"
-  },
-  {
-    "id": "truncar-preserva-system",
-    "name": "truncar_historico preserva system e mantém as mensagens mais recentes",
-    "checkpoint": 2,
-    "kind": "call",
-    "function": "truncar_historico",
-    "args": [
-      [
-        {"role": "system", "content": "Regras"},
-        {"role": "user", "content": "M1"},
-        {"role": "assistant", "content": "M2"},
-        {"role": "user", "content": "M3"},
-        {"role": "assistant", "content": "M4"}
-      ],
-      3
-    ],
-    "expected": [
-      {"role": "system", "content": "Regras"},
-      {"role": "user", "content": "M3"},
-      {"role": "assistant", "content": "M4"}
-    ]
-  },
-  {
-    "id": "truncar-ja-cabe",
-    "name": "truncar_historico não altera lista que já cabe em max_mensagens",
-    "checkpoint": 2,
-    "kind": "call",
-    "function": "truncar_historico",
-    "args": [
-      [
-        {"role": "system", "content": "Regras"},
-        {"role": "user", "content": "M1"}
-      ],
-      5
-    ],
-    "expected": [
-      {"role": "system", "content": "Regras"},
-      {"role": "user", "content": "M1"}
-    ]
-  }
+  { "id": "conversar-ok", "checkpoint": 1, "kind": "expr",
+    "setup": "cli = ClienteLLM(['Pode trancar até a oitava semana do semestre.'])\nmsgs = [{'role': 'system', 'content': 'Atenda alunos com cordialidade.'}, {'role': 'user', 'content': 'Até quando posso trancar?'}]",
+    "expr": "conversar(cli, msgs)", "expected": ["Pode trancar até a oitava semana do semestre.", 37],
+    "name": "Devolve o conteúdo e o total de tokens do usage", "hint": "O total está em resposta.usage, não é a sua estimativa." },
+  { "id": "conversar-borda", "checkpoint": 1, "kind": "expr",
+    "setup": "cli = ClienteLLM(['Sim, pelo sistema acadêmico.'])",
+    "expr": "conversar(cli, [{'role': 'user', 'content': 'Dá?'}], max_tokens=7)", "expected": ["Sim, pelo sistema acadêmico.", 12],
+    "name": "Resposta que usa exatamente max_tokens não é truncada" },
+  { "id": "conversar-length", "checkpoint": 2, "kind": "expr",
+    "setup": "cli = ClienteLLM(['Esta resposta é comprida demais para o limite pedido'])",
+    "expr": "conversar(cli, [{'role': 'user', 'content': 'Oi'}], max_tokens=3)", "raises": "RuntimeError", "message_contains": "truncada",
+    "name": "Resposta cortada por max_tokens levanta RuntimeError", "hint": "Repasse max_tokens ao cliente e confira finish_reason." },
+  { "id": "trunca-recentes", "checkpoint": 4, "kind": "call", "function": "truncar_historico",
+    "args": [[{ "role": "system", "content": "Regras" }, { "role": "user", "content": "P1" }, { "role": "assistant", "content": "R1" },
+      { "role": "user", "content": "P2" }, { "role": "assistant", "content": "R2" }], 16],
+    "expected": [{ "role": "system", "content": "Regras" }, { "role": "user", "content": "P2" }, { "role": "assistant", "content": "R2" }],
+    "name": "Mantém system e as mensagens mais recentes que cabem" },
+  { "id": "trunca-orfa", "checkpoint": 4, "kind": "call", "function": "truncar_historico",
+    "args": [[{ "role": "system", "content": "Regras" }, { "role": "user", "content": "P1" }, { "role": "assistant", "content": "R1" },
+      { "role": "user", "content": "P2" }, { "role": "assistant", "content": "R2" }], 21],
+    "expected": [{ "role": "system", "content": "Regras" }, { "role": "user", "content": "P2" }, { "role": "assistant", "content": "R2" }],
+    "name": "Não deixa resposta do assistant sem a pergunta", "hint": "O trecho mantido não pode começar por assistant." },
+  { "id": "trunca-sem-buraco", "checkpoint": 4, "kind": "call", "function": "truncar_historico",
+    "args": [[{ "role": "system", "content": "Regras" }, { "role": "user", "content": "P1" },
+      { "role": "assistant", "content": "xxxxxxxxxxxxxxxxxxxx" }, { "role": "user", "content": "P2" }, { "role": "assistant", "content": "R2" }], 21],
+    "expected": [{ "role": "system", "content": "Regras" }, { "role": "user", "content": "P2" }, { "role": "assistant", "content": "R2" }],
+    "name": "Para na primeira mensagem que não cabe, sem pular", "hint": "Pular uma mensagem grande e manter uma mais antiga deixa um buraco." },
+  { "id": "trunca-conta-system", "checkpoint": 3, "kind": "call", "function": "truncar_historico",
+    "args": [[{ "role": "system", "content": "Regras" }, { "role": "user", "content": "P1" }, { "role": "assistant", "content": "R1" },
+      { "role": "user", "content": "P2" }, { "role": "assistant", "content": "R2" }], 15],
+    "expected": [{ "role": "system", "content": "Regras" }],
+    "name": "O custo da system entra no limite", "hint": "Comece a conta com o custo da mensagem system." },
+  { "id": "trunca-sem-system", "checkpoint": 4, "kind": "call", "function": "truncar_historico",
+    "args": [[{ "role": "user", "content": "P1" }, { "role": "assistant", "content": "R1" },
+      { "role": "user", "content": "P2" }, { "role": "assistant", "content": "R2" }], 10],
+    "expected": [{ "role": "user", "content": "P2" }, { "role": "assistant", "content": "R2" }],
+    "name": "Sem system, só o trecho final" },
+  { "id": "trunca-cabe", "checkpoint": 3, "kind": "call", "function": "truncar_historico",
+    "args": [[{ "role": "system", "content": "Regras" }, { "role": "user", "content": "P1" }], 100],
+    "expected": [{ "role": "system", "content": "Regras" }, { "role": "user", "content": "P1" }],
+    "name": "Conversa que já cabe volta inteira" },
+  { "id": "trunca-nao-muta", "checkpoint": 5, "kind": "expr",
+    "setup": "m = [{'role': 'system', 'content': 'Regras'}, {'role': 'user', 'content': 'P1'}, {'role': 'assistant', 'content': 'R1'}, {'role': 'user', 'content': 'P2'}]\nr = truncar_historico(m, 11)",
+    "expr": "[len(m), r is m, [x['content'] for x in r]]", "expected": [4, false, ["Regras", "P2"]],
+    "name": "Não altera a lista recebida" }
 ]
 ```
 
 ### Soluções erradas
-
-```python name="Ignora finish_reason e devolve resposta cortada sem erro"
-class Resposta:
-    def __init__(self, conteudo, finish_reason, prompt_tokens, completion_tokens):
-        self.conteudo = conteudo
-        self.finish_reason = finish_reason
-        self.usage = {
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": prompt_tokens + completion_tokens,
-        }
-
-
-class ClienteLLM:
-    def __init__(self, resposta_padrao="Ok, entendido."):
-        self.resposta_padrao = resposta_padrao
-
-    def completar(self, mensagens, max_tokens=200):
-        p_tokens = sum(len(m["content"].split()) for m in mensagens)
-        palavras_saida = self.resposta_padrao.split()
-        if len(palavras_saida) > max_tokens:
-            cortado = " ".join(palavras_saida[:max_tokens])
-            return Resposta(cortado, "length", p_tokens, max_tokens)
-        return Resposta(self.resposta_padrao, "stop", p_tokens, len(palavras_saida))
+```python name="ignora finish_reason"
+from llm_simulado import ClienteLLM, contar_tokens, SOBRECARGA_POR_MENSAGEM
 
 
 def conversar(cliente, mensagens, max_tokens=200):
     resposta = cliente.completar(mensagens, max_tokens=max_tokens)
-    return (resposta.conteudo, resposta.usage["total_tokens"])
+    return resposta.conteudo, resposta.usage["total_tokens"]
 
 
-def truncar_historico(mensagens, max_mensagens):
-    if len(mensagens) <= max_mensagens:
-        return list(mensagens)
-    return [mensagens[0]] + list(mensagens[-(max_mensagens - 1) :])
+def custo(mensagem):
+    return contar_tokens(mensagem["content"]) + SOBRECARGA_POR_MENSAGEM
+
+
+def truncar_historico(mensagens, limite_tokens):
+    fixas = []
+    resto = list(mensagens)
+    if resto and resto[0]["role"] == "system":
+        fixas = [resto[0]]
+        resto = resto[1:]
+    usados = sum(custo(m) for m in fixas)
+    mantidas = []
+    for mensagem in reversed(resto):
+        if usados + custo(mensagem) > limite_tokens:
+            break
+        mantidas.append(mensagem)
+        usados += custo(mensagem)
+    mantidas.reverse()
+    while mantidas and mantidas[0]["role"] == "assistant":
+        mantidas.pop(0)
+    return fixas + mantidas
 ```
-
-```python name="Descarta a mensagem system ao fatiar apenas o final da lista"
-class Resposta:
-    def __init__(self, conteudo, finish_reason, prompt_tokens, completion_tokens):
-        self.conteudo = conteudo
-        self.finish_reason = finish_reason
-        self.usage = {
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": prompt_tokens + completion_tokens,
-        }
+```python name="não repassa max_tokens ao cliente"
+from llm_simulado import ClienteLLM, contar_tokens, SOBRECARGA_POR_MENSAGEM
 
 
-class ClienteLLM:
-    def __init__(self, resposta_padrao="Ok, entendido."):
-        self.resposta_padrao = resposta_padrao
+def conversar(cliente, mensagens, max_tokens=200):
+    resposta = cliente.completar(mensagens)
+    if resposta.finish_reason == "length":
+        raise RuntimeError("Resposta truncada")
+    return resposta.conteudo, resposta.usage["total_tokens"]
 
-    def completar(self, mensagens, max_tokens=200):
-        p_tokens = sum(len(m["content"].split()) for m in mensagens)
-        palavras_saida = self.resposta_padrao.split()
-        if len(palavras_saida) > max_tokens:
-            cortado = " ".join(palavras_saida[:max_tokens])
-            return Resposta(cortado, "length", p_tokens, max_tokens)
-        return Resposta(self.resposta_padrao, "stop", p_tokens, len(palavras_saida))
+
+def custo(mensagem):
+    return contar_tokens(mensagem["content"]) + SOBRECARGA_POR_MENSAGEM
+
+
+def truncar_historico(mensagens, limite_tokens):
+    fixas = []
+    resto = list(mensagens)
+    if resto and resto[0]["role"] == "system":
+        fixas = [resto[0]]
+        resto = resto[1:]
+    usados = sum(custo(m) for m in fixas)
+    mantidas = []
+    for mensagem in reversed(resto):
+        if usados + custo(mensagem) > limite_tokens:
+            break
+        mantidas.append(mensagem)
+        usados += custo(mensagem)
+    mantidas.reverse()
+    while mantidas and mantidas[0]["role"] == "assistant":
+        mantidas.pop(0)
+    return fixas + mantidas
+```
+```python name="devolve só os tokens de saída"
+from llm_simulado import ClienteLLM, contar_tokens, SOBRECARGA_POR_MENSAGEM
 
 
 def conversar(cliente, mensagens, max_tokens=200):
     resposta = cliente.completar(mensagens, max_tokens=max_tokens)
     if resposta.finish_reason == "length":
         raise RuntimeError("Resposta truncada")
-    return (resposta.conteudo, resposta.usage["total_tokens"])
+    return resposta.conteudo, resposta.usage["completion_tokens"]
 
 
-def truncar_historico(mensagens, max_mensagens):
-    return list(mensagens[-max_mensagens:])
+def custo(mensagem):
+    return contar_tokens(mensagem["content"]) + SOBRECARGA_POR_MENSAGEM
+
+
+def truncar_historico(mensagens, limite_tokens):
+    fixas = []
+    resto = list(mensagens)
+    if resto and resto[0]["role"] == "system":
+        fixas = [resto[0]]
+        resto = resto[1:]
+    usados = sum(custo(m) for m in fixas)
+    mantidas = []
+    for mensagem in reversed(resto):
+        if usados + custo(mensagem) > limite_tokens:
+            break
+        mantidas.append(mensagem)
+        usados += custo(mensagem)
+    mantidas.reverse()
+    while mantidas and mantidas[0]["role"] == "assistant":
+        mantidas.pop(0)
+    return fixas + mantidas
+```
+```python name="deixa a resposta órfã no começo"
+from llm_simulado import ClienteLLM, contar_tokens, SOBRECARGA_POR_MENSAGEM
+
+
+def conversar(cliente, mensagens, max_tokens=200):
+    resposta = cliente.completar(mensagens, max_tokens=max_tokens)
+    if resposta.finish_reason == "length":
+        raise RuntimeError("Resposta truncada")
+    return resposta.conteudo, resposta.usage["total_tokens"]
+
+
+def custo(mensagem):
+    return contar_tokens(mensagem["content"]) + SOBRECARGA_POR_MENSAGEM
+
+
+def truncar_historico(mensagens, limite_tokens):
+    fixas = []
+    resto = list(mensagens)
+    if resto and resto[0]["role"] == "system":
+        fixas = [resto[0]]
+        resto = resto[1:]
+    usados = sum(custo(m) for m in fixas)
+    mantidas = []
+    for mensagem in reversed(resto):
+        if usados + custo(mensagem) > limite_tokens:
+            break
+        mantidas.append(mensagem)
+        usados += custo(mensagem)
+    mantidas.reverse()
+    return fixas + mantidas
+```
+```python name="continue em vez de break deixa buraco"
+from llm_simulado import ClienteLLM, contar_tokens, SOBRECARGA_POR_MENSAGEM
+
+
+def conversar(cliente, mensagens, max_tokens=200):
+    resposta = cliente.completar(mensagens, max_tokens=max_tokens)
+    if resposta.finish_reason == "length":
+        raise RuntimeError("Resposta truncada")
+    return resposta.conteudo, resposta.usage["total_tokens"]
+
+
+def custo(mensagem):
+    return contar_tokens(mensagem["content"]) + SOBRECARGA_POR_MENSAGEM
+
+
+def truncar_historico(mensagens, limite_tokens):
+    fixas = []
+    resto = list(mensagens)
+    if resto and resto[0]["role"] == "system":
+        fixas = [resto[0]]
+        resto = resto[1:]
+    usados = sum(custo(m) for m in fixas)
+    mantidas = []
+    for mensagem in reversed(resto):
+        if usados + custo(mensagem) > limite_tokens:
+            continue
+        mantidas.append(mensagem)
+        usados += custo(mensagem)
+    mantidas.reverse()
+    while mantidas and mantidas[0]["role"] == "assistant":
+        mantidas.pop(0)
+    return fixas + mantidas
+```
+```python name="fatia só o fim e perde a system"
+from llm_simulado import ClienteLLM, contar_tokens, SOBRECARGA_POR_MENSAGEM
+
+
+def conversar(cliente, mensagens, max_tokens=200):
+    resposta = cliente.completar(mensagens, max_tokens=max_tokens)
+    if resposta.finish_reason == "length":
+        raise RuntimeError("Resposta truncada")
+    return resposta.conteudo, resposta.usage["total_tokens"]
+
+
+def custo(mensagem):
+    return contar_tokens(mensagem["content"]) + SOBRECARGA_POR_MENSAGEM
+
+
+def truncar_historico(mensagens, limite_tokens):
+    usados = 0
+    mantidas = []
+    for mensagem in reversed(mensagens):
+        if usados + custo(mensagem) > limite_tokens:
+            break
+        mantidas.append(mensagem)
+        usados += custo(mensagem)
+    mantidas.reverse()
+    while mantidas and mantidas[0]["role"] == "assistant":
+        mantidas.pop(0)
+    return mantidas
+```
+```python name="não desconta o custo da system"
+from llm_simulado import ClienteLLM, contar_tokens, SOBRECARGA_POR_MENSAGEM
+
+
+def conversar(cliente, mensagens, max_tokens=200):
+    resposta = cliente.completar(mensagens, max_tokens=max_tokens)
+    if resposta.finish_reason == "length":
+        raise RuntimeError("Resposta truncada")
+    return resposta.conteudo, resposta.usage["total_tokens"]
+
+
+def custo(mensagem):
+    return contar_tokens(mensagem["content"]) + SOBRECARGA_POR_MENSAGEM
+
+
+def truncar_historico(mensagens, limite_tokens):
+    fixas = []
+    resto = list(mensagens)
+    if resto and resto[0]["role"] == "system":
+        fixas = [resto[0]]
+        resto = resto[1:]
+    usados = 0
+    mantidas = []
+    for mensagem in reversed(resto):
+        if usados + custo(mensagem) > limite_tokens:
+            break
+        mantidas.append(mensagem)
+        usados += custo(mensagem)
+    mantidas.reverse()
+    while mantidas and mantidas[0]["role"] == "assistant":
+        mantidas.pop(0)
+    return fixas + mantidas
+```
+```python name="pop na lista original"
+from llm_simulado import ClienteLLM, contar_tokens, SOBRECARGA_POR_MENSAGEM
+
+
+def conversar(cliente, mensagens, max_tokens=200):
+    resposta = cliente.completar(mensagens, max_tokens=max_tokens)
+    if resposta.finish_reason == "length":
+        raise RuntimeError("Resposta truncada")
+    return resposta.conteudo, resposta.usage["total_tokens"]
+
+
+def custo(mensagem):
+    return contar_tokens(mensagem["content"]) + SOBRECARGA_POR_MENSAGEM
+
+
+def truncar_historico(mensagens, limite_tokens):
+    usados = 0
+    while sum(custo(m) for m in mensagens) > limite_tokens and len(mensagens) > 1:
+        if mensagens[0]["role"] == "system":
+            mensagens.pop(1)
+        else:
+            mensagens.pop(0)
+    if len(mensagens) > 1 and mensagens[0]["role"] == "system" and mensagens[1]["role"] == "assistant":
+        mensagens.pop(1)
+    return mensagens
 ```
 
-## Passo 4 · Exercício · A classe Assistente
+## Passo 6 · Exercício · A classe Assistente
 
-Em uma aplicação real, o restante do sistema não deve montar dicionários `{"role": ...}` nem somar faturas de tokens manualmente a cada chamada. Vamos encapsular o cliente e o estado da conversa na classe `Assistente`.
+O resto do sistema não deveria montar dicionários de mensagem nem somar tokens a cada chamada. A classe `Assistente` guarda o cliente, a mensagem de sistema e o histórico, e soma o que a conversa custou. Ela recebe o **cliente pronto** no construtor: com o `ClienteLLM` simulado nos testes, com um cliente HTTP real em produção, sem mudar uma linha da classe.
+
+`Assistente(cliente, sistema, precos, max_tokens=256)`, com `precos` como `{"entrada": 2.0, "saida": 8.0}` (reais por milhão de tokens, fictícios):
+
+- `perguntar(texto)` envia system + histórico + pergunta, repassando `max_tokens`. Toda chamada que volta é **cobrada**, mesmo a cortada: some `prompt_tokens` em `self.tokens_entrada` e `completion_tokens` em `self.tokens_saida`. Se a resposta foi cortada, levante `RuntimeError("Resposta truncada")` **sem** mexer no histórico. Senão, acrescente a pergunta e a resposta ao `self.historico` e devolva o texto.
+- `custo_acumulado()` devolve o custo em reais de tudo o que foi cobrado.
 
 ### Instruções
-
-1. No `__init__(self, cliente, sistema, preco_por_milhao)`, armazene os argumentos, inicialize `self.historico = []` (apenas as mensagens `"user"` e `"assistant"` trocadas) e contadores `self.tokens_entrada = 0` e `self.tokens_saida = 0`.
-2. Implemente `perguntar(self, texto)`: monte a lista `[system] + self.historico + [user]`, chame `self.cliente.completar(mensagens)` e acumule `prompt_tokens` e `completion_tokens` a partir de `resposta.usage`. Se `resposta.finish_reason != "stop"`, levante `RuntimeError("Geração incompleta")`. Caso contrário, adicione a mensagem `"user"` e a mensagem `"assistant"` ao `self.historico` e retorne `resposta.conteudo`.
-3. Implemente `custo_acumulado(self)` retornando o custo total em dólares calculado com `self.preco_por_milhao["entrada"]` e `self.preco_por_milhao["saida"]` (divididos por `1_000_000`).
+1. No construtor, guarde os parâmetros e comece `historico` vazio e os dois contadores de tokens em zero.
+2. `perguntar` envia a conversa inteira e, quando a resposta termina normalmente, guarda a pergunta e a resposta no histórico.
+3. Uma resposta cortada levanta `RuntimeError("Resposta truncada")` e não entra no histórico.
+4. Os tokens de toda chamada, inclusive a cortada, entram nos contadores, e `custo_acumulado` usa o preço de cada tipo.
+5. A classe funciona com qualquer cliente que tenha `completar(mensagens, max_tokens=...)`.
 
 ### Código inicial
-
-```python path=main.py
-class Resposta:
-    def __init__(self, conteudo, finish_reason, prompt_tokens, completion_tokens):
-        self.conteudo = conteudo
-        self.finish_reason = finish_reason
-        self.usage = {
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": prompt_tokens + completion_tokens,
-        }
-
-
-class ClienteDialogoSimulado:
-    def completar(self, mensagens, **params):
-        prompt_t = sum(len(m["content"].split()) for m in mensagens)
-        ultima = mensagens[-1]["content"]
-        turno = sum(1 for m in mensagens if m["role"] == "user")
-        texto = f"Turno {turno}: respondendo sobre {ultima}"
-        comp_t = len(texto.split())
-        return Resposta(texto, "stop", prompt_t, comp_t)
+```python
+from llm_simulado import ClienteLLM, Resposta
 
 
 class Assistente:
-    def __init__(self, cliente, sistema, preco_por_milhao):
-        # Inicialize atributos, histórico e contadores de tokens
+    def __init__(self, cliente, sistema, precos, max_tokens=256):
         pass
 
     def perguntar(self, texto):
-        # Envie mensagens ao cliente, valide finish_reason, atualize histórico e tokens
         pass
 
     def custo_acumulado(self):
-        # Calcule o custo acumulado de entrada e saída
         pass
+```
+```python path=llm_simulado.py
+"""Cliente de LLM simulado do curso: a interface de um SDK real, sem rede.
+
+Aproximações declaradas (tudo reproduzível):
+- tokens: brinquedo, cada palavra vira pedaços de até 4 caracteres;
+  o tokenizador de um modelo real dá outros números;
+- preços: fictícios, em R$ por milhão de tokens;
+- latência: TTFT + ms por token de saída, somada a um relógio falso;
+- sorteio: random.Random(seed); com temperature > 0 a resposta pode variar;
+- falhas: fila programada (429, 503, "timeout", 400), consumida em ordem.
+"""
+import random
+
+PRECO_ENTRADA = 2.0  # R$ por milhão de tokens de entrada (fictício)
+PRECO_SAIDA = 8.0  # R$ por milhão de tokens de saída (fictício)
+SOBRECARGA_POR_MENSAGEM = 4  # tokens de formatação de cada mensagem
 
 
-if __name__ == "__main__":
-    cli = ClienteDialogoSimulado()
-    precos = {"entrada": 1000.0, "saida": 2000.0}
-    bot = Assistente(cli, "Secretaria USP", precos)
-    print(bot.perguntar("MAC0110"))
-    print(bot.perguntar("MAC0121"))
-    print("Msgs no histórico:", len(bot.historico))
-    print("Custo:", round(bot.custo_acumulado(), 6))
+class ErroDeTaxa(Exception):  # HTTP 429: transitório
+    def __init__(self, mensagem="429 Too Many Requests", retry_after=None):
+        super().__init__(mensagem)
+        self.retry_after = retry_after  # espera sugerida pelo servidor, em s
+
+
+class ErroDeServidor(Exception):  # HTTP 5xx: transitório
+    pass
+
+
+class ErroDeTimeout(Exception):  # resposta não chegou no prazo: transitório
+    pass
+
+
+class ErroDeRequisicao(Exception):  # HTTP 400/401: permanente, não repita
+    pass
+
+
+def tokenizar(texto):
+    tokens = []
+    for i, palavra in enumerate(texto.split()):
+        pedacos = [palavra[j:j + 4] for j in range(0, len(palavra), 4)]
+        if i > 0:
+            pedacos[0] = " " + pedacos[0]
+        tokens.extend(pedacos)
+    return tokens
+
+
+def contar_tokens(texto):
+    return len(tokenizar(texto))
+
+
+class Resposta:
+    def __init__(self, conteudo, finish_reason, prompt_tokens, completion_tokens,
+                 latencia_ms=0, tool_calls=None):
+        self.conteudo = conteudo
+        self.finish_reason = finish_reason  # "stop", "length" ou "tool_calls"
+        self.usage = {"prompt_tokens": prompt_tokens,
+                      "completion_tokens": completion_tokens,
+                      "total_tokens": prompt_tokens + completion_tokens}
+        self.latencia_ms = latencia_ms
+        self.tool_calls = tool_calls or []
+
+
+class Relogio:  # relógio falso: só anda quando alguém manda
+    def __init__(self):
+        self.agora_ms = 0
+
+    def avancar(self, ms):
+        self.agora_ms += ms
+
+
+class ClienteLLM:
+    """respostas: lista de textos candidatos, ou função(mensagens) que devolve
+    um texto ou uma lista de tool_calls."""
+
+    def __init__(self, respostas, seed=None, falhas=(), relogio=None,
+                 ttft_ms=300, ms_por_token=20):
+        self.respostas = respostas
+        self.rng = random.Random(seed)
+        self.falhas = list(falhas)
+        self.relogio = relogio or Relogio()
+        self.ttft_ms = ttft_ms
+        self.ms_por_token = ms_por_token
+        self.chamadas = 0
+
+    def _preparar(self, mensagens, temperature):
+        self.chamadas += 1
+        falha = self.falhas.pop(0) if self.falhas else None
+        if falha == 429:
+            raise ErroDeTaxa(retry_after=2.0)
+        if falha == 503:
+            raise ErroDeServidor("503 Service Unavailable")
+        if falha == "timeout":
+            self.relogio.avancar(10_000)
+            raise ErroDeTimeout("sem resposta em 10 s")
+        if falha == 400:
+            raise ErroDeRequisicao("400 Bad Request")
+        if callable(self.respostas):
+            return self.respostas(mensagens)
+        if temperature == 0:
+            return self.respostas[0]  # num servidor real, nem isso é garantido
+        return self.rng.choice(self.respostas)
+
+    def completar(self, mensagens, max_tokens=256, temperature=1.0):
+        gerado = self._preparar(mensagens, temperature)
+        entrada = sum(contar_tokens(m["content"]) + SOBRECARGA_POR_MENSAGEM
+                      for m in mensagens)
+        if isinstance(gerado, list):  # o modelo pediu ferramentas
+            self.relogio.avancar(self.ttft_ms)
+            return Resposta("", "tool_calls", entrada, 10, self.ttft_ms, gerado)
+        tokens, motivo = tokenizar(gerado), "stop"
+        if len(tokens) > max_tokens:
+            tokens, motivo = tokens[:max_tokens], "length"
+        latencia = self.ttft_ms + len(tokens) * self.ms_por_token
+        self.relogio.avancar(latencia)
+        return Resposta("".join(tokens), motivo, entrada, len(tokens), latencia)
+
+    def completar_stream(self, mensagens, max_tokens=256, temperature=1.0, cair_apos=None):
+        """Gera eventos {"delta": texto}; o último traz "finish_reason".
+        cair_apos=n: a conexão cai depois de n tokens, sem o evento final."""
+        tokens, motivo = tokenizar(self._preparar(mensagens, temperature)), "stop"
+        if len(tokens) > max_tokens:
+            tokens, motivo = tokens[:max_tokens], "length"
+        self.relogio.avancar(self.ttft_ms)
+        for i, token in enumerate(tokens):
+            if i == cair_apos:
+                return
+            self.relogio.avancar(self.ms_por_token)
+            yield {"delta": token}
+        yield {"delta": "", "finish_reason": motivo}
 ```
 
 ### Solução
-
-```python path=main.py
-class Resposta:
-    def __init__(self, conteudo, finish_reason, prompt_tokens, completion_tokens):
-        self.conteudo = conteudo
-        self.finish_reason = finish_reason
-        self.usage = {
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": prompt_tokens + completion_tokens,
-        }
-
-
-class ClienteDialogoSimulado:
-    def completar(self, mensagens, **params):
-        prompt_t = sum(len(m["content"].split()) for m in mensagens)
-        ultima = mensagens[-1]["content"]
-        turno = sum(1 for m in mensagens if m["role"] == "user")
-        texto = f"Turno {turno}: respondendo sobre {ultima}"
-        comp_t = len(texto.split())
-        return Resposta(texto, "stop", prompt_t, comp_t)
+```python
+from llm_simulado import ClienteLLM, Resposta
 
 
 class Assistente:
-    def __init__(self, cliente, sistema, preco_por_milhao):
+    def __init__(self, cliente, sistema, precos, max_tokens=256):
         self.cliente = cliente
         self.sistema = sistema
-        self.preco_por_milhao = preco_por_milhao
+        self.precos = precos
+        self.max_tokens = max_tokens
         self.historico = []
         self.tokens_entrada = 0
         self.tokens_saida = 0
 
     def perguntar(self, texto):
-        mensagens = (
-            [{"role": "system", "content": self.sistema}]
-            + list(self.historico)
-            + [{"role": "user", "content": texto}]
-        )
-        resposta = self.cliente.completar(mensagens)
+        pergunta = {"role": "user", "content": texto}
+        mensagens = [{"role": "system", "content": self.sistema}] + self.historico + [pergunta]
+        resposta = self.cliente.completar(mensagens, max_tokens=self.max_tokens)
         self.tokens_entrada += resposta.usage["prompt_tokens"]
         self.tokens_saida += resposta.usage["completion_tokens"]
-        if resposta.finish_reason != "stop":
-            raise RuntimeError("Geração incompleta")
+        if resposta.finish_reason == "length":
+            raise RuntimeError("Resposta truncada")
+        self.historico += [pergunta, {"role": "assistant", "content": resposta.conteudo}]
+        return resposta.conteudo
+
+    def custo_acumulado(self):
+        return (self.tokens_entrada * self.precos["entrada"]
+                + self.tokens_saida * self.precos["saida"]) / 1_000_000
+```
+```python path=llm_simulado.py
+"""Cliente de LLM simulado do curso: a interface de um SDK real, sem rede.
+
+Aproximações declaradas (tudo reproduzível):
+- tokens: brinquedo, cada palavra vira pedaços de até 4 caracteres;
+  o tokenizador de um modelo real dá outros números;
+- preços: fictícios, em R$ por milhão de tokens;
+- latência: TTFT + ms por token de saída, somada a um relógio falso;
+- sorteio: random.Random(seed); com temperature > 0 a resposta pode variar;
+- falhas: fila programada (429, 503, "timeout", 400), consumida em ordem.
+"""
+import random
+
+PRECO_ENTRADA = 2.0  # R$ por milhão de tokens de entrada (fictício)
+PRECO_SAIDA = 8.0  # R$ por milhão de tokens de saída (fictício)
+SOBRECARGA_POR_MENSAGEM = 4  # tokens de formatação de cada mensagem
+
+
+class ErroDeTaxa(Exception):  # HTTP 429: transitório
+    def __init__(self, mensagem="429 Too Many Requests", retry_after=None):
+        super().__init__(mensagem)
+        self.retry_after = retry_after  # espera sugerida pelo servidor, em s
+
+
+class ErroDeServidor(Exception):  # HTTP 5xx: transitório
+    pass
+
+
+class ErroDeTimeout(Exception):  # resposta não chegou no prazo: transitório
+    pass
+
+
+class ErroDeRequisicao(Exception):  # HTTP 400/401: permanente, não repita
+    pass
+
+
+def tokenizar(texto):
+    tokens = []
+    for i, palavra in enumerate(texto.split()):
+        pedacos = [palavra[j:j + 4] for j in range(0, len(palavra), 4)]
+        if i > 0:
+            pedacos[0] = " " + pedacos[0]
+        tokens.extend(pedacos)
+    return tokens
+
+
+def contar_tokens(texto):
+    return len(tokenizar(texto))
+
+
+class Resposta:
+    def __init__(self, conteudo, finish_reason, prompt_tokens, completion_tokens,
+                 latencia_ms=0, tool_calls=None):
+        self.conteudo = conteudo
+        self.finish_reason = finish_reason  # "stop", "length" ou "tool_calls"
+        self.usage = {"prompt_tokens": prompt_tokens,
+                      "completion_tokens": completion_tokens,
+                      "total_tokens": prompt_tokens + completion_tokens}
+        self.latencia_ms = latencia_ms
+        self.tool_calls = tool_calls or []
+
+
+class Relogio:  # relógio falso: só anda quando alguém manda
+    def __init__(self):
+        self.agora_ms = 0
+
+    def avancar(self, ms):
+        self.agora_ms += ms
+
+
+class ClienteLLM:
+    """respostas: lista de textos candidatos, ou função(mensagens) que devolve
+    um texto ou uma lista de tool_calls."""
+
+    def __init__(self, respostas, seed=None, falhas=(), relogio=None,
+                 ttft_ms=300, ms_por_token=20):
+        self.respostas = respostas
+        self.rng = random.Random(seed)
+        self.falhas = list(falhas)
+        self.relogio = relogio or Relogio()
+        self.ttft_ms = ttft_ms
+        self.ms_por_token = ms_por_token
+        self.chamadas = 0
+
+    def _preparar(self, mensagens, temperature):
+        self.chamadas += 1
+        falha = self.falhas.pop(0) if self.falhas else None
+        if falha == 429:
+            raise ErroDeTaxa(retry_after=2.0)
+        if falha == 503:
+            raise ErroDeServidor("503 Service Unavailable")
+        if falha == "timeout":
+            self.relogio.avancar(10_000)
+            raise ErroDeTimeout("sem resposta em 10 s")
+        if falha == 400:
+            raise ErroDeRequisicao("400 Bad Request")
+        if callable(self.respostas):
+            return self.respostas(mensagens)
+        if temperature == 0:
+            return self.respostas[0]  # num servidor real, nem isso é garantido
+        return self.rng.choice(self.respostas)
+
+    def completar(self, mensagens, max_tokens=256, temperature=1.0):
+        gerado = self._preparar(mensagens, temperature)
+        entrada = sum(contar_tokens(m["content"]) + SOBRECARGA_POR_MENSAGEM
+                      for m in mensagens)
+        if isinstance(gerado, list):  # o modelo pediu ferramentas
+            self.relogio.avancar(self.ttft_ms)
+            return Resposta("", "tool_calls", entrada, 10, self.ttft_ms, gerado)
+        tokens, motivo = tokenizar(gerado), "stop"
+        if len(tokens) > max_tokens:
+            tokens, motivo = tokens[:max_tokens], "length"
+        latencia = self.ttft_ms + len(tokens) * self.ms_por_token
+        self.relogio.avancar(latencia)
+        return Resposta("".join(tokens), motivo, entrada, len(tokens), latencia)
+
+    def completar_stream(self, mensagens, max_tokens=256, temperature=1.0, cair_apos=None):
+        """Gera eventos {"delta": texto}; o último traz "finish_reason".
+        cair_apos=n: a conexão cai depois de n tokens, sem o evento final."""
+        tokens, motivo = tokenizar(self._preparar(mensagens, temperature)), "stop"
+        if len(tokens) > max_tokens:
+            tokens, motivo = tokens[:max_tokens], "length"
+        self.relogio.avancar(self.ttft_ms)
+        for i, token in enumerate(tokens):
+            if i == cair_apos:
+                return
+            self.relogio.avancar(self.ms_por_token)
+            yield {"delta": token}
+        yield {"delta": "", "finish_reason": motivo}
+```
+
+### Dicas
+1. Monte a lista nova a cada pergunta: `[system] + self.historico + [pergunta]`.
+2. Some o `usage` logo depois da chamada, antes de decidir se a resposta serve: o provedor cobra de qualquer jeito.
+3. O histórico só recebe a pergunta e a resposta juntas, depois de confirmar que a resposta está completa.
+
+### Verificação
+```json
+[
+  { "id": "memoria", "checkpoint": 2, "kind": "expr",
+    "setup": "eco = lambda msgs: f'Vejo {len(msgs) - 2} mensagens anteriores.'\nbot = Assistente(ClienteLLM(eco), 'Seja breve.', {'entrada': 2.0, 'saida': 8.0})\nr = [bot.perguntar('Oi'), bot.perguntar('Tudo bem?'), bot.perguntar('E agora?')]",
+    "expr": "[r, len(bot.historico)]",
+    "expected": [["Vejo 0 mensagens anteriores.", "Vejo 2 mensagens anteriores.", "Vejo 4 mensagens anteriores."], 6],
+    "name": "O modelo recebe a conversa inteira a cada pergunta", "hint": "Guarde a pergunta e a resposta no histórico." },
+  { "id": "papeis", "checkpoint": 2, "kind": "expr",
+    "setup": "bot = Assistente(ClienteLLM(['Certo.']), 'Sys', {'entrada': 1.0, 'saida': 1.0})\nbot.perguntar('Oi')",
+    "expr": "bot.historico", "expected": [{ "role": "user", "content": "Oi" }, { "role": "assistant", "content": "Certo." }],
+    "name": "O histórico guarda pergunta (user) e resposta (assistant), sem a system" },
+  { "id": "tokens", "checkpoint": 4, "kind": "expr",
+    "setup": "eco = lambda msgs: f'Vejo {len(msgs) - 2} mensagens anteriores.'\nbot = Assistente(ClienteLLM(eco), 'Seja breve.', {'entrada': 2.0, 'saida': 8.0})\nfor p in ['Oi', 'Tudo bem?', 'E agora?']:\n    bot.perguntar(p)",
+    "expr": "[bot.tokens_entrada, bot.tokens_saida]", "expected": [91, 24],
+    "name": "Soma prompt_tokens e completion_tokens de cada chamada" },
+  { "id": "custo", "checkpoint": 4, "kind": "expr",
+    "setup": "eco = lambda msgs: f'Vejo {len(msgs) - 2} mensagens anteriores.'\nbot = Assistente(ClienteLLM(eco), 'Seja breve.', {'entrada': 3.0, 'saida': 15.0})\nbot.perguntar('Oi')\nbot.perguntar('Tudo bem?')",
+    "expr": "bot.custo_acumulado()", "expected": 0.000366, "tolerance": 1e-12,
+    "name": "Custo usa o preço de entrada e o de saída", "hint": "Entrada e saída têm preços diferentes." },
+  { "id": "truncada-erro", "checkpoint": 3, "kind": "expr",
+    "setup": "bot = Assistente(ClienteLLM(['Resposta muito comprida que passa do limite de tokens pedido']), 'Sys', {'entrada': 2.0, 'saida': 8.0}, max_tokens=5)",
+    "expr": "bot.perguntar('Explique tudo')", "raises": "RuntimeError", "message_contains": "truncada",
+    "name": "Resposta cortada levanta RuntimeError", "hint": "Repasse max_tokens e confira finish_reason." },
+  { "id": "truncada-cobrada", "checkpoint": 4, "kind": "expr",
+    "setup": "bot = Assistente(ClienteLLM(['Ok.']), 'Sys', {'entrada': 2.0, 'saida': 8.0}, max_tokens=5)\nbot.perguntar('Oi')\nbot.cliente = ClienteLLM(['Resposta muito comprida que passa do limite de tokens pedido'])\ntry:\n    bot.perguntar('Explique tudo')\nexcept RuntimeError:\n    pass",
+    "expr": "[len(bot.historico), bot.tokens_entrada, bot.tokens_saida]", "expected": [2, 32, 6],
+    "name": "A chamada cortada é cobrada e não entra no histórico",
+    "hint": "Some o usage antes de levantar o erro; o histórico só muda quando dá certo." },
+  { "id": "outro-provedor", "checkpoint": 5, "kind": "expr",
+    "setup": "class OutroProvedor:\n    def __init__(self):\n        self.recebidas = []\n    def completar(self, mensagens, max_tokens=256):\n        self.recebidas.append([m['role'] for m in mensagens])\n        return Resposta('ok', 'stop', 100, 10)\np = OutroProvedor()\nbot = Assistente(p, 'Sys', {'entrada': 1.0, 'saida': 1.0})\nbot.perguntar('A')\nbot.perguntar('B')",
+    "expr": "[p.recebidas, bot.custo_acumulado()]",
+    "expected": [[["system", "user"], ["system", "user", "assistant", "user"]], 0.00022], "tolerance": 1e-12,
+    "name": "Funciona com outro cliente de mesma interface" }
+]
+```
+
+### Soluções erradas
+```python name="não guarda a resposta no histórico"
+from llm_simulado import ClienteLLM, Resposta
+
+
+class Assistente:
+    def __init__(self, cliente, sistema, precos, max_tokens=256):
+        self.cliente = cliente
+        self.sistema = sistema
+        self.precos = precos
+        self.max_tokens = max_tokens
+        self.historico = []
+        self.tokens_entrada = 0
+        self.tokens_saida = 0
+
+    def perguntar(self, texto):
+        pergunta = {"role": "user", "content": texto}
+        mensagens = [{"role": "system", "content": self.sistema}] + self.historico + [pergunta]
+        resposta = self.cliente.completar(mensagens, max_tokens=self.max_tokens)
+        self.tokens_entrada += resposta.usage["prompt_tokens"]
+        self.tokens_saida += resposta.usage["completion_tokens"]
+        if resposta.finish_reason == "length":
+            raise RuntimeError("Resposta truncada")
+        self.historico.append(pergunta)
+        return resposta.conteudo
+
+    def custo_acumulado(self):
+        return (self.tokens_entrada * self.precos["entrada"]
+                + self.tokens_saida * self.precos["saida"]) / 1_000_000
+```
+```python name="reinicia o histórico a cada pergunta"
+from llm_simulado import ClienteLLM, Resposta
+
+
+class Assistente:
+    def __init__(self, cliente, sistema, precos, max_tokens=256):
+        self.cliente = cliente
+        self.sistema = sistema
+        self.precos = precos
+        self.max_tokens = max_tokens
+        self.historico = []
+        self.tokens_entrada = 0
+        self.tokens_saida = 0
+
+    def perguntar(self, texto):
+        pergunta = {"role": "user", "content": texto}
+        mensagens = [{"role": "system", "content": self.sistema}, pergunta]
+        resposta = self.cliente.completar(mensagens, max_tokens=self.max_tokens)
+        self.tokens_entrada += resposta.usage["prompt_tokens"]
+        self.tokens_saida += resposta.usage["completion_tokens"]
+        if resposta.finish_reason == "length":
+            raise RuntimeError("Resposta truncada")
+        self.historico = [pergunta, {"role": "assistant", "content": resposta.conteudo}]
+        return resposta.conteudo
+
+    def custo_acumulado(self):
+        return (self.tokens_entrada * self.precos["entrada"]
+                + self.tokens_saida * self.precos["saida"]) / 1_000_000
+```
+```python name="guarda a pergunta antes de saber se deu certo"
+from llm_simulado import ClienteLLM, Resposta
+
+
+class Assistente:
+    def __init__(self, cliente, sistema, precos, max_tokens=256):
+        self.cliente = cliente
+        self.sistema = sistema
+        self.precos = precos
+        self.max_tokens = max_tokens
+        self.historico = []
+        self.tokens_entrada = 0
+        self.tokens_saida = 0
+
+    def perguntar(self, texto):
         self.historico.append({"role": "user", "content": texto})
+        mensagens = [{"role": "system", "content": self.sistema}] + self.historico
+        resposta = self.cliente.completar(mensagens, max_tokens=self.max_tokens)
+        self.tokens_entrada += resposta.usage["prompt_tokens"]
+        self.tokens_saida += resposta.usage["completion_tokens"]
+        if resposta.finish_reason == "length":
+            raise RuntimeError("Resposta truncada")
         self.historico.append({"role": "assistant", "content": resposta.conteudo})
         return resposta.conteudo
 
     def custo_acumulado(self):
-        c_in = (self.tokens_entrada / 1_000_000) * self.preco_por_milhao["entrada"]
-        c_out = (self.tokens_saida / 1_000_000) * self.preco_por_milhao["saida"]
-        return c_in + c_out
-
-
-if __name__ == "__main__":
-    cli = ClienteDialogoSimulado()
-    precos = {"entrada": 1000.0, "saida": 2000.0}
-    bot = Assistente(cli, "Secretaria USP", precos)
-    print(bot.perguntar("MAC0110"))
-    print(bot.perguntar("MAC0121"))
-    print("Msgs no histórico:", len(bot.historico))
-    print("Custo:", round(bot.custo_acumulado(), 6))
+        return (self.tokens_entrada * self.precos["entrada"]
+                + self.tokens_saida * self.precos["saida"]) / 1_000_000
 ```
-
-### Dicas
-
-1. A cada chamada de `perguntar(texto)`, envie `[{"role": "system", "content": self.sistema}] + self.historico + [{"role": "user", "content": texto}]`.
-2. Não se esqueça de adicionar tanto a pergunta (`"user"`) quanto a resposta (`"assistant"`) em `self.historico` após uma resposta bem-sucedida.
-3. Em `custo_acumulado`, use as chaves `"entrada"` e `"saida"` de `self.preco_por_milhao`.
-
-### Verificação
-
-```json
-[
-  {
-    "id": "historico-multi-turno",
-    "name": "Mantém o histórico entre múltiplos turnos",
-    "checkpoint": 2,
-    "kind": "expr",
-    "setup": "cli = ClienteDialogoSimulado()\nbot = Assistente(cli, 'Secretaria USP', {'entrada': 1000.0, 'saida': 2000.0})\nr1 = bot.perguntar('MAC0110')\nr2 = bot.perguntar('MAC0121')",
-    "expr": "[r1, r2, len(bot.historico)]",
-    "expected": [
-      "Turno 1: respondendo sobre MAC0110",
-      "Turno 2: respondendo sobre MAC0121",
-      4
-    ]
-  },
-  {
-    "id": "custo-dois-turnos",
-    "name": "Acumula tokens e calcula custo corretamente após dois turnos",
-    "checkpoint": 3,
-    "kind": "expr",
-    "setup": "cli = ClienteDialogoSimulado()\nbot = Assistente(cli, 'Secretaria USP', {'entrada': 1000.0, 'saida': 2000.0})\nbot.perguntar('MAC0110')\nbot.perguntar('MAC0121')",
-    "expr": "bot.custo_acumulado()",
-    "expected": 0.032,
-    "tolerance": 1e-6
-  },
-  {
-    "id": "erro-finish-reason",
-    "name": "Levanta RuntimeError se finish_reason for diferente de stop",
-    "checkpoint": 2,
-    "kind": "expr",
-    "setup": "class CliCurto:\n    def completar(self, msgs):\n        return Resposta('incompleto', 'length', 5, 2)\nbot = Assistente(CliCurto(), 'Sys', {'entrada': 1.0, 'saida': 2.0})",
-    "expr": "bot.perguntar('Oi')",
-    "raises": "RuntimeError",
-    "message_contains": "Geração incompleta"
-  }
-]
-```
-
-### Soluções erradas
-
-```python name="Não guarda a resposta do assistant no histórico"
-class Resposta:
-    def __init__(self, conteudo, finish_reason, prompt_tokens, completion_tokens):
-        self.conteudo = conteudo
-        self.finish_reason = finish_reason
-        self.usage = {
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": prompt_tokens + completion_tokens,
-        }
-
-
-class ClienteDialogoSimulado:
-    def completar(self, mensagens, **params):
-        prompt_t = sum(len(m["content"].split()) for m in mensagens)
-        ultima = mensagens[-1]["content"]
-        turno = sum(1 for m in mensagens if m["role"] == "user")
-        texto = f"Turno {turno}: respondendo sobre {ultima}"
-        comp_t = len(texto.split())
-        return Resposta(texto, "stop", prompt_t, comp_t)
+```python name="não cobra a chamada cortada"
+from llm_simulado import ClienteLLM, Resposta
 
 
 class Assistente:
-    def __init__(self, cliente, sistema, preco_por_milhao):
+    def __init__(self, cliente, sistema, precos, max_tokens=256):
         self.cliente = cliente
         self.sistema = sistema
-        self.preco_por_milhao = preco_por_milhao
+        self.precos = precos
+        self.max_tokens = max_tokens
         self.historico = []
         self.tokens_entrada = 0
         self.tokens_saida = 0
 
     def perguntar(self, texto):
-        mensagens = (
-            [{"role": "system", "content": self.sistema}]
-            + list(self.historico)
-            + [{"role": "user", "content": texto}]
-        )
-        resposta = self.cliente.completar(mensagens)
+        pergunta = {"role": "user", "content": texto}
+        mensagens = [{"role": "system", "content": self.sistema}] + self.historico + [pergunta]
+        resposta = self.cliente.completar(mensagens, max_tokens=self.max_tokens)
+        if resposta.finish_reason == "length":
+            raise RuntimeError("Resposta truncada")
         self.tokens_entrada += resposta.usage["prompt_tokens"]
         self.tokens_saida += resposta.usage["completion_tokens"]
-        self.historico.append({"role": "user", "content": texto})
+        self.historico += [pergunta, {"role": "assistant", "content": resposta.conteudo}]
         return resposta.conteudo
 
     def custo_acumulado(self):
-        c_in = (self.tokens_entrada / 1_000_000) * self.preco_por_milhao["entrada"]
-        c_out = (self.tokens_saida / 1_000_000) * self.preco_por_milhao["saida"]
-        return c_in + c_out
+        return (self.tokens_entrada * self.precos["entrada"]
+                + self.tokens_saida * self.precos["saida"]) / 1_000_000
 ```
-
-```python name="Reinicia o histórico a cada pergunta em vez de acumular"
-class Resposta:
-    def __init__(self, conteudo, finish_reason, prompt_tokens, completion_tokens):
-        self.conteudo = conteudo
-        self.finish_reason = finish_reason
-        self.usage = {
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": prompt_tokens + completion_tokens,
-        }
-
-
-class ClienteDialogoSimulado:
-    def completar(self, mensagens, **params):
-        prompt_t = sum(len(m["content"].split()) for m in mensagens)
-        ultima = mensagens[-1]["content"]
-        turno = sum(1 for m in mensagens if m["role"] == "user")
-        texto = f"Turno {turno}: respondendo sobre {ultima}"
-        comp_t = len(texto.split())
-        return Resposta(texto, "stop", prompt_t, comp_t)
+```python name="cobra tudo pelo preço de entrada"
+from llm_simulado import ClienteLLM, Resposta
 
 
 class Assistente:
-    def __init__(self, cliente, sistema, preco_por_milhao):
+    def __init__(self, cliente, sistema, precos, max_tokens=256):
         self.cliente = cliente
         self.sistema = sistema
-        self.preco_por_milhao = preco_por_milhao
+        self.precos = precos
+        self.max_tokens = max_tokens
         self.historico = []
         self.tokens_entrada = 0
         self.tokens_saida = 0
 
     def perguntar(self, texto):
-        mensagens = [
-            {"role": "system", "content": self.sistema},
-            {"role": "user", "content": texto},
-        ]
-        resposta = self.cliente.completar(mensagens)
+        pergunta = {"role": "user", "content": texto}
+        mensagens = [{"role": "system", "content": self.sistema}] + self.historico + [pergunta]
+        resposta = self.cliente.completar(mensagens, max_tokens=self.max_tokens)
         self.tokens_entrada += resposta.usage["prompt_tokens"]
         self.tokens_saida += resposta.usage["completion_tokens"]
-        if resposta.finish_reason != "stop":
-            raise RuntimeError("Geração incompleta")
-        self.historico = [{"role": "user", "content": texto}]
+        if resposta.finish_reason == "length":
+            raise RuntimeError("Resposta truncada")
+        self.historico += [pergunta, {"role": "assistant", "content": resposta.conteudo}]
         return resposta.conteudo
 
     def custo_acumulado(self):
-        return 0.0
+        return (self.tokens_entrada + self.tokens_saida) * self.precos["entrada"] / 1_000_000
+```
+```python name="cria o próprio ClienteLLM em vez de usar o recebido"
+from llm_simulado import ClienteLLM, Resposta
+
+
+class Assistente:
+    def __init__(self, cliente, sistema, precos, max_tokens=256):
+        self.cliente = ClienteLLM(["Olá! Como posso ajudar?"])
+        self.sistema = sistema
+        self.precos = precos
+        self.max_tokens = max_tokens
+        self.historico = []
+        self.tokens_entrada = 0
+        self.tokens_saida = 0
+
+    def perguntar(self, texto):
+        pergunta = {"role": "user", "content": texto}
+        mensagens = [{"role": "system", "content": self.sistema}] + self.historico + [pergunta]
+        resposta = self.cliente.completar(mensagens, max_tokens=self.max_tokens)
+        self.tokens_entrada += resposta.usage["prompt_tokens"]
+        self.tokens_saida += resposta.usage["completion_tokens"]
+        if resposta.finish_reason == "length":
+            raise RuntimeError("Resposta truncada")
+        self.historico += [pergunta, {"role": "assistant", "content": resposta.conteudo}]
+        return resposta.conteudo
+
+    def custo_acumulado(self):
+        return (self.tokens_entrada * self.precos["entrada"]
+                + self.tokens_saida * self.precos["saida"]) / 1_000_000
 ```
 
-## Passo 5 · Quiz · Papéis e estado da conversa
+## Passo 7 · Quiz · Papéis e estado da conversa
 
 ### Pergunta
-
-Em uma conversa de vários turnos com uma API de LLM, como o modelo sabe o que foi dito nas perguntas anteriores?
-
-- [ ] O servidor da API identifica o IP do cliente e carrega automaticamente a sessão na GPU.
-- [x] A aplicação cliente guarda o histórico de mensagens (`user` e `assistant`) e o reenvia junto com a nova pergunta a cada chamada.
-- [ ] O modelo atualiza os pesos da rede neural a cada mensagem recebida.
-- [ ] A mensagem `system` armazena automaticamente todas as respostas passadas.
-
-> As APIs padrão de completamento de chat são *stateless*: o cliente é responsável por manter e enviar a lista de mensagens anteriores (e por isso paga novamente pelos tokens de entrada do histórico enviado).
+Um chatbot de atendimento funciona bem nas primeiras perguntas, mas a partir do terceiro turno passa a responder como se nunca tivesse ouvido as perguntas anteriores. Qual é a causa mais provável?
+- [ ] O modelo esquece por causa da temperatura alta.
+- [x] A aplicação não está acrescentando a resposta e a pergunta de cada turno à lista que reenvia na chamada seguinte.
+- [ ] O servidor apaga a sessão do usuário depois de duas perguntas.
+- [ ] A mensagem `system` está no começo da lista.
+> O servidor não guarda a conversa: o modelo só "lembra" do que vem na lista de mensagens de cada chamada. Se o histórico não é atualizado, cada turno chega sem o passado.
 
 ### Pergunta
-
-Ao inspecionar a resposta de uma chamada que pedia um objeto JSON, você observa `resposta.finish_reason == "length"`. O que isso indica?
-
-- [ ] Que o JSON gerado foi validado com sucesso pelo servidor.
-- [ ] Que o prompt de entrada estava vazio.
-- [x] Que a geração foi interrompida por atingir o limite `max_tokens`, e o texto retornado provavelmente está incompleto.
-- [ ] Que o modelo encontrou uma sequência da lista `stop`.
-
-> O motivo `"length"` indica que a geração atingiu o teto de tokens de saída permitido antes de emitir o token de fim de turno, produzindo uma resposta truncada.
+Você pede um JSON com `max_tokens = 100` e recebe `finish_reason == "length"`. O texto começa com `{"aluno": "Ana", "disciplinas": [`. O que fazer?
+- [ ] Usar o texto mesmo assim: o começo do JSON já está certo.
+- [ ] Tentar `json.loads` e, se der erro, apagar o último caractere até funcionar.
+- [x] Tratar como falha: a resposta foi cortada no limite; aumente `max_tokens` ou peça uma saída menor, e só então use o resultado.
+- [ ] Repetir a mesma chamada com os mesmos parâmetros até vir `"stop"`.
+> `"length"` quer dizer que a geração parou no teto, não que terminou. Repetir com os mesmos parâmetros tende a cortar de novo, e "consertar" um JSON truncado inventa dados.
 
 ### Pergunta
-
-Qual é a prática correta para armazenar e carregar a chave de API (`API_KEY`) em uma aplicação Python que consome um serviço de LLM?
-
-- [ ] Definir uma constante `API_KEY = "sk-..."` no topo do `main.py`.
-- [ ] Salvar a chave em um comentário dentro do arquivo `README.md` do repositório.
-- [x] Configurar a chave em uma variável de ambiente do sistema/servidor e lê-la com `os.environ["LLM_API_KEY"]`.
-- [ ] Enviar a chave dentro do texto da mensagem `system`.
-
-> Credenciais nunca devem ir para o controle de versão. Lê-las de variáveis de ambiente (`os.environ`) permite separar código de segredos e rotacionar chaves sem alterar o código-fonte.
+O `Assistente` recebe o cliente pronto no construtor, em vez de criar um `ClienteLLM` lá dentro. Qual é a vantagem?
+- [ ] O código fica mais rápido, porque o cliente é criado uma vez só.
+- [x] A mesma classe funciona com o simulador nos testes e com um cliente HTTP real em produção: basta passar outro objeto com o mesmo método `completar`.
+- [ ] Assim a chave de API pode ficar escrita dentro da classe com segurança.
+- [ ] O histórico passa a ser guardado pelo servidor.
+> É injeção de dependência: a classe depende só da interface `completar(mensagens, max_tokens=...)`. Trocar de provedor, ou testar sem rede, vira trocar o objeto passado no construtor. A chave continua no ambiente (`os.environ`), nunca no código.

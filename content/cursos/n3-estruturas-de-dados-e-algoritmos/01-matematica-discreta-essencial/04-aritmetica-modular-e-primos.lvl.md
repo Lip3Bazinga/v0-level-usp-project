@@ -17,127 +17,123 @@ objetivos:
   - Implementar exponenciação modular rápida e explicar seu custo logarítmico
 ---
 
-## Passo 1 · Leitura · Resto, congruências e dígitos verificadores
+## Passo 1 · Leitura · Resto, congruência e o % do Python
 
-Quando dividimos um inteiro $a$ por um inteiro positivo $m$, obtemos um quociente $q$ e um resto $r$ tais que:
-
-$$
-a = q \cdot m + r, \quad \text{com } 0 \le r < m
-$$
-
-Dizemos que dois inteiros $a$ e $b$ são **congruentes módulo $m$** — escrito $a \equiv b \pmod m$ — quando deixam o mesmo resto na divisão por $m$ (ou, equivalentemente, quando $m$ divide $a - b$).
-
-Aritmética modular é a matemática dos relógios, dos dias da semana, das tabelas hash (`hash(chave) % capacidade`) e da criptografia. Uma propriedade crucial é que podemos **reduzir módulo $m$ a cada passo** de uma soma ou multiplicação sem alterar o resto final:
+Dividir um inteiro $a$ por um inteiro positivo $m$ dá um quociente $q$ e um resto $r$ **únicos** com
 
 $$
-(a + b) \bmod m = ((a \bmod m) + (b \bmod m)) \bmod m
+a = q \cdot m + r, \qquad 0 \le r < m
 $$
 
+Em Python, `q = a // m` e `r = a % m`. Dois inteiros são **congruentes módulo $m$**, $a \equiv b \pmod m$, quando deixam o mesmo resto, ou seja, quando $m$ divide $a - b$. É a matemática do relógio: 25 horas depois das 10h são 11h, porque $35 \equiv 11 \pmod{24}$.
+
+O resto pode ser tirado **a cada passo** de uma soma ou de um produto, sem mudar o resto final:
+
 $$
-(a \cdot b) \bmod m = ((a \bmod m) \cdot (b \bmod m)) \bmod m
+(a + b) \bmod m = \big((a \bmod m) + (b \bmod m)\big) \bmod m \qquad (a \cdot b) \bmod m = \big((a \bmod m) \cdot (b \bmod m)\big) \bmod m
 $$
 
-#### O operador `%` com negativos no Python
+É isso que mantém os números pequenos em hash, criptografia e dígitos verificadores.
 
-Diferente de linguagens como C ou Java (onde `-7 % 3` resulta em `-1`), no Python o resultado de `a % m` (para $m > 0$) é **sempre não negativo**, no intervalo $[0, m-1]$. Assim, `-7 % 3` vale `2`, pois $-7 = (-3) \cdot 3 + 2$. Isso é perfeito para índices circulares: se hoje é dia `d` da semana (`0` a `6`), `k` dias atrás foi `(d - k) % 7`, sem risco de índice negativo!
+Com negativos, o Python escolhe o quociente arredondando **para baixo**, e o resto fica com o sinal do divisor: `-7 // 3` é `-3` e `-7 % 3` é `2`, porque $-7 = (-3) \cdot 3 + 2$. Em C e Java, `-7 % 3` dá `-1`. Por isso, no Python, andar para trás num ciclo é seguro. Só cuidado com a precedência: `%` vem antes de `+` e `-`.
 
-#### Aplicação real: os dígitos verificadores do CPF
+```python
+dias = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"]
+hoje = 2                          # ter
+print(dias[(hoje - 3) % 7])       # sáb: três dias antes de terça
+print(dias[(hoje + 100) % 7])     # qui
+print(hoje - 3 % 7)               # -1: é hoje - (3 % 7), sem ciclo nenhum
+```
 
-O CPF possui 9 dígitos base ($d_1 d_2 \dots d_9$) e 2 dígitos verificadores ($v_1, v_2$) calculados com aritmética módulo 11 para detectar erros de digitação:
+O último índice, `-1`, não dá erro: `dias[-1]` é o último elemento da lista. O bug passa em silêncio.
 
-1. **Primeiro dígito ($v_1$):** multiplicamos os 9 dígitos pelos pesos decrescentes de $10$ até $2$:
-   $$S_1 = 10 d_1 + 9 d_2 + 8 d_3 + \dots + 2 d_9$$
-   Calculamos $r_1 = (S_1 \cdot 10) \bmod 11$. Se $r_1 == 10$, então $v_1 = 0$; caso contrário, $v_1 = r_1$.
-2. **Segundo dígito ($v_2$):** agora incluímos $v_1$ ao final dos 9 dígitos e multiplicamos os 10 dígitos pelos pesos decrescentes de $11$ até $2$:
-   $$S_2 = 11 d_1 + 10 d_2 + \dots + 3 d_9 + 2 v_1$$
-   Calculamos $r_2 = (S_2 \cdot 10) \bmod 11$. Se $r_2 == 10$, então $v_2 = 0$; caso contrário, $v_2 = r_2$.
+#### Dígitos verificadores do CPF
 
-## Passo 2 · Exercício · Dígito verificador do CPF
+O CPF tem 9 dígitos $d_1 \dots d_9$ e 2 verificadores, que pegam erros de digitação.
 
-Implemente a função `digito_verificador_cpf(nove_digitos)`, que recebe uma string contendo exatamente os 9 primeiros dígitos de um CPF (ex.: `"123456789"`) e devolve uma string de 2 caracteres com os dígitos verificadores `"v1v2"` (ex.: `"09"`).
+- Para o **primeiro**, some os dígitos com pesos de 10 a 2: $S_1 = 10 d_1 + 9 d_2 + \dots + 2 d_9$. O verificador é $(10\,S_1) \bmod 11$, trocando 10 por 0.
+- Para o **segundo**, acrescente o primeiro verificador aos 9 dígitos e use pesos de 11 a 2 nos 10 dígitos.
+
+Para `123456789`, $S_1 = 210$ e $2100 \bmod 11 = 10$: o primeiro verificador vira 0. Com ele, $S_2 = 255$, e $2550 \bmod 11 = 9$. Os verificadores são `09`. Trocar dois dígitos vizinhos muda $S_1$, porque os pesos são diferentes. É por isso que o verificador pega essa troca.
+
+## Passo 2 · Exercício · CPF e dias da semana
+
+Escreva duas funções:
+
+- `digito_verificador_cpf(nove_digitos)` recebe uma string com os 9 primeiros dígitos de um CPF e devolve uma **string** de 2 caracteres com os verificadores. Exemplo: `digito_verificador_cpf("123456789")` é `"09"`.
+- `dia_da_semana(hoje, deslocamento)` recebe o nome de um dia da lista `DIAS` e um inteiro (negativo = dias atrás) e devolve o nome do dia resultante. Exemplo: `dia_da_semana("ter", -3)` é `"sáb"`.
 
 ### Instruções
-1. Converta cada caractere de `nove_digitos` para inteiro e calcule a soma ponderada $S_1$ com pesos de `10` até `2`.
-2. Obtenha o primeiro dígito `v1 = (S1 * 10) % 11`, trocando `10` por `0`.
-3. Calcule a segunda soma ponderada $S_2$ sobre os 9 dígitos seguidos de `v1`, com pesos de `11` até `2`, obtenha `v2 = (S2 * 10) % 11` (trocando `10` por `0`) e devolva `f"{v1}{v2}"`.
+1. Calcule o primeiro verificador com os pesos de 10 a 2, trocando 10 por 0.
+2. Calcule o segundo com os 10 dígitos (os 9 e o primeiro verificador), pesos de 11 a 2, e devolva os dois como texto.
+3. Em `dia_da_semana`, ache a posição de `hoje`, desloque e volte ao ciclo de 7 dias com `%`.
 
 ### Código inicial
 ```python
+DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"]
+
+
 def digito_verificador_cpf(nove_digitos):
-    # Devolva os dois dígitos verificadores como string de 2 caracteres
+    pass
+
+
+def dia_da_semana(hoje, deslocamento):
     pass
 ```
 
 ### Solução
 ```python
+DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"]
+
+
 def digito_verificador_cpf(nove_digitos):
     digitos = [int(c) for c in nove_digitos]
     soma1 = sum(d * peso for d, peso in zip(digitos, range(10, 1, -1)))
-    v1 = (soma1 * 10) % 11
-    if v1 == 10:
-        v1 = 0
+    v1 = (soma1 * 10) % 11 % 10
     digitos.append(v1)
     soma2 = sum(d * peso for d, peso in zip(digitos, range(11, 1, -1)))
-    v2 = (soma2 * 10) % 11
-    if v2 == 10:
-        v2 = 0
+    v2 = (soma2 * 10) % 11 % 10
     return f"{v1}{v2}"
+
+
+def dia_da_semana(hoje, deslocamento):
+    return DIAS[(DIAS.index(hoje) + deslocamento) % 7]
 ```
 
 ### Dicas
-1. `range(10, 1, -1)` gera os pesos `10, 9, 8, 7, 6, 5, 4, 3, 2`.
-2. Se `(soma * 10) % 11` resultar em `10`, o dígito verificador deve ser `0` (você também pode fazer `((soma * 10) % 11) % 10`).
-3. Não se esqueça de incluir `v1` como o 10º número (com peso `2`) no cálculo de `v2`.
+1. `range(10, 1, -1)` gera os pesos 10, 9, ..., 2. Com `zip`, cada dígito pega o seu peso.
+2. O resultado é texto: o CPF `123.456.789-09` começa o verificador com zero.
+3. Em `dia_da_semana`, o `%` precisa valer para a soma inteira. Confira os parênteses.
 
 ### Verificação
 ```json
 [
-  {
-    "id": "cpf-123456789",
-    "checkpoint": 1,
-    "kind": "call",
-    "function": "digito_verificador_cpf",
-    "args": ["123456789"],
-    "expected": "09",
-    "type": "str",
-    "name": "digito_verificador_cpf('123456789') devolve '09'"
-  },
-  {
-    "id": "cpf-111444777",
-    "checkpoint": 2,
-    "kind": "call",
-    "function": "digito_verificador_cpf",
-    "args": ["111444777"],
-    "expected": "35",
-    "type": "str",
-    "name": "digito_verificador_cpf('111444777') devolve '35'"
-  },
-  {
-    "id": "cpf-resto-10",
-    "checkpoint": 3,
-    "kind": "call",
-    "function": "digito_verificador_cpf",
-    "args": ["000000006"],
-    "expected": "04",
-    "type": "str",
-    "name": "Trata resto 10 virando dígito 0 ('000000006' -> '04')",
-    "hint": "Quando (soma * 10) % 11 for 10, o dígito verificador deve ser 0."
-  },
-  {
-    "id": "cpf-529982247",
-    "checkpoint": 3,
-    "kind": "call",
-    "function": "digito_verificador_cpf",
-    "args": ["529982247"],
-    "expected": "25",
-    "type": "str",
-    "name": "digito_verificador_cpf('529982247') devolve '25'"
-  }
+  { "id": "cpf-v1-zero", "checkpoint": 1, "kind": "call", "function": "digito_verificador_cpf", "args": ["123456789"], "expected": "09", "type": "str",
+    "name": "123456789 tem verificadores '09'", "hint": "Quando o resto é 10, o dígito é 0. E o resultado é texto com 2 caracteres." },
+  { "id": "cpf-35", "checkpoint": 2, "kind": "call", "function": "digito_verificador_cpf", "args": ["111444777"], "expected": "35",
+    "name": "111444777 tem verificadores '35'" },
+  { "id": "cpf-25", "checkpoint": 2, "kind": "call", "function": "digito_verificador_cpf", "args": ["529982247"], "expected": "25",
+    "name": "529982247 tem verificadores '25'" },
+  { "id": "cpf-v2-zero", "checkpoint": 2, "kind": "call", "function": "digito_verificador_cpf", "args": ["987654321"], "expected": "00",
+    "name": "987654321 tem verificadores '00' (os dois restos dão 0 ou 10)" },
+  { "id": "cpf-v2-dez", "checkpoint": 2, "kind": "call", "function": "digito_verificador_cpf", "args": ["100000028"], "expected": "10",
+    "name": "100000028 tem verificadores '10' (o segundo resto é 10)",
+    "hint": "O segundo verificador também troca 10 por 0." },
+  { "id": "dia-zero", "checkpoint": 3, "kind": "expr", "expr": "[dia_da_semana('seg', 0), dia_da_semana('seg', 3)]", "expected": ["seg", "qui"],
+    "name": "seg + 0 é seg; seg + 3 é qui" },
+  { "id": "dia-volta", "checkpoint": 3, "kind": "expr", "expr": "[dia_da_semana('sáb', 3), dia_da_semana('qua', 7002)]", "expected": ["ter", "sex"],
+    "name": "Passando do sábado volta ao domingo; 7002 dias depois de quarta é sexta",
+    "hint": "O índice precisa voltar para 0..6 depois de somar o deslocamento." },
+  { "id": "dia-atras", "checkpoint": 3, "kind": "expr", "expr": "[dia_da_semana('ter', -3), dia_da_semana('dom', -1), dia_da_semana('qua', -7002)]", "expected": ["sáb", "sáb", "seg"],
+    "name": "Deslocamentos negativos andam para trás no ciclo" }
 ]
 ```
 
 ### Soluções erradas
-```python name="esquece de trocar 10 por 0"
+```python name="não troca o resto 10 por 0"
+DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"]
+
+
 def digito_verificador_cpf(nove_digitos):
     digitos = [int(c) for c in nove_digitos]
     soma1 = sum(d * peso for d, peso in zip(digitos, range(10, 1, -1)))
@@ -146,56 +142,122 @@ def digito_verificador_cpf(nove_digitos):
     soma2 = sum(d * peso for d, peso in zip(digitos, range(11, 1, -1)))
     v2 = (soma2 * 10) % 11
     return f"{v1}{v2}"
+
+
+def dia_da_semana(hoje, deslocamento):
+    return DIAS[(DIAS.index(hoje) + deslocamento) % 7]
 ```
-```python name="não inclui v1 no cálculo de v2"
+```python name="segundo verificador sem o primeiro"
+DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"]
+
+
 def digito_verificador_cpf(nove_digitos):
     digitos = [int(c) for c in nove_digitos]
     soma1 = sum(d * peso for d, peso in zip(digitos, range(10, 1, -1)))
-    v1 = ((soma1 * 10) % 11) % 10
-    soma2 = sum(d * peso for d, peso in zip(digitos, range(10, 1, -1)))
-    v2 = ((soma2 * 10) % 11) % 10
+    v1 = (soma1 * 10) % 11 % 10
+    soma2 = sum(d * peso for d, peso in zip(digitos, range(11, 1, -1)))
+    v2 = (soma2 * 10) % 11 % 10
     return f"{v1}{v2}"
+
+
+def dia_da_semana(hoje, deslocamento):
+    return DIAS[(DIAS.index(hoje) + deslocamento) % 7]
+```
+```python name="devolve número e perde o zero à esquerda"
+DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"]
+
+
+def digito_verificador_cpf(nove_digitos):
+    digitos = [int(c) for c in nove_digitos]
+    soma1 = sum(d * peso for d, peso in zip(digitos, range(10, 1, -1)))
+    v1 = (soma1 * 10) % 11 % 10
+    digitos.append(v1)
+    soma2 = sum(d * peso for d, peso in zip(digitos, range(11, 1, -1)))
+    v2 = (soma2 * 10) % 11 % 10
+    return v1 * 10 + v2
+
+
+def dia_da_semana(hoje, deslocamento):
+    return DIAS[(DIAS.index(hoje) + deslocamento) % 7]
+```
+```python name="% só no deslocamento (precedência)"
+DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"]
+
+
+def digito_verificador_cpf(nove_digitos):
+    digitos = [int(c) for c in nove_digitos]
+    soma1 = sum(d * peso for d, peso in zip(digitos, range(10, 1, -1)))
+    v1 = (soma1 * 10) % 11 % 10
+    digitos.append(v1)
+    soma2 = sum(d * peso for d, peso in zip(digitos, range(11, 1, -1)))
+    v2 = (soma2 * 10) % 11 % 10
+    return f"{v1}{v2}"
+
+
+def dia_da_semana(hoje, deslocamento):
+    return DIAS[DIAS.index(hoje) + deslocamento % 7]
+```
+```python name="usa abs e perde o sentido do deslocamento"
+DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"]
+
+
+def digito_verificador_cpf(nove_digitos):
+    digitos = [int(c) for c in nove_digitos]
+    soma1 = sum(d * peso for d, peso in zip(digitos, range(10, 1, -1)))
+    v1 = (soma1 * 10) % 11 % 10
+    digitos.append(v1)
+    soma2 = sum(d * peso for d, peso in zip(digitos, range(11, 1, -1)))
+    v2 = (soma2 * 10) % 11 % 10
+    return f"{v1}{v2}"
+
+
+def dia_da_semana(hoje, deslocamento):
+    return DIAS[(DIAS.index(hoje) + abs(deslocamento)) % 7]
 ```
 
-## Passo 3 · Leitura · MDC com o Algoritmo de Euclides e MMC
+## Passo 3 · Leitura · Euclides: por que funciona e quanto custa
 
-O **Máximo Divisor Comum** $\text{mdc}(a, b)$ é o maior inteiro positivo que divide simultaneamente $a$ e $b$. Testar todos os divisores possíveis de $1$ até $\min(a, b)$ é lento demais quando os números têm dezenas de dígitos.
-
-O **Algoritmo de Euclides** (c. 300 a.C.) baseia-se em uma observação simples: qualquer divisor comum de $a$ e $b$ também divide o resto $a \bmod b$. Portanto:
+O **máximo divisor comum** $\text{mdc}(a, b)$ é o maior inteiro que divide $a$ e $b$. Como todo inteiro divide 0, $\text{mdc}(a, 0) = a$. Testar candidatos de $\min(a, b)$ para baixo custa até $\min(a, b)$ divisões: com números de 18 dígitos, isso não termina. O **algoritmo de Euclides** usa uma igualdade:
 
 $$
-\text{mdc}(a, b) = \begin{cases} a, & \text{se } b = 0 \\ \text{mdc}(b, a \bmod b), & \text{se } b > 0 \end{cases}
+\text{mdc}(a, b) = \text{mdc}(b,\ a \bmod b) \quad (b > 0)
 $$
 
-Por que ele termina tão rápido? A cada dois passos da recursão, o primeiro argumento cai **pela metade ou mais** (pois se $a \ge b$, então $a \bmod b < a / 2$). Isso significa que o número de divisões é proporcional a $\log_2(\min(a, b))$: mesmo para números da ordem de $10^{18}$, o algoritmo dá no máximo ~90 passos!
+**Por que vale.** Escreva $a = q b + r$, com $r = a \bmod b$. Se $d$ divide $a$ e $b$, divide $a - qb = r$. Na volta, se $d$ divide $b$ e $r$, divide $qb + r = a$. Os pares $(a, b)$ e $(b, r)$ têm **exatamente os mesmos divisores comuns**, logo o mesmo máximo. Como $0 \le r < b$, o segundo argumento diminui a cada chamada e chega a 0: aí a resposta é o primeiro.
 
-A partir do MDC, obtemos o **Mínimo Múltiplo Comum** ($\text{mmc}$) sem precisar fatorar nada, usando a identidade $\text{mdc}(a, b) \cdot \text{mmc}(a, b) = a \cdot b$:
+**Quanto custa.** Se $a \ge b$, então $a \bmod b < a / 2$. Quando $b \le a/2$, o resto é menor que $b$; quando $b > a/2$, o resto é $a - b < a/2$. A cada duas chamadas o primeiro argumento cai pelo menos à metade, então são no máximo cerca de $2 \log_2 a$ chamadas: uns 120 para números de 18 dígitos. O pior caso são dois números de Fibonacci consecutivos, em que cada quociente é 1.
+
+A versão antiga, que subtrai em vez de tirar o resto, $\text{mdc}(a, b) = \text{mdc}(a - b, b)$, também está certa, mas para $\text{mdc}(10^{12}, 1)$ faz $10^{12}$ subtrações.
+
+Com o mdc sai o **mínimo múltiplo comum**, pela identidade $\text{mdc}(a, b) \cdot \text{mmc}(a, b) = a \cdot b$. Divida antes de multiplicar, para não criar um número maior que o necessário:
 
 $$
-\text{mmc}(a, b) = \frac{a \cdot b}{\text{mdc}(a, b)} = (a // \text{mdc}(a, b)) \cdot b
+\text{mmc}(a, b) = \frac{a}{\text{mdc}(a, b)} \cdot b
 $$
 
-Veja no visualizador como `mdc(252, 105)` converge em apenas 3 chamadas:
+No visualizador, veja os argumentos encolherem em `mdc(252, 105)` e depois em `mdc(89, 55)`, dois números de Fibonacci:
 
 ```python visualizar
 def mdc(a, b):
+    print("mdc(", a, ",", b, ")")
     if b == 0:
         return a
     return mdc(b, a % b)
 
-resultado = mdc(252, 105)
-print("MDC(252, 105) =", resultado)
+
+print(mdc(252, 105))
+print(mdc(89, 55))
 ```
 
-## Passo 4 · Exercício · MDC recursivo e MMC
+## Passo 4 · Exercício · mdc e mmc
 modo: lacunas
 
-Complete as lacunas para implementar `mdc(a, b)` de forma recursiva pelo Algoritmo de Euclides e `mmc(a, b)` usando divisão inteira.
+Complete as lacunas (`___`) de `mdc(a, b)`, recursiva pelo algoritmo de Euclides, e de `mmc(a, b)`. Os argumentos são inteiros não negativos, com até 18 dígitos; `mmc` devolve 0 quando um deles é 0. Exemplos: `mdc(252, 105)` é `21` e `mmc(4, 6)` é `12`.
 
 ### Instruções
-1. No caso base de `mdc(a, b)`, quando `b == 0`, devolva `a`.
-2. No passo recursivo de `mdc(a, b)`, chame `mdc(b, a % b)`.
-3. Em `mmc(a, b)`, devolva `0` se `a == 0` ou `b == 0`; caso contrário, devolva `(a // mdc(a, b)) * b`.
+1. Pare quando o segundo argumento for zero.
+2. Chame `mdc` de novo com o segundo argumento e o resto da divisão.
+3. Em `mmc`, divida `a` pelo mdc antes de multiplicar por `b`.
 
 ### Código inicial
 ```python
@@ -226,61 +288,34 @@ def mmc(a, b):
 ```
 
 ### Dicas
-1. A condição de parada de Euclides ocorre quando o segundo parâmetro chega a `0`.
-2. Na chamada recursiva, o novo segundo parâmetro é o resto da divisão de `a` por `b` (`a % b`).
-3. Em `mmc(a, b)`, divida `a` inteiramente por `mdc(a, b)` antes de multiplicar por `b`.
+1. $\text{mdc}(a, 0) = a$: todo inteiro divide 0.
+2. O novo par é o divisor e o **resto**, não o quociente.
+3. $\text{mmc}(4, 6)$ é 12, não 24: o produto conta duas vezes o fator comum.
 
 ### Verificação
 ```json
 [
-  {
-    "id": "mdc-recursivo",
-    "checkpoint": 2,
-    "kind": "source",
-    "rule": { "type": "uses", "construct": "recursion" },
-    "name": "mdc é implementada com recursão"
-  },
-  {
-    "id": "mdc-casos",
-    "checkpoint": 1,
-    "kind": "call",
-    "function": "mdc",
-    "args": [252, 105],
-    "expected": 21,
-    "name": "mdc(252, 105) devolve 21"
-  },
-  {
-    "id": "mdc-primos-entre-si",
-    "checkpoint": 2,
-    "kind": "call",
-    "function": "mdc",
-    "args": [1000000007, 1000000009],
-    "expected": 1,
-    "name": "mdc(1000000007, 1000000009) devolve 1 rapidamente"
-  },
-  {
-    "id": "mmc-casos",
-    "checkpoint": 3,
-    "kind": "call",
-    "function": "mmc",
-    "args": [12, 18],
-    "expected": 36,
-    "name": "mmc(12, 18) devolve 36"
-  },
-  {
-    "id": "mmc-zero",
-    "checkpoint": 3,
-    "kind": "call",
-    "function": "mmc",
-    "args": [0, 15],
-    "expected": 0,
-    "name": "mmc(0, 15) devolve 0"
-  }
+  { "id": "mdc-basico", "checkpoint": 2, "kind": "expr", "expr": "[mdc(252, 105), mdc(105, 252), mdc(17, 5), mdc(12, 18)]", "expected": [21, 21, 1, 6],
+    "name": "mdc(252, 105) = 21, também com os argumentos trocados" },
+  { "id": "mdc-zero", "checkpoint": 1, "kind": "expr", "expr": "[mdc(9, 0), mdc(0, 9), mdc(0, 0)]", "expected": [9, 9, 0],
+    "name": "mdc com zero devolve o outro argumento", "hint": "Quando b chega a 0, a resposta é a." },
+  { "id": "mdc-fibonacci", "checkpoint": 2, "kind": "expr", "expr": "mdc(2880067194370816120, 1779979416004714189)", "expected": 1,
+    "name": "Dois Fibonacci consecutivos de 19 dígitos: o pior caso de Euclides" },
+  { "id": "mdc-grande", "checkpoint": 2, "kind": "expr", "expr": "[mdc(10**12, 1), str(mdc(10**18, 6 * 10**17))]", "expected": [1, "200000000000000000"],
+    "name": "mdc(10**12, 1) e mdc(10**18, 6 * 10**17) terminam rápido",
+    "hint": "Subtrair um de cada vez faz 10**12 passos. O resto faz o mesmo trabalho de uma vez." },
+  { "id": "mmc-basico", "checkpoint": 3, "kind": "expr", "expr": "[mmc(4, 6), mmc(21, 6), mmc(7, 5), mmc(12, 12)]", "expected": [12, 42, 35, 12],
+    "name": "mmc(4, 6) = 12, mmc(21, 6) = 42, mmc(7, 5) = 35, mmc(12, 12) = 12",
+    "hint": "O produto a * b só é o mmc quando os dois não têm fator comum." },
+  { "id": "mmc-zero", "checkpoint": 3, "kind": "expr", "expr": "[mmc(0, 15), mmc(15, 0)]", "expected": [0, 0],
+    "name": "mmc com zero é 0" },
+  { "id": "mmc-grande", "checkpoint": 3, "kind": "expr", "expr": "str(mmc(10**18, 15 * 10**17))", "expected": "3000000000000000000",
+    "name": "mmc(10**18, 15 * 10**17) exato" }
 ]
 ```
 
 ### Soluções erradas
-```python name="troca resto por divisão inteira"
+```python name="usa o quociente no lugar do resto"
 def mdc(a, b):
     if b == 0:
         return a
@@ -292,7 +327,33 @@ def mmc(a, b):
         return 0
     return (a // mdc(a, b)) * b
 ```
-```python name="divide por b em vez de mdc(a, b)"
+```python name="caso base devolve b (que é 0)"
+def mdc(a, b):
+    if b == 0:
+        return b
+    return mdc(b, a % b)
+
+
+def mmc(a, b):
+    if a == 0 or b == 0:
+        return 0
+    return (a // mdc(a, b)) * b
+```
+```python name="Euclides por subtrações"
+def mdc(a, b):
+    if b == 0:
+        return a
+    if a < b:
+        return mdc(b, a)
+    return mdc(a - b, b)
+
+
+def mmc(a, b):
+    if a == 0 or b == 0:
+        return 0
+    return (a // mdc(a, b)) * b
+```
+```python name="mmc como produto"
 def mdc(a, b):
     if b == 0:
         return a
@@ -300,57 +361,61 @@ def mdc(a, b):
 
 
 def mmc(a, b):
-    if a == 0 or b == 0:
-        return 0
-    return (a // b) * b
+    return a * b
 ```
 
-## Passo 5 · Leitura · Números primos, limite $\sqrt{n}$ e o Crivo de Eratóstenes
+## Passo 5 · Leitura · Primos, o limite √n e o crivo de Eratóstenes
 
-Um inteiro $p \ge 2$ é **primo** se seus únicos divisores positivos são $1$ e $p$.
+Um inteiro $p \ge 2$ é **primo** se seus únicos divisores positivos são 1 e $p$. Para testar um número $n$, basta procurar divisores até $\sqrt{n}$. Se $n = a \cdot b$ com $2 \le a \le b$, então $a \cdot a \le a \cdot b = n$, logo $a \le \sqrt{n}$: todo composto tem um divisor até $\sqrt{n}$. Em código, `d * d <= n` evita a raiz em `float`. Um único teste custa até $\sqrt{n}$ divisões, mas testar assim **todos** os números até $10^6$ dá dezenas de milhões de divisões.
 
-#### Por que basta testar até $\sqrt{n}$?
-
-Se $n$ é composto, podemos escrevê-lo como $n = a \cdot b$ com $1 < a \le b < n$. Se ambos os fatores fossem maiores que $\sqrt{n}$, o produto $a \cdot b$ seria maior que $\sqrt{n} \cdot \sqrt{n} = n$, o que é impossível! Logo, **todo número composto $n$ possui pelo menos um divisor primo menor ou igual a $\sqrt{n}$**.
-
-Para testar um único número $n$, testar divisores até $\lfloor\sqrt{n}\rfloor$ leva tempo proporcional a $\sqrt{n}$. Mas e se quisermos encontrar **todos os primos até $n$**?
-
-#### O Crivo de Eratóstenes
-
-Em vez de testar divisores para cada número isoladamente, o **Crivo de Eratóstenes** faz o inverso: cria uma lista booleana `eh_primo` de tamanho $n + 1$ (inicialmente `True` de `2` até `n`) e, para cada primo $p$ encontrado até $\lfloor\sqrt{n}\rfloor$, **risca todos os seus múltiplos**:
+O **crivo de Eratóstenes** inverte a pergunta. Em vez de procurar divisores de cada número, ele parte de cada primo e risca os múltiplos dele:
 
 ```mermaid
-flowchart LR
-    A["Cria tabela eh_primo[0..n]<br/>0 e 1 = False, 2..n = True"] --> B["p = 2"]
-    B --> C{"p * p <= n?"}
-    C -->|Sim| D{"eh_primo[p] é True?"}
-    D -->|Sim| E["Marca múltiplos p*p, p*p+p, ...<br/>até n como False"]
-    D -->|Não| F["p += 1"]
-    E --> F
-    F --> C
-    C -->|Não| G["Devolve índices i onde eh_primo[i] é True"]
+flowchart TD
+    A["eh_primo = True de 2 a n"] --> B{"p * p <= n?"}
+    B -->|sim| C{"eh_primo[p]?"}
+    C -->|sim| D["risca p*p, p*p + p, ... até n"]
+    C -->|não| E["p += 1"]
+    D --> E
+    E --> B
+    B -->|não| F["devolve os i com eh_primo[i]"]
 ```
 
-Repare em dois detalhes que evitam trabalho inútil:
-1. O laço externo de $p$ para quando `p * p > n` (isto é, $p > \sqrt{n}$), pois qualquer composto $\le n$ já terá sido riscado por seu menor fator primo $\le \sqrt{n}$.
-2. O laço interno que risca os múltiplos de $p$ começa em **`p * p`** (e não em `2 * p`!): todos os múltiplos menores ($2p, 3p, \dots, (p-1)p$) já foram riscados antes quando processamos fatores primos menores que $p$.
+Dois detalhes evitam trabalho inútil:
 
-O custo total do crivo é proporcional a $n \ln \ln n$ — quase linear! Ele encontra todos os primos até $200\,000$ em poucos milissegundos.
+1. **O laço de fora para quando $p^2 > n$.** Um composto $\le n$ tem um fator primo $\le \sqrt{n}$ e já foi riscado por ele.
+2. **O laço de dentro começa em $p^2$.** Um múltiplo $k \cdot p$ com $k < p$ tem um fator primo menor que $p$ e já foi riscado antes.
+
+As desigualdades são `<=`, não `<`. Com `p * p < n`, o número $n = 25$ nunca é riscado, porque o 5 não chega a ser processado. O mesmo vale para riscar só até $n - 1$: `range(p * p, n, p)` deixa de fora o próprio $n$.
+
+```python
+n = 30
+eh_primo = [False, False] + [True] * (n - 1)
+p = 2
+while p * p <= n:
+    if eh_primo[p]:
+        for m in range(p * p, n + 1, p):
+            eh_primo[m] = False
+    p += 1
+print([i for i in range(n + 1) if eh_primo[i]])
+# [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]
+```
+
+Cada primo $p$ risca cerca de $n/p$ posições. Somando sobre os primos, o total é $O(n \log \log n)$, quase linear: o crivo acha os 78 498 primos até um milhão numa fração de segundo. O custo é memória: uma lista de $n + 1$ booleanos.
 
 ## Passo 6 · Exercício · Crivo de Eratóstenes
 
-Implemente `crivo(n)`, que recebe um inteiro `n` ($n \ge 0$) e devolve a lista ordenada de todos os números primos menores ou iguais a `n`. Sua implementação será testada com `n = 200_000`, portanto um teste ingênuo de divisores até `n` para cada número estourará o tempo.
+Escreva `crivo(n)`, que devolve a lista crescente dos primos menores ou iguais a `n` (`n >= 0`). A verificação chama `crivo(1_000_000)` e conta as linhas de Python que `crivo(100_000)` executa: testar os divisores de cada número passa do limite. Exemplo: `crivo(10)` é `[2, 3, 5, 7]`.
 
 ### Instruções
-1. Se `n < 2`, devolva uma lista vazia `[]`.
-2. Crie uma lista booleana `eh_primo = [True] * (n + 1)` e marque `eh_primo[0] = eh_primo[1] = False`.
-3. Para cada `p` enquanto `p * p <= n`, se `eh_primo[p]` for verdadeiro, marque todos os múltiplos de `p * p` até `n` (com passo `p`) como `False`.
-4. Devolva a lista `[i for i in range(2, n + 1) if eh_primo[i]]`.
+1. Para `n < 2`, devolva a lista vazia.
+2. Monte a lista de booleanos de tamanho `n + 1`, com 0 e 1 marcados como não primos.
+3. Para cada `p` com `p * p <= n` ainda marcado como primo, risque os múltiplos de `p * p` até `n`, inclusive.
+4. Devolva os índices que continuaram marcados.
 
 ### Código inicial
 ```python
 def crivo(n):
-    # Devolva a lista de todos os primos <= n usando o Crivo de Eratóstenes
     pass
 ```
 
@@ -365,61 +430,43 @@ def crivo(n):
     p = 2
     while p * p <= n:
         if eh_primo[p]:
-            for multiplo in range(p * p, n + 1, p):
-                eh_primo[multiplo] = False
+            for m in range(p * p, n + 1, p):
+                eh_primo[m] = False
         p += 1
-    return [i for i in range(2, n + 1) if eh_primo[i]]
+    return [i for i in range(n + 1) if eh_primo[i]]
 ```
 
 ### Dicas
-1. Em `range(p * p, n + 1, p)`, o terceiro argumento `p` faz o laço pular de múltiplo em múltiplo (`p*p`, `p*p + p`, `p*p + 2*p`, ...).
-2. Não se esqueça de incluir `n` quando `n` for primo: a lista tem tamanho `n + 1` e o `range` final vai até `n + 1`.
+1. 0 e 1 não são primos, e não são riscados por nenhum `p`: marque-os à mão.
+2. Quadrados de primos, como 25 e 49, são os primeiros números a escapar de um limite com `<`.
+3. O terceiro argumento de `range` faz o laço pular de `p` em `p`.
 
 ### Verificação
 ```json
 [
-  {
-    "id": "crivo-pequeno",
-    "checkpoint": 1,
-    "kind": "call",
-    "function": "crivo",
-    "args": [1],
-    "expected": [],
-    "name": "crivo(1) devolve []"
-  },
-  {
-    "id": "crivo-30",
-    "checkpoint": 2,
-    "kind": "call",
-    "function": "crivo",
-    "args": [30],
-    "expected": [2, 3, 5, 7, 11, 13, 17, 19, 23, 29],
-    "name": "crivo(30) devolve os 10 primeiros primos"
-  },
-  {
-    "id": "crivo-limite-primo",
-    "checkpoint": 3,
-    "kind": "call",
-    "function": "crivo",
-    "args": [13],
-    "expected": [2, 3, 5, 7, 11, 13],
-    "name": "crivo(13) inclui o próprio 13"
-  },
-  {
-    "id": "crivo-200k-desempenho",
-    "checkpoint": 4,
-    "kind": "expr",
-    "setup": "primos = crivo(200000)",
-    "expr": "[len(primos), primos[0], primos[-1]]",
-    "expected": [17984, 2, 199999],
-    "name": "crivo(200000) encontra os 17.984 primos até 200.000 rapidamente",
-    "hint": "Use o Crivo de Eratóstenes marcando múltiplos de p*p até n com passo p."
-  }
+  { "id": "vazios", "checkpoint": 1, "kind": "expr", "expr": "[crivo(0), crivo(1), crivo(2)]", "expected": [[], [], [2]],
+    "name": "crivo(0) e crivo(1) são vazios; crivo(2) é [2]", "hint": "0 e 1 não são primos." },
+  { "id": "ate-30", "checkpoint": 4, "kind": "call", "function": "crivo", "args": [30], "expected": [2, 3, 5, 7, 11, 13, 17, 19, 23, 29],
+    "name": "crivo(30)" },
+  { "id": "quadrado-25", "checkpoint": 3, "kind": "call", "function": "crivo", "args": [25], "expected": [2, 3, 5, 7, 11, 13, 17, 19, 23],
+    "name": "crivo(25) não inclui o 25", "hint": "Com n = 25, o primo 5 também precisa riscar seus múltiplos." },
+  { "id": "quadrado-49", "checkpoint": 3, "kind": "expr", "expr": "crivo(49)[-3:]", "expected": [41, 43, 47],
+    "name": "crivo(49) termina em 47 (49 = 7 * 7 é riscado)" },
+  { "id": "n-primo", "checkpoint": 2, "kind": "expr", "expr": "[crivo(13)[-1], crivo(97)[-1], len(crivo(97))]", "expected": [13, 97, 25],
+    "name": "Quando n é primo, ele entra na lista", "hint": "A lista vai até o índice n, inclusive." },
+  { "id": "milhao", "checkpoint": 4, "kind": "expr", "setup": "primos = crivo(1000000)",
+    "expr": "[len(primos), primos[:5], primos[-1]]", "expected": [78498, [2, 3, 5, 7, 11], 999983],
+    "name": "crivo(1000000) acha os 78498 primos até um milhão" },
+  { "id": "conta-linhas", "checkpoint": 3, "kind": "expr",
+    "setup": "import sys\nlinhas = 0\ndef rastro(quadro, evento, arg):\n    global linhas\n    if evento == 'line':\n        linhas += 1\n    return rastro\nsys.settrace(rastro)\nr = crivo(100000)\nsys.settrace(None)",
+    "expr": "[len(r), linhas <= 1500000]", "expected": [9592, true],
+    "name": "crivo(100000) executa no máximo 1,5 milhão de linhas de Python",
+    "hint": "Testar os divisores de cada número executa milhões de linhas. Risque os múltiplos de cada primo." }
 ]
 ```
 
 ### Soluções erradas
-```python name="inclui 0 e 1 como primos"
+```python name="0 e 1 entram como primos"
 def crivo(n):
     eh_primo = [True] * (n + 1)
     p = 2
@@ -430,7 +477,22 @@ def crivo(n):
         p += 1
     return [i for i in range(n + 1) if eh_primo[i]]
 ```
-```python name="esquece de incluir n no limite do range"
+```python name="laço de fora com p * p < n"
+def crivo(n):
+    if n < 2:
+        return []
+    eh_primo = [True] * (n + 1)
+    eh_primo[0] = False
+    eh_primo[1] = False
+    p = 2
+    while p * p < n:
+        if eh_primo[p]:
+            for m in range(p * p, n + 1, p):
+                eh_primo[m] = False
+        p += 1
+    return [i for i in range(n + 1) if eh_primo[i]]
+```
+```python name="lista de tamanho n deixa o próprio n de fora"
 def crivo(n):
     if n < 2:
         return []
@@ -443,43 +505,65 @@ def crivo(n):
             for m in range(p * p, n, p):
                 eh_primo[m] = False
         p += 1
-    return [i for i in range(2, n) if eh_primo[i]]
+    return [i for i in range(n) if eh_primo[i]]
+```
+```python name="testa divisores de cada número"
+def crivo(n):
+    primos = []
+    for x in range(2, n + 1):
+        d = 2
+        primo = True
+        while d * d <= x:
+            if x % d == 0:
+                primo = False
+                break
+            d += 1
+        if primo:
+            primos.append(x)
+    return primos
 ```
 
-## Passo 7 · Leitura · Exponenciação modular rápida em $O(\log e)$
+## Passo 7 · Leitura · Exponenciação modular rápida
 
-Em criptografia (como RSA e Diffie-Hellman) e em testes probabilísticos de primalidade, precisamos calcular $a^e \bmod m$ para expoentes gigantescos, como $e \approx 10^{18}$.
+RSA, Diffie-Hellman e os testes de primalidade calculam $a^e \bmod m$ com expoentes de centenas de dígitos. Dois caminhos óbvios falham:
 
-Calcular `a ** e % m` diretamente é inviável: um número com $10^{18}$ bits não cabe na memória do planeta, e um laço multiplicando $a$ por si mesmo $10^{18}$ vezes levaria séculos.
+- `a ** e % m` monta $a^e$ inteiro antes do resto. Com $e = 10^{18}$, são cerca de $10^{18}$ bits, mais do que existe de memória.
+- Multiplicar $e$ vezes, tirando o resto a cada passo, mantém os números pequenos, mas faz $10^{18}$ multiplicações.
 
-A solução é a **exponenciação por quadrados sucessivos** (*binary exponentiation*):
+A saída é escrever o expoente em **binário**. Como $13 = 1101_2 = 8 + 4 + 1$, temos $a^{13} = a^8 \cdot a^4 \cdot a^1$. E as potências $a, a^2, a^4, a^8, \dots$ saem uma da outra elevando ao quadrado. O laço lê os bits do expoente do menos significativo para o mais significativo:
 
-$$
-a^e = \begin{cases}
-1, & \text{se } e = 0 \\
-\left(a^2\right)^{e/2}, & \text{se } e \text{ é par} \\
-a \cdot \left(a^2\right)^{(e-1)/2}, & \text{se } e \text{ é ímpar}
-\end{cases}
-$$
+```python
+def pot_mod(base, exp, mod):
+    resultado = 1 % mod
+    base = base % mod
+    while exp > 0:
+        if exp % 2 == 1:                        # bit atual é 1
+            resultado = (resultado * base) % mod
+        base = (base * base) % mod              # a^1, a^2, a^4, a^8...
+        exp //= 2                               # próximo bit
+    return resultado
+```
 
-A cada passo, dividimos o expoente $e$ por $2$ (`e //= 2`) e elevamos a base ao quadrado módulo $m$ (`base = (base * base) % m`). Se o expoente atual era ímpar (`e % 2 == 1`), multiplicamos o acumulador `resultado` pela `base` atual módulo $m$.
+A ordem importa. Com o bit atual, `base` precisa ser $a^{2^i}$ ainda **antes** de elevar ao quadrado. Trocar as duas linhas multiplica a potência errada.
 
-Como o expoente cai pela metade a cada iteração, para $e = 10^{18}$ o laço executa no máximo $\lfloor\log_2(10^{18})\rfloor + 1 = 60$ iterações! No Python, a função embutida `pow(base, exp, mod)` implementa exatamente esse algoritmo em C. No exercício a seguir, você vai implementá-lo do zero.
+**Custo.** Um expoente com $b$ bits faz $b$ voltas. Em cada volta há uma multiplicação de `base` e, se o bit é 1, uma multiplicação do resultado. São no máximo $2b$ multiplicações, e $b = \lfloor \log_2 e \rfloor + 1$. Para $e = 10^{18}$, $b = 60$: no máximo 120 multiplicações, contra $10^{18}$.
 
-## Passo 8 · Exercício · Exponenciação modular sem `pow`
+Uma versão recursiva tem uma armadilha. Calcular $a^e$ como `pot(a, e // 2) * pot(a, e // 2)` faz **duas** chamadas iguais. Cada nível dobra o número de chamadas, e o total volta a ser proporcional a $e$. Calcule a metade **uma vez**, guarde numa variável e eleve-a ao quadrado.
 
-Implemente `pot_mod(base, exp, mod)` usando o método de quadrados sucessivos, **sem chamar a função embutida `pow`**. Sua função deve suportar expoentes da ordem de $10^{18}$ instantaneamente.
+`resultado = 1 % mod` começa em 0 quando `mod == 1`, porque todo inteiro deixa resto 0 na divisão por 1. Em Python, `pow(base, exp, mod)` faz esse algoritmo em C. No exercício, você o escreve do zero.
+
+## Passo 8 · Exercício · pot_mod contando multiplicações
+
+Escreva `pot_mod(base, exp, mod)`, que devolve $\text{base}^{\text{exp}} \bmod \text{mod}$ para `exp >= 0` e `mod >= 1`, sem chamar `pow`. Use só multiplicação, `%`, `//` e comparações. A verificação conta as multiplicações: com um expoente de $b$ bits, você pode fazer no máximo $2b$. Exemplo: `pot_mod(3, 13, 7)` é `3`.
 
 ### Instruções
-1. Inicialize `resultado = 1 % mod` e reduza `base = base % mod`.
-2. Enquanto `exp > 0`, se `exp` for ímpar (`exp % 2 == 1`), atualize `resultado = (resultado * base) % mod`.
-3. Em cada iteração do laço, eleve a base ao quadrado módulo `mod` (`base = (base * base) % mod`) e divida `exp` por 2 (`exp //= 2`).
-4. Ao final do laço, devolva `resultado`.
+1. Comece o resultado em `1 % mod` e reduza a base módulo `mod`.
+2. Percorra os bits do expoente: quando o bit for 1, multiplique o resultado pela base atual.
+3. A cada bit, eleve a base ao quadrado (módulo `mod`) e passe ao próximo bit.
 
 ### Código inicial
 ```python
 def pot_mod(base, exp, mod):
-    # Calcule (base ** exp) % mod por quadrados sucessivos, sem usar pow()
     pass
 ```
 
@@ -497,104 +581,116 @@ def pot_mod(base, exp, mod):
 ```
 
 ### Dicas
-1. Nunca calcule `base ** exp`: mantenha tanto `resultado` quanto `base` reduzidos módulo `mod` a cada multiplicação.
-2. Quando `mod == 1`, qualquer resto módulo `1` é `0` — começar com `resultado = 1 % mod` já trata esse caso de borda automaticamente!
+1. `exp % 2` é o bit menos significativo; `exp //= 2` descarta esse bit.
+2. Multiplique o resultado pela base **antes** de elevar a base ao quadrado.
+3. Tire o resto em toda multiplicação, senão os números crescem sem limite.
 
 ### Verificação
 ```json
 [
-  {
-    "id": "sem-pow",
-    "checkpoint": 1,
-    "kind": "source",
-    "rule": { "type": "not_calls", "name": "pow" },
-    "name": "Não utiliza a função embutida pow()"
-  },
-  {
-    "id": "pot-pequeno",
-    "checkpoint": 2,
-    "kind": "call",
-    "function": "pot_mod",
-    "args": [2, 10, 1000],
-    "expected": 24,
-    "name": "pot_mod(2, 10, 1000) devolve 24"
-  },
-  {
-    "id": "pot-exp-zero",
-    "checkpoint": 1,
-    "kind": "call",
-    "function": "pot_mod",
-    "args": [99, 0, 7],
-    "expected": 1,
-    "name": "pot_mod(99, 0, 7) devolve 1"
-  },
-  {
-    "id": "pot-mod-um",
-    "checkpoint": 1,
-    "kind": "call",
-    "function": "pot_mod",
-    "args": [5, 0, 1],
-    "expected": 0,
-    "name": "pot_mod(5, 0, 1) devolve 0"
-  },
-  {
-    "id": "pot-gigante",
-    "checkpoint": 3,
-    "kind": "expr",
-    "expr": "pot_mod(7, 10**18, 1000000007)",
-    "expected": 259616729,
-    "name": "pot_mod(7, 10**18, 1000000007) executa em O(log exp) e devolve 259616729"
-  },
-  {
-    "id": "pot-fermat",
-    "checkpoint": 4,
-    "kind": "call",
-    "function": "pot_mod",
-    "args": [123456789, 1000000006, 1000000007],
-    "expected": 1,
-    "name": "Pequeno Teorema de Fermat: a^(p-1) mod p == 1 para p = 1000000007"
-  }
+  { "id": "sem-pow", "checkpoint": 2, "kind": "source", "rule": { "type": "not_calls", "name": "pow" },
+    "name": "Não chama pow()" },
+  { "id": "pequenos", "checkpoint": 2, "kind": "expr", "expr": "[pot_mod(2, 10, 1000), pot_mod(3, 13, 7), pot_mod(5, 1, 3), pot_mod(-2, 3, 5)]", "expected": [24, 3, 2, 2],
+    "name": "2^10 mod 1000 = 24, 3^13 mod 7 = 3, 5^1 mod 3 = 2, (-2)^3 mod 5 = 2",
+    "hint": "Multiplique o resultado pela base do bit atual antes de elevá-la ao quadrado." },
+  { "id": "expoente-zero", "checkpoint": 1, "kind": "expr", "expr": "[pot_mod(99, 0, 7), pot_mod(5, 0, 1), pot_mod(5, 3, 1)]", "expected": [1, 0, 0],
+    "name": "Expoente 0 dá 1; módulo 1 dá sempre 0", "hint": "Qual é o resto de 1 na divisão por 1?" },
+  { "id": "forca-bruta", "checkpoint": 2, "kind": "expr", "expr": "all(pot_mod(b, e, m) == (b ** e) % m for b in range(0, 6) for e in range(0, 20) for m in (1, 2, 7, 10, 97))", "expected": true,
+    "name": "Confere com b ** e % m para bases até 5, expoentes até 19 e vários módulos" },
+  { "id": "gigante", "checkpoint": 3, "kind": "expr", "expr": "pot_mod(7, 10**18, 1000000007)", "expected": 259616729,
+    "name": "7^(10**18) mod 1000000007 = 259616729 a tempo" },
+  { "id": "fermat", "checkpoint": 3, "kind": "expr", "expr": "pot_mod(123456789, 1000000006, 1000000007)", "expected": 1,
+    "name": "Pequeno teorema de Fermat: a^(p-1) mod p = 1 com p = 1000000007" },
+  { "id": "conta-multiplicacoes", "checkpoint": 3, "kind": "expr",
+    "setup": "class Contado:\n    mults = 0\n    def __init__(self, v):\n        self.v = v\n    def __mul__(self, outro):\n        Contado.mults += 1\n        return Contado(self.v * (outro.v if isinstance(outro, Contado) else outro))\n    __rmul__ = __mul__\n    def __mod__(self, m):\n        return Contado(self.v % m)\n    def __pow__(self, e):\n        Contado.mults += max(e - 1, 0)\n        return Contado(self.v ** e)\n    def __int__(self):\n        return self.v\nr = pot_mod(Contado(3), 1000, 1000000007)",
+    "expr": "[int(r), Contado.mults <= 20]", "expected": [56888193, true],
+    "name": "Com expoente 1000 (10 bits), faz no máximo 20 multiplicações",
+    "hint": "Multiplicar a base mil vezes acerta o valor, mas o custo é linear no expoente." }
 ]
 ```
 
 ### Soluções erradas
-```python name="usa operador ** direto e estoura memória/tempo"
+```python name="multiplica exp vezes (custo linear)"
 def pot_mod(base, exp, mod):
-    return (base ** exp) % mod
+    resultado = 1 % mod
+    for _ in range(exp):
+        resultado = (resultado * base) % mod
+    return resultado
 ```
-```python name="esquece de elevar a base ao quadrado"
+```python name="eleva ao quadrado antes de usar o bit"
 def pot_mod(base, exp, mod):
     resultado = 1 % mod
     base = base % mod
     while exp > 0:
+        base = (base * base) % mod
         if exp % 2 == 1:
             resultado = (resultado * base) % mod
         exp //= 2
     return resultado
 ```
+```python name="começa o resultado em 1, sem % mod"
+def pot_mod(base, exp, mod):
+    resultado = 1
+    base = base % mod
+    while exp > 0:
+        if exp % 2 == 1:
+            resultado = (resultado * base) % mod
+        base = (base * base) % mod
+        exp //= 2
+    return resultado
+```
+```python name="recursão chama a metade duas vezes"
+def pot_mod(base, exp, mod):
+    if exp == 0:
+        return 1 % mod
+    if exp % 2 == 0:
+        return (pot_mod(base, exp // 2, mod) * pot_mod(base, exp // 2, mod)) % mod
+    return (base * pot_mod(base, exp - 1, mod)) % mod
+```
+```python name="não tira o resto da base ao elevar ao quadrado"
+def pot_mod(base, exp, mod):
+    resultado = 1 % mod
+    while exp > 0:
+        if exp % 2 == 1:
+            resultado = (resultado * base) % mod
+        base = base * base
+        exp //= 2
+    return resultado
+```
 
-## Passo 9 · Quiz · Congruências, Euclides e exponenciação modular
+## Passo 9 · Quiz · Restos, primos e potências
 
 ### Pergunta
-Qual é o valor da expressão `-11 % 4` em Python e por quê?
-- [ ] `-3`, porque `-11 = (-2) * 4 + (-3)` e o resto acompanha o sinal do dividendo.
-- [x] `1`, porque para divisor positivo o operador `%` no Python devolve o resto no intervalo `[0, 3]`, satisfazendo `-11 = (-3) * 4 + 1`.
-- [ ] `3`, porque o Python simplesmente calcula `abs(-11) % 4`.
-- [ ] Levanta `ValueError`, pois aritmética modular não é definida para negativos.
-> Em Python, o resto `a % m` tem sempre o mesmo sinal do divisor `m`. Para `m = 4`, o resto fica sempre em `{0, 1, 2, 3}`, e como `-12` é o maior múltiplo de `4` menor ou igual a `-11`, o resto é `-11 - (-12) = 1`.
+O que este código imprime?
+```python
+print(-11 // 4, -11 % 4)
+```
+- [ ] `-2 -3`
+- [x] `-3 1`
+- [ ] `-2 3`
+- [ ] `-3 -1`
+> O Python arredonda o quociente para baixo: $-11/4 = -2{,}75$, e o quociente é $-3$. O resto completa a conta, $-11 = (-3) \cdot 4 + 1$, e fica entre 0 e 3. `-2 -3` é o que C e Java dão, com o quociente truncado em direção ao zero.
 
 ### Pergunta
-Por que o laço interno do Crivo de Eratóstenes pode começar marcando os múltiplos de um primo $p$ a partir de $p^2$ em vez de $2p$?
-- [ ] Porque números pares já foram removidos antes do crivo começar.
-- [x] Porque qualquer múltiplo composto de $p$ menor que $p^2$ é da forma $k \cdot p$ com $2 \le k < p$, e portanto já possui um fator primo menor que $p$ que o riscou em uma iteração anterior.
+Esta função está certa, mas demora demais com `exp = 2**20`. Por quê?
+```python
+def pot(a, e, m):
+    if e == 0:
+        return 1 % m
+    if e % 2 == 0:
+        return pot(a, e // 2, m) * pot(a, e // 2, m) % m
+    return a * pot(a, e - 1, m) % m
+```
+- [ ] Porque falta reduzir `a` módulo `m` antes de começar.
+- [ ] Porque a recursão estoura o limite de profundidade do Python.
+- [x] Porque cada nível chama a metade **duas** vezes: o número de chamadas dobra a cada nível e o total fica proporcional a $e$.
+- [ ] Porque `e // 2` deveria ser `e >> 1`, que é mais rápido.
+> A profundidade é só uns 20 níveis, mas há duas chamadas por nível: $2^{20}$ chamadas no último. Guarde `metade = pot(a, e // 2, m)` e devolva `metade * metade % m`. Assim há uma chamada por nível e cerca de $2 \log_2 e$ multiplicações. `>>` e `//` custam o mesmo aqui.
+
+### Pergunta
+No crivo de Eratóstenes, por que o laço de dentro pode começar riscando em $p^2$, e não em $2p$?
 - [ ] Porque não existem múltiplos de $p$ entre $2p$ e $p^2$.
-- [ ] Apenas para economizar memória na lista booleana.
-> Todo composto $k \cdot p$ com $k < p$ tem pelo menos um fator primo $q \le k < p$, de modo que ele já foi marcado como `False` quando o crivo processou o primo $q$.
-
-### Pergunta
-Aproximadamente quantas divisões pela metade a exponenciação por quadrados sucessivos (`pot_mod(base, exp, mod)`) realiza quando `exp` é $2^{60}$?
-- [ ] Cerca de $2^{30}$ divisões (a raiz quadrada do expoente).
-- [x] Cerca de $61$ iterações, pois o expoente é dividido por 2 a cada passo ($\log_2(2^{60}) = 60$).
-- [ ] Cerca de $2^{60}$ multiplicações.
-- [ ] Depende do valor da `base` e de `mod`.
-> Como `exp //= 2` reduz o expoente pela metade a cada iteração do laço `while`, o número de iterações é $\lfloor\log_2(\text{exp})\rfloor + 1 = 61$.
+- [x] Porque todo múltiplo $k \cdot p$ com $k < p$ tem um fator primo menor que $p$ e já foi riscado antes.
+- [ ] Porque os números pares já foram removidos no começo.
+- [ ] Porque começar em $2p$ riscaria o próprio $p$.
+> Se $k < p$, algum primo $q \le k$ divide $k \cdot p$, e esse número foi riscado quando o crivo processou $q$. Começar em $2p$ também funciona, mas repete trabalho. É pela mesma razão que o laço de fora para em $p^2 > n$.
