@@ -23,7 +23,7 @@ import { safeRedirectPath } from "@/lib/utils"
 
 function LoginBrandPanel(): React.JSX.Element {
   return (
-    <AuthBrandPanel description="Aprenda programação de forma gamificada. Uma iniciativa gratuita da Universidade de São Paulo para todo o Brasil." />
+    <AuthBrandPanel description="Aprenda programação de forma gamificada e gratuita. Projeto de TCC desenvolvido no DCM/FFCLRP-USP." />
   )
 }
 

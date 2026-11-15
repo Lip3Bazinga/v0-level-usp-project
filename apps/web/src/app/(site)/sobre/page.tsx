@@ -13,7 +13,7 @@ import { SectionHeading } from "@/components/marketing/section-heading"
 export const metadata: Metadata = {
   title: "Sobre o LevelUSP — Nossa missão e história",
   description:
-    "Conheça a missão, a visão, os valores e a história do LevelUSP, a iniciativa gratuita da Universidade de São Paulo para democratizar o ensino de computação no Brasil.",
+    "Conheça a missão, a visão, os valores e a origem do LevelUSP, plataforma gratuita de ensino de programação desenvolvida no DCM/FFCLRP-USP.",
 }
 
 function IntroSection(): React.JSX.Element {
@@ -30,12 +30,12 @@ function IntroSection(): React.JSX.Element {
             </p>
             <p>
               Acreditamos que a universidade pública tem o dever de devolver à sociedade o
-              conhecimento que produz. Por isso, reunimos docentes, pesquisadores e estudantes da
-              USP para construir uma plataforma{" "}
+              conhecimento que produz. Por isso, o LevelUSP é desenvolvido no DCM/FFCLRP-USP, como
+              trabalho de conclusão de curso, na forma de uma plataforma{" "}
               <strong className="text-level-purple-dark">
-                gratuita, gamificada e cientificamente embasada
+                gratuita, gamificada e baseada em prática
               </strong>{" "}
-              — capaz de levar a programação a qualquer pessoa, em qualquer lugar do país.
+              — que roda no navegador, sem instalar nada.
             </p>
           </div>
         </Reveal>
@@ -80,9 +80,8 @@ function MissionVisionSection(): React.JSX.Element {
               </div>
               <h2 className="text-2xl font-bold text-white">Nossa visão</h2>
               <p className="mt-4 text-lg leading-relaxed text-purple-100">
-                Ser a porta de entrada para a tecnologia de milhões de brasileiros, formando uma
-                nova geração de profissionais e cidadãos digitais — e provando que a universidade
-                pública pode educar em escala nacional.
+                Ser uma porta de entrada para a programação: uma trilha completa, do zero à IA,
+                que qualquer pessoa possa seguir de graça e no próprio ritmo.
               </p>
             </div>
           </Reveal>
@@ -154,7 +153,7 @@ export default function AboutPage(): React.JSX.Element {
             <span className="gradient-text">transformação social</span>
           </>
         }
-        description="O LevelUSP é uma iniciativa de extensão da Universidade de São Paulo que nasceu para enfrentar uma desigualdade concreta: o acesso ao ensino de computação no Brasil."
+        description="O LevelUSP é um projeto desenvolvido no DCM/FFCLRP-USP para enfrentar uma desigualdade concreta: o acesso ao ensino de computação no Brasil."
       />
       <IntroSection />
       <MissionVisionSection />

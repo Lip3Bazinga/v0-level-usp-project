@@ -41,7 +41,6 @@ export const ROUTES = {
   teacherCourse: (courseId: string) => `/teacher/curso/${courseId}`,
 
   admin: "/admin",
-  showcase: "/showcase",
   landing: "/landing",
 
   site: {

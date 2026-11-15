@@ -38,7 +38,7 @@ export function BrandMark({ size = "md", className }: BrandMarkProps): React.JSX
 
 interface BrandLogoProps {
   size?: Exclude<BrandSize, "hero">
-  /** Segunda linha abaixo do nome (ex.: "Iniciativa da USP"). */
+  /** Segunda linha abaixo do nome (ex.: "DCM/FFCLRP-USP"). */
   tagline?: ReactNode
   /** Com `href`, o logo vira um link (ex.: para o painel ou a página inicial). */
   href?: string

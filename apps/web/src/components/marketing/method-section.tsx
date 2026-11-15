@@ -31,7 +31,7 @@ export function MethodSection(): React.JSX.Element {
         <SectionIntro
           eyebrow="Nossa metodologia"
           title="Teoria que vira prática em segundos"
-          description="Combinamos aprendizagem ativa com prática deliberada: cada conceito teórico é seguido imediatamente por um exercício na IDE. É o ciclo que a ciência cognitiva mostra ser o mais eficaz para reter conhecimento técnico."
+          description="Combinamos aprendizagem ativa com prática deliberada: cada conceito teórico é seguido imediatamente por um exercício na IDE."
         />
 
         <div className="mt-16 grid gap-6 lg:grid-cols-3">

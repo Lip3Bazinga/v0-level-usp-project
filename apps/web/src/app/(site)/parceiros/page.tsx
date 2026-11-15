@@ -7,7 +7,7 @@ import { PageHero } from "@/components/marketing/page-hero"
 import { SectionHeading } from "@/components/marketing/section-heading"
 
 export const metadata: Metadata = {
-  title: "Parceiros — Quem apoia o LevelUSP",
+  title: "Parceiros — Onde o LevelUSP é desenvolvido",
   description:
     "Conheça a instituição que apoia o LevelUSP.",
 }
@@ -50,7 +50,7 @@ export default function PartnersPage(): React.JSX.Element {
             Construímos isso <span className="gradient-text">juntos</span>
           </>
         }
-        description="A democratização do ensino de tecnologia depende de instituições que compartilham essa missão."
+        description="O LevelUSP é um projeto de TCC desenvolvido no DCM/FFCLRP-USP."
       />
       <PartnerWallSection />
       <FinalCta />

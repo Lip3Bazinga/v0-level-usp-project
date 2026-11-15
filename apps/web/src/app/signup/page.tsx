@@ -21,15 +21,15 @@ import { ROUTES } from "@/lib/constants"
 import { PASSWORD_MIN_LENGTH, getPasswordPolicyError } from "@/lib/utils"
 
 const SIGNUP_BENEFITS = [
-  "Aprenda Python do zero ao avançado",
+  "Trilha de 7 níveis, do zero à IA (Nível 1 disponível)",
   "Ganhe XP e suba de nível",
-  "IDE completa no navegador",
-  "Certificados reconhecidos pela USP",
+  "IDE no navegador, sem instalar nada",
+  "Certificado emitido pela plataforma LevelUSP",
 ] as const
 
 function SignupBrandPanel(): React.JSX.Element {
   return (
-    <AuthBrandPanel description="Comece sua jornada na programação hoje. 100% gratuito, 100% gamificado.">
+    <AuthBrandPanel description="Comece sua jornada na programação hoje. Gratuito e gamificado. Projeto de TCC desenvolvido no DCM/FFCLRP-USP.">
       <div className="mt-12 space-y-4 text-left">
         {SIGNUP_BENEFITS.map((benefit) => (
           <div key={benefit} className="flex items-center gap-3">

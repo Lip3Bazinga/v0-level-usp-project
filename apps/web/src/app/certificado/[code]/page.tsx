@@ -56,7 +56,8 @@ export default async function CertificadoPage({ params }: CertificadoPageProps):
               <div>
                 <p className="font-bold text-green-800">Certificado autêntico</p>
                 <p className="text-sm text-green-700">
-                  Emitido pela plataforma LevelUSP — Universidade de São Paulo.
+                  Certificado emitido pela plataforma LevelUSP, projeto de TCC desenvolvido no
+                  DCM/FFCLRP-USP.
                 </p>
               </div>
             </div>
@@ -111,8 +112,7 @@ export default async function CertificadoPage({ params }: CertificadoPageProps):
               </div>
             </div>
             <p className="text-sm text-gray-500">
-              Confira se o código foi digitado corretamente. Em caso de dúvida, entre em
-              contato com a equipe LevelUSP.
+              Confira se o código foi digitado corretamente.
             </p>
           </>
         )}

@@ -10,7 +10,7 @@ const COURSE_GRADIENTS: Record<Difficulty, string> = {
   avancado: "from-rose-500 to-red-700",
 }
 
-const BASE_PERKS = ["100% gratuito", "Acesso vitalício", "Certificado ao concluir"]
+const BASE_PERKS = ["Gratuito", "No seu ritmo", "Certificado ao concluir"]
 const FINAL_PROJECT_PERK = "Projeto do nível com correção automática"
 
 interface CourseHeroProps {

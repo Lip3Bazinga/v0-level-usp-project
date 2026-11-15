@@ -13,7 +13,7 @@ export function buildRootMetadata(publicBaseUrl: string): Metadata {
       template: `%s | ${SITE_NAME}`,
     },
     description:
-      "LevelUSP é uma iniciativa da USP para expandir o conhecimento de programação por todo o Brasil. Aprenda Python de forma gratuita e gamificada.",
+      "LevelUSP é uma plataforma gratuita e gamificada para aprender Python, do zero à IA. Projeto de TCC desenvolvido no DCM/FFCLRP-USP.",
     keywords: [
       "programação",
       "Python",
@@ -24,7 +24,7 @@ export function buildRootMetadata(publicBaseUrl: string): Metadata {
       "gratuito",
       "aprender a programar",
     ],
-    authors: [{ name: "Universidade de São Paulo" }],
+    authors: [{ name: "Filipe Pio Magalhães" }],
     robots: { index: true, follow: true },
     openGraph: {
       type: "website",
@@ -33,13 +33,13 @@ export function buildRootMetadata(publicBaseUrl: string): Metadata {
       siteName: SITE_NAME,
       title: DEFAULT_TITLE,
       description:
-        "Plataforma gratuita e gamificada de programação da USP. Aprenda Python com exercícios interativos e ganhe XP!",
+        "Plataforma gratuita e gamificada de programação. Aprenda Python com exercícios interativos e ganhe XP!",
       images: [{ url: OG_IMAGE_PATH, width: 1200, height: 630, alt: SITE_NAME }],
     },
     twitter: {
       card: "summary_large_image",
       title: DEFAULT_TITLE,
-      description: "Plataforma gratuita e gamificada de programação da USP.",
+      description: "Plataforma gratuita e gamificada de programação.",
       images: [OG_IMAGE_PATH],
     },
     icons: {

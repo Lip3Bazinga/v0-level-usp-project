@@ -22,33 +22,33 @@ import type { IconHighlight } from "./types"
 /** Selos flutuantes ao redor do título da página inicial (só a partir de `md`). */
 export const HERO_FLOATING_STATS = [
   { value: "Gratuito", label: "sem mensalidade", positionClass: "left-2 top-28 sm:left-8 lg:left-16" },
-  { value: "+50 XP", label: "por lição", positionClass: "right-2 top-40 sm:right-8 lg:right-20" },
+  { value: "XP", label: "a cada passo concluído", positionClass: "right-2 top-40 sm:right-8 lg:right-20" },
 ] as const
 
 export const MISSIONS = [
   {
     icon: Globe2,
-    title: "Acesso para todo o Brasil",
+    title: "Acesso sem custo",
     description:
-      "Levamos educação em computação de qualidade a regiões com poucas oportunidades de formação técnica, sem custo algum.",
+      "Qualquer pessoa com um navegador e internet pode estudar: não há mensalidade nem programa para instalar.",
   },
   {
     icon: HeartHandshake,
-    title: "Inclusão e diversidade",
+    title: "Do zero, em português",
     description:
-      "Reduzimos a barreira de entrada na tecnologia para estudantes de escolas públicas, mulheres e grupos sub-representados.",
+      "O conteúdo parte de quem nunca programou, em português brasileiro e com exemplos do cotidiano.",
   },
   {
     icon: Sprout,
-    title: "Impacto socioeconômico",
+    title: "Prática desde o início",
     description:
-      "Formamos talentos que transformam suas comunidades e ampliam a força de trabalho qualificada do país.",
+      "Cada lição é dividida em passos curtos, com exercícios corrigidos automaticamente e um projeto ao fim do nível.",
   },
   {
     icon: Users,
-    title: "Conhecimento aberto",
+    title: "Projeto acadêmico",
     description:
-      "Todo o conteúdo é desenvolvido por docentes e pesquisadores da USP e disponibilizado gratuitamente.",
+      "O LevelUSP é um trabalho de conclusão de curso desenvolvido no DCM/FFCLRP-USP, com o código no GitHub.",
   },
 ] as const satisfies readonly IconHighlight[]
 
@@ -69,7 +69,7 @@ export const METHOD_STEPS = [
     icon: Repeat,
     title: "Feedback e repetição",
     description:
-      "Testes automáticos avaliam seu código na hora, reforçam o conceito e ajustam a dificuldade ao seu ritmo.",
+      "Testes automáticos avaliam seu código na hora; dicas e a solução comentada ajudam quando você trava.",
   },
 ] as const satisfies readonly IconHighlight[]
 
@@ -91,16 +91,16 @@ export const SCIENTIFIC_EVIDENCE = [
     icon: Activity,
     title: "Prática deliberada",
     description:
-      "A prática deliberada com feedback imediato é o maior preditor de domínio em habilidades complexas como programar.",
-    source: "Ericsson, Psychological Review",
+      "O estudo descreve a prática deliberada, com feedback imediato, como caminho para o desempenho de especialista.",
+    source: "Ericsson et al., Psychological Review (1993)",
     href: "https://psycnet.apa.org/record/1993-40718-001",
   },
   {
     icon: FlaskConical,
-    title: "Recuperação espaçada",
+    title: "Prática de recuperação",
     description:
-      "Testar-se e revisar em intervalos espaçados melhora a retenção de longo prazo comparado a reler conteúdo.",
-    source: "Roediger & Karpicke, Science",
+      "Tentar lembrar do conteúdo, como nos quizzes e nos passos de previsão, melhora a retenção em comparação com reler.",
+    source: "Karpicke & Roediger, Science (2008)",
     href: "https://www.science.org/doi/10.1126/science.1152408",
   },
 ] as const satisfies readonly ScientificEvidence[]
@@ -109,42 +109,43 @@ interface JourneyChapter extends IconHighlight {
   chapter: string
 }
 
+/** Os 7 níveis da trilha, como estão no currículo. Só o Nível 1 está publicado. */
 export const JOURNEY_CHAPTERS = [
   {
     icon: Rocket,
-    chapter: "Capítulo 1",
-    title: "Primeiros passos",
-    description: "Lógica, variáveis e seus primeiros programas em Python rodando na IDE.",
+    chapter: "Nível 1 · disponível",
+    title: "Fundamentos",
+    description: "Fundamentos de programação e de computação: variáveis, decisões, laços, funções e coleções.",
   },
   {
     icon: Code2,
-    chapter: "Capítulo 2",
-    title: "Estruturas e funções",
-    description: "Condicionais, laços, funções e organização de código limpo.",
+    chapter: "Nível 2 · em preparação",
+    title: "Python intermediário",
+    description: "Python intermediário e engenharia de software.",
   },
   {
     icon: Database,
-    chapter: "Capítulo 3",
-    title: "Dados e coleções",
-    description: "Listas, dicionários, arquivos e manipulação de dados reais.",
+    chapter: "Nível 3 · em preparação",
+    title: "Estruturas de dados e algoritmos",
+    description: "Como organizar dados e medir o custo de um algoritmo.",
   },
   {
     icon: LineChart,
-    chapter: "Capítulo 4",
-    title: "Ciência de dados",
-    description: "Pandas, NumPy e visualização para extrair valor de dados.",
+    chapter: "Nível 4 · em preparação",
+    title: "Análise de dados",
+    description: "Tabelas, gráficos e análise de dados com Python.",
   },
   {
     icon: Brain,
-    chapter: "Capítulo 5",
-    title: "Introdução a ML",
-    description: "Conceitos de machine learning com projetos guiados e práticos.",
+    chapter: "Níveis 5 e 6 · em preparação",
+    title: "Machine Learning e Deep Learning",
+    description: "Dos modelos clássicos às redes neurais.",
   },
   {
     icon: Trophy,
-    chapter: "Conquista",
-    title: "Projeto do nível",
-    description: "Construa um projeto completo, faça a prova e receba o certificado do nível.",
+    chapter: "Nível 7 · em preparação",
+    title: "Engenharia de IA",
+    description: "O último nível da trilha. Cada nível termina com projeto, prova e certificado.",
   },
 ] as const satisfies readonly JourneyChapter[]
 

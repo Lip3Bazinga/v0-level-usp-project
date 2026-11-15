@@ -6,7 +6,7 @@ export const ABOUT_VALUES = [
     icon: Globe,
     title: "Acesso universal",
     description:
-      "Educação de qualidade não pode depender de CEP ou renda. Tudo no LevelUSP é e sempre será gratuito.",
+      "Educação de qualidade não pode depender de CEP ou renda. O LevelUSP é gratuito.",
   },
   {
     icon: Heart,
@@ -16,9 +16,9 @@ export const ABOUT_VALUES = [
   },
   {
     icon: BookOpen,
-    title: "Rigor acadêmico",
+    title: "Origem acadêmica",
     description:
-      "Currículo desenhado por docentes e pesquisadores da USP, com base em evidências da ciência da aprendizagem.",
+      "Projeto desenvolvido no DCM/FFCLRP-USP como trabalho de conclusão de curso, com orientação docente.",
   },
   {
     icon: Sparkles,
@@ -37,6 +37,6 @@ export const ABOUT_ORIGIN = {
 
 export const ABOUT_PRINCIPLES = [
   { icon: Users, value: "Para todos", label: "iniciantes absolutos são bem-vindos" },
-  { icon: Award, value: "Sem custo", label: "nenhuma mensalidade, hoje ou no futuro" },
-  { icon: BookOpen, value: "Open content", label: "material aberto e revisado por pares" },
+  { icon: Award, value: "Sem custo", label: "nenhuma mensalidade" },
+  { icon: BookOpen, value: "Em português", label: "conteúdo e mensagens de erro em pt-BR" },
 ] as const satisfies readonly IconStat[]

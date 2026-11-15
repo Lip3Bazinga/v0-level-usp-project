@@ -1,6 +1,6 @@
 import {
-  GaugeCircle,
-  Infinity as InfinityIcon,
+  Eye,
+  LifeBuoy,
   Layers,
   Lightbulb,
   ListChecks,
@@ -19,7 +19,7 @@ export const TEACHING_PILLARS = [
     icon: ListChecks,
     title: "Prática deliberada",
     description:
-      "Exercícios calibrados na zona de desenvolvimento proximal, com feedback imediato e correção automática.",
+      "Exercícios curtos, em ordem crescente de dificuldade, com feedback imediato e correção automática.",
   },
   {
     icon: Layers,
@@ -28,10 +28,10 @@ export const TEACHING_PILLARS = [
       "Conteúdo dividido em blocos curtos que reduzem a carga cognitiva e mantêm o progresso constante.",
   },
   {
-    icon: GaugeCircle,
-    title: "Dificuldade adaptativa",
+    icon: LifeBuoy,
+    title: "Dicas e solução comentada",
     description:
-      "A trilha ajusta o desafio ao desempenho de cada estudante, evitando tédio e frustração.",
+      "Quem trava pede dicas, uma a uma; depois de algumas tentativas, a solução comentada fica disponível.",
   },
   {
     icon: ShieldCheck,
@@ -40,14 +40,15 @@ export const TEACHING_PILLARS = [
       "Testes unitários ocultos verificam se o código funciona de verdade — não apenas se parece certo.",
   },
   {
-    icon: InfinityIcon,
-    title: "Revisão espaçada",
+    icon: Eye,
+    title: "Prever antes de executar",
     description:
-      "Conceitos retornam em intervalos planejados para consolidar a memória de longo prazo.",
+      "Passos de previsão pedem que você diga o que o código imprime antes de rodá-lo.",
   },
 ] as const satisfies readonly IconHighlight[]
 
 interface MethodComparison {
+  /** Como costuma ser num curso em vídeo ou em sala. */
   traditional: string
   levelUsp: string
 }
@@ -55,7 +56,7 @@ interface MethodComparison {
 export const METHOD_COMPARISON = [
   { traditional: "Vídeo-aulas passivas", levelUsp: "Prática na IDE desde a 1ª lição" },
   { traditional: "Instalar ambiente complexo", levelUsp: "Tudo roda no navegador, sem setup" },
-  { traditional: "Avaliação por múltipla escolha", levelUsp: "Código avaliado por testes reais" },
-  { traditional: "Ritmo único para todos", levelUsp: "Dificuldade adaptada a você" },
-  { traditional: "Conteúdo genérico importado", levelUsp: "Exemplos do contexto brasileiro" },
+  { traditional: "Exercício sem correção", levelUsp: "Código avaliado por testes automáticos" },
+  { traditional: "Ritmo da turma", levelUsp: "Você avança no seu ritmo, passo a passo" },
+  { traditional: "Material em inglês", levelUsp: "Conteúdo em português, com exemplos do cotidiano" },
 ] as const satisfies readonly MethodComparison[]

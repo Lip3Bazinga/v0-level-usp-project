@@ -67,7 +67,7 @@ export function renderCertificatePdf(data: CertificatePdfData): Promise<Buffer> 
     }
 
     drawCentered("LevelUSP", { top: 80, font: "Times-Bold", size: 30, color: PURPLE })
-    drawCentered("Universidade de São Paulo", { top: 118, font: "Helvetica", size: 11, color: GRAY })
+    drawCentered("Projeto de TCC desenvolvido no DCM/FFCLRP-USP", { top: 118, font: "Helvetica", size: 11, color: GRAY })
     drawCentered("CERTIFICADO DE CONCLUSÃO", { top: 160, font: "Times-Bold", size: 34, color: PURPLE_DARK })
     drawCentered("Certificamos que", { top: 222, font: "Times-Roman", size: 15, color: GRAY })
 

@@ -11,8 +11,8 @@ export function ScienceSection(): React.JSX.Element {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionIntro
           eyebrow="Base científica"
-          title="Nosso método é comprovado por pesquisa"
-          description="Cada decisão pedagógica da LevelUSP é fundamentada em décadas de pesquisa em ciência da aprendizagem e psicologia cognitiva. Não é achismo — é evidência."
+          title="As pesquisas em que o método se apoia"
+          description="O formato das lições segue ideias da pesquisa em aprendizagem. Os estudos abaixo são sobre essas ideias em geral; a plataforma em si ainda não foi avaliada."
         />
 
         <Stagger className="mt-16 grid gap-6 lg:grid-cols-3">
@@ -47,7 +47,7 @@ export function ScienceSection(): React.JSX.Element {
               desde o primeiro minuto, com a teoria sempre a um clique de distância.”
             </p>
             <p className="mt-6 text-sm font-semibold text-level-purple">
-              Equipe Pedagógica — LevelUSP / Universidade de São Paulo
+              LevelUSP — projeto desenvolvido no DCM/FFCLRP-USP
             </p>
           </div>
         </Reveal>
