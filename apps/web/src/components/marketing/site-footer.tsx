@@ -75,7 +75,7 @@ export function SiteFooter(): React.JSX.Element {
             gratuito.
           </p>
           <p className="text-sm font-medium text-level-purple">
-            100% gratuito para todos os brasileiros
+            Gratuito para todos os brasileiros
           </p>
         </div>
       </div>

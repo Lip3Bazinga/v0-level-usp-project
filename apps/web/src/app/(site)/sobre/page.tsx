@@ -142,7 +142,7 @@ function TimelineSection(): React.JSX.Element {
           />
           <div className="space-y-10">
             {ABOUT_TIMELINE.map((event, index) => (
-              <Reveal key={event.year} delay={index * TIMELINE_REVEAL_STAGGER_SECONDS}>
+              <Reveal key={event.title} delay={index * TIMELINE_REVEAL_STAGGER_SECONDS}>
                 <div
                   className={cn(
                     "relative flex items-start gap-6 sm:w-1/2",
@@ -153,8 +153,7 @@ function TimelineSection(): React.JSX.Element {
                     <span className="h-2 w-2 rounded-full bg-white" />
                   </div>
                   <div className="flex-1 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                    <span className="text-sm font-bold text-level-purple">{event.year}</span>
-                    <h3 className="mt-1 text-lg font-semibold text-level-purple-dark">
+                    <h3 className="text-lg font-semibold text-level-purple-dark">
                       {event.title}
                     </h3>
                     <p className="mt-2 text-sm leading-relaxed text-gray-600">

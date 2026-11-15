@@ -29,32 +29,27 @@ export const ABOUT_VALUES = [
 ] as const satisfies readonly IconHighlight[]
 
 interface TimelineEvent {
-  year: string
   title: string
   description: string
 }
 
 export const ABOUT_TIMELINE = [
   {
-    year: "2022",
     title: "A ideia nasce",
     description:
       "Um grupo de docentes e estudantes de computação da USP percebe a barreira de acesso ao ensino de programação fora dos grandes centros.",
   },
   {
-    year: "2023",
     title: "Primeiro piloto",
     description:
-      "Lançamento de uma trilha experimental de Python para 200 estudantes de escolas públicas parceiras em São Paulo.",
+      "Lançamento de uma trilha experimental de Python para estudantes de escolas públicas parceiras em São Paulo.",
   },
   {
-    year: "2024",
     title: "Plataforma gamificada",
     description:
       "Desenvolvimento da IDE no navegador, do sistema de XP, conquistas e trilhas estruturadas baseadas em prática deliberada.",
   },
   {
-    year: "2025",
     title: "Expansão nacional",
     description:
       "Abertura gratuita para todo o Brasil e novas trilhas de Ciência de Dados, com parcerias em múltiplos estados.",

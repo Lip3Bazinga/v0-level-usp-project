@@ -26,11 +26,8 @@ export function ScienceSection(): React.JSX.Element {
               whileHover={{ y: -6 }}
               className="group flex flex-col rounded-3xl border border-gray-100 bg-white p-8 shadow-sm transition-shadow hover:shadow-xl hover:shadow-purple-100"
             >
-              <div className="mb-5 flex items-center gap-4">
-                <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-level-purple-light">
-                  <evidence.icon className="h-7 w-7 text-level-purple" />
-                </div>
-                <span className="text-4xl font-bold text-level-purple-dark">{evidence.stat}</span>
+              <div className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-level-purple-light">
+                <evidence.icon className="h-7 w-7 text-level-purple" />
               </div>
               <h3 className="mb-2 text-lg font-bold text-level-purple-dark">{evidence.title}</h3>
               <p className="flex-1 text-sm leading-relaxed text-gray-600">{evidence.description}</p>

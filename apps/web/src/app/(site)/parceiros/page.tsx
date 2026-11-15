@@ -1,13 +1,8 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowRight, CheckCircle2, Handshake } from "lucide-react"
-import {
-  PARTNERSHIP_BENEFITS,
-  PARTNER_CATEGORIES,
-  PARTNER_NAMES,
-} from "@/components/marketing/content/partners"
+import { PARTNERS, PARTNERSHIP_BENEFITS } from "@/components/marketing/content/partners"
 import { FinalCta } from "@/components/marketing/final-cta"
-import { IconCard } from "@/components/marketing/icon-card"
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion-primitives"
 import { PageHero } from "@/components/marketing/page-hero"
 import { SectionHeading } from "@/components/marketing/section-heading"
@@ -16,48 +11,31 @@ import { ROUTES } from "@/lib/constants"
 export const metadata: Metadata = {
   title: "Parceiros — Quem apoia o LevelUSP",
   description:
-    "Conheça as instituições de ensino, empresas e organizações que apoiam o LevelUSP e saiba como sua organização pode fazer parte dessa rede.",
-}
-
-function CategoriesSection(): React.JSX.Element {
-  return (
-    <section className="pb-12">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <Stagger className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {PARTNER_CATEGORIES.map((category) => (
-            <IconCard key={category.title} {...category} />
-          ))}
-        </Stagger>
-      </div>
-    </section>
-  )
+    "Conheça quem apoia o LevelUSP e saiba como a sua organização pode fazer parte.",
 }
 
 function PartnerWallSection(): React.JSX.Element {
   return (
-    <section className="py-16">
+    <section className="pb-16">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
           title="Quem caminha com a gente"
-          description="Instituições e organizações que apoiam o LevelUSP em diferentes frentes."
+          description="A instituição que apoia o LevelUSP."
           className="mb-12 text-center"
         />
 
-        <Stagger className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {PARTNER_NAMES.map((partnerName) => (
+        <Stagger className="mx-auto grid max-w-xl gap-4">
+          {PARTNERS.map((partner) => (
             <StaggerItem
-              key={partnerName}
-              className="flex h-28 items-center justify-center rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm transition-shadow hover:shadow-md"
+              key={partner.name}
+              className="rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm"
             >
-              <span className="text-sm font-semibold text-level-purple-dark">{partnerName}</span>
+              <p className="text-xs font-semibold uppercase tracking-wider text-level-purple">{partner.role}</p>
+              <h3 className="mt-2 text-lg font-bold text-level-purple-dark">{partner.name}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-gray-600">{partner.fullName}</p>
             </StaggerItem>
           ))}
         </Stagger>
-        <Reveal className="mt-6 text-center">
-          <p className="text-sm text-gray-400">
-            Nomes ilustrativos da rede de apoio institucional do projeto.
-          </p>
-        </Reveal>
       </div>
     </section>
   )
@@ -74,7 +52,7 @@ function BecomePartnerSection(): React.JSX.Element {
                 <h2 className="text-3xl font-bold text-white">Seja um parceiro</h2>
                 <p className="mt-4 leading-relaxed text-purple-100">
                   Sua instituição ou empresa pode ampliar o alcance da educação em tecnologia no
-                  Brasil. Junte-se a uma rede comprometida com o impacto social.
+                  Brasil.
                 </p>
                 <Link
                   href={ROUTES.site.contact}
@@ -116,9 +94,8 @@ export default function PartnersPage(): React.JSX.Element {
             Construímos isso <span className="gradient-text">juntos</span>
           </>
         }
-        description="A democratização do ensino de tecnologia só é possível com uma rede de instituições, escolas e empresas que compartilham nossa missão."
+        description="A democratização do ensino de tecnologia depende de instituições que compartilham essa missão."
       />
-      <CategoriesSection />
       <PartnerWallSection />
       <BecomePartnerSection />
       <FinalCta />

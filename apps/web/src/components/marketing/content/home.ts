@@ -21,7 +21,7 @@ import type { IconHighlight } from "./types"
 
 /** Selos flutuantes ao redor do título da página inicial (só a partir de `md`). */
 export const HERO_FLOATING_STATS = [
-  { value: "100%", label: "Gratuito", positionClass: "left-2 top-28 sm:left-8 lg:left-16" },
+  { value: "Gratuito", label: "sem mensalidade", positionClass: "left-2 top-28 sm:left-8 lg:left-16" },
   { value: "+50 XP", label: "por lição", positionClass: "right-2 top-40 sm:right-8 lg:right-20" },
 ] as const
 
@@ -74,7 +74,6 @@ export const METHOD_STEPS = [
 ] as const satisfies readonly IconHighlight[]
 
 interface ScientificEvidence extends IconHighlight {
-  stat: string
   source: string
   href: string
 }
@@ -82,7 +81,6 @@ interface ScientificEvidence extends IconHighlight {
 export const SCIENTIFIC_EVIDENCE = [
   {
     icon: BrainCircuit,
-    stat: "+76%",
     title: "Aprendizagem ativa",
     description:
       "Estudantes em aulas com prática ativa têm desempenho significativamente superior ao ensino expositivo tradicional.",
@@ -91,7 +89,6 @@ export const SCIENTIFIC_EVIDENCE = [
   },
   {
     icon: Activity,
-    stat: "2x",
     title: "Prática deliberada",
     description:
       "A prática deliberada com feedback imediato é o maior preditor de domínio em habilidades complexas como programar.",
@@ -100,7 +97,6 @@ export const SCIENTIFIC_EVIDENCE = [
   },
   {
     icon: FlaskConical,
-    stat: "+50%",
     title: "Recuperação espaçada",
     description:
       "Testar-se e revisar em intervalos espaçados melhora a retenção de longo prazo comparado a reler conteúdo.",
