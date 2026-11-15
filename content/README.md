@@ -235,6 +235,9 @@ Blocos de código:
 Caminhos são relativos, sem `..`, terminados em `.py`, `.txt`, `.csv`, `.json` ou `.md`.
 Uma solução errada com vários arquivos usa blocos seguidos com o mesmo `name=`
 (e `path=` nos arquivos extras). Dentro de uma seção, cada caminho aparece uma vez.
+Na verificação, a solução errada **herda os arquivos de `### Solução`** e só troca os que
+declara: escreva apenas o arquivo que tem o defeito (num projeto com `modelos.py`,
+`servico.py` e `dados.json`, a errada que erra em `servico.py` traz só esse bloco).
 
 ### 3.4 Passo `Quiz`
 

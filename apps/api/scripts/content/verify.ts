@@ -176,6 +176,16 @@ export function resolveSolution(step: BundleStep): ProjectFile[] | null {
   return assembled === null ? null : [{ path: DEFAULT_ENTRY_FILE, content: assembled }]
 }
 
+/**
+ * Projeto que uma solução errada roda: os arquivos de `### Solução` com os que a solução errada
+ * declara por cima (mesmo caminho substitui). Assim a errada só repete o arquivo que tem o defeito,
+ * e nunca reprova só porque faltou um arquivo de dados ou um módulo do projeto.
+ */
+export function wrongSolutionFiles(step: BundleStep, wrongFiles: readonly ProjectFile[]): ProjectFile[] {
+  const overridden = new Set(wrongFiles.map((file) => file.path))
+  return [...step.solution_files.filter((file) => !overridden.has(file.path)), ...wrongFiles]
+}
+
 /** Pedido ao executor para um projeto contra os casos do passo, com o motor (e as bibliotecas) da lição. */
 export function buildVerifyJob(lesson: BundleLesson, files: ProjectFile[], cases: TestCase[]): RunnerJob {
   return {
@@ -233,7 +243,7 @@ export async function verifyStep(target: ExerciseTarget, runner: StepRunner, sch
     const [solution, starter, wrongResults] = await Promise.all([
       run(solutionFiles),
       target.starter ? run(target.starter.files) : Promise.resolve(null),
-      Promise.all(step.wrong_solutions.map((wrongSolution) => run(wrongSolution.files))),
+      Promise.all(step.wrong_solutions.map((wrongSolution) => run(wrongSolutionFiles(step, wrongSolution.files)))),
     ])
     const wrong = wrongResults.map((result, index): WrongSolutionResult => ({ name: step.wrong_solutions[index]?.name ?? `#${index + 1}`, result }))
     const details = describeProblems(target, solution, starter, wrong)

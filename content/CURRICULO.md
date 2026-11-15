@@ -12,22 +12,25 @@ Os arquivos de conteúdo vivem em `content/` (formato em `docs/v2/curso-e-passos
 → `<NN>-<módulo>/modulo.yaml` → `<NN>-<lição>.lvl.md`. O Nível 1 está publicado e **completo**
 (estado em 2026-11-14): as 47 lições escritas a partir do plano de autoria
 (`content/cursos/n1-fundamentos/PLANO.md`), com 281 passos — 133 exercícios e 65 previsões e blocos de
-visualização verificados no executor real (`pnpm content:verify --curso n1-fundamentos`). Os Níveis 2
-a 7 têm a estrutura completa (módulos, lições com objetivos e roteiro, provas iniciais) e ficam
-despublicados até o conteúdo de cada lição ser escrito e verificado, um nível por vez.
+visualização verificados no executor real (`pnpm content:verify --curso n1-fundamentos`). O Nível 2
+está publicado e completo (estado em 2026-11-15): 35 lições (2 projetos de nível) com 263 passos — 113
+exercícios e 34 previsões e blocos de visualização verificados — e prova com 40 questões
+(`content/cursos/n2-python-intermediario/PLANO.md`). Os Níveis 3 a 7 têm a estrutura completa (módulos,
+lições com objetivos e roteiro, provas iniciais) e ficam despublicados até o conteúdo de cada lição ser
+escrito e verificado, um nível por vez.
 
 ## Tabela de níveis
 
 | Nível | Curso (slug) | Horas (D1) | Soma das lições | Módulos | Lições | Projeto(s) de nível | Prova | Certificado |
 |---|---|---|---|---|---|---|---|---|
 | 1 | Fundamentos de programação e de computação (`n1-fundamentos`) | ~50 h | 38,6 h | 9 | 47 | gerenciador de tarefas em modo texto | 40 questões no banco | Certificado do Nível 1 |
-| 2 | Python intermediário e engenharia de software (`n2-python-intermediario`) | ~45 h | 30,9 h | 7 | 35 | biblioteca com empréstimos; analisador de logs | 12 questões no banco | Certificado do Nível 2 |
+| 2 | Python intermediário e engenharia de software (`n2-python-intermediario`) | ~45 h | 30,9 h | 7 | 35 | biblioteca com empréstimos; analisador de logs | 40 questões no banco | Certificado do Nível 2 |
 | 3 | Estruturas de dados e algoritmos (`n3-estruturas-de-dados-e-algoritmos`) | ~60 h | 33,7 h | 8 | 39 | planejador de rotas do campus | 12 questões no banco | Certificado do Nível 3 |
 | 4 | Análise de dados (`n4-analise-de-dados`) | ~50 h | 26,8 h | 7 | 31 | análise de dados reais | 12 questões no banco | Certificado do Nível 4 |
 | 5 | Machine Learning (`n5-machine-learning`) | ~60 h | 31,8 h | 8 | 36 | previsão de inadimplência | 12 questões no banco | Certificado do Nível 5 |
 | 6 | Deep Learning: a IA por dentro (`n6-deep-learning`) | ~60 h | 33,6 h | 8 | 36 | seu próprio modelo de linguagem | 12 questões no banco | Certificado do Nível 6 |
 | 7 | Engenharia de IA (`n7-engenharia-de-ia`) | ~40 h | 25,1 h | 7 | 29 | assistente de atendimento da secretaria | 12 questões no banco | Certificado do Nível 7 |
-| **Total** | 7 cursos | **~365 h** | 220,5 h | 54 | 253 | 8 | 112 | + certificado da trilha |
+| **Total** | 7 cursos | **~365 h** | 220,5 h | 54 | 253 | 8 | 140 | + certificado da trilha |
 
 A coluna **Horas (D1)** é a carga de dedicação estimada do nível (o `horas` do `curso.yaml`, exibido no catálogo); a coluna **Soma das lições** é a soma de `tempo_min` dos arquivos `.lvl.md` — o tempo guiado mínimo (lições de 20–60 min, mini-projetos de módulo de 90 min e projetos de nível de 3–4 h). A relação entre as duas é de cerca de 1,7×: a diferença cobre a prova (1 h por nível), as tentativas reprovadas e as dicas, a releitura, a prática livre no editor e o tempo de projeto além do mínimo — a mesma proporção entre horas-aula e horas de estudo de uma disciplina semestral de 60 h.
 
