@@ -152,9 +152,9 @@ const ERROR_PATTERNS: readonly ErrorPattern[] = [
     pattern: /EOFError: EOF when reading a line/,
     title: "input() sem entrada",
     explanation: () =>
-      "O programa chamou input(), mas nao havia nenhuma linha de entrada para ler. O botao Executar roda o programa sem teclado: todo input() recebe 'fim da entrada'.",
+      "O programa chamou input(), mas nao havia nenhuma linha de entrada para ler. O Executar nao tem teclado: cada input() le uma linha do campo Entrada (stdin).",
     hint: () =>
-      "Para testar no Executar, troque temporariamente o input() por um valor fixo (ex.: nome = \"Ana\"). No Verificar, as entradas vem dos casos de teste.",
+      "Abra o campo Entrada (stdin), acima do console, e escreva uma linha para cada input() do programa. No Verificar, as entradas vem dos casos de teste.",
   },
 ]
 

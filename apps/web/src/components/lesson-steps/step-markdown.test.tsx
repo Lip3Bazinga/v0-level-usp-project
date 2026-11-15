@@ -104,7 +104,7 @@ describe("markdown rico das lições", () => {
     vi.mocked(requestTrace).mockResolvedValue(TRACE)
     render(<StepMarkdown content={"```python visualizar\ntotal = 0\nprint(total)\n```"} />)
     await userEvent.click(screen.getByRole("button", { name: "Visualizar" }))
-    expect(requestTrace).toHaveBeenCalledWith({ files: [{ path: "main.py", content: "total = 0\nprint(total)" }], entryPath: "main.py" })
+    expect(requestTrace).toHaveBeenCalledWith({ files: [{ path: "main.py", content: "total = 0\nprint(total)" }], entryPath: "main.py", stdin: "" })
     expect(await screen.findByRole("group", { name: /Visualizador de execução/ })).toBeInTheDocument()
     expect(screen.getByText("Passo 1 de 3: prestes a executar a linha 1")).toBeInTheDocument()
   })

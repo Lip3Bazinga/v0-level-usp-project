@@ -21,10 +21,11 @@ export type WorkerCommand =
       /** URL absoluta de onde vêm os wheels dos pacotes extras (numpy, matplotlib…). */
       packageBaseUrl: string
     }
-  | { type: "execute"; files: readonly ProjectFile[]; entryPath: string }
+  /** `stdin`: o que `input()` lê (campo "Entrada (stdin)"); vazio = sem entrada. */
+  | { type: "execute"; files: readonly ProjectFile[]; entryPath: string; stdin: string }
   | { type: "install"; packages: readonly string[] }
   /** Visualizador: executa registrando cada passo. `requestId` volta na resposta para casar pedido e resultado. */
-  | { type: "trace"; requestId: number; files: readonly ProjectFile[]; entryPath: string }
+  | { type: "trace"; requestId: number; files: readonly ProjectFile[]; entryPath: string; stdin: string }
 
 /** Mensagens que o worker envia à página. */
 export type WorkerMessage =

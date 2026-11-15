@@ -83,7 +83,7 @@ async function handleExecute(command: Extract<WorkerCommand, { type: "execute" }
   }
   post({ type: "execution-start" })
   try {
-    post({ type: "execution-result", result: runtime.runProject({ files: command.files, entryPath: command.entryPath }) })
+    post({ type: "execution-result", result: runtime.runProject({ files: command.files, entryPath: command.entryPath, stdin: command.stdin }) })
   } catch (error) {
     post({ type: "execution-error", error: errorMessage(error) })
   }
@@ -97,7 +97,7 @@ async function handleTrace(command: Extract<WorkerCommand, { type: "trace" }>): 
     return
   }
   try {
-    post({ type: "trace-result", requestId, trace: runtime.traceProject({ files: command.files, entryPath: command.entryPath }) })
+    post({ type: "trace-result", requestId, trace: runtime.traceProject({ files: command.files, entryPath: command.entryPath, stdin: command.stdin }) })
   } catch (error) {
     post({ type: "trace-error", requestId, error: errorMessage(error) })
   }

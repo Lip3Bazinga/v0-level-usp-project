@@ -14,6 +14,8 @@ import type { ProjectTrace } from "./project-execution"
 export interface TraceRequest {
   files: readonly ProjectFile[]
   entryPath: string
+  /** Texto lido por `input()`, uma linha por chamada. */
+  stdin?: string
 }
 
 const TIMEOUT_MESSAGE = `A visualização passou do tempo limite (${PYTHON_EXECUTION_TIMEOUT_MS / MS_PER_SECOND}s). Verifique se o código tem um laço que não termina.`
@@ -28,7 +30,7 @@ let lastRequestId = 0
  * @throws Error com mensagem pt-BR quando o runtime falha ou o código não termina no tempo limite
  * (nesse caso o worker é reiniciado, como no "Parar").
  */
-export function requestTrace({ files, entryPath }: TraceRequest): Promise<ProjectTrace> {
+export function requestTrace({ files, entryPath, stdin = "" }: TraceRequest): Promise<ProjectTrace> {
   lastRequestId += 1
   const requestId = lastRequestId
   return new Promise<ProjectTrace>((resolve, reject) => {
@@ -49,7 +51,7 @@ export function requestTrace({ files, entryPath }: TraceRequest): Promise<Projec
         restartWorker()
         finish(() => reject(new Error(TIMEOUT_MESSAGE)))
       }, PYTHON_EXECUTION_TIMEOUT_MS)
-      postToWorker({ type: "trace", requestId, files: files.map(({ path, content }) => ({ path, content })), entryPath })
+      postToWorker({ type: "trace", requestId, files: files.map(({ path, content }) => ({ path, content })), entryPath, stdin })
     }
 
     unsubscribe = subscribeToWorker({

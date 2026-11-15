@@ -14,12 +14,14 @@ import { cn, hasFile, updateFileContent } from "@/lib/utils"
 import {
   arrangementFiles, clearArrangementDraft, clearBlanksDraft, countBlanks, fillBlanksInFiles, readArrangementDraft, readBlanksDraft, writeArrangementDraft, writeBlanksDraft,
 } from "@/lib/utils/exercise-modes"
+import { callsInput } from "@/lib/utils/stdin"
 import { pythonErrorLines, stderrLines, stdoutLines, toConsoleOutput, type ConsoleLine } from "@/lib/utils/ide-feedback"
 import { checkpointStatuses, clearStepDraft, writeStepDraft, type CheckpointStatus } from "@/lib/utils/step-player"
 import { BlanksEditor } from "./blanks-editor"
 import { ExecutionVisualizer } from "./execution-visualizer"
 import { ParsonsBoard } from "./parsons-board"
 import { RunToolbar } from "./run-toolbar"
+import { StdinField } from "./stdin-field"
 import { HelpButtons, RevealedHints, SolutionCountdown } from "./step-help"
 import { StepMarkdown } from "./step-markdown"
 import { useExecutionTrace } from "./use-execution-trace"
@@ -77,6 +79,7 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
   const [activePath, setActivePath] = useState(() => (hasFile(initialFiles, MAIN_FILE_PATH) ? MAIN_FILE_PATH : (initialFiles[0]?.path ?? MAIN_FILE_PATH)))
   const [outputs, setOutputs] = useState<ConsoleOutput[]>([])
   const [cases, setCases] = useState<StepCaseResult[] | null>(null)
+  const [stdin, setStdin] = useState("")
   const { status: pythonStatus, isExecuting, isInstalling, execute, stop } = usePython({ packages: lesson.libraries })
   const help = useStepHelp({ lessonId: lesson.id, stepId: step.id, progress, onProgress, onUnauthorized })
   const trace = useExecutionTrace()
@@ -95,6 +98,9 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
     if (mode === "ordenar") return arrangementFiles(step.parsons_lines, placements)
     return files
   }
+
+  // No `ordenar` a linha com input() pode ainda estar no banco: o campo já aparece aberto.
+  const usesInput = mode === "ordenar" ? step.parsons_lines.some((line) => callsInput(line.text)) : (runnableFiles() ?? []).some((file) => callsInput(file.content))
 
   const handleContentChange = (path: string, content: string): void => {
     const next = updateFileContent(files, path, content)
@@ -143,7 +149,7 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
     const entryPath = mode === "codigo" && hasFile(project, activePath) ? activePath : MAIN_FILE_PATH
     setOutputs([toConsoleOutput({ type: "info", message: `Executando ${entryPath}...` })])
     execute(
-      { files: project, entryPath },
+      { files: project, entryPath, stdin },
       {
         onResult: (result: ExecutionResult): void => {
           appendLines([...stdoutLines(result.stdout), ...stderrLines(result.stderr)])
@@ -161,7 +167,7 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
       appendLines([{ type: "warning", message: EMPTY_ARRANGEMENT_MESSAGE }])
       return
     }
-    trace.start(project, mode === "codigo" && hasFile(project, activePath) ? activePath : MAIN_FILE_PATH)
+    trace.start(project, mode === "codigo" && hasFile(project, activePath) ? activePath : MAIN_FILE_PATH, stdin)
   }
 
   const handleVerify = async (): Promise<void> => {
@@ -315,6 +321,7 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
             </div>
             {trace.state.status === "loading" && <p role="status" className="border-t border-border bg-level-purple-light px-3 py-1.5 text-xs text-level-purple-dark">Preparando a visualização da execução…</p>}
             {trace.state.status === "error" && <p role="alert" className="border-t border-border bg-red-50 px-3 py-1.5 text-xs text-red-700">{trace.state.message}</p>}
+            <StdinField value={stdin} onChange={setStdin} isSuggested={usesInput} />
             <div className="min-h-0 flex-[2] border-t border-border">
               <ConsolePanel outputs={outputs} onClear={() => setOutputs([])} isRunning={isExecuting} />
             </div>

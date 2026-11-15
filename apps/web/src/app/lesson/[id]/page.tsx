@@ -18,6 +18,8 @@ import { useLessonNavigation } from "@/hooks/use-lesson-navigation"
 import { TheoryLessonLayout } from "@/components/ide/theory-lesson-layout"
 import { QuizLessonLayout } from "@/components/ide/quiz-lesson-layout"
 import { ROUTES } from "@/lib/constants"
+import { callsInput } from "@/lib/utils/stdin"
+import { StdinField } from "@/components/lesson-steps/stdin-field"
 
 // CodeMirror e o player de passos só entram no bundle de quem abre esse tipo de lição
 // (lições teóricas e de quiz não baixam o editor).
@@ -40,7 +42,7 @@ function LessonWorkspace({ lesson, allLessons, currentIndex }: LessonPageData): 
     files, activePath, openPaths, setActivePath, openFile, closeTab, updateFileContent,
     createFile, renameFile, deleteFile,
     consoleOutputs, clearConsole, runConsoleCommand,
-    pythonStatus, isExecuting, isInstalling, stop,
+    pythonStatus, isExecuting, isInstalling, stop, stdin, setStdin,
     run, reset, verify,
     hasRun, hasOutput, canVerify, lessonProgress, allPassed, isVerifying,
     lastResult, levelBefore, isSuccessOpen, setIsSuccessOpen,
@@ -86,12 +88,17 @@ function LessonWorkspace({ lesson, allLessons, currentIndex }: LessonPageData): 
             />
           }
           console={
-            <ConsolePanel
-              outputs={consoleOutputs}
-              onClear={clearConsole}
-              isRunning={isExecuting}
-              onRunCommand={runConsoleCommand}
-            />
+            <div className="flex h-full flex-col">
+              <StdinField value={stdin} onChange={setStdin} isSuggested={files.some((file) => callsInput(file.content))} />
+              <div className="min-h-0 flex-1">
+                <ConsolePanel
+                  outputs={consoleOutputs}
+                  onClear={clearConsole}
+                  isRunning={isExecuting}
+                  onRunCommand={runConsoleCommand}
+                />
+              </div>
+            </div>
           }
           fileExplorer={
             <FileExplorer

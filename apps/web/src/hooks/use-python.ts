@@ -19,6 +19,8 @@ export interface ExecutionRequest {
   files: readonly ProjectFile[]
   /** Arquivo executado; os demais ficam disponíveis para `import`. */
   entryPath: string
+  /** Texto lido por `input()`, uma linha por chamada. Sem ele, `input()` termina em EOFError. */
+  stdin?: string
 }
 
 /** Callbacks de uma execução: exatamente um deles é chamado por pedido. */
@@ -157,7 +159,7 @@ export function usePython({ packages, onStatusChange }: UsePythonOptions = {}): 
   const execute = useCallback((executionRequest: ExecutionRequest, handlers: ExecutionHandlers) => {
     if (getWorkerStatus() !== "ready") return
     handlersRef.current = handlers
-    postToWorker({ type: "execute", files: executionRequest.files, entryPath: executionRequest.entryPath })
+    postToWorker({ type: "execute", files: executionRequest.files, entryPath: executionRequest.entryPath, stdin: executionRequest.stdin ?? "" })
   }, [])
 
   const stop = useCallback(() => abortExecution("Execução interrompida pelo usuário."), [abortExecution])
