@@ -25,12 +25,6 @@ const SHOWCASE_LINKS = [
   { href: ROUTES.admin, label: "Painel Admin", variant: "ghost" },
 ] as const
 
-const SAMPLE_STATS = [
-  { value: "50K+", label: "Estudantes ativos" },
-  { value: "200+", label: "Lições interativas" },
-  { value: "15", label: "Trilhas de aprendizado" },
-] as const
-
 const SAMPLE_COURSES = [
   {
     title: "Python Básico",
@@ -105,7 +99,7 @@ function ShowcaseHero(): React.JSX.Element {
       <div className="relative mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
         <div className="inline-flex items-center gap-2 rounded-full bg-level-purple-subtle px-4 py-2 text-sm font-medium text-level-purple-dark mb-6">
           <Zap className="h-4 w-4 text-level-purple" />
-          100% Gratuito
+          Gratuito
         </div>
 
         <h1 className="mx-auto max-w-4xl text-4xl font-bold tracking-tight text-level-purple-dark sm:text-5xl lg:text-6xl text-balance">
@@ -129,15 +123,6 @@ function ShowcaseHero(): React.JSX.Element {
                 <ExternalLink className="h-4 w-4" />
               </span>
             </Link>
-          ))}
-        </div>
-
-        <div className="mt-16 grid grid-cols-3 gap-8 border-t border-level-purple-subtle pt-10">
-          {SAMPLE_STATS.map((stat) => (
-            <div key={stat.label}>
-              <div className="text-3xl font-bold text-level-purple-dark">{stat.value}</div>
-              <div className="text-sm text-muted-foreground">{stat.label}</div>
-            </div>
           ))}
         </div>
       </div>
@@ -314,7 +299,7 @@ function ShowcaseCallToAction(): React.JSX.Element {
           Pronto para começar sua jornada?
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-lg text-level-purple-light">
-          Junte-se a milhares de brasileiros que estão aprendendo programação gratuitamente.
+          Aprenda programação gratuitamente, no seu ritmo.
         </p>
         <div className="mt-8">
           <Link
@@ -342,7 +327,7 @@ function ShowcaseFooter(): React.JSX.Element {
           </p>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <BookOpen className="h-4 w-4" />
-            100% Gratuito
+            Gratuito
           </div>
         </div>
       </div>

@@ -28,33 +28,12 @@ export const ABOUT_VALUES = [
   },
 ] as const satisfies readonly IconHighlight[]
 
-interface TimelineEvent {
-  title: string
-  description: string
-}
-
-export const ABOUT_TIMELINE = [
-  {
-    title: "A ideia nasce",
-    description:
-      "Um grupo de docentes e estudantes de computação da USP percebe a barreira de acesso ao ensino de programação fora dos grandes centros.",
-  },
-  {
-    title: "Primeiro piloto",
-    description:
-      "Lançamento de uma trilha experimental de Python para estudantes de escolas públicas parceiras em São Paulo.",
-  },
-  {
-    title: "Plataforma gamificada",
-    description:
-      "Desenvolvimento da IDE no navegador, do sistema de XP, conquistas e trilhas estruturadas baseadas em prática deliberada.",
-  },
-  {
-    title: "Expansão nacional",
-    description:
-      "Abertura gratuita para todo o Brasil e novas trilhas de Ciência de Dados, com parcerias em múltiplos estados.",
-  },
-] as const satisfies readonly TimelineEvent[]
+/** Origem do projeto: o único fato da história do LevelUSP até aqui. */
+export const ABOUT_ORIGIN = {
+  title: "Trabalho de conclusão de curso",
+  description:
+    "O LevelUSP é desenvolvido como trabalho de conclusão de curso no Departamento de Computação e Matemática da FFCLRP-USP (DCM/FFCLRP-USP), em Ribeirão Preto.",
+} as const
 
 export const ABOUT_PRINCIPLES = [
   { icon: Users, value: "Para todos", label: "iniciantes absolutos são bem-vindos" },

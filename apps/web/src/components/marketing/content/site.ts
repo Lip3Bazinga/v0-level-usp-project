@@ -4,7 +4,7 @@ import type { SiteLink } from "./types"
 export const CONTACT_EMAIL = "contato@levelusp.org.br"
 export const CONTACT_EMAIL_HREF = `mailto:${CONTACT_EMAIL}`
 export const GITHUB_URL = "https://github.com"
-export const CAMPUS_ADDRESS = "Cidade Universitária — São Paulo, SP"
+export const CAMPUS_ADDRESS = "DCM/FFCLRP-USP — Ribeirão Preto, SP"
 
 export const PRIMARY_NAV_LINKS = [
   { href: ROUTES.site.about, label: "Sobre" },

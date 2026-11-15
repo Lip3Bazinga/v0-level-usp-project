@@ -21,24 +21,9 @@ import { useSubmitLock } from "@/hooks/use-submit-lock"
 import { ROUTES } from "@/lib/constants"
 import { safeRedirectPath } from "@/lib/utils"
 
-const PLATFORM_HIGHLIGHTS = [
-  { value: "50K+", label: "Estudantes" },
-  { value: "200+", label: "Lições" },
-  { value: "15", label: "Trilhas" },
-] as const
-
 function LoginBrandPanel(): React.JSX.Element {
   return (
-    <AuthBrandPanel description="Aprenda programação de forma gamificada. Uma iniciativa gratuita da Universidade de São Paulo para todo o Brasil.">
-      <div className="mt-12 grid grid-cols-3 gap-6">
-        {PLATFORM_HIGHLIGHTS.map((highlight) => (
-          <div key={highlight.label}>
-            <div className="text-3xl font-bold text-white">{highlight.value}</div>
-            <div className="text-sm text-purple-200">{highlight.label}</div>
-          </div>
-        ))}
-      </div>
-    </AuthBrandPanel>
+    <AuthBrandPanel description="Aprenda programação de forma gamificada. Uma iniciativa gratuita da Universidade de São Paulo para todo o Brasil." />
   )
 }
 

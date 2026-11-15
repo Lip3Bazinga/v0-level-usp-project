@@ -12,10 +12,3 @@ export const PARTNERS = [
     role: "Apoio institucional",
   },
 ] as const satisfies readonly Partner[]
-
-export const PARTNERSHIP_BENEFITS = [
-  "Acesso a relatórios de impacto e engajamento das suas turmas",
-  "Material didático aberto",
-  "Co-criação de trilhas voltadas à sua comunidade",
-  "Visibilidade como apoiador da democratização da tecnologia",
-] as const
