@@ -17,68 +17,11 @@ objetivos:
 - Reconhecer a pilha de chamadas como uma pilha e simular recursão com pilha explícita
 ---
 
-## Passo 1 · Leitura · Pilhas (LIFO) em $O(1)$ e balanceamento de delimitadores
+## Passo 1 · Leitura · LIFO no fim da list e delimitadores balanceados
 
-Uma **pilha** (*stack*) é uma estrutura de dados linear regida pela disciplina **LIFO** (*Last-In, First-Out* — o último a entrar é o primeiro a sair). Pense em uma pilha de pratos ou na pilha de quadros de execução (*call stack*) do próprio interpretador Python: você sempre coloca um novo prato no **topo** e retira apenas o prato que está no **topo**.
+Uma **pilha** guarda itens de forma que o último a entrar é o primeiro a sair (LIFO, *last in, first out*). Só o **topo** é acessível: empilhar põe um item no topo, desempilhar tira o item do topo e espiar lê o topo sem tirar.
 
-#### Por que o topo da pilha em Python deve ser o final da `list`?
-
-Como vimos no Módulo 2, a `list` do Python é um **vetor dinâmico** contíguo na memória:
-- Inserir ou remover no **final** (`dados.append(x)` e `dados.pop()`) tem custo **$O(1)$ amortizado**, pois não desloca nenhum outro elemento.
-- Inserir ou remover no **início** (`dados.insert(0, x)` e `dados.pop(0)`) tem custo **$O(n)$**, pois precisa deslocar todos os $n - 1$ elementos restantes na memória. Empilhar e desempilhar $n$ itens usando o índice `0` degrada um algoritmo linear $O(n)$ para quadrático $O(n^2)$!
-
-```mermaid
-flowchart LR
-    subgraph "Topo no fim da list — O(1)"
-        A["[10, 20, 30]"] -->|"append(40)"| B["[10, 20, 30, 40]"]
-        B -->|"pop() -> 40"| C["[10, 20, 30]"]
-    end
-```
-
-#### Aplicação clássica: balanceamento de delimitadores `()[]{}`
-
-Compiladores e editores de código verificam se parênteses `()`, colchetes `[]` e chaves `{}` estão balanceados percorrendo o texto da esquerda para a direita com uma pilha:
-1. Ao encontrar um delimitador de **abertura** (`(`, `[`, `{`), **empilhamos** esse caractere.
-2. Ao encontrar um delimitador de **fechamento** (`)`, `]`, `}`):
-   - Se a pilha estiver **vazia**, fechamos algo que nunca abriu $\to$ **desbalanceado** (`False`).
-   - Desempilhamos o topo e verificamos se ele forma o par correspondente (ex.: `(` com `)`). Se não corresponder (como em `([)]`), a ordem de aninhamento foi violada $\to$ **desbalanceado** (`False`).
-3. Ao terminar o texto, a expressão só é válida se a pilha estiver **completamente vazia** (caso contrário, sobraram delimitadores abertos sem fechamento, como em `(()`).
-
-Veja no visualizador como a pilha rastreia o aninhamento em `"{[()()]}"`:
-
-```python visualizar
-pares = {")": "(", "]": "[", "}": "{"}
-aberturas = set("([{")
-
-def verificar_expressao(texto):
-    pilha = []
-    for ch in texto:
-        if ch in aberturas:
-            pilha.append(ch)
-        elif ch in pares:
-            if not pilha or pilha[-1] != pares[ch]:
-                return False
-            pilha.pop()
-    return len(pilha) == 0
-
-ok_1 = verificar_expressao("{[()()]}")
-ok_2 = verificar_expressao("([)]")
-print("'{[()()]}' ->", ok_1)
-print("'([)]' ->", ok_2)
-```
-
-## Passo 2 · Exercício · Classe `Pilha` e verificação de delimitadores
-
-modo: lacunas
-
-Complete a implementação da classe `Pilha` sobre uma `list` com operações em $O(1)$ e da função `balanceado(texto)` para validar expressões contendo `()`, `[]` e `{}` (ignorando quaisquer outros caracteres como letras, números e operadores).
-
-### Instruções
-
-1. Na classe `Pilha`, implemente `empilhar(valor)` adicionando no fim de `self._dados`, `desempilhar()` removendo e devolvendo o topo (ou lançando `IndexError` se a pilha estiver vazia) e `topo()` devolvendo o elemento do topo sem removê-lo (também lançando `IndexError` se vazia).
-2. Implemente `balanceado(texto: str) -> bool` usando uma pilha para verificar se todos os delimitadores `()`, `[]` e `{}` abrem e fecham na ordem correta e se não restam aberturas pendentes no final.
-
-### Código inicial
+Em Python, a pilha é uma `list` com o topo no **fim**. `append(x)` e `pop()` custam $O(1)$ amortizado, porque nenhum outro elemento se move. Pôr o topo no começo, com `insert(0, x)` e `pop(0)`, também dá uma pilha correta, mas cada operação desloca os outros $n-1$ elementos uma posição: $n$ operações passam a custar $\Theta(n^2)$.
 
 ```python
 class Pilha:
@@ -86,40 +29,108 @@ class Pilha:
         self._dados = []
 
     def empilhar(self, valor):
-        self._dados.___(valor)
+        self._dados.append(valor)
+
+    def desempilhar(self):
+        if not self._dados:
+            raise IndexError("pilha vazia")
+        return self._dados.pop()
+```
+
+A classe esconde a lista (ninguém mexe no meio dela) e troca o `IndexError: pop from empty list` da `list` por uma mensagem que diz o que aconteceu.
+
+Você usa uma pilha toda vez que chama uma função. Cada chamada empilha um **quadro** com as variáveis locais; o `return` desempilha e volta para quem chamou. O *traceback* lista esses quadros, do mais antigo ao mais recente. Recursão funda demais estoura o limite da pilha de chamadas: `RecursionError: maximum recursion depth exceeded`. Trocar recursão por uma `list` usada como pilha, como no módulo 3, é fazer esse trabalho à mão.
+
+#### Delimitadores balanceados
+
+Num texto como `f(a[0], {1: 2})`, cada fechamento precisa casar com a abertura **mais recente que ainda está aberta**. É exatamente o topo de uma pilha. Há três formas de errar, e cada uma aparece num momento diferente:
+
+```mermaid
+flowchart TD
+    A[próximo caractere] --> B{abertura?}
+    B -->|sim| C[empilha]
+    B -->|não| D{fechamento?}
+    D -->|não| A
+    D -->|sim| E{pilha vazia?}
+    E -->|sim| F["falso: fecha sem abrir"]
+    E -->|não| G{"topo casa?"}
+    G -->|não| H["falso: par trocado"]
+    G -->|sim| A
+```
+
+Ao fim do texto, sobrar algo na pilha também é erro: `((x)` deixou um parêntese aberto. Contar aberturas e fechamentos não basta: `)(` tem um de cada e está errado.
+
+```python visualizar
+pares = {")": "(", "]": "[", "}": "{"}
+
+def balanceado(texto):
+    pilha = []
+    for ch in texto:
+        if ch in "([{":
+            pilha.append(ch)
+        elif ch in pares:
+            if not pilha or pilha.pop() != pares[ch]:
+                return False
+    return not pilha
+
+print(balanceado("{[()()]}"))
+print(balanceado("([)]"))
+```
+
+## Passo 2 · Exercício · Classe Pilha e balanceado
+modo: lacunas
+
+Complete as lacunas (`___`) da classe `Pilha` e da função `balanceado(texto)`, que usa a classe. A função ignora qualquer caractere que não seja `()[]{}`.
+
+### Instruções
+1. Em `desempilhar` e `topo`, opere no fim da lista: o topo é o último elemento.
+2. Um fechamento encontrado com a pilha vazia torna o texto desbalanceado.
+3. Um fechamento precisa casar com a abertura que está no topo.
+4. No fim do texto, só está balanceado se nada ficou aberto.
+
+### Código inicial
+```python
+class Pilha:
+    def __init__(self):
+        self._dados = []
+
+    def empilhar(self, valor):
+        self._dados.append(valor)
 
     def desempilhar(self):
         if self.vazia():
             raise IndexError("pilha vazia")
-        return self._dados.___()
+        return self._dados.___
 
     def topo(self):
         if self.vazia():
             raise IndexError("pilha vazia")
         return self._dados[___]
 
-    def vazia(self) -> bool:
+    def vazia(self):
         return len(self._dados) == 0
 
-    def __len__(self) -> int:
+    def __len__(self):
         return len(self._dados)
 
 
-def balanceado(texto: str) -> bool:
-    pares = {")": "(", "]": "[", "}": "{"}
-    aberturas = set("([{")
-    pilha = []
+PARES = {")": "(", "]": "[", "}": "{"}
+
+
+def balanceado(texto):
+    pilha = Pilha()
     for ch in texto:
-        if ch in aberturas:
-            pilha.append(ch)
-        elif ch in pares:
-            if not pilha or pilha.pop() != ___:
+        if ch in "([{":
+            pilha.empilhar(ch)
+        elif ch in PARES:
+            if ___:
+                return False
+            if pilha.desempilhar() != ___:
                 return False
     return ___
 ```
 
 ### Solução
-
 ```python
 class Pilha:
     def __init__(self):
@@ -138,85 +149,68 @@ class Pilha:
             raise IndexError("pilha vazia")
         return self._dados[-1]
 
-    def vazia(self) -> bool:
+    def vazia(self):
         return len(self._dados) == 0
 
-    def __len__(self) -> int:
+    def __len__(self):
         return len(self._dados)
 
 
-def balanceado(texto: str) -> bool:
-    pares = {")": "(", "]": "[", "}": "{"}
-    aberturas = set("([{")
-    pilha = []
+PARES = {")": "(", "]": "[", "}": "{"}
+
+
+def balanceado(texto):
+    pilha = Pilha()
     for ch in texto:
-        if ch in aberturas:
-            pilha.append(ch)
-        elif ch in pares:
-            if not pilha or pilha.pop() != pares[ch]:
+        if ch in "([{":
+            pilha.empilhar(ch)
+        elif ch in PARES:
+            if pilha.vazia():
                 return False
-    return len(pilha) == 0
+            if pilha.desempilhar() != PARES[ch]:
+                return False
+    return pilha.vazia()
 ```
 
 ### Dicas
-
-1. Para manter operações em $O(1)$, use `append(valor)` para empilhar, `pop()` (sem argumentos) para desempilhar e o índice `[-1]` para espiar o topo.
-2. Em `balanceado`, quando encontramos um fechamento `ch`, o topo desempilhado `pilha.pop()` deve ser igual a `pares[ch]`.
-3. Ao fim do laço `for`, todos os delimitadores abertos devem ter sido fechados, isto é, `len(pilha) == 0` (ou `not pilha`).
+1. `pop()` sem argumento tira o último elemento; um índice negativo lê a partir do fim.
+2. O dicionário `PARES` responde "qual abertura este fechamento espera?".
+3. Teste `")("` e `"((x)"` de cabeça: cada um falha numa linha diferente.
 
 ### Verificação
-
 ```json
 [
-  {
-    "id": "pilha-lifo-operacoes",
-    "name": "Operações LIFO de empilhar, topo, desempilhar e vazia",
-    "checkpoint": 1,
-    "kind": "expr",
-    "setup": "p = Pilha()\np.empilhar(10)\np.empilhar(20)\np.empilhar(30)\nt1 = p.topo()\nd1 = p.desempilhar()\nd2 = p.desempilhar()\ntam = len(p)",
-    "expr": "(t1, d1, d2, tam, p.vazia(), p.desempilhar(), p.vazia())",
-    "expected": [30, 30, 20, 1, false, 10, true]
-  },
-  {
-    "id": "pilha-vazia-excecao",
-    "name": "Desempilhar de pilha vazia lança IndexError",
-    "checkpoint": 1,
-    "kind": "expr",
-    "setup": "p = Pilha()",
-    "expr": "p.desempilhar()",
-    "raises": "IndexError"
-  },
-  {
-    "id": "topo-vazia-excecao",
-    "name": "Consultar topo de pilha vazia lança IndexError",
-    "checkpoint": 1,
-    "kind": "expr",
-    "setup": "p = Pilha()",
-    "expr": "p.topo()",
-    "raises": "IndexError"
-  },
-  {
-    "id": "balanceado-validos",
-    "name": "Delimitadores corretamente aninhados",
-    "checkpoint": 2,
-    "kind": "expr",
-    "expr": "[balanceado(''), balanceado('a + (b * [c - {d}])'), balanceado('()[]{}'), balanceado('{[()()] }')]",
-    "expected": [true, true, true, true]
-  },
-  {
-    "id": "balanceado-invalidos",
-    "name": "Ordem cruzada, fechamento sem abertura e abertura sem fechamento",
-    "checkpoint": 2,
-    "kind": "expr",
-    "expr": "[balanceado(')('), balanceado('([)]'), balanceado('((()'), balanceado('()]')]",
-    "expected": [false, false, false, false]
-  }
+  { "id": "lifo", "checkpoint": 1, "kind": "expr",
+    "setup": "p = Pilha()\nfor v in [3, 1, 4]:\n    p.empilhar(v)",
+    "expr": "[p.desempilhar(), p.desempilhar(), len(p)]", "expected": [4, 1, 1],
+    "name": "Desempilha na ordem inversa da entrada", "hint": "O último empilhado é o primeiro a sair." },
+  { "id": "topo-nao-remove", "checkpoint": 1, "kind": "expr",
+    "setup": "p = Pilha()\np.empilhar('x')\np.empilhar('y')",
+    "expr": "[p.topo(), p.topo(), len(p)]", "expected": ["y", "y", 2],
+    "name": "topo() lê o último sem remover" },
+  { "id": "vazia-erro", "checkpoint": 1, "kind": "expr", "setup": "p = Pilha()", "expr": "p.topo()",
+    "raises": "IndexError", "name": "topo() de pilha vazia levanta IndexError" },
+  { "id": "vazio", "checkpoint": 4, "kind": "call", "function": "balanceado", "args": [""], "expected": true, "type": "bool",
+    "name": "Texto vazio está balanceado" },
+  { "id": "codigo-real", "checkpoint": 3, "kind": "call", "function": "balanceado", "args": ["print(notas[0], {'a': (1, 2)})"],
+    "expected": true, "type": "bool", "name": "Aceita código com outros caracteres no meio" },
+  { "id": "aninhado", "checkpoint": 3, "kind": "call", "function": "balanceado", "args": ["[{()}]()"], "expected": true,
+    "name": "balanceado('[{()}]()') é True" },
+  { "id": "fecha-primeiro", "checkpoint": 2, "kind": "call", "function": "balanceado", "args": [")("], "expected": false,
+    "name": "balanceado(')(') é False", "hint": "Um fechamento com a pilha vazia não tem com quem casar." },
+  { "id": "fecha-sem-abrir", "checkpoint": 2, "kind": "call", "function": "balanceado", "args": ["x]"], "expected": false,
+    "name": "balanceado('x]') é False (e não levanta erro)" },
+  { "id": "cruzado", "checkpoint": 3, "kind": "call", "function": "balanceado", "args": ["{(})"], "expected": false,
+    "name": "balanceado('{(})') é False", "hint": "Quem fecha primeiro precisa ser o último que abriu." },
+  { "id": "par-errado", "checkpoint": 3, "kind": "call", "function": "balanceado", "args": ["(]"], "expected": false,
+    "name": "balanceado('(]') é False" },
+  { "id": "sobra", "checkpoint": 4, "kind": "call", "function": "balanceado", "args": ["((x)"], "expected": false,
+    "name": "balanceado('((x)') é False", "hint": "O que ainda está na pilha quando o texto acaba?" }
 ]
 ```
 
 ### Soluções erradas
-
-```python name="Usa pop(0) como FIFO em vez de LIFO na Pilha"
+```python name="topo no começo da lista (vira fila)"
 class Pilha:
     def __init__(self):
         self._dados = []
@@ -234,27 +228,29 @@ class Pilha:
             raise IndexError("pilha vazia")
         return self._dados[0]
 
-    def vazia(self) -> bool:
+    def vazia(self):
         return len(self._dados) == 0
 
-    def __len__(self) -> int:
+    def __len__(self):
         return len(self._dados)
 
 
-def balanceado(texto: str) -> bool:
-    pares = {")": "(", "]": "[", "}": "{"}
-    aberturas = set("([{")
-    pilha = []
+PARES = {")": "(", "]": "[", "}": "{"}
+
+
+def balanceado(texto):
+    pilha = Pilha()
     for ch in texto:
-        if ch in aberturas:
-            pilha.append(ch)
-        elif ch in pares:
-            if not pilha or pilha.pop() != pares[ch]:
+        if ch in "([{":
+            pilha.empilhar(ch)
+        elif ch in PARES:
+            if pilha.vazia():
                 return False
-    return len(pilha) == 0
+            if pilha.desempilhar() != PARES[ch]:
+                return False
+    return pilha.vazia()
 ```
-
-```python name="Checa apenas contagem de aberturas e fechamentos sem validar a ordem"
+```python name="não testa a pilha vazia antes de desempilhar"
 class Pilha:
     def __init__(self):
         self._dados = []
@@ -272,125 +268,654 @@ class Pilha:
             raise IndexError("pilha vazia")
         return self._dados[-1]
 
-    def vazia(self) -> bool:
+    def vazia(self):
         return len(self._dados) == 0
 
-    def __len__(self) -> int:
+    def __len__(self):
         return len(self._dados)
 
 
-def balanceado(texto: str) -> bool:
-    return (
-        texto.count("(") == texto.count(")")
-        and texto.count("[") == texto.count("]")
-        and texto.count("{") == texto.count("}")
-    )
-```
-
-```python name="Esquece de verificar se a pilha ficou vazia ao final de balanceado"
-class Pilha:
-    def __init__(self):
-        self._dados = []
-
-    def empilhar(self, valor):
-        self._dados.append(valor)
-
-    def desempilhar(self):
-        if self.vazia():
-            raise IndexError("pilha vazia")
-        return self._dados.pop()
-
-    def topo(self):
-        if self.vazia():
-            raise IndexError("pilha vazia")
-        return self._dados[-1]
-
-    def vazia(self) -> bool:
-        return len(self._dados) == 0
-
-    def __len__(self) -> int:
-        return len(self._dados)
+PARES = {")": "(", "]": "[", "}": "{"}
 
 
-def balanceado(texto: str) -> bool:
-    pares = {")": "(", "]": "[", "}": "{"}
-    aberturas = set("([{")
-    pilha = []
+def balanceado(texto):
+    pilha = Pilha()
     for ch in texto:
-        if ch in aberturas:
-            pilha.append(ch)
-        elif ch in pares:
-            if not pilha or pilha.pop() != pares[ch]:
+        if ch in "([{":
+            pilha.empilhar(ch)
+        elif ch in PARES:
+            if pilha.desempilhar() != PARES[ch]:
+                return False
+    return pilha.vazia()
+```
+```python name="esquece as aberturas que sobraram"
+class Pilha:
+    def __init__(self):
+        self._dados = []
+
+    def empilhar(self, valor):
+        self._dados.append(valor)
+
+    def desempilhar(self):
+        if self.vazia():
+            raise IndexError("pilha vazia")
+        return self._dados.pop()
+
+    def topo(self):
+        if self.vazia():
+            raise IndexError("pilha vazia")
+        return self._dados[-1]
+
+    def vazia(self):
+        return len(self._dados) == 0
+
+    def __len__(self):
+        return len(self._dados)
+
+
+PARES = {")": "(", "]": "[", "}": "{"}
+
+
+def balanceado(texto):
+    pilha = Pilha()
+    for ch in texto:
+        if ch in "([{":
+            pilha.empilhar(ch)
+        elif ch in PARES:
+            if pilha.vazia():
+                return False
+            if pilha.desempilhar() != PARES[ch]:
                 return False
     return True
 ```
+```python name="só controla a profundidade, sem casar o tipo"
+class Pilha:
+    def __init__(self):
+        self._dados = []
 
-## Passo 3 · Leitura · Notação Polonesa Reversa (RPN), *Shunting-Yard* e desfazer/refazer
+    def empilhar(self, valor):
+        self._dados.append(valor)
 
-#### 1. Avaliando expressões em Notação Polonesa Reversa (posfixa)
+    def desempilhar(self):
+        if self.vazia():
+            raise IndexError("pilha vazia")
+        return self._dados.pop()
 
-Na notação **infixa** tradicional, como `(3 + 4) * 2`, precisamos de parênteses e regras de precedência para saber qual operação executar primeiro. Já na **Notação Polonesa Reversa** (RPN ou **posfixa**), cada operador vem **imediatamente após** seus operandos: `3 4 + 2 *`. A grande vantagem é que a RPN **não precisa de parênteses** e pode ser avaliada em uma única passagem da esquerda para a direita com uma pilha:
-- Se o token for um **número**, convertemos para `float` e **empilhamos**.
-- Se o token for um **operador** (`+`, `-`, `*`, `/`, `^`):
-  1. Desempilhamos o **operando direito** (`b = pilha.pop()`).
-  2. Desempilhamos o **operando esquerdo** (`a = pilha.pop()`).
-  3. Empilhamos o resultado de `a op b`.
+    def topo(self):
+        if self.vazia():
+            raise IndexError("pilha vazia")
+        return self._dados[-1]
 
-> **Atenção à ordem dos operandos!** Como `b` foi empilhado depois de `a`, `b` sai primeiro no `pop()`. Em operações não comutativas como subtração (`-`), divisão (`/`) e potência (`^`), inverter `a` e `b` calcula `b - a` em vez de `a - b`!
+    def vazia(self):
+        return len(self._dados) == 0
 
-#### 2. Algoritmo *Shunting-Yard* de Dijkstra (infixa $\to$ posfixa)
+    def __len__(self):
+        return len(self._dados)
 
-Como converter uma expressão infixa tokenizada como `["3", "+", "4", "*", "2", "/", "(", "1", "-", "5", ")", "^", "2", "^", "3"]` para posfixa? Edsger Dijkstra criou o algoritmo do **pátio de manobras ferroviárias** (*Shunting-Yard*), que usa uma **fila de saída** e uma **pilha de operadores**:
 
-| Operador | Precedência | Associatividade |
-| :--- | :---: | :---: |
-| `+`, `-` | `1` | Esquerda (`(a - b) - c`) |
-| `*`, `/` | `2` | Esquerda (`(a / b) / c`) |
-| `^` | `3` | **Direita** (`2 ^ 3 ^ 2 = 2 ^ (3 ^ 2) = 512`) |
+PARES = {")": "(", "]": "[", "}": "{"}
 
-Para cada `token` da entrada:
-- **Operando** (qualquer token que não seja operador nem parêntese): vai direto para a lista `saida`.
-- **Parêntese de abertura `"("`**: empilha na `pilha_op`.
-- **Parêntese de fechamento `")"`**: desempilha operadores da `pilha_op` para `saida` até encontrar `"("` no topo, e então descarta o `"("`.
-- **Operador `op`**: enquanto a `pilha_op` não estiver vazia, o topo for um operador `topo` (não `"("`), e:
-  - `prec[topo] > prec[op]`, **ou**
-  - `prec[topo] == prec[op]` e `op` for associativo à **esquerda** (`op != "^"`),
-  desempilhamos `topo` para `saida`. Depois, empilhamos `op`.
-- Ao fim dos tokens, desempilhamos todos os operadores restantes da `pilha_op` para `saida`.
 
-#### 3. Duas pilhas: histórico de Desfazer (*Undo*) e Refazer (*Redo*)
+def balanceado(texto):
+    pilha = Pilha()
+    for ch in texto:
+        if ch in "([{":
+            pilha.empilhar(ch)
+        elif ch in PARES:
+            if pilha.vazia():
+                return False
+            pilha.desempilhar()
+    return pilha.vazia()
+```
+```python name="conta aberturas e fechamentos"
+class Pilha:
+    def __init__(self):
+        self._dados = []
 
-Em editores de texto e navegadores web, o mecanismo de **Desfazer / Refazer** usa **duas pilhas**:
-- `pilha_desfazer`: guarda os estados anteriores sempre que uma nova edição é realizada.
-- `pilha_refazer`: guarda os estados desfeitos pelo comando `DESFAZER`.
-- **Regra de ouro**: quando o usuário faz uma **nova edição** (`INSERIR`), a linha do tempo se ramifica e a `pilha_refazer` deve ser **esvaziada** (`pilha_refazer.clear()`).
+    def empilhar(self, valor):
+        self._dados.append(valor)
 
-## Passo 4 · Previsão · Duas pilhas em ação: histórico de desfazer e refazer
+    def desempilhar(self):
+        if self.vazia():
+            raise IndexError("pilha vazia")
+        return self._dados.pop()
 
-Analise a simulação de um editor de texto com duas pilhas (`desfazer` e `refazer`) e preveja a saída impressa.
+    def topo(self):
+        if self.vazia():
+            raise IndexError("pilha vazia")
+        return self._dados[-1]
+
+    def vazia(self):
+        return len(self._dados) == 0
+
+    def __len__(self):
+        return len(self._dados)
+
+
+PARES = {")": "(", "]": "[", "}": "{"}
+
+
+def balanceado(texto):
+    return all(texto.count(a) == texto.count(f) for f, a in PARES.items())
+```
+
+## Passo 3 · Leitura · Notação posfixa e shunting-yard
+
+Na notação **infixa**, o operador fica entre os operandos: `(3 + 4) * 2`. Para avaliá-la é preciso saber precedência e respeitar parênteses. Na notação **posfixa** (ou polonesa reversa, RPN), o operador vem **depois** dos dois operandos: `3 4 + 2 *`. Ela não precisa de parênteses: `3 4 + 2 *` vale 14 e `3 4 2 * +` vale 11, e a ordem dos tokens já diz tudo.
+
+Avaliar posfixa é uma passagem com uma pilha de números. Número: empilha. Operador: desempilha dois, aplica e empilha o resultado. No fim, a pilha precisa ter **exatamente um** valor.
+
+| token | pilha depois |
+|---|---|
+| `7` | `[7]` |
+| `2` | `[7, 2]` |
+| `-` | `[5]` |
+| `3` | `[5, 3]` |
+| `*` | `[15]` |
+
+A ordem importa. O primeiro `pop()` devolve o operando **direito**: em `7 2 -`, sai primeiro o 2 e depois o 7, e a conta é $7 - 2$. Inverter dá $-5$ e só aparece com `-`, `/` e `^`, que não são comutativos.
+
+Uma expressão malformada aparece como pilha errada: em `1 +` falta operando quando o `+` chega, e em `1 2` sobram dois valores no fim. Trate os dois casos com um `ValueError` claro, em vez de deixar escapar o `IndexError` do `pop()`.
+
+Os tokens chegam como texto, e `"-3"` e `"2.5"` são números. Por isso, decida "é operador?" pelo conjunto `{"+", "-", "*", "/", "^"}`, e não por `token.isdigit()`, que é falso para os dois.
+
+#### De infixa para posfixa: shunting-yard
+
+O algoritmo de Dijkstra percorre a infixa com uma lista de saída e uma **pilha de operadores**:
+
+- operando: vai direto para a saída;
+- `(`: empilha;
+- `)`: desempilha para a saída até achar o `(`, que é descartado;
+- operador `op`: antes de empilhá-lo, desempilha para a saída os operadores do topo que precisam ser calculados antes dele: os de precedência maior, e os de precedência igual quando `op` é associativo à esquerda;
+- no fim: desempilha tudo para a saída.
+
+Precedência: `+ -` valem 1, `* /` valem 2 e `^` vale 3. `-` é associativo à esquerda: `8 - 3 - 1` é $(8-3)-1$. `^` é associativo à direita: `2 ^ 3 ^ 2` é $2^{(3^2)} = 512$. Por isso um `^` que chega **não** tira outro `^` do topo.
+
+## Passo 4 · Exercício · Avaliar posfixa
+
+Escreva `avaliar_rpn(tokens)`, que recebe uma lista de tokens em notação posfixa e devolve o valor como `float`.
+
+### Instruções
+1. Números (inclusive negativos, como `"-3"`, e decimais, como `"2.5"`) são empilhados como `float`. Os operadores são `+`, `-`, `*`, `/` e `^` (potência); o primeiro valor desempilhado é o operando direito.
+2. Se um operador encontrar menos de dois valores na pilha, levante `ValueError` com uma mensagem que contenha `malformada`.
+3. Se no fim a pilha não tiver exatamente um valor, levante `ValueError` com uma mensagem que contenha `malformada`. Caso contrário, devolva esse valor.
+
+### Código inicial
+```python
+OPERADORES = {"+", "-", "*", "/", "^"}
+
+
+def avaliar_rpn(tokens):
+    pass
+```
+
+### Solução
+```python
+OPERADORES = {"+", "-", "*", "/", "^"}
+
+
+def aplicar(op, a, b):
+    if op == "+":
+        return a + b
+    if op == "-":
+        return a - b
+    if op == "*":
+        return a * b
+    if op == "/":
+        return a / b
+    return a ** b
+
+
+def avaliar_rpn(tokens):
+    pilha = []
+    for token in tokens:
+        if token in OPERADORES:
+            if len(pilha) < 2:
+                raise ValueError("expressão malformada: falta operando")
+            b = pilha.pop()
+            a = pilha.pop()
+            pilha.append(aplicar(token, a, b))
+        else:
+            pilha.append(float(token))
+    if len(pilha) != 1:
+        raise ValueError("expressão malformada: sobraram valores")
+    return pilha[0]
+```
+
+### Dicas
+1. Separe a conta numa função `aplicar(op, a, b)`; o laço só cuida da pilha.
+2. Confira com `7 2 -`: o resultado tem que ser 5.
+3. Os dois erros acontecem em lugares diferentes: um dentro do laço, outro depois dele.
+
+### Verificação
+```json
+[
+  { "id": "soma", "checkpoint": 1, "kind": "call", "function": "avaliar_rpn", "args": [["2", "3", "+"]], "expected": 5.0, "type": "float",
+    "name": "avaliar_rpn(['2', '3', '+']) é 5.0" },
+  { "id": "subtracao", "checkpoint": 1, "kind": "call", "function": "avaliar_rpn", "args": [["9", "4", "-"]], "expected": 5.0,
+    "tolerance": 1e-9, "name": "avaliar_rpn(['9', '4', '-']) é 5.0", "hint": "O primeiro pop() é o operando da direita." },
+  { "id": "divisoes", "checkpoint": 1, "kind": "call", "function": "avaliar_rpn", "args": [["8", "2", "/", "2", "/"]], "expected": 2.0,
+    "tolerance": 1e-9, "name": "avaliar_rpn(['8', '2', '/', '2', '/']) é 2.0" },
+  { "id": "potencia", "checkpoint": 1, "kind": "call", "function": "avaliar_rpn", "args": [["2", "3", "2", "^", "^"]], "expected": 512.0,
+    "tolerance": 1e-9, "name": "avaliar_rpn(['2', '3', '2', '^', '^']) é 512.0" },
+  { "id": "decimal", "checkpoint": 1, "kind": "call", "function": "avaliar_rpn", "args": [["4", "13", "5", "/", "+"]], "expected": 6.6,
+    "tolerance": 1e-9, "name": "avaliar_rpn(['4', '13', '5', '/', '+']) é 6.6" },
+  { "id": "negativo", "checkpoint": 1, "kind": "call", "function": "avaliar_rpn", "args": [["-3", "2.5", "*"]], "expected": -7.5,
+    "tolerance": 1e-9, "name": "Aceita os números '-3' e '2.5'", "hint": "'-3' e '2.5' não são só dígitos, mas são números." },
+  { "id": "so-um", "checkpoint": 3, "kind": "call", "function": "avaliar_rpn", "args": [["42"]], "expected": 42.0, "type": "float",
+    "name": "avaliar_rpn(['42']) é 42.0" },
+  { "id": "falta-operando", "checkpoint": 2, "kind": "expr", "expr": "avaliar_rpn(['1', '+'])", "raises": "ValueError",
+    "message_contains": "malformada", "name": "['1', '+'] levanta ValueError", "hint": "Confira o tamanho da pilha antes de desempilhar." },
+  { "id": "so-operador", "checkpoint": 2, "kind": "expr", "expr": "avaliar_rpn(['*'])", "raises": "ValueError",
+    "message_contains": "malformada", "name": "['*'] levanta ValueError" },
+  { "id": "sobra", "checkpoint": 3, "kind": "expr", "expr": "avaliar_rpn(['1', '2', '3', '+'])", "raises": "ValueError",
+    "message_contains": "malformada", "name": "['1', '2', '3', '+'] levanta ValueError", "hint": "Quantos valores restam na pilha no fim?" },
+  { "id": "vazia", "checkpoint": 3, "kind": "expr", "expr": "avaliar_rpn([])", "raises": "ValueError",
+    "message_contains": "malformada", "name": "Lista vazia levanta ValueError" }
+]
+```
+
+### Soluções erradas
+```python name="operandos na ordem trocada"
+OPERADORES = {"+", "-", "*", "/", "^"}
+
+
+def aplicar(op, a, b):
+    if op == "+":
+        return a + b
+    if op == "-":
+        return a - b
+    if op == "*":
+        return a * b
+    if op == "/":
+        return a / b
+    return a ** b
+
+
+def avaliar_rpn(tokens):
+    pilha = []
+    for token in tokens:
+        if token in OPERADORES:
+            if len(pilha) < 2:
+                raise ValueError("expressão malformada: falta operando")
+            a = pilha.pop()
+            b = pilha.pop()
+            pilha.append(aplicar(token, a, b))
+        else:
+            pilha.append(float(token))
+    if len(pilha) != 1:
+        raise ValueError("expressão malformada: sobraram valores")
+    return pilha[0]
+```
+```python name="reconhece número com isdigit"
+OPERADORES = {"+", "-", "*", "/", "^"}
+
+
+def aplicar(op, a, b):
+    if op == "+":
+        return a + b
+    if op == "-":
+        return a - b
+    if op == "*":
+        return a * b
+    if op == "/":
+        return a / b
+    return a ** b
+
+
+def avaliar_rpn(tokens):
+    pilha = []
+    for token in tokens:
+        if token.isdigit():
+            pilha.append(float(token))
+        else:
+            if len(pilha) < 2:
+                raise ValueError("expressão malformada: falta operando")
+            b = pilha.pop()
+            a = pilha.pop()
+            pilha.append(aplicar(token, a, b))
+    if len(pilha) != 1:
+        raise ValueError("expressão malformada: sobraram valores")
+    return pilha[0]
+```
+```python name="converte com int"
+OPERADORES = {"+", "-", "*", "/", "^"}
+
+
+def aplicar(op, a, b):
+    if op == "+":
+        return a + b
+    if op == "-":
+        return a - b
+    if op == "*":
+        return a * b
+    if op == "/":
+        return a / b
+    return a ** b
+
+
+def avaliar_rpn(tokens):
+    pilha = []
+    for token in tokens:
+        if token in OPERADORES:
+            if len(pilha) < 2:
+                raise ValueError("expressão malformada: falta operando")
+            b = pilha.pop()
+            a = pilha.pop()
+            pilha.append(aplicar(token, a, b))
+        else:
+            pilha.append(int(token))
+    if len(pilha) != 1:
+        raise ValueError("expressão malformada: sobraram valores")
+    return pilha[0]
+```
+```python name="não confere a falta de operando"
+OPERADORES = {"+", "-", "*", "/", "^"}
+
+
+def aplicar(op, a, b):
+    if op == "+":
+        return a + b
+    if op == "-":
+        return a - b
+    if op == "*":
+        return a * b
+    if op == "/":
+        return a / b
+    return a ** b
+
+
+def avaliar_rpn(tokens):
+    pilha = []
+    for token in tokens:
+        if token in OPERADORES:
+            b = pilha.pop()
+            a = pilha.pop()
+            pilha.append(aplicar(token, a, b))
+        else:
+            pilha.append(float(token))
+    if len(pilha) != 1:
+        raise ValueError("expressão malformada: sobraram valores")
+    return pilha[0]
+```
+```python name="devolve o topo sem conferir a sobra"
+OPERADORES = {"+", "-", "*", "/", "^"}
+
+
+def aplicar(op, a, b):
+    if op == "+":
+        return a + b
+    if op == "-":
+        return a - b
+    if op == "*":
+        return a * b
+    if op == "/":
+        return a / b
+    return a ** b
+
+
+def avaliar_rpn(tokens):
+    pilha = []
+    for token in tokens:
+        if token in OPERADORES:
+            if len(pilha) < 2:
+                raise ValueError("expressão malformada: falta operando")
+            b = pilha.pop()
+            a = pilha.pop()
+            pilha.append(aplicar(token, a, b))
+        else:
+            pilha.append(float(token))
+    if not pilha:
+        raise ValueError("expressão malformada: vazia")
+    return pilha[-1]
+```
+
+## Passo 5 · Exercício · De infixa para posfixa
+
+Escreva `infixa_para_posfixa(tokens)` com o algoritmo shunting-yard do passo 3. A entrada é uma lista de tokens infixos (operandos, `(`, `)` e os operadores `+ - * / ^`), sempre bem formada; a saída é a lista de tokens em posfixa.
+
+### Instruções
+1. Operandos vão direto para a saída; operadores esperam na pilha e saem respeitando a precedência (`+ -` = 1, `* /` = 2, `^` = 3).
+2. `(` é empilhado; `)` desempilha para a saída até o `(` correspondente, que é descartado e nunca aparece na saída.
+3. Em precedência igual, `+ - * /` são associativos à esquerda e `^` é associativo à direita. No fim, os operadores que restam na pilha vão para a saída.
+
+### Código inicial
+```python
+PRECEDENCIA = {"+": 1, "-": 1, "*": 2, "/": 2, "^": 3}
+
+
+def infixa_para_posfixa(tokens):
+    pass
+```
+
+### Solução
+```python
+PRECEDENCIA = {"+": 1, "-": 1, "*": 2, "/": 2, "^": 3}
+
+
+def sai_antes(topo, op):
+    if topo not in PRECEDENCIA:
+        return False
+    if PRECEDENCIA[topo] > PRECEDENCIA[op]:
+        return True
+    return PRECEDENCIA[topo] == PRECEDENCIA[op] and op != "^"
+
+
+def infixa_para_posfixa(tokens):
+    saida = []
+    pilha = []
+    for token in tokens:
+        if token == "(":
+            pilha.append(token)
+        elif token == ")":
+            while pilha[-1] != "(":
+                saida.append(pilha.pop())
+            pilha.pop()
+        elif token in PRECEDENCIA:
+            while pilha and sai_antes(pilha[-1], token):
+                saida.append(pilha.pop())
+            pilha.append(token)
+        else:
+            saida.append(token)
+    while pilha:
+        saida.append(pilha.pop())
+    return saida
+```
+
+### Dicas
+1. Escreva uma função `sai_antes(topo, op)` que responde se o operador do topo deve ir para a saída antes de `op` entrar.
+2. Um `(` no topo funciona como parede: nenhum operador passa dele.
+3. Confira à mão `a - b - c` (deve dar `a b - c -`) e `a ^ b ^ c` (deve dar `a b c ^ ^`).
+
+### Verificação
+```json
+[
+  { "id": "precedencia", "checkpoint": 1, "kind": "call", "function": "infixa_para_posfixa", "args": [["a", "+", "b", "*", "c"]],
+    "expected": ["a", "b", "c", "*", "+"], "name": "a + b * c vira a b c * +" },
+  { "id": "precedencia-2", "checkpoint": 1, "kind": "call", "function": "infixa_para_posfixa", "args": [["a", "*", "b", "+", "c"]],
+    "expected": ["a", "b", "*", "c", "+"], "name": "a * b + c vira a b * c +" },
+  { "id": "um-operando", "checkpoint": 1, "kind": "call", "function": "infixa_para_posfixa", "args": [["x"]], "expected": ["x"],
+    "name": "Um operando sozinho continua igual" },
+  { "id": "parenteses", "checkpoint": 2, "kind": "call", "function": "infixa_para_posfixa",
+    "args": [["(", "a", "+", "b", ")", "*", "c"]], "expected": ["a", "b", "+", "c", "*"],
+    "name": "( a + b ) * c vira a b + c *", "hint": "O ( nunca vai para a saída." },
+  { "id": "parenteses-duplos", "checkpoint": 2, "kind": "call", "function": "infixa_para_posfixa",
+    "args": [["(", "(", "7", ")", ")"]], "expected": ["7"], "name": "( ( 7 ) ) vira só 7" },
+  { "id": "esquerda", "checkpoint": 3, "kind": "call", "function": "infixa_para_posfixa", "args": [["8", "-", "3", "-", "1"]],
+    "expected": ["8", "3", "-", "1", "-"], "name": "8 - 3 - 1 é (8 - 3) - 1",
+    "hint": "Com precedência igual e associatividade à esquerda, o operador do topo sai antes." },
+  { "id": "esquerda-div", "checkpoint": 3, "kind": "call", "function": "infixa_para_posfixa", "args": [["a", "/", "b", "*", "c"]],
+    "expected": ["a", "b", "/", "c", "*"], "name": "a / b * c é (a / b) * c" },
+  { "id": "direita", "checkpoint": 3, "kind": "call", "function": "infixa_para_posfixa", "args": [["2", "^", "3", "^", "2"]],
+    "expected": ["2", "3", "2", "^", "^"], "name": "2 ^ 3 ^ 2 é 2 ^ (3 ^ 2)", "hint": "Um ^ que chega não tira outro ^ do topo." },
+  { "id": "misto", "checkpoint": 3, "kind": "call", "function": "infixa_para_posfixa",
+    "args": [["a", "*", "(", "b", "+", "c", ")", "^", "2", "-", "d"]], "expected": ["a", "b", "c", "+", "2", "^", "*", "d", "-"],
+    "name": "a * ( b + c ) ^ 2 - d" }
+]
+```
+
+### Soluções erradas
+```python name="trata ^ como associativo à esquerda"
+PRECEDENCIA = {"+": 1, "-": 1, "*": 2, "/": 2, "^": 3}
+
+
+def infixa_para_posfixa(tokens):
+    saida = []
+    pilha = []
+    for token in tokens:
+        if token == "(":
+            pilha.append(token)
+        elif token == ")":
+            while pilha[-1] != "(":
+                saida.append(pilha.pop())
+            pilha.pop()
+        elif token in PRECEDENCIA:
+            while pilha and pilha[-1] in PRECEDENCIA and PRECEDENCIA[pilha[-1]] >= PRECEDENCIA[token]:
+                saida.append(pilha.pop())
+            pilha.append(token)
+        else:
+            saida.append(token)
+    while pilha:
+        saida.append(pilha.pop())
+    return saida
+```
+```python name="só desempilha precedência estritamente maior"
+PRECEDENCIA = {"+": 1, "-": 1, "*": 2, "/": 2, "^": 3}
+
+
+def infixa_para_posfixa(tokens):
+    saida = []
+    pilha = []
+    for token in tokens:
+        if token == "(":
+            pilha.append(token)
+        elif token == ")":
+            while pilha[-1] != "(":
+                saida.append(pilha.pop())
+            pilha.pop()
+        elif token in PRECEDENCIA:
+            while pilha and pilha[-1] in PRECEDENCIA and PRECEDENCIA[pilha[-1]] > PRECEDENCIA[token]:
+                saida.append(pilha.pop())
+            pilha.append(token)
+        else:
+            saida.append(token)
+    while pilha:
+        saida.append(pilha.pop())
+    return saida
+```
+```python name="não descarta o ( ao fechar"
+PRECEDENCIA = {"+": 1, "-": 1, "*": 2, "/": 2, "^": 3}
+
+
+def sai_antes(topo, op):
+    if topo not in PRECEDENCIA:
+        return False
+    if PRECEDENCIA[topo] > PRECEDENCIA[op]:
+        return True
+    return PRECEDENCIA[topo] == PRECEDENCIA[op] and op != "^"
+
+
+def infixa_para_posfixa(tokens):
+    saida = []
+    pilha = []
+    for token in tokens:
+        if token == "(":
+            pilha.append(token)
+        elif token == ")":
+            while pilha[-1] != "(":
+                saida.append(pilha.pop())
+        elif token in PRECEDENCIA:
+            while pilha and sai_antes(pilha[-1], token):
+                saida.append(pilha.pop())
+            pilha.append(token)
+        else:
+            saida.append(token)
+    while pilha:
+        saida.append(pilha.pop())
+    return saida
+```
+```python name="consulta a precedência do ( no topo"
+PRECEDENCIA = {"+": 1, "-": 1, "*": 2, "/": 2, "^": 3}
+
+
+def infixa_para_posfixa(tokens):
+    saida = []
+    pilha = []
+    for token in tokens:
+        if token == "(":
+            pilha.append(token)
+        elif token == ")":
+            while pilha[-1] != "(":
+                saida.append(pilha.pop())
+            pilha.pop()
+        elif token in PRECEDENCIA:
+            while pilha and PRECEDENCIA[pilha[-1]] >= PRECEDENCIA[token] and token != "^":
+                saida.append(pilha.pop())
+            pilha.append(token)
+        else:
+            saida.append(token)
+    while pilha:
+        saida.append(pilha.pop())
+    return saida
+```
+```python name="esquece os operadores que sobraram na pilha"
+PRECEDENCIA = {"+": 1, "-": 1, "*": 2, "/": 2, "^": 3}
+
+
+def sai_antes(topo, op):
+    if topo not in PRECEDENCIA:
+        return False
+    if PRECEDENCIA[topo] > PRECEDENCIA[op]:
+        return True
+    return PRECEDENCIA[topo] == PRECEDENCIA[op] and op != "^"
+
+
+def infixa_para_posfixa(tokens):
+    saida = []
+    pilha = []
+    for token in tokens:
+        if token == "(":
+            pilha.append(token)
+        elif token == ")":
+            while pilha[-1] != "(":
+                saida.append(pilha.pop())
+            pilha.pop()
+        elif token in PRECEDENCIA:
+            while pilha and sai_antes(pilha[-1], token):
+                saida.append(pilha.pop())
+            pilha.append(token)
+        else:
+            saida.append(token)
+    return saida
+```
+
+## Passo 6 · Previsão · Duas pilhas: desfazer e refazer
+
+Editores guardam o histórico em **duas pilhas**. Antes de cada edição, o texto atual vai para `desfazer`. Desfazer tira o estado do topo de `desfazer` e guarda o atual em `refazer`; refazer faz o caminho inverso. Uma edição nova **esvazia** `refazer`: o futuro que tinha sido desfeito deixa de existir.
+
+Leia o programa sem executar e digite exatamente o que ele imprime.
 
 ### Código
-
 ```python
 texto = ""
 desfazer = []
 refazer = []
 
 comandos = [
-    ("INSERIR", "Python"),
-    ("INSERIR", " 3"),
-    ("INSERIR", ".14"),
+    ("ESCREVER", "Olá"),
+    ("ESCREVER", ", mundo"),
+    ("ESCREVER", "!"),
     ("DESFAZER", ""),
     ("DESFAZER", ""),
     ("REFAZER", ""),
-    ("INSERIR", " USP"),
+    ("ESCREVER", "?"),
     ("REFAZER", ""),
 ]
 
-for acao, arg in comandos:
-    if acao == "INSERIR":
+for acao, trecho in comandos:
+    if acao == "ESCREVER":
         desfazer.append(texto)
-        texto = texto + arg
+        texto = texto + trecho
         refazer.clear()
     elif acao == "DESFAZER" and desfazer:
         refazer.append(texto)
@@ -399,125 +924,64 @@ for acao, arg in comandos:
         desfazer.append(texto)
         texto = refazer.pop()
 
-print("Texto:", texto)
-print("Topo desfazer:", desfazer[-1])
-print("Tamanho refazer:", len(refazer))
+print(texto)
+print(desfazer)
+print(len(refazer))
 ```
 
 ### Dicas
-
-1. Após as três inserções iniciais, `texto` vale `"Python 3.14"` e `desfazer` contém `["", "Python", "Python 3"]`.
-2. Dois comandos `"DESFAZER"` voltam `texto` para `"Python"` e empilham `"Python 3.14"` e `"Python 3"` em `refazer`. O `"REFAZER"` seguinte restaura `"Python 3"`.
-3. Quando `("INSERIR", " USP")` executa, `"Python 3"` vai para `desfazer`, `texto` vira `"Python 3 USP"` e `refazer.clear()` esvazia a pilha de refazer — fazendo o último `"REFAZER"` não ter efeito!
+1. Anote as duas pilhas numa tabela, uma linha por comando.
+2. Cada `DESFAZER` move um estado de uma pilha para a outra; nenhum estado se perde.
+3. Olhe com atenção o que o último `ESCREVER` faz com `refazer` antes do último comando.
 
 ### Saída esperada
-
 ```text
-Texto: Python 3 USP
-Topo desfazer: Python 3
-Tamanho refazer: 0
+Olá, mundo?
+['', 'Olá', 'Olá, mundo']
+0
 ```
 
-## Passo 5 · Exercício · Avaliador RPN, *Shunting-Yard* e editor com desfazer/refazer
+## Passo 7 · Exercício · Editor com desfazer e refazer
 
-Implemente três funções clássicas baseadas em pilhas: `avaliar_rpn(tokens)`, `infixa_para_posfixa(tokens)` e `editor_com_desfazer(comandos)`.
+Escreva `editor(comandos)`, que começa com o texto vazio, executa uma lista de comandos e devolve o texto final. Os comandos são:
+
+- `"ESCREVER <trecho>"`: acrescenta ao fim tudo o que vem depois de `"ESCREVER "`, espaços incluídos;
+- `"APAGAR <n>"`: apaga os `n` últimos caracteres (todos, se houver menos de `n`; `n` pode ser 0);
+- `"DESFAZER"` e `"REFAZER"`: como no passo anterior; com a pilha correspondente vazia, não fazem nada.
 
 ### Instruções
-
-1. Implemente `avaliar_rpn(tokens: list[str]) -> float` que avalia uma lista de tokens em notação posfixa com os operadores `"+"`, `"-"`, `"*"`, `"/"` e `"^"` (exponenciação `a ** b`). Devolva o resultado final como `float`. Lembre-se de que o primeiro valor desempilhado é o operando **direito** (`b`) e o segundo é o operando **esquerdo** (`a`).
-2. Implemente `infixa_para_posfixa(tokens: list[str]) -> list[str]` aplicando o algoritmo *Shunting-Yard* para converter uma lista de tokens em notação infixa (contendo operandos, parênteses `"("`, `")"` e operadores `"+"`, `"-"`, `"*"`, `"/"`, `"^"`) para notação posfixa. Considere precedência `1` para `+`/`-`, `2` para `*`/`/` (associativos à esquerda) e `3` para `^` (associativo à **direita**).
-3. Implemente `editor_com_desfazer(comandos: list[str]) -> str` que começa com `texto = ""` e processa comandos nos formatos `"INSERIR <trecho>"` (concatena `<trecho>` ao texto atual, salva o estado anterior na pilha de desfazer e limpa a pilha de refazer), `"DESFAZER"` e `"REFAZER"` (ignorando se a respectiva pilha estiver vazia), devolvendo o texto final.
+1. `ESCREVER` e `APAGAR` são edições: guarde o texto anterior na pilha de desfazer antes de alterar.
+2. `DESFAZER` e `REFAZER` movem estados entre as duas pilhas e são ignorados quando a pilha de onde tirariam está vazia.
+3. Toda edição nova esvazia a pilha de refazer.
 
 ### Código inicial
-
 ```python
-def avaliar_rpn(tokens: list[str]) -> float:
-    # Avalie a expressão em notação posfixa (RPN)
-    pass
-
-
-def infixa_para_posfixa(tokens: list[str]) -> list[str]:
-    # Converta a lista de tokens infixa para posfixa com Shunting-Yard
-    pass
-
-
-def editor_com_desfazer(comandos: list[str]) -> str:
-    # Simule o editor com pilhas de desfazer e refazer
-    pass
+def editor(comandos):
+    texto = ""
+    return texto
 ```
 
 ### Solução
-
 ```python
-def avaliar_rpn(tokens: list[str]) -> float:
-    pilha: list[float] = []
-    operadores = {"+", "-", "*", "/", "^"}
-    for token in tokens:
-        if token in operadores:
-            b = pilha.pop()
-            a = pilha.pop()
-            if token == "+":
-                pilha.append(a + b)
-            elif token == "-":
-                pilha.append(a - b)
-            elif token == "*":
-                pilha.append(a * b)
-            elif token == "/":
-                pilha.append(a / b)
-            elif token == "^":
-                pilha.append(a ** b)
-        else:
-            pilha.append(float(token))
-    return float(pilha[-1])
-
-
-def infixa_para_posfixa(tokens: list[str]) -> list[str]:
-    prec = {"+": 1, "-": 1, "*": 2, "/": 2, "^": 3}
-    saida: list[str] = []
-    pilha_op: list[str] = []
-
-    for token in tokens:
-        if token == "(":
-            pilha_op.append(token)
-        elif token == ")":
-            while pilha_op and pilha_op[-1] != "(":
-                saida.append(pilha_op.pop())
-            pilha_op.pop()
-        elif token in prec:
-            while (
-                pilha_op
-                and pilha_op[-1] in prec
-                and (
-                    prec[pilha_op[-1]] > prec[token]
-                    or (prec[pilha_op[-1]] == prec[token] and token != "^")
-                )
-            ):
-                saida.append(pilha_op.pop())
-            pilha_op.append(token)
-        else:
-            saida.append(token)
-
-    while pilha_op:
-        saida.append(pilha_op.pop())
-    return saida
-
-
-def editor_com_desfazer(comandos: list[str]) -> str:
+def editor(comandos):
     texto = ""
-    desfazer: list[str] = []
-    refazer: list[str] = []
-
-    for cmd in comandos:
-        if cmd.startswith("INSERIR "):
-            trecho = cmd[len("INSERIR "):]
+    desfazer = []
+    refazer = []
+    for comando in comandos:
+        if comando.startswith("ESCREVER "):
             desfazer.append(texto)
-            texto = texto + trecho
+            texto = texto + comando[len("ESCREVER "):]
             refazer.clear()
-        elif cmd == "DESFAZER":
+        elif comando.startswith("APAGAR "):
+            n = int(comando[len("APAGAR "):])
+            desfazer.append(texto)
+            texto = texto[:max(len(texto) - n, 0)]
+            refazer.clear()
+        elif comando == "DESFAZER":
             if desfazer:
                 refazer.append(texto)
                 texto = desfazer.pop()
-        elif cmd == "REFAZER":
+        elif comando == "REFAZER":
             if refazer:
                 desfazer.append(texto)
                 texto = refazer.pop()
@@ -525,310 +989,192 @@ def editor_com_desfazer(comandos: list[str]) -> str:
 ```
 
 ### Dicas
-
-1. Em `avaliar_rpn`, cuidado com a ordem de desempilhamento: `b = pilha.pop()` vem primeiro (topo da pilha, operando direito) e `a = pilha.pop()` vem em seguida (operando esquerdo).
-2. Em `infixa_para_posfixa`, um operador `token` de associatividade à direita (`"^"`) **não** desempilha outro `"^"` que já esteja no topo da `pilha_op`, porque `2 ^ 3 ^ 2` significa `2 ^ (3 ^ 2)`.
-3. Em `editor_com_desfazer`, use `cmd[8:]` (ou `cmd[len("INSERIR "):]`) para extrair exatamente o trecho após `"INSERIR "`, preservando espaços internos, e lembre-se de chamar `refazer.clear()` a cada nova inserção.
+1. Cuidado com `texto[:-n]` quando `n` é 0: teste no terminal o que `"abc"[:-0]` devolve.
+2. Para pegar o trecho, corte a string pelo tamanho do prefixo, sem `split`: o trecho pode começar com espaço.
+3. Desfazer e refazer são simétricos: o estado que sai de uma pilha vira o texto, e o texto atual vai para a outra.
 
 ### Verificação
-
 ```json
 [
-  {
-    "id": "rpn-basico",
-    "name": "Avalia expressão RPN com soma e multiplicação",
-    "checkpoint": 1,
-    "kind": "call",
-    "function": "avaliar_rpn",
-    "args": [["3", "4", "+", "2", "*"]],
-    "expected": 14.0,
-    "tolerance": 1e-9
-  },
-  {
-    "id": "rpn-ordem-operandos",
-    "name": "Respeita a ordem dos operandos em subtração, divisão e potência",
-    "checkpoint": 1,
-    "kind": "call",
-    "function": "avaliar_rpn",
-    "args": [["10", "6", "-", "2", "/", "3", "^"]],
-    "expected": 8.0,
-    "tolerance": 1e-9
-  },
-  {
-    "id": "shunting-yard-precedencia",
-    "name": "Converte infixa com parênteses e precedência para posfixa",
-    "checkpoint": 2,
-    "kind": "call",
-    "function": "infixa_para_posfixa",
-    "args": [["3", "+", "4", "*", "(", "2", "-", "1", ")"]],
-    "expected": ["3", "4", "2", "1", "-", "*", "+"]
-  },
-  {
-    "id": "shunting-yard-potencia-direita",
-    "name": "Trata associatividade à direita do operador ^ e à esquerda de -",
-    "checkpoint": 2,
-    "kind": "expr",
-    "expr": "(infixa_para_posfixa(['2', '^', '3', '^', '2']), infixa_para_posfixa(['10', '-', '4', '-', '1']))",
-    "expected": [["2", "3", "2", "^", "^"], ["10", "4", "-", "1", "-"]]
-  },
-  {
-    "id": "editor-desfazer-refazer",
-    "name": "Simula editor com INSERIR, DESFAZER, REFAZER e limpeza de histórico futuro",
-    "checkpoint": 3,
-    "kind": "call",
-    "function": "editor_com_desfazer",
-    "args": [[
-      "INSERIR Ola",
-      "INSERIR  mundo",
-      "INSERIR !",
-      "DESFAZER",
-      "DESFAZER",
-      "REFAZER",
-      "INSERIR  Python",
-      "REFAZER",
-      "DESFAZER",
-      "REFAZER"
-    ]],
-    "expected": "Ola mundo Python"
-  }
+  { "id": "escreve", "checkpoint": 1, "kind": "call", "function": "editor", "args": [["ESCREVER ab", "ESCREVER cd"]], "expected": "abcd",
+    "name": "Duas escritas viram abcd" },
+  { "id": "espacos", "checkpoint": 1, "kind": "call", "function": "editor", "args": [["ESCREVER um", "ESCREVER  dois"]], "expected": "um dois",
+    "name": "Preserva o espaço no começo do trecho", "hint": "O trecho é tudo depois de 'ESCREVER ', inclusive espaços." },
+  { "id": "apaga", "checkpoint": 1, "kind": "call", "function": "editor", "args": [["ESCREVER texto", "APAGAR 2"]], "expected": "tex",
+    "name": "APAGAR 2 tira os dois últimos" },
+  { "id": "apaga-demais", "checkpoint": 1, "kind": "call", "function": "editor", "args": [["ESCREVER abc", "APAGAR 10"]], "expected": "",
+    "name": "APAGAR mais do que existe deixa o texto vazio" },
+  { "id": "apaga-zero", "checkpoint": 1, "kind": "call", "function": "editor", "args": [["ESCREVER abc", "APAGAR 0"]], "expected": "abc",
+    "name": "APAGAR 0 não apaga nada", "hint": "Qual é o valor de 'abc'[:-0]?" },
+  { "id": "desfaz", "checkpoint": 2, "kind": "call", "function": "editor", "args": [["ESCREVER a", "ESCREVER b", "DESFAZER"]], "expected": "a",
+    "name": "DESFAZER volta ao estado anterior" },
+  { "id": "desfaz-apagar", "checkpoint": 2, "kind": "call", "function": "editor", "args": [["ESCREVER prova", "APAGAR 3", "DESFAZER"]],
+    "expected": "prova", "name": "DESFAZER também desfaz APAGAR" },
+  { "id": "refaz", "checkpoint": 2, "kind": "call", "function": "editor",
+    "args": [["ESCREVER a", "ESCREVER b", "ESCREVER c", "DESFAZER", "DESFAZER", "REFAZER"]], "expected": "ab",
+    "name": "REFAZER recupera o último estado desfeito" },
+  { "id": "pilhas-vazias", "checkpoint": 2, "kind": "call", "function": "editor", "args": [["DESFAZER", "REFAZER", "ESCREVER x", "REFAZER"]],
+    "expected": "x", "name": "DESFAZER e REFAZER sem histórico não fazem nada", "hint": "Teste se a pilha tem algo antes de desempilhar." },
+  { "id": "limpa-refazer", "checkpoint": 3, "kind": "call", "function": "editor", "args": [["ESCREVER a", "DESFAZER", "ESCREVER b", "REFAZER"]],
+    "expected": "b", "name": "Edição nova apaga o futuro desfeito", "hint": "Depois de uma edição nova, ainda faz sentido refazer?" },
+  { "id": "longo", "checkpoint": 3, "kind": "call", "function": "editor",
+    "args": [["ESCREVER abc", "APAGAR 1", "DESFAZER", "DESFAZER", "REFAZER", "ESCREVER !", "DESFAZER", "REFAZER", "REFAZER"]],
+    "expected": "abc!", "name": "Sequência longa com as quatro operações" }
 ]
 ```
 
 ### Soluções erradas
-
-```python name="Inverte a ordem dos operandos (b - a em vez de a - b) no avaliador RPN"
-def avaliar_rpn(tokens: list[str]) -> float:
-    pilha: list[float] = []
-    operadores = {"+", "-", "*", "/", "^"}
-    for token in tokens:
-        if token in operadores:
-            a = pilha.pop()
-            b = pilha.pop()
-            if token == "+":
-                pilha.append(a + b)
-            elif token == "-":
-                pilha.append(a - b)
-            elif token == "*":
-                pilha.append(a * b)
-            elif token == "/":
-                pilha.append(a / b)
-            elif token == "^":
-                pilha.append(a ** b)
-        else:
-            pilha.append(float(token))
-    return float(pilha[-1])
-
-
-def infixa_para_posfixa(tokens: list[str]) -> list[str]:
-    prec = {"+": 1, "-": 1, "*": 2, "/": 2, "^": 3}
-    saida: list[str] = []
-    pilha_op: list[str] = []
-    for token in tokens:
-        if token == "(":
-            pilha_op.append(token)
-        elif token == ")":
-            while pilha_op and pilha_op[-1] != "(":
-                saida.append(pilha_op.pop())
-            pilha_op.pop()
-        elif token in prec:
-            while (
-                pilha_op
-                and pilha_op[-1] in prec
-                and (
-                    prec[pilha_op[-1]] > prec[token]
-                    or (prec[pilha_op[-1]] == prec[token] and token != "^")
-                )
-            ):
-                saida.append(pilha_op.pop())
-            pilha_op.append(token)
-        else:
-            saida.append(token)
-    while pilha_op:
-        saida.append(pilha_op.pop())
-    return saida
-
-
-def editor_com_desfazer(comandos: list[str]) -> str:
+```python name="não esvazia o refazer numa edição nova"
+def editor(comandos):
     texto = ""
-    desfazer: list[str] = []
-    refazer: list[str] = []
-    for cmd in comandos:
-        if cmd.startswith("INSERIR "):
+    desfazer = []
+    refazer = []
+    for comando in comandos:
+        if comando.startswith("ESCREVER "):
             desfazer.append(texto)
-            texto += cmd[8:]
+            texto = texto + comando[len("ESCREVER "):]
+        elif comando.startswith("APAGAR "):
+            n = int(comando[len("APAGAR "):])
+            desfazer.append(texto)
+            texto = texto[:max(len(texto) - n, 0)]
+        elif comando == "DESFAZER":
+            if desfazer:
+                refazer.append(texto)
+                texto = desfazer.pop()
+        elif comando == "REFAZER":
+            if refazer:
+                desfazer.append(texto)
+                texto = refazer.pop()
+    return texto
+```
+```python name="DESFAZER não guarda o estado em refazer"
+def editor(comandos):
+    texto = ""
+    desfazer = []
+    refazer = []
+    for comando in comandos:
+        if comando.startswith("ESCREVER "):
+            desfazer.append(texto)
+            texto = texto + comando[len("ESCREVER "):]
             refazer.clear()
-        elif cmd == "DESFAZER" and desfazer:
-            refazer.append(texto)
-            texto = desfazer.pop()
-        elif cmd == "REFAZER" and refazer:
+        elif comando.startswith("APAGAR "):
+            n = int(comando[len("APAGAR "):])
             desfazer.append(texto)
-            texto = refazer.pop()
-    return texto
-```
-
-```python name="Trata o operador ^ como associativo à esquerda no Shunting-Yard"
-def avaliar_rpn(tokens: list[str]) -> float:
-    pilha: list[float] = []
-    operadores = {"+", "-", "*", "/", "^"}
-    for token in tokens:
-        if token in operadores:
-            b = pilha.pop()
-            a = pilha.pop()
-            if token == "+":
-                pilha.append(a + b)
-            elif token == "-":
-                pilha.append(a - b)
-            elif token == "*":
-                pilha.append(a * b)
-            elif token == "/":
-                pilha.append(a / b)
-            elif token == "^":
-                pilha.append(a ** b)
-        else:
-            pilha.append(float(token))
-    return float(pilha[-1])
-
-
-def infixa_para_posfixa(tokens: list[str]) -> list[str]:
-    prec = {"+": 1, "-": 1, "*": 2, "/": 2, "^": 3}
-    saida: list[str] = []
-    pilha_op: list[str] = []
-    for token in tokens:
-        if token == "(":
-            pilha_op.append(token)
-        elif token == ")":
-            while pilha_op and pilha_op[-1] != "(":
-                saida.append(pilha_op.pop())
-            pilha_op.pop()
-        elif token in prec:
-            while pilha_op and pilha_op[-1] in prec and prec[pilha_op[-1]] >= prec[token]:
-                saida.append(pilha_op.pop())
-            pilha_op.append(token)
-        else:
-            saida.append(token)
-    while pilha_op:
-        saida.append(pilha_op.pop())
-    return saida
-
-
-def editor_com_desfazer(comandos: list[str]) -> str:
-    texto = ""
-    desfazer: list[str] = []
-    refazer: list[str] = []
-    for cmd in comandos:
-        if cmd.startswith("INSERIR "):
-            desfazer.append(texto)
-            texto += cmd[8:]
+            texto = texto[:max(len(texto) - n, 0)]
             refazer.clear()
-        elif cmd == "DESFAZER" and desfazer:
-            refazer.append(texto)
-            texto = desfazer.pop()
-        elif cmd == "REFAZER" and refazer:
-            desfazer.append(texto)
-            texto = refazer.pop()
+        elif comando == "DESFAZER":
+            if desfazer:
+                texto = desfazer.pop()
+        elif comando == "REFAZER":
+            if refazer:
+                desfazer.append(texto)
+                texto = refazer.pop()
     return texto
 ```
-
-```python name="Esquece de limpar a pilha de refazer quando ocorre uma nova inserção"
-def avaliar_rpn(tokens: list[str]) -> float:
-    pilha: list[float] = []
-    operadores = {"+", "-", "*", "/", "^"}
-    for token in tokens:
-        if token in operadores:
-            b = pilha.pop()
-            a = pilha.pop()
-            if token == "+":
-                pilha.append(a + b)
-            elif token == "-":
-                pilha.append(a - b)
-            elif token == "*":
-                pilha.append(a * b)
-            elif token == "/":
-                pilha.append(a / b)
-            elif token == "^":
-                pilha.append(a ** b)
-        else:
-            pilha.append(float(token))
-    return float(pilha[-1])
-
-
-def infixa_para_posfixa(tokens: list[str]) -> list[str]:
-    prec = {"+": 1, "-": 1, "*": 2, "/": 2, "^": 3}
-    saida: list[str] = []
-    pilha_op: list[str] = []
-    for token in tokens:
-        if token == "(":
-            pilha_op.append(token)
-        elif token == ")":
-            while pilha_op and pilha_op[-1] != "(":
-                saida.append(pilha_op.pop())
-            pilha_op.pop()
-        elif token in prec:
-            while (
-                pilha_op
-                and pilha_op[-1] in prec
-                and (
-                    prec[pilha_op[-1]] > prec[token]
-                    or (prec[pilha_op[-1]] == prec[token] and token != "^")
-                )
-            ):
-                saida.append(pilha_op.pop())
-            pilha_op.append(token)
-        else:
-            saida.append(token)
-    while pilha_op:
-        saida.append(pilha_op.pop())
-    return saida
-
-
-def editor_com_desfazer(comandos: list[str]) -> str:
+```python name="apaga com texto[:-n]"
+def editor(comandos):
     texto = ""
-    desfazer: list[str] = []
-    refazer: list[str] = []
-    for cmd in comandos:
-        if cmd.startswith("INSERIR "):
+    desfazer = []
+    refazer = []
+    for comando in comandos:
+        if comando.startswith("ESCREVER "):
             desfazer.append(texto)
-            texto += cmd[8:]
-        elif cmd == "DESFAZER" and desfazer:
+            texto = texto + comando[len("ESCREVER "):]
+            refazer.clear()
+        elif comando.startswith("APAGAR "):
+            n = int(comando[len("APAGAR "):])
+            desfazer.append(texto)
+            texto = texto[:-n]
+            refazer.clear()
+        elif comando == "DESFAZER":
+            if desfazer:
+                refazer.append(texto)
+                texto = desfazer.pop()
+        elif comando == "REFAZER":
+            if refazer:
+                desfazer.append(texto)
+                texto = refazer.pop()
+    return texto
+```
+```python name="desempilha sem conferir se há histórico"
+def editor(comandos):
+    texto = ""
+    desfazer = []
+    refazer = []
+    for comando in comandos:
+        if comando.startswith("ESCREVER "):
+            desfazer.append(texto)
+            texto = texto + comando[len("ESCREVER "):]
+            refazer.clear()
+        elif comando.startswith("APAGAR "):
+            n = int(comando[len("APAGAR "):])
+            desfazer.append(texto)
+            texto = texto[:max(len(texto) - n, 0)]
+            refazer.clear()
+        elif comando == "DESFAZER":
             refazer.append(texto)
             texto = desfazer.pop()
-        elif cmd == "REFAZER" and refazer:
+        elif comando == "REFAZER":
             desfazer.append(texto)
             texto = refazer.pop()
     return texto
 ```
+```python name="pega o trecho com split"
+def editor(comandos):
+    texto = ""
+    desfazer = []
+    refazer = []
+    for comando in comandos:
+        partes = comando.split()
+        if partes[0] == "ESCREVER":
+            desfazer.append(texto)
+            texto = texto + partes[1]
+            refazer.clear()
+        elif partes[0] == "APAGAR":
+            desfazer.append(texto)
+            texto = texto[:max(len(texto) - int(partes[1]), 0)]
+            refazer.clear()
+        elif comando == "DESFAZER":
+            if desfazer:
+                refazer.append(texto)
+                texto = desfazer.pop()
+        elif comando == "REFAZER":
+            if refazer:
+                desfazer.append(texto)
+                texto = refazer.pop()
+    return texto
+```
 
-## Passo 6 · Quiz · LIFO, RPN e complexidade de pilhas
+## Passo 8 · Quiz · Pilhas no lugar certo
 
 ### Pergunta
-
-Por que em Python implementamos o topo de uma pilha no **final** de uma `list` (`append` e `pop()`) em vez do **início** (`insert(0, x)` e `pop(0)`)?
-
-- [ ] Porque `list.pop(0)` não existe na biblioteca padrão do Python.
-- [x] Porque `append` e `pop()` no final da `list` operam em $O(1)$ amortizado, enquanto `insert(0, x)` e `pop(0)` precisam deslocar todos os $n$ elementos na memória em tempo $O(n)$.
-- [ ] Porque `append` ordena automaticamente os elementos inseridos na pilha.
-- [ ] Porque o início da lista é reservado apenas para estruturas recursivas.
-
-> A `list` do CPython é um vetor contíguo de ponteiros. Modificar o índice `0` obriga o deslocamento físico de todos os elementos seguintes ($O(n)$), enquanto operar no fim aproveita a capacidade pré-alocada em $O(1)$ amortizado.
-
-### Pergunta
-
-Ao avaliar a expressão posfixa (RPN) `["15", "3", "/", "2", "-"]`, qual é a sequência de operações executada na pilha e o resultado final?
-
-- [ ] Empilha 15, empilha 3, divide $3 / 15 = 0.2$, empilha 2, subtrai $2 - 0.2 = 1.8$.
-- [x] Empilha 15, empilha 3, desempilha $b=3$ e $a=15$, empilha $15 / 3 = 5.0$, empilha 2, desempilha $b=2$ e $a=5.0$, e devolve $5.0 - 2 = 3.0$.
-- [ ] Empilha 15, 3 e 2, subtrai $3 - 2 = 1$, e divide $15 / 1 = 15.0$.
-- [ ] A expressão é inválida porque não contém parênteses.
-
-> Na RPN, cada operador atua sobre os dois operandos imediatamente anteriores na pilha, onde o topo recém-desempilhado é o operando direito ($b$) e o próximo é o operando esquerdo ($a$).
+A função recursiva `visitar(no)` imprime o nó e depois visita cada filho, da esquerda para a direita; na árvore abaixo ela imprime `A B D C`. Um colega trocou a recursão por uma pilha explícita. O que a versão dele imprime?
+```python
+arvore = {"A": ["B", "C"], "B": ["D"], "C": [], "D": []}
+pilha = ["A"]
+while pilha:
+    no = pilha.pop()
+    print(no, end=" ")
+    pilha.extend(arvore[no])
+```
+- [x] `A C B D`: o último filho empilhado é o primeiro a sair; para imitar a recursão, seria preciso empilhar os filhos em ordem inversa.
+- [ ] `A B D C`: a pilha explícita faz exatamente o que a pilha de chamadas fazia.
+- [ ] `A B C D`: a pilha visita a árvore por níveis.
+- [ ] `D B C A`: a pilha imprime primeiro o que está mais fundo.
+> A pilha de chamadas guarda "o que falta fazer" na ordem certa porque a recursão visita B inteiro antes de olhar para C. Com `extend(["B", "C"])`, o C fica no topo e sai primeiro. `pilha.extend(reversed(arvore[no]))` recupera a ordem `A B D C`.
 
 ### Pergunta
+Quanto vale a expressão posfixa `10 2 5 - -`?
+- [x] 13, porque é $10 - (2 - 5)$.
+- [ ] 3, porque é $(10 - 2) - 5$.
+- [ ] $-13$, porque o primeiro valor desempilhado fica à esquerda.
+- [ ] A expressão é inválida: dois operadores seguidos não são permitidos.
+> O primeiro `-` encontra 2 e 5 no topo e deixa $-3$; o segundo encontra 10 e $-3$ e calcula $10 - (-3) = 13$. Para obter $(10 - 2) - 5$ a posfixa seria `10 2 - 5 -`.
 
-Por que a função ingênua que apenas verifica `texto.count("(") == texto.count(")")` falha ao testar se uma string tem parênteses balanceados?
-
-- [ ] Porque `str.count` tem complexidade exponencial $O(2^n)$.
-- [x] Porque ela ignora a ordem e o aninhamento: strings inválidas como `")("` ou `"([)]"` têm a mesma quantidade de aberturas e fechamentos, mas fecham delimitadores na ordem errada.
-- [ ] Porque `str.count` diferencia letras maiúsculas de minúsculas.
-- [ ] Porque parênteses aninhados como `"(())"` têm mais fechamentos do que aberturas.
-
-> O balanceamento exige duas invariantes: em nenhum prefixo da string pode haver um fechamento que não corresponda à abertura mais recente ainda pendente (LIFO), e ao final não podem sobrar aberturas.
+### Pergunta
+Num editor com duas pilhas, você escreve `A`, depois `B`, depois `C`, desfaz duas vezes e escreve `D`. O que acontece se você pedir REFAZER agora?
+- [x] Nada: escrever `D` esvaziou a pilha de refazer, e o texto continua `AD`.
+- [ ] O texto volta a `ABC`, porque os estados desfeitos continuam guardados.
+- [ ] O texto vira `ABD`, porque o refazer reaplica `B` antes do `D`.
+- [ ] O editor levanta `IndexError`, porque a pilha de refazer está vazia.
+> Uma edição nova cria outra linha do tempo. Os estados desfeitos pertencem à linha antiga, por isso `refazer.clear()`. Um editor bem escrito confere se a pilha está vazia antes de desempilhar e simplesmente ignora o comando.
