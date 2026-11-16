@@ -18,702 +18,1762 @@ objetivos:
 - Construir e manter um conjunto de avaliação com perguntas, trechos esperados e respostas de referência
 ---
 
-## Passo 1 · Leitura · Separando erros da busca de erros do gerador
+## Passo 1 · Leitura · Duas etapas, duas avaliações
 
-Quando um sistema RAG responde errado, de quem foi a culpa: do **índice** que não recuperou o artigo certo do regimento ou do **modelo gerador** que ignorou o trecho recuperado? Se avaliarmos apenas a resposta final, trocaremos o prompt dezenas de vezes quando o defeito real estava no *chunking* ou na busca vetorial.
+O assistente respondeu errado sobre trancamento. De quem é a culpa? Da **busca**, que não trouxe o artigo certo, ou da **geração**, que recebeu o artigo e respondeu outra coisa? Quem olha só a resposta final não sabe, e passa uma semana reescrevendo o prompt quando o defeito estava no chunking.
 
 ```mermaid
 flowchart TD
-    Q["Caso de Avaliação"] --> R{"Recuperou o trecho relevante?"}
-    R -- "Não" --> ER["Erro de Recuperação (ajustar índice / chunking / k)"]
-    R -- "Sim" --> F{"Resposta é fiel aos trechos e correta?"}
-    F -- "Não" --> EG["Erro de Geração (ajustar prompt / modelo)"]
-    F -- "Sim" --> OK["Sucesso ponta a ponta"]
+    Q["Caso do conjunto"] --> R{"Busca trouxe um trecho relevante?"}
+    R -- "não" --> ER["Falha de recuperação"]
+    R -- "sim" --> F{"Resposta fiel aos trechos?"}
+    F -- "não" --> AL["Alucinação"]
+    F -- "sim" --> C{"Correta?"}
+    C -- "não" --> EG["Falha de geração"]
+    C -- "sim" --> OK["Acerto"]
 ```
 
-Por isso, medimos as duas etapas separadamente:
+Para separar as etapas, o **conjunto de avaliação** precisa de três coisas por pergunta: o texto da pergunta (de preferência tirado de pedidos reais à secretaria), os **ids dos trechos relevantes** — o gabarito da busca — e uma **resposta de referência** — o gabarito da geração. Inclua também perguntas que os documentos **não** respondem, com gabarito de trechos vazio: nelas o comportamento certo é recusar.
 
-1. **Métricas de recuperação** (comparando a lista `top_k` recuperada com o conjunto de documentos relevantes $R_q$):
-   - **Recall@$k$:** fração dos documentos relevantes para a pergunta que apareceram entre os $k$ primeiros.
-   - **Precisão@$k$:** fração dos $k$ documentos recuperados que são de fato relevantes.
-   - **MRR (*Mean Reciprocal Rank*):** média do inverso da posição ($\text{rank}_q \in \{1, 2, \dots, k\}$) do **primeiro** documento relevante recuperado (ou $0$ se nenhum relevante aparecer no top-$k$).
+A busca de uma pergunta $q$ é medida comparando os $k$ primeiros ids devolvidos, $\text{top}_k(q)$, com o conjunto $R_q$ de relevantes:
 
-$$\text{MRR} = \frac{1}{|Q|} \sum_{q=1}^{|Q|} \frac{1}{\text{rank}_q}, \qquad \text{Precisão@}k = \frac{|\text{Relevantes nos top-}k|}{k}$$
+$$
+\text{recall@}k = \frac{|R_q \cap \text{top}_k(q)|}{|R_q|} \qquad
+\text{precisão@}k = \frac{|R_q \cap \text{top}_k(q)|}{k} \qquad
+\text{MRR} = \frac{1}{|Q|}\sum_{q \in Q} \frac{1}{\text{pos}_q}
+$$
 
-2. **Métricas de geração:**
-   - **Fidelidade (*faithfulness*):** a resposta limita-se ao que está escrito nos trechos recuperados, sem inventar fatos externos?
-   - **Correção (*answer correctness*):** a resposta contém a informação esperada segundo a resposta de referência (*ground truth*)?
+$\text{pos}_q$ é a posição (a partir de 1) do **primeiro** relevante no top-$k$; sem nenhum, a parcela vale 0. Recall pergunta "a evidência chegou?"; precisão, "quanto lixo veio junto?"; MRR, "quão no alto ela chegou?". Num RAG que manda poucos trechos ao modelo, recall@k com o mesmo $k$ do prompt é a métrica que mais importa: se o trecho não está no prompt, nenhum gerador acerta com honestidade.
 
-Repare que uma resposta pode ser **fiel** e **incorreta** ao mesmo tempo: se a busca não trouxer o trecho relevante e o modelo disser *"Não há informação suficiente nos documentos"*, o gerador foi 100% fiel aos trechos recebidos — a falha foi da recuperação!
+Pergunta sem trecho relevante não tem recall (seria $0/0$). Ela fica fora das médias da busca e entra na avaliação da geração, onde se confere se o sistema recusou.
 
-## Passo 2 · Exercício · Métricas de recuperação: Recall@k, Precisão@k e MRR
+```python
+{"id": "p7", "pergunta": "Posso trancar uma disciplina depois da prova?",
+ "relevantes": ["reg-12"],
+ "referencia": "Sim, até o 60º dia letivo, pelo sistema acadêmico."}
+```
 
+Os ids do gabarito apontam para trechos de **uma versão** do índice. Mudou o chunking, os ids mudam, e um gabarito velho faz o recall despencar sem que a busca tenha piorado. Conferir que todo id do gabarito existe no índice antes de medir evita esse susto.
+
+## Passo 2 · Previsão · Mais recall, menos MRR
+
+Dois sistemas de busca respondem às mesmas três perguntas. O programa calcula recall@3 e MRR de cada um. Leia sem executar e digite o que ele imprime.
+
+### Código
+```python
+gabarito = {"p1": ["reg-12"], "p2": ["reg-20", "faq-04"], "p3": ["cal-01"]}
+sistemas = {
+    "A": {"p1": ["reg-12", "reg-13", "faq-02"], "p2": ["reg-20", "faq-01", "reg-11"],
+          "p3": ["reg-30", "faq-09", "reg-02"]},
+    "B": {"p1": ["reg-13", "faq-02", "reg-12"], "p2": ["faq-04", "reg-20", "reg-11"],
+          "p3": ["faq-09", "cal-01", "reg-02"]},
+}
+for nome, resultado in sistemas.items():
+    recall, rr = 0.0, 0.0
+    for p, relevantes in gabarito.items():
+        topo = resultado[p][:3]
+        recall += len(set(topo) & set(relevantes)) / len(relevantes)
+        for pos, ident in enumerate(topo, start=1):
+            if ident in relevantes:
+                rr += 1 / pos
+                break
+    print(nome, round(recall / 3, 2), round(rr / 3, 2))
+```
+
+### Dicas
+1. No sistema A, a p2 tem dois relevantes e só um voltou: recall 0,5 nessa pergunta.
+2. O `break` faz cada pergunta contar só o primeiro relevante no MRR.
+3. No sistema B, as posições dos primeiros relevantes são 3, 1 e 2.
+
+### Saída esperada
+```text
+A 0.5 0.67
+B 1.0 0.61
+```
+
+## Passo 3 · Exercício · Métricas de uma consulta
 modo: lacunas
 
-Complete a função `metricas_recuperacao(recuperados, relevantes, k)` para calcular o `recall`, a `precisao` e o *Reciprocal Rank* (`rr`) de uma consulta considerando apenas os `k` primeiros itens recuperados.
+Complete as lacunas (`___`) de `metricas_consulta(recuperados, relevantes, k)`. `recuperados` é a lista de ids devolvida pela busca, em ordem; `relevantes`, a lista de ids do gabarito. Ela devolve `{"recall": ..., "precisao": ..., "rr": ...}` olhando só os `k` primeiros recuperados. A precisão é dividida por `k` mesmo quando a busca devolveu menos itens: faltar resultado não é mérito. Gabarito vazio levanta `ValueError`, porque recall de uma pergunta sem trecho relevante não existe.
 
 ### Instruções
-
-1. Fatie `top_k = recuperados[:k]`, crie `rel_set = set(relevantes)` e calcule `recall = acertos / len(rel_set)` e `precisao = acertos / k`.
-2. Encontre a primeira posição 1-based (`start=1`) em `top_k` cujo item pertença a `rel_set` e defina `rr = 1.0 / pos` (ou `0.0` se nenhum item relevante aparecer em `top_k`).
+1. Considere só os `k` primeiros ids recuperados.
+2. Calcule o recall sobre todos os relevantes do gabarito e a precisão sobre `k`.
+3. Calcule o RR pela posição, a partir de 1, do primeiro relevante.
 
 ### Código inicial
-
 ```python
-def metricas_recuperacao(recuperados, relevantes, k):
-    top_k = recuperados[:k]
-    rel_set = set(relevantes)
-    acertos = sum(1 for doc_id in top_k if doc_id in rel_set)
-    recall = float(acertos / len(___)) if rel_set else 0.0
-    precisao = float(acertos / ___) if k > 0 else 0.0
+def metricas_consulta(recuperados, relevantes, k):
+    if not relevantes:
+        raise ValueError("pergunta sem trechos relevantes no gabarito")
+    topo = recuperados[:___]
+    acertos = len(set(topo) & set(relevantes))
     rr = 0.0
-    for pos, doc_id in enumerate(top_k, start=___):
-        if doc_id in rel_set:
-            rr = float(1.0 / pos)
+    for pos, ident in enumerate(topo, start=___):
+        if ident in relevantes:
+            rr = 1 / ___
             break
-    return {"recall": recall, "precisao": precisao, "rr": rr}
+    return {"recall": acertos / len(___), "precisao": acertos / ___, "rr": rr}
+
+
+if __name__ == "__main__":
+    print(metricas_consulta(["reg-13", "faq-02", "reg-12", "cal-01"], ["reg-12", "faq-02"], 3))
 ```
 
 ### Solução
-
 ```python
-def metricas_recuperacao(recuperados, relevantes, k):
-    top_k = recuperados[:k]
-    rel_set = set(relevantes)
-    acertos = sum(1 for doc_id in top_k if doc_id in rel_set)
-    recall = float(acertos / len(rel_set)) if rel_set else 0.0
-    precisao = float(acertos / k) if k > 0 else 0.0
+def metricas_consulta(recuperados, relevantes, k):
+    if not relevantes:
+        raise ValueError("pergunta sem trechos relevantes no gabarito")
+    topo = recuperados[:k]
+    acertos = len(set(topo) & set(relevantes))
     rr = 0.0
-    for pos, doc_id in enumerate(top_k, start=1):
-        if doc_id in rel_set:
-            rr = float(1.0 / pos)
+    for pos, ident in enumerate(topo, start=1):
+        if ident in relevantes:
+            rr = 1 / pos
             break
-    return {"recall": recall, "precisao": precisao, "rr": rr}
+    return {"recall": acertos / len(relevantes), "precisao": acertos / k, "rr": rr}
+
+
+if __name__ == "__main__":
+    print(metricas_consulta(["reg-13", "faq-02", "reg-12", "cal-01"], ["reg-12", "faq-02"], 3))
 ```
 
 ### Dicas
-
-1. O denominador do `recall` é o total de documentos relevantes (`len(rel_set)`).
-2. O denominador da `precisao` em `@k` é `k`.
-3. No *Reciprocal Rank*, a primeira posição tem rank `1` (`start=1`), valendo `1.0 / 1 = 1.0`.
+1. Os `k` primeiros de uma lista são uma fatia.
+2. O denominador do recall é o que **deveria** ter vindo; o da precisão, o que **cabia** vir.
+3. RR do relevante na primeira posição é 1; na terceira, um terço.
 
 ### Verificação
-
 ```json
 [
-  {
-    "id": "metricas-segundo-lugar",
-    "name": "Calcula recall, precisão e RR quando o relevante está na 2ª posição",
-    "checkpoint": 1,
-    "kind": "call",
-    "function": "metricas_recuperacao",
-    "args": [
-      [
-        "doc1",
-        "doc2",
-        "doc3",
-        "doc4"
-      ],
-      [
-        "doc2",
-        "doc5"
-      ],
-      4
-    ],
-    "expected": {
-      "recall": 0.5,
-      "precisao": 0.25,
-      "rr": 0.5
-    },
-    "tolerance": 1e-6
-  },
-  {
-    "id": "metricas-sem-acerto",
-    "name": "Devolve zeros quando nenhum relevante aparece no top-k",
-    "checkpoint": 2,
-    "kind": "call",
-    "function": "metricas_recuperacao",
-    "args": [
-      [
-        "doc1",
-        "doc2",
-        "doc3"
-      ],
-      [
-        "doc9"
-      ],
-      3
-    ],
-    "expected": {
-      "recall": 0.0,
-      "precisao": 0.0,
-      "rr": 0.0
-    },
-    "tolerance": 1e-6
-  }
+  {"id": "exemplo", "checkpoint": 1, "kind": "call", "function": "metricas_consulta", "args": [["faq-02", "reg-12", "cal-01", "reg-13"], ["reg-12", "reg-13"], 3], "tolerance": 1e-09, "name": "Dois relevantes, um no top-3, na posição 2", "expected": {"recall": 0.5, "precisao": 0.3333333333333333, "rr": 0.5}},
+  {"id": "corte-k", "checkpoint": 1, "kind": "call", "function": "metricas_consulta", "args": [["faq-02", "cal-01", "reg-12"], ["reg-12"], 2], "tolerance": 1e-09, "name": "Relevante na posição 3 não conta em k = 2", "hint": "Só os k primeiros entram na conta.", "expected": {"recall": 0.0, "precisao": 0.0, "rr": 0.0}},
+  {"id": "recall-todos", "checkpoint": 2, "kind": "call", "function": "metricas_consulta", "args": [["reg-20", "faq-04", "reg-21"], ["reg-20", "reg-21", "faq-07", "faq-08"], 3], "tolerance": 1e-09, "name": "O denominador do recall são todos os relevantes do gabarito", "hint": "Relevante que a busca não trouxe também conta.", "expected": {"recall": 0.5, "precisao": 0.6666666666666666, "rr": 1.0}},
+  {"id": "primeiro", "checkpoint": 3, "kind": "call", "function": "metricas_consulta", "args": [["cal-01", "reg-20", "reg-21", "faq-04"], ["reg-21", "reg-20"], 4], "tolerance": 1e-09, "name": "RR usa o PRIMEIRO relevante da lista", "hint": "Achou um relevante, pare.", "expected": {"recall": 1.0, "precisao": 0.5, "rr": 0.5}},
+  {"id": "poucos", "checkpoint": 2, "kind": "call", "function": "metricas_consulta", "args": [["reg-12"], ["reg-12"], 5], "tolerance": 1e-09, "name": "Busca devolveu menos que k: a precisão continua dividida por k", "expected": {"recall": 1.0, "precisao": 0.2, "rr": 1.0}},
+  {"id": "nenhum", "checkpoint": 3, "kind": "call", "function": "metricas_consulta", "args": [["cal-01", "faq-02"], ["reg-30"], 2], "tolerance": 1e-09, "name": "Nenhum relevante: tudo zero", "expected": {"recall": 0.0, "precisao": 0.0, "rr": 0.0}},
+  {"id": "sem-gabarito", "checkpoint": 1, "kind": "expr", "expr": "metricas_consulta(['reg-12'], [], 3)", "raises": "ValueError", "message_contains": "gabarito", "name": "Pergunta sem trecho relevante não tem recall: é erro, não zero"}
 ]
 ```
 
 ### Soluções erradas
-
-```python name="Divide a precisão pelo total de relevantes em vez de k"
-def metricas_recuperacao(recuperados, relevantes, k):
-    top_k = recuperados[:k]
-    rel_set = set(relevantes)
-    acertos = sum(1 for doc_id in top_k if doc_id in rel_set)
-    recall = float(acertos / len(rel_set)) if rel_set else 0.0
-    precisao = float(acertos / len(rel_set)) if rel_set else 0.0
+```python name="recall dividido pelo tamanho do topo"
+def metricas_consulta(recuperados, relevantes, k):
+    if not relevantes:
+        raise ValueError("pergunta sem trechos relevantes no gabarito")
+    topo = recuperados[:k]
+    acertos = len(set(topo) & set(relevantes))
     rr = 0.0
-    for pos, doc_id in enumerate(top_k, start=1):
-        if doc_id in rel_set:
-            rr = float(1.0 / pos)
+    for pos, ident in enumerate(topo, start=1):
+        if ident in relevantes:
+            rr = 1 / pos
             break
-    return {"recall": recall, "precisao": precisao, "rr": rr}
+    return {"recall": acertos / len(topo), "precisao": acertos / k, "rr": rr}
+
+
+if __name__ == "__main__":
+    print(metricas_consulta(["reg-13", "faq-02", "reg-12", "cal-01"], ["reg-12", "faq-02"], 3))
+```
+```python name="RR do último relevante, sem break"
+def metricas_consulta(recuperados, relevantes, k):
+    if not relevantes:
+        raise ValueError("pergunta sem trechos relevantes no gabarito")
+    topo = recuperados[:k]
+    acertos = len(set(topo) & set(relevantes))
+    rr = 0.0
+    for pos, ident in enumerate(topo, start=1):
+        if ident in relevantes:
+            rr = 1 / pos
+    return {"recall": acertos / len(relevantes), "precisao": acertos / k, "rr": rr}
+
+
+if __name__ == "__main__":
+    print(metricas_consulta(["reg-13", "faq-02", "reg-12", "cal-01"], ["reg-12", "faq-02"], 3))
+```
+```python name="olha a lista inteira, não só os k primeiros"
+def metricas_consulta(recuperados, relevantes, k):
+    if not relevantes:
+        raise ValueError("pergunta sem trechos relevantes no gabarito")
+    topo = recuperados
+    acertos = len(set(topo) & set(relevantes))
+    rr = 0.0
+    for pos, ident in enumerate(topo, start=1):
+        if ident in relevantes:
+            rr = 1 / pos
+            break
+    return {"recall": acertos / len(relevantes), "precisao": acertos / k, "rr": rr}
+
+
+if __name__ == "__main__":
+    print(metricas_consulta(["reg-13", "faq-02", "reg-12", "cal-01"], ["reg-12", "faq-02"], 3))
+```
+```python name="precisão dividida pelo que voltou"
+def metricas_consulta(recuperados, relevantes, k):
+    if not relevantes:
+        raise ValueError("pergunta sem trechos relevantes no gabarito")
+    topo = recuperados[:k]
+    acertos = len(set(topo) & set(relevantes))
+    rr = 0.0
+    for pos, ident in enumerate(topo, start=1):
+        if ident in relevantes:
+            rr = 1 / pos
+            break
+    return {"recall": acertos / len(relevantes), "precisao": acertos / len(topo), "rr": rr}
+
+
+if __name__ == "__main__":
+    print(metricas_consulta(["reg-13", "faq-02", "reg-12", "cal-01"], ["reg-12", "faq-02"], 3))
+```
+```python name="gabarito vazio vira zero"
+def metricas_consulta(recuperados, relevantes, k):
+    if not relevantes:
+        return {"recall": 0.0, "precisao": 0.0, "rr": 0.0}
+    topo = recuperados[:k]
+    acertos = len(set(topo) & set(relevantes))
+    rr = 0.0
+    for pos, ident in enumerate(topo, start=1):
+        if ident in relevantes:
+            rr = 1 / pos
+            break
+    return {"recall": acertos / len(relevantes), "precisao": acertos / k, "rr": rr}
+
+
+if __name__ == "__main__":
+    print(metricas_consulta(["reg-13", "faq-02", "reg-12", "cal-01"], ["reg-12", "faq-02"], 3))
 ```
 
-```python name="Usa a posição diretamente em vez do inverso 1/pos no Reciprocal Rank"
-def metricas_recuperacao(recuperados, relevantes, k):
-    top_k = recuperados[:k]
-    rel_set = set(relevantes)
-    acertos = sum(1 for doc_id in top_k if doc_id in rel_set)
-    recall = float(acertos / len(rel_set)) if rel_set else 0.0
-    precisao = float(acertos / k) if k > 0 else 0.0
-    rr = 0.0
-    for pos, doc_id in enumerate(top_k, start=1):
-        if doc_id in rel_set:
-            rr = float(pos)
-            break
-    return {"recall": recall, "precisao": precisao, "rr": rr}
-```
+## Passo 4 · Exercício · Avaliar a busca num conjunto
 
-## Passo 3 · Exercício · Fidelidade por sobreposição e juiz simulado
+Escreva `avaliar_recuperacao(buscar, conjunto, ids_validos, k=3)`. `metricas_consulta` já está no código inicial.
 
-Agora vamos medir a qualidade da resposta gerada: primeiro por uma regra rápida de sobreposição lexical das palavras significativas ($\ge 4$ caracteres) contra os trechos recuperados, e em seguida combinando fidelidade e correção factual contra a resposta de referência.
+- `buscar(pergunta, k)` é a busca que você quer medir: devolve a lista de ids dos trechos, em ordem. Nos testes ela é falsa, para os números serem conhecidos; no projeto, é o seu índice.
+- `conjunto` é uma lista de `{"id", "pergunta", "relevantes"}`; `relevantes` vazio quer dizer "os documentos não respondem".
+- `ids_validos` são os ids existentes no índice atual. **Antes de qualquer busca**, se algum id de gabarito não estiver lá, levante `ValueError` com uma mensagem que contenha o id da pergunta e o id desconhecido.
+- Perguntas sem relevantes não são buscadas nem entram nas médias; conte-as em `sem_gabarito`.
+- Devolva `{"recall", "precisao", "mrr", "avaliadas", "sem_gabarito", "falhas"}`: as médias das perguntas avaliadas, com `round(..., 4)` (0.0 se nenhuma foi avaliada), quantas foram avaliadas e, em `falhas`, os ids das perguntas com recall zero, na ordem do conjunto.
 
 ### Instruções
-
-1. Implemente `fidelidade_por_sobreposicao(resposta, trechos)`:
-   - Se `resposta.strip()` for exatamente `"Nao ha informacao suficiente nos documentos."`, devolva `1.0`.
-   - Extraia todas as palavras alfanuméricas minúsculas de tamanho $\ge 4$ da `resposta` (`re.findall(r"[a-z0-9]{4,}", resposta.lower())`). Se não houver nenhuma palavra com $\ge 4$ caracteres, devolva `1.0`.
-   - Construa o conjunto de todas as palavras de tamanho $\ge 4$ presentes na concatenação dos textos de `trechos` (`t["texto"]` se `t` for dicionário, ou `str(t)`).
-   - Devolva como `float` a fração de palavras da `resposta` (com $\ge 4$ caracteres) que aparecem nesse conjunto de palavras dos trechos.
-2. Implemente `julgar_resposta(cliente_juiz, pergunta, resposta, trechos, referencia)`:
-   - Calcule `fiel = fidelidade_por_sobreposicao(resposta, trechos) >= 0.6`.
-   - Use `correta = bool(cliente_juiz.verificar_fatos(resposta, referencia))` para checar se todos os fatos-chave da `referencia` aparecem na `resposta`.
-   - Defina `nota` (inteiro de `0` a `2`) somando `1` se `fiel` for verdadeiro e `1` se `correta` for verdadeiro.
-   - Devolva `{"fiel": bool(fiel), "correta": bool(correta), "nota": int(nota)}`.
+1. Confira todos os ids do gabarito contra o índice antes de buscar.
+2. Busque cada pergunta com gabarito usando o mesmo `k` das métricas e faça as médias só sobre elas.
+3. Liste em `falhas` as perguntas em que nenhum relevante voltou.
 
 ### Código inicial
-
 ```python
-import re
-
-RECUSA_PADRAO = "Nao ha informacao suficiente nos documentos."
-
-
-class JuizSimulado:
-    def verificar_fatos(self, resposta, referencia):
-        palavras_ref = set(re.findall(r"[a-z0-9]{4,}", referencia.lower()))
-        if not palavras_ref:
-            return True
-        palavras_resp = set(re.findall(r"[a-z0-9]{4,}", resposta.lower()))
-        cobertura = len(palavras_ref & palavras_resp) / len(palavras_ref)
-        return cobertura >= 0.6
+def metricas_consulta(recuperados, relevantes, k):
+    if not relevantes:
+        raise ValueError("pergunta sem trechos relevantes no gabarito")
+    topo = recuperados[:k]
+    acertos = len(set(topo) & set(relevantes))
+    rr = 0.0
+    for pos, ident in enumerate(topo, start=1):
+        if ident in relevantes:
+            rr = 1 / pos
+            break
+    return {"recall": acertos / len(relevantes), "precisao": acertos / k, "rr": rr}
 
 
-def fidelidade_por_sobreposicao(resposta, trechos):
-    # Calcule a fração de palavras significativas (>= 4 letras) apoiadas nos trechos
+def avaliar_recuperacao(buscar, conjunto, ids_validos, k=3):
     pass
 
 
-def julgar_resposta(cliente_juiz, pergunta, resposta, trechos, referencia):
-    # Avalie fidelidade, correção e nota de 0 a 2
-    pass
-```
-
-### Solução
-
-```python
-import re
-
-RECUSA_PADRAO = "Nao ha informacao suficiente nos documentos."
-
-
-class JuizSimulado:
-    def verificar_fatos(self, resposta, referencia):
-        palavras_ref = set(re.findall(r"[a-z0-9]{4,}", referencia.lower()))
-        if not palavras_ref:
-            return True
-        palavras_resp = set(re.findall(r"[a-z0-9]{4,}", resposta.lower()))
-        cobertura = len(palavras_ref & palavras_resp) / len(palavras_ref)
-        return cobertura >= 0.6
-
-
-def fidelidade_por_sobreposicao(resposta, trechos):
-    if resposta.strip() == RECUSA_PADRAO:
-        return 1.0
-    palavras_resp = re.findall(r"[a-z0-9]{4,}", resposta.lower())
-    if not palavras_resp:
-        return 1.0
-    texto_trechos = " ".join(t["texto"] if isinstance(t, dict) else str(t) for t in trechos)
-    vocab_trechos = set(re.findall(r"[a-z0-9]{4,}", texto_trechos.lower()))
-    apoiadas = sum(1 for p in palavras_resp if p in vocab_trechos)
-    return float(apoiadas / len(palavras_resp))
-
-
-def julgar_resposta(cliente_juiz, pergunta, resposta, trechos, referencia):
-    fiel = fidelidade_por_sobreposicao(resposta, trechos) >= 0.6
-    correta = bool(cliente_juiz.verificar_fatos(resposta, referencia))
-    nota = int(fiel) + int(correta)
-    return {
-        "fiel": bool(fiel),
-        "correta": bool(correta),
-        "nota": int(nota),
+if __name__ == "__main__":
+    resultados = {
+        "Até quando posso trancar uma disciplina?": ["reg-12", "reg-13", "faq-02"],
+        "Quantos créditos preciso na matrícula?": ["faq-02", "reg-20", "reg-12"],
+        "Qual o cardápio do restaurante?": ["cal-01", "faq-02", "reg-13"],
     }
-```
-
-### Dicas
-
-1. Use `re.findall(r"[a-z0-9]{4,}", texto.lower())` tanto na resposta quanto nos trechos para extrair palavras de 4 ou mais caracteres.
-2. Em `fidelidade_por_sobreposicao`, trate primeiro o caso em que `resposta.strip() == RECUSA_PADRAO`, devolvendo `1.0`.
-3. Em `julgar_resposta`, `nota` vale `int(fiel) + int(correta)`.
-
-### Verificação
-
-```json
-[
-  {
-    "id": "fidelidade-alta-e-baixa",
-    "name": "Calcula sobreposição de palavras significativas contra os trechos",
-    "checkpoint": 1,
-    "kind": "call",
-    "function": "fidelidade_por_sobreposicao",
-    "args": [
-      "O prazo maximo para trancamento e quinze dias.",
-      [
-        {
-          "fonte": "Art. 12",
-          "texto": "O prazo maximo para trancamento no semestre e de quinze dias uteis."
-        }
-      ]
-    ],
-    "expected": 1.0,
-    "tolerance": 1e-6
-  },
-  {
-    "id": "julgamento-fiel-mas-incorreto",
-    "name": "Distingue resposta fiel (recusa sem trecho relevante) de resposta correta",
-    "checkpoint": 2,
-    "kind": "expr",
-    "expr": "[julgar_resposta(JuizSimulado(), 'Qual o prazo?', 'Nao ha informacao suficiente nos documentos.', [{'fonte': 'Art. 9', 'texto': 'Estagio supervisionado dura um semestre.'}], 'O prazo e quinze dias.'), julgar_resposta(JuizSimulado(), 'Qual o prazo?', 'O prazo e quinze dias [1]', [{'fonte': 'Art. 12', 'texto': 'O prazo e quinze dias uteis.'}], 'O prazo e quinze dias.')]",
-    "expected": [
-      {
-        "fiel": true,
-        "correta": false,
-        "nota": 1
-      },
-      {
-        "fiel": true,
-        "correta": true,
-        "nota": 2
-      }
+    conjunto = [
+        {"id": "p1", "pergunta": "Até quando posso trancar uma disciplina?", "relevantes": ["reg-12"]},
+        {"id": "p2", "pergunta": "Quantos créditos preciso na matrícula?", "relevantes": ["reg-20"]},
+        {"id": "p3", "pergunta": "Qual o cardápio do restaurante?", "relevantes": []},
     ]
-  }
-]
-```
-
-### Soluções erradas
-
-```python name="Considera fiel qualquer resposta correta mesmo sem apoio nos trechos"
-import re
-
-RECUSA_PADRAO = "Nao ha informacao suficiente nos documentos."
-
-
-class JuizSimulado:
-    def verificar_fatos(self, resposta, referencia):
-        palavras_ref = set(re.findall(r"[a-z0-9]{4,}", referencia.lower()))
-        palavras_resp = set(re.findall(r"[a-z0-9]{4,}", resposta.lower()))
-        return (len(palavras_ref & palavras_resp) / len(palavras_ref)) >= 0.6
-
-
-def fidelidade_por_sobreposicao(resposta, trechos):
-    return 1.0
-
-
-def julgar_resposta(cliente_juiz, pergunta, resposta, trechos, referencia):
-    correta = bool(cliente_juiz.verificar_fatos(resposta, referencia))
-    return {"fiel": correta, "correta": correta, "nota": 2 if correta else 0}
-```
-
-```python name="Penaliza a recusa padrão como infiel quando os trechos não apoiam"
-import re
-
-
-class JuizSimulado:
-    def verificar_fatos(self, resposta, referencia):
-        palavras_ref = set(re.findall(r"[a-z0-9]{4,}", referencia.lower()))
-        palavras_resp = set(re.findall(r"[a-z0-9]{4,}", resposta.lower()))
-        return (len(palavras_ref & palavras_resp) / len(palavras_ref)) >= 0.6
-
-
-def fidelidade_por_sobreposicao(resposta, trechos):
-    palavras_resp = re.findall(r"[a-z0-9]{4,}", resposta.lower())
-    texto_trechos = " ".join(t["texto"] if isinstance(t, dict) else str(t) for t in trechos)
-    vocab_trechos = set(re.findall(r"[a-z0-9]{4,}", texto_trechos.lower()))
-    return float(sum(1 for p in palavras_resp if p in vocab_trechos) / len(palavras_resp))
-
-
-def julgar_resposta(cliente_juiz, pergunta, resposta, trechos, referencia):
-    fiel = fidelidade_por_sobreposicao(resposta, trechos) >= 0.6
-    correta = bool(cliente_juiz.verificar_fatos(resposta, referencia))
-    return {"fiel": bool(fiel), "correta": bool(correta), "nota": int(fiel) + int(correta)}
-```
-
-## Passo 4 · Exercício · Relatório completo de avaliação por etapa
-
-Com as métricas de recuperação e de geração prontas, construa `relatorio_de_avaliacao(rag, conjunto)` para diagnosticar exatamente quantos erros vêm do índice e quantos vêm do gerador.
-
-### Instruções
-
-1. Implemente `relatorio_de_avaliacao(rag, conjunto)` onde cada item de `conjunto` é um dicionário `{"pergunta": str, "fontes_esperadas": list[str], "referencia": str}`.
-2. Para cada caso do `conjunto`, chame `saida = rag.responder(caso["pergunta"], k=3)`, obtendo `saida["resposta"]` e `saida["trechos"]` (cujas fontes recuperadas são `[t["fonte"] for t in saida["trechos"]]`).
-3. Calcule para cada caso:
-   - As métricas de recuperação em $k = 3$ sobre as fontes recuperadas vs `caso["fontes_esperadas"]`.
-   - A fidelidade da resposta com `fidelidade_por_sobreposicao(saida["resposta"], saida["trechos"])`.
-   - Se a resposta está `correta` usando `JuizSimulado().verificar_fatos(saida["resposta"], caso["referencia"])`.
-4. Classifique os erros de cada caso em que `correta` for `False`:
-   - Se `recall == 0.0` (nenhuma fonte esperada foi recuperada no top-3), incremente `erros_recuperacao`.
-   - Se `recall > 0.0` (pelo menos uma fonte esperada estava nos trechos, mas a resposta ainda saiu incorreta), incremente `erros_geracao`.
-5. Devolva o dicionário com as médias em `float` e as contagens em `int`:
-   `{"recall_em_3": float, "mrr": float, "fidelidade_media": float, "taxa_acerto": float, "erros_recuperacao": int, "erros_geracao": int}`.
-
-### Código inicial
-
-```python
-import re
-
-RECUSA_PADRAO = "Nao ha informacao suficiente nos documentos."
-
-
-class JuizSimulado:
-    def verificar_fatos(self, resposta, referencia):
-        palavras_ref = set(re.findall(r"[a-z0-9]{4,}", referencia.lower()))
-        if not palavras_ref:
-            return True
-        palavras_resp = set(re.findall(r"[a-z0-9]{4,}", resposta.lower()))
-        return (len(palavras_ref & palavras_resp) / len(palavras_ref)) >= 0.6
-
-
-def metricas_recuperacao(recuperados, relevantes, k):
-    top_k = recuperados[:k]
-    rel_set = set(relevantes)
-    acertos = sum(1 for doc_id in top_k if doc_id in rel_set)
-    recall = float(acertos / len(rel_set)) if rel_set else 0.0
-    precisao = float(acertos / k) if k > 0 else 0.0
-    rr = 0.0
-    for pos, doc_id in enumerate(top_k, start=1):
-        if doc_id in rel_set:
-            rr = float(1.0 / pos)
-            break
-    return {"recall": recall, "precisao": precisao, "rr": rr}
-
-
-def fidelidade_por_sobreposicao(resposta, trechos):
-    if resposta.strip() == RECUSA_PADRAO:
-        return 1.0
-    palavras_resp = re.findall(r"[a-z0-9]{4,}", resposta.lower())
-    if not palavras_resp:
-        return 1.0
-    texto_trechos = " ".join(t["texto"] if isinstance(t, dict) else str(t) for t in trechos)
-    vocab_trechos = set(re.findall(r"[a-z0-9]{4,}", texto_trechos.lower()))
-    return float(sum(1 for p in palavras_resp if p in vocab_trechos) / len(palavras_resp))
-
-
-def relatorio_de_avaliacao(rag, conjunto):
-    # Avalie todos os casos e separe erros de recuperação de erros de geração
-    pass
+    validos = {"reg-12", "reg-13", "reg-20", "faq-02", "cal-01"}
+    print(avaliar_recuperacao(lambda p, k: resultados[p][:k], conjunto, validos, k=3))
 ```
 
 ### Solução
-
 ```python
-import re
-
-RECUSA_PADRAO = "Nao ha informacao suficiente nos documentos."
-
-
-class JuizSimulado:
-    def verificar_fatos(self, resposta, referencia):
-        palavras_ref = set(re.findall(r"[a-z0-9]{4,}", referencia.lower()))
-        if not palavras_ref:
-            return True
-        palavras_resp = set(re.findall(r"[a-z0-9]{4,}", resposta.lower()))
-        return (len(palavras_ref & palavras_resp) / len(palavras_ref)) >= 0.6
-
-
-def metricas_recuperacao(recuperados, relevantes, k):
-    top_k = recuperados[:k]
-    rel_set = set(relevantes)
-    acertos = sum(1 for doc_id in top_k if doc_id in rel_set)
-    recall = float(acertos / len(rel_set)) if rel_set else 0.0
-    precisao = float(acertos / k) if k > 0 else 0.0
+def metricas_consulta(recuperados, relevantes, k):
+    if not relevantes:
+        raise ValueError("pergunta sem trechos relevantes no gabarito")
+    topo = recuperados[:k]
+    acertos = len(set(topo) & set(relevantes))
     rr = 0.0
-    for pos, doc_id in enumerate(top_k, start=1):
-        if doc_id in rel_set:
-            rr = float(1.0 / pos)
+    for pos, ident in enumerate(topo, start=1):
+        if ident in relevantes:
+            rr = 1 / pos
             break
-    return {"recall": recall, "precisao": precisao, "rr": rr}
+    return {"recall": acertos / len(relevantes), "precisao": acertos / k, "rr": rr}
 
 
-def fidelidade_por_sobreposicao(resposta, trechos):
-    if resposta.strip() == RECUSA_PADRAO:
-        return 1.0
-    palavras_resp = re.findall(r"[a-z0-9]{4,}", resposta.lower())
-    if not palavras_resp:
-        return 1.0
-    texto_trechos = " ".join(t["texto"] if isinstance(t, dict) else str(t) for t in trechos)
-    vocab_trechos = set(re.findall(r"[a-z0-9]{4,}", texto_trechos.lower()))
-    return float(sum(1 for p in palavras_resp if p in vocab_trechos) / len(palavras_resp))
-
-
-def relatorio_de_avaliacao(rag, conjunto):
-    n = len(conjunto)
-    if n == 0:
-        return {
-            "recall_em_3": 0.0,
-            "mrr": 0.0,
-            "fidelidade_media": 0.0,
-            "taxa_acerto": 0.0,
-            "erros_recuperacao": 0,
-            "erros_geracao": 0,
-        }
-    juiz = JuizSimulado()
-    soma_recall = 0.0
-    soma_rr = 0.0
-    soma_fid = 0.0
-    acertos = 0
-    erros_rec = 0
-    erros_ger = 0
-
+def avaliar_recuperacao(buscar, conjunto, ids_validos, k=3):
     for caso in conjunto:
-        saida = rag.responder(caso["pergunta"], k=3)
-        trechos = saida["trechos"]
-        fontes_rec = [t["fonte"] for t in trechos]
-        m = metricas_recuperacao(fontes_rec, caso["fontes_esperadas"], 3)
-        fid = fidelidade_por_sobreposicao(saida["resposta"], trechos)
-        correta = juiz.verificar_fatos(saida["resposta"], caso["referencia"])
+        for ident in caso["relevantes"]:
+            if ident not in ids_validos:
+                raise ValueError(f"gabarito desatualizado: {caso['id']} cita {ident}")
+    soma = {"recall": 0.0, "precisao": 0.0, "rr": 0.0}
+    avaliadas, sem_gabarito, falhas = 0, 0, []
+    for caso in conjunto:
+        if not caso["relevantes"]:
+            sem_gabarito += 1
+            continue
+        m = metricas_consulta(buscar(caso["pergunta"], k), caso["relevantes"], k)
+        for chave in soma:
+            soma[chave] += m[chave]
+        avaliadas += 1
+        if m["recall"] == 0:
+            falhas.append(caso["id"])
+    media = {chave: round(valor / avaliadas, 4) if avaliadas else 0.0 for chave, valor in soma.items()}
+    return {"recall": media["recall"], "precisao": media["precisao"], "mrr": media["rr"],
+            "avaliadas": avaliadas, "sem_gabarito": sem_gabarito, "falhas": falhas}
 
-        soma_recall += m["recall"]
-        soma_rr += m["rr"]
-        soma_fid += fid
-        if correta:
-            acertos += 1
-        elif m["recall"] == 0.0:
-            erros_rec += 1
-        else:
-            erros_ger += 1
 
-    return {
-        "recall_em_3": float(soma_recall / n),
-        "mrr": float(soma_rr / n),
-        "fidelidade_media": float(soma_fid / n),
-        "taxa_acerto": float(acertos / n),
-        "erros_recuperacao": int(erros_rec),
-        "erros_geracao": int(erros_ger),
+if __name__ == "__main__":
+    resultados = {
+        "Até quando posso trancar uma disciplina?": ["reg-12", "reg-13", "faq-02"],
+        "Quantos créditos preciso na matrícula?": ["faq-02", "reg-20", "reg-12"],
+        "Qual o cardápio do restaurante?": ["cal-01", "faq-02", "reg-13"],
     }
+    conjunto = [
+        {"id": "p1", "pergunta": "Até quando posso trancar uma disciplina?", "relevantes": ["reg-12"]},
+        {"id": "p2", "pergunta": "Quantos créditos preciso na matrícula?", "relevantes": ["reg-20"]},
+        {"id": "p3", "pergunta": "Qual o cardápio do restaurante?", "relevantes": []},
+    ]
+    validos = {"reg-12", "reg-13", "reg-20", "faq-02", "cal-01"}
+    print(avaliar_recuperacao(lambda p, k: resultados[p][:k], conjunto, validos, k=3))
 ```
 
 ### Dicas
-
-1. Extraia a lista de fontes recuperadas com `[t["fonte"] for t in saida["trechos"]]`.
-2. Quando `not correta`, verifique `if m["recall"] == 0.0:` para atribuir a falha a `erros_recuperacao`; caso contrário, atribua a `erros_geracao`.
+1. Duas passadas pelo conjunto: uma para conferir o gabarito, outra para medir.
+2. O denominador das médias é o número de perguntas avaliadas, não o tamanho do conjunto.
+3. Recall parcial (um de três relevantes) ainda trouxe evidência; falha é recall zero.
 
 ### Verificação
-
 ```json
 [
-  {
-    "id": "relatorio-diagnostico-rag",
-    "name": "Separa acerto, falha de recuperação e falha de geração em 3 casos",
-    "checkpoint": 5,
-    "kind": "expr",
-    "expr": "relatorio_de_avaliacao(type('RAGStub', (), {'responder': lambda self, p, k=3: {'resposta': 'O prazo de trancamento e quinze dias [1]', 'trechos': [{'fonte': 'Art. 12', 'texto': 'O prazo de trancamento e quinze dias uteis.'}]} if 'trancamento' in p else ({'resposta': 'Nao ha informacao suficiente nos documentos.', 'trechos': [{'fonte': 'Art. 1', 'texto': 'Texto sem relacao.'}]} if 'jubilamento' in p else {'resposta': 'Resposta incompleta sem numero.', 'trechos': [{'fonte': 'Art. 1', 'texto': 'Texto qualquer.'}, {'fonte': 'Art. 30', 'texto': 'A frequencia minima e setenta por cento.'}]})})(), [{'pergunta': 'Qual o prazo de trancamento?', 'fontes_esperadas': ['Art. 12'], 'referencia': 'O prazo de trancamento e quinze dias.'}, {'pergunta': 'Quando ocorre jubilamento?', 'fontes_esperadas': ['Art. 50'], 'referencia': 'Ocorre apos dez semestres.'}, {'pergunta': 'Qual a frequencia minima?', 'fontes_esperadas': ['Art. 30'], 'referencia': 'A frequencia minima e setenta por cento.'}])",
-    "expected": {
-      "recall_em_3": 0.6666666666666666,
-      "mrr": 0.5,
-      "fidelidade_media": 0.6666666666666666,
-      "taxa_acerto": 0.3333333333333333,
-      "erros_recuperacao": 1,
-      "erros_geracao": 1
-    },
-    "tolerance": 1e-6
-  }
+  {"id": "medias", "checkpoint": 2, "kind": "expr", "setup": "RES = {\n    'trancar': ['reg-13', 'faq-02', 'reg-12'],\n    'creditos': ['reg-20', 'faq-04', 'reg-21'],\n    'boletim': ['cal-01', 'reg-13', 'faq-02'],\n    'cantina': ['faq-02', 'cal-01', 'reg-12'],\n    'curto': ['reg-30', 'faq-04'],\n}\nchamadas = []\ndef buscar(pergunta, k):\n    chamadas.append((pergunta, k))\n    return RES[pergunta][:k]\nVALIDOS = {'reg-12', 'reg-13', 'reg-20', 'reg-21', 'reg-30', 'faq-02', 'faq-04', 'faq-07', 'cal-01'}\nCONJ = [\n    {'id': 'p1', 'pergunta': 'trancar', 'relevantes': ['reg-12']},\n    {'id': 'p2', 'pergunta': 'creditos', 'relevantes': ['reg-20', 'reg-21', 'faq-07']},\n    {'id': 'p3', 'pergunta': 'boletim', 'relevantes': ['faq-07']},\n    {'id': 'p4', 'pergunta': 'cantina', 'relevantes': []},\n]\n", "expr": "avaliar_recuperacao(buscar, CONJ, VALIDOS, k=3)", "tolerance": 0.0001, "name": "Médias de recall, precisão e MRR só sobre as perguntas com gabarito", "hint": "Pergunta sem trecho relevante entra em sem_gabarito, não na média.", "expected": {"recall": 0.5556, "precisao": 0.3333, "mrr": 0.4444, "avaliadas": 3, "sem_gabarito": 1, "falhas": ["p3"]}},
+  {"id": "k-repassado", "checkpoint": 2, "kind": "expr", "setup": "RES = {\n    'trancar': ['reg-13', 'faq-02', 'reg-12'],\n    'creditos': ['reg-20', 'faq-04', 'reg-21'],\n    'boletim': ['cal-01', 'reg-13', 'faq-02'],\n    'cantina': ['faq-02', 'cal-01', 'reg-12'],\n    'curto': ['reg-30', 'faq-04'],\n}\nchamadas = []\ndef buscar(pergunta, k):\n    chamadas.append((pergunta, k))\n    return RES[pergunta][:k]\nVALIDOS = {'reg-12', 'reg-13', 'reg-20', 'reg-21', 'reg-30', 'faq-02', 'faq-04', 'faq-07', 'cal-01'}\nCONJ = [\n    {'id': 'p1', 'pergunta': 'trancar', 'relevantes': ['reg-12']},\n    {'id': 'p2', 'pergunta': 'creditos', 'relevantes': ['reg-20', 'reg-21', 'faq-07']},\n    {'id': 'p3', 'pergunta': 'boletim', 'relevantes': ['faq-07']},\n    {'id': 'p4', 'pergunta': 'cantina', 'relevantes': []},\n]\nr = avaliar_recuperacao(buscar, CONJ, VALIDOS, k=2)", "expr": "[r['recall'], r['mrr'], sorted(set(k for _, k in chamadas))]", "tolerance": 0.0001, "name": "O k pedido é o k usado na busca e nas métricas", "expected": [0.1111, 0.3333, [2]]},
+  {"id": "falhas", "checkpoint": 3, "kind": "expr", "setup": "RES = {\n    'trancar': ['reg-13', 'faq-02', 'reg-12'],\n    'creditos': ['reg-20', 'faq-04', 'reg-21'],\n    'boletim': ['cal-01', 'reg-13', 'faq-02'],\n    'cantina': ['faq-02', 'cal-01', 'reg-12'],\n    'curto': ['reg-30', 'faq-04'],\n}\nchamadas = []\ndef buscar(pergunta, k):\n    chamadas.append((pergunta, k))\n    return RES[pergunta][:k]\nVALIDOS = {'reg-12', 'reg-13', 'reg-20', 'reg-21', 'reg-30', 'faq-02', 'faq-04', 'faq-07', 'cal-01'}\nCONJ = [\n    {'id': 'p1', 'pergunta': 'trancar', 'relevantes': ['reg-12']},\n    {'id': 'p2', 'pergunta': 'creditos', 'relevantes': ['reg-20', 'reg-21', 'faq-07']},\n    {'id': 'p3', 'pergunta': 'boletim', 'relevantes': ['faq-07']},\n    {'id': 'p4', 'pergunta': 'cantina', 'relevantes': []},\n]\n", "expr": "avaliar_recuperacao(buscar, CONJ, VALIDOS, k=3)['falhas']", "expected": ["p3"], "name": "falhas lista as perguntas em que nenhum relevante voltou", "hint": "Recall parcial ainda trouxe evidência."},
+  {"id": "poucos", "checkpoint": 2, "kind": "expr", "setup": "RES = {\n    'trancar': ['reg-13', 'faq-02', 'reg-12'],\n    'creditos': ['reg-20', 'faq-04', 'reg-21'],\n    'boletim': ['cal-01', 'reg-13', 'faq-02'],\n    'cantina': ['faq-02', 'cal-01', 'reg-12'],\n    'curto': ['reg-30', 'faq-04'],\n}\nchamadas = []\ndef buscar(pergunta, k):\n    chamadas.append((pergunta, k))\n    return RES[pergunta][:k]\nVALIDOS = {'reg-12', 'reg-13', 'reg-20', 'reg-21', 'reg-30', 'faq-02', 'faq-04', 'faq-07', 'cal-01'}\n", "expr": "avaliar_recuperacao(buscar, [{'id': 'p9', 'pergunta': 'curto', 'relevantes': ['reg-30']}], VALIDOS, k=3)['precisao']", "expected": 0.3333, "tolerance": 0.0001, "name": "Busca que devolve menos de k: precisão sobre k"},
+  {"id": "desatualizado", "checkpoint": 1, "kind": "expr", "setup": "RES = {\n    'trancar': ['reg-13', 'faq-02', 'reg-12'],\n    'creditos': ['reg-20', 'faq-04', 'reg-21'],\n    'boletim': ['cal-01', 'reg-13', 'faq-02'],\n    'cantina': ['faq-02', 'cal-01', 'reg-12'],\n    'curto': ['reg-30', 'faq-04'],\n}\nchamadas = []\ndef buscar(pergunta, k):\n    chamadas.append((pergunta, k))\n    return RES[pergunta][:k]\nVALIDOS = {'reg-12', 'reg-13', 'reg-20', 'reg-21', 'reg-30', 'faq-02', 'faq-04', 'faq-07', 'cal-01'}\nCONJ = [\n    {'id': 'p1', 'pergunta': 'trancar', 'relevantes': ['reg-12']},\n    {'id': 'p2', 'pergunta': 'creditos', 'relevantes': ['reg-20', 'reg-21', 'faq-07']},\n    {'id': 'p3', 'pergunta': 'boletim', 'relevantes': ['faq-07']},\n    {'id': 'p4', 'pergunta': 'cantina', 'relevantes': []},\n]\n", "expr": "avaliar_recuperacao(buscar, CONJ + [{'id': 'p5', 'pergunta': 'trancar', 'relevantes': ['reg-12-v1']}], VALIDOS)", "raises": "ValueError", "message_contains": "reg-12-v1", "name": "Gabarito que cita um id que não existe mais no índice é recusado"},
+  {"id": "confere-antes", "checkpoint": 1, "kind": "expr", "setup": "RES = {\n    'trancar': ['reg-13', 'faq-02', 'reg-12'],\n    'creditos': ['reg-20', 'faq-04', 'reg-21'],\n    'boletim': ['cal-01', 'reg-13', 'faq-02'],\n    'cantina': ['faq-02', 'cal-01', 'reg-12'],\n    'curto': ['reg-30', 'faq-04'],\n}\nchamadas = []\ndef buscar(pergunta, k):\n    chamadas.append((pergunta, k))\n    return RES[pergunta][:k]\nVALIDOS = {'reg-12', 'reg-13', 'reg-20', 'reg-21', 'reg-30', 'faq-02', 'faq-04', 'faq-07', 'cal-01'}\nCONJ = [\n    {'id': 'p1', 'pergunta': 'trancar', 'relevantes': ['reg-12']},\n    {'id': 'p2', 'pergunta': 'creditos', 'relevantes': ['reg-20', 'reg-21', 'faq-07']},\n    {'id': 'p3', 'pergunta': 'boletim', 'relevantes': ['faq-07']},\n    {'id': 'p4', 'pergunta': 'cantina', 'relevantes': []},\n]\ntry:\n    avaliar_recuperacao(buscar, CONJ + [{'id': 'p5', 'pergunta': 'trancar', 'relevantes': ['x']}], VALIDOS)\nexcept ValueError:\n    pass", "expr": "len(chamadas)", "expected": 0, "name": "O gabarito é conferido antes de gastar buscas"},
+  {"id": "so-sem-gabarito", "checkpoint": 3, "kind": "expr", "setup": "RES = {\n    'trancar': ['reg-13', 'faq-02', 'reg-12'],\n    'creditos': ['reg-20', 'faq-04', 'reg-21'],\n    'boletim': ['cal-01', 'reg-13', 'faq-02'],\n    'cantina': ['faq-02', 'cal-01', 'reg-12'],\n    'curto': ['reg-30', 'faq-04'],\n}\nchamadas = []\ndef buscar(pergunta, k):\n    chamadas.append((pergunta, k))\n    return RES[pergunta][:k]\nVALIDOS = {'reg-12', 'reg-13', 'reg-20', 'reg-21', 'reg-30', 'faq-02', 'faq-04', 'faq-07', 'cal-01'}\n", "expr": "avaliar_recuperacao(buscar, [{'id': 'p4', 'pergunta': 'cantina', 'relevantes': []}], VALIDOS)", "name": "Só perguntas sem gabarito: médias zero e nada avaliado", "expected": {"recall": 0.0, "precisao": 0.0, "mrr": 0.0, "avaliadas": 0, "sem_gabarito": 1, "falhas": []}}
 ]
 ```
 
 ### Soluções erradas
-
-```python name="Classifica todas as respostas incorretas como erro de geração"
-import re
-
-RECUSA_PADRAO = "Nao ha informacao suficiente nos documentos."
-
-
-class JuizSimulado:
-    def verificar_fatos(self, resposta, referencia):
-        palavras_ref = set(re.findall(r"[a-z0-9]{4,}", referencia.lower()))
-        palavras_resp = set(re.findall(r"[a-z0-9]{4,}", resposta.lower()))
-        return (len(palavras_ref & palavras_resp) / len(palavras_ref)) >= 0.6
-
-
-def metricas_recuperacao(recuperados, relevantes, k):
-    top_k = recuperados[:k]
-    rel_set = set(relevantes)
-    acertos = sum(1 for doc_id in top_k if doc_id in rel_set)
-    recall = float(acertos / len(rel_set)) if rel_set else 0.0
-    precisao = float(acertos / k) if k > 0 else 0.0
+```python name="divide pelo total de perguntas"
+def metricas_consulta(recuperados, relevantes, k):
+    if not relevantes:
+        raise ValueError("pergunta sem trechos relevantes no gabarito")
+    topo = recuperados[:k]
+    acertos = len(set(topo) & set(relevantes))
     rr = 0.0
-    for pos, doc_id in enumerate(top_k, start=1):
-        if doc_id in rel_set:
-            rr = float(1.0 / pos)
+    for pos, ident in enumerate(topo, start=1):
+        if ident in relevantes:
+            rr = 1 / pos
             break
-    return {"recall": recall, "precisao": precisao, "rr": rr}
+    return {"recall": acertos / len(relevantes), "precisao": acertos / k, "rr": rr}
 
 
-def fidelidade_por_sobreposicao(resposta, trechos):
-    if resposta.strip() == RECUSA_PADRAO:
-        return 1.0
-    palavras_resp = re.findall(r"[a-z0-9]{4,}", resposta.lower())
-    texto_trechos = " ".join(t["texto"] if isinstance(t, dict) else str(t) for t in trechos)
-    vocab_trechos = set(re.findall(r"[a-z0-9]{4,}", texto_trechos.lower()))
-    return float(sum(1 for p in palavras_resp if p in vocab_trechos) / len(palavras_resp))
-
-
-def relatorio_de_avaliacao(rag, conjunto):
-    n = len(conjunto)
-    juiz = JuizSimulado()
-    soma_recall = soma_rr = soma_fid = 0.0
-    acertos = erros_ger = 0
+def avaliar_recuperacao(buscar, conjunto, ids_validos, k=3):
     for caso in conjunto:
-        saida = rag.responder(caso["pergunta"], k=3)
-        trechos = saida["trechos"]
-        m = metricas_recuperacao([t["fonte"] for t in trechos], caso["fontes_esperadas"], 3)
-        fid = fidelidade_por_sobreposicao(saida["resposta"], trechos)
-        correta = juiz.verificar_fatos(saida["resposta"], caso["referencia"])
-        soma_recall += m["recall"]
-        soma_rr += m["rr"]
-        soma_fid += fid
-        if correta:
-            acertos += 1
-        else:
-            erros_ger += 1
-    return {
-        "recall_em_3": float(soma_recall / n),
-        "mrr": float(soma_rr / n),
-        "fidelidade_media": float(soma_fid / n),
-        "taxa_acerto": float(acertos / n),
-        "erros_recuperacao": 0,
-        "erros_geracao": int(erros_ger),
+        for ident in caso["relevantes"]:
+            if ident not in ids_validos:
+                raise ValueError(f"gabarito desatualizado: {caso['id']} cita {ident}")
+    soma = {"recall": 0.0, "precisao": 0.0, "rr": 0.0}
+    avaliadas, sem_gabarito, falhas = 0, 0, []
+    for caso in conjunto:
+        if not caso["relevantes"]:
+            sem_gabarito += 1
+            continue
+        m = metricas_consulta(buscar(caso["pergunta"], k), caso["relevantes"], k)
+        for chave in soma:
+            soma[chave] += m[chave]
+        avaliadas += 1
+        if m["recall"] == 0:
+            falhas.append(caso["id"])
+    media = {chave: round(valor / len(conjunto), 4) if avaliadas else 0.0 for chave, valor in soma.items()}
+    return {"recall": media["recall"], "precisao": media["precisao"], "mrr": media["rr"],
+            "avaliadas": avaliadas, "sem_gabarito": sem_gabarito, "falhas": falhas}
+
+
+if __name__ == "__main__":
+    resultados = {
+        "Até quando posso trancar uma disciplina?": ["reg-12", "reg-13", "faq-02"],
+        "Quantos créditos preciso na matrícula?": ["faq-02", "reg-20", "reg-12"],
+        "Qual o cardápio do restaurante?": ["cal-01", "faq-02", "reg-13"],
     }
+    conjunto = [
+        {"id": "p1", "pergunta": "Até quando posso trancar uma disciplina?", "relevantes": ["reg-12"]},
+        {"id": "p2", "pergunta": "Quantos créditos preciso na matrícula?", "relevantes": ["reg-20"]},
+        {"id": "p3", "pergunta": "Qual o cardápio do restaurante?", "relevantes": []},
+    ]
+    validos = {"reg-12", "reg-13", "reg-20", "faq-02", "cal-01"}
+    print(avaliar_recuperacao(lambda p, k: resultados[p][:k], conjunto, validos, k=3))
+```
+```python name="não confere o gabarito"
+def metricas_consulta(recuperados, relevantes, k):
+    if not relevantes:
+        raise ValueError("pergunta sem trechos relevantes no gabarito")
+    topo = recuperados[:k]
+    acertos = len(set(topo) & set(relevantes))
+    rr = 0.0
+    for pos, ident in enumerate(topo, start=1):
+        if ident in relevantes:
+            rr = 1 / pos
+            break
+    return {"recall": acertos / len(relevantes), "precisao": acertos / k, "rr": rr}
+
+
+def avaliar_recuperacao(buscar, conjunto, ids_validos, k=3):
+    soma = {"recall": 0.0, "precisao": 0.0, "rr": 0.0}
+    avaliadas, sem_gabarito, falhas = 0, 0, []
+    for caso in conjunto:
+        if not caso["relevantes"]:
+            sem_gabarito += 1
+            continue
+        m = metricas_consulta(buscar(caso["pergunta"], k), caso["relevantes"], k)
+        for chave in soma:
+            soma[chave] += m[chave]
+        avaliadas += 1
+        if m["recall"] == 0:
+            falhas.append(caso["id"])
+    media = {chave: round(valor / avaliadas, 4) if avaliadas else 0.0 for chave, valor in soma.items()}
+    return {"recall": media["recall"], "precisao": media["precisao"], "mrr": media["rr"],
+            "avaliadas": avaliadas, "sem_gabarito": sem_gabarito, "falhas": falhas}
+
+
+if __name__ == "__main__":
+    resultados = {
+        "Até quando posso trancar uma disciplina?": ["reg-12", "reg-13", "faq-02"],
+        "Quantos créditos preciso na matrícula?": ["faq-02", "reg-20", "reg-12"],
+        "Qual o cardápio do restaurante?": ["cal-01", "faq-02", "reg-13"],
+    }
+    conjunto = [
+        {"id": "p1", "pergunta": "Até quando posso trancar uma disciplina?", "relevantes": ["reg-12"]},
+        {"id": "p2", "pergunta": "Quantos créditos preciso na matrícula?", "relevantes": ["reg-20"]},
+        {"id": "p3", "pergunta": "Qual o cardápio do restaurante?", "relevantes": []},
+    ]
+    validos = {"reg-12", "reg-13", "reg-20", "faq-02", "cal-01"}
+    print(avaliar_recuperacao(lambda p, k: resultados[p][:k], conjunto, validos, k=3))
+```
+```python name="usa como k o tamanho do que voltou"
+def metricas_consulta(recuperados, relevantes, k):
+    if not relevantes:
+        raise ValueError("pergunta sem trechos relevantes no gabarito")
+    topo = recuperados[:k]
+    acertos = len(set(topo) & set(relevantes))
+    rr = 0.0
+    for pos, ident in enumerate(topo, start=1):
+        if ident in relevantes:
+            rr = 1 / pos
+            break
+    return {"recall": acertos / len(relevantes), "precisao": acertos / k, "rr": rr}
+
+
+def avaliar_recuperacao(buscar, conjunto, ids_validos, k=3):
+    for caso in conjunto:
+        for ident in caso["relevantes"]:
+            if ident not in ids_validos:
+                raise ValueError(f"gabarito desatualizado: {caso['id']} cita {ident}")
+    soma = {"recall": 0.0, "precisao": 0.0, "rr": 0.0}
+    avaliadas, sem_gabarito, falhas = 0, 0, []
+    for caso in conjunto:
+        if not caso["relevantes"]:
+            sem_gabarito += 1
+            continue
+        ids = buscar(caso["pergunta"], k)
+        m = metricas_consulta(ids, caso["relevantes"], len(ids))
+        for chave in soma:
+            soma[chave] += m[chave]
+        avaliadas += 1
+        if m["recall"] == 0:
+            falhas.append(caso["id"])
+    media = {chave: round(valor / avaliadas, 4) if avaliadas else 0.0 for chave, valor in soma.items()}
+    return {"recall": media["recall"], "precisao": media["precisao"], "mrr": media["rr"],
+            "avaliadas": avaliadas, "sem_gabarito": sem_gabarito, "falhas": falhas}
+
+
+if __name__ == "__main__":
+    resultados = {
+        "Até quando posso trancar uma disciplina?": ["reg-12", "reg-13", "faq-02"],
+        "Quantos créditos preciso na matrícula?": ["faq-02", "reg-20", "reg-12"],
+        "Qual o cardápio do restaurante?": ["cal-01", "faq-02", "reg-13"],
+    }
+    conjunto = [
+        {"id": "p1", "pergunta": "Até quando posso trancar uma disciplina?", "relevantes": ["reg-12"]},
+        {"id": "p2", "pergunta": "Quantos créditos preciso na matrícula?", "relevantes": ["reg-20"]},
+        {"id": "p3", "pergunta": "Qual o cardápio do restaurante?", "relevantes": []},
+    ]
+    validos = {"reg-12", "reg-13", "reg-20", "faq-02", "cal-01"}
+    print(avaliar_recuperacao(lambda p, k: resultados[p][:k], conjunto, validos, k=3))
+```
+```python name="falha é qualquer recall abaixo de 1"
+def metricas_consulta(recuperados, relevantes, k):
+    if not relevantes:
+        raise ValueError("pergunta sem trechos relevantes no gabarito")
+    topo = recuperados[:k]
+    acertos = len(set(topo) & set(relevantes))
+    rr = 0.0
+    for pos, ident in enumerate(topo, start=1):
+        if ident in relevantes:
+            rr = 1 / pos
+            break
+    return {"recall": acertos / len(relevantes), "precisao": acertos / k, "rr": rr}
+
+
+def avaliar_recuperacao(buscar, conjunto, ids_validos, k=3):
+    for caso in conjunto:
+        for ident in caso["relevantes"]:
+            if ident not in ids_validos:
+                raise ValueError(f"gabarito desatualizado: {caso['id']} cita {ident}")
+    soma = {"recall": 0.0, "precisao": 0.0, "rr": 0.0}
+    avaliadas, sem_gabarito, falhas = 0, 0, []
+    for caso in conjunto:
+        if not caso["relevantes"]:
+            sem_gabarito += 1
+            continue
+        m = metricas_consulta(buscar(caso["pergunta"], k), caso["relevantes"], k)
+        for chave in soma:
+            soma[chave] += m[chave]
+        avaliadas += 1
+        if m["recall"] < 1:
+            falhas.append(caso["id"])
+    media = {chave: round(valor / avaliadas, 4) if avaliadas else 0.0 for chave, valor in soma.items()}
+    return {"recall": media["recall"], "precisao": media["precisao"], "mrr": media["rr"],
+            "avaliadas": avaliadas, "sem_gabarito": sem_gabarito, "falhas": falhas}
+
+
+if __name__ == "__main__":
+    resultados = {
+        "Até quando posso trancar uma disciplina?": ["reg-12", "reg-13", "faq-02"],
+        "Quantos créditos preciso na matrícula?": ["faq-02", "reg-20", "reg-12"],
+        "Qual o cardápio do restaurante?": ["cal-01", "faq-02", "reg-13"],
+    }
+    conjunto = [
+        {"id": "p1", "pergunta": "Até quando posso trancar uma disciplina?", "relevantes": ["reg-12"]},
+        {"id": "p2", "pergunta": "Quantos créditos preciso na matrícula?", "relevantes": ["reg-20"]},
+        {"id": "p3", "pergunta": "Qual o cardápio do restaurante?", "relevantes": []},
+    ]
+    validos = {"reg-12", "reg-13", "reg-20", "faq-02", "cal-01"}
+    print(avaliar_recuperacao(lambda p, k: resultados[p][:k], conjunto, validos, k=3))
+```
+```python name="confere o gabarito no meio das buscas"
+def metricas_consulta(recuperados, relevantes, k):
+    if not relevantes:
+        raise ValueError("pergunta sem trechos relevantes no gabarito")
+    topo = recuperados[:k]
+    acertos = len(set(topo) & set(relevantes))
+    rr = 0.0
+    for pos, ident in enumerate(topo, start=1):
+        if ident in relevantes:
+            rr = 1 / pos
+            break
+    return {"recall": acertos / len(relevantes), "precisao": acertos / k, "rr": rr}
+
+
+def avaliar_recuperacao(buscar, conjunto, ids_validos, k=3):
+    soma = {"recall": 0.0, "precisao": 0.0, "rr": 0.0}
+    avaliadas, sem_gabarito, falhas = 0, 0, []
+    for caso in conjunto:
+        for ident in caso["relevantes"]:
+            if ident not in ids_validos:
+                raise ValueError(f"gabarito desatualizado: {caso['id']} cita {ident}")
+        if not caso["relevantes"]:
+            sem_gabarito += 1
+            continue
+        m = metricas_consulta(buscar(caso["pergunta"], k), caso["relevantes"], k)
+        for chave in soma:
+            soma[chave] += m[chave]
+        avaliadas += 1
+        if m["recall"] == 0:
+            falhas.append(caso["id"])
+    media = {chave: round(valor / avaliadas, 4) if avaliadas else 0.0 for chave, valor in soma.items()}
+    return {"recall": media["recall"], "precisao": media["precisao"], "mrr": media["rr"],
+            "avaliadas": avaliadas, "sem_gabarito": sem_gabarito, "falhas": falhas}
+
+
+if __name__ == "__main__":
+    resultados = {
+        "Até quando posso trancar uma disciplina?": ["reg-12", "reg-13", "faq-02"],
+        "Quantos créditos preciso na matrícula?": ["faq-02", "reg-20", "reg-12"],
+        "Qual o cardápio do restaurante?": ["cal-01", "faq-02", "reg-13"],
+    }
+    conjunto = [
+        {"id": "p1", "pergunta": "Até quando posso trancar uma disciplina?", "relevantes": ["reg-12"]},
+        {"id": "p2", "pergunta": "Quantos créditos preciso na matrícula?", "relevantes": ["reg-20"]},
+        {"id": "p3", "pergunta": "Qual o cardápio do restaurante?", "relevantes": []},
+    ]
+    validos = {"reg-12", "reg-13", "reg-20", "faq-02", "cal-01"}
+    print(avaliar_recuperacao(lambda p, k: resultados[p][:k], conjunto, validos, k=3))
 ```
 
-```python name="Esquece de dividir as somas pelo número de casos do conjunto"
-import re
+## Passo 5 · Leitura · Avaliar a resposta, e o juiz que também erra
 
-RECUSA_PADRAO = "Nao ha informacao suficiente nos documentos."
+A resposta é avaliada contra duas referências diferentes. **Fidelidade** compara com os **trechos enviados**: toda afirmação tem apoio neles? **Correção** compara com a **resposta de referência**: o aluno recebeu a informação certa? As duas se separam: se a busca não trouxe o artigo e o modelo recusou, a resposta é fiel e incorreta — e a culpa é da busca. Junto vêm a **citação** (cada `[n]` aponta para um trecho enviado que apoia a frase; a lição 04 confere isso) e a **recusa** (nas perguntas sem gabarito, o certo é recusar).
 
+Regras baratas pegam parte disso: sobreposição de palavras, números que aparecem na resposta e não nos trechos, `[n]` fora do intervalo. Para julgar sentido, usa-se outro LLM como **juiz**: um prompt com uma rubrica curta, os trechos, a pergunta e a resposta, pedindo um veredito em JSON.
 
-class JuizSimulado:
-    def verificar_fatos(self, resposta, referencia):
-        palavras_ref = set(re.findall(r"[a-z0-9]{4,}", referencia.lower()))
-        palavras_resp = set(re.findall(r"[a-z0-9]{4,}", resposta.lower()))
-        return (len(palavras_ref & palavras_resp) / len(palavras_ref)) >= 0.6
-
-
-def metricas_recuperacao(recuperados, relevantes, k):
-    top_k = recuperados[:k]
-    rel_set = set(relevantes)
-    acertos = sum(1 for doc_id in top_k if doc_id in rel_set)
-    recall = float(acertos / len(rel_set)) if rel_set else 0.0
-    precisao = float(acertos / k) if k > 0 else 0.0
-    rr = 0.0
-    for pos, doc_id in enumerate(top_k, start=1):
-        if doc_id in rel_set:
-            rr = float(1.0 / pos)
-            break
-    return {"recall": recall, "precisao": precisao, "rr": rr}
-
-
-def fidelidade_por_sobreposicao(resposta, trechos):
-    if resposta.strip() == RECUSA_PADRAO:
-        return 1.0
-    palavras_resp = re.findall(r"[a-z0-9]{4,}", resposta.lower())
-    texto_trechos = " ".join(t["texto"] if isinstance(t, dict) else str(t) for t in trechos)
-    vocab_trechos = set(re.findall(r"[a-z0-9]{4,}", texto_trechos.lower()))
-    return float(sum(1 for p in palavras_resp if p in vocab_trechos) / len(palavras_resp))
-
-
-def relatorio_de_avaliacao(rag, conjunto):
-    juiz = JuizSimulado()
-    soma_recall = soma_rr = soma_fid = 0.0
-    acertos = erros_rec = erros_ger = 0
-    for caso in conjunto:
-        saida = rag.responder(caso["pergunta"], k=3)
-        trechos = saida["trechos"]
-        m = metricas_recuperacao([t["fonte"] for t in trechos], caso["fontes_esperadas"], 3)
-        fid = fidelidade_por_sobreposicao(saida["resposta"], trechos)
-        correta = juiz.verificar_fatos(saida["resposta"], caso["referencia"])
-        soma_recall += m["recall"]
-        soma_rr += m["rr"]
-        soma_fid += fid
-        if correta:
-            acertos += 1
-        elif m["recall"] == 0.0:
-            erros_rec += 1
-        else:
-            erros_ger += 1
-    return {
-        "recall_em_3": float(soma_recall),
-        "mrr": float(soma_rr),
-        "fidelidade_media": float(soma_fid),
-        "taxa_acerto": float(acertos),
-        "erros_recuperacao": int(erros_rec),
-        "erros_geracao": int(erros_ger),
-    }
+```text
+system: A resposta é fiel quando toda afirmação dela está apoiada nos trechos.
+        Responda só com JSON: {"fiel": true ou false, "motivo": "uma frase"}.
+user:   Trechos: [1] (Regimento, art. 12) O trancamento parcial vai até o 60º dia letivo.
+        Pergunta: Até quando vai o trancamento?
+        Resposta: Até o 90º dia corrido. [1]
 ```
 
-## Passo 5 · Quiz · Fidelidade, correção e MRR
+O juiz é um modelo, com os defeitos de um modelo. Os vieses documentados: prefere respostas **longas** e confiantes; em comparação de pares, prefere a que vem **primeiro**; favorece texto no **estilo do próprio modelo**; e às vezes devolve **JSON inválido** ou cortado por `max_tokens`. Use `temperature=0` para reduzir a variação entre execuções (não zera: servidores reais não garantem determinismo), trate o JSON que não abre como "sem veredito" e nunca conte um veredito inválido como aprovação ou reprovação.
+
+Antes de confiar no juiz, **calibre**: rotule à mão uma amostra (algumas dezenas de casos bastam para começar), rode o juiz nela e meça a concordância e, principalmente, os **falsos aprovados** — respostas infiéis que o juiz deixou passar. Se eles se concentram nas respostas longas, a rubrica precisa mudar. Repita a calibração sempre que trocar o modelo do juiz ou a rubrica.
+
+O juiz deste passo é o `modelo_juiz.py` com o `ClienteLLM`. As regras estão no topo do arquivo, incluindo o viés de verbosidade (aprova qualquer resposta com 25 palavras ou mais) e o JSON quebrado quando a resposta tem aspas.
+
+## Passo 6 · Exercício · Juiz em JSON e calibração contra rótulos humanos
+
+Escreva duas funções. `RUBRICA` já está no código inicial.
+
+- `julgar(cliente, pergunta, resposta, trechos)`: chama `cliente.completar` com `[{"role": "system", "content": RUBRICA}, {"role": "user", "content": ...}]`, `max_tokens=80` e `temperature=0`. O conteúdo do `user` é `Trechos:`, uma linha `[n] (fonte) texto` por trecho (texto numa linha só), uma linha em branco, `Pergunta: ` com a pergunta sem espaços nas pontas e, na linha seguinte, `Resposta: ` com a resposta numa linha só. Devolve o booleano `fiel` do JSON, ou `None` quando a resposta foi cortada (`finish_reason` diferente de `"stop"`), o JSON não abre, não é um objeto ou `fiel` não é `true`/`false`.
+- `calibrar(julgamentos, humanos)`: compara os vereditos do juiz (`True`, `False` ou `None`) com os rótulos humanos (`True`/`False`), posição a posição. Devolve `{"validos", "invalidos", "concordancia", "falsos_aprovados", "falsos_reprovados"}`: a concordância é a fração de acertos entre os **válidos** (`round(..., 4)`; 0.0 sem válidos); falso aprovado é o juiz dizer `True` onde o humano disse `False`. Listas de tamanhos diferentes levantam `ValueError`.
+
+### Instruções
+1. Monte o prompt do juiz com a rubrica, os trechos numerados, a pergunta e a resposta, com `temperature=0`.
+2. Devolva `None` para veredito cortado, JSON inválido ou `fiel` que não seja booleano.
+3. Calcule a concordância e os dois tipos de erro só sobre os vereditos válidos.
+
+### Código inicial
+```python
+import json
+
+from llm_simulado import ClienteLLM
+from modelo_juiz import responder
+
+RUBRICA = (
+    "Você avalia respostas de um assistente da secretaria acadêmica.\n"
+    "A resposta é fiel quando toda afirmação dela está apoiada nos trechos.\n"
+    'Responda só com JSON: {"fiel": true ou false, "motivo": "uma frase"}.'
+)
+
+
+def julgar(cliente, pergunta, resposta, trechos):
+    pass
+
+
+def calibrar(julgamentos, humanos):
+    pass
+
+
+if __name__ == "__main__":
+    trechos = [{"fonte": "Regimento, art. 12", "texto": "O trancamento parcial vai até o 60º dia letivo."}]
+    juiz = ClienteLLM(responder)
+    casos = [
+        ("O trancamento parcial vai até o 60º dia letivo. [1]", True),
+        ("O trancamento parcial vai até o 90º dia corrido. [1]", False),
+        ("Pelo regimento, o trancamento parcial pode ser pedido com tranquilidade até o 90º dia corrido, "
+         "desde que o aluno procure a secretaria acadêmica e apresente a justificativa por escrito.", False),
+    ]
+    vereditos = [julgar(juiz, "Até quando vai o trancamento parcial?", resposta, trechos) for resposta, _ in casos]
+    print(vereditos)
+    print(calibrar(vereditos, [humano for _, humano in casos]))
+```
+```python path=llm_simulado.py
+"""Cliente de LLM simulado do curso: a interface de um SDK real, sem rede.
+
+Aproximações declaradas (tudo reproduzível):
+- tokens: brinquedo, cada palavra vira pedaços de até 4 caracteres;
+  o tokenizador de um modelo real dá outros números;
+- preços: fictícios, em R$ por milhão de tokens;
+- latência: TTFT + ms por token de saída, somada a um relógio falso;
+- sorteio: random.Random(seed); com temperature > 0 a resposta pode variar;
+- falhas: fila programada (429, 503, "timeout", 400), consumida em ordem.
+"""
+import random
+
+PRECO_ENTRADA = 2.0  # R$ por milhão de tokens de entrada (fictício)
+PRECO_SAIDA = 8.0  # R$ por milhão de tokens de saída (fictício)
+SOBRECARGA_POR_MENSAGEM = 4  # tokens de formatação de cada mensagem
+
+
+class ErroDeTaxa(Exception):  # HTTP 429: transitório
+    def __init__(self, mensagem="429 Too Many Requests", retry_after=None):
+        super().__init__(mensagem)
+        self.retry_after = retry_after  # espera sugerida pelo servidor, em s
+
+
+class ErroDeServidor(Exception):  # HTTP 5xx: transitório
+    pass
+
+
+class ErroDeTimeout(Exception):  # resposta não chegou no prazo: transitório
+    pass
+
+
+class ErroDeRequisicao(Exception):  # HTTP 400/401: permanente, não repita
+    pass
+
+
+def tokenizar(texto):
+    tokens = []
+    for i, palavra in enumerate(texto.split()):
+        pedacos = [palavra[j:j + 4] for j in range(0, len(palavra), 4)]
+        if i > 0:
+            pedacos[0] = " " + pedacos[0]
+        tokens.extend(pedacos)
+    return tokens
+
+
+def contar_tokens(texto):
+    return len(tokenizar(texto))
+
+
+class Resposta:
+    def __init__(self, conteudo, finish_reason, prompt_tokens, completion_tokens,
+                 latencia_ms=0, tool_calls=None):
+        self.conteudo = conteudo
+        self.finish_reason = finish_reason  # "stop", "length" ou "tool_calls"
+        self.usage = {"prompt_tokens": prompt_tokens,
+                      "completion_tokens": completion_tokens,
+                      "total_tokens": prompt_tokens + completion_tokens}
+        self.latencia_ms = latencia_ms
+        self.tool_calls = tool_calls or []
+
+
+class Relogio:  # relógio falso: só anda quando alguém manda
+    def __init__(self):
+        self.agora_ms = 0
+
+    def avancar(self, ms):
+        self.agora_ms += ms
+
+
+class ClienteLLM:
+    """respostas: lista de textos candidatos, ou função(mensagens) que devolve
+    um texto ou uma lista de tool_calls."""
+
+    def __init__(self, respostas, seed=None, falhas=(), relogio=None,
+                 ttft_ms=300, ms_por_token=20):
+        self.respostas = respostas
+        self.rng = random.Random(seed)
+        self.falhas = list(falhas)
+        self.relogio = relogio or Relogio()
+        self.ttft_ms = ttft_ms
+        self.ms_por_token = ms_por_token
+        self.chamadas = 0
+
+    def _preparar(self, mensagens, temperature):
+        self.chamadas += 1
+        falha = self.falhas.pop(0) if self.falhas else None
+        if falha == 429:
+            raise ErroDeTaxa(retry_after=2.0)
+        if falha == 503:
+            raise ErroDeServidor("503 Service Unavailable")
+        if falha == "timeout":
+            self.relogio.avancar(10_000)
+            raise ErroDeTimeout("sem resposta em 10 s")
+        if falha == 400:
+            raise ErroDeRequisicao("400 Bad Request")
+        if callable(self.respostas):
+            return self.respostas(mensagens)
+        if temperature == 0:
+            return self.respostas[0]  # num servidor real, nem isso é garantido
+        return self.rng.choice(self.respostas)
+
+    def completar(self, mensagens, max_tokens=256, temperature=1.0):
+        gerado = self._preparar(mensagens, temperature)
+        entrada = sum(contar_tokens(m["content"]) + SOBRECARGA_POR_MENSAGEM
+                      for m in mensagens)
+        if isinstance(gerado, list):  # o modelo pediu ferramentas
+            self.relogio.avancar(self.ttft_ms)
+            return Resposta("", "tool_calls", entrada, 10, self.ttft_ms, gerado)
+        tokens, motivo = tokenizar(gerado), "stop"
+        if len(tokens) > max_tokens:
+            tokens, motivo = tokens[:max_tokens], "length"
+        latencia = self.ttft_ms + len(tokens) * self.ms_por_token
+        self.relogio.avancar(latencia)
+        return Resposta("".join(tokens), motivo, entrada, len(tokens), latencia)
+
+    def completar_stream(self, mensagens, max_tokens=256, temperature=1.0, cair_apos=None):
+        """Gera eventos {"delta": texto}; o último traz "finish_reason".
+        cair_apos=n: a conexão cai depois de n tokens, sem o evento final."""
+        tokens, motivo = tokenizar(self._preparar(mensagens, temperature)), "stop"
+        if len(tokens) > max_tokens:
+            tokens, motivo = tokens[:max_tokens], "length"
+        self.relogio.avancar(self.ttft_ms)
+        for i, token in enumerate(tokens):
+            if i == cair_apos:
+                return
+            self.relogio.avancar(self.ms_por_token)
+            yield {"delta": token}
+        yield {"delta": "", "finish_reason": motivo}
+```
+```python path=modelo_juiz.py
+"""Comportamento do JUIZ simulado: ClienteLLM(responder).
+
+Regras fixas, para você poder explicar cada veredito:
+1. Na última mensagem "user", as linhas "[n] (fonte) texto" são os trechos e a
+   linha que começa com "Resposta:" é a resposta a julgar.
+2. Viés de verbosidade: resposta com 25 palavras ou mais é aprovada sem
+   conferir nada ("parece completa").
+3. Senão, a resposta é fiel quando toda palavra de 5 letras ou mais dela
+   (sem acento, ignorando as citações [n]) aparece em algum trecho.
+4. O juiz devolve JSON {"fiel": ..., "motivo": ...}. O motivo cita o começo da
+   resposta entre aspas SEM escapar as aspas internas: se a resposta tiver
+   aspas, o JSON sai inválido, como acontece com modelos reais.
+Um juiz real lê com mais cuidado, mas tem vieses parecidos (prefere texto
+longo, confiante, na primeira posição, ou escrito pelo próprio modelo).
+"""
+import re
+import unicodedata
+
+
+def _palavras(texto, minimo):
+    sem_acento = unicodedata.normalize("NFKD", texto.lower()).encode("ascii", "ignore").decode()
+    return set(re.findall(r"[a-z0-9]{%d,}" % minimo, re.sub(r"\[\d+\]", " ", sem_acento)))
+
+
+def responder(mensagens):
+    trechos, resposta = [], ""
+    for linha in mensagens[-1]["content"].splitlines():
+        achado = re.match(r"\[(\d+)\] \((.*?)\) (.*)", linha)
+        if achado:
+            trechos.append(achado.group(3))
+        elif linha.startswith("Resposta:"):
+            resposta = linha[len("Resposta:"):].strip()
+    if len(resposta.split()) >= 25:
+        fiel, motivo = "true", "resposta completa e detalhada"
+    else:
+        apoio = set()
+        for texto in trechos:
+            apoio |= _palavras(texto, 5)
+        fiel = "true" if _palavras(resposta, 5) <= apoio else "false"
+        motivo = "palavras conferidas nos trechos"
+    return '{"fiel": %s, "motivo": "%s: %s"}' % (fiel, motivo, resposta[:30])
+```
+
+### Solução
+```python
+import json
+
+from llm_simulado import ClienteLLM
+from modelo_juiz import responder
+
+RUBRICA = (
+    "Você avalia respostas de um assistente da secretaria acadêmica.\n"
+    "A resposta é fiel quando toda afirmação dela está apoiada nos trechos.\n"
+    'Responda só com JSON: {"fiel": true ou false, "motivo": "uma frase"}.'
+)
+
+
+def julgar(cliente, pergunta, resposta, trechos):
+    linhas = [f"[{n}] ({t['fonte']}) {' '.join(t['texto'].split())}" for n, t in enumerate(trechos, start=1)]
+    usuario = ("Trechos:\n" + "\n".join(linhas) + "\n\nPergunta: " + pergunta.strip()
+               + "\nResposta: " + " ".join(resposta.split()))
+    r = cliente.completar([{"role": "system", "content": RUBRICA}, {"role": "user", "content": usuario}],
+                          max_tokens=80, temperature=0)
+    if r.finish_reason != "stop":
+        return None
+    try:
+        veredito = json.loads(r.conteudo)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(veredito, dict) or not isinstance(veredito.get("fiel"), bool):
+        return None
+    return veredito["fiel"]
+
+
+def calibrar(julgamentos, humanos):
+    if len(julgamentos) != len(humanos):
+        raise ValueError("julgamentos e rótulos humanos precisam ter o mesmo tamanho")
+    pares = [(j, h) for j, h in zip(julgamentos, humanos) if j is not None]
+    iguais = sum(1 for j, h in pares if j == h)
+    return {
+        "validos": len(pares),
+        "invalidos": len(julgamentos) - len(pares),
+        "concordancia": round(iguais / len(pares), 4) if pares else 0.0,
+        "falsos_aprovados": sum(1 for j, h in pares if j and not h),
+        "falsos_reprovados": sum(1 for j, h in pares if not j and h),
+    }
+
+
+if __name__ == "__main__":
+    trechos = [{"fonte": "Regimento, art. 12", "texto": "O trancamento parcial vai até o 60º dia letivo."}]
+    juiz = ClienteLLM(responder)
+    casos = [
+        ("O trancamento parcial vai até o 60º dia letivo. [1]", True),
+        ("O trancamento parcial vai até o 90º dia corrido. [1]", False),
+        ("Pelo regimento, o trancamento parcial pode ser pedido com tranquilidade até o 90º dia corrido, "
+         "desde que o aluno procure a secretaria acadêmica e apresente a justificativa por escrito.", False),
+    ]
+    vereditos = [julgar(juiz, "Até quando vai o trancamento parcial?", resposta, trechos) for resposta, _ in casos]
+    print(vereditos)
+    print(calibrar(vereditos, [humano for _, humano in casos]))
+```
+```python path=llm_simulado.py
+"""Cliente de LLM simulado do curso: a interface de um SDK real, sem rede.
+
+Aproximações declaradas (tudo reproduzível):
+- tokens: brinquedo, cada palavra vira pedaços de até 4 caracteres;
+  o tokenizador de um modelo real dá outros números;
+- preços: fictícios, em R$ por milhão de tokens;
+- latência: TTFT + ms por token de saída, somada a um relógio falso;
+- sorteio: random.Random(seed); com temperature > 0 a resposta pode variar;
+- falhas: fila programada (429, 503, "timeout", 400), consumida em ordem.
+"""
+import random
+
+PRECO_ENTRADA = 2.0  # R$ por milhão de tokens de entrada (fictício)
+PRECO_SAIDA = 8.0  # R$ por milhão de tokens de saída (fictício)
+SOBRECARGA_POR_MENSAGEM = 4  # tokens de formatação de cada mensagem
+
+
+class ErroDeTaxa(Exception):  # HTTP 429: transitório
+    def __init__(self, mensagem="429 Too Many Requests", retry_after=None):
+        super().__init__(mensagem)
+        self.retry_after = retry_after  # espera sugerida pelo servidor, em s
+
+
+class ErroDeServidor(Exception):  # HTTP 5xx: transitório
+    pass
+
+
+class ErroDeTimeout(Exception):  # resposta não chegou no prazo: transitório
+    pass
+
+
+class ErroDeRequisicao(Exception):  # HTTP 400/401: permanente, não repita
+    pass
+
+
+def tokenizar(texto):
+    tokens = []
+    for i, palavra in enumerate(texto.split()):
+        pedacos = [palavra[j:j + 4] for j in range(0, len(palavra), 4)]
+        if i > 0:
+            pedacos[0] = " " + pedacos[0]
+        tokens.extend(pedacos)
+    return tokens
+
+
+def contar_tokens(texto):
+    return len(tokenizar(texto))
+
+
+class Resposta:
+    def __init__(self, conteudo, finish_reason, prompt_tokens, completion_tokens,
+                 latencia_ms=0, tool_calls=None):
+        self.conteudo = conteudo
+        self.finish_reason = finish_reason  # "stop", "length" ou "tool_calls"
+        self.usage = {"prompt_tokens": prompt_tokens,
+                      "completion_tokens": completion_tokens,
+                      "total_tokens": prompt_tokens + completion_tokens}
+        self.latencia_ms = latencia_ms
+        self.tool_calls = tool_calls or []
+
+
+class Relogio:  # relógio falso: só anda quando alguém manda
+    def __init__(self):
+        self.agora_ms = 0
+
+    def avancar(self, ms):
+        self.agora_ms += ms
+
+
+class ClienteLLM:
+    """respostas: lista de textos candidatos, ou função(mensagens) que devolve
+    um texto ou uma lista de tool_calls."""
+
+    def __init__(self, respostas, seed=None, falhas=(), relogio=None,
+                 ttft_ms=300, ms_por_token=20):
+        self.respostas = respostas
+        self.rng = random.Random(seed)
+        self.falhas = list(falhas)
+        self.relogio = relogio or Relogio()
+        self.ttft_ms = ttft_ms
+        self.ms_por_token = ms_por_token
+        self.chamadas = 0
+
+    def _preparar(self, mensagens, temperature):
+        self.chamadas += 1
+        falha = self.falhas.pop(0) if self.falhas else None
+        if falha == 429:
+            raise ErroDeTaxa(retry_after=2.0)
+        if falha == 503:
+            raise ErroDeServidor("503 Service Unavailable")
+        if falha == "timeout":
+            self.relogio.avancar(10_000)
+            raise ErroDeTimeout("sem resposta em 10 s")
+        if falha == 400:
+            raise ErroDeRequisicao("400 Bad Request")
+        if callable(self.respostas):
+            return self.respostas(mensagens)
+        if temperature == 0:
+            return self.respostas[0]  # num servidor real, nem isso é garantido
+        return self.rng.choice(self.respostas)
+
+    def completar(self, mensagens, max_tokens=256, temperature=1.0):
+        gerado = self._preparar(mensagens, temperature)
+        entrada = sum(contar_tokens(m["content"]) + SOBRECARGA_POR_MENSAGEM
+                      for m in mensagens)
+        if isinstance(gerado, list):  # o modelo pediu ferramentas
+            self.relogio.avancar(self.ttft_ms)
+            return Resposta("", "tool_calls", entrada, 10, self.ttft_ms, gerado)
+        tokens, motivo = tokenizar(gerado), "stop"
+        if len(tokens) > max_tokens:
+            tokens, motivo = tokens[:max_tokens], "length"
+        latencia = self.ttft_ms + len(tokens) * self.ms_por_token
+        self.relogio.avancar(latencia)
+        return Resposta("".join(tokens), motivo, entrada, len(tokens), latencia)
+
+    def completar_stream(self, mensagens, max_tokens=256, temperature=1.0, cair_apos=None):
+        """Gera eventos {"delta": texto}; o último traz "finish_reason".
+        cair_apos=n: a conexão cai depois de n tokens, sem o evento final."""
+        tokens, motivo = tokenizar(self._preparar(mensagens, temperature)), "stop"
+        if len(tokens) > max_tokens:
+            tokens, motivo = tokens[:max_tokens], "length"
+        self.relogio.avancar(self.ttft_ms)
+        for i, token in enumerate(tokens):
+            if i == cair_apos:
+                return
+            self.relogio.avancar(self.ms_por_token)
+            yield {"delta": token}
+        yield {"delta": "", "finish_reason": motivo}
+```
+```python path=modelo_juiz.py
+"""Comportamento do JUIZ simulado: ClienteLLM(responder).
+
+Regras fixas, para você poder explicar cada veredito:
+1. Na última mensagem "user", as linhas "[n] (fonte) texto" são os trechos e a
+   linha que começa com "Resposta:" é a resposta a julgar.
+2. Viés de verbosidade: resposta com 25 palavras ou mais é aprovada sem
+   conferir nada ("parece completa").
+3. Senão, a resposta é fiel quando toda palavra de 5 letras ou mais dela
+   (sem acento, ignorando as citações [n]) aparece em algum trecho.
+4. O juiz devolve JSON {"fiel": ..., "motivo": ...}. O motivo cita o começo da
+   resposta entre aspas SEM escapar as aspas internas: se a resposta tiver
+   aspas, o JSON sai inválido, como acontece com modelos reais.
+Um juiz real lê com mais cuidado, mas tem vieses parecidos (prefere texto
+longo, confiante, na primeira posição, ou escrito pelo próprio modelo).
+"""
+import re
+import unicodedata
+
+
+def _palavras(texto, minimo):
+    sem_acento = unicodedata.normalize("NFKD", texto.lower()).encode("ascii", "ignore").decode()
+    return set(re.findall(r"[a-z0-9]{%d,}" % minimo, re.sub(r"\[\d+\]", " ", sem_acento)))
+
+
+def responder(mensagens):
+    trechos, resposta = [], ""
+    for linha in mensagens[-1]["content"].splitlines():
+        achado = re.match(r"\[(\d+)\] \((.*?)\) (.*)", linha)
+        if achado:
+            trechos.append(achado.group(3))
+        elif linha.startswith("Resposta:"):
+            resposta = linha[len("Resposta:"):].strip()
+    if len(resposta.split()) >= 25:
+        fiel, motivo = "true", "resposta completa e detalhada"
+    else:
+        apoio = set()
+        for texto in trechos:
+            apoio |= _palavras(texto, 5)
+        fiel = "true" if _palavras(resposta, 5) <= apoio else "false"
+        motivo = "palavras conferidas nos trechos"
+    return '{"fiel": %s, "motivo": "%s: %s"}' % (fiel, motivo, resposta[:30])
+```
+
+### Dicas
+1. `json.loads` levanta `json.JSONDecodeError` quando o texto não é JSON.
+2. `isinstance(x, bool)` distingue `True` de `"true"` e de `1`.
+3. Filtre os pares com veredito `None` antes de contar acertos e erros.
+
+### Verificação
+```json
+[
+  {"id": "fiel", "checkpoint": 1, "kind": "expr", "setup": "T = [{'fonte': 'Regimento, art. 12', 'texto': 'O trancamento parcial vai até o 60º dia letivo.'}]\n", "expr": "[julgar(ClienteLLM(responder), 'Até quando vai o trancamento?', 'O trancamento parcial vai até o 60º dia letivo. [1]', T), julgar(ClienteLLM(responder), 'Até quando vai o trancamento?', 'O trancamento parcial vai até o 90º dia corrido. [1]', T)]", "expected": [true, false], "name": "Devolve o booleano do veredito"},
+  {"id": "prompt", "checkpoint": 1, "kind": "expr", "setup": "T = [{'fonte': 'Regimento, art. 12', 'texto': 'O trancamento parcial vai até o 60º dia letivo.'}]\nfrom llm_simulado import ClienteLLM\nfrom modelo_juiz import responder\nclass Espiao(ClienteLLM):\n    def completar(self, mensagens, max_tokens=256, temperature=1.0):\n        self.temp, self.msgs = temperature, mensagens\n        return super().completar(mensagens, max_tokens=max_tokens, temperature=temperature)\ne = Espiao(responder)\njulgar(e, 'Qual o prazo?', 'Até o 60º dia. [1]', T)", "expr": "[e.temp, e.msgs[0]['content'] == RUBRICA, e.msgs[1]['content']]", "name": "Juiz com temperature 0, rubrica no system, trechos, pergunta e resposta no user", "expected": [0, true, "Trechos:\n[1] (Regimento, art. 12) O trancamento parcial vai até o 60º dia letivo.\n\nPergunta: Qual o prazo?\nResposta: Até o 60º dia. [1]"]},
+  {"id": "aspas", "checkpoint": 2, "kind": "expr", "setup": "T = [{'fonte': 'Regimento, art. 12', 'texto': 'O trancamento parcial vai até o 60º dia letivo.'}]\n", "expr": "julgar(ClienteLLM(responder), 'Qual o prazo?', 'O regimento diz \"até o 60º dia letivo\" [1]', T)", "expected": null, "name": "JSON inválido vira None, não exceção", "hint": "Resposta com aspas faz o juiz simulado devolver JSON quebrado."},
+  {"id": "tipo", "checkpoint": 2, "kind": "expr", "expr": "[julgar(ClienteLLM(lambda ms: '{\"fiel\": \"false\", \"motivo\": \"x\"}'), 'p', 'r', []), julgar(ClienteLLM(lambda ms: '[true]'), 'p', 'r', [])]", "expected": [null, null], "name": "fiel precisa ser booleano de verdade; \"false\" em texto é inválido"},
+  {"id": "truncado", "checkpoint": 2, "kind": "expr", "expr": "julgar(ClienteLLM(lambda ms: '{\"fiel\": true, \"motivo\": \"' + 'muito longo ' * 60 + '\"}'), 'p', 'r', [])", "expected": null, "name": "Veredito cortado por max_tokens é descartado"},
+  {"id": "calibrar", "checkpoint": 3, "kind": "call", "function": "calibrar", "args": [[true, false, null, true, true, false], [true, false, true, false, false, true]], "tolerance": 0.0001, "name": "Concordância só sobre os vereditos válidos, com os dois tipos de erro", "expected": {"validos": 5, "invalidos": 1, "concordancia": 0.4, "falsos_aprovados": 2, "falsos_reprovados": 1}},
+  {"id": "tamanhos", "checkpoint": 3, "kind": "expr", "expr": "calibrar([True], [True, False])", "raises": "ValueError", "name": "Listas de tamanhos diferentes são recusadas"},
+  {"id": "todos-invalidos", "checkpoint": 3, "kind": "call", "function": "calibrar", "args": [[null, null], [true, false]], "name": "Nenhum veredito válido: concordância 0.0", "expected": {"validos": 0, "invalidos": 2, "concordancia": 0.0, "falsos_aprovados": 0, "falsos_reprovados": 0}},
+  {"id": "vies", "checkpoint": 3, "kind": "expr", "setup": "T = [{'fonte': 'Regimento, art. 12', 'texto': 'O trancamento parcial vai até o 60º dia letivo.'}]\nrs = ['O trancamento parcial vai até o 60º dia letivo. [1]', 'O trancamento parcial vai até o 90º dia corrido. [1]', 'Pelo regimento, o trancamento parcial pode ser pedido com tranquilidade até o 90º dia corrido, desde que o aluno procure a secretaria acadêmica e apresente a justificativa por escrito.', 'Até o 60º dia letivo. [1]', 'Só com parecer da coordenação. [1]']\nhs = [True, False, False, True, False]\njs = [julgar(ClienteLLM(responder), 'Até quando vai o trancamento?', r, T) for r in rs]", "expr": "calibrar(js, hs)", "tolerance": 0.0001, "name": "Calibrando o juiz simulado contra rótulos humanos expõe o viés de verbosidade", "expected": {"validos": 5, "invalidos": 0, "concordancia": 0.8, "falsos_aprovados": 1, "falsos_reprovados": 0}}
+]
+```
+
+### Soluções erradas
+```python name="não trata JSON inválido"
+import json
+
+from llm_simulado import ClienteLLM
+from modelo_juiz import responder
+
+RUBRICA = (
+    "Você avalia respostas de um assistente da secretaria acadêmica.\n"
+    "A resposta é fiel quando toda afirmação dela está apoiada nos trechos.\n"
+    'Responda só com JSON: {"fiel": true ou false, "motivo": "uma frase"}.'
+)
+
+
+def julgar(cliente, pergunta, resposta, trechos):
+    linhas = [f"[{n}] ({t['fonte']}) {' '.join(t['texto'].split())}" for n, t in enumerate(trechos, start=1)]
+    usuario = ("Trechos:\n" + "\n".join(linhas) + "\n\nPergunta: " + pergunta.strip()
+               + "\nResposta: " + " ".join(resposta.split()))
+    r = cliente.completar([{"role": "system", "content": RUBRICA}, {"role": "user", "content": usuario}],
+                          max_tokens=80, temperature=0)
+    if r.finish_reason != "stop":
+        return None
+    veredito = json.loads(r.conteudo)
+    if not isinstance(veredito, dict) or not isinstance(veredito.get("fiel"), bool):
+        return None
+    return veredito["fiel"]
+
+
+def calibrar(julgamentos, humanos):
+    if len(julgamentos) != len(humanos):
+        raise ValueError("julgamentos e rótulos humanos precisam ter o mesmo tamanho")
+    pares = [(j, h) for j, h in zip(julgamentos, humanos) if j is not None]
+    iguais = sum(1 for j, h in pares if j == h)
+    return {
+        "validos": len(pares),
+        "invalidos": len(julgamentos) - len(pares),
+        "concordancia": round(iguais / len(pares), 4) if pares else 0.0,
+        "falsos_aprovados": sum(1 for j, h in pares if j and not h),
+        "falsos_reprovados": sum(1 for j, h in pares if not j and h),
+    }
+
+
+if __name__ == "__main__":
+    trechos = [{"fonte": "Regimento, art. 12", "texto": "O trancamento parcial vai até o 60º dia letivo."}]
+    juiz = ClienteLLM(responder)
+    casos = [
+        ("O trancamento parcial vai até o 60º dia letivo. [1]", True),
+        ("O trancamento parcial vai até o 90º dia corrido. [1]", False),
+        ("Pelo regimento, o trancamento parcial pode ser pedido com tranquilidade até o 90º dia corrido, "
+         "desde que o aluno procure a secretaria acadêmica e apresente a justificativa por escrito.", False),
+    ]
+    vereditos = [julgar(juiz, "Até quando vai o trancamento parcial?", resposta, trechos) for resposta, _ in casos]
+    print(vereditos)
+    print(calibrar(vereditos, [humano for _, humano in casos]))
+```
+```python name="juiz com a temperatura padrão"
+import json
+
+from llm_simulado import ClienteLLM
+from modelo_juiz import responder
+
+RUBRICA = (
+    "Você avalia respostas de um assistente da secretaria acadêmica.\n"
+    "A resposta é fiel quando toda afirmação dela está apoiada nos trechos.\n"
+    'Responda só com JSON: {"fiel": true ou false, "motivo": "uma frase"}.'
+)
+
+
+def julgar(cliente, pergunta, resposta, trechos):
+    linhas = [f"[{n}] ({t['fonte']}) {' '.join(t['texto'].split())}" for n, t in enumerate(trechos, start=1)]
+    usuario = ("Trechos:\n" + "\n".join(linhas) + "\n\nPergunta: " + pergunta.strip()
+               + "\nResposta: " + " ".join(resposta.split()))
+    r = cliente.completar([{"role": "system", "content": RUBRICA}, {"role": "user", "content": usuario}],
+                          max_tokens=80)
+    if r.finish_reason != "stop":
+        return None
+    try:
+        veredito = json.loads(r.conteudo)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(veredito, dict) or not isinstance(veredito.get("fiel"), bool):
+        return None
+    return veredito["fiel"]
+
+
+def calibrar(julgamentos, humanos):
+    if len(julgamentos) != len(humanos):
+        raise ValueError("julgamentos e rótulos humanos precisam ter o mesmo tamanho")
+    pares = [(j, h) for j, h in zip(julgamentos, humanos) if j is not None]
+    iguais = sum(1 for j, h in pares if j == h)
+    return {
+        "validos": len(pares),
+        "invalidos": len(julgamentos) - len(pares),
+        "concordancia": round(iguais / len(pares), 4) if pares else 0.0,
+        "falsos_aprovados": sum(1 for j, h in pares if j and not h),
+        "falsos_reprovados": sum(1 for j, h in pares if not j and h),
+    }
+
+
+if __name__ == "__main__":
+    trechos = [{"fonte": "Regimento, art. 12", "texto": "O trancamento parcial vai até o 60º dia letivo."}]
+    juiz = ClienteLLM(responder)
+    casos = [
+        ("O trancamento parcial vai até o 60º dia letivo. [1]", True),
+        ("O trancamento parcial vai até o 90º dia corrido. [1]", False),
+        ("Pelo regimento, o trancamento parcial pode ser pedido com tranquilidade até o 90º dia corrido, "
+         "desde que o aluno procure a secretaria acadêmica e apresente a justificativa por escrito.", False),
+    ]
+    vereditos = [julgar(juiz, "Até quando vai o trancamento parcial?", resposta, trechos) for resposta, _ in casos]
+    print(vereditos)
+    print(calibrar(vereditos, [humano for _, humano in casos]))
+```
+```python name="aceita qualquer valor em fiel"
+import json
+
+from llm_simulado import ClienteLLM
+from modelo_juiz import responder
+
+RUBRICA = (
+    "Você avalia respostas de um assistente da secretaria acadêmica.\n"
+    "A resposta é fiel quando toda afirmação dela está apoiada nos trechos.\n"
+    'Responda só com JSON: {"fiel": true ou false, "motivo": "uma frase"}.'
+)
+
+
+def julgar(cliente, pergunta, resposta, trechos):
+    linhas = [f"[{n}] ({t['fonte']}) {' '.join(t['texto'].split())}" for n, t in enumerate(trechos, start=1)]
+    usuario = ("Trechos:\n" + "\n".join(linhas) + "\n\nPergunta: " + pergunta.strip()
+               + "\nResposta: " + " ".join(resposta.split()))
+    r = cliente.completar([{"role": "system", "content": RUBRICA}, {"role": "user", "content": usuario}],
+                          max_tokens=80, temperature=0)
+    if r.finish_reason != "stop":
+        return None
+    try:
+        veredito = json.loads(r.conteudo)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(veredito, dict) or "fiel" not in veredito:
+        return None
+    return bool(veredito["fiel"])
+
+
+def calibrar(julgamentos, humanos):
+    if len(julgamentos) != len(humanos):
+        raise ValueError("julgamentos e rótulos humanos precisam ter o mesmo tamanho")
+    pares = [(j, h) for j, h in zip(julgamentos, humanos) if j is not None]
+    iguais = sum(1 for j, h in pares if j == h)
+    return {
+        "validos": len(pares),
+        "invalidos": len(julgamentos) - len(pares),
+        "concordancia": round(iguais / len(pares), 4) if pares else 0.0,
+        "falsos_aprovados": sum(1 for j, h in pares if j and not h),
+        "falsos_reprovados": sum(1 for j, h in pares if not j and h),
+    }
+
+
+if __name__ == "__main__":
+    trechos = [{"fonte": "Regimento, art. 12", "texto": "O trancamento parcial vai até o 60º dia letivo."}]
+    juiz = ClienteLLM(responder)
+    casos = [
+        ("O trancamento parcial vai até o 60º dia letivo. [1]", True),
+        ("O trancamento parcial vai até o 90º dia corrido. [1]", False),
+        ("Pelo regimento, o trancamento parcial pode ser pedido com tranquilidade até o 90º dia corrido, "
+         "desde que o aluno procure a secretaria acadêmica e apresente a justificativa por escrito.", False),
+    ]
+    vereditos = [julgar(juiz, "Até quando vai o trancamento parcial?", resposta, trechos) for resposta, _ in casos]
+    print(vereditos)
+    print(calibrar(vereditos, [humano for _, humano in casos]))
+```
+```python name="julga sem mostrar os trechos"
+import json
+
+from llm_simulado import ClienteLLM
+from modelo_juiz import responder
+
+RUBRICA = (
+    "Você avalia respostas de um assistente da secretaria acadêmica.\n"
+    "A resposta é fiel quando toda afirmação dela está apoiada nos trechos.\n"
+    'Responda só com JSON: {"fiel": true ou false, "motivo": "uma frase"}.'
+)
+
+
+def julgar(cliente, pergunta, resposta, trechos):
+    linhas = [f"[{n}] ({t['fonte']}) {' '.join(t['texto'].split())}" for n, t in enumerate(trechos, start=1)]
+    usuario = ("Pergunta: " + pergunta.strip()
+               + "\nResposta: " + " ".join(resposta.split()))
+    r = cliente.completar([{"role": "system", "content": RUBRICA}, {"role": "user", "content": usuario}],
+                          max_tokens=80, temperature=0)
+    if r.finish_reason != "stop":
+        return None
+    try:
+        veredito = json.loads(r.conteudo)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(veredito, dict) or not isinstance(veredito.get("fiel"), bool):
+        return None
+    return veredito["fiel"]
+
+
+def calibrar(julgamentos, humanos):
+    if len(julgamentos) != len(humanos):
+        raise ValueError("julgamentos e rótulos humanos precisam ter o mesmo tamanho")
+    pares = [(j, h) for j, h in zip(julgamentos, humanos) if j is not None]
+    iguais = sum(1 for j, h in pares if j == h)
+    return {
+        "validos": len(pares),
+        "invalidos": len(julgamentos) - len(pares),
+        "concordancia": round(iguais / len(pares), 4) if pares else 0.0,
+        "falsos_aprovados": sum(1 for j, h in pares if j and not h),
+        "falsos_reprovados": sum(1 for j, h in pares if not j and h),
+    }
+
+
+if __name__ == "__main__":
+    trechos = [{"fonte": "Regimento, art. 12", "texto": "O trancamento parcial vai até o 60º dia letivo."}]
+    juiz = ClienteLLM(responder)
+    casos = [
+        ("O trancamento parcial vai até o 60º dia letivo. [1]", True),
+        ("O trancamento parcial vai até o 90º dia corrido. [1]", False),
+        ("Pelo regimento, o trancamento parcial pode ser pedido com tranquilidade até o 90º dia corrido, "
+         "desde que o aluno procure a secretaria acadêmica e apresente a justificativa por escrito.", False),
+    ]
+    vereditos = [julgar(juiz, "Até quando vai o trancamento parcial?", resposta, trechos) for resposta, _ in casos]
+    print(vereditos)
+    print(calibrar(vereditos, [humano for _, humano in casos]))
+```
+```python name="concordância sobre todos, inclusive inválidos"
+import json
+
+from llm_simulado import ClienteLLM
+from modelo_juiz import responder
+
+RUBRICA = (
+    "Você avalia respostas de um assistente da secretaria acadêmica.\n"
+    "A resposta é fiel quando toda afirmação dela está apoiada nos trechos.\n"
+    'Responda só com JSON: {"fiel": true ou false, "motivo": "uma frase"}.'
+)
+
+
+def julgar(cliente, pergunta, resposta, trechos):
+    linhas = [f"[{n}] ({t['fonte']}) {' '.join(t['texto'].split())}" for n, t in enumerate(trechos, start=1)]
+    usuario = ("Trechos:\n" + "\n".join(linhas) + "\n\nPergunta: " + pergunta.strip()
+               + "\nResposta: " + " ".join(resposta.split()))
+    r = cliente.completar([{"role": "system", "content": RUBRICA}, {"role": "user", "content": usuario}],
+                          max_tokens=80, temperature=0)
+    if r.finish_reason != "stop":
+        return None
+    try:
+        veredito = json.loads(r.conteudo)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(veredito, dict) or not isinstance(veredito.get("fiel"), bool):
+        return None
+    return veredito["fiel"]
+
+
+def calibrar(julgamentos, humanos):
+    if len(julgamentos) != len(humanos):
+        raise ValueError("julgamentos e rótulos humanos precisam ter o mesmo tamanho")
+    pares = [(j, h) for j, h in zip(julgamentos, humanos) if j is not None]
+    iguais = sum(1 for j, h in pares if j == h)
+    return {
+        "validos": len(pares),
+        "invalidos": len(julgamentos) - len(pares),
+        "concordancia": round(iguais / len(julgamentos), 4) if pares else 0.0,
+        "falsos_aprovados": sum(1 for j, h in pares if j and not h),
+        "falsos_reprovados": sum(1 for j, h in pares if not j and h),
+    }
+
+
+if __name__ == "__main__":
+    trechos = [{"fonte": "Regimento, art. 12", "texto": "O trancamento parcial vai até o 60º dia letivo."}]
+    juiz = ClienteLLM(responder)
+    casos = [
+        ("O trancamento parcial vai até o 60º dia letivo. [1]", True),
+        ("O trancamento parcial vai até o 90º dia corrido. [1]", False),
+        ("Pelo regimento, o trancamento parcial pode ser pedido com tranquilidade até o 90º dia corrido, "
+         "desde que o aluno procure a secretaria acadêmica e apresente a justificativa por escrito.", False),
+    ]
+    vereditos = [julgar(juiz, "Até quando vai o trancamento parcial?", resposta, trechos) for resposta, _ in casos]
+    print(vereditos)
+    print(calibrar(vereditos, [humano for _, humano in casos]))
+```
+```python name="veredito inválido conta como reprovação"
+import json
+
+from llm_simulado import ClienteLLM
+from modelo_juiz import responder
+
+RUBRICA = (
+    "Você avalia respostas de um assistente da secretaria acadêmica.\n"
+    "A resposta é fiel quando toda afirmação dela está apoiada nos trechos.\n"
+    'Responda só com JSON: {"fiel": true ou false, "motivo": "uma frase"}.'
+)
+
+
+def julgar(cliente, pergunta, resposta, trechos):
+    linhas = [f"[{n}] ({t['fonte']}) {' '.join(t['texto'].split())}" for n, t in enumerate(trechos, start=1)]
+    usuario = ("Trechos:\n" + "\n".join(linhas) + "\n\nPergunta: " + pergunta.strip()
+               + "\nResposta: " + " ".join(resposta.split()))
+    r = cliente.completar([{"role": "system", "content": RUBRICA}, {"role": "user", "content": usuario}],
+                          max_tokens=80, temperature=0)
+    if r.finish_reason != "stop":
+        return None
+    try:
+        veredito = json.loads(r.conteudo)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(veredito, dict) or not isinstance(veredito.get("fiel"), bool):
+        return None
+    return veredito["fiel"]
+
+
+def calibrar(julgamentos, humanos):
+    if len(julgamentos) != len(humanos):
+        raise ValueError("julgamentos e rótulos humanos precisam ter o mesmo tamanho")
+    pares = [(bool(j), h) for j, h in zip(julgamentos, humanos)]
+    iguais = sum(1 for j, h in pares if j == h)
+    return {
+        "validos": len(pares),
+        "invalidos": len(julgamentos) - len(pares),
+        "concordancia": round(iguais / len(pares), 4) if pares else 0.0,
+        "falsos_aprovados": sum(1 for j, h in pares if j and not h),
+        "falsos_reprovados": sum(1 for j, h in pares if not j and h),
+    }
+
+
+if __name__ == "__main__":
+    trechos = [{"fonte": "Regimento, art. 12", "texto": "O trancamento parcial vai até o 60º dia letivo."}]
+    juiz = ClienteLLM(responder)
+    casos = [
+        ("O trancamento parcial vai até o 60º dia letivo. [1]", True),
+        ("O trancamento parcial vai até o 90º dia corrido. [1]", False),
+        ("Pelo regimento, o trancamento parcial pode ser pedido com tranquilidade até o 90º dia corrido, "
+         "desde que o aluno procure a secretaria acadêmica e apresente a justificativa por escrito.", False),
+    ]
+    vereditos = [julgar(juiz, "Até quando vai o trancamento parcial?", resposta, trechos) for resposta, _ in casos]
+    print(vereditos)
+    print(calibrar(vereditos, [humano for _, humano in casos]))
+```
+```python name="troca falsos aprovados e reprovados"
+import json
+
+from llm_simulado import ClienteLLM
+from modelo_juiz import responder
+
+RUBRICA = (
+    "Você avalia respostas de um assistente da secretaria acadêmica.\n"
+    "A resposta é fiel quando toda afirmação dela está apoiada nos trechos.\n"
+    'Responda só com JSON: {"fiel": true ou false, "motivo": "uma frase"}.'
+)
+
+
+def julgar(cliente, pergunta, resposta, trechos):
+    linhas = [f"[{n}] ({t['fonte']}) {' '.join(t['texto'].split())}" for n, t in enumerate(trechos, start=1)]
+    usuario = ("Trechos:\n" + "\n".join(linhas) + "\n\nPergunta: " + pergunta.strip()
+               + "\nResposta: " + " ".join(resposta.split()))
+    r = cliente.completar([{"role": "system", "content": RUBRICA}, {"role": "user", "content": usuario}],
+                          max_tokens=80, temperature=0)
+    if r.finish_reason != "stop":
+        return None
+    try:
+        veredito = json.loads(r.conteudo)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(veredito, dict) or not isinstance(veredito.get("fiel"), bool):
+        return None
+    return veredito["fiel"]
+
+
+def calibrar(julgamentos, humanos):
+    if len(julgamentos) != len(humanos):
+        raise ValueError("julgamentos e rótulos humanos precisam ter o mesmo tamanho")
+    pares = [(j, h) for j, h in zip(julgamentos, humanos) if j is not None]
+    iguais = sum(1 for j, h in pares if j == h)
+    return {
+        "validos": len(pares),
+        "invalidos": len(julgamentos) - len(pares),
+        "concordancia": round(iguais / len(pares), 4) if pares else 0.0,
+        "falsos_aprovados": sum(1 for j, h in pares if not j and h),
+        "falsos_reprovados": sum(1 for j, h in pares if j and not h),
+    }
+
+
+if __name__ == "__main__":
+    trechos = [{"fonte": "Regimento, art. 12", "texto": "O trancamento parcial vai até o 60º dia letivo."}]
+    juiz = ClienteLLM(responder)
+    casos = [
+        ("O trancamento parcial vai até o 60º dia letivo. [1]", True),
+        ("O trancamento parcial vai até o 90º dia corrido. [1]", False),
+        ("Pelo regimento, o trancamento parcial pode ser pedido com tranquilidade até o 90º dia corrido, "
+         "desde que o aluno procure a secretaria acadêmica e apresente a justificativa por escrito.", False),
+    ]
+    vereditos = [julgar(juiz, "Até quando vai o trancamento parcial?", resposta, trechos) for resposta, _ in casos]
+    print(vereditos)
+    print(calibrar(vereditos, [humano for _, humano in casos]))
+```
+
+## Passo 7 · Exercício · Diagnóstico por etapa
+
+Com as medidas por caso em mãos, falta dizer **onde** cada erro nasceu. Cada caso é `{"id", "recall", "recusou", "fiel", "correta"}`, em que `recall` é o recall@k da busca naquela pergunta ou `None` quando o gabarito de trechos é vazio.
+
+Escreva `classificar(caso)`, que devolve uma das categorias de `CATEGORIAS`, conferindo as etapas na ordem em que acontecem:
+
+1. `recall` é `None` (os documentos não respondem): `"ok"` se recusou, `"alucinacao"` se respondeu;
+2. `recall` é zero: `"falha_recuperacao"`, recusando ou não — sem evidência, até um acerto é sorte;
+3. recusou mesmo com evidência no prompt: `"recusa_indevida"`;
+4. não é fiel aos trechos: `"alucinacao"`;
+5. fiel mas incorreta: `"falha_geracao"`; senão, `"ok"`.
+
+E `diagnosticar(casos)`, que devolve um dicionário com as cinco categorias como chaves (todas, mesmo vazias) e, em cada uma, a lista dos ids dos casos dela, na ordem de entrada.
+
+### Instruções
+1. Trate primeiro as perguntas sem gabarito e as de recall zero.
+2. Com evidência no prompt, separe recusa indevida, alucinação e falha de geração, nessa ordem.
+3. Agrupe os ids por categoria, com as cinco chaves sempre presentes.
+
+### Código inicial
+```python
+CATEGORIAS = ["ok", "falha_recuperacao", "recusa_indevida", "alucinacao", "falha_geracao"]
+
+
+def classificar(caso):
+    pass
+
+
+def diagnosticar(casos):
+    pass
+
+
+if __name__ == "__main__":
+    casos = [
+        {"id": "p1", "recall": 1.0, "recusou": False, "fiel": True, "correta": True},
+        {"id": "p2", "recall": 0.0, "recusou": True, "fiel": True, "correta": False},
+        {"id": "p3", "recall": None, "recusou": False, "fiel": False, "correta": False},
+    ]
+    print(diagnosticar(casos))
+```
+
+### Solução
+```python
+CATEGORIAS = ["ok", "falha_recuperacao", "recusa_indevida", "alucinacao", "falha_geracao"]
+
+
+def classificar(caso):
+    if caso["recall"] is None:
+        return "ok" if caso["recusou"] else "alucinacao"
+    if caso["recall"] == 0:
+        return "falha_recuperacao"
+    if caso["recusou"]:
+        return "recusa_indevida"
+    if not caso["fiel"]:
+        return "alucinacao"
+    if not caso["correta"]:
+        return "falha_geracao"
+    return "ok"
+
+
+def diagnosticar(casos):
+    grupos = {categoria: [] for categoria in CATEGORIAS}
+    for caso in casos:
+        grupos[classificar(caso)].append(caso["id"])
+    return grupos
+
+
+if __name__ == "__main__":
+    casos = [
+        {"id": "p1", "recall": 1.0, "recusou": False, "fiel": True, "correta": True},
+        {"id": "p2", "recall": 0.0, "recusou": True, "fiel": True, "correta": False},
+        {"id": "p3", "recall": None, "recusou": False, "fiel": False, "correta": False},
+    ]
+    print(diagnosticar(casos))
+```
+
+### Dicas
+1. Compare `recall is None` antes de `recall == 0`: `None` não é zero.
+2. A primeira etapa que falhou é a que você conserta primeiro.
+3. Comece o resultado com `{categoria: [] for categoria in CATEGORIAS}`.
+
+### Verificação
+```json
+[
+  {"id": "ok", "checkpoint": 1, "kind": "call", "function": "classificar", "args": [{"id": "p", "recall": 0.5, "recusou": false, "fiel": true, "correta": true}], "expected": "ok", "name": "Recuperou, respondeu fiel e certo"},
+  {"id": "recuperacao", "checkpoint": 1, "kind": "expr", "expr": "[classificar({'id': 'p', 'recall': 0.0, 'recusou': True, 'fiel': True, 'correta': False}), classificar({'id': 'q', 'recall': 0.0, 'recusou': False, 'fiel': False, 'correta': False})]", "expected": ["falha_recuperacao", "falha_recuperacao"], "name": "Recall zero é falha da busca, mesmo quando o gerador recusou certo", "hint": "Classifique pela primeira etapa que falhou."},
+  {"id": "sem-gabarito", "checkpoint": 2, "kind": "expr", "expr": "[classificar({'id': 'p', 'recall': None, 'recusou': True, 'fiel': True, 'correta': False}), classificar({'id': 'q', 'recall': None, 'recusou': False, 'fiel': False, 'correta': False})]", "expected": ["ok", "alucinacao"], "name": "Sem resposta nos documentos: recusar é o certo; responder é alucinar"},
+  {"id": "recusa-indevida", "checkpoint": 2, "kind": "call", "function": "classificar", "args": [{"id": "p", "recall": 1.0, "recusou": true, "fiel": true, "correta": false}], "expected": "recusa_indevida", "name": "Recusar com a evidência no prompt é erro da geração"},
+  {"id": "ordem", "checkpoint": 2, "kind": "expr", "expr": "[classificar({'id': 'p', 'recall': 1.0, 'recusou': False, 'fiel': False, 'correta': False}), classificar({'id': 'q', 'recall': 1.0, 'recusou': False, 'fiel': True, 'correta': False})]", "expected": ["alucinacao", "falha_geracao"], "name": "Inventar além dos trechos é alucinação; errar com eles, falha de geração"},
+  {"id": "grupos", "checkpoint": 3, "kind": "call", "function": "diagnosticar", "args": [[{"id": "a", "recall": 1.0, "recusou": false, "fiel": true, "correta": true}, {"id": "b", "recall": 0.0, "recusou": true, "fiel": true, "correta": false}, {"id": "c", "recall": null, "recusou": false, "fiel": false, "correta": false}, {"id": "d", "recall": 0.5, "recusou": false, "fiel": true, "correta": false}, {"id": "e", "recall": 1.0, "recusou": false, "fiel": true, "correta": true}, {"id": "f", "recall": 0.0, "recusou": false, "fiel": true, "correta": true}]], "name": "Agrupa os ids por categoria, na ordem de entrada", "expected": {"ok": ["a", "e"], "falha_recuperacao": ["b", "f"], "recusa_indevida": [], "alucinacao": ["c"], "falha_geracao": ["d"]}},
+  {"id": "todas-as-chaves", "checkpoint": 3, "kind": "call", "function": "diagnosticar", "args": [[]], "name": "As cinco categorias aparecem mesmo vazias", "expected": {"ok": [], "falha_recuperacao": [], "recusa_indevida": [], "alucinacao": [], "falha_geracao": []}}
+]
+```
+
+### Soluções erradas
+```python name="olha só a resposta final"
+CATEGORIAS = ["ok", "falha_recuperacao", "recusa_indevida", "alucinacao", "falha_geracao"]
+
+
+def classificar(caso):
+    if caso["recusou"]:
+        return "ok" if caso["recall"] is None else "recusa_indevida"
+    if not caso["correta"]:
+        return "falha_geracao"
+    return "ok"
+
+
+def diagnosticar(casos):
+    grupos = {categoria: [] for categoria in CATEGORIAS}
+    for caso in casos:
+        grupos[classificar(caso)].append(caso["id"])
+    return grupos
+
+
+if __name__ == "__main__":
+    casos = [
+        {"id": "p1", "recall": 1.0, "recusou": False, "fiel": True, "correta": True},
+        {"id": "p2", "recall": 0.0, "recusou": True, "fiel": True, "correta": False},
+        {"id": "p3", "recall": None, "recusou": False, "fiel": False, "correta": False},
+    ]
+    print(diagnosticar(casos))
+```
+```python name="recusa sem evidência conta como acerto"
+CATEGORIAS = ["ok", "falha_recuperacao", "recusa_indevida", "alucinacao", "falha_geracao"]
+
+
+def classificar(caso):
+    if caso["recall"] is None:
+        return "ok" if caso["recusou"] else "alucinacao"
+    if caso["recall"] == 0:
+        return "ok" if caso["recusou"] else "falha_recuperacao"
+    if caso["recusou"]:
+        return "recusa_indevida"
+    if not caso["fiel"]:
+        return "alucinacao"
+    if not caso["correta"]:
+        return "falha_geracao"
+    return "ok"
+
+
+def diagnosticar(casos):
+    grupos = {categoria: [] for categoria in CATEGORIAS}
+    for caso in casos:
+        grupos[classificar(caso)].append(caso["id"])
+    return grupos
+
+
+if __name__ == "__main__":
+    casos = [
+        {"id": "p1", "recall": 1.0, "recusou": False, "fiel": True, "correta": True},
+        {"id": "p2", "recall": 0.0, "recusou": True, "fiel": True, "correta": False},
+        {"id": "p3", "recall": None, "recusou": False, "fiel": False, "correta": False},
+    ]
+    print(diagnosticar(casos))
+```
+```python name="pergunta sem gabarito vira recall zero"
+CATEGORIAS = ["ok", "falha_recuperacao", "recusa_indevida", "alucinacao", "falha_geracao"]
+
+
+def classificar(caso):
+    if (caso["recall"] or 0.0) == 0:
+        return "falha_recuperacao"
+    if caso["recusou"]:
+        return "recusa_indevida"
+    if not caso["fiel"]:
+        return "alucinacao"
+    if not caso["correta"]:
+        return "falha_geracao"
+    return "ok"
+
+
+def diagnosticar(casos):
+    grupos = {categoria: [] for categoria in CATEGORIAS}
+    for caso in casos:
+        grupos[classificar(caso)].append(caso["id"])
+    return grupos
+
+
+if __name__ == "__main__":
+    casos = [
+        {"id": "p1", "recall": 1.0, "recusou": False, "fiel": True, "correta": True},
+        {"id": "p2", "recall": 0.0, "recusou": True, "fiel": True, "correta": False},
+        {"id": "p3", "recall": None, "recusou": False, "fiel": False, "correta": False},
+    ]
+    print(diagnosticar(casos))
+```
+```python name="confere correção antes de fidelidade"
+CATEGORIAS = ["ok", "falha_recuperacao", "recusa_indevida", "alucinacao", "falha_geracao"]
+
+
+def classificar(caso):
+    if caso["recall"] is None:
+        return "ok" if caso["recusou"] else "alucinacao"
+    if caso["recall"] == 0:
+        return "falha_recuperacao"
+    if caso["recusou"]:
+        return "recusa_indevida"
+    if not caso["correta"]:
+        return "falha_geracao"
+    if not caso["fiel"]:
+        return "alucinacao"
+    return "ok"
+
+
+def diagnosticar(casos):
+    grupos = {categoria: [] for categoria in CATEGORIAS}
+    for caso in casos:
+        grupos[classificar(caso)].append(caso["id"])
+    return grupos
+
+
+if __name__ == "__main__":
+    casos = [
+        {"id": "p1", "recall": 1.0, "recusou": False, "fiel": True, "correta": True},
+        {"id": "p2", "recall": 0.0, "recusou": True, "fiel": True, "correta": False},
+        {"id": "p3", "recall": None, "recusou": False, "fiel": False, "correta": False},
+    ]
+    print(diagnosticar(casos))
+```
+```python name="recusa com evidência passa despercebida"
+CATEGORIAS = ["ok", "falha_recuperacao", "recusa_indevida", "alucinacao", "falha_geracao"]
+
+
+def classificar(caso):
+    if caso["recall"] is None:
+        return "ok" if caso["recusou"] else "alucinacao"
+    if caso["recall"] == 0:
+        return "falha_recuperacao"
+    if not caso["fiel"]:
+        return "alucinacao"
+    if not caso["correta"]:
+        return "falha_geracao"
+    return "ok"
+
+
+def diagnosticar(casos):
+    grupos = {categoria: [] for categoria in CATEGORIAS}
+    for caso in casos:
+        grupos[classificar(caso)].append(caso["id"])
+    return grupos
+
+
+if __name__ == "__main__":
+    casos = [
+        {"id": "p1", "recall": 1.0, "recusou": False, "fiel": True, "correta": True},
+        {"id": "p2", "recall": 0.0, "recusou": True, "fiel": True, "correta": False},
+        {"id": "p3", "recall": None, "recusou": False, "fiel": False, "correta": False},
+    ]
+    print(diagnosticar(casos))
+```
+
+## Passo 8 · Quiz · Ler os números da avaliação
 
 ### Pergunta
-
-Qual é a diferença entre **fidelidade** (*faithfulness*) e **correção** (*answer correctness*) na avaliação de um sistema RAG?
-
-- [ ] Fidelidade mede a velocidade da busca vetorial e correção mede o custo em dólares.
-- [x] Fidelidade verifica se a resposta se apoia exclusivamente nos trechos recuperados (sem inventar fatos), enquanto correção verifica se a resposta responde à pergunta segundo o gabarito de referência.
-- [ ] São sinônimos exatos: toda resposta fiel é obrigatoriamente correta.
-- [ ] Fidelidade avalia o índice vetorial e correção avalia a tokenização.
-
-> Se a recuperação falhar e trouxer trechos irrelevantes, um gerador que se recusa a inventar produz uma resposta **fiel** aos trechos, porém **incorreta** perante o gabarito — evidenciando que o problema está na busca.
+Num conjunto de 80 perguntas com gabarito, o RAG da secretaria tem recall@4 de 0,95 (o prompt leva 4 trechos), fidelidade de 0,60 e correção de 0,55. Onde investir primeiro?
+- [ ] No índice: trocar o modelo de embedding e refazer o chunking.
+- [x] Na geração: a evidência chega ao prompt em 95% dos casos, mas a resposta sai sem apoio nos trechos em 40%; revisar a instrução, o formato dos trechos e o modelo.
+- [ ] Em aumentar `k` para 10, para o recall chegar a 1,0.
+- [ ] Em nada: 0,55 de correção é o esperado para RAG.
+> Recall alto com fidelidade baixa diz que o gerador recebe a evidência e inventa mesmo assim. Mexer na busca não muda isso, e aumentar `k` só põe mais texto no prompt.
 
 ### Pergunta
-
-Em uma consulta de avaliação, o índice retornou 4 documentos `[docA, docB, docC, docD]` e o único documento relevante para a pergunta era `docB`. Qual é o valor do *Reciprocal Rank* (`RR`) dessa consulta?
-
-- [ ] `2.0`
-- [ ] `0.25`
-- [x] `0.5`
-- [ ] `1.0`
-
-> Como `docB` está na 2ª posição da lista ordenada ($\text{rank} = 2$), o *Reciprocal Rank* vale $1 / 2 = 0{,}5$.
+O juiz aprova 92% das respostas. Você rotula 60 delas à mão e encontra 9 falsos aprovados, 8 deles em respostas com mais de 80 palavras. Qual a conclusão?
+- [ ] O juiz está calibrado, porque concorda com você em 85% dos casos.
+- [ ] Respostas longas são melhores, e o juiz percebeu isso.
+- [x] O juiz tem viés de verbosidade: a taxa de 92% está inflada. Ajuste a rubrica (por exemplo, conferir afirmação por afirmação), recalibre, e não compare versões do sistema por esse número enquanto isso.
+- [ ] Rodar o juiz com `temperature=1` para ele variar mais.
+> Os falsos aprovados concentrados num tipo de resposta são a assinatura de um viés, não de ruído. Enquanto o juiz não for recalibrado, um sistema que responde mais longo "melhora" no painel sem melhorar de fato.
 
 ### Pergunta
-
-Em um conjunto de 50 perguntas, seu sistema RAG apresentou `recall@3 = 0.96` e `taxa_acerto = 0.52`. Onde você deve concentrar o esforço de melhoria?
-
-- [ ] Trocar o algoritmo de indexação vetorial, pois a busca não está encontrando os documentos.
-- [x] Investigar a montagem do prompt e o modelo gerador, pois o trecho relevante já está chegando ao top-3 em 96% dos casos, mas a geração falha em quase metade deles.
-- [ ] Reduzir o conjunto de avaliação para apenas 5 perguntas fáceis.
-- [ ] Desativar a verificação de citações.
-
-> Um `recall@3` de 96% comprova que a recuperação está cumprindo seu papel; a queda para 52% na resposta final aponta diretamente para a etapa de geração ou formatação do contexto.
+Depois de trocar o chunking por seções do Markdown, o recall@3 cai de 0,82 para 0,21 de um dia para o outro, mas as respostas lidas à mão parecem tão boas quanto antes. O que é mais provável?
+- [x] O gabarito ainda aponta para os ids do chunking antigo; é preciso remapear os trechos relevantes para os ids novos antes de comparar.
+- [ ] O chunking por seções é pior e deve ser revertido.
+- [ ] O MRR vai subir para compensar.
+- [ ] O modelo de embedding precisa ser trocado junto com o chunking.
+> Ids de trecho são de uma versão do índice. Por isso a avaliação confere o gabarito contra os ids válidos antes de medir: um gabarito velho produz um recall falso.
