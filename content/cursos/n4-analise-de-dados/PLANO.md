@@ -163,6 +163,13 @@ Comportamentos do pandas 3 que as lições precisam mostrar: texto tem `dtype` `
   erro**; com `errors="coerce"`, as datas acima de 12 viram `NaT` em silêncio. `pivot` ordena as colunas em ordem
   alfabética.
 - **`-mascara` funciona como `~mascara`** em máscaras booleanas.
+- **Gráficos (m5):** `Series.plot` sem `ax=` desenha no Axes atual (depois de `subplots(2, 2)`, o último
+  painel); só `DataFrame.plot` abre figura nova. `ax.legend()` sem nenhum `label` cria legenda vazia
+  (`get_legend()` não é `None`; `get_texts()` é `[]`). Em eixo de categorias, `get_xticks()` devolve lista, não
+  ndarray. `ax.hist` ignora `NaN`; `ax.boxplot` não (a mediana vira `nan`). No boxplot, a mediana da caixa `i` é
+  `ax.lines[7*i + 5]`. Todo `savefig` escreve dois `MatplotlibDeprecationWarning` (`The x parameter as float…`) no
+  stderr do executor — vêm da montagem do Pyodide, não do código do aluno. `FileNotFoundError` sai com
+  `[Errno 44]` no executor e `[Errno 2]` no computador do aluno.
 - **Sem fusos por nome:** o executor não tem `tzdata`; `tz_convert("America/Sao_Paulo")` dá `ZoneInfoNotFoundError`.
   Use deslocamento fixo (`tz_localize("UTC").tz_convert("-03:00")`), como na m4-03.
 - **Agrupamentos (m4):** atribuir `df.groupby(g)["v"].mean()` a uma coluna dá tudo `NaN` sem aviso (use `transform`);
