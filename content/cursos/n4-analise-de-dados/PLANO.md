@@ -128,9 +128,43 @@ Use exatamente estas, sem o traceback:
 | `pivot` com chave repetida | `ValueError: Index contains duplicate entries, cannot reshape` |
 | `merge(..., validate="one_to_many")` com chave repetida à esquerda | `MergeError: Merge keys are not unique in left dataset; not a one-to-many merge` |
 | `merge` de chave `int64` com `str` | `ValueError: You are trying to merge on int64 and str columns for key 'k'. If you wish to proceed you should use pd.concat` |
-| `pd.read_excel(...)` | `openpyxl` não existe: `ModuleNotFoundError: No module named 'openpyxl'` |
+| `pd.read_excel(...)` num arquivo que não é xlsx / `df.to_excel(...)` | `BadZipFile` / `ModuleNotFoundError: No module named 'openpyxl'` (o nível não ensina Excel) |
+| `(a > 0 & a < 5)` sem parênteses num array `float` | `TypeError: ufunc 'bitwise_and' not supported for the input types…` (num array de inteiros, o `ValueError` do valor-verdade ambíguo) |
+| `np.linalg.solve`/`inv` com matriz singular | **nenhum erro**: devolvem `nan`/valores sem sentido (no CPython nativo seria `LinAlgError: Singular matrix`); detecte com `np.linalg.matrix_rank(A) < A.shape[0]` |
+| `rng.choice(a, size>len(a), replace=False)` | `ValueError: Cannot take a larger sample than population when replace is False` |
+| `s.mean()` numa coluna de texto | `TypeError: Cannot perform reduction 'mean' with string dtype` |
+| `df.idade > 18 & df.cidade == "X"` | `TypeError: unsupported operand type(s) for &: 'int' and 'StringArray'` |
+| `s.str.contains("(")` | `PatternError: missing ), unterminated subpattern…` |
+| `np.select(conds, escolhas)` com texto, sem `default` | `TypeError: Choicelist and default value do not have a common dtype…` |
+| CSV com `;` lido sem `sep` | `ParserError: Error tokenizing data. C error: Expected 1 fields in line 3, saw 3` |
+| arquivo latin-1 lido como UTF-8 | `UnicodeDecodeError: 'utf-8' codec can't decode byte 0xe3…` |
+| `pd.read_json('[{"a": 1}]')` (texto, não arquivo) | `FileNotFoundError: File [{"a": 1}] does not exist` — use `io.StringIO` |
+| `read_csv(..., parse_dates=["data"])` sem a coluna | `ValueError: Missing column provided to 'parse_dates': 'data'` |
+| `s.astype(int)` com ausente | `IntCastingNaNError: Cannot convert non-finite values (NA or inf) to integer` |
+| `fillna(method="ffill")` | `TypeError` (o parâmetro saiu no pandas 3; use `ffill()`) |
+| `df["a"].fillna(0, inplace=True)` | aviso `ChainedAssignmentError: … chained assignment using an inplace method.` e nada muda |
+| `pd.to_numeric(s)` com texto | `ValueError: Unable to parse string "…" at position N`; `errors="ignore"` → `ValueError: invalid error value specified` |
+| `s.quantile(25)` | `ValueError: percentiles should all be in the interval [0, 1]` |
+| `df.append(...)` / `pd.concat([])` | `AttributeError: 'DataFrame' object has no attribute 'append'` / `ValueError: No objects to concatenate` |
+| `merge(..., validate=...)` violado | `MergeError` (subclasse de `ValueError`) com linhas extras "Duplicates in right: …"; cite só a primeira |
 
 Comportamentos do pandas 3 que as lições precisam mostrar: texto tem `dtype` `str` (não `object`); `pd.Series(["a", None]).tolist()` dá `['a', nan]`; `str.contains(".")` usa regex por padrão (casa qualquer caractere); `pd.cut` sem `include_lowest=True` deixa o limite inferior como `NaN`; `groupby` em coluna categórica usa `observed=True` por padrão; `get_dummies` devolve colunas `bool`; `day_name()` devolve nomes em inglês (traduza com um dicionário); datas lidas viram `datetime64[us]`; `pd.Series.std` usa `ddof=1` e `np.std` usa `ddof=0`.
+
+### Comportamentos do executor que pegam desprevenido (conferidos nos módulos 1–3)
+
+- **Tipos devolvidos:** `np.allclose` devolve `bool` do Python; `np.all`, `np.isclose` e `arr.max() <= tol`
+  devolvem `numpy.bool` (peça `bool(...)` no enunciado ou compare com `== True` no caso). `np.count_nonzero` e a
+  soma de booleanos dão `numpy.int32`; `rng.integers` e `rng.poisson` dão `int64`; `astype(int)` dá `int32`
+  (use `pd.to_numeric`, que dá `int64`, ou confira por `dtype.kind`). `to_dict("records")` já devolve
+  `int`/`float` do Python no pandas 3.
+- **`argsort` padrão não é estável** em arrays grandes (com menos de ~16 elementos coincide com o estável): um
+  caso com ~100 empates separa quem esqueceu `kind="stable"`.
+- **Datas:** `to_datetime`/`parse_dates` sem `format` e com todas as datas até o dia 12 trocam dia e mês **sem
+  erro**; com `errors="coerce"`, as datas acima de 12 viram `NaT` em silêncio. `pivot` ordena as colunas em ordem
+  alfabética.
+- **`-mascara` funciona como `~mascara`** em máscaras booleanas.
+- **Lotes perto do limite:** um laço duplo em Python sobre 500 pontos pode levar o lote de casos perto dos 10 s;
+  use ~200 pontos quando o caso existir só para provar que a versão em laço reprova por regra de fonte.
 
 ### Previsão e visualizador em `python-dados`
 
@@ -217,7 +251,7 @@ Arrays, `dtype` e `shape`, vetorização e `axis`, indexação e máscaras, broa
   1. **Leitura · Produto escalar, `@` e `*`** (KaTeX: $a \cdot b = \sum a_i b_i$, $\lVert a \rVert$, $\cos\theta$; `*` é elemento a elemento, `@` é produto matricial; formas `(n,)` contra `(n, 1)`)
   2. **Previsão · `*`, `@` e formas** (resultados e `shape` de `A * B`, `A @ B`, `v @ v`, `A @ v`)
   3. **Exercício (lacunas) · Produto, norma e cosseno** (`produto_escalar(a, b)` → `float`, `norma(a)` → `float`, `cosseno(a, b)` → `float`, com `ValueError` para vetor nulo)
-  4. **Leitura · Sistemas lineares: resolva, não inverta** (KaTeX: $Ax = b$; mistura de ingredientes fictícia; `np.linalg.solve`; por que não `inv`; `LinAlgError: Singular matrix`)
+  4. **Leitura · Sistemas lineares: resolva, não inverta** (KaTeX: $Ax = b$; mistura de ingredientes fictícia; `np.linalg.solve`; por que não `inv`; a matriz singular que no executor não levanta `LinAlgError` — detectada pelo posto)
   5. **Exercício (código) · Resolver sistemas** (`resolver_sistema(A, b)` → array; matriz singular → `ValueError("sistema sem solução única")`; `source` `not_calls` `inv`)
   6. **Leitura · Mínimos quadrados e a equação normal** (KaTeX: $X^\top X \beta = X^\top y$ e a coluna de uns; `lstsq` citado; autovalores citados como gancho para o PCA do Nível 5)
   7. **Exercício (código) · Ajustar uma reta e testar ortogonalidade** (`ajustar_reta(x, y)` → `(a, b)` com `y ≈ a + b·x` pela equação normal e `solve`, `not_calls` `polyfit` e `lstsq`; `eh_ortogonal(Q, tol=1e-9)` → `bool`)
