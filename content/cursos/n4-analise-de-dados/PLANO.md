@@ -214,7 +214,7 @@ Planejada (o m1-01 já está escrito e conferido). Mermaid e Visualizar = númer
 
 ## Estrutura do nível
 
-7 módulos · 31 lições (1 projeto de nível) · 26,8 h de lições (1610 min) + prova (45 min) · 3640 XP · prova com banco de **40 questões (10 por tentativa)**, na proporção das lições de cada módulo: 6, 6, 6, 4, 5, 11 e 2, com a alternativa correta 10 vezes em cada posição. O `prova.yaml` tem hoje 12 questões; o banco de 40 é a meta, escrito depois dos módulos.
+7 módulos · 31 lições (1 projeto de nível) · 26,8 h de lições (1610 min) + prova (45 min) · 3640 XP · prova com banco de **40 questões (10 por tentativa)**, na proporção das lições de cada módulo: 6, 6, 6, 4, 5, 11 e 2, com a alternativa correta 10 vezes em cada posição (escrito em 2026-11-16; ver "Prova").
 
 | # | Módulo | Lições | Minutos | XP |
 |---|---|---|---|---|
@@ -641,7 +641,15 @@ Ausentes, tipos, datas e textos, duplicatas e outliers, formato tidy e junções
 
 ## Prova
 
-Meta: banco de **40 questões, 10 por tentativa** (como N2 e N3), escrito depois dos módulos, nas proporções 6 (numpy), 6 (pandas), 6 (limpeza), 4 (agregação), 5 (visualização), 11 (probabilidade e estatística) e 2 (projeto), com a alternativa correta 10 vezes em cada posição, distratores tirados das soluções erradas das lições e explicação que diz por que cada distrator falha. As 12 questões atuais são revistas contra as lições (por exemplo, "operações com `and`" já está coberta pela m1-02; a questão do `read_csv` precisa citar `encoding`; nenhuma pode depender do inteiro padrão `int64`).
+Banco de **40 questões, 10 por tentativa** (como N2 e N3), escrito em 2026-11-16 depois dos módulos: nota mínima 70 %, 45 min, 60 min entre tentativas.
+
+- **Proporção:** 6 (numpy), 6 (pandas), 6 (limpeza), 4 (agregação), 5 (visualização), 11 (probabilidade e estatística) e 2 (projeto), na ordem dos módulos e das lições; a alternativa correta fica 10 vezes em cada posição.
+- **Tipo de questão:** prever a saída de um trecho de numpy/pandas/matplotlib, escolher a operação certa, achar o defeito de um código e interpretar um resultado estatístico (p-valor, IC, erro padrão, correlação e causalidade). Distratores são erros que as lições mostram (soluções erradas, quizzes, Previsões); a explicação diz por que cada um falha.
+- **Texto puro:** a prova não renderiza markdown nem KaTeX; código curto vai em bloco literal do YAML, e contas são escritas por extenso.
+- **Comportamento do executor:** as questões usam o que foi conferido aqui (Copy-on-Write e `ChainedAssignmentError`, `dtype` `str`, `resample("ME")`, a mensagem do `&` sem parênteses com texto, `to_datetime` sem `format`, `plt.title` no Axes atual); nenhuma depende do inteiro padrão (`int32` aqui, `int64` no aluno), e as saídas usam `.tolist()` para não depender do alinhamento dos arrays.
+- **Projeto:** as duas questões do m7 usam os números da amostra do ENEM 2023 (528,2 contra 404,6 com `fillna(0)`; 134,6 pontos sem controle e 70,3 com a renda).
+- **Conferência:** toda resposta que é saída de código ou conta foi conferida no executor (numpy 2.4.6, pandas 3.0.2, scipy 1.18, matplotlib 3.10) por uma lição temporária `python-dados` numa cópia do `content/` fora do repositório, com um caso por resposta, verificada pelo `content:verify`. Lista das questões, respostas e distratores: `.claude-transfer/auditoria/n4-prova.md`.
+- Das 12 questões antigas, sobraram as ideias (vetorização, `&` e os parênteses, `loc` × `iloc`, `read_csv` brasileiro, `NaN`, `merge`, `transform`, boxplot, eixo truncado, p-valor, correlação × causalidade), reescritas como cenário ou previsão; as definições diretas saíram.
 
 ## Defeitos conhecidos (fora do conteúdo)
 

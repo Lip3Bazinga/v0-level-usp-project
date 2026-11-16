@@ -346,6 +346,14 @@ Estado em 2026-11-16:
   da API, da web e do Postgres. Dois boots `ml` simultâneos em 4 GB já derrubaram o executor (`fetch failed`).
 - **Horas dos cursos (2026-11-16):** `horas` = soma dos `tempo_min` + 30 %, arredondada (regra em
   `content/CURRICULO.md`); recalcular ao mudar o `tempo_min` de uma lição.
-- Próximos: N4, N5 e N6; depois `content:build`, bateria completa e um único PR para `develop`.
+- **Nível 4 concluído (2026-11-16):** 31 lições em 7 módulos escritas, verificadas e publicadas
+  (`runtime: python-dados`), 0 lições suspeitas no `content:metrics`, prova com 40 questões (10 por tentativa),
+  `PLANO.md` com as convenções e os comportamentos do executor Pyodide (numpy 2.4.6, pandas 3.0.2, scipy 1.18,
+  matplotlib 3.10). Projeto final com amostra real do ENEM 2023 (INEP) — dados, script e fonte em
+  `docs/v2/dados/enem-2023-amostra/`. O visualizador da web instala as bibliotecas da lição (`8ec2a1b`).
+- **Cuidado com o `content:verify`:** mesmo com `--licao`, ele gera antes as Previsões de todos os cursos; uma cópia
+  inteira de `content/` com uma lição de rascunho chegou a derrubar o runner (saída 139). Para rascunhos, use
+  `--content` com uma cópia só do curso e do módulo; o check também recusa rodar se outro arquivo estiver quebrado.
+- Próximos: N5 e N6; depois `content:build`, bateria completa e um único PR para `develop`.
 
 Um nível por sessão: escrever o `PLANO.md` do nível a partir dos roteiros, escrever as lições, provas com 40 questões, `content:verify` (níveis 4–6 usam `runtime: python-dados`; precisa do Pyodide no runner: `pnpm --filter @levelusp/runner setup:pyodide`), publicar.
