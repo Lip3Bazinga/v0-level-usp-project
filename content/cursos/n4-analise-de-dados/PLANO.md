@@ -27,7 +27,7 @@ Nunca usou numpy, pandas, matplotlib nem scipy, e não viu estatística além de
 ### O que o nível usa e o que não usa
 
 - **Usa:** numpy (m1 em diante), pandas (m2 em diante), matplotlib (m5 e projeto), scipy.stats (m6 e projeto), scikit-learn só como primeira aparição de `fit`/`predict` na m6-08 (gancho para o Nível 5). Biblioteca padrão quando ajuda (`io.StringIO`, `unicodedata`, `math`).
-- **Não usa:** rede (nada de `read_csv("https://…")`), Excel (`openpyxl` não existe no executor: `read_excel`/`to_excel` só aparecem como ilustração), `pyarrow`, seaborn, plotly, statsmodels (existe no executor, mas fica para o Nível 5), Jupyter (o `%timeit` aparece como texto), `np.random.seed`/`np.random.rand` (o gerador legado), `apply(axis=1)` como solução, laço Python como solução onde o assunto é vetorizar.
+- **Não usa:** rede (nada de `read_csv("https://…")`), Excel (`openpyxl` não existe no executor; o nível não ensina Excel), `pyarrow`, seaborn, plotly, statsmodels (existe no executor, mas fica para o Nível 5), Jupyter (o `%timeit` aparece como texto), `np.random.seed`/`np.random.rand` (o gerador legado), `apply(axis=1)` como solução, laço Python como solução onde o assunto é vetorizar.
 - **Ponte com o Nível 3:** custo de laço contra operação vetorizada (m1-01), quickselect e `argpartition` (citados na m1-02), ordenação estável e desempate (m1-02, m2-03), tabelas hash e junções (m3-05), medição honesta (m1-01, m2-04).
 - **Ponte com o Nível 5:** padronização (m1-01, m1-03), equação normal (m1-04), vazamento de imputação entre treino e teste (m3-01), `get_dummies` e `LinearRegression` (m6-08).
 
@@ -41,13 +41,13 @@ Nunca usou numpy, pandas, matplotlib nem scipy, e não viu estatística além de
 - **Andaime:** o primeiro exercício de cada lição que estreia uma construção nova é `modo: lacunas` ou `modo: ordenar`; os seguintes são de código livre. O projeto (m7) só tem código livre. Em `lacunas`, a solução é idêntica ao código inicial fora dos `___`, e as soluções erradas são **erros que cabem nas lacunas** (o aluno não reescreve o resto).
 - **Exercícios:** 6 a 12 casos por exercício, verificando **comportamento** (`expr`/`call`), um comportamento por caso, com as bordas (vazio, um elemento, valores iguais, `NaN`, empate, limite exato); `source` só para cobrar o "como" que é o assunto do passo. Pelo menos **5 soluções erradas** reais, cada uma com um único defeito (nada de espantalho como `return None`, `return df` sem mudar nada ou a outra função vazia). O código inicial reprova. `name` em todo caso; `hint` que orienta sem entregar; `reveal` falso.
 - **Dicas:** até 3 por passo; apontam o caminho (qual eixo some, o que o `dtype` faz), nunca o código.
-- **Exemplos neutros:** nada de USP, IME, códigos reais de disciplina, instituições, empresas, sistemas ou pesquisas reais, e **nenhum dado real de pessoas** (nada de microdados do ENEM, PNAD, censo ou cadastros). Lojas, estações meteorológicas, sensores, cidades e alunos são fictícios; números são gerados ou inventados de forma plausível. Conjuntos clássicos sem pessoas (quarteto de Anscombe) podem aparecer.
+- **Exemplos neutros:** nada de USP, IME, códigos reais de disciplina, instituições, empresas, sistemas ou pesquisas reais, e **nenhum dado real de pessoas** (nada de PNAD, censo ou cadastros). **Única exceção: o projeto do nível (m7)** usa uma amostra pequena dos microdados públicos e anonimizados do ENEM (INEP), com a fonte citada na lição (decisão do Filipe, 2026-11-16). Lojas, estações meteorológicas, sensores, cidades e alunos são fictícios; números são gerados ou inventados de forma plausível. Conjuntos clássicos sem pessoas (quarteto de Anscombe) podem aparecer.
 - **Imagem (`assets/`) e Vídeo:** nenhum neste nível. As figuras do matplotlib são descritas em texto e verificadas por propriedades.
 
 ### Recursos
 
 - **Diagrama (bloco `mermaid`):** para processos e estruturas: regras de broadcasting (m1-03), largo → longo (m3-04), as quatro junções (m3-05), dividir-aplicar-combinar (m4-01), Figure → Axes → artistas (m5-01), a árvore do teste diagnóstico (m6-01), a lógica do teste de hipótese (m6-06) e o fluxo do projeto. `flowchart` com no máximo ~8 nós, rótulos curtos; texto com parênteses, colchetes ou dois-pontos entre aspas.
-- **Visualizador (bloco `python visualizar`):** **só Python puro** neste nível (ver "Defeitos conhecidos"): o laço que a vetorização substitui (m1-01) e a recorrência da fila (m1-05). Até 60 linhas, sem `input()`, não pode ser a solução de um exercício.
+- **Visualizador (bloco `python visualizar`):** pode usar numpy e pandas desde o `8ec2a1b` (o player instala as `bibliotecas` da lição antes de rastrear, como o Executar). Use-o para estado que muda passo a passo: o laço que a vetorização substitui (m1-01), a recorrência da fila (m1-05), uma máscara sendo montada, um `groupby` à mão. Evite bibliotecas do perfil `ml` (scipy, matplotlib) no bloco: o navegador baixa os pacotes na primeira vez. Até 60 linhas, sem `input()`, não pode ser a solução de um exercício.
 - **Fórmula (KaTeX):** escore $z$, distância euclidiana, produto escalar, cosseno, equação normal $X^\top X \beta = X^\top y$, erro padrão $\sigma/\sqrt{n}$, regras de probabilidade e Bayes, esperança e variância, intervalos $t$ e de Wilson, estatística $t$ de Welch, $d$ de Cohen, qui-quadrado, correlação, $R^2$ e $R^2$ ajustado, VIF. Dinheiro no texto é `R\$`.
 
 ## Verificação e convenções do nível
@@ -135,7 +135,7 @@ Comportamentos do pandas 3 que as lições precisam mostrar: texto tem `dtype` `
 ### Previsão e visualizador em `python-dados`
 
 - **Previsão** funciona: o `content:build` e o `content:verify` rodam o código no executor com o `runtime` e as `bibliotecas` da lição. Numa lição `ml`, cada Previsão custa um boot (~10 s) no build. Evite imprimir arrays cuja formatação tem **espaços de alinhamento** (`[0.5 1.  1.5]`, `[ 6. 15.]`, `[0.   0.25 0.5  0.75 1.  ]`), a não ser que o alinhamento seja o assunto: escolha valores da mesma largura (`[3. 5. 7.]`), use `.tolist()` ou arredonde. Simulação na Previsão só com `default_rng(semente)`.
-- **Visualizador:** o `content:verify` roda o bloco no executor com as bibliotecas da lição e aprova um bloco com numpy, **mas o player roda o bloco no Pyodide do navegador sem instalar `lesson.libraries`** (`TraceBlock` → `requestTrace`), então `import numpy` falha numa leitura antes de o aluno abrir um exercício. Até o defeito ser corrigido, `visualizar` neste nível é só Python puro (o piloto usa o laço Fahrenheit → Celsius).
+- **Visualizador:** o `content:verify` roda o bloco no executor com as bibliotecas da lição, e o player (desde o `8ec2a1b`) instala as mesmas bibliotecas no Pyodide do navegador antes de rastrear; numpy e pandas funcionam nos dois lados.
 
 ### Dosagem por módulo
 
@@ -293,7 +293,7 @@ Series e DataFrame, seleção, filtros e ordenação, colunas derivadas e leitur
 - **Muda do roteiro:** "limite de tempo com 10^6 linhas" sai; o `apply` é recusado pelo `source` e o resultado é conferido linha a linha numa tabela pequena e numa de 1 000 linhas gerada no `setup`.
 - **Erradas típicas:** `pd.cut` sem `include_lowest` (idade 0 vira `NaN`); `map` sem tratar chave ausente; `np.select` sem `default`; alterar a coluna original; `apply(axis=1)`.
 
-### n4-m2-05-leitura-e-escrita-de-dados · Leitura e escrita: CSV, JSON e Excel
+### n4-m2-05-leitura-e-escrita-de-dados · Leitura e escrita: CSV e JSON
 - **Arquivo:** `02-pandas-fundamentos/05-leitura-e-escrita-de-dados.lvl.md` · 110 XP · 45 min
 - **Passos (8):**
   1. **Leitura · O CSV brasileiro** (`sep=";"`, `decimal=","`, `thousands="."`, `encoding="latin-1"`, `parse_dates` com `dayfirst` ou `format`; as mensagens reais; `io.StringIO`)
@@ -301,10 +301,10 @@ Series e DataFrame, seleção, filtros e ordenação, colunas derivadas e leitur
   3. **Exercício (lacunas) · Carregar as vendas** (`carregar_vendas(caminho)` com `text path=vendas.csv`; `dtypes` exatos)
   4. **Leitura · Cabeçalho, rodapé e ausentes** (`skiprows`, `skipfooter` com `engine="python"`, `na_values`, `usecols`, `dtype`)
   5. **Exercício (código) · Arquivos difíceis** (`ler_relatorio(caminho)` pulando linhas de título e de rodapé; `ler_latin1(caminho)` com o arquivo escrito em bytes `latin-1` pelo `setup`)
-  6. **Leitura · Escrever de volta** (`to_csv(index=False)` e a coluna `Unnamed: 0`; JSON `orient="records"`; Excel: `read_excel`/`to_excel` como ilustração, porque o `openpyxl` não existe no executor)
+  6. **Leitura · Escrever de volta** (`to_csv(index=False)` e a coluna `Unnamed: 0`; JSON `orient="records"`)
   7. **Exercício (código) · Exportar e ler JSON** (`exportar(df)` → texto CSV com `;` e vírgula decimal, sem índice; `ler_json_registros(texto)`)
   8. **Quiz · Leitura sem surpresas**
-- **Muda do roteiro:** o título continua "CSV, JSON e Excel", mas Excel é só leitura de texto (decisão do Filipe abaixo).
+- **Muda do roteiro:** sai o Excel (decisão do Filipe, 2026-11-16): o executor não tem `openpyxl`, e a lição fica com CSV e JSON, inclusive no título e na descrição.
 
 ## Módulo 3 · Limpeza e transformação
 
@@ -576,7 +576,7 @@ Ausentes, tipos, datas e textos, duplicatas e outliers, formato tidy e junções
   6. **Exercício (código) · Teste e tamanho de efeito** (`testar_diferenca(df, coluna, grupo_a, grupo_b)` → Welch, $d$ de Cohen e IC de 95 % da diferença)
   7. **Exercício (código) · Controlar pela renda e escrever o relatório** (`regressao_renda_nota(df)` → coeficiente de escola sem e com controle da renda; `gerar_relatorio(df)` → texto markdown com os números calculados, conferido com `match: contains` por número)
   8. **Quiz · Autoavaliação das conclusões**
-- **Muda do roteiro:** os "microdados do ENEM (20 000 linhas)" saem, pela régua (nada de dados reais de pessoas) e pelo tamanho (o arquivo teria de viajar em cada passo). No lugar, `dados_exame.py` gera, com `default_rng` e semente fixa, um **exame nacional fictício** de ~5 000 inscrições, com UF, tipo de escola, faixa de renda, faixa etária e nota, mais os defeitos que a limpeza precisa achar (ausentes, notas zero por ausência, inscrições duplicadas, rótulos de renda inconsistentes). Os dados são construídos para que a diferença entre escola pública e privada **diminua mas não desapareça** ao controlar pela renda: a pergunta "a diferença se mantém ao controlar a renda?" tem resposta verificável. A leitura diz com clareza que os dados são simulados e como seria o mesmo trabalho com um conjunto público.
+- **Dados (decisão do Filipe, 2026-11-16):** amostra pequena e **real** dos microdados públicos do ENEM (INEP), com a fonte citada na leitura do passo 1 (edição, URL de download do INEP, data de acesso e o que foi recortado). Recorte: poucos milhares de inscrições sorteadas com semente fixa e só as colunas necessárias (UF da prova, presença, tipo de escola, faixa de renda do questionário, notas), gravadas como `enem_amostra.csv` dentro da lição. **Limite do formato:** cada arquivo de um passo aceita até **100 000 caracteres** (`projectFileSchema` em `packages/contracts/src/files.ts`) e o projeto inteiro até 300 000; com ~6 colunas compactas (~30 caracteres por linha) cabem ~3 000 linhas. O script que gera a amostra a partir do arquivo oficial fica registrado (fonte, semente, filtros) para quem quiser refazer. Os defeitos que a limpeza precisa achar são os reais do arquivo (ausentes, faltosos com nota em branco, códigos de questionário). A pergunta "a diferença entre escola pública e privada se mantém ao controlar pela renda?" é respondida pelos dados da amostra, conferidos no executor antes de escrever o texto. Contra números digitados à mão, os casos sorteiam uma sub-amostra da própria amostra no `setup` e conferem o relatório nela.
 - **Erros que o projeto cobra:** nota 0 tratada como válida; comparar grupos sem n e dispersão; concluir causalidade; barras com eixo truncado; números digitados à mão no relatório (o caso gera os dados com outra semente e confere os números do texto).
 
 ## Prova
@@ -585,13 +585,16 @@ Meta: banco de **40 questões, 10 por tentativa** (como N2 e N3), escrito depois
 
 ## Defeitos conhecidos (fora do conteúdo)
 
-- **Visualizador em lições `python-dados`:** o `TraceBlock` (`apps/web/src/components/lesson-steps/trace-block.tsx`) pede o rastreio ao worker Pyodide do navegador sem instalar `lesson.libraries`; o `content:verify` roda o bloco no executor, com as bibliotecas, e aprova. Um bloco com `import numpy` passa na verificação e falha no player.
 - **Estado compartilhado entre casos do lote (Pyodide):** `np.random` legado e o pyplot guardam estado de um caso para o outro. As regras 6 e 7 contornam; o executor poderia reiniciar esses módulos entre sondas.
 
-## Decisões pendentes (Filipe)
+## Decisões do Filipe (2026-11-16)
 
-1. **Worker quente do perfil `ml`:** com `RUNNER_PYODIDE_WARM=dados:1,ml:0`, cada verificação de aluno nos módulos 5, 6 e 7 espera ~10 s. Subir para `ml:1` (ou mais, em turma) custa ~1,3 GB de heap por worker.
-2. **`scipy` no frontmatter do m6:** as lições m6-01, m6-03 e m6-04 podem ser feitas só com numpy e pandas (perfil `dados`, resposta imediata); manter `scipy` deixa a porta aberta para `stats` nos exemplos, ao custo da espera.
-3. **Projeto com dados simulados:** o `curso.yaml` promete "um relatório de análise sobre um conjunto de dados público brasileiro" e o título da m7 diz "dados reais". O plano usa um exame fictício gerado (régua e tamanho); ajustar a descrição do curso e o título, ou buscar um conjunto público sem dados de pessoas que caiba no passo.
-4. **Excel na m2-05:** o título fala em Excel, mas o executor não tem `openpyxl`. Manter como ilustração ou trocar o título.
-5. **Horas do curso:** o `curso.yaml` diz 50 h; a soma das lições dá 26,8 h + prova.
+1. **Worker quente do perfil `ml`:** no ambiente local o runner roda com `RUNNER_MEMORY=6g` e
+   `RUNNER_PYODIDE_WARM=dados:1,ml:1` (cada verificação `ml` deixa de esperar ~10 s de boot). A memória da
+   homologação está registrada em `docs/v2/pendencias-curso-completo.md`.
+2. **`scipy` no frontmatter do m6:** fica a critério de quem escrever o módulo — tirar só das lições que
+   comprovadamente não o usam (m6-01, m6-03, m6-04 são candidatas), para que voltem ao perfil `dados`.
+3. **Projeto com dados reais:** amostra pequena dos microdados do ENEM (INEP), como descrito na seção do m7.
+4. **Excel:** sai da m2-05 (só CSV e JSON).
+5. **Horas:** em todos os níveis, `horas` = soma dos `tempo_min` das lições + 30 %, arredondada; o N4 tem 35 h
+   (regra em `content/CURRICULO.md`).

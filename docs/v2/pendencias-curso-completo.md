@@ -337,6 +337,15 @@ Estado em 2026-11-16:
   decisões em aberto em [`auditoria-niveis-7-e-3.md`](auditoria-niveis-7-e-3.md).
 - Pendentes da auditoria (dependem do Filipe): conferir as citações da LGPD no N7 m6-03; avaliar a
   pilha do Wasmtime no runner (recursão com `lru_cache` acima de ~250 níveis derruba a instância).
+- **Memória do runner para a homologação (N4–N7):** as lições `python-dados` com scipy, matplotlib ou
+  scikit-learn usam o perfil `ml` do Pyodide (~1,3 GB de heap wasm por worker; o `dados` ~0,6 GB). Hoje
+  `infra/compose/compose.yml` usa `RUNNER_MEMORY=1g` e `RUNNER_PYODIDE_WARM=dados:1,ml:0`, o que não roda o
+  perfil `ml`. Antes de publicar o N4 na homologação: `RUNNER_MEMORY` de pelo menos **4g** com `ml:0`
+  (cada verificação `ml` espera ~10 s de boot) ou **6g** com `RUNNER_PYODIDE_WARM=dados:1,ml:1` (configuração
+  do ambiente local desde 2026-11-16), em `infra/env/homolog.env`; a VM precisa ter essa memória livre além
+  da API, da web e do Postgres. Dois boots `ml` simultâneos em 4 GB já derrubaram o executor (`fetch failed`).
+- **Horas dos cursos (2026-11-16):** `horas` = soma dos `tempo_min` + 30 %, arredondada (regra em
+  `content/CURRICULO.md`); recalcular ao mudar o `tempo_min` de uma lição.
 - Próximos: N4, N5 e N6; depois `content:build`, bateria completa e um único PR para `develop`.
 
 Um nível por sessão: escrever o `PLANO.md` do nível a partir dos roteiros, escrever as lições, provas com 40 questões, `content:verify` (níveis 4–6 usam `runtime: python-dados`; precisa do Pyodide no runner: `pnpm --filter @levelusp/runner setup:pyodide`), publicar.

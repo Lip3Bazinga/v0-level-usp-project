@@ -23,16 +23,16 @@ escrito e verificado, um nível por vez.
 
 | Nível | Curso (slug) | Horas (D1) | Soma das lições | Módulos | Lições | Projeto(s) de nível | Prova | Certificado |
 |---|---|---|---|---|---|---|---|---|
-| 1 | Fundamentos de programação e de computação (`n1-fundamentos`) | ~50 h | 38,6 h | 9 | 47 | gerenciador de tarefas em modo texto | 40 questões no banco | Certificado do Nível 1 |
-| 2 | Python intermediário e engenharia de software (`n2-python-intermediario`) | ~45 h | 30,9 h | 7 | 35 | biblioteca com empréstimos; analisador de logs | 40 questões no banco | Certificado do Nível 2 |
-| 3 | Estruturas de dados e algoritmos (`n3-estruturas-de-dados-e-algoritmos`) | ~60 h | 33,7 h | 8 | 39 | planejador de rotas do campus | 12 questões no banco | Certificado do Nível 3 |
-| 4 | Análise de dados (`n4-analise-de-dados`) | ~50 h | 26,8 h | 7 | 31 | análise de dados reais | 12 questões no banco | Certificado do Nível 4 |
-| 5 | Machine Learning (`n5-machine-learning`) | ~60 h | 31,8 h | 8 | 36 | previsão de inadimplência | 12 questões no banco | Certificado do Nível 5 |
-| 6 | Deep Learning: a IA por dentro (`n6-deep-learning`) | ~60 h | 33,6 h | 8 | 36 | seu próprio modelo de linguagem | 12 questões no banco | Certificado do Nível 6 |
-| 7 | Engenharia de IA (`n7-engenharia-de-ia`) | ~40 h | 25,1 h | 7 | 29 | assistente de atendimento da secretaria | 12 questões no banco | Certificado do Nível 7 |
-| **Total** | 7 cursos | **~365 h** | 220,5 h | 54 | 253 | 8 | 140 | + certificado da trilha |
+| 1 | Fundamentos de programação e de computação (`n1-fundamentos`) | 50 h | 38,6 h | 9 | 47 | gerenciador de tarefas em modo texto | 40 questões no banco | Certificado do Nível 1 |
+| 2 | Python intermediário e engenharia de software (`n2-python-intermediario`) | 40 h | 30,9 h | 7 | 35 | biblioteca com empréstimos; analisador de logs | 40 questões no banco | Certificado do Nível 2 |
+| 3 | Estruturas de dados e algoritmos (`n3-estruturas-de-dados-e-algoritmos`) | 44 h | 33,7 h | 8 | 39 | planejador de rotas do campus | 40 questões no banco | Certificado do Nível 3 |
+| 4 | Análise de dados (`n4-analise-de-dados`) | 35 h | 26,8 h | 7 | 31 | análise de dados reais | 12 questões no banco | Certificado do Nível 4 |
+| 5 | Machine Learning (`n5-machine-learning`) | 41 h | 31,8 h | 8 | 36 | previsão de inadimplência | 12 questões no banco | Certificado do Nível 5 |
+| 6 | Deep Learning: a IA por dentro (`n6-deep-learning`) | 44 h | 33,6 h | 8 | 36 | seu próprio modelo de linguagem | 12 questões no banco | Certificado do Nível 6 |
+| 7 | Engenharia de IA (`n7-engenharia-de-ia`) | 33 h | 25,1 h | 7 | 29 | assistente de atendimento da secretaria | 40 questões no banco | Certificado do Nível 7 |
+| **Total** | 7 cursos | **287 h** | 220,5 h | 54 | 253 | 8 | 196 | + certificado da trilha |
 
-A coluna **Horas (D1)** é a carga de dedicação estimada do nível (o `horas` do `curso.yaml`, exibido no catálogo); a coluna **Soma das lições** é a soma de `tempo_min` dos arquivos `.lvl.md` — o tempo guiado mínimo (lições de 20–60 min, mini-projetos de módulo de 90 min e projetos de nível de 3–4 h). A relação entre as duas é de cerca de 1,7×: a diferença cobre a prova (1 h por nível), as tentativas reprovadas e as dicas, a releitura, a prática livre no editor e o tempo de projeto além do mínimo — a mesma proporção entre horas-aula e horas de estudo de uma disciplina semestral de 60 h.
+A coluna **Horas (D1)** é a carga de dedicação estimada do nível (o `horas` do `curso.yaml`, exibido no catálogo); a coluna **Soma das lições** é a soma de `tempo_min` dos arquivos `.lvl.md` — o tempo guiado mínimo (lições de 20–60 min, mini-projetos de módulo de 90 min e projetos de nível de 3–4 h). Regra (decisão de 2026-11-16): **horas = soma das lições + 30 %, arredondada para a hora inteira mais próxima**; os 30 % cobrem a prática além do mínimo, o projeto, a prova e as tentativas reprovadas. Ao mudar o `tempo_min` de uma lição, recalcule o `horas` do curso.
 
 ## Mapa de competências por nível
 
