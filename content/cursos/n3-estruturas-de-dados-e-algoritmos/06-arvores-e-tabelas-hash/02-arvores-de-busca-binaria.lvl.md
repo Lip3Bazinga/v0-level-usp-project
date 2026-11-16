@@ -17,118 +17,390 @@ objetivos:
 - Mostrar que a BST degenera em lista com entrada ordenada e medir o custo
 ---
 
-## Passo 1 · Leitura · Propriedade global da BST, remoção nos 3 casos e degeneração
+## Passo 1 · Leitura · A propriedade de busca e o caminho de uma consulta
 
-Uma **Árvore de Busca Binária** (*Binary Search Tree* — **BST**) é uma árvore binária que obedece à **invariante global de ordenação**: para **todo** nó `x` da árvore:
-- Todos os valores na **subárvore esquerda** de `x` são **estritamente menores** que `x.valor`.
-- Todos os valores na **subárvore direita** de `x` são **estritamente maiores** que `x.valor`.
+Uma **árvore de busca binária** (BST, de *binary search tree*) é uma árvore binária em que, para **todo** nó `x`:
 
-#### A armadilha da validação local!
+- todo valor da subárvore esquerda de `x` é menor que `x.valor`;
+- todo valor da subárvore direita de `x` é maior que `x.valor`.
 
-Um erro clássico é testar apenas se `no.esq.valor < no.valor < no.dir.valor` em cada nó. Veja por que isso falha na árvore abaixo:
+Repare no "todo": a regra vale para a subárvore inteira, não só para os filhos. Uma consequência direta é que a em-ordem de uma BST sai **crescente**.
 
 ```mermaid
 flowchart TD
-    R["10"] --> E["5"]
-    R --> D["15"]
-    E --> EE["2"]
-    E --> ED["12 (ERRO: > 10 na subárvore esquerda!)"]
+    A["50"] --> B["30"]
+    A --> C["70"]
+    B --> D["20"]
+    B --> E["40"]
+    C --> F["60"]
+    C --> G["80"]
 ```
 
-No nó `5`, temos `2 < 5 < 12` (localmente válido!), mas `12` está na **subárvore esquerda de `10`**, violando a propriedade global ($12 \not< 10$). Para validar uma BST em $O(n)$, propagamos um **intervalo aberto permitido `(minimo, maximo)`** na recursão:
-- A raiz começa com `(-inf, +inf)`.
-- Ao descer para a **esquerda** de `no`, o novo limite superior passa a ser `no.valor`: `(minimo, no.valor)`.
-- Ao descer para a **direita** de `no`, o novo limite inferior passa a ser `no.valor`: `(no.valor, maximo)`.
+Para **buscar** 60, compare com a raiz: 60 > 50, então ele só pode estar à direita, e a esquerda inteira fica de fora. Em 70, vá para a esquerda; em 60, achou. Foram 3 nós visitados, um por nível. Em geral a busca visita no máximo $h + 1$ nós, em que $h$ é a altura: custo $O(h)$. É a busca binária do módulo 4, agora sobre ponteiros.
 
-#### Busca, Inserção e Remoção (os 3 casos) em $O(h)$
-
-Tanto `buscar` quanto `inserir` descem da raiz até uma folha comparando `valor < atual.valor` (esquerda) ou `valor > atual.valor` (direita), custando **$O(h)$**, onde $h$ é a altura da árvore.
-
-Já **remover** uma chave `valor` possui **três casos** quando encontramos o nó alvo:
-1. **Nó folha (0 filhos)**: basta devolver `None` para o pai desligá-lo.
-2. **Nó com 1 único filho**: basta devolver o único filho existente (`no.esq` ou `no.dir`) para substituir o nó removido.
-3. **Nó com 2 filhos**: não podemos simplesmente apagá-lo sem quebrar a árvore! Encontramos o seu **sucessor em-ordem** — o **menor elemento da subárvore direita** (caminhando `atual = atual.esq` a partir de `no.dir`) —, copiamos o valor do sucessor para `no.valor` e removemos recursivamente o sucessor da subárvore direita (onde ele tem no máximo 1 filho!).
-
-#### Altura média vs pior caso (degeneração)
-
-- Se inserirmos $n$ chaves em **ordem aleatória**, a altura esperada da BST é $\approx 2 \ln n = \Theta(\log n)$, e todas as operações são rápidas.
-- Porém, se inserirmos $n$ chaves **já ordenadas** ($1, 2, 3, \dots, n$), cada chave cai sempre à direita da anterior: a BST **degenera em uma lista ligada** de altura $h = n - 1 = \Theta(n)$!
-
-## Passo 2 · Exercício · Validando uma BST com intervalo `(minimo, maximo)`
-
-modo: ordenar
-
-Ordene as linhas abaixo para implementar `eh_bst(raiz)`, verificando se uma árvore binária satisfaz a propriedade global de BST usando limites `(minimo, maximo)`.
-
-### Instruções
-
-1. Defina a classe `No(valor, esq=None, dir=None)`.
-2. Em `eh_bst(raiz)`, defina a função auxiliar `validar(no, minimo, maximo)`: se `no is None`, devolva `True`; se `not (minimo < no.valor < maximo)`, devolva `False`.
-3. Chame recursivamente `validar(no.esq, minimo, no.valor) and validar(no.dir, no.valor, maximo)` e inicie a partir da raiz com `float("-inf")` e `float("inf")`.
-
-### Solução
+**Inserir** é buscar até cair num `None` e pendurar ali o nó novo. O ponto delicado é **pendurar**: o nó novo precisa virar `esq` ou `dir` do último nó visitado. A forma recursiva resolve isso devolvendo a raiz da subárvore e deixando o pai reatribuir:
 
 ```python
+def inserir(raiz, valor):
+    if raiz is None:
+        return No(valor)                          # subárvore nova de um nó
+    if valor < raiz.valor:
+        raiz.esq = inserir(raiz.esq, valor)       # o pai recebe a subárvore de volta
+    elif valor > raiz.valor:
+        raiz.dir = inserir(raiz.dir, valor)
+    return raiz                                   # igual: não insere de novo
+```
+
+Dois erros comuns, ambos silenciosos:
+
+- escrever só `inserir(raiz.esq, valor)`, sem o `raiz.esq =`: o nó é criado e jogado fora, e nenhuma mensagem aparece;
+- esquecer o `return raiz` do fim: a função devolve `None` e quem chamou troca a árvore inteira por nada.
+
+Quem usa a função também reatribui: `raiz = inserir(raiz, 25)`. É o único jeito de a primeira inserção, numa árvore vazia, ter efeito.
+
+Nesta lição a BST guarda um **conjunto**: valor repetido é ignorado. Com `<=` no lugar de `<`, o repetido desce para a esquerda e passa a existir duas vezes.
+
+## Passo 2 · Exercício · Inserir e buscar
+modo: lacunas
+
+Complete as lacunas (`___`) de `inserir` e `buscar`. A classe `No` está em `arvore.py`. `inserir` devolve a raiz da árvore depois da inserção e ignora valores repetidos; `buscar` devolve `True` ou `False` sem recursão.
+
+### Instruções
+1. Na árvore vazia, `inserir` devolve um nó novo.
+2. Em `inserir`, o filho esquerdo recebe de volta a subárvore em que o valor foi inserido, e a função devolve a raiz recebida.
+3. Em `buscar`, desça para o lado em que o valor pode estar.
+
+### Código inicial
+```python path=arvore.py
 class No:
     def __init__(self, valor, esq=None, dir=None):
         self.valor = valor
         self.esq = esq
         self.dir = dir
+```
+```python
+from arvore import No
 
 
-def eh_bst(raiz) -> bool:
-    def validar(no, minimo, maximo) -> bool:
+def inserir(raiz, valor):
+    if raiz is None:
+        return ___
+    if valor < raiz.valor:
+        raiz.esq = ___
+    elif valor > raiz.valor:
+        raiz.dir = inserir(raiz.dir, valor)
+    return ___
+
+
+def buscar(raiz, valor):
+    atual = raiz
+    while atual is not None:
+        if valor == atual.valor:
+            return True
+        if valor < atual.valor:
+            atual = ___
+        else:
+            atual = ___
+    return False
+```
+
+### Solução
+```python path=arvore.py
+class No:
+    def __init__(self, valor, esq=None, dir=None):
+        self.valor = valor
+        self.esq = esq
+        self.dir = dir
+```
+```python
+from arvore import No
+
+
+def inserir(raiz, valor):
+    if raiz is None:
+        return No(valor)
+    if valor < raiz.valor:
+        raiz.esq = inserir(raiz.esq, valor)
+    elif valor > raiz.valor:
+        raiz.dir = inserir(raiz.dir, valor)
+    return raiz
+
+
+def buscar(raiz, valor):
+    atual = raiz
+    while atual is not None:
+        if valor == atual.valor:
+            return True
+        if valor < atual.valor:
+            atual = atual.esq
+        else:
+            atual = atual.dir
+    return False
+```
+
+### Dicas
+1. A árvore vazia vira uma árvore de um nó só.
+2. A chamada recursiva devolve a subárvore já com o valor dentro: alguém precisa guardá-la.
+3. Valores menores ficam à esquerda.
+
+### Verificação
+```json
+[
+  { "id": "vazia", "checkpoint": 1, "kind": "expr", "setup": "r = inserir(None, 42)",
+    "expr": "[r.valor, r.esq, r.dir]", "expected": [42, null, null], "name": "Inserir na árvore vazia cria um nó" },
+  { "id": "forma", "checkpoint": 2, "kind": "expr",
+    "setup": "def _pre(r):\n    return [] if r is None else [r.valor] + _pre(r.esq) + _pre(r.dir)\nr = None\nfor v in [50, 30, 70, 20, 40, 60, 80, 35]:\n    r = inserir(r, v)",
+    "expr": "_pre(r)", "expected": [50, 30, 20, 40, 35, 70, 60, 80],
+    "name": "8 inserções produzem a forma certa", "hint": "O nó novo precisa ser pendurado no pai, à esquerda ou à direita." },
+  { "id": "mesma-raiz", "checkpoint": 2, "kind": "expr",
+    "setup": "r = inserir(None, 10)\nr2 = inserir(r, 5)\nr3 = inserir(r2, 15)",
+    "expr": "[r2 is r, r3 is r, r.esq.valor, r.dir.valor]", "expected": [true, true, 5, 15],
+    "name": "Inserir numa árvore não vazia devolve a mesma raiz", "hint": "A função precisa devolver a raiz no fim." },
+  { "id": "repetidos", "checkpoint": 2, "kind": "expr",
+    "setup": "def _em(r):\n    return [] if r is None else _em(r.esq) + [r.valor] + _em(r.dir)\nr = None\nfor v in [5, 3, 8, 5, 3, 8, 5]:\n    r = inserir(r, v)",
+    "expr": "_em(r)", "expected": [3, 5, 8], "name": "Valores repetidos são ignorados",
+    "hint": "Igual não é menor nem maior." },
+  { "id": "textos", "checkpoint": 2, "kind": "expr",
+    "setup": "def _em(r):\n    return [] if r is None else _em(r.esq) + [r.valor] + _em(r.dir)\nr = None\nfor v in ['Eva', 'Bia', 'Davi', 'Ana', 'Caio']:\n    r = inserir(r, v)",
+    "expr": "_em(r)", "expected": ["Ana", "Bia", "Caio", "Davi", "Eva"], "name": "Funciona com textos: em-ordem alfabética" },
+  { "id": "busca-acha", "checkpoint": 3, "kind": "expr",
+    "setup": "r = None\nfor v in [50, 30, 70, 20, 40, 60, 80, 35]:\n    r = inserir(r, v)",
+    "expr": "[buscar(r, v) for v in [50, 35, 80, 20, 60]]", "expected": [true, true, true, true, true],
+    "name": "Acha a raiz, folhas e nós do meio" },
+  { "id": "busca-falta", "checkpoint": 3, "kind": "expr",
+    "setup": "r = None\nfor v in [50, 30, 70, 20, 40, 60, 80, 35]:\n    r = inserir(r, v)",
+    "expr": "[buscar(r, v) for v in [45, 10, 99, 55]] + [buscar(None, 1)]", "expected": [false, false, false, false, false],
+    "name": "Não acha valores ausentes nem busca na árvore vazia" },
+  { "id": "busca-sem-recursao", "checkpoint": 3, "kind": "source", "rule": { "type": "uses", "construct": "while", "function": "buscar" },
+    "name": "buscar usa um laço while" }
+]
+```
+
+### Soluções erradas
+```python name="não pendura o nó novo no pai"
+from arvore import No
+
+
+def inserir(raiz, valor):
+    if raiz is None:
+        return No(valor)
+    if valor < raiz.valor:
+        inserir(raiz.esq, valor)
+    elif valor > raiz.valor:
+        inserir(raiz.dir, valor)
+    return raiz
+
+
+def buscar(raiz, valor):
+    atual = raiz
+    while atual is not None:
+        if valor == atual.valor:
+            return True
+        if valor < atual.valor:
+            atual = atual.esq
+        else:
+            atual = atual.dir
+    return False
+```
+```python name="esquece o return raiz"
+from arvore import No
+
+
+def inserir(raiz, valor):
+    if raiz is None:
+        return No(valor)
+    if valor < raiz.valor:
+        raiz.esq = inserir(raiz.esq, valor)
+    elif valor > raiz.valor:
+        raiz.dir = inserir(raiz.dir, valor)
+
+
+def buscar(raiz, valor):
+    atual = raiz
+    while atual is not None:
+        if valor == atual.valor:
+            return True
+        if valor < atual.valor:
+            atual = atual.esq
+        else:
+            atual = atual.dir
+    return False
+```
+```python name="<= manda o repetido para a esquerda"
+from arvore import No
+
+
+def inserir(raiz, valor):
+    if raiz is None:
+        return No(valor)
+    if valor <= raiz.valor:
+        raiz.esq = inserir(raiz.esq, valor)
+    else:
+        raiz.dir = inserir(raiz.dir, valor)
+    return raiz
+
+
+def buscar(raiz, valor):
+    atual = raiz
+    while atual is not None:
+        if valor == atual.valor:
+            return True
+        if valor < atual.valor:
+            atual = atual.esq
+        else:
+            atual = atual.dir
+    return False
+```
+```python name="busca desce para o lado errado"
+from arvore import No
+
+
+def inserir(raiz, valor):
+    if raiz is None:
+        return No(valor)
+    if valor < raiz.valor:
+        raiz.esq = inserir(raiz.esq, valor)
+    elif valor > raiz.valor:
+        raiz.dir = inserir(raiz.dir, valor)
+    return raiz
+
+
+def buscar(raiz, valor):
+    atual = raiz
+    while atual is not None:
+        if valor == atual.valor:
+            return True
+        if valor > atual.valor:
+            atual = atual.esq
+        else:
+            atual = atual.dir
+    return False
+```
+```python name="pendura o nó novo direto no filho"
+from arvore import No
+
+
+def inserir(raiz, valor):
+    if raiz is None:
+        return No(valor)
+    if valor < raiz.valor:
+        raiz.esq = No(valor)
+    elif valor > raiz.valor:
+        raiz.dir = inserir(raiz.dir, valor)
+    return raiz
+
+
+def buscar(raiz, valor):
+    atual = raiz
+    while atual is not None:
+        if valor == atual.valor:
+            return True
+        if valor < atual.valor:
+            atual = atual.esq
+        else:
+            atual = atual.dir
+    return False
+```
+
+## Passo 3 · Leitura · Validar: olhar os filhos não basta
+
+Você recebe uma árvore pronta e quer saber se ela é uma BST. A tentação é conferir cada nó com os filhos: `esq.valor < valor < dir.valor`. Veja a árvore abaixo.
+
+```mermaid
+flowchart TD
+    A["10"] --> B["5"]
+    A --> C["15"]
+    B --> D["2"]
+    B --> E["12"]
+```
+
+Todo nó passa no teste local: $5 < 10 < 15$ e $2 < 5 < 12$. Mas 12 está na subárvore **esquerda** de 10 e é maior que 10. Uma busca por 12 compara com 10, desce para a direita, chega a 15 e responde que 12 não está na árvore. A propriedade é sobre subárvores inteiras, e os filhos são só o primeiro andar delas.
+
+A correção é levar, na descida, o **intervalo** em que o valor de cada nó pode estar:
+
+- a raiz pode ter qualquer valor: intervalo $(-\infty, +\infty)$;
+- ao descer para a esquerda de um nó com valor $v$, o teto passa a ser $v$: tudo ali precisa ser menor que $v$;
+- ao descer para a direita, o piso passa a ser $v$.
+
+Na árvore acima, o 12 chega com o intervalo $(5, 10)$: o teto 10 veio do avô, e o teste falha. Os intervalos são **abertos** porque a BST desta lição não tem repetidos: um 10 abaixo de outro 10 também é inválido.
+
+```python
+def validar(no, minimo, maximo):
+    if no is None:
+        return True
+    if not (minimo < no.valor < maximo):
+        return False
+    return validar(no.esq, minimo, no.valor) and validar(no.dir, no.valor, maximo)
+```
+
+A primeira chamada usa `float("-inf")` e `float("inf")`, que se comparam com qualquer número. Cada nó é visitado uma vez: $\Theta(n)$.
+
+Há um caminho equivalente: fazer a em-ordem e conferir se ela é **estritamente** crescente. Funciona porque uma árvore binária é BST exatamente quando sua em-ordem é crescente. Os dois métodos falham do mesmo jeito se você trocar `<` por `<=`: aceitam repetidos.
+
+## Passo 4 · Exercício · Monte eh_bst com intervalos
+modo: ordenar
+
+Arraste as linhas para montar `eh_bst(raiz)`, que diz se a árvore é uma BST sem valores repetidos, levando o intervalo permitido na descida. Ajuste a indentação de cada linha. Duas linhas estão sobrando.
+
+### Instruções
+1. A árvore vazia é válida.
+2. Um nó fora do intervalo `(minimo, maximo)` invalida a árvore.
+3. A esquerda herda o teto `no.valor`, a direita herda o piso `no.valor`, e a primeira chamada usa os infinitos.
+
+### Solução
+```python
+def eh_bst(raiz):
+    def validar(no, minimo, maximo):
         if no is None:
             return True
         if not (minimo < no.valor < maximo):
             return False
         return validar(no.esq, minimo, no.valor) and validar(no.dir, no.valor, maximo)
-
     return validar(raiz, float("-inf"), float("inf"))
 ```
 
-### Dicas
-
-1. A função interna `validar(no, minimo, maximo)` trata primeiro o caso base `if no is None: return True`.
-2. Em seguida, verifica se `no.valor` respeita estritamente o intervalo `minimo < no.valor < maximo`.
-3. Na chamada recursiva, a esquerda herda `(minimo, no.valor)` e a direita herda `(no.valor, maximo)`.
+### Distratores
+```python
+if not (minimo <= no.valor <= maximo):
+return validar(no.esq, no.valor, maximo) and validar(no.dir, minimo, no.valor)
+```
 
 ### Verificação
-
 ```json
 [
-  {
-    "id": "bst-valida",
-    "name": "Reconhece BST válida e árvore vazia",
-    "checkpoint": 1,
-    "kind": "expr",
-    "setup": "ok = No(10, No(5, No(2), No(7)), No(15, No(12), No(20)))",
-    "expr": "[eh_bst(None), eh_bst(ok)]",
-    "expected": [true, true]
-  },
-  {
-    "id": "bst-armadilha-global",
-    "name": "Rejeita árvore localmente válida que viola o limite de um ancestral",
-    "checkpoint": 3,
-    "kind": "expr",
-    "setup": "falsa = No(10, No(5, No(2), No(12)), No(15))\ndup = No(10, No(10), None)",
-    "expr": "[eh_bst(falsa), eh_bst(dup)]",
-    "expected": [false, false]
-  }
+  { "id": "valida", "checkpoint": 3, "kind": "expr",
+    "setup": "class No:\n    def __init__(self, valor, esq=None, dir=None):\n        self.valor = valor\n        self.esq = esq\n        self.dir = dir\nt = No(50, No(30, No(20), No(40, No(35), No(45))), No(70, No(60), No(80)))",
+    "expr": "eh_bst(t)", "expected": true, "name": "Reconhece uma BST de 9 nós" },
+  { "id": "vazia-um", "checkpoint": 1, "kind": "expr",
+    "setup": "class No:\n    def __init__(self, valor, esq=None, dir=None):\n        self.valor = valor\n        self.esq = esq\n        self.dir = dir",
+    "expr": "[eh_bst(None), eh_bst(No(7))]", "expected": [true, true], "name": "Vazia e um nó só são BSTs" },
+  { "id": "armadilha-esq", "checkpoint": 3, "kind": "expr",
+    "setup": "class No:\n    def __init__(self, valor, esq=None, dir=None):\n        self.valor = valor\n        self.esq = esq\n        self.dir = dir\nt = No(10, No(5, No(2), No(12)), No(15))",
+    "expr": "eh_bst(t)", "expected": false, "name": "12 na subárvore esquerda de 10",
+    "hint": "O teto de um nó vem de um ancestral, não só do pai." },
+  { "id": "armadilha-dir", "checkpoint": 3, "kind": "expr",
+    "setup": "class No:\n    def __init__(self, valor, esq=None, dir=None):\n        self.valor = valor\n        self.esq = esq\n        self.dir = dir\nt = No(10, No(5), No(15, No(7), No(20)))",
+    "expr": "eh_bst(t)", "expected": false, "name": "7 na subárvore direita de 10",
+    "hint": "Ao descer para a direita, o piso sobe." },
+  { "id": "armadilha-funda", "checkpoint": 3, "kind": "expr",
+    "setup": "class No:\n    def __init__(self, valor, esq=None, dir=None):\n        self.valor = valor\n        self.esq = esq\n        self.dir = dir\nt = No(50, No(30, None, No(40, None, No(45, None, No(55)))), No(70))",
+    "expr": "eh_bst(t)", "expected": false, "name": "55 três andares abaixo, à esquerda de 50" },
+  { "id": "repetido", "checkpoint": 2, "kind": "expr",
+    "setup": "class No:\n    def __init__(self, valor, esq=None, dir=None):\n        self.valor = valor\n        self.esq = esq\n        self.dir = dir",
+    "expr": "[eh_bst(No(10, No(10), None)), eh_bst(No(10, None, No(10))), eh_bst(No(10, No(5, None, No(10)), None))]",
+    "expected": [false, false, false], "name": "Valor repetido invalida a árvore", "hint": "O intervalo é aberto." },
+  { "id": "negativos", "checkpoint": 3, "kind": "expr",
+    "setup": "class No:\n    def __init__(self, valor, esq=None, dir=None):\n        self.valor = valor\n        self.esq = esq\n        self.dir = dir\nt = No(-5, No(-20, No(-30), No(-10)), No(0, None, No(3)))",
+    "expr": "eh_bst(t)", "expected": true, "name": "BST com negativos" },
+  { "id": "corrente", "checkpoint": 3, "kind": "expr",
+    "setup": "class No:\n    def __init__(self, valor, esq=None, dir=None):\n        self.valor = valor\n        self.esq = esq\n        self.dir = dir\nc = None\nfor v in range(200, 0, -1):\n    c = No(v, None, c)",
+    "expr": "eh_bst(c)", "expected": true, "name": "Corrente crescente de 200 nós é BST" }
 ]
 ```
 
 ### Soluções erradas
-
-```python name="Testa apenas os filhos imediatos sem propagar o intervalo dos ancestrais"
-class No:
-    def __init__(self, valor, esq=None, dir=None):
-        self.valor = valor
-        self.esq = esq
-        self.dir = dir
-
-
-def eh_bst(raiz) -> bool:
+```python name="confere só os filhos imediatos"
+def eh_bst(raiz):
     if raiz is None:
         return True
     if raiz.esq is not None and raiz.esq.valor >= raiz.valor:
@@ -137,44 +409,103 @@ def eh_bst(raiz) -> bool:
         return False
     return eh_bst(raiz.esq) and eh_bst(raiz.dir)
 ```
-
-```python name="Troca os limites ao descer para esquerda e direita"
-class No:
-    def __init__(self, valor, esq=None, dir=None):
-        self.valor = valor
-        self.esq = esq
-        self.dir = dir
-
-
-def eh_bst(raiz) -> bool:
-    def validar(no, minimo, maximo) -> bool:
+```python name="troca os limites ao descer"
+def eh_bst(raiz):
+    def validar(no, minimo, maximo):
         if no is None:
             return True
         if not (minimo < no.valor < maximo):
             return False
         return validar(no.esq, no.valor, maximo) and validar(no.dir, minimo, no.valor)
-
     return validar(raiz, float("-inf"), float("inf"))
 ```
+```python name="intervalo fechado aceita repetidos"
+def eh_bst(raiz):
+    def validar(no, minimo, maximo):
+        if no is None:
+            return True
+        if not (minimo <= no.valor <= maximo):
+            return False
+        return validar(no.esq, minimo, no.valor) and validar(no.dir, no.valor, maximo)
+    return validar(raiz, float("-inf"), float("inf"))
+```
+```python name="leva só o piso e esquece o teto"
+def eh_bst(raiz):
+    def validar(no, minimo):
+        if no is None:
+            return True
+        if no.valor <= minimo:
+            return False
+        if no.esq is not None and no.esq.valor >= no.valor:
+            return False
+        return validar(no.esq, minimo) and validar(no.dir, no.valor)
+    return validar(raiz, float("-inf"))
+```
+```python name="piso inicial 0 no lugar de menos infinito"
+def eh_bst(raiz):
+    def validar(no, minimo, maximo):
+        if no is None:
+            return True
+        if not (minimo < no.valor < maximo):
+            return False
+        return validar(no.esq, minimo, no.valor) and validar(no.dir, no.valor, maximo)
+    return validar(raiz, 0, float("inf"))
+```
 
-## Passo 3 · Exercício · Classe `BST` completa, $k$-ésimo menor e degeneração
+## Passo 5 · Leitura · Remover em três casos
 
-Implemente a classe `BST` com `inserir`, `buscar`, `em_ordem`, `remover` (tratando os 3 casos) e `altura`, além das funções `k_esimo_menor(raiz, k)` e `comparar_alturas_bst(n)`.
+Para remover um valor, primeiro você o encontra, descendo como na busca. Achado o nó, há três casos, decididos pelo número de filhos dele.
 
-### Instruções
+1. **Folha**: o pai passa a apontar para `None`.
+2. **Um filho**: o filho sobe e ocupa o lugar do nó. A ordem continua certa, porque a subárvore inteira já estava do lado certo do pai.
+3. **Dois filhos**: nenhum filho pode simplesmente subir, porque o outro ficaria sem lugar. Use o **sucessor**: o menor valor da subárvore direita, achado descendo pela esquerda a partir de `no.dir`. Copie o valor dele para o nó e remova o sucessor da subárvore direita.
 
-1. Na classe `BST`:
-   - `inserir(valor) -> None`: insere `valor` mantendo a propriedade de BST (se `valor` já existir, **ignore** a duplicata).
-   - `buscar(valor) -> bool`: devolve `True` se `valor` estiver na árvore, ou `False` caso contrário.
-   - `em_ordem() -> list`: devolve os elementos da BST em ordem crescente.
-   - `altura() -> int`: devolve a altura por arestas (`-1` para vazia, `0` para folha).
-2. Implemente `remover(valor) -> None` em `BST` tratando os 3 casos (folha, 1 filho e 2 filhos — substituindo pelo **menor valor da subárvore direita**). Se `valor` não existir, não faça nada.
-3. Implemente `k_esimo_menor(raiz, k: int)` que recebe a raiz `No` de uma BST e um inteiro `k` ($1 \le k \le n$, indexado a partir de 1) e devolve o $k$-ésimo menor valor da árvore.
-4. Implemente `comparar_alturas_bst(valores_embaralhados: list[int]) -> tuple[int, int]` que constrói duas BSTs com os mesmos elementos: a primeira inserindo na ordem de `valores_embaralhados` e a segunda inserindo em ordem crescente `sorted(valores_embaralhados)`, devolvendo `(altura_embaralhada, altura_ordenada)`.
+Por que o sucessor serve? Ele veio da direita, então é maior que tudo à esquerda; e é o mínimo da direita, então é menor que todo o resto dela. E ele não tem filho esquerdo (se tivesse, esse filho seria menor), então removê-lo cai no caso 1 ou 2.
 
-### Código inicial
+Removendo 50 da árvore abaixo, o sucessor é 60. Ele sobe para a raiz, e o filho dele, 65, fica no lugar de 60, à esquerda de 70.
+
+```mermaid
+flowchart TD
+    A["50: sai"] --> B["30"]
+    A --> C["70"]
+    C --> D["60: sucessor"]
+    C --> E["80"]
+    D --> F["65: sobe para o lugar de 60"]
+```
+
+O código segue o padrão de `inserir`: devolve a raiz da subárvore depois da remoção, e **cada pai reatribui** o filho.
 
 ```python
+if valor < raiz.valor:
+    raiz.esq = remover(raiz.esq, valor)    # sem "raiz.esq =", nada muda
+elif valor > raiz.valor:
+    raiz.dir = remover(raiz.dir, valor)
+else:
+    if raiz.esq is None:
+        return raiz.dir                     # casos 1 e 2: o filho (ou None) sobe
+    ...
+```
+
+Os erros reais aparecem justamente nas ligações:
+
+- chamar `remover(raiz.esq, valor)` sem atribuir: a subárvore nova volta e ninguém a guarda, e a folha continua lá;
+- no caso de um filho, devolver sempre `raiz.esq`: quem só tinha filho direito perde a subárvore inteira;
+- copiar o valor do sucessor e esquecer de removê-lo da direita: o valor fica duplicado;
+- tomar `raiz.dir` como sucessor: se ele tem filho esquerdo, esse filho é menor e a árvore deixa de ser BST.
+
+Cada remoção desce um caminho e, no caso 3, continua até o sucessor: custo $O(h)$.
+
+## Passo 6 · Exercício · Remover com os três casos
+
+Escreva `remover(raiz, valor)`, que devolve a raiz da árvore depois de remover `valor`. Valor ausente não muda nada. No caso de dois filhos, use o **sucessor** (o menor da subárvore direita). `No` e `inserir` estão prontos em `arvore.py`.
+
+### Instruções
+1. Desça até o nó, reatribuindo o filho do lado por onde passou.
+2. Folha ou um filho: devolva o filho que existe (ou `None`).
+3. Dois filhos: copie o valor do sucessor e remova-o da subárvore direita.
+
+### Código inicial
+```python path=arvore.py
 class No:
     def __init__(self, valor, esq=None, dir=None):
         self.valor = valor
@@ -182,37 +513,25 @@ class No:
         self.dir = dir
 
 
-class BST:
-    def __init__(self):
-        self.raiz = None
-
-    def inserir(self, valor) -> None:
-        pass
-
-    def buscar(self, valor) -> bool:
-        pass
-
-    def remover(self, valor) -> None:
-        pass
-
-    def em_ordem(self) -> list:
-        pass
-
-    def altura(self) -> int:
-        pass
+def inserir(raiz, valor):
+    if raiz is None:
+        return No(valor)
+    if valor < raiz.valor:
+        raiz.esq = inserir(raiz.esq, valor)
+    elif valor > raiz.valor:
+        raiz.dir = inserir(raiz.dir, valor)
+    return raiz
+```
+```python
+from arvore import No, inserir
 
 
-def k_esimo_menor(raiz, k: int):
-    pass
-
-
-def comparar_alturas_bst(valores_embaralhados: list[int]) -> tuple[int, int]:
+def remover(raiz, valor):
     pass
 ```
 
 ### Solução
-
-```python
+```python path=arvore.py
 class No:
     def __init__(self, valor, esq=None, dir=None):
         self.valor = valor
@@ -220,151 +539,212 @@ class No:
         self.dir = dir
 
 
-class BST:
-    def __init__(self):
-        self.raiz = None
-
-    def inserir(self, valor) -> None:
-        def _ins(no, v):
-            if no is None:
-                return No(v)
-            if v < no.valor:
-                no.esq = _ins(no.esq, v)
-            elif v > no.valor:
-                no.dir = _ins(no.dir, v)
-            return no
-
-        self.raiz = _ins(self.raiz, valor)
-
-    def buscar(self, valor) -> bool:
-        atual = self.raiz
-        while atual is not None:
-            if valor == atual.valor:
-                return True
-            atual = atual.esq if valor < atual.valor else atual.dir
-        return False
-
-    def remover(self, valor) -> None:
-        def _minimo(no):
-            while no.esq is not None:
-                no = no.esq
-            return no
-
-        def _rem(no, v):
-            if no is None:
-                return None
-            if v < no.valor:
-                no.esq = _rem(no.esq, v)
-            elif v > no.valor:
-                no.dir = _rem(no.dir, v)
-            else:
-                if no.esq is None:
-                    return no.dir
-                if no.dir is None:
-                    return no.esq
-                sucessor = _minimo(no.dir)
-                no.valor = sucessor.valor
-                no.dir = _rem(no.dir, sucessor.valor)
-            return no
-
-        self.raiz = _rem(self.raiz, valor)
-
-    def em_ordem(self) -> list:
-        res = []
-
-        def _em(no):
-            if no is not None:
-                _em(no.esq)
-                res.append(no.valor)
-                _em(no.dir)
-
-        _em(self.raiz)
-        return res
-
-    def altura(self) -> int:
-        def _alt(no) -> int:
-            if no is None:
-                return -1
-            return 1 + max(_alt(no.esq), _alt(no.dir))
-
-        return _alt(self.raiz)
+def inserir(raiz, valor):
+    if raiz is None:
+        return No(valor)
+    if valor < raiz.valor:
+        raiz.esq = inserir(raiz.esq, valor)
+    elif valor > raiz.valor:
+        raiz.dir = inserir(raiz.dir, valor)
+    return raiz
+```
+```python
+from arvore import No, inserir
 
 
-def k_esimo_menor(raiz, k: int):
-    pilha = []
-    atual = raiz
-    contador = 0
-    while pilha or atual is not None:
-        while atual is not None:
-            pilha.append(atual)
-            atual = atual.esq
-        atual = pilha.pop()
-        contador += 1
-        if contador == k:
-            return atual.valor
-        atual = atual.dir
-    return None
-
-
-def comparar_alturas_bst(valores_embaralhados: list[int]) -> tuple[int, int]:
-    bst_emb = BST()
-    bst_ord = BST()
-    for v in valores_embaralhados:
-        bst_emb.inserir(v)
-    for v in sorted(valores_embaralhados):
-        bst_ord.inserir(v)
-    return (bst_emb.altura(), bst_ord.altura())
+def remover(raiz, valor):
+    if raiz is None:
+        return None
+    if valor < raiz.valor:
+        raiz.esq = remover(raiz.esq, valor)
+    elif valor > raiz.valor:
+        raiz.dir = remover(raiz.dir, valor)
+    else:
+        if raiz.esq is None:
+            return raiz.dir
+        if raiz.dir is None:
+            return raiz.esq
+        sucessor = raiz.dir
+        while sucessor.esq is not None:
+            sucessor = sucessor.esq
+        raiz.valor = sucessor.valor
+        raiz.dir = remover(raiz.dir, sucessor.valor)
+    return raiz
 ```
 
 ### Dicas
-
-1. Na função auxiliar recursiva `_rem(no, v)` de `remover`, se `no.esq is None` devolva `no.dir`, e se `no.dir is None` devolva `no.esq` — isso já resolve tanto o caso de folha quanto o de 1 filho!
-2. No caso de 2 filhos, encontre o menor nó de `no.dir` caminhando para a esquerda (`while s.esq is not None: s = s.esq`), copie `no.valor = s.valor` e faça `no.dir = _rem(no.dir, s.valor)`.
-3. Como o percurso em-ordem de uma BST visita os elementos em ordem crescente, o `k_esimo_menor(raiz, k)` é o elemento de índice `k - 1` do percurso em-ordem (que pode ser parado assim que o `k`-ésimo elemento for visitado).
+1. Se `raiz.esq` é `None`, devolver `raiz.dir` já resolve a folha e o caso de um filho à direita.
+2. O sucessor é o nó mais à esquerda da subárvore direita.
+3. Depois de copiar o valor do sucessor, ele ainda existe lá embaixo: remova-o da subárvore direita, com a própria `remover`.
 
 ### Verificação
-
 ```json
 [
-  {
-    "id": "bst-inserir-buscar-duplicatas",
-    "name": "Insere ignorando duplicatas, busca chaves e devolve em_ordem ordenado",
-    "checkpoint": 1,
-    "kind": "expr",
-    "setup": "t = BST()\nfor v in [10, 5, 15, 2, 7, 10, 5]:\n    t.inserir(v)",
-    "expr": "(t.em_ordem(), t.buscar(7), t.buscar(99), t.altura())",
-    "expected": [[2, 5, 7, 10, 15], true, false, 2]
-  },
-  {
-    "id": "bst-remover-tres-casos",
-    "name": "Remove folha, nó com 1 filho e nó com 2 filhos (incluindo a raiz) mantendo BST válida",
-    "checkpoint": 2,
-    "kind": "expr",
-    "setup": "t = BST()\nfor v in [50, 30, 70, 20, 40, 60, 80, 35, 65]:\n    t.inserir(v)\nt.remover(20)\ne1 = t.em_ordem()\nt.remover(60)\ne2 = t.em_ordem()\nt.remover(30)\ne3 = t.em_ordem()\nt.remover(50)\ne4 = t.em_ordem()",
-    "expr": "(e1, e2, e3, e4, t.raiz.valor)",
-    "expected": [
-      [30, 35, 40, 50, 60, 65, 70, 80],
-      [30, 35, 40, 50, 65, 70, 80],
-      [35, 40, 50, 65, 70, 80],
-      [35, 40, 65, 70, 80],
-      65
-    ]
-  },
-  {
-    "id": "bst-k-esimo-e-degeneracao",
-    "name": "Encontra k-ésimo menor e compara altura balanceada vs degenerada O(n)",
-    "checkpoint": 4,
-    "kind": "expr",
-    "setup": "t = BST()\nfor v in [40, 20, 60, 10, 30, 50, 70]:\n    t.inserir(v)\na_emb, a_ord = comparar_alturas_bst([40, 20, 60, 10, 30, 50, 70])",
-    "expr": "(k_esimo_menor(t.raiz, 1), k_esimo_menor(t.raiz, 4), k_esimo_menor(t.raiz, 7), a_emb, a_ord)",
-    "expected": [10, 40, 70, 2, 6]
-  }
+  { "id": "folha", "checkpoint": 2, "kind": "expr",
+    "setup": "def _pre(r):\n    return [] if r is None else [r.valor] + _pre(r.esq) + _pre(r.dir)\nt = None\nfor v in [50, 30, 70, 20, 40, 60, 80, 35, 65, 10]:\n    t = inserir(t, v)\nt = remover(t, 10)",
+    "expr": "_pre(t)", "expected": [50, 30, 20, 40, 35, 70, 60, 65, 80],
+    "name": "Remove a folha 10", "hint": "O pai precisa receber de volta a subárvore sem o nó." },
+  { "id": "so-esquerdo", "checkpoint": 2, "kind": "expr",
+    "setup": "def _pre(r):\n    return [] if r is None else [r.valor] + _pre(r.esq) + _pre(r.dir)\nt = None\nfor v in [50, 30, 70, 20, 40, 60, 80, 35, 65, 10]:\n    t = inserir(t, v)\nt = remover(t, 20)",
+    "expr": "_pre(t)", "expected": [50, 30, 10, 40, 35, 70, 60, 65, 80], "name": "Remove 20, que só tem filho esquerdo" },
+  { "id": "so-direito", "checkpoint": 2, "kind": "expr",
+    "setup": "def _pre(r):\n    return [] if r is None else [r.valor] + _pre(r.esq) + _pre(r.dir)\nt = None\nfor v in [50, 30, 70, 20, 40, 60, 80, 35, 65, 10]:\n    t = inserir(t, v)\nt = remover(t, 60)",
+    "expr": "_pre(t)", "expected": [50, 30, 20, 10, 40, 35, 70, 65, 80],
+    "name": "Remove 60, que só tem filho direito", "hint": "Quem tem um filho só é substituído por esse filho, seja ele qual for." },
+  { "id": "dois-fundo", "checkpoint": 3, "kind": "expr",
+    "setup": "def _pre(r):\n    return [] if r is None else [r.valor] + _pre(r.esq) + _pre(r.dir)\nt = None\nfor v in [50, 30, 70, 20, 40, 60, 80, 35, 65, 10]:\n    t = inserir(t, v)\nt = remover(t, 30)",
+    "expr": "_pre(t)", "expected": [50, 35, 20, 10, 40, 70, 60, 65, 80],
+    "name": "Remove 30: o sucessor 35 está dois andares abaixo", "hint": "O sucessor é o menor da subárvore direita, não o filho direito." },
+  { "id": "raiz", "checkpoint": 3, "kind": "expr",
+    "setup": "def _pre(r):\n    return [] if r is None else [r.valor] + _pre(r.esq) + _pre(r.dir)\nt = None\nfor v in [50, 30, 70, 20, 40, 60, 80, 35, 65, 10]:\n    t = inserir(t, v)\nt = remover(t, 50)",
+    "expr": "_pre(t)", "expected": [60, 30, 20, 10, 40, 35, 70, 65, 80],
+    "name": "Remove a raiz: o sucessor 60 sobe e 65 fica no lugar dele", "hint": "Depois de copiar o sucessor, remova-o da subárvore direita." },
+  { "id": "sucessor-filho", "checkpoint": 3, "kind": "expr",
+    "setup": "def _pre(r):\n    return [] if r is None else [r.valor] + _pre(r.esq) + _pre(r.dir)\nt = None\nfor v in [50, 30, 70, 20, 40, 60, 80, 35, 65, 10]:\n    t = inserir(t, v)\nt = remover(t, 70)",
+    "expr": "_pre(t)", "expected": [50, 30, 20, 10, 40, 35, 80, 60, 65], "name": "Remove 70: o sucessor é o próprio filho direito" },
+  { "id": "ausente", "checkpoint": 1, "kind": "expr",
+    "setup": "def _pre(r):\n    return [] if r is None else [r.valor] + _pre(r.esq) + _pre(r.dir)\nt = None\nfor v in [50, 30, 70]:\n    t = inserir(t, v)\nr = remover(t, 99)",
+    "expr": "[r is t, _pre(r), remover(None, 5)]", "expected": [true, [50, 30, 70], null], "name": "Valor ausente e árvore vazia" },
+  { "id": "unico", "checkpoint": 2, "kind": "expr", "expr": "remover(No(5), 5)", "expected": null,
+    "name": "Remover o único nó devolve None" },
+  { "id": "esvazia", "checkpoint": 3, "kind": "expr",
+    "setup": "def _em(r):\n    return [] if r is None else _em(r.esq) + [r.valor] + _em(r.dir)\nt = None\nchaves = [50, 30, 70, 20, 40, 60, 80, 35, 65, 10]\nfor v in chaves:\n    t = inserir(t, v)\nrestantes = sorted(chaves)\nok = True\nfor v in [30, 50, 65, 10, 80, 35, 70, 20, 60, 40]:\n    t = remover(t, v)\n    restantes.remove(v)\n    ok = ok and _em(t) == restantes",
+    "expr": "[ok, t]", "expected": [true, null],
+    "name": "Remove as 10 chaves uma a uma, com a em-ordem certa a cada passo" }
 ]
 ```
 
 ### Soluções erradas
+```python name="não reatribui o filho do pai"
+from arvore import No, inserir
 
-```python name="Na remoção com 2 filhos, substitui apenas pelo filho direito perdendo a subárvore esquerda"
+
+def remover(raiz, valor):
+    if raiz is None:
+        return None
+    if valor < raiz.valor:
+        remover(raiz.esq, valor)
+    elif valor > raiz.valor:
+        remover(raiz.dir, valor)
+    else:
+        if raiz.esq is None:
+            return raiz.dir
+        if raiz.dir is None:
+            return raiz.esq
+        sucessor = raiz.dir
+        while sucessor.esq is not None:
+            sucessor = sucessor.esq
+        raiz.valor = sucessor.valor
+        raiz.dir = remover(raiz.dir, sucessor.valor)
+    return raiz
+```
+```python name="um filho: devolve sempre o esquerdo"
+from arvore import No, inserir
+
+
+def remover(raiz, valor):
+    if raiz is None:
+        return None
+    if valor < raiz.valor:
+        raiz.esq = remover(raiz.esq, valor)
+    elif valor > raiz.valor:
+        raiz.dir = remover(raiz.dir, valor)
+    else:
+        if raiz.esq is None or raiz.dir is None:
+            return raiz.esq
+        sucessor = raiz.dir
+        while sucessor.esq is not None:
+            sucessor = sucessor.esq
+        raiz.valor = sucessor.valor
+        raiz.dir = remover(raiz.dir, sucessor.valor)
+    return raiz
+```
+```python name="copia o sucessor e não o remove"
+from arvore import No, inserir
+
+
+def remover(raiz, valor):
+    if raiz is None:
+        return None
+    if valor < raiz.valor:
+        raiz.esq = remover(raiz.esq, valor)
+    elif valor > raiz.valor:
+        raiz.dir = remover(raiz.dir, valor)
+    else:
+        if raiz.esq is None:
+            return raiz.dir
+        if raiz.dir is None:
+            return raiz.esq
+        sucessor = raiz.dir
+        while sucessor.esq is not None:
+            sucessor = sucessor.esq
+        raiz.valor = sucessor.valor
+    return raiz
+```
+```python name="toma o filho direito como sucessor"
+from arvore import No, inserir
+
+
+def remover(raiz, valor):
+    if raiz is None:
+        return None
+    if valor < raiz.valor:
+        raiz.esq = remover(raiz.esq, valor)
+    elif valor > raiz.valor:
+        raiz.dir = remover(raiz.dir, valor)
+    else:
+        if raiz.esq is None:
+            return raiz.dir
+        if raiz.dir is None:
+            return raiz.esq
+        sucessor = raiz.dir
+        raiz.valor = sucessor.valor
+        raiz.dir = remover(raiz.dir, sucessor.valor)
+    return raiz
+```
+```python name="dois filhos: sobe o direito e perde a esquerda"
+from arvore import No, inserir
+
+
+def remover(raiz, valor):
+    if raiz is None:
+        return None
+    if valor < raiz.valor:
+        raiz.esq = remover(raiz.esq, valor)
+    elif valor > raiz.valor:
+        raiz.dir = remover(raiz.dir, valor)
+    else:
+        if raiz.dir is not None:
+            return raiz.dir
+        return raiz.esq
+    return raiz
+```
+
+## Passo 7 · Exercício · A BST que virou lista
+
+Insira as chaves $1, 2, \dots, n$ **nessa ordem**. Cada uma é maior que todas as anteriores e desce sempre para a direita: a árvore é uma corrente de altura $n - 1$. Buscar a chave $k$ visita $k$ nós, e buscar todas custa
+
+$$
+1 + 2 + \dots + n = \frac{n(n+1)}{2} = \Theta(n^2).
+$$
+
+Com $n = 400$, são $80\,200$ nós visitados, contra cerca de $3\,100$ numa árvore com os níveis cheios. As mesmas chaves, em outra **ordem de inserção**, dão uma árvore com todos os níveis cheios: insira primeiro a mediana, que vira a raiz, e depois, recursivamente, a ordem balanceada de cada metade. Numa árvore cheia de altura $h$, o nível $d$ tem $2^d$ nós e cada um custa $d + 1$ visitas.
+
+Inserir em ordem aleatória fica no meio: a profundidade média de um nó é cerca de $2\ln n \approx 1{,}39\log_2 n$, e a altura esperada, cerca de $4{,}3\ln n$. Isso é média, não garantia; dados que chegam já ordenados (matrículas, datas, ids) são comuns, e a última lição do módulo mostra árvores que se rebalanceiam sozinhas.
+
+Escreva três funções; `No` e `inserir` estão em `arvore.py`.
+
+- `nos_visitados(raiz, valor)`: quantos nós a busca por `valor` compara, contando o nó em que acha. Se o valor não está na árvore, conte todos os nós comparados até cair num `None`.
+- `ordem_balanceada(chaves)`: recebe uma lista **crescente** e devolve uma lista nova com as mesmas chaves na ordem de inserção balanceada. A mediana é o elemento de índice `len(chaves) // 2`. Exemplo: `ordem_balanceada([1, 2, 3, 4, 5, 6, 7])` é `[4, 2, 1, 3, 6, 5, 7]`.
+- `custo_total(ordem)`: insere as chaves de `ordem`, nessa ordem, numa árvore vazia e devolve a soma de `nos_visitados` para buscar cada uma delas.
+
+### Instruções
+1. Escreva `nos_visitados` com um laço que conta cada nó comparado.
+2. Escreva `ordem_balanceada` recursiva: mediana, depois a ordem da metade esquerda, depois a da direita.
+3. Escreva `custo_total` usando `inserir` e `nos_visitados`.
+
+### Código inicial
+```python path=arvore.py
 class No:
     def __init__(self, valor, esq=None, dir=None):
         self.valor = valor
@@ -372,79 +752,33 @@ class No:
         self.dir = dir
 
 
-class BST:
-    def __init__(self):
-        self.raiz = None
-
-    def inserir(self, valor) -> None:
-        def _ins(no, v):
-            if no is None:
-                return No(v)
-            if v < no.valor:
-                no.esq = _ins(no.esq, v)
-            elif v > no.valor:
-                no.dir = _ins(no.dir, v)
-            return no
-
-        self.raiz = _ins(self.raiz, valor)
-
-    def buscar(self, valor) -> bool:
-        atual = self.raiz
-        while atual is not None:
-            if valor == atual.valor:
-                return True
-            atual = atual.esq if valor < atual.valor else atual.dir
-        return False
-
-    def remover(self, valor) -> None:
-        def _rem(no, v):
-            if no is None:
-                return None
-            if v < no.valor:
-                no.esq = _rem(no.esq, v)
-            elif v > no.valor:
-                no.dir = _rem(no.dir, v)
-            else:
-                return no.dir if no.dir is not None else no.esq
-            return no
-
-        self.raiz = _rem(self.raiz, valor)
-
-    def em_ordem(self) -> list:
-        res = []
-
-        def _em(no):
-            if no is not None:
-                _em(no.esq)
-                res.append(no.valor)
-                _em(no.dir)
-
-        _em(self.raiz)
-        return res
-
-    def altura(self) -> int:
-        def _alt(no) -> int:
-            return -1 if no is None else 1 + max(_alt(no.esq), _alt(no.dir))
-
-        return _alt(self.raiz)
+def inserir(raiz, valor):
+    if raiz is None:
+        return No(valor)
+    if valor < raiz.valor:
+        raiz.esq = inserir(raiz.esq, valor)
+    elif valor > raiz.valor:
+        raiz.dir = inserir(raiz.dir, valor)
+    return raiz
+```
+```python
+from arvore import No, inserir
 
 
-def k_esimo_menor(raiz, k: int):
-    bst = BST()
-    bst.raiz = raiz
-    return bst.em_ordem()[k - 1]
+def nos_visitados(raiz, valor):
+    pass
 
 
-def comparar_alturas_bst(valores_embaralhados: list[int]) -> tuple[int, int]:
-    b1, b2 = BST(), BST()
-    for v in valores_embaralhados:
-        b1.inserir(v)
-    for v in sorted(valores_embaralhados):
-        b2.inserir(v)
-    return (b1.altura(), b2.altura())
+def ordem_balanceada(chaves):
+    pass
+
+
+def custo_total(ordem):
+    pass
 ```
 
-```python name="Permite inserir duplicatas na BST violando a unicidade das chaves"
+### Solução
+```python path=arvore.py
 class No:
     def __init__(self, valor, esq=None, dir=None):
         self.valor = valor
@@ -452,82 +786,249 @@ class No:
         self.dir = dir
 
 
-class BST:
-    def __init__(self):
-        self.raiz = None
-
-    def inserir(self, valor) -> None:
-        def _ins(no, v):
-            if no is None:
-                return No(v)
-            if v <= no.valor:
-                no.esq = _ins(no.esq, v)
-            else:
-                no.dir = _ins(no.dir, v)
-            return no
-
-        self.raiz = _ins(self.raiz, valor)
-
-    def buscar(self, valor) -> bool:
-        atual = self.raiz
-        while atual is not None:
-            if valor == atual.valor:
-                return True
-            atual = atual.esq if valor < atual.valor else atual.dir
-        return False
-
-    def remover(self, valor) -> None:
-        pass
-
-    def em_ordem(self) -> list:
-        res = []
-
-        def _em(no):
-            if no is not None:
-                _em(no.esq)
-                res.append(no.valor)
-                _em(no.dir)
-
-        _em(self.raiz)
-        return res
-
-    def altura(self) -> int:
-        def _alt(no) -> int:
-            return -1 if no is None else 1 + max(_alt(no.esq), _alt(no.dir))
-
-        return _alt(self.raiz)
+def inserir(raiz, valor):
+    if raiz is None:
+        return No(valor)
+    if valor < raiz.valor:
+        raiz.esq = inserir(raiz.esq, valor)
+    elif valor > raiz.valor:
+        raiz.dir = inserir(raiz.dir, valor)
+    return raiz
+```
+```python
+from arvore import No, inserir
 
 
-def k_esimo_menor(raiz, k: int):
-    bst = BST()
-    bst.raiz = raiz
-    return bst.em_ordem()[k - 1]
+def nos_visitados(raiz, valor):
+    contagem = 0
+    atual = raiz
+    while atual is not None:
+        contagem += 1
+        if valor == atual.valor:
+            break
+        atual = atual.esq if valor < atual.valor else atual.dir
+    return contagem
 
 
-def comparar_alturas_bst(valores_embaralhados: list[int]) -> tuple[int, int]:
-    return (0, 0)
+def ordem_balanceada(chaves):
+    if not chaves:
+        return []
+    meio = len(chaves) // 2
+    return [chaves[meio]] + ordem_balanceada(chaves[:meio]) + ordem_balanceada(chaves[meio + 1:])
+
+
+def custo_total(ordem):
+    raiz = None
+    for v in ordem:
+        raiz = inserir(raiz, v)
+    return sum(nos_visitados(raiz, v) for v in ordem)
 ```
 
-## Passo 4 · Quiz · Propriedades e remoção em BST
+### Dicas
+1. O nó em que a busca acha o valor também foi comparado.
+2. A mediana vira a raiz; as chaves antes dela formam a subárvore esquerda, e o mesmo raciocínio vale dentro de cada metade.
+3. `custo_total` monta a árvore primeiro e só depois busca.
+
+### Verificação
+```json
+[
+  { "id": "visitados", "checkpoint": 1, "kind": "expr",
+    "setup": "t = None\nfor v in [50, 30, 70, 20, 40, 60, 80, 35]:\n    t = inserir(t, v)",
+    "expr": "[nos_visitados(t, 50), nos_visitados(t, 70), nos_visitados(t, 35)]", "expected": [1, 2, 4],
+    "name": "Conta os nós comparados até achar", "hint": "O nó em que achou também conta." },
+  { "id": "visitados-ausente", "checkpoint": 1, "kind": "expr",
+    "setup": "t = None\nfor v in [50, 30, 70, 20, 40, 60, 80, 35]:\n    t = inserir(t, v)",
+    "expr": "[nos_visitados(t, 37), nos_visitados(t, 99), nos_visitados(None, 1)]", "expected": [4, 3, 0],
+    "name": "Valor ausente: conta até cair num None" },
+  { "id": "ordem-7", "checkpoint": 2, "kind": "call", "function": "ordem_balanceada", "args": [[10, 20, 30, 40, 50, 60, 70]],
+    "expected": [40, 20, 10, 30, 60, 50, 70], "name": "Ordem balanceada de 7 chaves" },
+  { "id": "ordem-par", "checkpoint": 2, "kind": "call", "function": "ordem_balanceada", "args": [[1, 2, 3, 4, 5, 6]],
+    "expected": [4, 2, 1, 3, 6, 5], "name": "Ordem balanceada de 6 chaves (mediana de índice len // 2)",
+    "hint": "Com tamanho par, a mediana é o elemento de índice len(chaves) // 2." },
+  { "id": "ordem-bordas", "checkpoint": 2, "kind": "expr",
+    "setup": "v = [3, 8]\nr = ordem_balanceada(v)",
+    "expr": "[ordem_balanceada([]), ordem_balanceada([5]), r, v]", "expected": [[], [5], [8, 3], [3, 8]],
+    "name": "Listas com 0, 1 e 2 chaves, sem alterar a recebida" },
+  { "id": "ordem-altura", "checkpoint": 2, "kind": "expr",
+    "setup": "def _alt(r):\n    return -1 if r is None else 1 + max(_alt(r.esq), _alt(r.dir))\nt = None\nfor v in ordem_balanceada(list(range(1, 1024))):\n    t = inserir(t, v)",
+    "expr": "_alt(t)", "expected": 9, "name": "1023 chaves inseridas na ordem balanceada dão altura 9" },
+  { "id": "custo-ordenada", "checkpoint": 3, "kind": "call", "function": "custo_total", "args": [[1, 2, 3, 4, 5]],
+    "expected": 15, "name": "custo_total([1, 2, 3, 4, 5]) é 15" },
+  { "id": "custo-400", "checkpoint": 3, "kind": "expr", "expr": "custo_total(list(range(1, 401)))", "expected": 80200,
+    "name": "400 chaves ordenadas: 80 200 nós visitados" },
+  { "id": "custo-balanceada", "checkpoint": 3, "kind": "expr", "expr": "custo_total(ordem_balanceada(list(range(1, 1024))))",
+    "expected": 9217, "name": "1023 chaves na ordem balanceada: 9 217 nós visitados",
+    "hint": "custo_total insere as chaves na ordem recebida." }
+]
+```
+
+### Soluções erradas
+```python name="não conta o nó em que acha"
+from arvore import No, inserir
+
+
+def nos_visitados(raiz, valor):
+    contagem = 0
+    atual = raiz
+    while atual is not None and atual.valor != valor:
+        contagem += 1
+        atual = atual.esq if valor < atual.valor else atual.dir
+    return contagem
+
+
+def ordem_balanceada(chaves):
+    if not chaves:
+        return []
+    meio = len(chaves) // 2
+    return [chaves[meio]] + ordem_balanceada(chaves[:meio]) + ordem_balanceada(chaves[meio + 1:])
+
+
+def custo_total(ordem):
+    raiz = None
+    for v in ordem:
+        raiz = inserir(raiz, v)
+    return sum(nos_visitados(raiz, v) for v in ordem)
+```
+```python name="mediana de índice (len - 1) // 2"
+from arvore import No, inserir
+
+
+def nos_visitados(raiz, valor):
+    contagem = 0
+    atual = raiz
+    while atual is not None:
+        contagem += 1
+        if valor == atual.valor:
+            break
+        atual = atual.esq if valor < atual.valor else atual.dir
+    return contagem
+
+
+def ordem_balanceada(chaves):
+    if not chaves:
+        return []
+    meio = (len(chaves) - 1) // 2
+    return [chaves[meio]] + ordem_balanceada(chaves[:meio]) + ordem_balanceada(chaves[meio + 1:])
+
+
+def custo_total(ordem):
+    raiz = None
+    for v in ordem:
+        raiz = inserir(raiz, v)
+    return sum(nos_visitados(raiz, v) for v in ordem)
+```
+```python name="só a primeira mediana; as metades ficam em ordem"
+from arvore import No, inserir
+
+
+def nos_visitados(raiz, valor):
+    contagem = 0
+    atual = raiz
+    while atual is not None:
+        contagem += 1
+        if valor == atual.valor:
+            break
+        atual = atual.esq if valor < atual.valor else atual.dir
+    return contagem
+
+
+def ordem_balanceada(chaves):
+    if not chaves:
+        return []
+    meio = len(chaves) // 2
+    esq = chaves[:meio]
+    dir = chaves[meio + 1:]
+    return [chaves[meio]] + esq[::-1] + dir
+```
+```python name="custo_total ordena as chaves antes de inserir"
+from arvore import No, inserir
+
+
+def nos_visitados(raiz, valor):
+    contagem = 0
+    atual = raiz
+    while atual is not None:
+        contagem += 1
+        if valor == atual.valor:
+            break
+        atual = atual.esq if valor < atual.valor else atual.dir
+    return contagem
+
+
+def ordem_balanceada(chaves):
+    if not chaves:
+        return []
+    meio = len(chaves) // 2
+    return [chaves[meio]] + ordem_balanceada(chaves[:meio]) + ordem_balanceada(chaves[meio + 1:])
+
+
+def custo_total(ordem):
+    raiz = None
+    for v in sorted(ordem):
+        raiz = inserir(raiz, v)
+    return sum(nos_visitados(raiz, v) for v in ordem)
+```
+```python name="conta o None como nó visitado"
+from arvore import No, inserir
+
+
+def nos_visitados(raiz, valor):
+    contagem = 0
+    atual = raiz
+    while True:
+        contagem += 1
+        if atual is None or valor == atual.valor:
+            break
+        atual = atual.esq if valor < atual.valor else atual.dir
+    return contagem
+
+
+def ordem_balanceada(chaves):
+    if not chaves:
+        return []
+    meio = len(chaves) // 2
+    return [chaves[meio]] + ordem_balanceada(chaves[:meio]) + ordem_balanceada(chaves[meio + 1:])
+
+
+def custo_total(ordem):
+    raiz = None
+    for v in ordem:
+        raiz = inserir(raiz, v)
+    return sum(nos_visitados(raiz, v) for v in ordem)
+```
+
+## Passo 8 · Quiz · Busca, validação e remoção
 
 ### Pergunta
-
-Ao remover um nó `X` que possui **dois filhos** em uma Árvore de Busca Binária (BST), por que podemos substituí-lo pelo **menor elemento de sua subárvore direita** (o sucessor em-ordem de `X`) sem violar a invariante da BST?
-
-- [ ] Porque qualquer elemento da subárvore direita pode ocupar o lugar de `X`.
-- [x] Porque o sucessor em-ordem é maior que todos os nós da subárvore esquerda de `X` (já que veio da direita) e menor que todos os demais nós da subárvore direita de `X` (já que era o mínimo dela), além de não possuir filho esquerdo, tornando sua remoção trivial.
-- [ ] Porque o sucessor em-ordem é sempre a raiz da árvore inteira.
-- [ ] Porque o sucessor em-ordem tem dois filhos folhas.
-
-> O menor nó da subárvore direita não tem filho esquerdo (se tivesse, esse filho seria ainda menor!). Assim, após copiar seu valor para `X`, removê-lo de sua posição original recai no Caso 1 (folha) ou Caso 2 (apenas filho direito).
+A função abaixo confere cada nó só com os filhos. Para qual árvore ela responde `True` errado?
+```python
+def eh_bst(r):
+    if r is None:
+        return True
+    if r.esq is not None and r.esq.valor >= r.valor:
+        return False
+    if r.dir is not None and r.dir.valor <= r.valor:
+        return False
+    return eh_bst(r.esq) and eh_bst(r.dir)
+```
+- [ ] Raiz 10, filho esquerdo 5, filho direito 15
+- [ ] Raiz 10, filho esquerdo 12
+- [x] Raiz 10, filho direito 20, e 20 com filho esquerdo 8
+- [ ] Raiz 10 sozinha
+> Em 20, o filho esquerdo 8 é menor que 20: o teste local passa. Mas 8 está na subárvore direita de 10 e precisaria ser maior que 10. O intervalo de 8 seria $(10, 20)$, e é esse limite herdado do avô que a função não leva.
 
 ### Pergunta
+Você insere as matrículas 1001, 1002, …, 2000, nessa ordem, numa BST sem rebalanceamento, e depois busca a matrícula 2000. Quantos nós a busca visita?
+- [ ] Cerca de 10, porque a busca numa BST é logarítmica
+- [ ] 2, a raiz e a folha
+- [x] 1000: cada matrícula foi pendurada à direita da anterior, e a árvore virou uma corrente
+- [ ] 500, porque a busca começa pelo meio
+> Chaves crescentes descem sempre para a direita. A altura fica $n - 1 = 999$ e a última matrícula está no fim da corrente: 1000 nós visitados. O $O(\log n)$ só vale se a altura for logarítmica.
 
-Qual é a complexidade de tempo para buscar uma chave em uma BST não balanceada com $n$ nós no **caso médio** (inserções em ordem aleatória) e no **pior caso** (inserções em ordem crescente)?
-
-- [ ] $O(1)$ no caso médio e $O(\log n)$ no pior caso.
-- [x] $O(\log n)$ no caso médio e $O(n)$ no pior caso (quando a árvore degenera em uma lista ligada).
-- [ ] $O(\log n)$ tanto no caso médio quanto no pior caso.
-- [ ] $O(n \log n)$ no caso médio e $O(n^2)$ no pior caso.
-
-> Sem rebalanceamento automático (como em árvores AVL ou Rubro-Negras), inserir chaves já ordenadas cria uma cadeia linear de altura $n - 1$, fazendo cada busca percorrer até $n$ nós.
+### Pergunta
+Ao remover um nó `X` com dois filhos, por que o valor que sobe para `X` é o **menor da subárvore direita** e não simplesmente o filho direito de `X`?
+- [ ] Porque o filho direito pode não existir
+- [x] Porque o menor da direita é maior que tudo à esquerda de `X` e menor que todo o resto da direita, enquanto o filho direito pode ter um filho esquerdo menor que ele
+- [ ] Porque o menor da direita é sempre uma folha
+- [ ] Porque assim a altura da árvore diminui
+> Se `X.dir` tem filho esquerdo, esse filho é menor que `X.dir`: colocar o valor de `X.dir` em `X` deixaria esse nó à direita de alguém maior que ele. O sucessor não tem filho esquerdo, mas pode ter filho direito, que sobe para o lugar dele; por isso ele não é sempre uma folha.

@@ -17,345 +17,465 @@ objetivos:
 - Relacionar __hash__/__eq__ do Python com o uso de objetos como chaves
 ---
 
-## Passo 1 · Leitura · Funções de hash, colisões, fator de carga $\alpha$ e sondagem linear
+## Passo 1 · Leitura · Do hash ao compartimento
 
-Como o `dict` e o `set` do Python conseguem buscar, inserir e remover chaves em **$O(1)$ médio**? A resposta é a **Tabela Hash** (*hash table*): um vetor de $m$ compartimentos (*buckets* ou *slots*) onde a posição de uma `chave` é calculada diretamente por uma **função de hash**:
-$$\text{índice} = h(\text{chave}) \bmod m$$
+O `dict` acha `estoque["caneta"]` sem olhar as outras chaves. O truque é transformar a chave num número e usar esse número como posição numa lista. Essa lista de $m$ **compartimentos** (*buckets*) é a **tabela hash**, e a chave vai para o compartimento
 
-#### 1. O que faz uma boa função de hash? (Hash polinomial)
+$$
+i = \text{hash}(\text{chave}) \bmod m .
+$$
 
-Se usarmos apenas a soma dos códigos ASCII das letras (`sum(ord(c) for c in texto) % m`), todos os **anagramas** como `"roma"`, `"amor"` e `"mora"` terão exatamente o mesmo hash e sofrerão **colisão**! Para que a **ordem** dos caracteres importe, usamos o **hash polinomial** (*rolling hash* de Horner) com uma base primo $B$ (como $31$ ou $131$):
-$$h(s) = \left(\sum_{i=0}^{k-1} \text{ord}(s[i]) \cdot B^{k - 1 - i}\right) \bmod m$$
-Calculado iterativamente da esquerda para a direita em $O(k)$: `h = (h * base + ord(ch)) % modulo`.
+A função embutida `hash()` devolve um inteiro. Para inteiros, é o próprio número (`hash(42) == 42`). Para textos, é um número embaralhado que **muda de uma execução do Python para outra**, de propósito, para dificultar ataques que forçam colisões. Dentro de uma execução ele é estável, e é só isso que a tabela precisa. O `%` do Python nunca dá negativo com $m > 0$: `hash(-3) % 8` é 5, um índice válido.
 
-#### 2. Resolução de colisões: Encadeamento Separado vs Endereçamento Aberto
-
-Como o universo de chaves possíveis é muito maior que $m$ (Princípio da Casa dos Pombos), duas chaves distintas $k_1 \ne k_2$ inevitavelmente cairão no mesmo índice. Existem duas grandes famílias para tratar colisões:
-
-1. **Encadeamento separado (*Separate Chaining*)**: cada um dos $m$ compartimentos é uma pequena lista de pares `[chave, valor]`.
-   - Definimos o **fator de carga** como $\alpha = \frac{n}{m}$ ($n$ itens em $m$ buckets).
-   - Se mantivermos $\alpha \le 0{,}75$ **dobrando $m$ e reinserindo todas as chaves (*rehashing*)** sempre que $n / m > 0{,}75$, o tamanho médio de cada lista é constante ($\le 0{,}75$), garantindo `get`, `put` e `delete` em **$O(1)$ médio e amortizado**!
-   - **Atenção no redimensionamento**: quando $m$ dobra para $2m$, $h(\text{chave}) \bmod (2m)$ muda! É obrigatório **recalcular o índice de cada chave** e redistribuí-las nos novos buckets.
-
-2. **Endereçamento aberto com Sondagem Linear (*Linear Probing*)**: todos os pares ficam diretamente no próprio vetor `tabela` de tamanho $m$. Se a posição $i = h(\text{chave}) \bmod m$ estiver ocupada por outra chave, tentamos $(i + 1) \bmod m$, $(i + 2) \bmod m \dots$ até achar a chave ou uma célula `None`.
-   - **O problema da remoção e a Lápide (*Tombstone*)**: se simplesmente colocarmos `None` ao remover uma chave na posição $i$, uma busca futura por outra chave que havia colidido e pulado para $i + 1$ vai parar prematuramente no `None` achando que a chave não existe! A solução é gravar um marcador especial **`APAGADO` (*tombstone*)**: a **busca** continua caminhando sobre `APAGADO`, enquanto a **inserção** pode reutilizar a primeira posição `APAGADO` encontrada.
+Há infinitas chaves possíveis e só $m$ compartimentos, então duas chaves diferentes acabam no mesmo lugar: uma **colisão**. Com $m = 8$, as chaves 1, 9 e 17 vão todas para o compartimento 1. No **encadeamento separado**, cada compartimento é uma lista de pares `[chave, valor]`, e as chaves que colidem convivem nela:
 
 ```mermaid
 flowchart LR
-    subgraph "Sondagem Linear com Lápide (m = 5)"
-        S0["[0]: ('A', 1)"] --> S1["[1]: APAGADO (lápide)"]
-        S1 --> S2["[2]: ('B', 2) (colidiu em 0!)"]
-        S2 --> S3["[3]: None (para a busca)"]
-    end
+    B1["compartimento 1"] --> P1["[1, 'a']"] --> P9["[9, 'b']"] --> P17["[17, 'c']"]
+    B4["compartimento 4"] --> P4["[4, 'd']"]
+    B0["compartimentos 0, 2, 3, 5, 6, 7: vazios"]
 ```
 
-Veja no visualizador como a lápide evita quebrar a cadeia de busca após uma remoção:
+Buscar é calcular o índice e percorrer só aquele compartimento, comparando as chaves com `==`. Três erros comuns nesta parte:
 
-```python visualizar
-APAGADO = "<APAGADO>"
-tabela = [None] * 5
+- comparar com `is`: `int("123456789012")` duas vezes produz dois objetos iguais, mas não o mesmo objeto;
+- calcular o índice com `id(chave)`: duas chaves iguais e distintas vão para compartimentos diferentes;
+- criar os compartimentos com `[[]] * m`: são $m$ referências para **a mesma** lista, e tudo cai num compartimento só.
 
-# 'A' e 'F' têm mesmo índice módulo 5 (ambos caem em 0)
-tabela[0] = ("A", 10)
-tabela[1] = ("F", 60)
+A tabela confia num contrato: **se `a == b`, então `hash(a) == hash(b)`**. O hash escolhe o compartimento e o `==` confirma a chave; se duas chaves iguais tivessem hashes diferentes, a segunda seria procurada no compartimento errado. Uma classe que define `__eq__` sem definir `__hash__` perde o hash herdado de `object`, e usá-la como chave dá
 
-# Removemos 'A' deixando uma lápide em vez de None
-tabela[0] = APAGADO
-
-# Buscando 'F' a partir do índice 0:
-idx = 0
-encontrado = None
-while tabela[idx] is not None:
-    if tabela[idx] != APAGADO and tabela[idx][0] == "F":
-        encontrado = tabela[idx][1]
-        break
-    idx = (idx + 1) % 5
-
-print("Valor de 'F' encontrado após lápide:", encontrado)
+```text
+TypeError: cannot use 'Senha' as a dict key (unhashable type: 'Senha')
 ```
 
-#### 3. O contrato `__hash__` e `__eq__` no Python
+## Passo 2 · Previsão · Chaves que se confundem e chaves que somem
 
-Para que um objeto possa ser chave de `dict` ou elemento de `set` em Python:
-1. **Regra fundamental**: se `a == b`, então **obrigatoriamente** `hash(a) == hash(b)`.
-2. Quando você define `__eq__` em uma classe, o Python **desativa `__hash__`** (`__hash__ = None`) por segurança! Para tornar sua classe hasheável, ela deve ser **imutável** e implementar `__hash__(self)` combinando os atributos em uma tupla: `return hash((self.x, self.y))`.
-
-## Passo 2 · Previsão · Como `set` e `dict` usam `__hash__` e `__eq__`
-
-Analise as duas classes abaixo (`PontoSemHash` e `Ponto`) e preveja o que o código imprime.
+O programa usa três tipos de chave: números iguais de tipos diferentes, uma classe com `__eq__` e sem `__hash__`, e um ponto que muda depois de entrar num `set`. Leia sem executar e digite a saída exata.
 
 ### Código
-
 ```python
+class Senha:
+    def __init__(self, texto):
+        self.texto = texto
+
+    def __eq__(self, outra):
+        return isinstance(outra, Senha) and self.texto == outra.texto
+
+
 class Ponto:
-    def __init__(self, x: int, y: int):
+    def __init__(self, x, y):
         self.x = x
         self.y = y
 
-    def __eq__(self, outro) -> bool:
+    def __eq__(self, outro):
         return isinstance(outro, Ponto) and (self.x, self.y) == (outro.x, outro.y)
 
-    def __hash__(self) -> int:
+    def __hash__(self):
         return hash((self.x, self.y))
 
 
-p1 = Ponto(3, 4)
-p2 = Ponto(3, 4)
-p3 = Ponto(4, 3)
+d = {1: "um"}
+d[True] = "verdadeiro"
+d[1.0] = "real"
+print(d)
 
-conjunto = {p1, p2, p3}
-print("p1 == p2:", p1 == p2)
-print("hash(p1) == hash(p2):", hash(p1) == hash(p2))
-print("Tamanho do set:", len(conjunto))
+try:
+    usadas = {Senha("abc")}
+except TypeError as erro:
+    print(erro)
+
+p = Ponto(1, 2)
+visitados = {p}
+print(Ponto(1, 2) in visitados)
+p.x = 5
+print(p in visitados, Ponto(1, 2) in visitados, len(visitados))
 ```
 
 ### Dicas
-
-1. `p1` e `p2` são instâncias distintas na memória, mas `p1 == p2` devolve `True` porque ambos têm `(x, y) == (3, 4)`.
-2. Como `hash((3, 4)) == hash((3, 4))`, `p2` cai no mesmo slot de `p1` no `set`, o Python verifica `p1 == p2` (`True`) e reconhece que é uma duplicata.
-3. Já `p3 = Ponto(4, 3)` é diferente de `p1`, portanto o `set` termina com `2` elementos.
+1. Compare `1 == True`, `1 == 1.0` e os hashes dos três. Quando a chave já existe, o que o `dict` troca?
+2. A mensagem de erro de um `set` não é igual à de um `dict`.
+3. O `set` guardou o ponto no lugar indicado pelo hash calculado na hora do `add`, e não recalcula nada quando `p.x` muda.
 
 ### Saída esperada
-
 ```text
-p1 == p2: True
-hash(p1) == hash(p2): True
-Tamanho do set: 2
+{1: 'real'}
+cannot use 'Senha' as a set element (unhashable type: 'Senha')
+True
+False False 1
 ```
 
-## Passo 3 · Exercício · Hash polinomial, colisões e classe `Ponto` hasheável
+## Passo 3 · Exercício · TabelaHash com encadeamento
+modo: lacunas
 
-Implemente `hash_polinomial(texto, base, modulo)`, `contar_colisoes(chaves, base, modulo)` e a classe `Ponto(x, y)` com `__eq__` e `__hash__`.
+Complete as lacunas (`___`) da `TabelaHash`. Por enquanto, o número de compartimentos é fixo. `put` grava ou atualiza; `get` devolve o valor ou `padrao`; `delete` devolve `True` se removeu e `False` se a chave não existia.
 
 ### Instruções
-
-1. Implemente `hash_polinomial(texto: str, base: int, modulo: int) -> int` acumulando `h = (h * base + ord(ch)) % modulo` para cada caractere `ch` de `texto` (começando com `h = 0`).
-2. Implemente `contar_colisoes(chaves: list[str], base: int, modulo: int) -> int` que calcula o hash polinomial de cada string em `chaves` (após remover duplicatas exatas com `set(chaves)`) e devolve quantas chaves distintas colidiram em compartimentos já ocupados (isto é, `len(chaves_unicas) - len(hashes_distintos)`).
-3. Implemente a classe `Ponto(x: int, y: int)` com `__eq__` e `__hash__` consistentes para que instâncias com mesmas coordenadas `(x, y)` funcionem como a mesma chave em conjuntos (`set`) e dicionários (`dict`).
+1. Crie os compartimentos como listas independentes e calcule o índice a partir do hash da chave.
+2. Em `put`, reconheça a chave que já existe e troque o valor dela; uma chave nova entra como um par que possa ser alterado depois.
+3. Em `delete`, tire do compartimento só o par da chave removida.
 
 ### Código inicial
-
 ```python
-def hash_polinomial(texto: str, base: int = 31, modulo: int = 1009) -> int:
-    pass
+class TabelaHash:
+    def __init__(self, capacidade_inicial=8):
+        self.buckets = ___
+        self.tamanho = 0
 
+    def __len__(self):
+        return self.tamanho
 
-def contar_colisoes(chaves: list[str], base: int = 31, modulo: int = 1009) -> int:
-    pass
+    def _indice(self, chave):
+        return ___ % len(self.buckets)
 
+    def put(self, chave, valor):
+        bucket = self.buckets[self._indice(chave)]
+        for par in bucket:
+            if par[0] ___ chave:
+                par[1] = valor
+                return
+        bucket.append(___)
+        self.tamanho += 1
 
-class Ponto:
-    def __init__(self, x: int, y: int):
-        self.x = x
-        self.y = y
+    def get(self, chave, padrao=None):
+        for chave_par, valor in self.buckets[self._indice(chave)]:
+            if chave_par == chave:
+                return valor
+        return padrao
 
-    def __eq__(self, outro) -> bool:
-        pass
-
-    def __hash__(self) -> int:
-        pass
+    def delete(self, chave):
+        bucket = self.buckets[self._indice(chave)]
+        for i, par in enumerate(bucket):
+            if par[0] == chave:
+                ___
+                self.tamanho -= 1
+                return True
+        return False
 ```
 
 ### Solução
-
 ```python
-def hash_polinomial(texto: str, base: int = 31, modulo: int = 1009) -> int:
-    h = 0
-    for ch in texto:
-        h = (h * base + ord(ch)) % modulo
-    return h
+class TabelaHash:
+    def __init__(self, capacidade_inicial=8):
+        self.buckets = [[] for _ in range(capacidade_inicial)]
+        self.tamanho = 0
 
+    def __len__(self):
+        return self.tamanho
 
-def contar_colisoes(chaves: list[str], base: int = 31, modulo: int = 1009) -> int:
-    unicas = set(chaves)
-    hashes = {hash_polinomial(c, base, modulo) for c in unicas}
-    return len(unicas) - len(hashes)
+    def _indice(self, chave):
+        return hash(chave) % len(self.buckets)
 
+    def put(self, chave, valor):
+        bucket = self.buckets[self._indice(chave)]
+        for par in bucket:
+            if par[0] == chave:
+                par[1] = valor
+                return
+        bucket.append([chave, valor])
+        self.tamanho += 1
 
-class Ponto:
-    def __init__(self, x: int, y: int):
-        self.x = x
-        self.y = y
+    def get(self, chave, padrao=None):
+        for chave_par, valor in self.buckets[self._indice(chave)]:
+            if chave_par == chave:
+                return valor
+        return padrao
 
-    def __eq__(self, outro) -> bool:
-        if not isinstance(outro, Ponto):
-            return False
-        return (self.x, self.y) == (outro.x, outro.y)
-
-    def __hash__(self) -> int:
-        return hash((self.x, self.y))
+    def delete(self, chave):
+        bucket = self.buckets[self._indice(chave)]
+        for i, par in enumerate(bucket):
+            if par[0] == chave:
+                bucket.pop(i)
+                self.tamanho -= 1
+                return True
+        return False
 ```
 
 ### Dicas
-
-1. Em `hash_polinomial`, se `base = 1`, ela degenera na soma simples de ASCII (e anagramas colidem); quando `base = 31`, `"roma"` e `"amor"` produzem hashes diferentes!
-2. Se $U$ chaves distintas produzem $H$ valores de hash distintos, o número de colisões é exatamente $U - H$.
-3. Em `Ponto`, implemente `__hash__` devolvendo `hash((self.x, self.y))` (a tupla garante que `Ponto(1, 2)` e `Ponto(2, 1)` tenham hashes diferentes).
+1. Uma compreensão de lista cria uma lista nova a cada volta; a multiplicação repete a mesma.
+2. Duas chaves podem ser iguais sem ser o mesmo objeto.
+3. `par[1] = valor` só funciona se o par for mutável.
 
 ### Verificação
-
 ```json
 [
-  {
-    "id": "hash-polinomial-anagramas",
-    "name": "Hash polinomial distingue anagramas com base 31",
-    "checkpoint": 1,
-    "kind": "expr",
-    "expr": "(hash_polinomial('', 31, 1009), hash_polinomial('roma', 31, 1009), hash_polinomial('amor', 31, 1009), hash_polinomial('roma', 31, 1009) != hash_polinomial('amor', 31, 1009))",
-    "expected": [0, 46, 292, true]
-  },
-  {
-    "id": "contar-colisoes-base1-vs-base31",
-    "name": "Soma simples (base=1) colide em todos os anagramas, enquanto base=31 não colide",
-    "checkpoint": 2,
-    "kind": "expr",
-    "setup": "anagramas = ['roma', 'amor', 'mora', 'ramo', 'maro']",
-    "expr": "(contar_colisoes(anagramas, 1, 1009), contar_colisoes(anagramas, 31, 1009))",
-    "expected": [4, 0]
-  },
-  {
-    "id": "ponto-hasheavel-set-dict",
-    "name": "Classe Ponto funciona como chave em set e dict distinguindo (x, y) de (y, x)",
-    "checkpoint": 3,
-    "kind": "expr",
-    "setup": "mapa = {Ponto(1, 2): 'A'}\nmapa[Ponto(1, 2)] = 'B'\nmapa[Ponto(2, 1)] = 'C'",
-    "expr": "(len(mapa), mapa[Ponto(1, 2)], mapa[Ponto(2, 1)], Ponto(1, 2) == (1, 2))",
-    "expected": [2, "B", "C", false]
-  }
+  { "id": "vazia", "checkpoint": 1, "kind": "expr", "setup": "t = TabelaHash(4)",
+    "expr": "[len(t), len(t.buckets), t.get('x')]", "expected": [0, 4, null], "name": "Tabela nova: vazia, com 4 compartimentos" },
+  { "id": "compartimentos", "checkpoint": 1, "kind": "expr", "setup": "t = TabelaHash(8)\nt.put(1, 'a')\nt.put(9, 'b')\nt.put(4, 'c')",
+    "expr": "[len(b) for b in t.buckets]", "expected": [0, 2, 0, 0, 1, 0, 0, 0],
+    "name": "1 e 9 dividem o compartimento 1; o 4 fica no 4", "hint": "Cada compartimento precisa ser uma lista própria." },
+  { "id": "put-get", "checkpoint": 2, "kind": "expr",
+    "setup": "t = TabelaHash()\nt.put('caneta', 3)\nt.put('lapis', 5)\nt.put('borracha', 1)",
+    "expr": "[len(t), t.get('caneta'), t.get('lapis'), t.get('borracha')]", "expected": [3, 3, 5, 1], "name": "Grava e lê três chaves" },
+  { "id": "colisao", "checkpoint": 2, "kind": "expr", "setup": "t = TabelaHash(8)\nfor k, v in [(1, 'a'), (9, 'b'), (17, 'c')]:\n    t.put(k, v)",
+    "expr": "[t.get(1), t.get(9), t.get(17), len(t)]", "expected": ["a", "b", "c", 3], "name": "Três chaves no mesmo compartimento" },
+  { "id": "atualiza", "checkpoint": 2, "kind": "expr", "setup": "t = TabelaHash()\nt.put('x', 1)\nt.put('x', 2)",
+    "expr": "[len(t), t.get('x')]", "expected": [1, 2], "name": "Gravar de novo a mesma chave troca o valor",
+    "hint": "A chave que já existe não ganha um segundo par." },
+  { "id": "iguais-distintas", "checkpoint": 2, "kind": "expr",
+    "setup": "a = int('123456789012')\nb = int('123456789012')\nt = TabelaHash()\nt.put(a, 'x')\nr = t.get(b)\nt.put(b, 'y')",
+    "expr": "[a is b, r, len(t), t.get(a)]", "expected": [false, "x", 1, "y"],
+    "name": "Chaves iguais que são objetos diferentes são a mesma chave", "hint": "Compare os valores das chaves, não a identidade." },
+  { "id": "um-true-real", "checkpoint": 2, "kind": "expr", "setup": "t = TabelaHash()\nt.put(1, 'um')\nt.put(True, 'verdadeiro')",
+    "expr": "[len(t), t.get(1.0)]", "expected": [1, "verdadeiro"], "name": "1, True e 1.0 são a mesma chave, como no dict" },
+  { "id": "get-padrao", "checkpoint": 3, "kind": "expr", "setup": "t = TabelaHash(8)\nt.put(5, 'cinco')",
+    "expr": "[t.get(13), t.get(13, -1), t.get(5, -1)]", "expected": [null, -1, "cinco"],
+    "name": "Chave ausente no mesmo compartimento devolve o padrão" },
+  { "id": "delete-meio", "checkpoint": 3, "kind": "expr",
+    "setup": "t = TabelaHash(8)\nfor k, v in [(1, 'a'), (9, 'b'), (17, 'c')]:\n    t.put(k, v)\nr = t.delete(9)",
+    "expr": "[r, t.get(1), t.get(9, '-'), t.get(17), len(t)]", "expected": [true, "a", "-", "c", 2],
+    "name": "Remove a chave do meio de um compartimento", "hint": "As outras chaves do compartimento continuam na tabela." },
+  { "id": "delete-ausente", "checkpoint": 3, "kind": "expr", "setup": "t = TabelaHash(8)\nt.put(1, 'a')",
+    "expr": "[t.delete(9), t.delete(1), t.delete(1), len(t)]", "expected": [false, true, false, 0],
+    "name": "Remover chave ausente devolve False e não muda o tamanho" },
+  { "id": "delete-reinsere", "checkpoint": 3, "kind": "expr", "setup": "t = TabelaHash(8)\nt.put(1, 'a')\nt.delete(1)\nt.put(1, 'b')",
+    "expr": "[len(t), t.get(1)]", "expected": [1, "b"], "name": "Grava de novo uma chave removida" }
 ]
 ```
 
 ### Soluções erradas
+```python name="compartimentos compartilhados"
+class TabelaHash:
+    def __init__(self, capacidade_inicial=8):
+        self.buckets = [[]] * capacidade_inicial
+        self.tamanho = 0
 
-```python name="Soma apenas ord(ch) sem multiplicar pela base (colide em anagramas)"
-def hash_polinomial(texto: str, base: int = 31, modulo: int = 1009) -> int:
-    return sum(ord(ch) for ch in texto) % modulo
+    def __len__(self):
+        return self.tamanho
 
+    def _indice(self, chave):
+        return hash(chave) % len(self.buckets)
 
-def contar_colisoes(chaves: list[str], base: int = 31, modulo: int = 1009) -> int:
-    unicas = set(chaves)
-    hashes = {hash_polinomial(c, base, modulo) for c in unicas}
-    return len(unicas) - len(hashes)
+    def put(self, chave, valor):
+        bucket = self.buckets[self._indice(chave)]
+        for par in bucket:
+            if par[0] == chave:
+                par[1] = valor
+                return
+        bucket.append([chave, valor])
+        self.tamanho += 1
 
+    def get(self, chave, padrao=None):
+        for chave_par, valor in self.buckets[self._indice(chave)]:
+            if chave_par == chave:
+                return valor
+        return padrao
 
-class Ponto:
-    def __init__(self, x: int, y: int):
-        self.x = x
-        self.y = y
+    def delete(self, chave):
+        bucket = self.buckets[self._indice(chave)]
+        for i, par in enumerate(bucket):
+            if par[0] == chave:
+                bucket.pop(i)
+                self.tamanho -= 1
+                return True
+        return False
+```
+```python name="índice calculado com id"
+class TabelaHash:
+    def __init__(self, capacidade_inicial=8):
+        self.buckets = [[] for _ in range(capacidade_inicial)]
+        self.tamanho = 0
 
-    def __eq__(self, outro) -> bool:
-        return isinstance(outro, Ponto) and (self.x, self.y) == (outro.x, outro.y)
+    def __len__(self):
+        return self.tamanho
 
-    def __hash__(self) -> int:
-        return hash((self.x, self.y))
+    def _indice(self, chave):
+        return id(chave) % len(self.buckets)
+
+    def put(self, chave, valor):
+        bucket = self.buckets[self._indice(chave)]
+        for par in bucket:
+            if par[0] == chave:
+                par[1] = valor
+                return
+        bucket.append([chave, valor])
+        self.tamanho += 1
+
+    def get(self, chave, padrao=None):
+        for chave_par, valor in self.buckets[self._indice(chave)]:
+            if chave_par == chave:
+                return valor
+        return padrao
+
+    def delete(self, chave):
+        bucket = self.buckets[self._indice(chave)]
+        for i, par in enumerate(bucket):
+            if par[0] == chave:
+                bucket.pop(i)
+                self.tamanho -= 1
+                return True
+        return False
+```
+```python name="compara a chave com is"
+class TabelaHash:
+    def __init__(self, capacidade_inicial=8):
+        self.buckets = [[] for _ in range(capacidade_inicial)]
+        self.tamanho = 0
+
+    def __len__(self):
+        return self.tamanho
+
+    def _indice(self, chave):
+        return hash(chave) % len(self.buckets)
+
+    def put(self, chave, valor):
+        bucket = self.buckets[self._indice(chave)]
+        for par in bucket:
+            if par[0] is chave:
+                par[1] = valor
+                return
+        bucket.append([chave, valor])
+        self.tamanho += 1
+
+    def get(self, chave, padrao=None):
+        for chave_par, valor in self.buckets[self._indice(chave)]:
+            if chave_par == chave:
+                return valor
+        return padrao
+
+    def delete(self, chave):
+        bucket = self.buckets[self._indice(chave)]
+        for i, par in enumerate(bucket):
+            if par[0] == chave:
+                bucket.pop(i)
+                self.tamanho -= 1
+                return True
+        return False
+```
+```python name="par guardado numa tupla"
+class TabelaHash:
+    def __init__(self, capacidade_inicial=8):
+        self.buckets = [[] for _ in range(capacidade_inicial)]
+        self.tamanho = 0
+
+    def __len__(self):
+        return self.tamanho
+
+    def _indice(self, chave):
+        return hash(chave) % len(self.buckets)
+
+    def put(self, chave, valor):
+        bucket = self.buckets[self._indice(chave)]
+        for par in bucket:
+            if par[0] == chave:
+                par[1] = valor
+                return
+        bucket.append((chave, valor))
+        self.tamanho += 1
+
+    def get(self, chave, padrao=None):
+        for chave_par, valor in self.buckets[self._indice(chave)]:
+            if chave_par == chave:
+                return valor
+        return padrao
+
+    def delete(self, chave):
+        bucket = self.buckets[self._indice(chave)]
+        for i, par in enumerate(bucket):
+            if par[0] == chave:
+                bucket.pop(i)
+                self.tamanho -= 1
+                return True
+        return False
+```
+```python name="delete esvazia o compartimento inteiro"
+class TabelaHash:
+    def __init__(self, capacidade_inicial=8):
+        self.buckets = [[] for _ in range(capacidade_inicial)]
+        self.tamanho = 0
+
+    def __len__(self):
+        return self.tamanho
+
+    def _indice(self, chave):
+        return hash(chave) % len(self.buckets)
+
+    def put(self, chave, valor):
+        bucket = self.buckets[self._indice(chave)]
+        for par in bucket:
+            if par[0] == chave:
+                par[1] = valor
+                return
+        bucket.append([chave, valor])
+        self.tamanho += 1
+
+    def get(self, chave, padrao=None):
+        for chave_par, valor in self.buckets[self._indice(chave)]:
+            if chave_par == chave:
+                return valor
+        return padrao
+
+    def delete(self, chave):
+        bucket = self.buckets[self._indice(chave)]
+        for i, par in enumerate(bucket):
+            if par[0] == chave:
+                bucket.clear()
+                self.tamanho -= 1
+                return True
+        return False
 ```
 
-```python name="Define __eq__ em Ponto mas esquece de definir __hash__"
-def hash_polinomial(texto: str, base: int = 31, modulo: int = 1009) -> int:
-    h = 0
-    for ch in texto:
-        h = (h * base + ord(ch)) % modulo
-    return h
+## Passo 4 · Leitura · Fator de carga, redimensionamento e hashes ruins
 
+Com $n$ chaves em $m$ compartimentos, o **fator de carga** é
 
-def contar_colisoes(chaves: list[str], base: int = 31, modulo: int = 1009) -> int:
-    unicas = set(chaves)
-    hashes = {hash_polinomial(c, base, modulo) for c in unicas}
-    return len(unicas) - len(hashes)
+$$
+\alpha = \frac{n}{m} .
+$$
 
+Com um hash que espalha bem, cada compartimento tem em média $\alpha$ pares: uma busca sem sucesso faz cerca de $\alpha$ comparações, e uma bem-sucedida, $1 + \alpha/2$. Com $m$ fixo, $\alpha$ cresce com $n$: 8 compartimentos e 80 000 chaves dão listas de 10 000 pares.
 
-class Ponto:
-    def __init__(self, x: int, y: int):
-        self.x = x
-        self.y = y
+A saída é **redimensionar**: quando $\alpha$ passa de um limite (aqui, 0,75), dobre $m$ e recoloque cada par. Recolocar quer dizer **recalcular o índice**, que depende de $m$: a chave 9 fica no compartimento 1 com $m = 8$ e no 9 com $m = 16$. Copiar as listas antigas para o começo da nova deixa o 9 no 1, onde `get(9)` não procura mais. E recolocar chamando `self.put` soma 1 ao tamanho a cada par.
 
-    def __eq__(self, outro) -> bool:
-        return isinstance(outro, Ponto) and (self.x, self.y) == (outro.x, outro.y)
-```
+Recolocar custa $O(n)$, mas cada vez mais raramente. Dobrando, os redimensionamentos acontecem com cerca de $n$, $n/2$, $n/4$, … chaves, e o total recolocado é
 
-## Passo 4 · Exercício · `TabelaHash` com redimensionamento e `TabelaHashAberta` com lápide
+$$
+n + \frac{n}{2} + \frac{n}{4} + \cdots < 2n ,
+$$
 
-Implemente as duas arquiteturas clássicas de tabela hash do zero: `TabelaHash` (encadeamento separado com redimensionamento automático quando $\alpha > 0{,}75$) e `TabelaHashAberta` (sondagem linear com marcador de remoção / lápide).
+então cada `put` custa $O(1)$ **amortizado**, como o `append` da lista. Crescer somando uma constante $c$ não serve: há um redimensionamento a cada cerca de $c$ inserções, cada um custando o tamanho atual, e o total vira $\Theta(n^2/c)$.
+
+Redimensionar não salva um hash ruim. Somar os códigos das letras, `sum(ord(ch) for ch in s)`, dá o mesmo valor para `"roma"`, `"amor"` e `"mora"`. Somar as coordenadas de um ponto dá o mesmo valor para (1, 2) e (2, 1), e uma grade de 20 × 20 pontos cai em só 39 valores, seja qual for $m$. O jeito idiomático é delegar para a tupla: `hash((self.x, self.y))` combina as posições, e a ordem importa.
+
+A chave também precisa ser **imutável** no que entra no hash: se `p.x` muda depois de `p` entrar na tabela, o par fica num compartimento para onde o novo hash não aponta. Por isso `list` não tem hash e `tuple` tem. Numa classe sua, exponha as coordenadas só para leitura com `@property`; `p.x = 5` dá `AttributeError: property 'x' of 'Ponto' object has no setter`.
+
+O `dict` do Python redimensiona do mesmo jeito, com carga máxima de 2/3, e seu "$O(1)$" é **em média**: se todas as chaves colidirem, vira $O(n)$.
+
+## Passo 5 · Exercício · Redimensionar e uma chave composta
+
+Continue a sua `TabelaHash` e escreva uma classe de chave.
+
+- `_redimensionar()` dobra o número de compartimentos e recoloca todos os pares. `put` o chama quando, depois de uma chave **nova** entrar, `self.tamanho / len(self.buckets)` passa de 0,75.
+- `Ponto(x, y)` serve de chave em `dict`, `set` e na sua tabela: dois pontos com as mesmas coordenadas são iguais, um ponto nunca é igual a outro tipo de objeto, e as coordenadas não podem ser trocadas depois de criado.
+
+A verificação conta chamadas: de `__hash__` ao inserir 2 000 chaves (no máximo 12 000), de `__eq__` ao buscá-las (no máximo 6 000) e de `Ponto.__eq__` ao buscar os 400 pontos de uma grade 20 × 20 na sua tabela (no máximo 1 200).
 
 ### Instruções
-
-1. Em `TabelaHash(capacidade_inicial: int = 8)`:
-   - Mantenha `self.buckets = [[] for _ in range(capacidade_inicial)]` e `self.tamanho = 0`. Use `_indice(chave)` como `hash(chave) % len(self.buckets)`.
-   - Implemente `put(chave, valor)`: se a chave já existir no bucket, atualize seu valor; caso contrário, adicione `[chave, valor]`, incremente `self.tamanho` e, se `self.tamanho / len(self.buckets) > 0.75`, chame `_redimensionar()` dobrando o número de buckets (`2 * len(self.buckets)`) e reinserindo todos os pares nos novos buckets.
-   - Implemente `get(chave, padrao=None)` e `delete(chave) -> bool` (devolve `True` se removeu, `False` se não encontrou).
-2. Em `TabelaHashAberta(capacidade: int = 16)`:
-   - Use sondagem linear sobre `self.chaves = [None] * capacidade` e `self.valores = [None] * capacidade`, reservando um objeto sentinela `self.APAGADO = object()` para remoções.
-   - Implemente `put(chave, valor)`, `get(chave, padrao=None)` e `delete(chave) -> bool` (que marca o slot com `self.APAGADO` e decrementa `self.tamanho`).
-
-### Código inicial
-
-```python
-class TabelaHash:
-    def __init__(self, capacidade_inicial: int = 8):
-        self.buckets: list[list] = [[] for _ in range(capacidade_inicial)]
-        self.tamanho = 0
-
-    def __len__(self) -> int:
-        return self.tamanho
-
-    def _redimensionar(self) -> None:
-        pass
-
-    def put(self, chave, valor) -> None:
-        pass
-
-    def get(self, chave, padrao=None):
-        pass
-
-    def delete(self, chave) -> bool:
-        pass
-
-
-class TabelaHashAberta:
-    def __init__(self, capacidade: int = 16):
-        self.capacidade = capacidade
-        self.APAGADO = object()
-        self.chaves = [None] * capacidade
-        self.valores = [None] * capacidade
-        self.tamanho = 0
-
-    def put(self, chave, valor) -> None:
-        pass
-
-    def get(self, chave, padrao=None):
-        pass
-
-    def delete(self, chave) -> bool:
-        pass
-```
+1. Escreva `_redimensionar`, que dobra o número de compartimentos e põe cada par no compartimento calculado com o novo tamanho.
+2. Em `put`, redimensione quando a carga passar de 0,75 depois de acrescentar uma chave nova.
+3. Escreva `Ponto` com coordenadas só de leitura, `__eq__` por coordenadas e um `__hash__` coerente com ele que leve em conta a ordem das coordenadas.
 
 ### Solução
-
 ```python
 class TabelaHash:
-    def __init__(self, capacidade_inicial: int = 8):
-        self.buckets: list[list] = [[] for _ in range(capacidade_inicial)]
+    def __init__(self, capacidade_inicial=8):
+        self.buckets = [[] for _ in range(capacidade_inicial)]
         self.tamanho = 0
 
-    def __len__(self) -> int:
+    def __len__(self):
         return self.tamanho
 
-    def _indice(self, chave, num_buckets: int | None = None) -> int:
-        m = len(self.buckets) if num_buckets is None else num_buckets
-        return hash(chave) % m
+    def _indice(self, chave):
+        return hash(chave) % len(self.buckets)
 
-    def _redimensionar(self) -> None:
+    def _redimensionar(self):
         antigos = self.buckets
-        novo_m = len(antigos) * 2
-        self.buckets = [[] for _ in range(novo_m)]
+        self.buckets = [[] for _ in range(2 * len(antigos))]
         for bucket in antigos:
             for par in bucket:
-                idx = self._indice(par[0], novo_m)
-                self.buckets[idx].append(par)
+                self.buckets[self._indice(par[0])].append(par)
 
-    def put(self, chave, valor) -> None:
-        idx = self._indice(chave)
-        bucket = self.buckets[idx]
+    def put(self, chave, valor):
+        bucket = self.buckets[self._indice(chave)]
         for par in bucket:
             if par[0] == chave:
                 par[1] = valor
@@ -366,15 +486,13 @@ class TabelaHash:
             self._redimensionar()
 
     def get(self, chave, padrao=None):
-        idx = self._indice(chave)
-        for par in self.buckets[idx]:
-            if par[0] == chave:
-                return par[1]
+        for chave_par, valor in self.buckets[self._indice(chave)]:
+            if chave_par == chave:
+                return valor
         return padrao
 
-    def delete(self, chave) -> bool:
-        idx = self._indice(chave)
-        bucket = self.buckets[idx]
+    def delete(self, chave):
+        bucket = self.buckets[self._indice(chave)]
         for i, par in enumerate(bucket):
             if par[0] == chave:
                 bucket.pop(i)
@@ -383,284 +501,1192 @@ class TabelaHash:
         return False
 
 
-class TabelaHashAberta:
-    def __init__(self, capacidade: int = 16):
-        self.capacidade = capacidade
-        self.APAGADO = object()
-        self.chaves = [None] * capacidade
-        self.valores = [None] * capacidade
-        self.tamanho = 0
+class Ponto:
+    def __init__(self, x, y):
+        self._x = x
+        self._y = y
 
-    def put(self, chave, valor) -> None:
-        idx = hash(chave) % self.capacidade
-        primeiro_apagado = None
-        for _ in range(self.capacidade):
-            k = self.chaves[idx]
-            if k is None:
-                alvo = primeiro_apagado if primeiro_apagado is not None else idx
-                self.chaves[alvo] = chave
-                self.valores[alvo] = valor
-                self.tamanho += 1
-                return
-            if k is self.APAGADO:
-                if primeiro_apagado is None:
-                    primeiro_apagado = idx
-            elif k == chave:
-                self.valores[idx] = valor
-                return
-            idx = (idx + 1) % self.capacidade
-        if primeiro_apagado is not None:
-            self.chaves[primeiro_apagado] = chave
-            self.valores[primeiro_apagado] = valor
-            self.tamanho += 1
+    @property
+    def x(self):
+        return self._x
 
-    def get(self, chave, padrao=None):
-        idx = hash(chave) % self.capacidade
-        for _ in range(self.capacidade):
-            k = self.chaves[idx]
-            if k is None:
-                return padrao
-            if k is not self.APAGADO and k == chave:
-                return self.valores[idx]
-            idx = (idx + 1) % self.capacidade
-        return padrao
+    @property
+    def y(self):
+        return self._y
 
-    def delete(self, chave) -> bool:
-        idx = hash(chave) % self.capacidade
-        for _ in range(self.capacidade):
-            k = self.chaves[idx]
-            if k is None:
-                return False
-            if k is not self.APAGADO and k == chave:
-                self.chaves[idx] = self.APAGADO
-                self.valores[idx] = None
-                self.tamanho -= 1
-                return True
-            idx = (idx + 1) % self.capacidade
-        return False
+    def __eq__(self, outro):
+        if not isinstance(outro, Ponto):
+            return NotImplemented
+        return (self._x, self._y) == (outro._x, outro._y)
+
+    def __hash__(self):
+        return hash((self._x, self._y))
 ```
 
 ### Dicas
-
-1. Em `TabelaHash._redimensionar()`, crie `novos_buckets = [[] for _ in range(len(self.buckets) * 2)]` e, para cada `[chave, valor]` dos buckets antigos, recalcule `hash(chave) % len(novos_buckets)` antes de inserir!
-2. Em `TabelaHashAberta.get(chave)`, só pare a busca ao encontrar `None` (nunca pare em `self.APAGADO`, pois a chave procurada pode estar mais adiante na sondagem!).
-3. Em `TabelaHashAberta.put(chave, valor)`, ao passar por um slot `self.APAGADO`, guarde seu índice em `primeiro_apagado`, mas **continue procurando** até `None` para ter certeza de que `chave` ainda não existe mais adiante!
+1. Guarde a lista antiga, troque `self.buckets` por uma lista nova e só então percorra a antiga.
+2. Recolocar um par não é inserir uma chave nova: o tamanho não muda.
+3. Para outros tipos, `__eq__` pode devolver `NotImplemented`, e o Python responde `False`.
 
 ### Verificação
-
 ```json
 [
-  {
-    "id": "tabela-hash-encadeamento-redimensionar",
-    "name": "TabelaHash insere, atualiza, remove e redimensiona mantendo O(1) para 10.000 itens",
-    "checkpoint": 1,
-    "kind": "expr",
-    "setup": "t = TabelaHash(4)\nfor i in range(10000):\n    t.put(f'k{i}', i * 10)\nt.put('k50', 999999)\ndel_ok = t.delete('k100')\ndel_inex = t.delete('inexistente')",
-    "expr": "(len(t), len(t.buckets) >= 16384, t.get('k50'), t.get('k100', -1), t.get('k9999'), del_ok, del_inex)",
-    "expected": [9999, true, 999999, -1, 99990, true, false]
-  },
-  {
-    "id": "tabela-hash-aberta-sondagem-e-lapide",
-    "name": "TabelaHashAberta encontra e reutiliza slots após remoção com colisão (lápide)",
-    "checkpoint": 2,
-    "kind": "expr",
-    "setup": "ta = TabelaHashAberta(8)\n# 1, 9 e 17 têm o mesmo hash % 8 == 1\nta.put(1, 'um')\nta.put(9, 'nove')\nta.put(17, 'dezessete')\nr1 = ta.delete(9)\ng17 = ta.get(17)\nta.put(25, 'vinte_e_cinco')\ng25 = ta.get(25)",
-    "expr": "(r1, g17, g25, ta.get(9, 'ausente'), ta.tamanho)",
-    "expected": [true, "dezessete", "vinte_e_cinco", "ausente", 3]
-  }
+  { "id": "limiar", "checkpoint": 2, "kind": "expr",
+    "setup": "t = TabelaHash(8)\nfor i in range(6):\n    t.put(i, i)\na = len(t.buckets)\nt.put(6, 6)\nb = len(t.buckets)",
+    "expr": "[a, b]", "expected": [8, 16], "name": "Com 6 chaves em 8 compartimentos não cresce; a 7.ª dobra",
+    "hint": "Compare tamanho / compartimentos com 0,75 depois de acrescentar a chave." },
+  { "id": "cem", "checkpoint": 1, "kind": "expr", "setup": "t = TabelaHash(8)\nfor i in range(100):\n    t.put(3 * i, i)",
+    "expr": "[len(t), len(t.buckets), all(t.get(3 * i) == i for i in range(100))]", "expected": [100, 256, true],
+    "name": "100 chaves: 256 compartimentos e todas encontradas" },
+  { "id": "recalcula", "checkpoint": 1, "kind": "expr",
+    "setup": "t = TabelaHash(8)\nfor k in [1, 9, 17, 25, 33, 41, 49]:\n    t.put(k, k * 10)",
+    "expr": "[len(t.buckets), [t.get(k) for k in [1, 9, 17, 25, 33, 41, 49]], len(t.buckets[1]), len(t.buckets[9])]",
+    "expected": [16, [10, 90, 170, 250, 330, 410, 490], 4, 3],
+    "name": "Depois de dobrar, as chaves do compartimento 1 se dividem entre o 1 e o 9",
+    "hint": "O índice depende do número de compartimentos: recalcule-o para cada par." },
+  { "id": "estrutura", "checkpoint": 1, "kind": "expr", "setup": "t = TabelaHash()\nfor i in range(1000):\n    t.put(7 * i, i)",
+    "expr": "[len(t), sum(len(b) for b in t.buckets), all(hash(p[0]) % len(t.buckets) == i for i, b in enumerate(t.buckets) for p in b)]",
+    "expected": [1000, 1000, true], "name": "1000 chaves: cada par está no compartimento que o seu hash indica",
+    "hint": "Recolocar um par não muda o tamanho da tabela." },
+  { "id": "atualizar-nao-cresce", "checkpoint": 2, "kind": "expr",
+    "setup": "t = TabelaHash(8)\nfor r in range(5):\n    for i in range(6):\n        t.put(i, r)",
+    "expr": "[len(t), len(t.buckets), t.get(3)]", "expected": [6, 8, 4], "name": "Atualizar valores não aumenta o tamanho nem redimensiona" },
+  { "id": "custo-put", "checkpoint": 2, "kind": "expr",
+    "setup": "class K:\n    nh = 0\n    ne = 0\n    def __init__(self, v):\n        self.v = v\n    def __hash__(self):\n        K.nh += 1\n        return self.v\n    def __eq__(self, o):\n        K.ne += 1\n        return isinstance(o, K) and self.v == o.v\nks = [K((i * 7919) % 100003) for i in range(2000)]\nt = TabelaHash(8)\nK.nh = 0\nfor i, k in enumerate(ks):\n    t.put(k, i)",
+    "expr": "[len(t), K.nh <= 12000]", "expected": [2000, true], "name": "2000 inserções com no máximo 12 000 cálculos de hash",
+    "hint": "Somar uma quantidade fixa ao número de compartimentos faz redimensionar a cada poucas inserções." },
+  { "id": "custo-get", "checkpoint": 1, "kind": "expr",
+    "setup": "class K:\n    nh = 0\n    ne = 0\n    def __init__(self, v):\n        self.v = v\n    def __hash__(self):\n        K.nh += 1\n        return self.v\n    def __eq__(self, o):\n        K.ne += 1\n        return isinstance(o, K) and self.v == o.v\nks = [K((i * 7919) % 100003) for i in range(2000)]\nt = TabelaHash(8)\nfor i, k in enumerate(ks):\n    t.put(k, i)\nK.ne = 0\nok = all(t.get(K(k.v)) == i for i, k in enumerate(ks))",
+    "expr": "[ok, K.ne <= 6000]", "expected": [true, true], "name": "2000 buscas com no máximo 6 000 comparações de chave",
+    "hint": "Com a carga baixa, cada compartimento tem poucos pares para comparar." },
+  { "id": "ponto-chave", "checkpoint": 3, "kind": "expr",
+    "setup": "s = {Ponto(1, 2), Ponto(1, 2), Ponto(2, 1)}\nd = {Ponto(3, 4): 'casa'}",
+    "expr": "[len(s), d[Ponto(3, 4)], Ponto(3, 4).x, Ponto(3, 4).y]", "expected": [2, "casa", 3, 4],
+    "name": "Pontos iguais são a mesma chave em set e dict" },
+  { "id": "ponto-igualdade", "checkpoint": 3, "kind": "expr",
+    "expr": "[Ponto(1, 2) == (1, 2), (1, 2) == Ponto(1, 2), Ponto(1, 2) != Ponto(1, 3), Ponto(1, 2) == Ponto(1, 2)]",
+    "expected": [false, false, true, true], "name": "Um ponto nunca é igual a uma tupla",
+    "hint": "Antes de ler os atributos do outro objeto, confira se ele é um Ponto." },
+  { "id": "ponto-imutavel", "checkpoint": 3, "kind": "expr", "setup": "p = Ponto(1, 2)", "expr": "setattr(p, 'x', 5)",
+    "raises": "AttributeError", "name": "Trocar a coordenada de um ponto levanta AttributeError",
+    "hint": "Uma property sem setter não aceita atribuição." },
+  { "id": "ponto-espalha", "checkpoint": 3, "kind": "expr",
+    "setup": "n = [0]\n_eq = Ponto.__eq__\ndef _conta(a, b):\n    n[0] += 1\n    return _eq(a, b)\nPonto.__eq__ = _conta\nt = TabelaHash()\nfor x in range(20):\n    for y in range(20):\n        t.put(Ponto(x, y), 100 * x + y)\nn[0] = 0\nok = all(t.get(Ponto(x, y)) == 100 * x + y for x in range(20) for y in range(20))",
+    "expr": "[ok, n[0] <= 1200]", "expected": [true, true], "name": "400 pontos na sua tabela: no máximo 1 200 comparações para achar todos",
+    "hint": "Se muitos pontos têm o mesmo hash, eles se amontoam no mesmo compartimento." }
 ]
 ```
 
 ### Soluções erradas
-
-```python name="Não redimensiona TabelaHash (degrada para busca linear O(n) e mantém poucos buckets)"
+```python name="nunca redimensiona"
 class TabelaHash:
-    def __init__(self, capacidade_inicial: int = 8):
-        self.buckets: list[list] = [[] for _ in range(capacidade_inicial)]
+    def __init__(self, capacidade_inicial=8):
+        self.buckets = [[] for _ in range(capacidade_inicial)]
         self.tamanho = 0
 
-    def __len__(self) -> int:
+    def __len__(self):
         return self.tamanho
 
-    def _redimensionar(self) -> None:
-        pass
+    def _indice(self, chave):
+        return hash(chave) % len(self.buckets)
 
-    def put(self, chave, valor) -> None:
-        idx = hash(chave) % len(self.buckets)
-        for par in self.buckets[idx]:
+    def put(self, chave, valor):
+        bucket = self.buckets[self._indice(chave)]
+        for par in bucket:
             if par[0] == chave:
                 par[1] = valor
                 return
-        self.buckets[idx].append([chave, valor])
+        bucket.append([chave, valor])
         self.tamanho += 1
 
     def get(self, chave, padrao=None):
-        idx = hash(chave) % len(self.buckets)
-        for par in self.buckets[idx]:
-            if par[0] == chave:
-                return par[1]
+        for chave_par, valor in self.buckets[self._indice(chave)]:
+            if chave_par == chave:
+                return valor
         return padrao
 
-    def delete(self, chave) -> bool:
-        idx = hash(chave) % len(self.buckets)
-        for i, par in enumerate(self.buckets[idx]):
+    def delete(self, chave):
+        bucket = self.buckets[self._indice(chave)]
+        for i, par in enumerate(bucket):
             if par[0] == chave:
-                self.buckets[idx].pop(i)
+                bucket.pop(i)
                 self.tamanho -= 1
                 return True
         return False
 
 
-class TabelaHashAberta:
-    def __init__(self, capacidade: int = 16):
-        self.capacidade = capacidade
-        self.APAGADO = object()
-        self.chaves = [None] * capacidade
-        self.valores = [None] * capacidade
-        self.tamanho = 0
+class Ponto:
+    def __init__(self, x, y):
+        self._x = x
+        self._y = y
 
-    def put(self, chave, valor) -> None:
-        idx = hash(chave) % self.capacidade
-        for _ in range(self.capacidade):
-            if self.chaves[idx] in (None, self.APAGADO) or self.chaves[idx] == chave:
-                if self.chaves[idx] != chave:
-                    self.tamanho += 1
-                self.chaves[idx] = chave
-                self.valores[idx] = valor
-                return
-            idx = (idx + 1) % self.capacidade
+    @property
+    def x(self):
+        return self._x
 
-    def get(self, chave, padrao=None):
-        idx = hash(chave) % self.capacidade
-        for _ in range(self.capacidade):
-            if self.chaves[idx] is None:
-                return padrao
-            if self.chaves[idx] is not self.APAGADO and self.chaves[idx] == chave:
-                return self.valores[idx]
-            idx = (idx + 1) % self.capacidade
-        return padrao
+    @property
+    def y(self):
+        return self._y
 
-    def delete(self, chave) -> bool:
-        idx = hash(chave) % self.capacidade
-        for _ in range(self.capacidade):
-            if self.chaves[idx] is None:
-                return False
-            if self.chaves[idx] is not self.APAGADO and self.chaves[idx] == chave:
-                self.chaves[idx] = self.APAGADO
-                self.tamanho -= 1
-                return True
-            idx = (idx + 1) % self.capacidade
-        return False
+    def __eq__(self, outro):
+        if not isinstance(outro, Ponto):
+            return NotImplemented
+        return (self._x, self._y) == (outro._x, outro._y)
+
+    def __hash__(self):
+        return hash((self._x, self._y))
 ```
-
-```python name="Em TabelaHashAberta.delete, grava None em vez de APAGADO quebrando a cadeia de sondagem"
+```python name="cresce somando 8 compartimentos"
 class TabelaHash:
-    def __init__(self, capacidade_inicial: int = 8):
-        self.buckets: list[list] = [[] for _ in range(capacidade_inicial)]
+    def __init__(self, capacidade_inicial=8):
+        self.buckets = [[] for _ in range(capacidade_inicial)]
         self.tamanho = 0
 
-    def __len__(self) -> int:
+    def __len__(self):
         return self.tamanho
 
-    def _redimensionar(self) -> None:
+    def _indice(self, chave):
+        return hash(chave) % len(self.buckets)
+
+    def _redimensionar(self):
         antigos = self.buckets
-        novo_m = len(antigos) * 2
-        self.buckets = [[] for _ in range(novo_m)]
+        self.buckets = [[] for _ in range(len(antigos) + 8)]
         for bucket in antigos:
             for par in bucket:
-                self.buckets[hash(par[0]) % novo_m].append(par)
+                self.buckets[self._indice(par[0])].append(par)
 
-    def put(self, chave, valor) -> None:
-        idx = hash(chave) % len(self.buckets)
-        for par in self.buckets[idx]:
+    def put(self, chave, valor):
+        bucket = self.buckets[self._indice(chave)]
+        for par in bucket:
             if par[0] == chave:
                 par[1] = valor
                 return
-        self.buckets[idx].append([chave, valor])
+        bucket.append([chave, valor])
         self.tamanho += 1
         if self.tamanho / len(self.buckets) > 0.75:
             self._redimensionar()
 
     def get(self, chave, padrao=None):
-        idx = hash(chave) % len(self.buckets)
-        for par in self.buckets[idx]:
-            if par[0] == chave:
-                return par[1]
+        for chave_par, valor in self.buckets[self._indice(chave)]:
+            if chave_par == chave:
+                return valor
         return padrao
 
-    def delete(self, chave) -> bool:
-        idx = hash(chave) % len(self.buckets)
-        for i, par in enumerate(self.buckets[idx]):
+    def delete(self, chave):
+        bucket = self.buckets[self._indice(chave)]
+        for i, par in enumerate(bucket):
             if par[0] == chave:
-                self.buckets[idx].pop(i)
+                bucket.pop(i)
                 self.tamanho -= 1
                 return True
         return False
 
 
+class Ponto:
+    def __init__(self, x, y):
+        self._x = x
+        self._y = y
+
+    @property
+    def x(self):
+        return self._x
+
+    @property
+    def y(self):
+        return self._y
+
+    def __eq__(self, outro):
+        if not isinstance(outro, Ponto):
+            return NotImplemented
+        return (self._x, self._y) == (outro._x, outro._y)
+
+    def __hash__(self):
+        return hash((self._x, self._y))
+```
+```python name="copia os compartimentos sem recalcular o índice"
+class TabelaHash:
+    def __init__(self, capacidade_inicial=8):
+        self.buckets = [[] for _ in range(capacidade_inicial)]
+        self.tamanho = 0
+
+    def __len__(self):
+        return self.tamanho
+
+    def _indice(self, chave):
+        return hash(chave) % len(self.buckets)
+
+    def _redimensionar(self):
+        antigos = self.buckets
+        self.buckets = antigos + [[] for _ in range(len(antigos))]
+
+    def put(self, chave, valor):
+        bucket = self.buckets[self._indice(chave)]
+        for par in bucket:
+            if par[0] == chave:
+                par[1] = valor
+                return
+        bucket.append([chave, valor])
+        self.tamanho += 1
+        if self.tamanho / len(self.buckets) > 0.75:
+            self._redimensionar()
+
+    def get(self, chave, padrao=None):
+        for chave_par, valor in self.buckets[self._indice(chave)]:
+            if chave_par == chave:
+                return valor
+        return padrao
+
+    def delete(self, chave):
+        bucket = self.buckets[self._indice(chave)]
+        for i, par in enumerate(bucket):
+            if par[0] == chave:
+                bucket.pop(i)
+                self.tamanho -= 1
+                return True
+        return False
+
+
+class Ponto:
+    def __init__(self, x, y):
+        self._x = x
+        self._y = y
+
+    @property
+    def x(self):
+        return self._x
+
+    @property
+    def y(self):
+        return self._y
+
+    def __eq__(self, outro):
+        if not isinstance(outro, Ponto):
+            return NotImplemented
+        return (self._x, self._y) == (outro._x, outro._y)
+
+    def __hash__(self):
+        return hash((self._x, self._y))
+```
+```python name="recoloca com put e o tamanho conta duas vezes"
+class TabelaHash:
+    def __init__(self, capacidade_inicial=8):
+        self.buckets = [[] for _ in range(capacidade_inicial)]
+        self.tamanho = 0
+
+    def __len__(self):
+        return self.tamanho
+
+    def _indice(self, chave):
+        return hash(chave) % len(self.buckets)
+
+    def _redimensionar(self):
+        antigos = self.buckets
+        self.buckets = [[] for _ in range(2 * len(antigos))]
+        for bucket in antigos:
+            for chave, valor in bucket:
+                self.put(chave, valor)
+
+    def put(self, chave, valor):
+        bucket = self.buckets[self._indice(chave)]
+        for par in bucket:
+            if par[0] == chave:
+                par[1] = valor
+                return
+        bucket.append([chave, valor])
+        self.tamanho += 1
+        if self.tamanho / len(self.buckets) > 0.75:
+            self._redimensionar()
+
+    def get(self, chave, padrao=None):
+        for chave_par, valor in self.buckets[self._indice(chave)]:
+            if chave_par == chave:
+                return valor
+        return padrao
+
+    def delete(self, chave):
+        bucket = self.buckets[self._indice(chave)]
+        for i, par in enumerate(bucket):
+            if par[0] == chave:
+                bucket.pop(i)
+                self.tamanho -= 1
+                return True
+        return False
+
+
+class Ponto:
+    def __init__(self, x, y):
+        self._x = x
+        self._y = y
+
+    @property
+    def x(self):
+        return self._x
+
+    @property
+    def y(self):
+        return self._y
+
+    def __eq__(self, outro):
+        if not isinstance(outro, Ponto):
+            return NotImplemented
+        return (self._x, self._y) == (outro._x, outro._y)
+
+    def __hash__(self):
+        return hash((self._x, self._y))
+```
+```python name="índice usa a capacidade inicial guardada"
+class TabelaHash:
+    def __init__(self, capacidade_inicial=8):
+        self.capacidade = capacidade_inicial
+        self.buckets = [[] for _ in range(capacidade_inicial)]
+        self.tamanho = 0
+
+    def __len__(self):
+        return self.tamanho
+
+    def _indice(self, chave):
+        return hash(chave) % self.capacidade
+
+    def _redimensionar(self):
+        antigos = self.buckets
+        self.buckets = [[] for _ in range(2 * len(antigos))]
+        for bucket in antigos:
+            for par in bucket:
+                self.buckets[self._indice(par[0])].append(par)
+
+    def put(self, chave, valor):
+        bucket = self.buckets[self._indice(chave)]
+        for par in bucket:
+            if par[0] == chave:
+                par[1] = valor
+                return
+        bucket.append([chave, valor])
+        self.tamanho += 1
+        if self.tamanho / len(self.buckets) > 0.75:
+            self._redimensionar()
+
+    def get(self, chave, padrao=None):
+        for chave_par, valor in self.buckets[self._indice(chave)]:
+            if chave_par == chave:
+                return valor
+        return padrao
+
+    def delete(self, chave):
+        bucket = self.buckets[self._indice(chave)]
+        for i, par in enumerate(bucket):
+            if par[0] == chave:
+                bucket.pop(i)
+                self.tamanho -= 1
+                return True
+        return False
+
+
+class Ponto:
+    def __init__(self, x, y):
+        self._x = x
+        self._y = y
+
+    @property
+    def x(self):
+        return self._x
+
+    @property
+    def y(self):
+        return self._y
+
+    def __eq__(self, outro):
+        if not isinstance(outro, Ponto):
+            return NotImplemented
+        return (self._x, self._y) == (outro._x, outro._y)
+
+    def __hash__(self):
+        return hash((self._x, self._y))
+```
+```python name="Ponto com __eq__ e sem __hash__"
+class TabelaHash:
+    def __init__(self, capacidade_inicial=8):
+        self.buckets = [[] for _ in range(capacidade_inicial)]
+        self.tamanho = 0
+
+    def __len__(self):
+        return self.tamanho
+
+    def _indice(self, chave):
+        return hash(chave) % len(self.buckets)
+
+    def _redimensionar(self):
+        antigos = self.buckets
+        self.buckets = [[] for _ in range(2 * len(antigos))]
+        for bucket in antigos:
+            for par in bucket:
+                self.buckets[self._indice(par[0])].append(par)
+
+    def put(self, chave, valor):
+        bucket = self.buckets[self._indice(chave)]
+        for par in bucket:
+            if par[0] == chave:
+                par[1] = valor
+                return
+        bucket.append([chave, valor])
+        self.tamanho += 1
+        if self.tamanho / len(self.buckets) > 0.75:
+            self._redimensionar()
+
+    def get(self, chave, padrao=None):
+        for chave_par, valor in self.buckets[self._indice(chave)]:
+            if chave_par == chave:
+                return valor
+        return padrao
+
+    def delete(self, chave):
+        bucket = self.buckets[self._indice(chave)]
+        for i, par in enumerate(bucket):
+            if par[0] == chave:
+                bucket.pop(i)
+                self.tamanho -= 1
+                return True
+        return False
+
+
+class Ponto:
+    def __init__(self, x, y):
+        self._x = x
+        self._y = y
+
+    @property
+    def x(self):
+        return self._x
+
+    @property
+    def y(self):
+        return self._y
+
+    def __eq__(self, outro):
+        if not isinstance(outro, Ponto):
+            return NotImplemented
+        return (self._x, self._y) == (outro._x, outro._y)
+```
+```python name="hash de Ponto soma as coordenadas"
+class TabelaHash:
+    def __init__(self, capacidade_inicial=8):
+        self.buckets = [[] for _ in range(capacidade_inicial)]
+        self.tamanho = 0
+
+    def __len__(self):
+        return self.tamanho
+
+    def _indice(self, chave):
+        return hash(chave) % len(self.buckets)
+
+    def _redimensionar(self):
+        antigos = self.buckets
+        self.buckets = [[] for _ in range(2 * len(antigos))]
+        for bucket in antigos:
+            for par in bucket:
+                self.buckets[self._indice(par[0])].append(par)
+
+    def put(self, chave, valor):
+        bucket = self.buckets[self._indice(chave)]
+        for par in bucket:
+            if par[0] == chave:
+                par[1] = valor
+                return
+        bucket.append([chave, valor])
+        self.tamanho += 1
+        if self.tamanho / len(self.buckets) > 0.75:
+            self._redimensionar()
+
+    def get(self, chave, padrao=None):
+        for chave_par, valor in self.buckets[self._indice(chave)]:
+            if chave_par == chave:
+                return valor
+        return padrao
+
+    def delete(self, chave):
+        bucket = self.buckets[self._indice(chave)]
+        for i, par in enumerate(bucket):
+            if par[0] == chave:
+                bucket.pop(i)
+                self.tamanho -= 1
+                return True
+        return False
+
+
+class Ponto:
+    def __init__(self, x, y):
+        self._x = x
+        self._y = y
+
+    @property
+    def x(self):
+        return self._x
+
+    @property
+    def y(self):
+        return self._y
+
+    def __eq__(self, outro):
+        if not isinstance(outro, Ponto):
+            return NotImplemented
+        return (self._x, self._y) == (outro._x, outro._y)
+
+    def __hash__(self):
+        return hash(self._x + self._y)
+```
+```python name="Ponto com atributos públicos e mutáveis"
+class TabelaHash:
+    def __init__(self, capacidade_inicial=8):
+        self.buckets = [[] for _ in range(capacidade_inicial)]
+        self.tamanho = 0
+
+    def __len__(self):
+        return self.tamanho
+
+    def _indice(self, chave):
+        return hash(chave) % len(self.buckets)
+
+    def _redimensionar(self):
+        antigos = self.buckets
+        self.buckets = [[] for _ in range(2 * len(antigos))]
+        for bucket in antigos:
+            for par in bucket:
+                self.buckets[self._indice(par[0])].append(par)
+
+    def put(self, chave, valor):
+        bucket = self.buckets[self._indice(chave)]
+        for par in bucket:
+            if par[0] == chave:
+                par[1] = valor
+                return
+        bucket.append([chave, valor])
+        self.tamanho += 1
+        if self.tamanho / len(self.buckets) > 0.75:
+            self._redimensionar()
+
+    def get(self, chave, padrao=None):
+        for chave_par, valor in self.buckets[self._indice(chave)]:
+            if chave_par == chave:
+                return valor
+        return padrao
+
+    def delete(self, chave):
+        bucket = self.buckets[self._indice(chave)]
+        for i, par in enumerate(bucket):
+            if par[0] == chave:
+                bucket.pop(i)
+                self.tamanho -= 1
+                return True
+        return False
+
+
+class Ponto:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def __eq__(self, outro):
+        if not isinstance(outro, Ponto):
+            return NotImplemented
+        return (self.x, self.y) == (outro.x, outro.y)
+
+    def __hash__(self):
+        return hash((self.x, self.y))
+```
+```python name="__eq__ lê os atributos de qualquer objeto"
+class TabelaHash:
+    def __init__(self, capacidade_inicial=8):
+        self.buckets = [[] for _ in range(capacidade_inicial)]
+        self.tamanho = 0
+
+    def __len__(self):
+        return self.tamanho
+
+    def _indice(self, chave):
+        return hash(chave) % len(self.buckets)
+
+    def _redimensionar(self):
+        antigos = self.buckets
+        self.buckets = [[] for _ in range(2 * len(antigos))]
+        for bucket in antigos:
+            for par in bucket:
+                self.buckets[self._indice(par[0])].append(par)
+
+    def put(self, chave, valor):
+        bucket = self.buckets[self._indice(chave)]
+        for par in bucket:
+            if par[0] == chave:
+                par[1] = valor
+                return
+        bucket.append([chave, valor])
+        self.tamanho += 1
+        if self.tamanho / len(self.buckets) > 0.75:
+            self._redimensionar()
+
+    def get(self, chave, padrao=None):
+        for chave_par, valor in self.buckets[self._indice(chave)]:
+            if chave_par == chave:
+                return valor
+        return padrao
+
+    def delete(self, chave):
+        bucket = self.buckets[self._indice(chave)]
+        for i, par in enumerate(bucket):
+            if par[0] == chave:
+                bucket.pop(i)
+                self.tamanho -= 1
+                return True
+        return False
+
+
+class Ponto:
+    def __init__(self, x, y):
+        self._x = x
+        self._y = y
+
+    @property
+    def x(self):
+        return self._x
+
+    @property
+    def y(self):
+        return self._y
+
+    def __eq__(self, outro):
+        return self.x == outro.x and self.y == outro.y
+
+    def __hash__(self):
+        return hash((self._x, self._y))
+```
+
+## Passo 6 · Leitura · Endereçamento aberto e a lápide
+
+No **endereçamento aberto** não há listas: os pares ficam na própria tabela, uma chave por posição. Para inserir, comece em $i = \text{hash}(\text{chave}) \bmod m$ e, se a posição estiver ocupada por outra chave, tente $i+1$, $i+2$, …, sempre módulo $m$: é a **sondagem linear**. Para buscar, ande do mesmo jeito até achar a chave ou uma posição **vazia**. A posição vazia prova a ausência: se a chave existisse, teria sido colocada ali ou antes.
+
+Esse "ou antes" é o ponto fraco da remoção. Com $m = 8$, as chaves 1, 9 e 17 ocupam as posições 1, 2 e 3. Apague o 9 gravando `None` na posição 2, e a busca pelo 17 começa em 1, encontra a posição 2 vazia e conclui que o 17 não existe. A saída é a **lápide** (*tombstone*): um marcador `APAGADO` que diz "já houve uma chave aqui". Cada operação trata a lápide de um jeito:
+
+- a busca **passa por cima** dela;
+- a inserção pode **reaproveitar** a primeira lápide do caminho, mas só depois de andar até uma posição vazia e confirmar que a chave não está mais adiante; senão a mesma chave fica duas vezes na tabela;
+- a remoção grava a lápide.
+
+```python visualizar
+APAGADO = "APAGADO"
+m = 8
+tabela = [None] * m
+for chave in [1, 9, 17]:
+    i = chave % m
+    while tabela[i] is not None:
+        i = (i + 1) % m
+    tabela[i] = chave
+print(tabela)
+
+
+def buscar(tabela, chave):
+    i = chave % m
+    for _ in range(m):
+        if tabela[i] is None:
+            return None
+        if tabela[i] == chave:
+            return i
+        i = (i + 1) % m
+    return None
+
+
+com_none = list(tabela)
+com_none[2] = None
+print("apagando com None, o 17 está em", buscar(com_none, 17))
+
+com_lapide = list(tabela)
+com_lapide[2] = APAGADO
+print("apagando com lápide, o 17 está em", buscar(com_lapide, 17))
+```
+
+Dois cuidados no laço. O índice anda com `(i + 1) % m`; sem o módulo, uma colisão na última posição dá `IndexError: list index out of range`. E uma tabela pode não ter nenhuma posição vazia, só chaves e lápides: um `while tabela[i] is not None` nunca termina. Limite o laço a $m$ passos.
+
+Com carga $\alpha$, as chaves formam blocos contíguos que crescem e se juntam (**agrupamento primário**), e uma busca sem sucesso examina em média cerca de
+
+$$
+\frac{1}{2}\left(1 + \frac{1}{(1-\alpha)^2}\right)
+$$
+
+posições: 2,5 com $\alpha = 0{,}5$ e 50,5 com $\alpha = 0{,}9$. Por isso o endereçamento aberto redimensiona bem antes de encher, contando as lápides como ocupadas. O `dict` do Python usa endereçamento aberto com outra sequência de sondagem, que salta pela tabela em vez de andar de 1 em 1, e também marca as remoções com lápides.
+
+## Passo 7 · Exercício · TabelaHashAberta com lápide
+
+Escreva `TabelaHashAberta(capacidade=8)`, com sondagem linear e capacidade fixa. As chaves ficam em `self.chaves` e os valores em `self.valores`, na mesma posição; posição vazia é `None` e posição apagada é o objeto `APAGADO`, já definido.
+
+- `put(chave, valor)` atualiza a chave que já existe; uma chave nova ocupa a primeira lápide do caminho ou, se não houver, a posição vazia. Se não houver nem lápide nem posição vazia, levanta `RuntimeError`.
+- `get(chave, padrao=None)` e `delete(chave)`, que grava a lápide e devolve `True`, ou devolve `False` se a chave não existe.
+- `len(tabela)` é o número de chaves.
+
+### Instruções
+1. Sonde a partir de `hash(chave) % capacidade`, dando a volta no fim da tabela, e atualize a chave que já existe.
+2. Na busca e na remoção, passe por cima das lápides e pare numa posição vazia ou depois de olhar todas as posições.
+3. Na inserção de uma chave nova, reaproveite a primeira lápide do caminho, só depois de confirmar que a chave não está mais adiante.
+
+### Código inicial
+```python
+APAGADO = object()
+
+
 class TabelaHashAberta:
-    def __init__(self, capacidade: int = 16):
-        self.capacidade = capacidade
-        self.APAGADO = object()
+    def __init__(self, capacidade=8):
         self.chaves = [None] * capacidade
         self.valores = [None] * capacidade
         self.tamanho = 0
 
-    def put(self, chave, valor) -> None:
-        idx = hash(chave) % self.capacidade
-        for _ in range(self.capacidade):
-            if self.chaves[idx] is None or self.chaves[idx] == chave:
-                if self.chaves[idx] != chave:
-                    self.tamanho += 1
-                self.chaves[idx] = chave
-                self.valores[idx] = valor
-                return
-            idx = (idx + 1) % self.capacidade
+    def __len__(self):
+        return self.tamanho
+
+    def put(self, chave, valor):
+        pass
 
     def get(self, chave, padrao=None):
-        idx = hash(chave) % self.capacidade
-        for _ in range(self.capacidade):
-            if self.chaves[idx] is None:
-                return padrao
-            if self.chaves[idx] == chave:
-                return self.valores[idx]
-            idx = (idx + 1) % self.capacidade
-        return padrao
+        pass
 
-    def delete(self, chave) -> bool:
-        idx = hash(chave) % self.capacidade
-        for _ in range(self.capacidade):
-            if self.chaves[idx] is None:
-                return False
-            if self.chaves[idx] == chave:
-                self.chaves[idx] = None
-                self.valores[idx] = None
-                self.tamanho -= 1
-                return True
-            idx = (idx + 1) % self.capacidade
-        return False
+    def delete(self, chave):
+        pass
 ```
 
-## Passo 5 · Quiz · Tabelas hash, colisões e `__hash__`
+### Solução
+```python
+APAGADO = object()
+
+
+class TabelaHashAberta:
+    def __init__(self, capacidade=8):
+        self.chaves = [None] * capacidade
+        self.valores = [None] * capacidade
+        self.tamanho = 0
+
+    def __len__(self):
+        return self.tamanho
+
+    def _procurar(self, chave):
+        m = len(self.chaves)
+        i = hash(chave) % m
+        vaga = None
+        for _ in range(m):
+            k = self.chaves[i]
+            if k is None:
+                return None, (i if vaga is None else vaga)
+            if k is APAGADO:
+                if vaga is None:
+                    vaga = i
+            elif k == chave:
+                return i, None
+            i = (i + 1) % m
+        return None, vaga
+
+    def put(self, chave, valor):
+        pos, vaga = self._procurar(chave)
+        if pos is not None:
+            self.valores[pos] = valor
+            return
+        if vaga is None:
+            raise RuntimeError("tabela cheia")
+        self.chaves[vaga] = chave
+        self.valores[vaga] = valor
+        self.tamanho += 1
+
+    def get(self, chave, padrao=None):
+        pos, _ = self._procurar(chave)
+        return padrao if pos is None else self.valores[pos]
+
+    def delete(self, chave):
+        pos, _ = self._procurar(chave)
+        if pos is None:
+            return False
+        self.chaves[pos] = APAGADO
+        self.valores[pos] = None
+        self.tamanho -= 1
+        return True
+```
+
+### Dicas
+1. As três operações andam pelo mesmo caminho; uma função auxiliar que devolve a posição da chave e a primeira vaga reaproveitável evita repetir o laço.
+2. Um `for _ in range(capacidade)` garante que o laço termina mesmo sem nenhuma posição vazia.
+3. A lápide é um objeto único: compare com `is APAGADO`.
+
+### Verificação
+```json
+[
+  { "id": "sondagem", "checkpoint": 1, "kind": "expr",
+    "setup": "t = TabelaHashAberta(8)\nfor k, v in [(1, 'a'), (9, 'b'), (17, 'c')]:\n    t.put(k, v)",
+    "expr": "[t.chaves, [t.get(1), t.get(9), t.get(17)], len(t)]",
+    "expected": [[null, 1, 9, 17, null, null, null, null], ["a", "b", "c"], 3],
+    "name": "1, 9 e 17 colidem e ocupam as posições 1, 2 e 3" },
+  { "id": "volta", "checkpoint": 1, "kind": "expr", "setup": "t = TabelaHashAberta(8)\nt.put(7, 'x')\nt.put(15, 'y')",
+    "expr": "[t.chaves[7], t.chaves[0], t.get(15)]", "expected": [7, 15, "y"],
+    "name": "A colisão na última posição continua na posição 0", "hint": "Depois da última posição vem a primeira." },
+  { "id": "atualiza", "checkpoint": 1, "kind": "expr", "setup": "t = TabelaHashAberta(8)\nt.put(1, 'a')\nt.put(9, 'b')\nt.put(9, 'B')",
+    "expr": "[len(t), t.get(9), t.chaves[:4]]", "expected": [2, "B", [null, 1, 9, null]],
+    "name": "Gravar de novo a mesma chave só troca o valor" },
+  { "id": "ausente", "checkpoint": 2, "kind": "expr",
+    "setup": "t = TabelaHashAberta(8)\nfor k, v in [(1, 'a'), (9, 'b'), (17, 'c')]:\n    t.put(k, v)",
+    "expr": "[t.get(25), t.get(25, '-'), t.get(2, '-')]", "expected": [null, "-", "-"], "name": "Chaves ausentes devolvem o padrão" },
+  { "id": "lapide", "checkpoint": 2, "kind": "expr",
+    "setup": "t = TabelaHashAberta(8)\nfor k, v in [(1, 'a'), (9, 'b'), (17, 'c')]:\n    t.put(k, v)\nr = t.delete(9)",
+    "expr": "[r, t.chaves[2] is APAGADO, t.get(17), t.get(9, '-'), len(t)]", "expected": [true, true, "c", "-", 2],
+    "name": "Depois de apagar o 9, o 17 continua sendo encontrado",
+    "hint": "A busca precisa continuar depois da posição apagada." },
+  { "id": "reaproveita", "checkpoint": 3, "kind": "expr",
+    "setup": "t = TabelaHashAberta(8)\nfor k, v in [(1, 'a'), (9, 'b'), (17, 'c')]:\n    t.put(k, v)\nt.delete(9)\nt.put(25, 'd')",
+    "expr": "[t.chaves[2], t.get(25), len(t)]", "expected": [25, "d", 3], "name": "Uma chave nova ocupa a lápide do caminho" },
+  { "id": "sem-duplicar", "checkpoint": 3, "kind": "expr",
+    "setup": "t = TabelaHashAberta(8)\nt.put(1, 'a')\nt.put(9, 'b')\nt.delete(1)\nt.put(9, 'B')\nn = len(t)\nt.delete(9)",
+    "expr": "[n, t.get(9, '-'), len(t)]", "expected": [1, "-", 0],
+    "name": "Atualizar uma chave que está depois de uma lápide não a duplica",
+    "hint": "Antes de usar a lápide, confirme que a chave não aparece mais adiante." },
+  { "id": "cheia", "checkpoint": 2, "kind": "expr", "setup": "t = TabelaHashAberta(4)\nfor k in range(4):\n    t.put(k, k)",
+    "expr": "[t.get(8, '-'), t.delete(8), len(t)]", "expected": ["-", false, 4],
+    "name": "Busca numa tabela sem posição vazia termina", "hint": "Limite o laço ao número de posições." },
+  { "id": "cheia-put", "checkpoint": 3, "kind": "expr", "setup": "t = TabelaHashAberta(4)\nfor k in range(4):\n    t.put(k, k)",
+    "expr": "t.put(8, 'x')", "raises": "RuntimeError", "name": "Chave nova numa tabela cheia levanta RuntimeError" },
+  { "id": "so-lapides", "checkpoint": 3, "kind": "expr",
+    "setup": "t = TabelaHashAberta(4)\nfor k in range(4):\n    t.put(k, k)\nfor k in range(4):\n    t.delete(k)\na = [len(t), t.get(4, '-')]\nt.put(4, 'x')",
+    "expr": "[a, t.get(4), t.chaves[0], len(t)]", "expected": [[0, "-"], "x", 4, 1],
+    "name": "Tabela só de lápides: a busca termina e a inserção reaproveita" },
+  { "id": "delete-ausente", "checkpoint": 2, "kind": "expr", "setup": "t = TabelaHashAberta(8)\nt.put(1, 'a')",
+    "expr": "[t.delete(9), t.delete(1), t.delete(1), len(t)]", "expected": [false, true, false, 0],
+    "name": "Remover chave ausente devolve False" }
+]
+```
+
+### Soluções erradas
+```python name="remoção grava None"
+APAGADO = object()
+
+
+class TabelaHashAberta:
+    def __init__(self, capacidade=8):
+        self.chaves = [None] * capacidade
+        self.valores = [None] * capacidade
+        self.tamanho = 0
+
+    def __len__(self):
+        return self.tamanho
+
+    def _procurar(self, chave):
+        m = len(self.chaves)
+        i = hash(chave) % m
+        vaga = None
+        for _ in range(m):
+            k = self.chaves[i]
+            if k is None:
+                return None, (i if vaga is None else vaga)
+            if k is APAGADO:
+                if vaga is None:
+                    vaga = i
+            elif k == chave:
+                return i, None
+            i = (i + 1) % m
+        return None, vaga
+
+    def put(self, chave, valor):
+        pos, vaga = self._procurar(chave)
+        if pos is not None:
+            self.valores[pos] = valor
+            return
+        if vaga is None:
+            raise RuntimeError("tabela cheia")
+        self.chaves[vaga] = chave
+        self.valores[vaga] = valor
+        self.tamanho += 1
+
+    def get(self, chave, padrao=None):
+        pos, _ = self._procurar(chave)
+        return padrao if pos is None else self.valores[pos]
+
+    def delete(self, chave):
+        pos, _ = self._procurar(chave)
+        if pos is None:
+            return False
+        self.chaves[pos] = None
+        self.valores[pos] = None
+        self.tamanho -= 1
+        return True
+```
+```python name="busca para na lápide"
+APAGADO = object()
+
+
+class TabelaHashAberta:
+    def __init__(self, capacidade=8):
+        self.chaves = [None] * capacidade
+        self.valores = [None] * capacidade
+        self.tamanho = 0
+
+    def __len__(self):
+        return self.tamanho
+
+    def _procurar(self, chave):
+        m = len(self.chaves)
+        i = hash(chave) % m
+        for _ in range(m):
+            k = self.chaves[i]
+            if k is None or k is APAGADO:
+                return None, i
+            if k == chave:
+                return i, None
+            i = (i + 1) % m
+        return None, None
+
+    def put(self, chave, valor):
+        pos, vaga = self._procurar(chave)
+        if pos is not None:
+            self.valores[pos] = valor
+            return
+        if vaga is None:
+            raise RuntimeError("tabela cheia")
+        self.chaves[vaga] = chave
+        self.valores[vaga] = valor
+        self.tamanho += 1
+
+    def get(self, chave, padrao=None):
+        pos, _ = self._procurar(chave)
+        return padrao if pos is None else self.valores[pos]
+
+    def delete(self, chave):
+        pos, _ = self._procurar(chave)
+        if pos is None:
+            return False
+        self.chaves[pos] = APAGADO
+        self.valores[pos] = None
+        self.tamanho -= 1
+        return True
+```
+```python name="ocupa a lápide sem procurar a chave adiante"
+APAGADO = object()
+
+
+class TabelaHashAberta:
+    def __init__(self, capacidade=8):
+        self.chaves = [None] * capacidade
+        self.valores = [None] * capacidade
+        self.tamanho = 0
+
+    def __len__(self):
+        return self.tamanho
+
+    def put(self, chave, valor):
+        m = len(self.chaves)
+        i = hash(chave) % m
+        for _ in range(m):
+            k = self.chaves[i]
+            if k is None or k is APAGADO:
+                self.chaves[i] = chave
+                self.valores[i] = valor
+                self.tamanho += 1
+                return
+            if k == chave:
+                self.valores[i] = valor
+                return
+            i = (i + 1) % m
+        raise RuntimeError("tabela cheia")
+
+    def _posicao(self, chave):
+        m = len(self.chaves)
+        i = hash(chave) % m
+        for _ in range(m):
+            k = self.chaves[i]
+            if k is None:
+                return None
+            if k is not APAGADO and k == chave:
+                return i
+            i = (i + 1) % m
+        return None
+
+    def get(self, chave, padrao=None):
+        pos = self._posicao(chave)
+        return padrao if pos is None else self.valores[pos]
+
+    def delete(self, chave):
+        pos = self._posicao(chave)
+        if pos is None:
+            return False
+        self.chaves[pos] = APAGADO
+        self.valores[pos] = None
+        self.tamanho -= 1
+        return True
+```
+```python name="sondagem sem módulo"
+APAGADO = object()
+
+
+class TabelaHashAberta:
+    def __init__(self, capacidade=8):
+        self.chaves = [None] * capacidade
+        self.valores = [None] * capacidade
+        self.tamanho = 0
+
+    def __len__(self):
+        return self.tamanho
+
+    def _procurar(self, chave):
+        m = len(self.chaves)
+        i = hash(chave) % m
+        vaga = None
+        for _ in range(m):
+            k = self.chaves[i]
+            if k is None:
+                return None, (i if vaga is None else vaga)
+            if k is APAGADO:
+                if vaga is None:
+                    vaga = i
+            elif k == chave:
+                return i, None
+            i = i + 1
+        return None, vaga
+
+    def put(self, chave, valor):
+        pos, vaga = self._procurar(chave)
+        if pos is not None:
+            self.valores[pos] = valor
+            return
+        if vaga is None:
+            raise RuntimeError("tabela cheia")
+        self.chaves[vaga] = chave
+        self.valores[vaga] = valor
+        self.tamanho += 1
+
+    def get(self, chave, padrao=None):
+        pos, _ = self._procurar(chave)
+        return padrao if pos is None else self.valores[pos]
+
+    def delete(self, chave):
+        pos, _ = self._procurar(chave)
+        if pos is None:
+            return False
+        self.chaves[pos] = APAGADO
+        self.valores[pos] = None
+        self.tamanho -= 1
+        return True
+```
+```python name="laço até achar None, sem limite"
+APAGADO = object()
+
+
+class TabelaHashAberta:
+    def __init__(self, capacidade=8):
+        self.chaves = [None] * capacidade
+        self.valores = [None] * capacidade
+        self.tamanho = 0
+
+    def __len__(self):
+        return self.tamanho
+
+    def _procurar(self, chave):
+        m = len(self.chaves)
+        i = hash(chave) % m
+        vaga = None
+        while self.chaves[i] is not None:
+            k = self.chaves[i]
+            if k is APAGADO:
+                if vaga is None:
+                    vaga = i
+            elif k == chave:
+                return i, None
+            i = (i + 1) % m
+        return None, (i if vaga is None else vaga)
+
+    def put(self, chave, valor):
+        pos, vaga = self._procurar(chave)
+        if pos is not None:
+            self.valores[pos] = valor
+            return
+        self.chaves[vaga] = chave
+        self.valores[vaga] = valor
+        self.tamanho += 1
+
+    def get(self, chave, padrao=None):
+        pos, _ = self._procurar(chave)
+        return padrao if pos is None else self.valores[pos]
+
+    def delete(self, chave):
+        pos, _ = self._procurar(chave)
+        if pos is None:
+            return False
+        self.chaves[pos] = APAGADO
+        self.valores[pos] = None
+        self.tamanho -= 1
+        return True
+```
+```python name="atualizar conta como chave nova"
+APAGADO = object()
+
+
+class TabelaHashAberta:
+    def __init__(self, capacidade=8):
+        self.chaves = [None] * capacidade
+        self.valores = [None] * capacidade
+        self.tamanho = 0
+
+    def __len__(self):
+        return self.tamanho
+
+    def _procurar(self, chave):
+        m = len(self.chaves)
+        i = hash(chave) % m
+        vaga = None
+        for _ in range(m):
+            k = self.chaves[i]
+            if k is None:
+                return None, (i if vaga is None else vaga)
+            if k is APAGADO:
+                if vaga is None:
+                    vaga = i
+            elif k == chave:
+                return i, None
+            i = (i + 1) % m
+        return None, vaga
+
+    def put(self, chave, valor):
+        pos, vaga = self._procurar(chave)
+        self.tamanho += 1
+        if pos is not None:
+            self.valores[pos] = valor
+            return
+        if vaga is None:
+            raise RuntimeError("tabela cheia")
+        self.chaves[vaga] = chave
+        self.valores[vaga] = valor
+
+    def get(self, chave, padrao=None):
+        pos, _ = self._procurar(chave)
+        return padrao if pos is None else self.valores[pos]
+
+    def delete(self, chave):
+        pos, _ = self._procurar(chave)
+        if pos is None:
+            return False
+        self.chaves[pos] = APAGADO
+        self.valores[pos] = None
+        self.tamanho -= 1
+        return True
+```
+
+## Passo 8 · Quiz · Tabelas hash na prática
 
 ### Pergunta
-
-Por que uma `list` comum do Python **não** pode ser usada como chave de um `dict` (`TypeError: unhashable type: 'list'`), enquanto uma `tuple` de inteiros pode?
-
-- [ ] Porque tuplas têm no máximo 2 elementos.
-- [x] Porque uma `list` é mutável: se seu conteúdo fosse alterado depois de inserida no dicionário, seu valor de hash mudaria e ela ficaria em um bucket diferente daquele onde `dict[chave]` a procuraria, corrompendo a invariante da tabela hash.
-- [ ] Porque calcular o hash de uma lista levaria tempo exponencial.
-- [ ] Porque listas só podem armazenar strings.
-
-> Se o hash de uma chave mudasse após a inserção, o dicionário jamais a encontraria no novo bucket nem conseguiria manter a unicidade das chaves.
+Uma tabela com encadeamento foi criada com 1 000 compartimentos e nunca redimensiona. Ela recebe 1 000 000 de chaves bem espalhadas pelo hash. Quantas comparações de chave, em média, faz uma busca por uma chave **ausente**?
+- [ ] 1, porque tabela hash é $O(1)$
+- [ ] Cerca de 20, porque $\log_2 10^6 \approx 20$
+- [x] Cerca de 1 000, o tamanho médio de um compartimento
+- [ ] Cerca de 1 000 000, porque percorre a tabela inteira
+> O fator de carga é $\alpha = 10^6 / 10^3 = 1000$: cada compartimento tem, em média, 1 000 pares, e uma busca sem sucesso compara com todos os do seu compartimento. O "$O(1)$ em média" só vale se $\alpha$ ficar limitado, e é para isso que se redimensiona.
 
 ### Pergunta
+Numa tabela com sondagem linear e 8 posições, as chaves 1, 9 e 17 ocupam as posições 1, 2 e 3. Um colega escreveu `delete` gravando `None` na posição apagada. Depois de `delete(9)`, o que `get(17)` faz?
+- [ ] Encontra o 17 na posição 3, porque a busca sempre olha a tabela inteira
+- [x] Devolve "ausente": a busca começa na posição 1, para na posição 2 vazia e nunca chega à 3
+- [ ] Levanta `KeyError`, porque a cadeia de sondagem ficou inválida
+- [ ] Encontra o 17 na posição 2, para onde ele foi movido pela remoção
+> Na sondagem linear, uma posição vazia significa "a chave não existe". Ao apagar com `None`, o 17 fica inalcançável, embora continue na posição 3. A lápide resolve: a busca passa por cima dela e continua.
 
-O que acontece ao redimensionar uma tabela hash de $m$ para $2m$ buckets se simplesmente copiarmos cada bucket inteiro `novos_buckets[i] = antigos_buckets[i]` sem recalcular `hash(chave) % (2 * m)`?
-
-- [ ] A tabela funciona normalmente e fica duas vezes mais rápida.
-- [x] A tabela fica corrompida: uma chave cujo `hash(chave) % m` era `i` pode ter `hash(chave) % (2 * m)` igual a `i + m`, fazendo `get(chave)` procurar no bucket `i + m` (vazio) e não encontrar a chave guardada em `i`.
-- [ ] Apenas as chaves numéricas param de funcionar.
-- [ ] O fator de carga dobra em vez de cair pela metade.
-
-> Como o divisor do módulo mudou de $m$ para $2m$, cerca de metade das chaves mudam de índice (de $i$ para $i + m$). Por isso, o *rehashing* de cada chave individual é indispensável.
+### Pergunta
+Duas tabelas com encadeamento começam com 1 000 compartimentos e redimensionam quando $\alpha > 0{,}75$. A primeira dobra o número de compartimentos; a segunda soma 1 000. Inserindo 1 000 000 de chaves, quantos pares cada uma recoloca no total?
+- [ ] As duas recolocam cerca de 1 000 000, porque cada chave é recolocada uma vez
+- [x] A primeira, menos de 2 000 000; a segunda, centenas de milhões
+- [ ] A primeira, centenas de milhões; a segunda, menos de 2 000 000, porque cresce devagar
+- [ ] Nenhuma recoloca pares: o redimensionamento só aumenta a lista
+> Dobrando, os redimensionamentos acontecem com 750, 1 500, 3 000, … chaves, e a soma é menor que $2n$. Somando 1 000, há um redimensionamento a cada 750 inserções, cada um recolocando todas as chaves já presentes: cerca de $n^2 / 1500 \approx 6{,}7 \times 10^8$ recolocações.
