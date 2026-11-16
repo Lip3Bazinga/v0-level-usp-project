@@ -170,6 +170,18 @@ Comportamentos do pandas 3 que as lições precisam mostrar: texto tem `dtype` `
   `ax.lines[7*i + 5]`. Todo `savefig` escreve dois `MatplotlibDeprecationWarning` (`The x parameter as float…`) no
   stderr do executor — vêm da montagem do Pyodide, não do código do aluno. `FileNotFoundError` sai com
   `[Errno 44]` no executor e `[Errno 2]` no computador do aluno.
+- **Estatística (m6):** `stats.linregress` com todos os x iguais não levanta erro no scipy 1.18: devolve `nan` com
+  `RuntimeWarning: Precision loss occurred in moment calculation…`; `np.polyfit` nesse caso dá `RankWarning`.
+  `stats.pearsonr` com entrada constante dá `ConstantInputWarning` e `nan`. `stats.norm.pmf` não existe
+  (`AttributeError`). `stats.norm.ppf(1.0)` é `inf` e `ppf(1.5)` é `nan`, sem erro. `stats.ttest_rel` com tamanhos
+  diferentes: `ValueError: Array shapes are incompatible for broadcasting.` `np.average(v, weights=[0, 0])`:
+  `ZeroDivisionError: Weights sum to zero, can't be normalized`. `Series.skew()` com menos de 3 valores dá `nan`.
+  O scikit-learn carrega sem listar o scipy em `bibliotecas`. As lições m6-01, m6-03 e m6-04 saíram do perfil `ml`
+  (sem scipy). Com o runner saturado, um lote pode estourar o limite de tempo: repita a lição sozinha.
+- **`quantile`:** `Series.quantile(25)` dá `ValueError: percentiles should all be in the interval [0, 1]`, mas o
+  `quantile` de `groupby` dá `ValueError: Each 'q' must be between 0 and 1. Got '25.0' instead`.
+- **Projeto (m7):** dados faltantes do ENEM são nota **em branco** (não zero); 14 presentes têm nota 0,0 e ficam na
+  tabela. O formato repete o CSV em cada exercício: a lição tem ~770 KB.
 - **Sem fusos por nome:** o executor não tem `tzdata`; `tz_convert("America/Sao_Paulo")` dá `ZoneInfoNotFoundError`.
   Use deslocamento fixo (`tz_localize("UTC").tz_convert("-03:00")`), como na m4-03.
 - **Agrupamentos (m4):** atribuir `df.groupby(g)["v"].mean()` a uma coluna dá tudo `NaN` sem aviso (use `transform`);
