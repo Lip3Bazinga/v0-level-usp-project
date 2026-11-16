@@ -2,7 +2,7 @@
 
 Este é o plano de autoria do Nível 3 da trilha **Python: do zero à IA**. Ele orienta a escrita das lições de `content/cursos/n3-estruturas-de-dados-e-algoritmos`. Cada lição traz: slug, título, objetivos, conceitos e a **sequência de passos, um a um**, com o tipo de cada passo (Leitura, Exercício — código, lacunas ou ordenar —, Previsão, Quiz), os recursos de apresentação (diagrama Mermaid, bloco `visualizar`, fórmula KaTeX) e, nos exercícios, as funções e classes pedidas.
 
-**Estado:** os módulos 1 a 6 já foram escritos e auditados; as seções deles descrevem o conteúdo atual, e a fonte da verdade são os próprios `.lvl.md`. Os módulos 7 e 8 ainda seguem o roteiro original deste plano e precisam obedecer às regras gerais abaixo, que valem para o nível inteiro.
+**Estado:** os oito módulos estão escritos, publicados e auditados; as seções de cada lição descrevem o conteúdo atual, e a fonte da verdade são os próprios `.lvl.md`. As regras gerais abaixo valem para o nível inteiro e para qualquer revisão futura.
 
 Formato dos arquivos: `content/README.md` (§3 inteira; recursos de apresentação em §3.5–§3.7) e `docs/v2/curso-e-passos.md` §6. Todas as 39 lições deste nível usam `runtime: python` (CPython 3.14 WASI no Wasmtime), implementando estruturas e algoritmos em Python puro e biblioteca padrão (`collections.deque`, `heapq`, `bisect`, `functools`).
 
@@ -21,25 +21,29 @@ O aluno do Nível 3 já domina Python intermediário (classes, métodos especiai
 ### Regras
 
 - **Diagrama (bloco `mermaid`)** — para árvores de decisão/recursão, ponteiros em listas ligadas e duplas (cache LRU), árvores binárias/BST/AVL/heaps/tries, grafos (representações, BFS, DFS, ordenação topológica, Dijkstra, MST) e grades de programação dinâmica. Use `flowchart` com no máximo ~8 nós e rótulos curtos em pt-BR; texto com parênteses, colchetes ou dois-pontos vai entre aspas.
-- **Visualizador (bloco `python visualizar`)** — para inspecionar o estado mudando passo a passo: algoritmo de Euclides, redimensionamento amortizado de lista dinâmica, pilha de chamadas na recursão e *backtracking* (`append`/`pop`), busca binária estreitando `[lo, hi)`, particionamento de Lomuto, troca de ponteiros ao inverter lista ligada, subir/descer no heap, relaxamento no Dijkstra e preenchimento de tabela DP. Até 60 linhas, autossuficiente e sem `input()`. Não pode ser a solução de um exercício da lição.
+- **Visualizador (bloco `python visualizar`)** — para inspecionar o estado mudando passo a passo: algoritmo de Euclides, redimensionamento amortizado de lista dinâmica, pilha de chamadas na recursão e *backtracking* (`append`/`pop`), busca binária estreitando `[lo, hi)`, particionamento de Lomuto, troca de ponteiros ao inverter lista ligada, subir/descer no heap, BFS num espaço de estados, o Dijkstra clássico errando com peso negativo e preenchimento de tabela DP. Até 60 linhas, autossuficiente e sem `input()`. Não pode ser a solução de um exercício da lição.
 - **Fórmula (KaTeX)** — onde há expressão matemática ou recorrência: leis de De Morgan, inclusão-exclusão, combinações $\binom{n}{k}$, congruências $a \equiv b \pmod m$, somas de Gauss e geométrica, definição formal de $O(g(n))$, $\Omega(g(n))$ e $\Theta(g(n))$, recorrências e Teorema Mestre $T(n) = aT(n/b) + f(n)$, fator de carga $\alpha = n/m$ e equações de Bellman na programação dinâmica.
 - **`modo: lacunas` e `modo: ordenar`** — andaime nas primeiras lições de cada módulo (exceto no projeto final `n3-m8-05`, que tem apenas exercícios de código livre).
 - **Passo `Previsão`** — pelo menos um por módulo, com código determinístico, autossuficiente, sem `input()`, terminando sem erro e imprimindo de 1 a 20 linhas, acompanhado de `### Saída esperada`. As dicas não entregam a saída.
 - **Imagem (`assets/`) e Vídeo** — nenhum neste nível.
-- **Limites em todo passo:** até 3 dicas, que orientam sem entregar o código; exercício com **pelo menos 3 soluções erradas** (nos módulos 1–6 há de 3 a 9 por exercício, quase sempre 4 a 6), cada uma com um único defeito plausível, tirado dos erros reais de quem aprende — nada de espantalho como `return True`, `return []` ou a outra função do arquivo vazia; quiz com **3 perguntas**, cada uma com exatamente uma alternativa correta, distratores plausíveis e explicação (`> …`); leitura com ≥ 200 caracteres, sem exclamações e mostrando o erro comum com a mensagem real do Python.
+- **Limites em todo passo:** até 3 dicas, que orientam sem entregar o código; exercício com **pelo menos 3 soluções erradas** (nos módulos 1–6 há de 3 a 9 por exercício, quase sempre 4 a 6; nos módulos 7–8, de 5 a 9), cada uma com um único defeito plausível, tirado dos erros reais de quem aprende — nada de espantalho como `return True`, `return []` ou a outra função do arquivo vazia; quiz com **3 perguntas**, cada uma com exatamente uma alternativa correta, distratores plausíveis e explicação (`> …`); leitura com ≥ 200 caracteres, sem exclamações e mostrando o erro comum com a mensagem real do Python.
 
 ### Verificação e convenções do nível
 
 - **Custo verificado por contagem de operações, nunca por tempo.** Nenhum caso depende do relógio do executor (nem "roda $10^5$ elementos rápido"): a versão lenta costuma passar e o teste fica instável. Use, conforme o caso:
   - objetos com `__lt__`/`__eq__`/`__hash__` que contam comparações e hashes;
-  - `list`/`str` instrumentadas que contam leituras (`__getitem__`) e cópias por fatia;
+  - `list`/`str` instrumentadas que contam leituras (`__getitem__`), cópias por fatia e iterações (`__iter__` nas listas de adjacência: cada lista lida uma vez);
   - `property` instalada na classe do nó que conta leituras de `.proximo`, `.filhos` etc.;
-  - `sys.setprofile` para contar chamadas recursivas e medir a profundidade; `sys.settrace` para contar linhas executadas;
+  - `sys.setprofile` para contar chamadas recursivas e medir a profundidade; `sys.settrace` para contar linhas executadas; acima do limite, a contagem interrompe a execução com uma exceção derivada de `BaseException`, que o `except Exception` do aluno não engole;
+  - `tracemalloc` para cobrar memória (mochila em uma linha, distância de edição em duas linhas);
+  - caso `source` só quando o custo não é observável por contagem (ex.: `calls popleft` recusa `list.pop(0)` na BFS);
   - `RecursionError` com o limite padrão para recusar recursão linear ou pivô fixo;
   - relógio injetado (`relogio=`, `timer=`) quando o assunto é a própria medição;
   - entradas de $10^{12}$ a $10^{18}$ com resultado inteiro exato, onde a força bruta é inviável.
 - **Casos de teste:** um caso por asserção (nada de `expr` que junta várias numa tupla), com as bordas (vazio, um elemento, repetidos, negativos) e, para fórmulas, conferência contra a força bruta em entradas pequenas. Casos que podem cair num ciclo andam pelos nós com um limite, para a errada reprovar sem travar o executor.
 - **Funções que alteram a estrutura no lugar devolvem `None`**, como `list.sort` e `list.reverse` (ex.: `inverter_no_lugar`, `selection_sort`, `quick_sort`, `heap_sort`). A exceção documentada é `bubble_sort`, que devolve o número de passagens. Funções que devolvem lista nova (`merge_sort`, `radix_sort`, `intercalar`) não alteram a entrada, e isso é verificado.
+- **Várias respostas ótimas:** quando há empate (caminho mínimo, itens da mochila, trecho de Kadane, LIS, LCS, edições, códigos de Huffman, ordem topológica por DFS), os casos validam a resposta (existe, é viável, tem o valor ótimo) em vez de fixar um desempate. Quando a ordem faz parte do contrato (BFS com o primeiro a descobrir, Kahn com fila ou heap, `kruskal` na ordem da lista, `sugerir_correcao`, `diff_linhas`, `mais_proximos`), o enunciado fixa o critério e ele é verificado.
+- **Profundidade de recursão no executor:** a recursão Python pura vai até o limite padrão (cerca de 1 000) e dá `RecursionError` limpo, mas a recursão que passa pelo `functools.lru_cache` (uma camada em C a cada nível) derruba a instância WASI entre 250 e 330 níveis, com "Recursão profunda demais (estouro de pilha)". Casos com `lru_cache` ficam bem abaixo disso (grade de até 40 × 40; troco até 200), e entradas maiores vão para a versão tabular.
 - **Exemplos neutros:** sem instituições, disciplinas ou domínios reais; nomes, preços e dados fictícios.
 
 ### Dosagem por módulo
@@ -52,15 +56,15 @@ O aluno do Nível 3 já domina Python intermediário (classes, métodos especiai
 | 4 · Busca e ordenação | 6 | 5 | 5 | 13 | 4 | 1 | 13 | 4 | 0 |
 | 5 · Estruturas lineares | 4 | 5 | 3 | 9 | 4 | 1 | 9 | 4 | 0 |
 | 6 · Árvores, heaps e tabelas hash | 5 | 9 | 2 | 14 | 5 | 1 | 10 | 4 | 0 |
-| 7 · Grafos | 6 | 6 | 2 | 2 | 1 | 1 | 16 | 2 | 0 |
-| 8 · Programação dinâmica e projeto | 5 | 4 | 2 | 3 | 1 | 1 | 16 | 2 | 0 |
-| **Total** | **39** | **39** | **24** | **76** | **23** | **9** | **93** | **25** | **0** |
+| 7 · Grafos | 6 | 9 | 2 | 16 | 5 | 1 | 12 | 6 | 0 |
+| 8 · Programação dinâmica e projeto | 5 | 4 | 1 | 12 | 2 | 1 | 14 | 5 | 0 |
+| **Total** | **39** | **42** | **23** | **99** | **28** | **9** | **87** | **32** | **0** |
 
-Módulos 1–6: contagem do conteúdo atual (Mermaid e Visualizar = número de blocos). Módulos 7–8: previsão do roteiro original, a revisar quando forem escritos.
+Contagem do conteúdo atual dos oito módulos (Mermaid e Visualizar = número de blocos; leituras com fórmula = passos de leitura com KaTeX). Nos módulos 7 e 8 toda lição tem 8 passos e exatamente uma Previsão, inclusive o projeto.
 
 ## Estrutura do nível
 
-8 módulos · 39 lições (1 projeto de nível) · 33,7 h de lições (2020 min) + prova (1 h) · 4610 XP · prova com banco de 12 questões (10 por tentativa).
+8 módulos · 39 lições (1 projeto de nível) · 33,7 h de lições (2020 min) + prova (1 h) · 4610 XP · prova com banco de 40 questões (10 por tentativa), na proporção das lições de cada módulo (5, 4, 4, 6, 4, 5, 6 e 6), com a alternativa correta 10 vezes em cada posição.
 
 | # | Módulo | Lições | Minutos | XP |
 |---|---|---|---|---|
@@ -428,104 +432,141 @@ Pilhas (delimitadores, posfixa, *shunting-yard*, desfazer/refazer), filas, fila 
 
 ## Módulo 7 · Grafos
 
-Representações (lista/matriz/grade), BFS e menor caminho sem pesos, DFS/componentes/ciclos/bipartição, ordenação topológica, Dijkstra/Bellman-Ford e MST (Kruskal/Prim) com Union-Find.
+Lista e matriz de adjacência, grafos implícitos e leitura de grafos em texto; BFS (distâncias, predecessores, grades, espaços de estados e múltiplas fontes); DFS iterativa na ordem da recursiva, componentes, ciclos com três cores e bipartição; ordenação topológica (Kahn, pós-ordem invertida, desempate por heap, mínimo de semestres e o ciclo como resposta); Dijkstra com entradas obsoletas, Bellman-Ford e A*; union-find, Kruskal, Prim e agrupamento. Convenções do módulo: todo vértice é chave do dicionário, inclusive o isolado; no grafo não direcionado cada aresta aparece nas duas listas e o laço `(a, a)` duas vezes na lista de `a`; o grafo ponderado é `vértice → lista de (vizinho, peso)`, o mesmo formato no Dijkstra e no Prim; buscas que podem passar de ~1 000 níveis são iterativas, e os casos têm correntes de 3 000 a 5 000 vértices que estouram a recursão.
 
 ### n3-m7-01-representacao-de-grafos · Representação de grafos
 - **Arquivo:** `07-grafos/01-representacao-de-grafos.lvl.md` · 100 XP · 40 min
-- **Passos (5):**
-  1. **Leitura · Vértices, arestas direcionadas e ponderadas, lista vs matriz de adjacência e grafos implícitos em grade** (Mermaid + KaTeX: $O(V + E)$ vs $O(V^2)$)
-  2. **Exercício (lacunas) · Construção de grafo, graus e vizinhos em grade** (`construir_grafo`, `grau`, `graus_de_entrada`, `vizinhos_na_grade`)
-  3. **Exercício (código) · Conversão entre lista e matriz de adjacência e consulta `tem_aresta`** (`lista_para_matriz`, `matriz_para_lista`, `tem_aresta_lista`, `tem_aresta_matriz`)
-  4. **Quiz · Grafos esparsos vs densos, soma dos graus e simetria na matriz de adjacência**
+- **Passos (8):**
+  1. **Leitura · Vértices, arestas e o que eles modelam** (Mermaid + KaTeX: $\sum \text{grau}(v) = 2|E|$, com o laço somando 2; `KeyError` do isolado e `dict.fromkeys(vertices, [])`)
+  2. **Exercício (lacunas) · construir_grafo e graus** (`construir_grafo(vertices, arestas, direcionado=False)`, `graus(grafo)`, `graus_de_entrada(grafo)`, com 0 para quem não recebe arestas)
+  3. **Leitura · Lista, matriz e grafo implícito** (KaTeX: tabela de custos, $V(V-1)/2$, esparso × denso; `[[0] * n] * n`, `vertices.index` no laço e o índice $-1$ que dá a volta na grade)
+  4. **Previsão · A matriz que mudou sozinha** (`[[0] * n] * n` contra a compreensão; `defaultdict` que cria a chave ao ler)
+  5. **Exercício (código) · Converter e consultar** (`lista_para_matriz(grafo, vertices)` com `m[i][j]` contando arestas, `matriz_para_lista(matriz, vertices)` mantendo paralelas e isolados, `vizinhos_na_grade(grade, i, j)` na ordem cima, baixo, esquerda, direita; vértices com `__eq__` contado: ≤ 1 000 comparações para 400 vértices)
+  6. **Leitura · Do texto ao grafo** (`split()` contra `split(" ")`, `int` contra `float` e as mensagens reais do 3.14; `setdefault` para o destino da aresta direcionada)
+  7. **Exercício (código) · Ler o grafo de um texto** (`ler_grafo(texto, direcionado=False)` → `vértice → lista de (vizinho, peso)` com peso `float`; `mais_conectados(grafo)` → todos os empatados, em ordem alfabética)
+  8. **Quiz · Escolhas de representação**
 
 ### n3-m7-02-bfs-e-menor-caminho · BFS e menor caminho sem pesos
 - **Arquivo:** `07-grafos/02-bfs-e-menor-caminho.lvl.md` · 120 XP · 50 min
-- **Passos (5):**
-  1. **Leitura · Busca em largura por camadas, marcar visitado ao enfileirar, reconstrução de caminho e BFS multi-fonte** (Mermaid + Visualizar)
-  2. **Exercício (código) · `bfs` de distâncias e reconstrução de `menor_caminho`** (`bfs(grafo, origem)`, `menor_caminho(grafo, origem, destino)`)
-  3. **Exercício (código) · Labirinto em grade, escada de palavras e BFS multi-fonte** (`resolver_labirinto`, `menor_numero_de_trocas`, `distancia_ate_mais_proximo`)
-  4. **Quiz · Por que marcar visitado ao enfileirar e por que BFS garante o menor número de arestas**
+- **Passos (8):**
+  1. **Leitura · Camadas a partir da origem** (Mermaid + KaTeX; marcar ao enfileirar, `pop()` e `list.pop(0)` como erros, $O(V + E)$)
+  2. **Previsão · A ordem da fila** (estado da fila a cada rodada e as saídas da versão que marca ao desenfileirar)
+  3. **Exercício (lacunas) · BFS com distâncias e predecessores** (`bfs(grafo, origem)` → `(dist, pred)` só com os alcançáveis; empate: vale o primeiro a descobrir; cada lista de adjacência lida uma vez num grafo completo, por `list` com `__iter__` contado; um caso `source` recusa `list.pop(0)`)
+  4. **Leitura · Por que a BFS acha o menor caminho** (KaTeX: $\text{dist}(v) = \text{dist}(\text{pred}(v)) + 1$; reconstrução sem recursão)
+  5. **Exercício (código, continuação) · Reconstruir o menor caminho** (`menor_caminho(grafo, origem, destino)` → lista ou `None`; corrente de 3 001 vértices)
+  6. **Leitura · Grades, estados e várias fontes** (Visualizar: BFS nos jarros de 3 e 5 litros + KaTeX; BFS de múltiplas fontes)
+  7. **Exercício (código) · Labirinto, palavras e várias fontes** (`passos_no_labirinto(grade)` com `S` e `E`, `escada_de_palavras(inicio, fim, palavras)`, `distancia_ao_mais_proximo(grade)` com os postos `P`; ≤ $6 \cdot RC$ leituras de linha numa grade 60 × 60)
+  8. **Quiz · Camadas, filas e caminhos**
 
 ### n3-m7-03-dfs-componentes-e-ciclos · DFS, componentes conexos e detecção de ciclos
 - **Arquivo:** `07-grafos/03-dfs-componentes-e-ciclos.lvl.md` · 120 XP · 50 min
-- **Passos (6):**
-  1. **Leitura · DFS recursiva e iterativa, componentes conexos, ciclos com 3 cores (branco/cinza/preto) e bipartição** (Mermaid)
-  2. **Previsão · Estados branco, cinza e preto na detecção de ciclo direcionado**
-  3. **Exercício (código) · `dfs_ordem`, `componentes` e ciclos em grafos direcionados e não direcionados** (`dfs_ordem`, `componentes`, `tem_ciclo_direcionado`, `tem_ciclo_nao_direcionado`)
-  4. **Exercício (código) · Teste de grafo bipartido (2-coloração) e contagem de ilhas iterativa em grade grande** (`eh_bipartido`, `contar_ilhas`)
-  5. **Quiz · Aresta de retorno para vértice cinza, pai no grafo não direcionado e grafos bipartidos**
+- **Passos (8):**
+  1. **Leitura · Descer até não dar mais** (Mermaid + KaTeX; `RecursionError` e as duas regras da iterativa: vizinhos invertidos e marcar ao desempilhar)
+  2. **Exercício (lacunas) · DFS iterativa na ordem da recursiva** (`dfs_ordem(grafo, origem)` sem recursão; corrente de 5 001 vértices)
+  3. **Leitura · Componentes e ciclos** (Mermaid do losango + KaTeX: $E = V - C$; ignorar o pai no não direcionado, três cores no direcionado)
+  4. **Previsão · Branco, cinza e preto**
+  5. **Exercício (código) · Componentes e ciclos** (`componentes(grafo)` iterativa, `tem_ciclo_nao_direcionado(grafo)` com laço e paralelas contando como ciclo, `tem_ciclo_direcionado(grafo)` com três cores, que pode ser recursiva)
+  6. **Leitura · Duas cores e regiões** (Mermaid pessoas × projetos; ciclo ímpar; ilhas e o `TypeError` de atribuir em `str`)
+  7. **Exercício (código) · Bipartição e ilhas** (`eh_bipartido(grafo)` e `contar_ilhas(grade)` com `#` para terra, sem recursão; ilha em serpente de 5 050 casas em 101 × 100)
+  8. **Quiz · Profundidade, ciclos e duas cores**
 
 ### n3-m7-04-ordenacao-topologica · Ordenação topológica
 - **Arquivo:** `07-grafos/04-ordenacao-topologica.lvl.md` · 110 XP · 45 min
-- **Passos (5):**
-  1. **Leitura · DAGs, algoritmo de Kahn com fila de grau zero, pós-ordem invertida na DFS e caminho crítico (mínimo de semestres)** (Mermaid)
-  2. **Exercício (ordenar) · Ordenação topológica por DFS (pós-ordem invertida)** (`ordem_topologica_dfs(grafo)`)
-  3. **Exercício (código) · Kahn com desempate lexicográfico, detecção de ciclo e mínimo de semestres** (`ordem_topologica_kahn`, `detectar_ciclo`, `minimo_de_semestres`)
-  4. **Quiz · Condição de existência (DAG), detecção de ciclo no algoritmo de Kahn e aplicações**
+- **Passos (8):** sem lacunas (única do módulo); o andaime é o `ordenar` do Kahn, cuja ordem é determinística e conferida exatamente.
+  1. **Leitura · Tarefas com dependências** (Mermaid das roupas + KaTeX; Kahn com grau de entrada, ciclo pelo tamanho da ordem e quatro erros)
+  2. **Exercício (ordenar) · Monte o algoritmo de Kahn** (`ordem_topologica(grafo)` → lista ou `None`; 2 linhas sobrando)
+  3. **Previsão · A pós-ordem ao contrário**
+  4. **Leitura · Pós-ordem invertida e desempate pelo menor** (KaTeX: $O((V + E)\log V)$ com heap contra $O(V^2)$ com `min()`)
+  5. **Exercício (código) · Pós-ordem invertida e ordem pelo menor** (`ordem_topologica_dfs(grafo)`, qualquer ordem válida, conferida aresta a aresta; `ordem_lexicografica(grafo)` com heap; `str` com `__lt__` contado: ≤ 30 000 comparações em 1 000 vértices)
+  6. **Leitura · Semestres, planilhas e o ciclo como resposta** (KaTeX: $\text{sem}(d) = 1 + \max \text{sem}(p)$; a BFS que dá o caminho mais curto)
+  7. **Exercício (código) · Mínimo de semestres e o ciclo** (`minimo_de_semestres(prerequisitos)` com `disciplina → pré-requisitos`, `-1` com ciclo; `encontrar_ciclo(grafo)` → ciclo fechado como `["b", "c", "d", "b"]` ou `None`)
+  8. **Quiz · Ordens, ciclos e aplicações**
 
 ### n3-m7-05-dijkstra · Dijkstra: menor caminho com pesos
 - **Arquivo:** `07-grafos/05-dijkstra.lvl.md` · 130 XP · 55 min
-- **Passos (6):**
-  1. **Leitura · Relaxamento de arestas, fila de prioridade (`heapq`), entradas obsoletas e limite de pesos não negativos** (Mermaid + Visualizar + KaTeX: $O((V + E)\log V)$)
-  2. **Previsão · Por que entradas obsoletas aparecem no heap durante o Dijkstra?**
-  3. **Exercício (código) · `dijkstra` em $O((V+E)\log V)$ para $10^4$ vértices e reconstrução de `caminho_minimo`** (`dijkstra`, `caminho_minimo`)
-  4. **Exercício (código) · Leitura de mapa de ruas em texto e Bellman-Ford com detecção de ciclo negativo** (`menor_tempo_de_viagem`, `bellman_ford`)
-  5. **Quiz · Invariante do Dijkstra, tratamento de entradas obsoletas e falha com pesos negativos**
+- **Passos (8):**
+  1. **Leitura · Relaxar arestas** (Mermaid + KaTeX; heap de `(distância, vértice)`, entradas obsoletas e três erros)
+  2. **Exercício (lacunas) · Dijkstra com heapq** (`dijkstra(grafo, origem)` → distâncias dos alcançáveis; paralelas com pesos diferentes; cada lista lida uma vez num grafo com 200 entradas obsoletas)
+  3. **Previsão · Entradas obsoletas no heap**
+  4. **Leitura · Por que funciona e o caminho** (KaTeX: invariante do vértice extraído, $O((V + E)\log V)$; predecessor gravado a cada melhora)
+  5. **Exercício (código, continuação) · Caminho mínimo com pesos** (`caminho_minimo(grafo, origem, destino)` → `(custo, caminho)` ou `None`; empate aceito pelo custo; corrente de 3 001 vértices)
+  6. **Leitura · Pesos negativos, Bellman-Ford e A\*** (Visualizar: Dijkstra clássico contra a força bruta + KaTeX: $O(V \cdot E)$; o Dijkstra "preguiçoso" do módulo perde a garantia de custo e não termina com ciclo negativo)
+  7. **Exercício (código) · Bellman-Ford e um mapa em texto** (`bellman_ford(vertices, arestas, origem)` com triplas, `None` só para ciclo negativo alcançável; `menor_tempo_de_viagem(texto, origem, destino)` com linhas `origem;destino;minutos` e `ValueError` para tempo negativo; `rotas.py` traz o `dijkstra`)
+  8. **Quiz · Pesos, heaps e garantias**
 
 ### n3-m7-06-arvore-geradora-minima-e-union-find · Árvore geradora mínima e union-find
 - **Arquivo:** `07-grafos/06-arvore-geradora-minima-e-union-find.lvl.md` · 120 XP · 50 min
-- **Passos (5):**
-  1. **Leitura · Union-Find (compressão de caminho + união por tamanho), Kruskal, Prim e propriedade do corte** (Mermaid)
-  2. **Exercício (código) · Classe `UnionFind` rápida ($10^5$ operações) e `conectividade_online`** (`UnionFind`, `conectividade_online`)
-  3. **Exercício (código) · Algoritmos de `kruskal` e `prim` e agrupamento por corte das $k-1$ maiores arestas da MST** (`kruskal`, `prim`, `agrupar`)
-  4. **Quiz · Propriedade do corte, compressão de caminho e diferença entre MST e menor caminho (Dijkstra)**
+- **Passos (8):**
+  1. **Leitura · Conjuntos que se fundem** (Mermaid da floresta + KaTeX: união por tamanho, $\lfloor \log_2 n \rfloor$, compressão, $\alpha(n)$; quatro erros)
+  2. **Exercício (lacunas) · UnionFind com compressão e tamanho** (`UnionFind(n)` com `encontrar`, `unir` → `bool`, `conectados`, `conjuntos`, `tamanho`; altura ≤ 10 com 1 024 elementos unidos em corrente nos dois sentidos; ≤ 700 000 leituras de `pai` em 81 920 buscas, contra 1,31 milhão sem compressão)
+  3. **Previsão · Compressão e união por tamanho**
+  4. **Leitura · Kruskal e a propriedade do corte** (Mermaid, custo 14 + KaTeX; `sorted(arestas)` que ordena por `u`)
+  5. **Exercício (código) · Kruskal e arestas redundantes** (`kruskal(n, arestas)` → `(custo, escolhidas)` ou `None` se desconexo, empates na ordem da lista; `arestas_redundantes(n, arestas)`; `uf.py` traz a `UnionFind`)
+  6. **Leitura · Prim e agrupamento** (KaTeX: $d^2$; prioridade é o peso da aresta, não a distância acumulada)
+  7. **Exercício (código) · Prim e agrupamento** (`prim(grafo, inicio)` → custo do componente; `agrupar(pontos, k)` com pontos `(x, y)` e $d^2$ inteiro, unindo até restarem `k` grupos)
+  8. **Quiz · Conectar barato e agrupar**
 
 ## Módulo 8 · Programação dinâmica e projeto
 
-Memoização (*top-down*), programação dinâmica tabular (*bottom-up*), DP em strings (LCS, Levenshtein, `diff`), algoritmos gulosos vs DP e o **Projeto Final: Planejador de Rotas do Campus**.
+Memoização (o estado, a chave completa e `lru_cache`), programação dinâmica tabular (troco, mochila 0/1 em 2D e 1D com reconstrução, Kadane e LIS em $O(n \log n)$), DP em strings (LCS, distância de edição, lista de edições, corretor e diff), guloso × DP (seleção de atividades, mochila fracionária, Huffman, troco canônico) e o **Projeto Final: Planejador de Rotas do Campus**, num campus fictício. A reconstrução da solução (moedas, itens, subsequência, edições, códigos) é sempre cobrada, e não só o valor ótimo.
 
 ### n3-m8-01-memoizacao · Memoização: recursão sem repetir trabalho
 - **Arquivo:** `08-programacao-dinamica-e-projeto/01-memoizacao.lvl.md` · 110 XP · 45 min
-- **Passos (6):**
-  1. **Leitura · Subproblemas sobrepostos, subestrutura ótima, dicionário de memoização e falha do guloso no troco `[1, 3, 4]`** (Mermaid + KaTeX)
-  2. **Previsão · Quantas chamadas `fib_memo(10)` faz em comparação com `fib_ingenuo(10)`?**
-  3. **Exercício (lacunas) · Fibonacci memoizado com contagem de chamadas e degraus de escada** (`fib_memo`, `formas_de_subir`)
-  4. **Exercício (código) · Caminhos em grade com obstáculos e troco mínimo para moedas arbitrárias** (`caminhos_na_grade`, `troco_minimo`)
-  5. **Quiz · Subproblemas sobrepostos, chaves imutáveis no cache e limite de recursão**
+- **Passos (8):** sem `fib_memo` (o Fibonacci memoizado já está no nível 2 e no m3); a escada e o troco fazem o papel dele.
+  1. **Leitura · O mesmo subproblema, muitas vezes** (Mermaid da árvore de $f(4)$ + KaTeX: custo = estados × trabalho, recorrência do troco; o guloso que erra com 1, 3 e 4)
+  2. **Previsão · O que o dicionário lembra** (`formas` com dicionário global e contador de chamadas)
+  3. **Exercício (lacunas) · formas_de_subir com um dicionário** (`formas_de_subir(n, passos)` com a auxiliar `contar(resta)`; ≤ 1 000 chamadas com 200 degraus e passos `[1, 2, 3]`)
+  4. **Leitura · Estados com dois parâmetros e lru_cache** (KaTeX; chave incompleta, `caminhos(2, 2)` dá 7; `TypeError: unhashable type: 'list'`; cache na função interna; `cache_info()`)
+  5. **Exercício (código) · Caminhos na grade com lru_cache** (`caminhos_na_grade(grade)` com `@lru_cache` numa função interna; grades de até 40 × 40; ≤ 2 000 chamadas em 18 × 18)
+  6. **Leitura · Troco mínimo: o valor e as moedas** (KaTeX; `None` para o impossível, reconstrução pela moeda guardada, `RecursionError` com valores grandes)
+  7. **Exercício (código) · troco_minimo com as moedas escolhidas** (`troco_minimo(moedas, valor)` → lista em ordem decrescente, `[]` para 0 e `None` se impossível; valores até 200; ≤ 1 500 chamadas com valor 180)
+  8. **Quiz · Quando e como memoizar**
 
 ### n3-m8-02-dp-tabular · Programação dinâmica tabular
 - **Arquivo:** `08-programacao-dinamica-e-projeto/02-dp-tabular.lvl.md` · 130 XP · 55 min
-- **Passos (5):**
-  1. **Leitura · Ordem topológica de preenchimento, Mochila 0/1 (2D e 1D percorrendo capacidades ao contrário), Kadane e LIS** (Visualizar + KaTeX: $dp[i][w] = \max(dp[i-1][w], dp[i-1][w-p_i] + v_i)$)
-  2. **Exercício (ordenar) · Mochila 0/1 em 1D ($O(W)$ de memória) percorrendo a capacidade de trás para frente** (`mochila_1d(pesos, valores, capacidade)`)
-  3. **Exercício (código) · Mochila 0/1 com reconstrução dos itens, Kadane com índices e LIS em $O(n \log n)$ com `bisect`** (`mochila`, `soma_maxima_subarranjo`, `lis`)
-  4. **Quiz · Por que percorrer $w$ decrescente na mochila 1D e como reconstruir escolhas**
+- **Passos (8):**
+  1. **Leitura · Da recursão à tabela** (Visualizar: troco bottom-up com 1, 3 e 4 + KaTeX: $dp[i][w] = \max(dp[i-1][w],\ dp[i-1][w - p_i] + v_i)$; por que $w$ decrescente na versão 1D; custo pseudo-polinomial)
+  2. **Exercício (ordenar) · mochila_1d com uma linha só** (`mochila_1d(pesos, valores, capacidade)`; 2 linhas sobrando; `tracemalloc` < 1 000 000 bytes com 80 itens e capacidade 2 500)
+  3. **Leitura · Quais itens entraram** (KaTeX: tabela 4 × 8 percorrida à mão; guloso pela razão com (6, 30), (5, 20), (5, 20))
+  4. **Exercício (código) · mochila com os itens escolhidos** (`mochila(pesos, valores, capacidade)` → `(valor, itens)` com índices crescentes; itens validados; ≤ 250 000 linhas com 60 itens e capacidade 400)
+  5. **Leitura · Kadane e a subsequência crescente** (KaTeX: $e_i = \max(x_i, e_{i-1} + x_i)$; caudas com `bisect_left`; caudas não são a LIS)
+  6. **Previsão · As caudas da LIS**
+  7. **Exercício (código) · Kadane com índices e LIS em O(n log n)** (`soma_maxima_subarranjo(v)` → `(soma, inicio, fim)`, ≤ 60 000 linhas em 5 000 elementos; `lis(v)` → lista estritamente crescente, ≤ 60 000 comparações em 3 000 elementos)
+  8. **Quiz · Tabelas na prática**
 
 ### n3-m8-03-dp-em-strings · Programação dinâmica em strings
 - **Arquivo:** `08-programacao-dinamica-e-projeto/03-dp-em-strings.lvl.md` · 120 XP · 50 min
-- **Passos (5):**
-  1. **Leitura · Subsequência Comum Mais Longa (LCS), Distância de Edição (Levenshtein), corretor ortográfico e `diff`** (Mermaid + Visualizar + KaTeX)
-  2. **Exercício (código) · `lcs(a, b)` com reconstrução da string e `diff_linhas(antes, depois)`** (`lcs`, `diff_linhas`)
-  3. **Exercício (código) · `distancia_edicao(a, b)` otimizada em memória (strings de $2\,000$ caracteres) e `sugerir_correcao`** (`distancia_edicao`, `sugerir_correcao`)
-  4. **Quiz · Recorrência da LCS vs Levenshtein, linha/coluna 0 (string vazia) e complexidade $O(nm)$**
+- **Passos (8):**
+  1. **Leitura · A subsequência comum mais longa** (Mermaid da volta + KaTeX: recorrência da LCS; prefixo vazio e o `IndexError` real; +1 sobre o máximo)
+  2. **Exercício (lacunas) · lcs com reconstrução** (`lcs(a, b)` → string; qualquer LCS vale, conferida como subsequência das duas e pelo tamanho)
+  3. **Leitura · Distância de edição** (KaTeX: recorrência com as três operações, $D[i][0] = i$ e $D[0][j] = j$, $n + m - 2\,\text{LCS}$ sem troca; duas linhas e o `atual[0]`)
+  4. **Previsão · A tabela de sal para asa**
+  5. **Exercício (código) · Distância com duas linhas e a lista de edições** (`distancia_edicao(a, b)` com `tracemalloc` < 500 000 bytes em 600 × 600; `edicoes(a, b)` → tuplas `("manter"|"trocar"|"remover"|"inserir", …)`, conferidas aplicando as operações)
+  6. **Leitura · Corretor e diff** (KaTeX: LCS de sufixos; `>=` que remove antes de acrescentar; `difflib.ndiff` e `SequenceMatcher`)
+  7. **Exercício (código) · sugerir_correcao e diff_linhas** (`sugerir_correcao(palavra, dicionario, limite=2)` com desempate alfabético; `diff_linhas(antes, depois)` com prefixos `"  "`, `"- "`, `"+ "`; `edicao.py` traz a `distancia_edicao`)
+  8. **Quiz · Strings e tabelas**
 
 ### n3-m8-04-gulosos-vs-dp · Algoritmos gulosos vs programação dinâmica
 - **Arquivo:** `08-programacao-dinamica-e-projeto/04-gulosos-vs-dp.lvl.md` · 110 XP · 45 min
-- **Passos (6):**
-  1. **Leitura · Seleção de atividades (ordenar pelo término), mochila fracionária, codificação de Huffman e contraexemplos ao guloso** (Mermaid)
-  2. **Previsão · Ordenar atividades pelo início vs pelo fim: onde o guloso ingênuo falha?**
-  3. **Exercício (código) · Escalonamento máximo de intervalos e mochila fracionária** (`maximo_de_atividades`, `mochila_fracionaria`)
-  4. **Exercício (código) · Codificação de Huffman determinística com heap e detector de contraexemplo no troco** (`huffman`, `troco_guloso_falha`)
-  5. **Quiz · Classificando problemas entre Guloso, Programação Dinâmica e Backtracking**
+- **Passos (8):** sem lacunas nem ordenar (as três lições anteriores do módulo têm o andaime).
+  1. **Leitura · Escolher o que termina primeiro** (KaTeX; critérios que falham, argumento de troca, mochila fracionária, `>=` dos pedidos que se encostam)
+  2. **Previsão · Começo ou fim**
+  3. **Exercício (código) · Atividades e mochila fracionária** (`maximo_de_atividades(pedidos)` em ordem de fim; `mochila_fracionaria(itens, capacidade)` → `(valor_total, fracoes)` na ordem dos itens)
+  4. **Leitura · Códigos de Huffman** (Mermaid da árvore + KaTeX; `TypeError` real do empate no heap, ordenar uma vez só, código montado ao contrário)
+  5. **Exercício (código) · huffman** (`huffman(frequencias)` → dicionário de códigos; verifica-se custo e ausência de prefixo, não os bits; um símbolo vira `"0"`)
+  6. **Leitura · Quando o guloso falha, e como escolher** (KaTeX; sistema canônico, limite de Kozen e Zaks na soma das duas maiores moedas, comparar quantidades e não listas; tabela guloso → DP → backtracking/branch-and-bound → heurísticas)
+  7. **Exercício (código) · O guloso do troco e o contraexemplo** (`troco_guloso(moedas, valor)` e `contraexemplo_troco(moedas)` → menor valor em que o guloso perde ou `None`; as moedas sempre incluem 1)
+  8. **Quiz · Guloso, DP ou busca**
 
 ### n3-m8-05-projeto-planejador-de-rotas · Projeto final: planejador de rotas do campus
 - **Arquivo:** `08-programacao-dinamica-e-projeto/05-projeto-planejador-de-rotas.lvl.md` · projeto (`projeto: true`) · 300 XP · 240 min
+- **Formato:** cada exercício escreve o `main.py` e recebe prontas, em arquivos à parte, as funções dos passos anteriores: `campus.txt` (12 locais e 14 caminhos, com um local isolado e um alcançável só por caminho não acessível), `mapa.py` (o `carregar_mapa` de referência) e `rotas.py` (`distancias(mapa, origem)`). As erradas trocam só o `main.py`, e um erro de um passo antigo não derruba o novo. O mapa é o dicionário `{"tipos": …, "vizinhos": …}` com tuplas `(vizinho, minutos, acessivel)`; não há classe `Mapa`. Custo cobrado por linhas executadas (`sys.settrace`) numa grade de 3 600 locais, e uma corrente de 20 000 locais confere que nada depende de recursão profunda. 84 casos e 41 erradas no total.
 - **Passos (8):**
-  1. **Leitura · Especificação completa do Planejador de Rotas do Campus** (Mermaid + tabela de requisitos funcionais e de desempenho)
-  2. **Exercício (código) · Leitura e representação do mapa do campus** (`carregar_mapa(texto)`)
-  3. **Exercício (código) · Menor rota com Dijkstra, reconstrução de caminho e filtro de acessibilidade ($2 \times 10^4$ nós)** (`menor_rota(mapa, origem, destino, apenas_acessivel=False)`)
-  4. **Exercício (código) · Locais alcançáveis até $M$ minutos e top-$k$ locais mais próximos com heap** (`locais_a_ate(mapa, origem, minutos)`, `top_k_mais_proximos(mapa, origem, k)`)
-  5. **Exercício (código) · Ordem de visitas com dependências (Kahn lexicográfico e erro em ciclo)** (`ordem_de_visitas(tarefas, dependencias)`)
-  6. **Exercício (código) · Agenda ótima com orçamento de tempo (Mochila 0/1 com custo de deslocamento + duração)** (`agenda_otima(mapa, origem, tarefas, orcamento_min)`)
-  7. **Exercício (código) · Componentes conexos e locais isolados no campus** (`componentes_isolados(mapa)`)
-  8. **Quiz · Revisão arquitetural e escolhas de complexidade do projeto**
+  1. **Leitura · O que você vai construir** (Mermaid do sistema; formato do arquivo, tabela das funções e critérios)
+  2. **Previsão · O heap do Dijkstra** (entradas velhas ignoradas)
+  3. **Exercício (código) · carregar_mapa** (`carregar_mapa(texto)`; `ValueError` com `linha N:` para comando, campos, local repetido ou desconhecido, minutos e acessibilidade inválidos)
+  4. **Exercício (código) · menor_rota** (`menor_rota(mapa, origem, destino, apenas_acessivel=False)` → `(minutos, caminho)` ou `None`; `ValueError` com `local desconhecido`; ≤ 300 000 linhas na grade)
+  5. **Exercício (código) · alcancaveis e mais_proximos** (`alcancaveis(mapa, origem, limite)` e `mais_proximos(mapa, origem, k, tipo)` → tuplas `(minutos, local)` por minutos e nome; param cedo: ≤ 5 000 linhas por consulta)
+  6. **Exercício (código) · ordem_de_visitas** (`ordem_de_visitas(tarefas, dependencias)`: Kahn com heap, menor ordem alfabética; `ValueError` com `ciclo` ou `desconhecida`; dependência repetida vale uma vez)
+  7. **Exercício (código) · agenda_otima** (`agenda_otima(mapa, origem, tarefas, orcamento)` → `(prioridade_total, nomes)`: mochila 0/1 com custo `2 * distância + duracao`; ≤ 400 000 linhas com 40 tarefas numa grade de 225 locais)
+  8. **Quiz · Autoavaliação**

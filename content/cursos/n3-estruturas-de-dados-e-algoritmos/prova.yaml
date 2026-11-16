@@ -1,5 +1,5 @@
 titulo: Prova do Nível 3 — Estruturas de dados e algoritmos
-descricao: 'Banco inicial de 12 questões (10 sorteadas por tentativa) sobre matemática discreta, complexidade, recursão, busca e ordenação, estruturas lineares, árvores, hash, grafos e programação dinâmica. Nota mínima: 70 %.'
+descricao: 'Banco de 40 questões (10 sorteadas por tentativa) sobre matemática discreta, análise de algoritmos, recursão, busca e ordenação, estruturas lineares, árvores, heaps e hash, grafos e programação dinâmica, na proporção das lições de cada módulo. A maioria pede para calcular, prever a saída de um código, escolher a estrutura ou achar o defeito. Nota mínima: 70 %.'
 nota_minima: 70
 tempo_min: 45
 intervalo_min: 60
@@ -23,7 +23,34 @@ questoes:
   correta: 0
   explicacao: C(5, 2) = 5! / (2! · 3!) = 10. A ordem não importa, por isso não é arranjo (20).
   topico: matematica-discreta-essencial
-- enunciado: 'Quantas vezes, em ordem de grandeza, roda o corpo de `for j in range(i):` dentro de `for i in range(n):`?'
+- enunciado: Em Python, quanto valem -7 // 3 e -7 % 3, nessa ordem?
+  opcoes:
+  - -2 e -1
+  - -2 e 2
+  - -3 e 2
+  - -3 e -1
+  correta: 2
+  explicacao: 'O Python arredonda o quociente para baixo e deixa o resto com o sinal do divisor: -7 = (-3) · 3 + 2. O par -2 e -1 é o de C e Java, que truncam em direção ao zero. Os pares -2 e 2 e -3 e -1 nem satisfazem a identidade a = q · b + r: (-2) · 3 + 2 = -4 e (-3) · 3 - 1 = -10.'
+  topico: matematica-discreta-essencial
+- enunciado: Quantos números de 1 a 100 são múltiplos de 6 ou de 10?
+  opcoes:
+  - '25'
+  - '23'
+  - '26'
+  - '3'
+  correta: 1
+  explicacao: 'Há 16 múltiplos de 6 e 10 múltiplos de 10. Os múltiplos dos dois são os múltiplos do mmc(6, 10) = 30, que são 3; pela inclusão-exclusão, 16 + 10 - 3 = 23. Usar o produto 60 subtrai só 1 e dá 25 (o 30 e o 90 são múltiplos de 6 e de 10 sem serem de 60). Não subtrair nada conta 30, 60 e 90 duas vezes e dá 26; e 3 é só a interseção.'
+  topico: matematica-discreta-essencial
+- enunciado: Uma gaveta tem meias de 4 cores, muitas de cada. No escuro, quantas meias é preciso tirar, no mínimo, para garantir 3 da mesma cor?
+  opcoes:
+  - '8'
+  - '12'
+  - '5'
+  - '9'
+  correta: 3
+  explicacao: 'No pior caso saem 2 de cada cor, 4 · 2 = 8 meias, sem nenhuma cor com 3. A próxima força a terceira de alguma cor: 4 · (3 - 1) + 1 = 9. Com 8 ainda não há garantia; 12 = 4 · 3 é mais do que o necessário; e 5 = 4 + 1 garante só 2 da mesma cor.'
+  topico: matematica-discreta-essencial
+- enunciado: Quantas vezes, em ordem de grandeza, roda o corpo do laço for j in range(i), aninhado em for i in range(n)?
   opcoes:
   - Θ(n)
   - Θ(n log n)
@@ -32,23 +59,80 @@ questoes:
   correta: 2
   explicacao: 'O laço interno roda 0 + 1 + … + (n−1) = n(n−1)/2 vezes, que é Θ(n²). Laços aninhados multiplicam; o interno depender de i só muda a constante.'
   topico: analise-de-algoritmos
-- enunciado: 'Qual destas linhas, executada uma vez numa `list` de n elementos, custa Θ(n)?'
+- enunciado: 'Qual destas linhas, executada uma vez numa list de n elementos, custa Θ(n)?'
   opcoes:
-  - '`lista.pop()`'
-  - '`lista.insert(0, x)`'
-  - '`lista[-1]`'
-  - '`len(lista)`'
+  - lista.pop()
+  - lista.insert(0, x)
+  - lista[-1]
+  - len(lista)
   correta: 1
-  explicacao: '`insert(0, x)` desloca as n referências uma posição para a direita. `pop()` tira do fim, e indexar e `len` leem valores já guardados: os três são O(1).'
+  explicacao: 'insert(0, x) desloca as n referências uma posição para a direita. pop() tira do fim, e indexar e len leem valores já guardados: os três são O(1).'
   topico: analise-de-algoritmos
-- enunciado: 'Num backtracking que faz `caminho.append(x)` antes da chamada recursiva, o que precisa acontecer logo depois que ela volta?'
+- enunciado: 'Você conta as operações de uma função: 2 000 000 com n = 1 000, 8 000 000 com n = 2 000 e 32 000 000 com n = 4 000. Qual é a ordem de crescimento mais provável?'
   opcoes:
-  - '`res.append(caminho)`, para guardar a resposta parcial'
-  - 'Nada: cada chamada recursiva recebe a sua própria cópia de `caminho`'
-  - '`caminho.pop()`, para desfazer a escolha antes de tentar a próxima alternativa'
-  - '`caminho = []`, para recomeçar o caminho do zero'
+  - Θ(n²)
+  - Θ(n), porque a razão entre medidas vizinhas é constante
+  - Θ(n⁴), porque cada vez que n dobra o custo é multiplicado por 4
+  - Θ(2ⁿ), porque o custo é multiplicado a cada dobra
+  correta: 0
+  explicacao: 'Se T(n) ≈ c · n elevado a k, dobrar n multiplica T por 2 elevado a k. A razão é 4 = 2², então k = 2. Razão constante não quer dizer linear: o linear dá razão 2. O expoente é o logaritmo da razão na base 2, e não a própria razão. No exponencial, somar 1 a n já multiplica o custo, e dobrar n elevaria o custo ao quadrado.'
+  topico: analise-de-algoritmos
+- enunciado: |
+    Quantos elementos as fatias copiam, no total, quando a função abaixo soma uma lista de 1 000 elementos, e qual é o custo dela?
+
+    def soma(lista):
+        if not lista:
+            return 0
+        return lista[0] + soma(lista[1:])
+  opcoes:
+  - 999 elementos; custo Θ(n), uma cópia por chamada
+  - Cerca de 9 966 elementos (1 000 · log2 1 000); custo Θ(n log n)
+  - 500 500 elementos; custo Θ(n²)
+  - 499 500 elementos; custo Θ(n²)
+  correta: 3
+  explicacao: 'Cada lista[1:] copia todos os elementos menos o primeiro: 999 + 998 + … + 1 + 0 = 1 000 · 999 / 2 = 499 500, que é Θ(n²). Contar uma unidade por chamada esquece que a fatia é uma cópia. O log n viria de dividir ao meio, e aqui a lista diminui de um em um. 500 500 é 1 + 2 + … + 1 000, a soma com um termo a mais. Passar um índice, soma(lista, i + 1), deixa o custo em Θ(n).'
+  topico: analise-de-algoritmos
+- enunciado: 'Num backtracking que faz caminho.append(x) antes da chamada recursiva, o que precisa acontecer logo depois que ela volta?'
+  opcoes:
+  - 'res.append(caminho), para guardar a resposta parcial'
+  - 'Nada: cada chamada recursiva recebe a sua própria cópia de caminho'
+  - 'caminho.pop(), para desfazer a escolha antes de tentar a próxima alternativa'
+  - 'caminho = [], para recomeçar o caminho do zero'
   correta: 2
-  explicacao: 'Escolher, explorar, desfazer. A lista é a mesma em todas as chamadas (só a referência é passada), então sem o `pop()` a escolha contamina as próximas tentativas. Guardar uma resposta exige uma cópia, `res.append(caminho[:])`; sem ela, todas as respostas apontam para a mesma lista.'
+  explicacao: 'Escolher, explorar, desfazer. A lista é a mesma em todas as chamadas (só a referência é passada), então sem o pop() a escolha contamina as próximas tentativas. Guardar uma resposta exige uma cópia, res.append(caminho[:]); sem ela, todas as respostas apontam para a mesma lista.'
+  topico: recursao-e-divisao-e-conquista
+- enunciado: Qual é o custo de uma função recursiva descrita por T(n) = 4 · T(n/2) + n?
+  opcoes:
+  - Θ(n log n), como no merge sort
+  - Θ(n²)
+  - Θ(n), porque o trabalho fora das chamadas é linear
+  - Θ(n² log n)
+  correta: 1
+  explicacao: 'Com a = 4 e b = 2, as folhas custam n elevado a log2 4, ou seja, n². O termo n cresce mais devagar que n², então o custo por nível cresce para baixo e as folhas mandam: Θ(n²), o caso 1 do Teorema Mestre. O merge sort tem a = 2, e aí cada nível custa n. O fator log n só aparece quando todo nível custa o mesmo (caso 2), e Θ(n) seria o caso em que a raiz manda.'
+  topico: recursao-e-divisao-e-conquista
+- enunciado: |
+    Quantas chamadas a f acontecem, ao todo, durante f(5), contando a primeira?
+
+    def f(n):
+        if n <= 1:
+            return 1
+        return f(n - 1) + f(n - 2)
+  opcoes:
+  - '8'
+  - '5'
+  - '15'
+  - '9'
+  correta: 2
+  explicacao: 'Seja C(n) o número de chamadas: C(0) = C(1) = 1 e C(n) = 1 + C(n - 1) + C(n - 2). Então C(2) = 3, C(3) = 5, C(4) = 9 e C(5) = 15. O 8 é o valor devolvido por f(5); 5 seria uma chamada por valor de n, como numa recursão linear; 9 é o que uma versão memoizada faria (2 · 5 - 1), contando as consultas ao cache.'
+  topico: recursao-e-divisao-e-conquista
+- enunciado: Um backtracking gera todas as permutações de [1, 2, 3, 4] e outro gera todos os subconjuntos da mesma lista, incluindo o vazio. Quantas respostas cada um devolve?
+  opcoes:
+  - 24 permutações e 16 subconjuntos
+  - 16 permutações e 24 subconjuntos
+  - 24 permutações e 15 subconjuntos
+  - 256 permutações e 16 subconjuntos
+  correta: 0
+  explicacao: 'Permutações: 4 · 3 · 2 · 1 = 24, porque cada nível escolhe entre os elementos ainda não usados. Subconjuntos: cada elemento entra ou não, 2 elevado a 4 = 16, com o vazio. 15 esquece o vazio; 256 = 4 elevado a 4 é o que sai quando a permutação não marca os elementos já usados e repete valores.'
   topico: recursao-e-divisao-e-conquista
 - enunciado: 'A busca binária exige que a lista esteja:'
   opcoes:
@@ -59,7 +143,7 @@ questoes:
   correta: 3
   explicacao: 'A cada passo ela descarta metade com base na comparação com o meio, o que só vale em dados ordenados. Repetidos são tratados pelo limite inferior (primeira ocorrência), qualquer tamanho serve, e com o alvo ausente o intervalo fica vazio e a busca termina.'
   topico: busca-e-ordenacao
-- enunciado: 'Um quick sort com pivô sorteado e partição de Lomuto ordena `[7] * 3000`. O que acontece?'
+- enunciado: 'Um quick sort com pivô sorteado e partição de Lomuto ordena [7] * 3000. O que acontece?'
   opcoes:
   - Cada partição separa n − 1 e 0 elementos, o custo é Θ(n²) e a recursão fica com cerca de 3000 níveis
   - O custo é Θ(n log n) esperado, porque sortear o pivô evita o pior caso em qualquer entrada
@@ -68,23 +152,82 @@ questoes:
   correta: 0
   explicacao: 'Com todos iguais, Lomuto manda todos para o mesmo lado com qualquer sorteio; com o limite padrão, a recursão estoura em RecursionError. A partição em três vias (< pivô, == pivô, > pivô) põe os iguais no meio e só recursa nas pontas.'
   topico: busca-e-ordenacao
-- enunciado: 'Avaliando a expressão posfixa `8 2 / 3 -` com uma pilha (o `/` é a divisão do Python), qual é o resultado?'
+- enunciado: No pior caso, quantas comparações com o elemento do meio uma busca binária faz numa lista ordenada de 1 000 000 de elementos?
+  opcoes:
+  - '19'
+  - '6'
+  - '500 000'
+  - '20'
+  correta: 3
+  explicacao: 'Cada comparação descarta metade, e o pior caso faz o piso de log2 n mais 1 comparações: 2 elevado a 19 = 524 288 cabe em 1 000 000, e 2 elevado a 20 já passa, então são 19 + 1 = 20. Esquecer o +1 dá 19; 6 é o logaritmo na base 10; 500 000 é a média da busca linear.'
+  topico: busca-e-ordenacao
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    alunos = [("Caio", 8), ("Ana", 9), ("Bia", 8), ("Davi", 9)]
+    ordem = sorted(alunos, key=lambda a: a[1], reverse=True)
+    print([nome for nome, nota in ordem])
+  opcoes:
+  - "['Davi', 'Ana', 'Bia', 'Caio']"
+  - "['Ana', 'Davi', 'Caio', 'Bia']"
+  - "['Ana', 'Davi', 'Bia', 'Caio']"
+  - "['Davi', 'Ana', 'Caio', 'Bia']"
+  correta: 1
+  explicacao: 'O sorted é estável, e reverse=True não desfaz isso: os empates continuam na ordem da entrada. Primeiro as notas 9, com Ana antes de Davi como na lista; depois as notas 8, com Caio antes de Bia. Inverter a ordenação crescente trocaria os empates (Davi, Ana, Bia, Caio). A chave é só a nota: o nome nunca é comparado, nem em ordem alfabética nem invertida.'
+  topico: busca-e-ordenacao
+- enunciado: No pior caso, quantas comparações entre elementos faz a intercalação de duas listas ordenadas, uma com 5 e outra com 3 elementos?
+  opcoes:
+  - '8'
+  - '15'
+  - '7'
+  - '3'
+  correta: 2
+  explicacao: 'Cada comparação manda um elemento para o resultado, e quando uma lista acaba o resto da outra é copiado sem comparar. No pior caso as duas acabam juntas e sobra 1 elemento: 5 + 3 - 1 = 7 comparações. O 8 conta também o último elemento, que sai sem comparação; 15 = 5 · 3 seria comparar todos com todos; 3 é o melhor caso, quando a lista menor inteira vem antes da maior.'
+  topico: busca-e-ordenacao
+- enunciado: Pelo argumento da árvore de decisão, qual é o menor número de comparações que um algoritmo de ordenação baseado em comparações precisa fazer, no pior caso, para ordenar 10 elementos distintos?
+  opcoes:
+  - '22'
+  - '10'
+  - '34'
+  - '45'
+  correta: 0
+  explicacao: 'Há 10! = 3 628 800 ordens possíveis, e cada comparação tem duas saídas. Com k comparações, a árvore distingue no máximo 2 elevado a k ordens; 2 elevado a 21 = 2 097 152 é pouco, e 2 elevado a 22 = 4 194 304 basta, então são pelo menos 22. Com 10 comparações só se distinguem 1 024 ordens; 34 vem de arredondar 10 · log2 10 ≈ 33,2, que dá a ordem de grandeza e não a conta exata; 45 é o número de pares, o que se gasta comparando todos com todos.'
+  topico: busca-e-ordenacao
+- enunciado: 'Avaliando a expressão posfixa 8 2 / 3 - com uma pilha (o / é a divisão do Python), qual é o resultado?'
   opcoes:
   - '2.75'
   - '1.0'
   - '-8.0'
-  - 'Erro: falta operando para o `-`'
+  - 'Erro: falta operando para o -'
   correta: 1
-  explicacao: 'O primeiro valor desempilhado é o operando da direita: `/` calcula 8 / 2 = 4.0 e `-` calcula 4.0 − 3 = 1.0. Inverter os operandos dá 2 / 8 = 0.25 e 3 − 0.25 = 2.75; -8.0 seria 8 / (2 − 3), que em posfixa é `8 2 3 - /`.'
+  explicacao: 'O primeiro valor desempilhado é o operando da direita: / calcula 8 / 2 = 4.0 e - calcula 4.0 − 3 = 1.0. Inverter os operandos dá 2 / 8 = 0.25 e 3 − 0.25 = 2.75; -8.0 seria 8 / (2 − 3), que em posfixa é 8 2 3 - /.'
   topico: estruturas-lineares
-- enunciado: 'Uma fila de atendimento usa uma `list`, com `append` para entrar e `pop(0)` para sair, e ficou lenta com milhares de pedidos. Qual troca mantém a ordem de chegada e deixa cada saída em O(1)?'
+- enunciado: 'Uma fila de atendimento usa uma list, com append para entrar e pop(0) para sair, e ficou lenta com milhares de pedidos. Qual troca mantém a ordem de chegada e deixa cada saída em O(1)?'
   opcoes:
-  - 'Trocar `pop(0)` por `pop()`, que é O(1)'
-  - 'Ordenar a lista antes de cada `pop(0)`'
-  - 'Usar `collections.deque` e tirar da frente com `popleft()`'
-  - 'Usar `heapq.heappop(lista)` no lugar de `pop(0)`'
+  - 'Trocar pop(0) por pop(), que é O(1)'
+  - 'Ordenar a lista antes de cada pop(0)'
+  - 'Usar collections.deque e tirar da frente com popleft()'
+  - 'Usar heapq.heappop(lista) no lugar de pop(0)'
   correta: 2
-  explicacao: 'Cada `pop(0)` desloca os n − 1 itens restantes, e esvaziar a fila custa n(n−1)/2 movimentos. `deque.popleft()` é O(1). `pop()` tira o último a chegar (vira pilha), e `heappop` tira o menor valor, não o mais antigo.'
+  explicacao: 'Cada pop(0) desloca os n − 1 itens restantes, e esvaziar a fila custa n(n−1)/2 movimentos. deque.popleft() é O(1). pop() tira o último a chegar (vira pilha), e heappop tira o menor valor, não o mais antigo.'
+  topico: estruturas-lineares
+- enunciado: Uma lista simplesmente ligada guarda referências para a cabeça e para a cauda. Quanto custa remover o último nó?
+  opcoes:
+  - 'O(1): a referência da cauda já aponta para o nó a remover'
+  - O(1) amortizado, como o pop() de uma list
+  - O(1), desde que a lista também guarde o tamanho e a cauda atualizados
+  - 'Θ(n): o penúltimo, que vira a nova cauda, é achado desde a cabeça'
+  correta: 3
+  explicacao: 'A seta que muda é a do penúltimo nó, que passa a apontar para None, e numa lista simples só se chega a ele andando desde a cabeça. A cauda ajuda a inserir no fim, não a remover. O tamanho não diz onde está o penúltimo, e o pop() da list é O(1) porque ela é um arranjo contíguo. A lista duplamente ligada resolve com a referência para o anterior.'
+  topico: estruturas-lineares
+- enunciado: Convertendo 8 - 3 * 2 + 1 para notação posfixa com o algoritmo de shunting-yard (* antes de + e -, todos associativos à esquerda), qual é a saída?
+  opcoes:
+  - 8 3 2 * - 1 +
+  - 8 3 - 2 * 1 +
+  - 8 3 2 * 1 + -
+  - + - 8 * 3 2 1
+  correta: 0
+  explicacao: 'O * sai antes do -, e quando o + chega ele tira da pilha o - de mesma precedência, porque - associa à esquerda: (8 - 3 · 2) + 1 = 3. A segunda ignora a precedência e vale (8 - 3) · 2 + 1 = 11. A terceira só desempilha operadores de precedência estritamente maior e calcula 8 - (6 + 1) = 1. A última é a notação prefixa.'
   topico: estruturas-lineares
 - enunciado: Qual percurso de uma árvore de busca binária produz as chaves em ordem crescente?
   opcoes:
@@ -95,6 +238,42 @@ questoes:
   correta: 3
   explicacao: Em-ordem visita esquerda, raiz e direita; pela propriedade da BST isso sai ordenado.
   topico: arvores-e-tabelas-hash
+- enunciado: Num heap guardado numa lista a partir do índice 0, quais são os índices dos filhos e do pai do elemento de índice 4?
+  opcoes:
+  - Filhos 8 e 9; pai 2
+  - Filhos 5 e 6; pai 3
+  - Filhos 9 e 10; pai 1
+  - Filhos 9 e 10; pai 2
+  correta: 2
+  explicacao: 'A partir do 0, os filhos de i são 2i + 1 e 2i + 2, e o pai é o piso de (i - 1) / 2: filhos 9 e 10 e pai 1 (os filhos de 1 são 3 e 4). Filhos 8 e 9 com pai 2 são as fórmulas da numeração a partir de 1 (2i, 2i + 1 e i / 2); 5 e 6 tratariam o heap como uma lista ordenada; o pai 2 sai de i // 2, que só vale começando do 1.'
+  topico: arvores-e-tabelas-hash
+- enunciado: Uma árvore binária tem pré-ordem [1, 2, 4, 5, 3, 6] e em-ordem [4, 2, 5, 1, 3, 6]. Qual é a pós-ordem?
+  opcoes:
+  - '[6, 3, 5, 4, 2, 1]'
+  - '[4, 5, 2, 6, 3, 1]'
+  - '[4, 5, 2, 3, 6, 1]'
+  - '[4, 2, 5, 6, 3, 1]'
+  correta: 1
+  explicacao: 'A pré-ordem diz que 1 é a raiz; na em-ordem, [4, 2, 5] fica à esquerda e [3, 6] à direita. Na esquerda, 2 é a raiz com filhos 4 e 5; na direita, 3 tem só o filho direito 6. A pós-ordem visita esquerda, direita e raiz: 4, 5, 2, 6, 3, 1. A pré-ordem invertida não é a pós-ordem; [4, 5, 2, 3, 6, 1] põe o 3 antes do filho dele; [4, 2, 5, 6, 3, 1] visita o 2 entre os filhos, como na em-ordem.'
+  topico: arvores-e-tabelas-hash
+- enunciado: 'Quanto vale len({1, True, 1.0, "1"})?'
+  opcoes:
+  - '4'
+  - '3'
+  - '1'
+  - '2'
+  correta: 3
+  explicacao: '1, True e 1.0 são iguais com == e têm o mesmo hash, então ocupam uma só posição no conjunto (fica o primeiro, 1). O texto "1" é de outro tipo e é diferente de 1. 4 supõe que valores de tipos diferentes nunca são iguais; 3 separa True de 1; 1 confunde o texto "1" com o número.'
+  topico: arvores-e-tabelas-hash
+- enunciado: Qual é a maior altura, em arestas, que uma AVL com 1 000 000 de chaves pode ter?
+  opcoes:
+  - 'Menos de 29: ela fica abaixo de 1,44 · log2(n + 2) ≈ 28,7'
+  - 'Exatamente 19: a AVL é sempre perfeitamente balanceada'
+  - '999 999, se as chaves chegarem em ordem crescente'
+  - 'Cerca de 40: a altura pode chegar a 2 · log2(n + 1), o dobro do ideal'
+  correta: 0
+  explicacao: 'A AVL só exige que as alturas dos dois filhos difiram de no máximo 1; a mais magra de altura h tem subárvores de alturas h - 1 e h - 2, e isso limita h a 1,44 · log2(n + 2). Ela não é perfeita (19 é a altura de uma árvore completa com esse número de nós); 999 999 é a BST comum com chaves crescentes, que a AVL evita com rotações; 2 · log2(n + 1) é o limite da rubro-negra, que é menos rígida.'
+  topico: arvores-e-tabelas-hash
 - enunciado: Num grafo sem pesos, qual algoritmo encontra em O(V + E) um caminho com o menor número de arestas entre dois vértices?
   opcoes:
   - BFS (busca em largura)
@@ -104,6 +283,77 @@ questoes:
   correta: 0
   explicacao: 'A BFS visita os vértices por camadas de distância, então a primeira vez que alcança o destino é pelo menor número de arestas. A DFS também é O(V + E), mas não garante o menor caminho; o Dijkstra acharia, mas com heap custa O((V + E) log V) e serve para pesos; o Kruskal monta árvore geradora mínima.'
   topico: grafos
+- enunciado: Um grafo não direcionado simples tem 6 vértices, e todo par de vértices é ligado por uma aresta. Quantas arestas ele tem e quanto vale a soma dos graus?
+  opcoes:
+  - 30 arestas; soma dos graus 30
+  - 15 arestas; soma dos graus 30
+  - 36 arestas; soma dos graus 72
+  - 15 arestas; soma dos graus 15
+  correta: 1
+  explicacao: 'São 6 · 5 / 2 = 15 pares, uma aresta cada. Cada vértice tem grau 5, e a soma é 6 · 5 = 30 = 2 · 15, porque cada aresta entra em duas listas. 30 arestas conta cada aresta nos dois sentidos; 36 = 6 · 6 inclui laços; soma igual ao número de arestas esquece que cada aresta conta para os dois vértices.'
+  topico: grafos
+- enunciado: |
+    Qual é o custo da árvore geradora mínima do grafo não direcionado abaixo? Cada aresta é (u, v, peso).
+
+    (0, 1, 4), (0, 2, 1), (1, 2, 2), (1, 3, 5), (2, 3, 8), (3, 4, 3), (2, 4, 9)
+  opcoes:
+  - '10'
+  - '15'
+  - '11'
+  - '17'
+  correta: 2
+  explicacao: 'O Kruskal, em ordem de peso, aceita 0–2 (1), 1–2 (2) e 3–4 (3), recusa 0–1 (4), que fecharia o ciclo 0–1–2, e aceita 1–3 (5): 1 + 2 + 3 + 5 = 11. Somar as 4 arestas mais leves dá 10, mas elas não formam árvore; 15 soma também a aresta recusada; 17 é a árvore de menores caminhos a partir de 0 (Dijkstra), que liga todos com mais custo.'
+  topico: grafos
+- enunciado: |
+    Qual é a ordem de visita da DFS recursiva a partir de a, lendo os vizinhos na ordem da lista?
+
+    grafo = {"a": ["b", "c"], "b": ["c", "d"], "c": ["e"], "d": [], "e": []}
+  opcoes:
+  - a, b, c, d, e
+  - a, c, e, b, d
+  - a, b, d, c, e
+  - a, b, c, e, d
+  correta: 3
+  explicacao: 'De a desce para b, de b para c, de c para e; e não tem saída, a busca volta a b e segue para d; quando volta a a, c já foi visitado. a, b, c, d, e é a ordem da BFS, por camadas. a, c, e, b, d é a versão com pilha que empilha os vizinhos sem inverter; a, b, d, c, e é a que marca ao empilhar: c, marcado ao sair de a, deixa de ser visitado a partir de b.'
+  topico: grafos
+- enunciado: |
+    O programa abaixo é o começo de uma ordenação topológica por DFS, mas o autor esqueceu de inverter a lista no fim. O que ele imprime?
+
+    grafo = {"cueca": ["calca"], "calca": ["sapato"], "meia": ["sapato"], "sapato": []}
+    visitados = set()
+    pos_ordem = []
+
+    def visitar(u):
+        visitados.add(u)
+        for v in grafo[u]:
+            if v not in visitados:
+                visitar(v)
+        pos_ordem.append(u)
+
+    for v in grafo:
+        if v not in visitados:
+            visitar(v)
+    print(pos_ordem)
+  opcoes:
+  - "['sapato', 'calca', 'cueca', 'meia']"
+  - "['meia', 'cueca', 'calca', 'sapato']"
+  - "['cueca', 'calca', 'sapato', 'meia']"
+  - "['cueca', 'calca', 'meia', 'sapato']"
+  correta: 0
+  explicacao: 'Um vértice termina só depois de tudo o que ele alcança: sapato termina primeiro, depois calca e cueca, e por último meia, que encontra sapato já visitado. Na lista de términos, toda aresta aponta para trás (sapato antes de meia); invertida, [''meia'', ''cueca'', ''calca'', ''sapato''], ela é uma ordenação topológica. [''cueca'', ''calca'', ''sapato'', ''meia''] é a ordem em que a busca entra nos vértices, e a ordem das chaves do dicionário não leva as arestas em conta.'
+  topico: grafos
+- enunciado: |
+    Qual distância até t o Dijkstra calcula a partir de s? Os pesos são não negativos e as entradas obsoletas do heap são descartadas.
+
+    grafo = {"s": [("a", 1), ("t", 7)], "a": [("b", 2)], "b": [("t", 1)], "t": []}
+  opcoes:
+  - '7'
+  - '3'
+  - '4'
+  - Depende da ordem dos vizinhos na lista de s
+  correta: 2
+  explicacao: 'O caminho s → a → b → t custa 1 + 2 + 1 = 4, menos que a aresta direta de 7. O 7 é a primeira distância descoberta para t, e é o que fica quando se dá o vértice por resolvido ao empurrá-lo no heap. 3 é o número de arestas do caminho mais barato, não o custo. A ordem dos vizinhos muda a ordem das entradas no heap, mas não as distâncias finais.'
+  topico: grafos
 - enunciado: Quais duas propriedades caracterizam um problema adequado à programação dinâmica?
   opcoes:
   - Entrada ordenada e pequena
@@ -112,4 +362,63 @@ questoes:
   - Escolha gulosa e recursão de cauda
   correta: 1
   explicacao: Sem sobreposição, memoizar não ajuda; sem subestrutura ótima, combinar soluções parciais não dá a ótima.
+  topico: programacao-dinamica-e-projeto
+- enunciado: Num sistema de moedas de 1, 5 e 12, qual é o menor valor em que o troco guloso (sempre a maior moeda que cabe) usa mais moedas do que o mínimo possível?
+  opcoes:
+  - 'Nenhum: testando os valores até 12, a maior moeda, o guloso nunca perde'
+  - '15'
+  - '17'
+  - '20'
+  correta: 1
+  explicacao: 'Em 15 o guloso faz 12 + 1 + 1 + 1, quatro moedas, e o mínimo é 5 + 5 + 5, três. Abaixo disso o guloso sempre acerta, e por isso parar a busca na maior moeda conclui errado que o sistema é canônico. A soma das duas maiores, 12 + 5 = 17, é até onde procurar, e não a resposta. Em 20 o guloso também perde (12 + 5 + 1 + 1 + 1 contra 5 + 5 + 5 + 5), mas 15 vem antes.'
+  topico: programacao-dinamica-e-projeto
+- enunciado: |
+    Você tem 100 minutos, sai da origem e volta para ela depois de cada tarefa; cada tarefa custa ida + duração + volta, e entra no máximo uma vez. Qual é a maior prioridade total que cabe no orçamento?
+
+    tarefa A: local a 10 minutos da origem, duração 20, prioridade 6
+    tarefa B: local a 5 minutos da origem, duração 30, prioridade 5
+    tarefa C: local a 20 minutos da origem, duração 10, prioridade 7
+    tarefa D: na própria origem, duração 25, prioridade 4
+  opcoes:
+  - 18, com A, B e C
+  - 22, com as quatro tarefas
+  - 10, com D e A
+  - 13, com A e C
+  correta: 3
+  explicacao: 'Os custos são 2 · 10 + 20 = 40, 2 · 5 + 30 = 40, 2 · 20 + 10 = 50 e 25. A e C custam 90 e somam 13; nenhum outro conjunto que caiba passa disso (B e C dão 12; A, B e D custam 105). 18 sai de contar só a ida (30 + 35 + 30 = 95); 22 conta só a duração; 10 é o guloso por prioridade por minuto, que pega D e A e fica sem espaço para C. É uma mochila 0/1, com o custo como peso.'
+  topico: programacao-dinamica-e-projeto
+- enunciado: Qual é a distância de edição (inserir, remover ou trocar um caractere) entre lata e plano?
+  opcoes:
+  - '3'
+  - '2'
+  - '5'
+  - '1'
+  correta: 0
+  explicacao: 'Inserir p no começo, manter l e a, trocar t por n e a por o: 3 operações, e não dá com menos. 2 é o que sai da tabela com a linha 0 e a coluna 0 cheias de zeros, como na LCS; 5 é a distância sem a troca, n + m - 2 · LCS = 4 + 5 - 2 · 2; 1 é só a diferença de tamanho.'
+  topico: programacao-dinamica-e-projeto
+- enunciado: |
+    Uma colega escreveu a maior soma de um trecho contíguo não vazio assim. O que a função devolve para [-3, -1, -4], e qual é a resposta certa?
+
+    def soma_maxima(v):
+        melhor = atual = 0
+        for x in v:
+            atual = max(0, atual + x)
+            melhor = max(melhor, atual)
+        return melhor
+  opcoes:
+  - Devolve -1, que é a resposta certa
+  - 'Devolve 0, que é a resposta certa: o trecho vazio soma 0'
+  - Devolve 0; a resposta certa é -1
+  - Devolve -8; a resposta certa é -8, a soma da lista inteira
+  correta: 2
+  explicacao: 'Com max(0, …) e melhor começando em 0, o resultado nunca fica negativo. Numa lista só de negativos, o melhor trecho não vazio é o maior elemento sozinho, -1; o trecho vazio não vale, pelo enunciado. A soma da lista inteira, -8, é o pior trecho, não o melhor. O Kadane certo usa atual = max(x, atual + x) e começa melhor com o primeiro elemento.'
+  topico: programacao-dinamica-e-projeto
+- enunciado: Num texto, a letra a aparece 4 vezes, b 3 vezes, c 2 vezes e d 1 vez. Quantos bits o texto ocupa codificado com Huffman?
+  opcoes:
+  - '20'
+  - '19'
+  - '26'
+  - '10'
+  correta: 1
+  explicacao: 'Huffman junta d e c (3), depois esse nó com b (6) e por fim com a (10): a fica com 1 bit, b com 2, c e d com 3. Custo: 4 · 1 + 3 · 2 + 2 · 3 + 1 · 3 = 19. Com 2 bits por letra seriam 20; juntar sempre os dois mais frequentes dá 26; 10 é só a soma das frequências, o peso da raiz.'
   topico: programacao-dinamica-e-projeto
