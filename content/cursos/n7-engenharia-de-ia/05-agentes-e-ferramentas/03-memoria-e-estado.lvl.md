@@ -337,13 +337,16 @@ def resumidor_com_llm(cliente):
 
 Aproximações declaradas (tudo reproduzível):
 - tokens: brinquedo, cada palavra vira pedaços de até 4 caracteres;
-  o tokenizador de um modelo real dá outros números;
+  o espaço em branco (quebras de linha inclusive) não conta à parte:
+  vai colado no pedaço seguinte, ou no último quando fecha o texto,
+  então "".join(tokenizar(t)) == t; o tokenizador real dá outros números;
 - preços: fictícios, em R$ por milhão de tokens;
 - latência: TTFT + ms por token de saída, somada a um relógio falso;
 - sorteio: random.Random(seed); com temperature > 0 a resposta pode variar;
 - falhas: fila programada (429, 503, "timeout", 400), consumida em ordem.
 """
 import random
+import re
 
 PRECO_ENTRADA = 2.0  # R$ por milhão de tokens de entrada (fictício)
 PRECO_SAIDA = 8.0  # R$ por milhão de tokens de saída (fictício)
@@ -369,13 +372,7 @@ class ErroDeRequisicao(Exception):  # HTTP 400/401: permanente, não repita
 
 
 def tokenizar(texto):
-    tokens = []
-    for i, palavra in enumerate(texto.split()):
-        pedacos = [palavra[j:j + 4] for j in range(0, len(palavra), 4)]
-        if i > 0:
-            pedacos[0] = " " + pedacos[0]
-        tokens.extend(pedacos)
-    return tokens
+    return re.findall(r"\s*\S{1,4}(?:\s+\Z)?|\s+\Z", texto)
 
 
 def contar_tokens(texto):
@@ -514,13 +511,16 @@ def resumidor_com_llm(cliente):
 
 Aproximações declaradas (tudo reproduzível):
 - tokens: brinquedo, cada palavra vira pedaços de até 4 caracteres;
-  o tokenizador de um modelo real dá outros números;
+  o espaço em branco (quebras de linha inclusive) não conta à parte:
+  vai colado no pedaço seguinte, ou no último quando fecha o texto,
+  então "".join(tokenizar(t)) == t; o tokenizador real dá outros números;
 - preços: fictícios, em R$ por milhão de tokens;
 - latência: TTFT + ms por token de saída, somada a um relógio falso;
 - sorteio: random.Random(seed); com temperature > 0 a resposta pode variar;
 - falhas: fila programada (429, 503, "timeout", 400), consumida em ordem.
 """
 import random
+import re
 
 PRECO_ENTRADA = 2.0  # R$ por milhão de tokens de entrada (fictício)
 PRECO_SAIDA = 8.0  # R$ por milhão de tokens de saída (fictício)
@@ -546,13 +546,7 @@ class ErroDeRequisicao(Exception):  # HTTP 400/401: permanente, não repita
 
 
 def tokenizar(texto):
-    tokens = []
-    for i, palavra in enumerate(texto.split()):
-        pedacos = [palavra[j:j + 4] for j in range(0, len(palavra), 4)]
-        if i > 0:
-            pedacos[0] = " " + pedacos[0]
-        tokens.extend(pedacos)
-    return tokens
+    return re.findall(r"\s*\S{1,4}(?:\s+\Z)?|\s+\Z", texto)
 
 
 def contar_tokens(texto):
