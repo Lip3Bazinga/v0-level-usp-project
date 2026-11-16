@@ -1,367 +1,367 @@
 titulo: Prova do Nível 7 — Engenharia de IA
-descricao: '20 questões sorteadas de um banco de 40, cobrindo os 7 módulos do nível: LLMs e APIs, engenharia de prompt, embeddings e busca vetorial, RAG, agentes e ferramentas, avaliação, segurança e ética (LGPD) e MLOps e projeto final. Nota mínima: 70 %. Você pode refazer a prova depois de 60 minutos.'
+descricao: '20 questões sorteadas de um banco de 40, cobrindo os 7 módulos do nível: LLMs e APIs, prompting, embeddings e busca vetorial, RAG, agentes e ferramentas, avaliação, segurança e ética (LGPD) e MLOps. A maioria apresenta um cenário: fazer a conta, achar o defeito ou escolher a decisão certa. Nota mínima: 70 %. Você pode refazer a prova depois de 60 minutos.'
 nota_minima: 70
 tempo_min: 60
 intervalo_min: 60
 questoes_por_tentativa: 20
 questoes:
-- enunciado: 'A latência de uma resposta de LLM cresce principalmente com:'
+- enunciado: 'Um modelo tem TTFT de 300 ms e gera cada token de saída em 20 ms. O prompt tem 1 000 tokens e a resposta, 200. Qual é a latência aproximada da chamada?'
   opcoes:
-  - O número de tokens gerados na saída
-  - O tamanho do system prompt apenas
-  - O nome do modelo
-  - A temperatura
-  correta: 0
-  explicacao: A entrada é processada em paralelo na fase de prefill; a saída é gerada de forma autorregressiva, token a token (decode).
+  - 'Cerca de 24,3 s'
+  - 'Cerca de 4,0 s'
+  - 'Cerca de 4,3 s'
+  - 'Cerca de 0,3 s'
+  correta: 2
+  explicacao: 'L ≈ TTFT + tokens de saída × tempo por token = 300 ms + 200 × 20 ms = 4,3 s. A entrada é processada em paralelo no prefill e já está dentro do TTFT; cobrar 20 ms também por token de entrada dá 24,3 s. Esquecer o TTFT dá 4,0 s, e 0,3 s é só o tempo até o primeiro token.'
   topico: llms-e-apis
-- enunciado: Em qual erro HTTP de uma API de LLM faz sentido repetir a chamada com backoff exponencial e jitter?
+- enunciado: 'Na 2ª tentativa, a chamada falha com 429 e o erro traz retry_after = 6 (segundos). O backoff com jitter calculou 2 s para essa espera. Pela política do decorador com_retries da lição, quanto o código espera antes de tentar de novo?'
   opcoes:
-  - 400 (requisição inválida)
-  - 429 (limite de taxa excedido)
-  - 401 (não autorizado)
-  - 422 (esquema inválido)
-  correta: 1
-  explicacao: Erros transitórios (429 limite de taxa, 502/503/504 e timeout) podem se resolver na tentativa seguinte; erros 400/401/422 exigem corrigir a requisição ou a credencial.
+  - '6 s: espera o maior dos dois, porque o servidor pediu pelo menos isso'
+  - '2 s: o backoff com jitter já espalha os clientes, então o Retry-After pode ser ignorado'
+  - '8 s: soma o backoff ao Retry-After'
+  - 'Não espera: 429 é erro permanente e sobe na hora'
+  correta: 0
+  explicacao: '429 é transitório e vale repetir. Quando o servidor manda Retry-After, esperar menos que isso tende a receber outro 429; a política da lição espera o maior entre o backoff e o retry_after. Somar os dois atrasa sem motivo.'
   topico: llms-e-apis
-- enunciado: O que mede o TTFT (Time To First Token) ao usar streaming em uma chamada de LLM?
+- enunciado: 'O backoff da lição usa base 1 s, teto 8 s e metade fixa mais metade sorteada: c = min(teto, base · 2^(k−1)) e espera = c/2 + u · c/2, com u entre 0 e 1. Em que intervalo fica a espera depois da 5ª falha?'
   opcoes:
-  - O tempo total até o último token da resposta ser gerado
-  - O tempo entre o envio da requisição e a chegada do primeiro pedaço (chunk) de texto
-  - A quantidade de tokens por segundo durante toda a geração
-  - O tempo gasto apenas para serializar o JSON no cliente
-  correta: 1
-  explicacao: O TTFT reflete a latência de rede mais a fase de prefill do prompt; o streaming reduz o TTFT percebido pelo usuário mesmo quando o tempo total de geração continua igual.
+  - 'Entre 8 s e 16 s'
+  - 'Exatamente 16 s'
+  - 'Entre 8 s e 9 s'
+  - 'Entre 4 s e 8 s'
+  correta: 3
+  explicacao: 'Com k = 5, base · 2^4 = 16 passa do teto, então c = 8 e a espera fica entre 4 e 8 s. Sem o teto daria entre 8 e 16 s; sem teto nem jitter, 16 s fixos. Somar ao teto um sorteio de até 1 s (8 a 9 s) quase não espalha clientes que esperam vários segundos, que é o motivo de sortear metade da espera.'
   topico: llms-e-apis
-- enunciado: Em uma chamada de LLM com suporte a ferramentas (tool calling), quem executa de fato o código Python da ferramenta?
+- enunciado: 'O modelo responde com finish_reason = "tool_calls" e o pedido {"id": "c1", "name": "consultar_vagas", "arguments": "{\"codigo\": \"PRG101\"}"}. O que a aplicação faz antes da segunda chamada ao modelo?'
   opcoes:
-  - O servidor do provedor do LLM automaticamente
-  - A aplicação cliente, após validar o nome e os argumentos sugeridos pelo modelo
-  - O banco de dados vetorial
-  - O tokenizador do modelo
+  - 'Executa a função e manda só a mensagem tool com o resultado e o tool_call_id, porque a mensagem assistant com os pedidos repetiria o que o modelo já sabe'
+  - 'Executa a função permitida, com json.loads nos argumentos, e manda a mensagem assistant com os tool_calls e uma mensagem tool com o resultado'
+  - 'Lê os argumentos com eval, que também aceita aspas simples, procura a função em globals() e manda o resultado numa mensagem tool'
+  - 'Nada: o provedor já executou consultar_vagas e devolve o resultado na próxima resposta, junto com o texto final'
   correta: 1
-  explicacao: O LLM apenas emite uma intenção estruturada (nome da função e argumentos em JSON); o código da aplicação valida, executa a função localmente e devolve o resultado em uma mensagem de papel tool.
+  explicacao: 'O modelo só pede; quem executa é o seu código, e apenas funções da lista de permitidas. Os argumentos chegam como texto JSON e são lidos com json.loads, nunca com eval. Sem a mensagem assistant com os tool_calls antes da mensagem tool, os provedores recusam a conversa.'
   topico: llms-e-apis
-- enunciado: Se uma chamada processa 2.000 tokens de entrada (US$ 1,00 por milhão) e gera 500 tokens de saída (US$ 4,00 por milhão), qual é o custo dessa chamada?
+- enunciado: 'Uma chamada usa 2 000 tokens de entrada e 500 de saída. Os preços (fictícios) são 2 reais por milhão de tokens de entrada e 8 reais por milhão de tokens de saída. Quanto custa a chamada?'
   opcoes:
-  - US$ 0,0020
-  - US$ 0,0040
-  - US$ 0,0060
-  - US$ 0,0100
-  correta: 1
-  explicacao: 'Entrada: (2.000 / 1.000.000) * 1,00 = US$ 0,0020. Saída: (500 / 1.000.000) * 4,00 = US$ 0,0020. Soma: US$ 0,0040.'
+  - '0,005 real'
+  - '0,020 real'
+  - '0,008 real'
+  - '8 reais'
+  correta: 2
+  explicacao: 'Entrada: 2 000 / 1 000 000 × 2 = 0,004. Saída: 500 / 1 000 000 × 8 = 0,004. Total: 0,008 real. Cobrar tudo pelo preço de entrada dá 0,005; tudo pelo de saída, 0,020; dividir por mil em vez de por milhão dá 8 reais.'
   topico: llms-e-apis
-- enunciado: Qual configuração de geração é mais indicada para extração determinística de campos JSON e classificação em produção?
+- enunciado: 'Um modelo de 8 bilhões de parâmetros vai rodar com pesos em 4 bits. Para o contexto planejado, o KV cache ocupa cerca de 1,07 GB. Com a regra da lição (pesos + KV cache, mais 10 % de margem), quanta memória ele precisa?'
   opcoes:
-  - 'Temperatura alta (ex.: 1.2) sem esquema de saída'
-  - Temperatura 0 (ou próxima de 0) combinada com validação de esquema
-  - Top-p igual a 1.0 e temperatura igual a 1.5
-  - Aumentar max_tokens para o máximo do modelo sem instruções de formato
-  correta: 1
-  explicacao: Temperatura zero escolhe sempre o token mais provável (decodificação gulosa), reduzindo variância e erros de formatação em tarefas determinísticas.
+  - 'Cerca de 5,6 GB'
+  - 'Cerca de 4,8 GB'
+  - 'Cerca de 4,4 GB'
+  - 'Cerca de 36 GB'
+  correta: 0
+  explicacao: 'Pesos: 8 × 4 / 8 = 4 GB. Total: (4 + 1,07) × 1,1 ≈ 5,6 GB. Um fator fixo de 1,2 sobre os pesos (4,8 GB) ignora que o KV cache cresce com os tokens em contexto e com os usuários simultâneos; esquecer o KV dá 4,4 GB; tratar bits como bytes infla os pesos para 32 GB.'
   topico: llms-e-apis
-- enunciado: Por que separar instruções de dados do usuário com delimitadores claros (como tags XML) no prompt?
+- enunciado: 'Por que o pedido do aluno vai numa mensagem user, entre <entrada> e </entrada>, separado das instruções do system?'
   opcoes:
-  - Para economizar tokens na entrada
-  - Para explicitar as fronteiras entre comando do sistema e dado não confiável, reduzindo o risco de injeção e confusão
-  - Apenas por estética visual no código-fonte
-  - Para acelerar o tempo de prefill na GPU
+  - 'Porque, com o delimitador, o modelo fica impedido de seguir qualquer instrução escrita dentro do texto do aluno'
+  - 'Para marcar onde o dado começa e termina e reduzir a chance de ele ser lido como instrução, sem tornar a injeção impossível'
+  - 'Porque o texto entre tags é tratado como dado pelo provedor e, por isso, não conta na janela de contexto nem entra na fatura de tokens'
+  - 'Porque o delimitador já indica o formato da resposta, e o system não precisa listar as categorias permitidas'
   correta: 1
-  explicacao: Instruções e dados compartilham o mesmo canal textual; delimitar os dados e instruir o modelo a tratá-los como entrada passiva evita que trechos do usuário sejam lidos como comandos.
+  explicacao: 'Delimitar separa instrução de dado e diminui a confusão, mas o modelo ainda lê tudo como uma sequência de tokens e pode obedecer ao texto do aluno. Por isso o módulo 6 trata a injeção com isolamento, privilégio mínimo e validação da saída. O texto delimitado conta tokens normalmente.'
   topico: prompting
-- enunciado: 'Em engenharia de prompt, quando vale usar few-shot (exemplos no prompt) em vez de zero-shot?'
+- enunciado: 'Um classificador few-shot tem dois exemplos de cada classe, nesta ordem: MATRICULA, MATRICULA, TRANCAMENTO, TRANCAMENTO, HISTORICO, HISTORICO. Pedidos ambíguos saem quase sempre HISTORICO. O que explica e o que fazer?'
   opcoes:
-  - Nunca, pois exemplos sempre pioram a resposta
-  - Quando o formato de saída, o tom ou os casos de borda são difíceis de especificar apenas com regras abstratas
-  - Apenas quando o modelo não aceita system prompt
-  - Somente para perguntas de matemática elementar
-  correta: 1
-  explicacao: Bons exemplos pares (entrada -> saída esperada) ancoram formato, granularidade e tratamento de casos limítrofes com mais precisão do que descrições longas.
+  - 'Viés de maioria: HISTORICO tem exemplos demais. Tirar um exemplo de HISTORICO e medir de novo'
+  - 'Faltam exemplos: copiar para o prompt os casos ambíguos do conjunto de avaliação, já com o rótulo certo de cada um'
+  - 'Aumentar a temperatura, para os casos ambíguos se espalharem de forma igual entre as três classes'
+  - 'Viés de recência: os últimos exemplos pesam mais. Alternar as classes (M, T, H, M, T, H) e medir de novo'
+  correta: 3
+  explicacao: 'As classes estão balanceadas, então não é maioria; o padrão aponta para o fim da lista. Exemplos tirados do conjunto de avaliação fazem a medição medir memorização. Temperatura alta troca um erro sistemático por erros aleatórios.'
   topico: prompting
-- enunciado: 'Compare raciocínio em uma chamada (Chain-of-Thought) e decomposição em cadeia de chamadas (prompt chaining). Qual afirmação está correta?'
+- enunciado: 'Sobre cadeia de pensamento ("raciocine passo a passo") e decomposição em várias chamadas, qual afirmação está correta?'
   opcoes:
-  - Chain-of-Thought aumenta a latência de saída porque gera tokens intermediários de raciocínio antes da resposta final
-  - Decomposição em subtarefas impede que o código valide a saída entre uma etapa e outra
-  - Chain-of-Thought sempre reduz o número de tokens de saída
-  - As duas técnicas têm exatamente o mesmo custo e não podem ser combinadas
+  - 'A cadeia de pensamento gasta tokens de saída a mais; a decomposição permite validar em código cada etapa'
+  - 'O raciocínio escrito mostra como o modelo decidiu, então basta lê-lo para confiar no veredito'
+  - 'A decomposição sai sempre mais barata que uma chamada única, porque cada prompt fica menor e mais focado na sua etapa'
+  - 'Numa cadeia de três etapas que acertam 95 % cada uma, a cadeia inteira também acerta 95 %'
   correta: 0
-  explicacao: Gerar passos intermediários consome tokens de saída (mais latência e custo), enquanto encadear chamadas permite validar ou filtrar o resultado intermediário em código Python.
+  explicacao: 'O raciocínio é saída, cobrada e gerada token a token. O texto dele pode ser plausível e errado, e a parte determinística (somas, comparações) deve ser refeita em código. A decomposição faz mais chamadas e reenvia instruções, e os erros se compõem: 0,95 × 0,95 × 0,95 ≈ 0,86.'
   topico: prompting
-- enunciado: 'Prompts devem ser tratados como artefatos versionados (com versão, hash e testes de regressão) porque:'
+- enunciado: 'A versão 1.1 de um prompt acerta 3 casos que a 1.0 errava e erra 1 caso que a 1.0 acertava; a acurácia total sobe. O que o teste de regressão da lição decide?'
   opcoes:
-  - Uma alteração sutil de redação pode melhorar um caso e quebrar outros em produção
-  - A API HTTP do provedor bloqueia chamadas sem cabeçalho de versão
-  - O versionamento reduz automaticamente o preço por token
-  - Prompts não mudam o comportamento do sistema depois do deploy
-  correta: 0
-  explicacao: Prompts definem comportamento tanto quanto código; manter versão, hash SHA-256 e uma suíte de avaliação permite detectar regressões antes de promover mudanças.
+  - 'Aprova a 1.1, porque a acurácia total subiu e três melhorias compensam uma regressão'
+  - 'Aprova a 1.1 se a acurácia subir pelo menos 5 pontos percentuais, e registra no log só a acurácia final de cada versão'
+  - 'Reprova a 1.1 enquanto houver regressão e mostra pelo id o caso que piorou, para ser analisado antes de publicar'
+  - 'Aplica a mudança no texto da 1.0, mantendo o número da versão, para não ter de publicar versão nova'
+  correta: 2
+  explicacao: 'A acurácia total esconde trocas: três melhorias compensam uma regressão no número, mas não para o aluno daquele caso. A comparação caso a caso lista regressões e melhorias, e a aprovação exige zero regressões. Versão publicada não se edita: mudou o texto, é versão nova, e o hash do template denuncia a edição feita por fora.'
   topico: prompting
-- enunciado: Em um pipeline de extração estruturada em lote com retentativa de reparo (repair loop), o que deve ser enviado ao modelo quando o JSON falha na validação?
+- enunciado: 'No lote, o item 7 volta com finish_reason = "length" e um JSON pela metade; o item 9 volta com "stop", mas o JSON não tem o campo obrigatório "disciplina". Como tratar cada um?'
   opcoes:
-  - Exatamente o mesmo prompt sem nenhuma informação adicional, esperando sorte diferente com temperatura 0
-  - A saída inválida gerada e a mensagem específica do erro de validação para que o modelo corrija o campo defeituoso
-  - Apenas a palavra ERRO sem o texto original
-  - O código-fonte completo do interpretador Python
-  correta: 1
-  explicacao: 'Informar o erro exato (ex.: chave ausente, tipo incorreto ou JSON truncado) permite que a retentativa corrija o problema mesmo em baixa temperatura.'
+  - 'Item 7: reparo com a mensagem do erro de JSON. Item 9: repetir com max_tokens maior'
+  - 'Os dois: reenviar com a mensagem de reparo e o erro, até esgotar as tentativas do item'
+  - 'Os dois: completar o JSON no próprio código, fechando as aspas e as chaves que faltam, e registrar o item como sucesso'
+  - 'Item 7: repetir com max_tokens maior. Item 9: reenviar com a resposta inválida e o erro exato do validador'
+  correta: 3
+  explicacao: 'A resposta cortada não coube: com o mesmo max_tokens, o reparo é cortado no mesmo ponto. A resposta completa e inválida melhora quando o modelo vê o que respondeu e o que estava errado. Completar o JSON no código inventa dados. Esgotadas as tentativas, o item vai para as falhas com o id e o lote segue.'
   topico: prompting
-- enunciado: Qual é a utilidade de manter um cache por hash de entrada ao processar milhares de textos com um LLM em lote?
+- enunciado: 'Qual chave de cache serve para as respostas de um lote processado por LLM?'
   opcoes:
-  - Evitar chamadas redundantes para textos idênticos e permitir retomar o lote do ponto onde parou sem reprocessar itens já concluídos
-  - Aumentar a temperatura do modelo a cada chamada
-  - Substituir a validação de esquema JSON
-  - Reduzir a dimensão dos vetores de embedding
-  correta: 0
-  explicacao: Em lotes reais há textos repetidos e falhas no meio da execução; indexar resultados pelo hash do item + versão do prompt economiza custo e garante idempotência.
+  - 'SHA-256 só do pedido do aluno, que é o que se repete no lote, para aproveitar o máximo de acertos'
+  - 'SHA-256 de json.dumps com sort_keys do modelo, das mensagens e dos parâmetros; sem guardar truncadas nem temperatura acima de 0'
+  - 'SHA-256 do modelo, da temperatura e da última mensagem user, já que o system não muda entre chamadas'
+  - 'SHA-256 de str(params) concatenado com o texto do prompt, guardando também as respostas truncadas para não pagar por elas de novo'
+  correta: 1
+  explicacao: 'Tudo o que muda a resposta precisa compor a chave: o system muda com a versão do prompt, e o modelo e os parâmetros também. str(dict) depende da ordem de inserção das chaves; json.dumps com sort_keys não. Guardar uma resposta truncada guarda um erro para sempre.'
   topico: prompting
-- enunciado: 'A similaridade de cosseno entre dois embeddings normalizados (norma L2 igual a 1) equivale exatamente a:'
+- enunciado: 'Um trecho só com palavras vazias ("de da do") vira o vetor nulo. O que acontece se a indexação normaliza com E / np.linalg.norm(E, axis=1, keepdims=True) sem tratar esse caso?'
   opcoes:
-  - A distância euclidiana ao quadrado
-  - O produto interno (dot product) entre os dois vetores
-  - A soma simples dos elementos dos dois vetores
-  - A distância de Manhattan
-  correta: 1
-  explicacao: 'Como cos(u, v) = (u · v) / (||u|| ||v||), quando ||u|| = 1 e ||v|| = 1 o denominador vale 1 e a similaridade de cosseno reduz-se ao produto interno u · v.'
+  - 'A linha vira nan, com RuntimeWarning e sem exceção, e todo cosseno com ela vira nan e bagunça a ordenação'
+  - 'O numpy levanta ZeroDivisionError na divisão por zero, e a indexação inteira para no trecho com problema até alguém corrigir'
+  - 'A linha ganha norma 1 numa direção arbitrária e passa a aparecer em buscas sem relação'
+  - 'Nada de errado: a linha continua nula e tem cosseno 0 com qualquer consulta'
+  correta: 0
+  explicacao: 'Dividir por zero no numpy não lança exceção: emite RuntimeWarning: invalid value encountered in divide e devolve nan, que contamina as contas seguintes. Ficar com cosseno 0 é o resultado desejado, mas só acontece se o código tratar a norma zero.'
   topico: embeddings-e-busca-vetorial
-- enunciado: Dada uma matriz `E` de shape `(N, d)` já normalizada por linha e um vetor de consulta `q` de shape `(d,)` normalizado, qual expressão NumPy calcula todas as N similaridades de cosseno de forma vetorizada?
+- enunciado: 'As linhas da matriz E (forma N × d) e o vetor q (forma (d,)) já estão normalizados. Qual expressão numpy devolve, de uma vez, os N cossenos entre q e cada linha de E?'
   opcoes:
-  - '`E @ q`'
-  - '`E + q`'
-  - '`np.linalg.norm(E)`'
-  - '`q / E`'
-  correta: 0
-  explicacao: A multiplicação matriz-vetor `E @ q` calcula o produto interno de `q` com cada uma das `N` linhas de `E` sem laços em Python.
+  - 'q @ E'
+  - 'E.T @ q'
+  - 'E @ q'
+  - 'np.linalg.norm(E - q, axis=1)'
+  correta: 2
+  explicacao: 'E @ q faz o produto interno de q com cada linha, e entre vetores unitários o produto interno é o cosseno. q @ E e E.T @ q não batem as formas (a menos que N = d, quando calculam outra coisa). A norma de E − q é a distância euclidiana: ordena na direção oposta e não é o cosseno.'
   topico: embeddings-e-busca-vetorial
-- enunciado: 'Em um índice vetorial aproximado do tipo IVF (Inverted File Index) com `nlist` partições e busca em `nprobe` centróides mais próximos, o que acontece ao aumentar `nprobe`?'
+- enunciado: 'Num índice IVF com nlist listas, o que acontece ao aumentar nprobe?'
   opcoes:
-  - O recall@k tende a subir, mas a latência da busca também aumenta porque mais vetores candidatos são inspecionados
-  - O recall@k cai e a busca fica mais lenta
-  - O índice deixa de usar centróides e apaga os vetores
-  - A latência cai para zero quando `nprobe == nlist`
-  correta: 0
-  explicacao: '`nprobe` controla o compromisso entre qualidade (recall em relação à busca exata) e velocidade (fração da base efetivamente comparada).'
+  - 'O recall sobe e a consulta fica mais rápida, porque com mais listas sondadas cada uma delas fica menor'
+  - 'O recall@k contra a busca exata tende a subir, e cada consulta pontua mais vetores, ficando mais lenta'
+  - 'O recall não muda, porque os centróides são os mesmos; só a latência sobe'
+  - 'Com nprobe = nlist o recall chega a 1 e a busca fica mais rápida que a força bruta'
+  correta: 1
+  explicacao: 'nprobe é quantas listas são sondadas: mais listas, menos vizinhos perdidos do outro lado das fronteiras, e mais vetores pontuados. Com nprobe = nlist todos os vetores são pontuados: o recall é 1, mas a consulta fica um pouco mais lenta que a força bruta, porque ainda compara com os centróides.'
   topico: embeddings-e-busca-vetorial
-- enunciado: 'Um índice IVF configurado com `nprobe == nlist` realiza:'
+- enunciado: 'Um divisor de sentenças que corta depois de ". " é aplicado a "O prazo está no Art. 5 do regimento. A taxa é 2.50 reais." O que acontece?'
   opcoes:
-  - Busca aproximada dez vezes mais rápida que a busca exata
-  - Busca exata (recall 1.0), porém com o custo adicional de comparar os centróides antes de varrer todas as partições
-  - Busca vazia que não retorna nenhum documento
-  - Apenas busca lexical por palavras-chave
-  correta: 1
-  explicacao: Inspecionar todas as `nlist` listas invertidas visita 100 % dos vetores da base, igualando o resultado da força bruta com sobrecarga extra.
+  - 'Funciona: sai uma sentença para cada frase, porque o ponto final vem seguido de espaço'
+  - 'Corta também em "2.50", separando a parte inteira dos centavos em dois trechos'
+  - 'Corta só no fim do texto, porque o "5" depois de "Art." não começa com maiúscula'
+  - 'Corta depois de "Art.", separando o artigo do número; o divisor precisa conhecer as abreviações'
+  correta: 3
+  explicacao: 'Em texto normativo, abreviações como "Art.", "Prof." e "inc." terminam em ponto seguido de espaço. O divisor da lição só fecha a sentença quando a palavra termina em pontuação final e não é uma abreviação conhecida. "2.50" não tem espaço depois do ponto, então não corta.'
   topico: embeddings-e-busca-vetorial
-- enunciado: Qual é a principal vantagem do chunking recursivo (por seções, parágrafos e frases) com sobreposição (overlap) sobre o corte cego a cada N caracteres fixos?
+- enunciado: 'O índice tem 100 000 trechos, só 40 deles da pós-graduação. A busca com filtro curso = "pos" e k = 5 devolve 1 resultado. Qual é a causa mais provável?'
   opcoes:
-  - Evita partir frases ou artigos de regulamento ao meio e preserva o contexto nas fronteiras entre blocos adjacentes
-  - Elimina a necessidade de calcular embeddings para os blocos
-  - Garante que todos os blocos tenham exatamente o mesmo hash SHA-256
-  - Reduz o número total de tokens do documento original pela metade
-  correta: 0
-  explicacao: Respeitar fronteiras naturais do texto mantém ideias completas em cada chunk, e a sobreposição impede perder informações que ficam na transição entre dois blocos.
+  - 'Os trechos da pós foram embutidos com outro modelo de embedding e ficaram com cosseno negativo com a consulta'
+  - 'k precisa ser maior que o número de categorias do filtro, senão a busca corta os resultados'
+  - 'O filtro é aplicado depois do top-5 do índice inteiro, e só um trecho da pós estava entre os 5 melhores'
+  - 'argpartition perde resultados quando k é pequeno e o índice é grande, e só sobra um'
+  correta: 2
+  explicacao: 'Com pós-filtro, o top-k é escolhido antes de olhar os metadados; quando a categoria é rara, quase nada passa. Pré-filtrar escolhe primeiro os 40 trechos da pós e devolve os 5 melhores entre eles. argpartition é exato: garante os k maiores, só não os ordena.'
   topico: embeddings-e-busca-vetorial
-- enunciado: Ao indexar chunks de documentos para RAG, por que é essencial guardar metadados (`doc_id`, `titulo`, `secao`, posição) junto com o texto e o vetor de cada chunk?
+- enunciado: 'O gerador escreve "O trancamento parcial vai até o 90º dia letivo. [1]", e o trecho [1] enviado diz "O trancamento parcial pode ser pedido até o 60º dia letivo." Que status a auditoria de citações da lição dá a essa afirmação?'
   opcoes:
-  - 'Para permitir filtragem prévia (ex.: buscar só no regimento vigente) e citar a fonte exata na resposta final'
-  - Porque o cálculo do produto interno em NumPy exige strings de metadados
-  - Apenas para aumentar o uso de disco
-  - Para impedir que o modelo leia o texto do chunk
+  - 'numero_divergente: o 90 da afirmação não aparece no trecho citado'
+  - 'ok: quase todas as palavras da afirmação estão no trecho citado'
+  - 'orfa: a citação aponta para um trecho que não apoia a frase'
+  - 'sem_citacao: o número não tem citação própria'
   correta: 0
-  explicacao: Sem metadados de origem não é possível filtrar por documento/data nem rastrear e citar de qual artigo ou página veio a evidência usada pelo LLM.
-  topico: embeddings-e-busca-vetorial
-- enunciado: 'Em um sistema RAG bem projetado, o que o assistente deve fazer quando os trechos recuperados têm baixa relevância ou não contêm a informação necessária para responder à pergunta?'
-  opcoes:
-  - Responder usando a memória paramétrica do modelo e inventar uma citação plausível
-  - Declarar explicitamente que não há informação suficiente nos documentos consultados (abstenção aterrada)
-  - Repetir a mesma busca no índice vetorial em loop infinito
-  - Retornar o documento inteiro sem filtro
-  correta: 1
-  explicacao: Aterramento (grounding) exige responder apenas com base nas evidências recuperadas e recusar/abster-se quando a base não cobre a pergunta.
+  explicacao: 'Órfã é número fora de 1..len(enviados); aqui o [1] existe. A cobertura de palavras é alta, mas a conferência de números vem antes e pega o prazo trocado, a alucinação mais cara em texto normativo. A regra tem limite: sobreposição de palavras não vê negação, e afirmações críticas pedem um juiz ou NLI por cima.'
   topico: rag
-- enunciado: Qual métrica avalia especificamente se a resposta gerada por um pipeline RAG não inventou fatos além do que está escrito nos trechos recuperados?
+- enunciado: 'Qual desenho de roteador entre os índices regimento, calendario e faq segue a lição?'
   opcoes:
-  - Recall@k
-  - Fidelidade (faithfulness)
-  - MRR (Mean Reciprocal Rank)
-  - Latência p95
-  correta: 1
-  explicacao: Recall@k e MRR medem a etapa de recuperação; a fidelidade mede se as afirmações da resposta gerada são sustentadas pelos trechos entregues no prompt.
+  - 'Oferecer só as três rotas, porque toda pergunta que chega ao assistente da secretaria acadêmica cabe em alguma delas'
+  - 'Rotear a pergunta como o aluno digitou, antes de reformular, para não perder nada do que ele escreveu'
+  - 'Aceitar o rótulo só quando bater exatamente com a rota e, na falta dele, usar o índice com mais trechos'
+  - 'Oferecer só as rotas existentes mais "nenhum", rotear a pergunta reformulada e tratar rótulo inválido como "nenhum"'
+  correta: 3
+  explicacao: 'Sem "nenhum", o classificador é obrigado a escolher, e a pergunta fora do escopo recebe uma resposta fiel a um trecho irrelevante. "E para a pós-graduação?" sozinha não pertence a rota nenhuma. O modelo pode responder "Calendário.": normalizar evita recusar à toa, e validar contra a lista evita buscar num índice que não existe.'
   topico: rag
-- enunciado: Se, em uma consulta de teste, o primeiro documento relevante aparece na posição 4 do ranking retornado pelo buscador, qual é o Reciprocal Rank (RR) dessa consulta?
+- enunciado: 'A busca não trouxe o artigo que responde a pergunta, e o gerador devolveu a frase de recusa. Como essa resposta se classifica na avaliação por etapa?'
   opcoes:
-  - '0.25'
-  - '0.40'
-  - '4.00'
-  - '0.75'
-  correta: 0
-  explicacao: O Reciprocal Rank é 1 / posição do primeiro item relevante, logo 1 / 4 = 0,25. O MRR é a média dessa métrica sobre todas as consultas avaliadas.
+  - 'Infiel e incorreta: a falha é de geração'
+  - 'Fiel e incorreta: a falha é de recuperação'
+  - 'Alucinação, porque a resposta não bate com a referência'
+  - 'Acerto, porque recusar é sempre o comportamento certo'
+  correta: 1
+  explicacao: 'Fidelidade compara com os trechos enviados: a recusa não afirma nada sem apoio. Correção compara com a resposta de referência: o aluno ficou sem a informação. Como a evidência não chegou ao prompt, mexer no gerador não resolve; o defeito está na busca. Recusar é o certo só nas perguntas que os documentos não respondem.'
   topico: rag
-- enunciado: 'A busca lexical (BM25) tende a superar a busca puramente vetorial por embeddings quando a consulta contém:'
+- enunciado: 'Em 3 consultas de teste, o primeiro trecho relevante aparece na posição 1, na posição 4 e em nenhuma posição do top-5 (a consulta tem gabarito, mas a busca não o trouxe). Qual é o MRR?'
   opcoes:
-  - Sinônimos conceituais e paráfrases sem palavras em comum
-  - 'Códigos exatos de disciplinas (ex.: MAC0121), números de artigos, siglas e identificadores raros'
-  - Textos com erros de digitação graves
-  - Descrições vagas de sentimentos
-  correta: 1
-  explicacao: Embeddings comprimem o significado geral e frequentemente diluem identificadores alfanuméricos exatos; o BM25 pontua diretamente a ocorrência rara do termo exato (alto IDF).
+  - 'Cerca de 0,42'
+  - 'Cerca de 0,63'
+  - '1,25'
+  - '2,5'
+  correta: 0
+  explicacao: 'Recíprocos: 1, 1/4 = 0,25 e 0. Média: 1,25 / 3 ≈ 0,42. Tirar da média a consulta que não achou nada dá 0,63 e esconde a falha; 1,25 é a soma sem dividir; 2,5 é a média das posições, não dos recíprocos. Só fica fora da média a pergunta sem nenhum trecho relevante no gabarito.'
   topico: rag
-- enunciado: Como funciona a fusão de rankings por Reciprocal Rank Fusion (RRF) com constante `k = 60`?
+- enunciado: 'Em qual tipo de consulta a busca léxica BM25 tende a superar a busca vetorial?'
   opcoes:
-  - Soma as pontuações brutas do BM25 (que vão de 0 a 20+) diretamente com o cosseno (entre -1 e 1) sem normalização
-  - Soma `1 / (k + pos)` usando apenas a posição `pos` (1, 2, 3...) de cada documento em cada ranking, evitando depender da escala das pontuações brutas
-  - Descarta todos os documentos que não aparecem na posição 1 dos dois rankings simultaneamente
-  - Escolhe aleatoriamente entre o resultado do BM25 e o resultado vetorial
-  correta: 1
-  explicacao: Como BM25 e similaridade de cosseno têm escalas incompatíveis, o RRF combina apenas as posições ordinais, premiando documentos bem colocados em ambos os métodos.
+  - 'Paráfrases sem nenhuma palavra em comum com o trecho'
+  - 'Consultas com o código digitado errado, como "PRG1O2" com a letra O no lugar do zero'
+  - 'Consultas com códigos exatos (como PRG102), números de artigo, siglas e nomes raros'
+  - 'Perguntas longas e vagas que misturam vários assuntos'
+  correta: 2
+  explicacao: 'O vetor resume o texto inteiro, e um código pesa como uma palavra entre várias; o BM25 dá peso alto a termos raros (IDF) e casa a palavra exata. Paráfrases são o forte da busca vetorial. Um código digitado errado também falha no BM25, que precisa da palavra igual.'
   topico: rag
-- enunciado: 'Em um chat RAG de múltiplos turnos, o usuário pergunta "Qual o prazo de trancamento?" e, no turno seguinte, pergunta apenas "E para alunos ingressantes?". Por que é necessário reescrever a consulta antes de buscar no índice?'
+- enunciado: 'Na fusão por RRF com k = 60, o documento A está em 1º lugar no BM25 e não aparece na lista vetorial; o documento B está em 2º lugar nas duas listas. Quem fica na frente?'
   opcoes:
-  - 'Porque a segunda pergunta isolada ("E para alunos ingressantes?") omite o tema ("trancamento") e recuperaria trechos genéricos sobre ingressantes'
-  - Porque o índice vetorial não aceita perguntas com menos de 10 palavras
-  - Para apagar o histórico da conversa e economizar memória RAM
-  - Porque o BM25 só funciona no primeiro turno da sessão
-  correta: 0
-  explicacao: 'A reescrita contextualizada transforma a pergunta dependente do diálogo em uma consulta autossuficiente ("Qual o prazo de trancamento para alunos ingressantes?").'
+  - 'A, porque venceu uma das listas'
+  - 'B, com cerca de 0,032 contra 0,016 de A'
+  - 'Empate: os dois somam 1'
+  - 'Não dá para saber sem os escores brutos das duas buscas'
+  correta: 1
+  explicacao: 'O RRF soma 1 / (k + posição) nas listas em que o documento aparece: A = 1/61 ≈ 0,016; B = 1/62 + 1/62 ≈ 0,032. Ser bem colocado nas duas listas vale mais que vencer uma só. O empate aconteceria com k = 0 (1 contra 1/2 + 1/2), que deixa o primeiro lugar dominar. O RRF não usa os escores brutos, só as posições.'
   topico: rag
-- enunciado: 'Qual é a sequência de etapas que compõe o ciclo de execução de um agente no padrão ReAct?'
+- enunciado: 'O aluno pergunta "Qual o prazo de trancamento parcial?" e, no turno seguinte, "E para a pós-graduação?". Por que reformular a segunda pergunta antes de buscar?'
   opcoes:
-  - Pensamento (raciocínio) -> Ação (chamada de ferramenta) -> Observação (resultado da ferramenta) -> novo Pensamento ou Resposta final
-  - Treino -> Validação -> Teste -> Deploy
-  - Tokenização -> Embedding -> K-Means -> Softmax
-  - Busca -> Chunking -> Mascaramento -> Rollback
-  correta: 0
-  explicacao: No loop ReAct o modelo alterna passos de raciocínio e invocação de ferramentas, incorporando a observação retornada pela ferramenta ao contexto até concluir a tarefa.
+  - 'Para o vetor da pergunta ficar menor e a busca no índice da pós-graduação, mais rápida'
+  - 'Para mostrar ao aluno, na tela, a pergunta corrigida e completa no lugar da que ele digitou'
+  - 'Porque, com a pergunta reformulada, nenhum turno anterior da conversa precisa mais ser guardado na memória do assistente'
+  - 'Sozinha ela não tem o assunto e fica perto de qualquer trecho sobre pós-graduação; a versão completa vai à busca'
+  correta: 3
+  explicacao: 'A reformulação devolve o assunto que estava no turno anterior. A interface continua mostrando o que o aluno digitou, e a memória guarda a pergunta reformulada com a resposta, para o próximo turno ainda achar o assunto. Se a reescrita vier vazia ou cortada, volta-se à pergunta original.'
+  topico: rag
+- enunciado: 'No loop ReAct, o modelo escreve Acao: consultar_prazo({"evento": "trancamento"}). Quem produz a linha Observacao: e o que acontece com ela?'
+  opcoes:
+  - 'O próprio modelo escreve a observação na mesma saída, e o agente a aceita se o formato estiver certo'
+  - 'O código executa a ferramenta e entrega o resultado direto ao usuário, encerrando o laço'
+  - 'O provedor do LLM executa a ferramenta e inclui o resultado na resposta da chamada seguinte'
+  - 'O código executa a ferramenta e devolve o resultado, ou o erro, ao modelo, que decide o próximo passo'
+  correta: 3
+  explicacao: 'A observação é sempre escrita pelo código: se o modelo inventar uma depois da ação, ela é cortada (as stop sequences e o parser fazem isso). O resultado volta como nova mensagem e o laço continua até a Resposta Final ou até max_passos, sempre com o rastro.'
   topico: agentes-e-ferramentas
-- enunciado: 'Um agente ReAct sem limite máximo de passos (`max_passos`) e sem orçamento de tokens corre o risco imediato de:'
+- enunciado: 'Um agente tem Orcamento(max_passos=5, max_tokens=3000, ...). Depois de 3 passos, as respostas somam 3 100 tokens. O que acontece quando liberar() é chamado antes da 4ª chamada ao modelo?'
   opcoes:
-  - Responder rápido demais na primeira iteração
-  - Entrar em loop repetitivo ao encontrar erros de ferramenta ou ambiguidade, consumindo tempo e custo indefinidamente
-  - Converter automaticamente suas ferramentas em SQL
-  - Desativar a verificação de tipos do Python
+  - 'Levanta OrcamentoEstourado com motivo "tokens", sem fazer a chamada e sem contar o passo'
+  - 'Libera a chamada, porque ainda restam 2 dos 5 passos do orçamento'
+  - 'Libera a chamada e só levanta depois, quando registrar os tokens da 4ª resposta'
+  - 'Levanta OrcamentoEstourado com motivo "passos", que é sempre o primeiro limite conferido pelo orçamento'
+  correta: 0
+  explicacao: 'liberar() roda antes de cada chamada e confere passos, tokens e tempo, nessa ordem. Os tokens já atingiram o limite, então a chamada não acontece: deixar passar e conferir depois paga justamente a chamada que estoura o orçamento.'
+  topico: agentes-e-ferramentas
+- enunciado: 'Qual implementação do guardrail de confirmação humana para ferramentas de escrita segue a lição?'
+  opcoes:
+  - 'Executa quando if confirmar(nome, args) for verdadeiro, aceitando "sim", 1 ou True como aprovação'
+  - 'Usa confirmar=lambda *a: True como valor padrão, para o agente não travar quando ninguém configurou a tela de confirmação'
+  - 'Executa só se confirmar() devolver exatamente True; "sim", 1, None, exceção ou falta da função contam como não'
+  - 'Pede confirmação também nas ferramentas de leitura, para a pessoa acompanhar cada passo do agente'
+  correta: 2
+  explicacao: 'Na dúvida, não executa. Um padrão permissivo esquecido em produção desliga o guardrail sem aviso. A cópia dos argumentos garante que a ação executada é a que a pessoa viu. Confirmar leituras treina o hábito de clicar "sim" sem ler.'
+  topico: agentes-e-ferramentas
+- enunciado: 'O modelo pede a ferramenta inscrever com {"creditos": "12", "turno": "madrugada"}; o esquema exige creditos inteiro e turno entre manha, tarde e noite. O que o catálogo da lição faz?'
+  opcoes:
+  - 'Não executa e devolve só o primeiro erro, para o modelo corrigir um argumento por vez'
+  - 'Não executa e devolve ao modelo um texto com todos os problemas: creditos deve ser int e turno, um de manha, tarde, noite'
+  - 'Levanta ValueError e encerra o agente, para garantir que nada com argumento errado seja executado'
+  - 'Converte "12" para 12, troca o turno pelo valor permitido mais parecido e executa a função'
   correta: 1
-  explicacao: Todo loop agêntico em produção precisa de limites rígidos de iterações, tokens/custo e tempo total, além de detecção de chamadas idênticas consecutivas.
+  explicacao: 'O erro volta ao modelo, que só consegue corrigir o que a mensagem explica; parar no primeiro gasta um passo por erro, e cada passo é uma chamada com a conversa inteira. Derrubar o agente perde a conversa. Corrigir sozinho executa algo que ninguém pediu.'
   topico: agentes-e-ferramentas
-- enunciado: 'Ao projetar ferramentas para um agente com LLM, por que devemos separar ferramentas de leitura (`permissao="leitura"`) de ferramentas com efeito colateral (`permissao="escrita"`, como cancelar matrícula ou enviar e-mail)?'
+- enunciado: 'Como manter a memória de um agente em conversas longas sem estourar a janela nem perder fatos informados no começo?'
   opcoes:
-  - Porque funções de escrita exigem confirmação explícita do usuário (human-in-the-loop) e validação estrita de parâmetros antes de alterar o estado do sistema
-  - Porque o Python não permite funções que modificam dicionários
-  - Apenas para ordenar a documentação em ordem alfabética
-  - Porque ferramentas de leitura não recebem argumentos
+  - 'Reenviar todas as mensagens brutas e deixar o provedor truncar o começo quando passar da janela'
+  - 'Resumir a cada mensagem nova, com a instrução "resuma a conversa em uma frase" no resumidor'
+  - 'Uma memória longa global, compartilhada entre todos os usuários, para o agente aproveitar o que outros alunos já informaram'
+  - 'Janela recente com resumo que preserva RA, códigos, protocolos e datas, mais o estado da tarefa com os campos validados'
+  correta: 3
+  explicacao: 'A janela limita o custo por chamada; o resumo precisa dizer o que preservar, e o que não pode se perder vai também para o estado da tarefa, que é exato. Resumir a cada mensagem custa uma chamada por turno e repete a mesma perda. Memória sem separação por usuário vaza fatos de uma pessoa para outra.'
+  topico: agentes-e-ferramentas
+- enunciado: 'Sejam A = consultar_prazo({"evento": "trancamento"}), B = consultar_vagas({"codigo": "PRG101"}) e C = consultar_prazo({"evento": "matricula"}). Qual rastro faz detectar_loop(rastro, repeticoes=3), da lição, acusar um loop?'
+  opcoes:
+  - 'A, B, A, B, A'
+  - 'consultar_vagas com PRG101, depois com EST202, depois com MAT301'
+  - 'A, A e a resposta final'
+  - 'C com erro, depois A, B e a resposta final'
   correta: 0
-  explicacao: 'Princípio do menor privilégio: consultas sem efeito colateral podem rodar automaticamente, mas ações destrutivas ou transacionais exigem confirmação humana.'
+  explicacao: 'A mesma chamada, mesma ferramenta e mesmos argumentos, aparece três vezes; as ocorrências não precisam ser seguidas, porque um agente que alterna entre duas consultas também está preso. A mesma ferramenta com argumentos diferentes não é repetição, e duas ocorrências ficam abaixo do limite. Eventos de erro também contam.'
   topico: agentes-e-ferramentas
-- enunciado: 'Quando uma ferramenta chamada pelo agente falha por erro nos argumentos (ex.: data inválida), qual é a melhor prática para o despachante de ferramentas?'
+- enunciado: 'Qual é a diferença entre injeção de prompt direta e indireta?'
   opcoes:
-  - Encerrar o processo do servidor com `sys.exit(1)`
-  - Capturar a exceção prevista e devolver ao agente uma observação estruturada e descritiva do erro para que ele possa corrigir os argumentos
-  - Ocultar o erro e devolver um número aleatório como se a ferramenta tivesse funcionado
-  - Excluir a ferramenta do registro permanentemente
+  - 'Na direta, o atacante usa frases conhecidas como "ignore as instruções"; na indireta, usa paráfrases que o detector de entrada ainda não conhece'
+  - 'Na direta, o usuário escreve a ordem; na indireta, ela vem num conteúdo que o sistema leu, como documento, e-mail ou saída de ferramenta'
+  - 'A direta mira as instruções da aplicação; a indireta é o jailbreak, que mira a política do próprio modelo'
+  - 'A indireta só acontece em RAG, porque e-mails e saídas de ferramentas não chegam ao modelo como texto'
   correta: 1
-  explicacao: 'Retornar uma mensagem clara de erro na observação permite que o modelo entenda o formato esperado (ex.: YYYY-MM-DD) sem derrubar a aplicação.'
-  topico: agentes-e-ferramentas
-- enunciado: Como gerenciar a memória de um agente em conversas longas sem estourar a janela de contexto nem perder fatos essenciais informados no início da sessão?
-  opcoes:
-  - Guardar todas as mensagens brutas indefinidamente até a API retornar erro 400
-  - Combinar uma janela deslizante das últimas N mensagens com um resumo progressivo dos turnos antigos e um dicionário de fatos extraídos da sessão
-  - Apagar todo o histórico a cada duas mensagens
-  - Concatenar todos os documentos do banco vetorial em todas as mensagens do usuário
-  correta: 1
-  explicacao: A janela recente preserva a fluidez do diálogo imediato, enquanto o resumo e os fatos estruturados retêm restrições e dados importantes com custo controlado de tokens.
-  topico: agentes-e-ferramentas
-- enunciado: 'O que caracteriza uma falha de repetição (loop estagnado) em um agente e qual guardrail deve detê-la?'
-  opcoes:
-  - O agente chama exatamente a mesma ferramenta com os mesmos argumentos várias vezes seguidas; o controlador deve detectar a repetição na trilha de auditoria e interromper o loop
-  - O agente responde na primeira tentativa sem chamar ferramentas
-  - O agente usa temperatura igual a zero
-  - O agente retorna citações entre colchetes
-  correta: 0
-  explicacao: Monitorar `(nome_ferramenta, argumentos)` consecutivos permite abortar o ciclo ou injetar um aviso antes de desperdiçar todo o orçamento de passos.
-  topico: agentes-e-ferramentas
-- enunciado: 'Qual é a diferença fundamental entre prompt injection direta e prompt injection indireta?'
-  opcoes:
-  - Na direta o próprio usuário digita comandos para subverter as regras; na indireta a instrução maliciosa vem embutida em dados externos lidos pelo sistema (documentos do RAG, páginas web, e-mails)
-  - A direta ocorre apenas em modelos locais e a indireta apenas em APIs pagas
-  - A indireta só acontece quando a temperatura é maior que 1.0
-  - 'Não há diferença: ambas exigem acesso físico ao servidor'
-  correta: 0
-  explicacao: Na injeção indireta o usuário pode ser legítimo, mas um documento recuperado contém instruções ocultas tentando sequestrar o fluxo do assistente ou acionar ferramentas.
+  explicacao: 'O que separa as duas é por onde a ordem entra. Na indireta, o usuário pode ser legítimo e só pedir um resumo. Paráfrase é uma técnica que serve aos dois tipos, e jailbreak é outra coisa: fazer o modelo violar a política dele. Tudo o que o sistema lê é entrada não confiável.'
   topico: avaliacao-seguranca-e-etica
-- enunciado: Por que um único filtro na entrada ("detector de prompt injection") não basta para proteger um agente com acesso a dados e ferramentas?
+- enunciado: 'Um assistente lê documentos recuperados e e-mails e tem ferramentas de escrita. Qual estratégia contra injeção de prompt a lição recomenda?'
   opcoes:
-  - Porque ataques podem vir disfarçados ou via documentos recuperados; a segurança exige defesa em profundidade (isolamento de dados, menor privilégio nas ferramentas, confirmação para escrita e validação de saída)
-  - Porque filtros de entrada deixam a resposta mais curta
-  - Porque expressões regulares não funcionam em strings UTF-8
-  - Porque o sistema operacional bloqueia filtros de texto
-  correta: 0
-  explicacao: Nenhum classificador de entrada tem 100 % de acerto contra ataques criativos; limitar o que o agente pode fazer e inspecionar o que sai do sistema contém o dano mesmo se o prompt for burlado.
+  - 'Um detector sobre o texto normalizado (NFKD, sem acento, sem invisíveis) que bloqueia qualquer entrada suspeita'
+  - 'Um detector que ganha cada paráfrase nova vista em produção, até a taxa de sucesso da suíte zerar'
+  - 'Camadas em código: privilégio pela origem do contexto (com conteúdo externo, só leitura), validação da saída e confirmação para escrita'
+  - 'Uma instrução no system mandando o modelo nunca obedecer a ordens vindas de documentos ou e-mails'
+  correta: 2
+  explicacao: 'Normalizar ajuda o detector, mas não cobre paráfrases; acrescentar frases é uma corrida sem fim e decora a suíte. Instruções no prompt dependem de o modelo obedecer. Camadas em código, como tirar a escrita quando há conteúdo externo e barrar segredos e links, funcionam mesmo contra um modelo que obedece ao ataque.'
   topico: avaliacao-seguranca-e-etica
-- enunciado: 'De acordo com os princípios de finalidade, necessidade (minimização) e transparência da LGPD aplicados a sistemas com LLMs:'
+- enunciado: 'Um aluno manda o CPF numa pergunta ao assistente. Qual tratamento está de acordo com a lição e com a LGPD?'
   opcoes:
-  - Dados pessoais como CPF, e-mail e telefone devem ser mascarados antes de enviar o texto a provedores externos e antes de gravar logs de observabilidade
-  - É permitido enviar toda a base de alunos no prompt desde que o modelo seja rápido
-  - Logs de depuração não estão sujeitos à proteção de dados pessoais
-  - A anonimização irreversível é idêntica à pseudonimização com tabela de reversão em memória
+  - 'Mascarar CPF, e-mail e telefone antes do provedor e do log, com o mapa só na aplicação; o texto continua sendo dado pessoal'
+  - 'Trocar o CPF por [CPF_1] antes de mandar ao provedor torna o texto anônimo, e a partir daí ele deixa de estar sujeito à LGPD'
+  - 'Trocar o RA e o CPF pelo sha256 de cada valor nos logs basta para que os registros fiquem anônimos'
+  - 'Mascarar só na tela do aluno, porque o provedor é obrigado por contrato a não guardar os prompts'
   correta: 0
-  explicacao: O princípio da necessidade exige tratar apenas o mínimo indispensável; mascarar PII antes da API e dos logs evita exposição desnecessária e vazamentos em arquivos de telemetria.
+  explicacao: 'O princípio da necessidade pede tratar só o mínimo, então o dado não vai ao provedor nem ao log. Pseudonimização é reversível para quem tem o mapa ou a chave, por isso o dado continua pessoal. Hash sem chave de um identificador com poucos valores possíveis se reverte por força bruta.'
   topico: avaliacao-seguranca-e-etica
-- enunciado: Ao usar um LLM como juiz (*LLM-as-a-judge*) para avaliar automaticamente centenas de respostas de um sistema, qual cuidado metodológico é indispensável?
+- enunciado: 'Antes de usar um LLM como juiz para liberar versões, qual cuidado a lição exige?'
   opcoes:
-  - Calibrar a rubrica do juiz automático contra um subconjunto rotulado por humanos, medindo a taxa de concordância e verificando vieses (como preferir respostas mais longas)
-  - Confiar cegamente na nota do juiz sem nenhuma amostra humana de referência
-  - Usar sempre o mesmo prompt de geração como prompt de avaliação sem critérios explícitos
-  - Avaliar apenas a velocidade de geração e ignorar a correção factual
-  correta: 0
-  explicacao: Juízes baseados em LLM apresentam vieses conhecidos (verbosidade, posição); sem validação contra rótulos humanos não há garantia de que a métrica automática reflita a qualidade real.
+  - 'Medir a concordância bruta com os humanos e aceitar o juiz quando ela passar de 90 %'
+  - 'Mostrar ao juiz o rótulo humano no prompt de cada caso, para ele aprender o critério da equipe'
+  - 'Ajustar a rubrica até concordar com os humanos e reportar o kappa nessa mesma amostra de ajuste'
+  - 'Medir o kappa contra rótulos humanos numa amostra separada da de ajuste e julgar cada par nas duas ordens, sem revelar a versão'
+  correta: 3
+  explicacao: 'Com classes desbalanceadas, um juiz que aprova tudo concorda 90 % e tem kappa = 0. Rótulo no prompt é gabarito vazado, e medir na amostra usada para ajustar é avaliar no treino. Julgar nas duas ordens controla o viés de posição.'
   topico: avaliacao-seguranca-e-etica
-- enunciado: Qual é a finalidade de publicar um *System Card* junto com uma aplicação de IA e por que o sistema deve recusar solicitações fora de escopo (como diagnóstico médico ou consultoria jurídica na secretaria)?
+- enunciado: 'O que um system card precisa trazer, e como o assistente da secretaria deve tratar um pedido de orientação médica?'
   opcoes:
-  - Documentar com transparência o propósito, os limites, as métricas de avaliação e os riscos mitigados, evitando que o usuário tome decisões críticas baseadas em palpites fora do domínio do sistema
-  - Substituir os testes automatizados de software por um texto publicitário
-  - Ocultar as falhas conhecidas do modelo para aumentar a adoção
-  - Permitir que o assistente responda sobre qualquer assunto sem avisos
-  correta: 0
-  explicacao: Uso responsável exige delimitar claramente para que o sistema foi validado, recusar domínios de alto risco não cobertos e dar transparência sobre métricas e limitações.
+  - 'Finalidade e as métricas favoráveis, sem riscos detalhados, que assustam os usuários; recusar o pedido médico com um "não posso ajudar" curto'
+  - 'Finalidade, fora de escopo, dados, avaliação com números, riscos com mitigação e limitações; recusar o pedido médico indicando o canal certo'
+  - 'Só as métricas da avaliação, com riscos e limitações num documento interno; responder o pedido médico com aviso de IA'
+  - 'Finalidade, dados e a lista de riscos, sem mitigação; responder o pedido médico citando as fontes do regimento'
+  correta: 1
+  explicacao: 'O card serve para quem decide usar o sistema saber onde ele foi validado e onde não foi: risco sem mitigação diz que ninguém decidiu nada, e card sem limitações convida ao uso fora de escopo. Uma recusa útil diz o motivo em uma frase e para onde ir.'
   topico: avaliacao-seguranca-e-etica
-- enunciado: 'Em um serviço FastAPI que expõe um modelo ou assistente em produção, por que o artefato deve ser carregado uma única vez na inicialização (`lifespan`) e não dentro da função do endpoint a cada requisição?'
+- enunciado: 'Onde e quantas vezes um serviço de predição deve carregar o modelo?'
   opcoes:
-  - Para evitar o custo repetido de leitura de disco, desserialização e alocação de memória a cada chamada HTTP, o que derrubaria a vazão e explodiria a latência
-  - Porque o protocolo HTTP proíbe abrir arquivos após o boot
-  - Porque carregar a cada requisição impede o uso do Pydantic
-  - Apenas para economizar linhas de código
-  correta: 0
-  explicacao: Desserializar pesos ou índices a cada requisição adiciona dezenas ou centenas de milissegundos por chamada; o objeto deve ser inicializado no startup e compartilhado em memória.
+  - 'Dentro do handler de /prever, para cada requisição usar sempre o arquivo mais recente do modelo'
+  - 'Num cache global do módulo, compartilhado por todos os serviços do processo, para economizar memória'
+  - 'Uma vez por serviço, na subida (lifespan), sem cache global compartilhado entre serviços de versões diferentes'
+  - 'Uma vez no processo principal: com --workers 4, os quatro workers compartilham o mesmo objeto'
+  correta: 2
+  explicacao: 'Desserializar a cada requisição multiplica a latência. Um cache global faz o serviço da versão 2 responder com o modelo da versão 1. Workers do uvicorn são processos separados: cada um roda o próprio lifespan e guarda a própria cópia, e a memória cresce com o número de workers.'
   topico: mlops-e-projeto
-- enunciado: Qual problema clássico de MLOps é evitado ao serializar o `Pipeline` completo (pré-processamento + modelo) em um único artefato, acompanhado do seu hash SHA-256?
+- enunciado: 'Como carregar um artefato pickle do armazenamento interno com segurança?'
   opcoes:
-  - O desvio entre treino e produção (training-serving skew) e o carregamento acidental de artefatos corrompidos ou adulterados
-  - O aumento do preço por token em APIs externas
-  - A necessidade de dividir dados em treino e teste
-  - O limite de colunas de um arquivo CSV
+  - 'Ler os metadados, calcular o SHA-256 dos bytes do arquivo e comparar com o hash registrado; só então chamar pickle.load'
+  - 'Chamar pickle.load dentro de try/except e, logo em seguida, comparar o hash do arquivo com o registrado antes de usar o objeto'
+  - 'Comparar o SHA-256 do arquivo com o hash que veio junto com ele, enviado por quem o produziu'
+  - 'Conferir o nome do arquivo, que traz a versão, porque versão publicada nunca é sobrescrita'
   correta: 0
-  explicacao: Empacotar transformações e estimador juntos garante que a inferência aplique exatamente a mesma normalização do treino, e o SHA-256 garante integridade antes da desserialização.
+  explicacao: 'pickle.load executa código durante a leitura, então conferir depois não protege: o código já rodou. Um hash enviado pelo próprio remetente só prova que o arquivo chegou inteiro. Nome de arquivo não identifica conteúdo; o hash muda quando qualquer byte muda.'
   topico: mlops-e-projeto
-- enunciado: 'Em um registro de modelos (Model Registry) com ambientes `staging` e `producao`, qual é o papel da trava de qualidade mínima e do histórico de versões?'
+- enunciado: 'No registro de modelos da lição, o que garante uma promoção segura e um rollback que funciona mesmo depois de reiniciar o processo?'
   opcoes:
-  - Impedir que um modelo com métrica inferior ao limiar seja promovido para produção e permitir rollback imediato para a versão anterior caso surja uma regressão
-  - Apagar automaticamente todas as versões antigas assim que um novo treino termina
-  - Treinar o modelo diretamente no navegador do usuário
-  - Substituir o monitoramento de latência em produção
-  correta: 0
-  explicacao: Governança de deploy exige validação objetiva antes da promoção (quality gate) e reversão rápida e determinística (rollback) quando há incidente em produção.
+  - 'Voltar sempre para a versão de número anterior; não é preciso guardar nada além da versão atual'
+  - 'Apagar do registro a versão que deu problema, para ela não ser promovida de novo'
+  - 'Sobrescrever o artefato da mesma versão quando a correção for pequena, para o rollback não mudar'
+  - 'Exigir a métrica mínima no mesmo conjunto de validação, empilhar a versão que sai e salvar a pilha no JSON do registro'
+  correta: 3
+  explicacao: 'A versão de número anterior pode nunca ter estado em produção. Sem a pilha persistida, o rollback depois de reiniciar é impossível. Versões ruins ficam no registro, com o histórico de eventos, para auditoria, e versão publicada nunca é sobrescrita: correção é versão nova.'
   topico: mlops-e-projeto
-- enunciado: O que indicam um valor de PSI (*Population Stability Index*) acima de `0.25` e um p-valor do teste KS abaixo de `0.05` ao comparar os dados de entrada recentes da produção com a base de referência do treino?
+- enunciado: 'Numa janela de 5 000 previsões, um atributo tem PSI de 0,31 (faixas tiradas dos quantis da referência) e estatística D do teste KS acima do valor crítico para alfa = 0,05. O que isso indica?'
   opcoes:
-  - Que houve mudança estatisticamente relevante na distribuição das variáveis de entrada (data drift), exigindo investigação e possível retreino
-  - Que a latência da rede caiu pela metade
-  - Que o arquivo `.joblib` foi corrompido no disco
-  - Que o modelo atingiu 100 % de acurácia em produção
-  correta: 0
-  explicacao: PSI >= 0,25 e p-valor KS < 0,05 sinalizam que o perfil dos dados que chegam ao serviço mudou de forma expressiva em relação à amostra em que o modelo foi treinado.
+  - 'Que a acurácia do modelo caiu e ele precisa ser retreinado imediatamente com os dados novos da produção'
+  - 'Drift de dados nesse atributo; investigar e verificar o efeito no desempenho antes de decidir o retreino'
+  - 'Que as faixas do PSI devem ser recalculadas com os quantis da produção, para confirmar o alerta'
+  - 'Que o artefato do modelo foi alterado depois do deploy e precisa ter o hash conferido'
+  correta: 1
+  explicacao: 'PSI de 0,25 ou mais é a convenção de mudança forte, e D acima do valor crítico indica amostras de distribuições diferentes. Os dois olham só as entradas: não medem acurácia. Recalcular as faixas na produção redistribui os valores por igual e esconde o deslocamento. Com amostras grandes, o KS acusa até mudanças pequenas, por isso o retreino depende do efeito no desempenho.'
   topico: mlops-e-projeto
-- enunciado: Por que monitoramos tanto o drift de entrada (PSI/KS em tempo real) quanto o desempenho real (F1/acurácia quando os rótulos verdadeiros chegam com atraso)?
+- enunciado: 'O PSI de todos os atributos ficou abaixo de 0,05 por um mês, mas a acurácia medida com os rótulos que chegaram caiu de 0,86 para 0,74. Uma regra de aprovação mudou no período. Como interpretar?'
   opcoes:
-  - Porque os rótulos reais podem demorar semanas ou meses para existir; o drift de entrada serve como alerta precoce, enquanto os rótulos confirmados medem a queda real de qualidade e guiam o retreino
-  - Porque o PSI só pode ser calculado depois que todos os rótulos verdadeiros são conhecidos
-  - Porque o F1-score não depende dos rótulos reais
-  - Porque métricas operacionais de latência substituem a avaliação de qualidade do modelo
-  correta: 0
-  explicacao: 'Em muitos problemas reais o desfecho verdadeiro só é observado no futuro (ex.: evasão ao fim do semestre); monitorar a distribuição de entrada alerta cedo, e os rótulos atrasados fecham o ciclo de validação e retreino.'
+  - 'Ruído: sem drift nas entradas, o desempenho do modelo não pode ter mudado de verdade'
+  - 'Os rótulos atrasados estão errados, porque um PSI baixo em todos os atributos garante que o modelo continua bom'
+  - 'Drift de conceito: P(Y | X) mudou com as entradas estáveis; a queda medida com os rótulos justifica o retreino'
+  - 'O número de faixas do PSI está baixo; com mais faixas, ele teria acusado o problema'
+  correta: 2
+  explicacao: 'PSI e KS são alerta precoce sobre a entrada; quando a regra muda, as mesmas entradas passam a ter outra resposta certa, e só os rótulos mostram isso. O desafiante retreinado só substitui o campeão se vencer no mesmo conjunto de validação recente.'
   topico: mlops-e-projeto
