@@ -163,6 +163,13 @@ Comportamentos do pandas 3 que as lições precisam mostrar: texto tem `dtype` `
   erro**; com `errors="coerce"`, as datas acima de 12 viram `NaT` em silêncio. `pivot` ordena as colunas em ordem
   alfabética.
 - **`-mascara` funciona como `~mascara`** em máscaras booleanas.
+- **Sem fusos por nome:** o executor não tem `tzdata`; `tz_convert("America/Sao_Paulo")` dá `ZoneInfoNotFoundError`.
+  Use deslocamento fixo (`tz_localize("UTC").tz_convert("-03:00")`), como na m4-03.
+- **Agrupamentos (m4):** atribuir `df.groupby(g)["v"].mean()` a uma coluna dá tudo `NaN` sem aviso (use `transform`);
+  a margem do `pivot_table` com `aggfunc` padrão é a média de todas as observações, não a soma; `rank` devolve
+  `float64`; `pct_change` não preenche ausentes e `fill_method="ffill"` dá `ValueError`; `.loc` de uma célula
+  devolve `numpy.int64`. `groupby().mean()` com coluna de texto: `TypeError: dtype 'str' does not support
+  operation 'mean'`.
 - **Lotes perto do limite:** um laço duplo em Python sobre 500 pontos pode levar o lote de casos perto dos 10 s;
   use ~200 pontos quando o caso existir só para provar que a versão em laço reprova por regra de fonte.
 
