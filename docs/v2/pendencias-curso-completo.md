@@ -322,7 +322,7 @@ Falta, e depende do Filipe:
    a chave do Supabase e desligar Supabase/Vercel.
 
 ### P5 — Níveis 2–7 (em andamento na branch `feat/niveis-2-a-7`)
-Estado em 2026-11-15:
+Estado em 2026-11-16:
 - **Nível 2 concluído e publicado:** 35 lições, 263 passos, 113 exercícios e 34 previsões/visualizações
   verificados (`content:verify --curso n2-python-intermediario`), prova com 40 questões, sequência de
   passos no `PLANO.md` do nível.
@@ -330,8 +330,13 @@ Estado em 2026-11-15:
   (`wrongSolutionFiles` em `apps/api/scripts/content/verify.ts`; `content/README.md` §3.3).
 - `pnpm content:metrics` (`apps/api/scripts/content-metrics.mts`): métricas de densidade por lição contra
   o Nível 1, para a auditoria de qualidade.
-- Próximos: integrar `feat/niveis-7-e-3` (Antigravity: N7 completo, N3 módulos 1–6), auditar N7 e N3
-  (`docs/v2/auditoria-niveis-7-e-3.md`), N3 módulos 7–8 (rascunho não commitado do Antigravity em
-  `.claude-transfer/antigravity-n3-m7-m8-nao-commitado.patch`), depois N4, N5 e N6.
+- **Níveis 7 e 3 concluídos e auditados (2026-11-16):** `feat/niveis-7-e-3` integrada; N7 (28 lições)
+  e N3 (39 lições, módulos 7–8 escritos do zero) na régua do Nível 1, 0 lições suspeitas no
+  `content:metrics`, `content:verify` dos dois cursos OK, `PLANO.md` reescritos, provas com 40
+  questões. Nenhuma menção à USP nem a códigos reais de disciplina. Resultado, métricas antes/depois e
+  decisões em aberto em [`auditoria-niveis-7-e-3.md`](auditoria-niveis-7-e-3.md).
+- Pendentes da auditoria (dependem do Filipe): conferir as citações da LGPD no N7 m6-03; avaliar a
+  pilha do Wasmtime no runner (recursão com `lru_cache` acima de ~250 níveis derruba a instância).
+- Próximos: N4, N5 e N6; depois `content:build`, bateria completa e um único PR para `develop`.
 
 Um nível por sessão: escrever o `PLANO.md` do nível a partir dos roteiros, escrever as lições, provas com 40 questões, `content:verify` (níveis 4–6 usam `runtime: python-dados`; precisa do Pyodide no runner: `pnpm --filter @levelusp/runner setup:pyodide`), publicar.
