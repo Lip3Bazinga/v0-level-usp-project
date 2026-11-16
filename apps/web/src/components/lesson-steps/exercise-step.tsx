@@ -167,7 +167,7 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
       appendLines([{ type: "warning", message: EMPTY_ARRANGEMENT_MESSAGE }])
       return
     }
-    trace.start(project, mode === "codigo" && hasFile(project, activePath) ? activePath : MAIN_FILE_PATH, stdin)
+    trace.start(project, mode === "codigo" && hasFile(project, activePath) ? activePath : MAIN_FILE_PATH, stdin, lesson.libraries)
   }
 
   const handleVerify = async (): Promise<void> => {

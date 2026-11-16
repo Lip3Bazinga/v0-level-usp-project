@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { ProjectTrace } from "@/lib/python/project-execution"
 import { requestTrace } from "@/lib/python/trace-client"
+import { LessonLibrariesProvider } from "./lesson-libraries-context"
 import { StepMarkdown } from "./step-markdown"
 
 // O Pyodide não roda no jsdom: o visualizador recebe um registro pronto.
@@ -104,7 +105,7 @@ describe("markdown rico das lições", () => {
     vi.mocked(requestTrace).mockResolvedValue(TRACE)
     render(<StepMarkdown content={"```python visualizar\ntotal = 0\nprint(total)\n```"} />)
     await userEvent.click(screen.getByRole("button", { name: "Visualizar" }))
-    expect(requestTrace).toHaveBeenCalledWith({ files: [{ path: "main.py", content: "total = 0\nprint(total)" }], entryPath: "main.py", stdin: "" })
+    expect(requestTrace).toHaveBeenCalledWith({ files: [{ path: "main.py", content: "total = 0\nprint(total)" }], entryPath: "main.py", stdin: "", packages: [] })
     expect(await screen.findByRole("group", { name: /Visualizador de execução/ })).toBeInTheDocument()
     expect(screen.getByText("Passo 1 de 3: prestes a executar a linha 1")).toBeInTheDocument()
   })
@@ -113,6 +114,22 @@ describe("markdown rico das lições", () => {
     render(<StepMarkdown content={"```python\ntotal = 0\n```"} />)
     expect(screen.queryByRole("button", { name: "Visualizar" })).toBeNull()
     expect(screen.getByText("total = 0")).toBeInTheDocument()
+  })
+
+  it("o visualizador instala as bibliotecas da lição, como o Executar", async () => {
+    vi.mocked(requestTrace).mockResolvedValue(TRACE)
+    render(
+      <LessonLibrariesProvider libraries={["numpy", "pandas"]}>
+        <StepMarkdown content={"```python visualizar\nimport numpy as np\nx = np.arange(3)\n```"} />
+      </LessonLibrariesProvider>,
+    )
+    await userEvent.click(screen.getByRole("button", { name: "Visualizar" }))
+    expect(requestTrace).toHaveBeenCalledWith({
+      files: [{ path: "main.py", content: "import numpy as np\nx = np.arange(3)" }],
+      entryPath: "main.py",
+      stdin: "",
+      packages: ["numpy", "pandas"],
+    })
   })
 
   it("erro ao visualizar aparece como aviso e o código continua na tela", async () => {

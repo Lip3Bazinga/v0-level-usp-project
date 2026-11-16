@@ -3,6 +3,7 @@
 import { Footprints, Loader2 } from "lucide-react"
 import { MAIN_FILE_PATH } from "@/lib/constants"
 import { ExecutionVisualizer } from "./execution-visualizer"
+import { useLessonLibraries } from "./lesson-libraries-context"
 import { useExecutionTrace } from "./use-execution-trace"
 
 interface TraceBlockProps {
@@ -12,10 +13,12 @@ interface TraceBlockProps {
 
 /**
  * Bloco de código da narrativa com o botão "Visualizar": roda o código no navegador e mostra a
- * execução passo a passo logo abaixo. O Python só é carregado quando o aluno clica.
+ * execução passo a passo logo abaixo. O Python só é carregado quando o aluno clica, e as
+ * bibliotecas da lição (numpy, pandas…) são instaladas antes, como no "Executar".
  */
 export function TraceBlock({ code }: TraceBlockProps): React.JSX.Element {
   const { state, start, close } = useExecutionTrace()
+  const libraries = useLessonLibraries()
 
   return (
     <div className="my-3">
@@ -25,7 +28,7 @@ export function TraceBlock({ code }: TraceBlockProps): React.JSX.Element {
       ) : (
         <button
           type="button"
-          onClick={() => start([{ path: MAIN_FILE_PATH, content: code }], MAIN_FILE_PATH)}
+          onClick={() => start([{ path: MAIN_FILE_PATH, content: code }], MAIN_FILE_PATH, "", libraries)}
           disabled={state.status === "loading"}
           className="mt-2 flex items-center gap-2 rounded-lg border border-level-purple px-3 py-1.5 text-xs font-semibold text-level-purple hover:bg-level-purple-light disabled:opacity-60"
         >
