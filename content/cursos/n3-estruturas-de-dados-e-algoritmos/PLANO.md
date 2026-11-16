@@ -1,6 +1,8 @@
 # Plano do Nível 3 — Estruturas de dados e algoritmos
 
-Este é o plano de autoria do Nível 3 da trilha **Python: do zero à IA**. Ele orienta a escrita das lições de `content/cursos/n3-estruturas-de-dados-e-algoritmos` (os arquivos `*.lvl.md` já existem com o frontmatter e o passo de roteiro, que deve ser **substituído** pelos passos detalhados aqui). Cada lição traz: slug, título, objetivos, conceitos e a **sequência de passos, um a um**, com o tipo de cada passo (Leitura, Exercício — código, lacunas ou ordenar —, Previsão, Quiz), os recursos de apresentação (diagrama Mermaid, bloco `visualizar`, fórmula KaTeX) e, nos exercícios, as instruções (*checkpoints*), a verificação, as soluções erradas e as dicas.
+Este é o plano de autoria do Nível 3 da trilha **Python: do zero à IA**. Ele orienta a escrita das lições de `content/cursos/n3-estruturas-de-dados-e-algoritmos`. Cada lição traz: slug, título, objetivos, conceitos e a **sequência de passos, um a um**, com o tipo de cada passo (Leitura, Exercício — código, lacunas ou ordenar —, Previsão, Quiz), os recursos de apresentação (diagrama Mermaid, bloco `visualizar`, fórmula KaTeX) e, nos exercícios, as funções e classes pedidas.
+
+**Estado:** os módulos 1 a 6 já foram escritos e auditados; as seções deles descrevem o conteúdo atual, e a fonte da verdade são os próprios `.lvl.md`. Os módulos 7 e 8 ainda seguem o roteiro original deste plano e precisam obedecer às regras gerais abaixo, que valem para o nível inteiro.
 
 Formato dos arquivos: `content/README.md` (§3 inteira; recursos de apresentação em §3.5–§3.7) e `docs/v2/curso-e-passos.md` §6. Todas as 39 lições deste nível usam `runtime: python` (CPython 3.14 WASI no Wasmtime), implementando estruturas e algoritmos em Python puro e biblioteca padrão (`collections.deque`, `heapq`, `bisect`, `functools`).
 
@@ -9,40 +11,56 @@ Formato dos arquivos: `content/README.md` (§3 inteira; recursos de apresentaç�
 1. Abra o arquivo da lição (`content/cursos/n3-estruturas-de-dados-e-algoritmos/<módulo>/<NN>-<slug>.lvl.md`).
 2. Mantenha o frontmatter (`slug`, `xp`, `tempo_min`, `runtime`, `bibliotecas`, `objetivos`) e mude `publicada` para `true`. Não renomeie arquivos nem slugs.
 3. Substitua o passo de roteiro pelos passos **na ordem e com os tipos listados** na lição (`## Passo N · Leitura|Exercício|Previsão|Quiz · Título`).
-4. Em cada exercício: `### Instruções` (lista numerada = checkpoints), `### Código inicial` (não existe no `modo: ordenar`), `### Solução`, `### Dicas` (até 3), `### Verificação` (JSON de `TestCase[]`) e `### Soluções erradas` (**pelo menos duas**, cobrindo os erros comuns listados).
+4. Em cada exercício: `### Instruções` (lista numerada = checkpoints), `### Código inicial` (não existe no `modo: ordenar`), `### Solução`, `### Dicas` (até 3), `### Verificação` (JSON de `TestCase[]`) e `### Soluções erradas` (**pelo menos três**, uma por erro comum, cada uma com um defeito só).
 5. Rode `pnpm content:check` (lint) e `pnpm content:verify --licao <slug>` com `RUNNER_URL=http://127.0.0.1:8081` e `RUNNER_TOKEN=dev-runner-token-0123456789abcdef`.
 
 ## Como usar os recursos de apresentação neste nível
 
-O aluno do Nível 3 já domina Python intermediário (classes, métodos especiais, exceções, iteradores/geradores, decoradores e testes do Nível 2). Neste nível, inspirado no **MAC0121 da USP**, a visualização e a matemática tornam palpáveis ponteiros, árvores, grafos, invariantes e complexidade assintótica.
+O aluno do Nível 3 já domina Python intermediário (classes, métodos especiais, exceções, iteradores/geradores, decoradores e testes do Nível 2). Neste nível, a visualização e a matemática tornam palpáveis ponteiros, árvores, grafos, invariantes e complexidade assintótica.
 
 ### Regras
 
 - **Diagrama (bloco `mermaid`)** — para árvores de decisão/recursão, ponteiros em listas ligadas e duplas (cache LRU), árvores binárias/BST/AVL/heaps/tries, grafos (representações, BFS, DFS, ordenação topológica, Dijkstra, MST) e grades de programação dinâmica. Use `flowchart` com no máximo ~8 nós e rótulos curtos em pt-BR; texto com parênteses, colchetes ou dois-pontos vai entre aspas.
-- **Visualizador (bloco `python visualizar`)** — para inspecionar o estado mudando passo a passo: algoritmo de Euclides, redimensionamento amortizado de lista dinâmica, pilha de chamadas na recursão e *backtracking* (`append`/`pop`), busca binária estreitando `[lo, hi)`, particionamento de Lomuto, troca de ponteiros ao inverter lista ligada, subir/descer no heap, relaxamento no Dijkstra e preenchimento de tabela DP. Até 60 linhas, autossuficiente e sem `input()`.
+- **Visualizador (bloco `python visualizar`)** — para inspecionar o estado mudando passo a passo: algoritmo de Euclides, redimensionamento amortizado de lista dinâmica, pilha de chamadas na recursão e *backtracking* (`append`/`pop`), busca binária estreitando `[lo, hi)`, particionamento de Lomuto, troca de ponteiros ao inverter lista ligada, subir/descer no heap, relaxamento no Dijkstra e preenchimento de tabela DP. Até 60 linhas, autossuficiente e sem `input()`. Não pode ser a solução de um exercício da lição.
 - **Fórmula (KaTeX)** — onde há expressão matemática ou recorrência: leis de De Morgan, inclusão-exclusão, combinações $\binom{n}{k}$, congruências $a \equiv b \pmod m$, somas de Gauss e geométrica, definição formal de $O(g(n))$, $\Omega(g(n))$ e $\Theta(g(n))$, recorrências e Teorema Mestre $T(n) = aT(n/b) + f(n)$, fator de carga $\alpha = n/m$ e equações de Bellman na programação dinâmica.
 - **`modo: lacunas` e `modo: ordenar`** — andaime nas primeiras lições de cada módulo (exceto no projeto final `n3-m8-05`, que tem apenas exercícios de código livre).
-- **Passo `Previsão`** — pelo menos um por módulo, com código determinístico, autossuficiente, sem `input()`, terminando sem erro e imprimindo de 1 a 20 linhas, acompanhado de `### Saída esperada`.
+- **Passo `Previsão`** — pelo menos um por módulo, com código determinístico, autossuficiente, sem `input()`, terminando sem erro e imprimindo de 1 a 20 linhas, acompanhado de `### Saída esperada`. As dicas não entregam a saída.
 - **Imagem (`assets/`) e Vídeo** — nenhum neste nível.
-- **Limites em todo passo:** até 3 dicas; exercício com pelo menos 2 soluções erradas; quiz com 2 a 5 perguntas, cada uma com exatamente uma alternativa correta e explicação (`> …`); leitura com ≥ 200 caracteres.
+- **Limites em todo passo:** até 3 dicas, que orientam sem entregar o código; exercício com **pelo menos 3 soluções erradas** (nos módulos 1–6 há de 3 a 9 por exercício, quase sempre 4 a 6), cada uma com um único defeito plausível, tirado dos erros reais de quem aprende — nada de espantalho como `return True`, `return []` ou a outra função do arquivo vazia; quiz com **3 perguntas**, cada uma com exatamente uma alternativa correta, distratores plausíveis e explicação (`> …`); leitura com ≥ 200 caracteres, sem exclamações e mostrando o erro comum com a mensagem real do Python.
+
+### Verificação e convenções do nível
+
+- **Custo verificado por contagem de operações, nunca por tempo.** Nenhum caso depende do relógio do executor (nem "roda $10^5$ elementos rápido"): a versão lenta costuma passar e o teste fica instável. Use, conforme o caso:
+  - objetos com `__lt__`/`__eq__`/`__hash__` que contam comparações e hashes;
+  - `list`/`str` instrumentadas que contam leituras (`__getitem__`) e cópias por fatia;
+  - `property` instalada na classe do nó que conta leituras de `.proximo`, `.filhos` etc.;
+  - `sys.setprofile` para contar chamadas recursivas e medir a profundidade; `sys.settrace` para contar linhas executadas;
+  - `RecursionError` com o limite padrão para recusar recursão linear ou pivô fixo;
+  - relógio injetado (`relogio=`, `timer=`) quando o assunto é a própria medição;
+  - entradas de $10^{12}$ a $10^{18}$ com resultado inteiro exato, onde a força bruta é inviável.
+- **Casos de teste:** um caso por asserção (nada de `expr` que junta várias numa tupla), com as bordas (vazio, um elemento, repetidos, negativos) e, para fórmulas, conferência contra a força bruta em entradas pequenas. Casos que podem cair num ciclo andam pelos nós com um limite, para a errada reprovar sem travar o executor.
+- **Funções que alteram a estrutura no lugar devolvem `None`**, como `list.sort` e `list.reverse` (ex.: `inverter_no_lugar`, `selection_sort`, `quick_sort`, `heap_sort`). A exceção documentada é `bubble_sort`, que devolve o número de passagens. Funções que devolvem lista nova (`merge_sort`, `radix_sort`, `intercalar`) não alteram a entrada, e isso é verificado.
+- **Exemplos neutros:** sem instituições, disciplinas ou domínios reais; nomes, preços e dados fictícios.
 
 ### Dosagem por módulo
 
-| Módulo | Lições | Mermaid | Visualizar | Passos com fórmula | Exercício (lacunas) | Exercício (ordenar) | Exercício (código) | Previsão | Imagens (assets) |
+| Módulo | Lições | Mermaid | Visualizar | Leituras com fórmula | Exercício (lacunas) | Exercício (ordenar) | Exercício (código) | Previsão | Imagens (assets) |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 · Matemática discreta essencial | 5 | 3 | 2 | 5 | 2 | 1 | 12 | 2 | 0 |
-| 2 · Análise de algoritmos | 4 | 3 | 2 | 3 | 1 | 1 | 10 | 2 | 0 |
-| 3 · Recursão, backtracking e divisão e conquista | 4 | 4 | 2 | 3 | 1 | 1 | 10 | 2 | 0 |
-| 4 · Busca e ordenação | 6 | 4 | 3 | 3 | 2 | 1 | 15 | 2 | 0 |
-| 5 · Estruturas lineares | 4 | 4 | 2 | 1 | 1 | 1 | 10 | 2 | 0 |
-| 6 · Árvores, heaps e tabelas hash | 5 | 5 | 2 | 3 | 1 | 1 | 13 | 2 | 0 |
+| 1 · Matemática discreta essencial | 5 | 3 | 3 | 16 | 5 | 1 | 10 | 3 | 0 |
+| 2 · Análise de algoritmos | 4 | 3 | 3 | 10 | 1 | 2 | 10 | 3 | 0 |
+| 3 · Recursão, backtracking e divisão e conquista | 4 | 4 | 4 | 9 | 2 | 1 | 9 | 3 | 0 |
+| 4 · Busca e ordenação | 6 | 5 | 5 | 13 | 4 | 1 | 13 | 4 | 0 |
+| 5 · Estruturas lineares | 4 | 5 | 3 | 9 | 4 | 1 | 9 | 4 | 0 |
+| 6 · Árvores, heaps e tabelas hash | 5 | 9 | 2 | 14 | 5 | 1 | 10 | 4 | 0 |
 | 7 · Grafos | 6 | 6 | 2 | 2 | 1 | 1 | 16 | 2 | 0 |
 | 8 · Programação dinâmica e projeto | 5 | 4 | 2 | 3 | 1 | 1 | 16 | 2 | 0 |
-| **Total** | **39** | **33** | **17** | **23** | **10** | **8** | **102** | **16** | **0** |
+| **Total** | **39** | **39** | **24** | **76** | **23** | **9** | **93** | **25** | **0** |
+
+Módulos 1–6: contagem do conteúdo atual (Mermaid e Visualizar = número de blocos). Módulos 7–8: previsão do roteiro original, a revisar quando forem escritos.
 
 ## Estrutura do nível
 
-8 módulos · 39 lições (1 projeto de nível) · 33,7 h de lições (2020 min) + prova (1 h) · 4610 XP · prova com 40 questões (20 por tentativa).
+8 módulos · 39 lições (1 projeto de nível) · 33,7 h de lições (2020 min) + prova (1 h) · 4610 XP · prova com banco de 12 questões (10 por tentativa).
 
 | # | Módulo | Lições | Minutos | XP |
 |---|---|---|---|---|
@@ -57,267 +75,356 @@ O aluno do Nível 3 já domina Python intermediário (classes, métodos especiai
 
 ## Módulo 1 · Matemática discreta essencial
 
-Lógica proposicional e provas, conjuntos/funções/relações, contagem e princípio da casa dos pombos, aritmética modular/primos e somatórios/logaritmos.
+Lógica proposicional, quantificadores e indução, conjuntos/funções/relações, contagem e princípio da casa dos pombos, aritmética modular/primos e somatórios/logaritmos/crescimento. Toda fórmula de contagem e de soma é conferida contra a enumeração em casos pequenos.
 
 ### n3-m1-01-logica-e-provas · Lógica proposicional e provas
 - **Arquivo:** `01-matematica-discreta-essencial/01-logica-e-provas.lvl.md` · 100 XP · 45 min
-- **Passos (6):**
-  1. **Leitura · Implicação, De Morgan, quantificadores e indução como invariante de laço** (Mermaid + KaTeX: $\neg(p \land q) \equiv \neg p \lor \neg q$, $p \to q \equiv \neg q \to \neg p$, $\sum_{i=1}^n (2i-1) = n^2$)
-  2. **Previsão · Quantificadores `all` e `any` e negação de condições**
-  3. **Exercício (lacunas) · Tabela-verdade da implicação e equivalência de De Morgan** (`implicacao`, `tabela_implicacao`, `verificar_de_morgan`)
-  4. **Exercício (ordenar) · Soma dos $n$ primeiros ímpares e verificação da hipótese indutiva** (`soma_impares`, `verificar_inducao_impares`)
-  5. **Exercício (código) · Busca linear com rastro do invariante de laço** (`invariante_busca(lista, alvo)`)
-  6. **Quiz · Implicação, contrapositiva e negação de quantificadores**
+- **Passos (8):**
+  1. **Leitura · Implicação, contrapositiva e De Morgan** (KaTeX: tabela-verdade, recíproca/contrapositiva/negação, prova pela contrapositiva de "$n^2$ par ⇒ $n$ par")
+  2. **Exercício (lacunas) · Equivalências por força bruta** (`implicacao(p, q)`, `equivalentes(f, g)`)
+  3. **Previsão · all, any e a lista vazia**
+  4. **Leitura · Quantificadores e contraexemplos** (KaTeX: De Morgan para quantificadores, $n^2+n+41$, ∀∃ contra ∃∀)
+  5. **Exercício (código) · Caçador de contraexemplos** (`primeiro_contraexemplo(predicado, inicio, fim)`, `para_todo_existe(xs, ys, relacao)`)
+  6. **Leitura · Indução: base, hipótese e passo** (Mermaid + KaTeX; invariante de laço com `assert`)
+  7. **Exercício (código) · Conferindo uma fórmula de soma** (`verificar_formula(formula, termo, ate)`, no máximo `ate` chamadas a `termo`)
+  8. **Quiz · Implicação, quantificadores e indução**
 
 ### n3-m1-02-conjuntos-funcoes-e-relacoes · Conjuntos, funções e relações
 - **Arquivo:** `01-matematica-discreta-essencial/02-conjuntos-funcoes-e-relacoes.lvl.md` · 100 XP · 40 min
-- **Passos (5):**
-  1. **Leitura · Inclusão-exclusão, funções bijetoras e relações de equivalência** (Mermaid + KaTeX: $|A \cup B \cup C|$)
-  2. **Exercício (lacunas) · Princípio da inclusão-exclusão para 3 conjuntos** (`inclusao_exclusao(a, b, c)`)
-  3. **Exercício (código) · Classificando funções como injetora, sobrejetora ou bijetora** (`classificar_funcao(mapa, contradominio)`)
-  4. **Exercício (código) · Relação de equivalência e partição em classes** (`eh_equivalencia(pares, elementos)`, `classes_de_equivalencia(pares, elementos)`)
-  5. **Quiz · Bijeções, inversas e propriedades de relações**
+- **Passos (7):**
+  1. **Leitura · Inclusão-exclusão: contar a união sem contar duas vezes** (KaTeX: $|A \cup B \cup C|$; mmc e não produto)
+  2. **Exercício (lacunas) · Múltiplos de a, b ou c** (`contar_multiplos(n, a, b, c)` com `math.lcm`, $n$ até $10^{18}$)
+  3. **Leitura · Funções injetoras, sobrejetoras e bijetoras** (KaTeX; o `dict` invertido que perde chaves)
+  4. **Exercício (código) · Classificar e inverter uma função finita** (`classificar_funcao(mapa, contradominio)`, `inversa(mapa, contradominio)` com `ValueError`)
+  5. **Leitura · Relações de equivalência e de ordem** (Mermaid + KaTeX)
+  6. **Exercício (código) · Propriedades de uma relação e classes de equivalência** (`propriedades(pares, elementos)`, `classes_de_equivalencia(pares, elementos)`)
+  7. **Quiz · Funções, inversas e relações**
 
 ### n3-m1-03-contagem · Contagem: permutações, combinações e o princípio da casa dos pombos
 - **Arquivo:** `01-matematica-discreta-essencial/03-contagem.lvl.md` · 110 XP · 45 min
-- **Passos (5):**
-  1. **Leitura · Regras da soma e do produto, triângulo de Pascal e explosão combinatória** (Visualizar + KaTeX: $\binom{n}{k} = \binom{n-1}{k-1} + \binom{n-1}{k}$)
-  2. **Exercício (código) · Combinações via Pascal com memoização e contagem de senhas** (`combinacoes(n, k)`, `contar_senhas(tamanho_alfabeto, k, sem_repetir)`)
-  3. **Exercício (código) · Anagramas distintos com letras repetidas e tempo de força bruta** (`anagramas_distintos(palavra)`, `tempo_forca_bruta_anos(total_possibilidades, tentativas_por_seg)`)
-  4. **Quiz · Arranjo vs combinação e princípio da casa dos pombos**
+- **Passos (8):**
+  1. **Leitura · Regras da soma e do produto** (KaTeX; complemento e o erro "fixar a posição")
+  2. **Previsão · Pares ordenados e pares sem ordem**
+  3. **Leitura · Permutações, arranjos e combinações** (Visualizar + KaTeX: $\binom{n}{k} = \binom{n-1}{k-1} + \binom{n-1}{k}$; `float` contra `int`)
+  4. **Exercício (lacunas) · Arranjos e combinações exatos** (`arranjos(n, k)`, `combinacoes(n, k)` sem `math.comb`/`math.perm`)
+  5. **Exercício (código) · Anagramas e rotas do caixeiro-viajante** (`anagramas_distintos(palavra)`, `rotas_distintas(n)`)
+  6. **Leitura · Casa dos pombos e explosão combinatória** (KaTeX: $M(k-1)+1$)
+  7. **Exercício (código) · Complemento e casa dos pombos** (`senhas_com_digito(letras, digitos, k)`, `minimo_para_garantir(caixas, k)`)
+  8. **Quiz · Escolher a fórmula certa**
 
 ### n3-m1-04-aritmetica-modular-e-primos · Aritmética modular, divisibilidade e primos
 - **Arquivo:** `01-matematica-discreta-essencial/04-aritmetica-modular-e-primos.lvl.md` · 110 XP · 45 min
-- **Passos (6):**
-  1. **Leitura · Congruências, algoritmo de Euclides, crivo de Eratóstenes e exponenciação modular** (Visualizar + KaTeX: $\text{mdc}(a, b) = \text{mdc}(b, a \bmod b)$, $a^e \bmod m$)
-  2. **Previsão · Restos negativos em Python e quadrados sucessivos**
-  3. **Exercício (código) · MDC de Euclides, MMC e primeiro dígito verificador do CPF** (`mdc(a, b)`, `mmc(a, b)`, `digito_verificador_cpf(nove_digitos)`)
-  4. **Exercício (código) · Crivo de Eratóstenes em $O(n \log \log n)$** (`crivo(n)` testado até $n = 200\,000$)
-  5. **Exercício (código) · Exponenciação modular rápida sem `pow` de 3 argumentos** (`pot_mod(base, exp, mod)` para $e \approx 10^{18}$)
-  6. **Quiz · Congruências, primalidade até $\sqrt{n}$ e custo de Euclides**
+- **Passos (9):** sem Previsão; os restos negativos ficam na leitura 1, no `dia_da_semana` e no quiz.
+  1. **Leitura · Resto, congruência e o % do Python** (KaTeX; `//` e `%` com negativos, dígito verificador do CPF)
+  2. **Exercício (código) · CPF e dias da semana** (`digito_verificador_cpf(nove_digitos)`, `dia_da_semana(hoje, deslocamento)`)
+  3. **Leitura · Euclides: por que funciona e quanto custa** (Visualizar + KaTeX: $\text{mdc}(a, b) = \text{mdc}(b, a \bmod b)$, prova nos dois sentidos e término)
+  4. **Exercício (lacunas) · mdc e mmc** (`mdc(a, b)`, `mmc(a, b)`)
+  5. **Leitura · Primos, o limite √n e o crivo de Eratóstenes** (Mermaid + KaTeX: $O(n \log \log n)$)
+  6. **Exercício (código) · Crivo de Eratóstenes** (`crivo(n)` até $10^6$; linhas executadas contadas com `sys.settrace`)
+  7. **Leitura · Exponenciação modular rápida** (KaTeX: $a^e \bmod m$, $\le 2b$ multiplicações)
+  8. **Exercício (código) · pot_mod contando multiplicações** (`pot_mod(base, exp, mod)` sem `pow` de 3 argumentos; inteiro instrumentado, ≤ 20 multiplicações com expoente 1000)
+  9. **Quiz · Restos, primos e potências**
 
 ### n3-m1-05-somatorios-logaritmos-e-crescimento · Somatórios, logaritmos e crescimento de funções
 - **Arquivo:** `01-matematica-discreta-essencial/05-somatorios-logaritmos-e-crescimento.lvl.md` · 100 XP · 40 min
-- **Passos (5):**
-  1. **Leitura · Soma de Gauss, progressão geométrica, $\log_2 n$ e hierarquia de crescimento** (Mermaid + KaTeX: $\sum_{i=1}^n i = \frac{n(n+1)}{2}$, $\sum_{k=0}^{m-1} r^k = \frac{r^m - 1}{r - 1}$)
-  2. **Exercício (código) · Somas aritmética e geométrica em forma fechada e $\lfloor \log_2 n \rfloor$** (`soma_aritmetica`, `soma_geometrica`, `log2_inteiro`)
-  3. **Exercício (código) · Ordenar classes de crescimento e estimar o que cabe em 1 segundo** (`ordenar_por_crescimento(rotulos)`, `cabe_em_um_segundo(classe, n)`)
-  4. **Quiz · Comparação de taxas de crescimento e significado de $\log_2 n$**
+- **Passos (8):**
+  1. **Leitura · Laços que viram somatórios** (KaTeX: $\sum_{i=1}^n i = \frac{n(n+1)}{2}$, $\sum_{k=0}^{m-1} r^k = \frac{r^m - 1}{r - 1}$; $n(n-1)/2$ contra $n(n+1)/2$)
+  2. **Exercício (lacunas) · Contagens em forma fechada** (`pares_distintos(n)`, `triangulo(n)`, `soma_pg(a, r, k)`, exatos em $10^{12}$)
+  3. **Leitura · log₂ n: quantas vezes dá para dividir por 2** (Visualizar + KaTeX; `int(math.log2(2**60 - 1))` erra)
+  4. **Exercício (ordenar) · log2_inteiro por divisões** (`log2_inteiro(n)`)
+  5. **Leitura · A hierarquia de crescimento** (KaTeX)
+  6. **Previsão · Quem é menor?**
+  7. **Exercício (código) · A partir de quando um algoritmo vence** (`a_partir_de(custo_a, custo_b, limite)`)
+  8. **Quiz · Crescimento e logaritmos**
 
 ## Módulo 2 · Análise de algoritmos
 
-Medição empírica de tempo, notação Big-O/$\Omega$/$\Theta$, análise de laços e recursões, e melhor/pior/médio caso, amortização e memória.
+Medição honesta de tempo (relógio injetado, `timeit`, dobrar a entrada contando operações), notação $O$/$\Omega$/$\Theta$, análise de laços, custos escondidos e recursões, e melhor/pior/médio caso, amortização e memória.
 
 ### n3-m2-01-medindo-tempo-de-execucao · Medindo tempo de execução
 - **Arquivo:** `02-analise-de-algoritmos/01-medindo-tempo-de-execucao.lvl.md` · 90 XP · 35 min
-- **Passos (5):**
-  1. **Leitura · `perf_counter`, mediana de repetições e experimento de dobrar a entrada** (Mermaid + KaTeX: $R(n) = \frac{T(2n)}{T(n)}$)
-  2. **Previsão · Razão $T(2n)/T(n)$ para algoritmos lineares e quadráticos**
-  3. **Exercício (lacunas) · Mediana de tempos e cálculo da razão de crescimento** (`mediana_tempos(tempos)`, `estimar_ordem_por_razao(t_n, t_2n)`)
-  4. **Exercício (código) · Medindo e classificando funções pelo número de operações** (`medir_mediana(funcao, entrada, repeticoes)`, `classificar_crescimento_empirico(contagens_n, contagens_2n)`)
-  5. **Quiz · Mediana vs média, `perf_counter` e limites da medição**
+- **Passos (8):** os exercícios usam relógio injetado ou contagens, nunca o relógio real.
+  1. **Leitura · O relógio certo e o ruído** (Mermaid + KaTeX)
+  2. **Previsão · Média, mediana e mínimo**
+  3. **Exercício (lacunas) · A mediana de k medidas** (`medir(funcao, entrada, repeticoes=5, relogio=time.perf_counter)`)
+  4. **Leitura · O módulo timeit**
+  5. **Exercício (código) · Tempo por chamada com timeit** (`tempo_por_chamada(funcao, entrada, number=1000, repeat=5, timer=time.perf_counter)`)
+  6. **Leitura · Dobrar a entrada e contar operações** (KaTeX: $k \approx \log_2 \frac{T(2n)}{T(n)}$)
+  7. **Exercício (código) · O experimento de dobrar** (`experimento_de_dobra(contar, n0, vezes)`, `expoente_estimado(razao)`)
+  8. **Quiz · Medir com honestidade**
 
 ### n3-m2-02-notacao-big-o · Notação Big-O
 - **Arquivo:** `02-analise-de-algoritmos/02-notacao-big-o.lvl.md` · 110 XP · 45 min
-- **Passos (5):**
-  1. **Leitura · Definição formal de $O$, $\Omega$ e $\Theta$ e complexidade das operações em Python** (Mermaid + KaTeX: $0 \le f(n) \le c \cdot g(n) \;\forall n \ge n_0$)
-  2. **Exercício (ordenar) · Verificação numérica da desigualdade $f(n) \le c \cdot g(n)$** (`verificar_big_o(f, g, c, n0, ate)`)
-  3. **Exercício (código) · Simplificação de polinômios/termos para a classe dominante e custo de operações Python** (`simplificar_custo(termos)`, `classe_de_operacao(operacao)`)
-  4. **Quiz · $O$, $\Omega$, $\Theta$ e armadilhas de complexidade em listas e conjuntos**
+- **Passos (7):**
+  1. **Leitura · A definição de O, com c e n₀** (KaTeX: $0 \le f(n) \le c \cdot g(n) \;\forall n \ge n_0$; $n^2$ não é $O(n)$)
+  2. **Exercício (ordenar) · Procurando uma violação** (`primeira_violacao(f, g, c, n0, ate)`)
+  3. **Exercício (código) · O menor n₀ para um c** (`menor_n0(f, g, c, limite)`)
+  4. **Previsão · Para onde vai a razão f/g**
+  5. **Leitura · Ω, Θ, e por que O não é "pior caso"** (Mermaid + KaTeX)
+  6. **Exercício (código) · Termo dominante e as três relações** (`termo_dominante(termos)`, `relacoes(f, g)`, termos `[coef, a, b]` = $\text{coef} \cdot n^a (\log n)^b$)
+  7. **Quiz · Teto, piso e casos**
 
 ### n3-m2-03-analise-de-lacos-e-recursoes · Análise de laços e recursões simples
 - **Arquivo:** `02-analise-de-algoritmos/03-analise-de-lacos-e-recursoes.lvl.md` · 120 XP · 50 min
-- **Passos (6):**
-  1. **Leitura · Laços triangulares, logarítmicos, custos escondidos e recorrências básicas** (Visualizar + KaTeX: $T(n) = T(n-1) + n$, $T(n) = 2T(n/2) + n$)
-  2. **Previsão · Quantas vezes executa um laço com passo multiplicativo dentro de um laço linear?**
-  3. **Exercício (código) · Contagem exata de iterações e classificação de trechos** (`contar_iteracoes(n)`, `classificar_trecho(codigo_id)`)
-  4. **Exercício (código) · Avaliando recorrências numericamente** (`resolver_recorrencia(tipo, n)`)
-  5. **Exercício (código) · Eliminando o custo quadrático escondido (`in` em `list` $\to$ `set`)** (`intersecao_rapida(a, b)` em $O(n)$ para $n = 50\,000$)
-  6. **Quiz · Laços triangulares, operações embutidas e recorrências**
+- **Passos (8):**
+  1. **Leitura · Conte quantas vezes o corpo mais interno roda** (Visualizar + KaTeX; em sequência some, aninhados multiplique)
+  2. **Previsão · Cinco contadores**
+  3. **Exercício (código) · Fórmulas fechadas para quatro trechos** (`vezes_a(n)` a `vezes_d(n)`, sem laço; conferidas contra o trecho executado e em $n = 10^{12}$)
+  4. **Leitura · O custo escondido numa linha só** (KaTeX; `in` em `list`, `insert(0, x)`, fatias, `s = s + t`)
+  5. **Exercício (código) · Elementos em comum, sem custo escondido** (`comuns(a, b)`; `__eq__` contado)
+  6. **Leitura · Recorrências: o custo de uma função recursiva** (Mermaid + KaTeX: $T(n) = T(n-1) + n$, $T(n) = 2T(n/2) + 1 = \Theta(n)$)
+  7. **Exercício (código) · Recursão sem fatia e contas por expansão** (`soma_rec(lista, i=0)`, `copias_com_fatia(n)`, `chamadas_metades(n)`)
+  8. **Quiz · Laços, linhas caras e recorrências**
 
 ### n3-m2-04-melhor-pior-e-medio-caso-e-memoria · Melhor, pior e caso médio; custo de memória
 - **Arquivo:** `02-analise-de-algoritmos/04-melhor-pior-e-medio-caso-e-memoria.lvl.md` · 100 XP · 40 min
-- **Passos (5):**
-  1. **Leitura · Melhor/pior/médio caso, custo amortizado de `list.append` e espaço auxiliar vs *in-place*** (Mermaid + Visualizar)
-  2. **Exercício (código) · Busca linear contando comparações e simulação de vetor dinâmico** (`busca_linear_com_contagem(lista, alvo)`, `simular_lista_dinamica(n)`)
-  3. **Exercício (código) · Inversão *in-place* em $O(1)$ de espaço auxiliar e classificação de memória** (`inverter_in_place(lista)`, `espaco_auxiliar(algoritmo)`)
-  4. **Quiz · Custo amortizado, pilha de recursão e *in-place***
+- **Passos (8):**
+  1. **Leitura · Mesmo tamanho, custos diferentes** (KaTeX: caso médio com distribuição)
+  2. **Exercício (código) · Contando comparações sob uma distribuição** (`comparacoes(lista, alvo)`, `media_de_comparacoes(lista, consultas)`, `esperado(n, p)`)
+  3. **Leitura · Custo amortizado: por que append é O(1)** (Visualizar + KaTeX; a política real do CPython cresce cerca de 12,5 %, não dobra)
+  4. **Exercício (código) · Simulando o vetor dinâmico** (`simular(n, crescer)`, `custo_amortizado(n, crescer)`)
+  5. **Leitura · Espaço auxiliar, fatias e a pilha de recursão** (Visualizar + KaTeX; `RecursionError` real)
+  6. **Exercício (ordenar) · Inverter no lugar com dois índices** (`inverter_no_lugar(lista)` → `None`; cópias por fatia contadas)
+  7. **Exercício (código) · Recursão de pouca profundidade** (`maior_metades(lista, lo=0, hi=None)`, `profundidade_metades(n)`)
+  8. **Quiz · Casos, amortização e memória**
 
 ## Módulo 3 · Recursão, backtracking e divisão e conquista
 
-Pilha de chamadas, conversão para pilha explícita, *backtracking* com poda, divisão e conquista e Teorema Mestre.
+Caso base, progresso e confiança, limite de recursão e conversão para pilha explícita, *backtracking* com poda segura, divisão e conquista (busca binária, inversões, soma máxima) e Teorema Mestre.
 
 ### n3-m3-01-recursao-revisitada · Recursão revisitada
 - **Arquivo:** `03-recursao-e-divisao-e-conquista/01-recursao-revisitada.lvl.md` · 100 XP · 40 min
-- **Passos (6):**
-  1. **Leitura · Quadros de pilha, recursão em estruturas aninhadas e conversão para pilha explícita** (Mermaid + Visualizar)
-  2. **Previsão · Ordem de execução antes e depois da chamada recursiva**
-  3. **Exercício (lacunas) · Achatamento recursivo e contagem de chamadas no Fibonacci ingênuo** (`achatar(lista_aninhada)`, `contar_chamadas_fib(n)`)
-  4. **Exercício (código) · Potência rápida recursiva e achatamento iterativo com pilha explícita** (`potencia_rapida(b, e)`, `achatar_iterativo(lista)` para profundidade $5\,000$)
-  5. **Quiz · Pilha de chamadas, `RecursionError` e recursão múltipla**
+- **Passos (8):**
+  1. **Leitura · Caso base, progresso e confiança** (Visualizar)
+  2. **Previsão · Duas chamadas por vez**
+  3. **Exercício (lacunas) · Soma e profundidade de listas aninhadas** (`soma_aninhada(dado)`, `profundidade(dado)`)
+  4. **Leitura · O limite de recursão e a recursão de cauda** (KaTeX; o CPython não otimiza cauda)
+  5. **Exercício (código) · Índices no lugar de fatias** (`eh_palindromo(texto)`, `para_binario(n)`; fatias contadas por uma `str` instrumentada)
+  6. **Leitura · Da recursão à pilha explícita** (Mermaid + Visualizar)
+  7. **Exercício (código) · Achatar e medir sem recursão** (`achatar_iterativo(dado)`, `profundidade_iterativa(dado)`, 5 001 níveis com o limite padrão)
+  8. **Quiz · Pilha, limite e casos base**
 
 ### n3-m3-02-backtracking · Backtracking: explorar e desfazer
 - **Arquivo:** `03-recursao-e-divisao-e-conquista/02-backtracking.lvl.md` · 130 XP · 55 min
-- **Passos (5):**
-  1. **Leitura · Escolher, recursar e desfazer (`append`/`pop`), árvore de estados e poda** (Mermaid + Visualizar)
-  2. **Exercício (código) · Geração de subconjuntos e permutações sem `itertools`** (`subconjuntos(lista)`, `permutacoes(lista)`)
-  3. **Exercício (código) · Problema das $N$-rainhas com poda por conjuntos e soma de subconjuntos** (`n_rainhas(n)` com $n=8 \to 92$, `soma_subconjuntos(numeros, alvo)`)
-  4. **Exercício (código) · Resolvedor de Sudoku $4 \times 4$** (`resolver_sudoku4(grade)`)
-  5. **Quiz · Desfazer escolhas, cópia de caminho parcial e poda**
+- **Passos (8):**
+  1. **Leitura · Escolher, explorar, desfazer** (Mermaid + Visualizar)
+  2. **Previsão · A mesma lista em todo lugar**
+  3. **Exercício (lacunas) · Subconjuntos e permutações** (`subconjuntos(lista)`, `permutacoes(lista)`, sem `itertools`)
+  4. **Leitura · O tamanho da árvore e a primeira poda** (KaTeX: $2^n$, $n!$, $\binom{n}{k}$)
+  5. **Exercício (código) · Combinações com poda** (`combinacoes(lista, k)`; chamadas recursivas contadas com `sys.setprofile`)
+  6. **Leitura · Poda segura: N rainhas e soma de subconjuntos** (KaTeX; a poda só é segura com positivos)
+  7. **Exercício (código) · N rainhas e soma de subconjuntos** (`n_rainhas(n)`, `soma_subconjuntos(numeros, alvo)` com todas as respostas)
+  8. **Quiz · Árvores, desfazer e poda**
 
 ### n3-m3-03-divisao-e-conquista · Divisão e conquista
 - **Arquivo:** `03-recursao-e-divisao-e-conquista/03-divisao-e-conquista.lvl.md` · 120 XP · 50 min
-- **Passos (5):**
-  1. **Leitura · Dividir, conquistar e combinar: busca binária recursiva, intercalação e contagem de inversões** (Mermaid + KaTeX: $T(n) = 2T(n/2) + \Theta(n)$)
-  2. **Exercício (ordenar) · Busca binária recursiva e máximo por divisão e conquista** (`maximo_dc(lista)`, `busca_binaria_rec(lista, alvo, ini, fim)`)
-  3. **Exercício (código) · Intercalação linear e contagem de inversões em $O(n \log n)$** (`intercalar(a, b)`, `contar_inversoes(lista)` para $20\,000$ elementos)
-  4. **Quiz · Paradigma de divisão e conquista e contagem de inversões**
+- **Passos (8):**
+  1. **Leitura · Dividir, conquistar e combinar** (Mermaid + KaTeX: $2T(n/2) + \Theta(1) = \Theta(n)$)
+  2. **Exercício (código) · Máximo e busca binária recursivos** (`maximo_dc(lista)`, `busca_binaria_rec(lista, alvo, ini=0, fim=None)`)
+  3. **Leitura · Intercalar e contar inversões** (Visualizar + KaTeX)
+  4. **Exercício (ordenar) · Monte a intercalação** (`intercalar(a, b)`, sem alterar as entradas)
+  5. **Exercício (código) · Contar inversões em n log n** (`contar_inversoes(lista)`; comparações contadas)
+  6. **Leitura · Soma máxima: o que cruza a fronteira** (KaTeX)
+  7. **Exercício (código) · Soma máxima por divisão e conquista** (`soma_maxima(v)`; somas contadas)
+  8. **Quiz · Dividir, combinar e o custo**
 
 ### n3-m3-04-recorrencias-e-teorema-mestre · Recorrências e o Teorema Mestre
 - **Arquivo:** `03-recursao-e-divisao-e-conquista/04-recorrencias-e-teorema-mestre.lvl.md` · 100 XP · 40 min
-- **Passos (5):**
-  1. **Leitura · Árvores de recursão e os três casos do Teorema Mestre** (Mermaid + KaTeX: $T(n) = aT(n/b) + \Theta(n^k)$, comparação entre $k$ e $\log_b a$)
-  2. **Previsão · Trabalho por nível na árvore de recursão**
-  3. **Exercício (código) · Simulação de recorrência com memoização e classificador do Teorema Mestre** (`simular_recorrencia(a, b, k, n)`, `teorema_mestre(a, b, k)`, `identificar_parametros(codigo_id)`)
-  4. **Quiz · Os três casos do Teorema Mestre e quando ele não se aplica**
+- **Passos (7):**
+  1. **Leitura · Do código à recorrência** (Mermaid + KaTeX: $a^{\log_b n} = n^{\log_b a}$)
+  2. **Exercício (código) · Trabalho por nível da árvore** (`trabalho_por_nivel(a, b, f, n)`)
+  3. **Previsão · Quem domina a árvore**
+  4. **Leitura · O Teorema Mestre e quando ele não se aplica** (KaTeX: $T(n) = aT(n/b) + \Theta(n^k \log^j n)$, regularidade, comparação exata $b^k$ contra $a$)
+  5. **Exercício (código) · Classificador do Teorema Mestre** (`teorema_mestre(a, b, k, j=0)` → `(caso, e, p)` ou `None`)
+  6. **Leitura · Expansão, árvore e substituição** (KaTeX)
+  7. **Quiz · Montar, classificar e desconfiar**
 
 ## Módulo 4 · Busca e ordenação
 
-Busca linear e binária (e busca binária na resposta), ordenações $O(n^2)$, merge sort, quick sort/quickselect, Timsort/`key` no Python e ordenações lineares.
+Busca binária com invariantes (limite inferior/superior, primeira e última ocorrência, busca na resposta), ordenações elementares, merge sort (recursivo, *bottom-up* e $k$ listas), quick sort com Lomuto, pivô aleatório e partição em três vias, quickselect, `sorted`/`key`/Timsort e ordenações lineares.
 
 ### n3-m4-01-busca-linear-e-binaria · Busca linear e busca binária
 - **Arquivo:** `04-busca-e-ordenacao/01-busca-linear-e-binaria.lvl.md` · 110 XP · 45 min
-- **Passos (6):**
-  1. **Leitura · Invariante da busca binária, variantes (`lower_bound`/primeira ocorrência) e busca binária na resposta** (Visualizar + KaTeX)
-  2. **Previsão · Rastreando `lo`, `hi` e `meio` quando o elemento não está na lista**
-  3. **Exercício (lacunas) · Busca binária exata, primeira ocorrência e limite inferior** (`busca_binaria`, `primeira_ocorrencia`, `limite_inferior`)
-  4. **Exercício (código) · Raiz quadrada inteira para $10^{18}$ e menor capacidade de caminhão** (`raiz_inteira(n)`, `menor_capacidade(pesos, dias)`)
-  5. **Quiz · Invariantes, `hi = meio - 1` vs `hi = meio` e pré-condição de ordenação**
+- **Passos (8):**
+  1. **Leitura · O invariante que impede o bug** (Visualizar + KaTeX: $\lfloor\log_2 n\rfloor+1$)
+  2. **Previsão · lo, hi e meio quando o alvo não está**
+  3. **Exercício (lacunas) · Busca binária iterativa** (`busca_binaria(lista, alvo)`; ≤ 50 leituras em $10^6$ elementos)
+  4. **Leitura · Com repetidos: limite inferior e primeira ocorrência** (invariante semiaberto `[lo, hi)`)
+  5. **Exercício (código) · Primeira e última ocorrência** (`limite_inferior(lista, x)`, `limite_superior(lista, x)`, `primeira_ocorrencia(lista, alvo)`, `ultima_ocorrencia(lista, alvo)`)
+  6. **Leitura · Busca binária na resposta** (Mermaid + KaTeX)
+  7. **Exercício (código) · Raiz inteira e capacidade do caminhão** (`raiz_inteira(n)` até $10^{30}$, `menor_capacidade(pesos, dias)`)
+  8. **Quiz · Invariantes e escolhas**
 
 ### n3-m4-02-ordenacoes-elementares · Ordenações elementares: bolha, seleção e inserção
 - **Arquivo:** `04-busca-e-ordenacao/02-ordenacoes-elementares.lvl.md` · 110 XP · 45 min
-- **Passos (5):**
-  1. **Leitura · Invariantes de Bubble, Selection e Insertion Sort, estabilidade e dados quase ordenados** (Mermaid + Visualizar)
-  2. **Exercício (lacunas) · Bubble Sort com parada antecipada, Selection Sort e Insertion Sort *in-place*** (`bubble_sort`, `selection_sort`, `insertion_sort`)
-  3. **Exercício (código) · Contagem de trocas/comparações e teste de estabilidade** (`contar_trocas_selection(lista)`, `insertion_sort_com_contagem(lista)`, `eh_estavel(funcao_ord)`)
-  4. **Quiz · Invariantes, melhor caso $O(n)$ do Insertion Sort e estabilidade**
+- **Passos (7):**
+  1. **Leitura · Três ideias, três invariantes** (Visualizar + KaTeX; estabilidade com `>` estrito)
+  2. **Previsão · Duas voltas de cada**
+  3. **Exercício (lacunas) · Seleção e inserção no lugar** (`selection_sort(lista)`, `insertion_sort(lista)` → `None`)
+  4. **Leitura · Contando o trabalho: melhor caso, pior caso e inversões** (KaTeX: $\Theta(n + I)$)
+  5. **Exercício (código) · Medindo os três** (`bubble_sort(lista)` → número de passagens, `contar_comparacoes_insertion(lista)`, `contar_trocas_selection(lista)`)
+  6. **Exercício (código) · Ranking estável da turma** (`ranking(alunos)`)
+  7. **Quiz · Qual algoritmo, e por quê**
 
 ### n3-m4-03-merge-sort · Merge sort
 - **Arquivo:** `04-busca-e-ordenacao/03-merge-sort.lvl.md` · 120 XP · 50 min
-- **Passos (5):**
-  1. **Leitura · Intercalação estável, Merge Sort recursivo e versão iterativa (*bottom-up*)** (Mermaid + KaTeX)
-  2. **Exercício (código) · Intercalação estável e Merge Sort recursivo para $10^5$ elementos** (`intercalar(a, b)`, `merge_sort(lista)`)
-  3. **Exercício (código) · Merge Sort *bottom-up* (sem recursão) e ordenação estável por chave** (`merge_sort_bottom_up(lista)`, `ordenar_por_chave(registros, chave)`)
-  4. **Quiz · Estabilidade (`<=`), espaço auxiliar $O(n)$ e custo garantido $O(n \log n)$**
+- **Passos (8):**
+  1. **Leitura · Intercalar com estabilidade** (`<=` contra `<`, caso base `== 1` e o `RecursionError`)
+  2. **Exercício (lacunas) · Merge sort recursivo** (`intercalar(a, b)` estável, `merge_sort(lista)` → lista nova)
+  3. **Leitura · De onde vem o n log n** (Mermaid + KaTeX: $n$ por nível × $\lceil\log_2 n\rceil$ níveis)
+  4. **Previsão · A ordem das intercalações**
+  5. **Leitura · Merge sort sem recursão (bottom-up)** (Visualizar + KaTeX)
+  6. **Exercício (código) · merge_sort_bottom_up** (`merge_sort_bottom_up(lista)`; ausência de recursão medida com `sys.setprofile`)
+  7. **Exercício (código) · Juntar k listas ordenadas** (`intercalar_k(listas)` em $\Theta(N \log k)$; comparações contadas)
+  8. **Quiz · Custo, memória e estabilidade**
 
 ### n3-m4-04-quick-sort · Quick sort
 - **Arquivo:** `04-busca-e-ordenacao/04-quick-sort.lvl.md` · 120 XP · 50 min
-- **Passos (5):**
-  1. **Leitura · Particionamento de Lomuto, escolha aleatória de pivô e Quickselect em $O(n)$ esperado** (Mermaid + Visualizar)
-  2. **Exercício (ordenar) · Particionamento de Lomuto *in-place*** (`particionar(lista, lo, hi)`)
-  3. **Exercício (código) · Quick Sort aleatorizado *in-place* e Quickselect (`k_esimo_menor`)** (`quick_sort(lista)`, `quick_sort_aleatorio(lista)`, `k_esimo_menor(lista, k)`)
-  4. **Quiz · Pior caso $O(n^2)$, pivô aleatório, estabilidade e Quickselect**
+- **Passos (7):** não ensina Hoare; o remédio para muitos iguais é a partição em três vias.
+  1. **Leitura · Partição de Lomuto e seu invariante** (Mermaid + Visualizar)
+  2. **Exercício (ordenar) · Monte particionar** (`particionar(lista, lo, hi)`)
+  3. **Exercício (código) · quick_sort no lugar** (`quick_sort(lista)` → `None`)
+  4. **Leitura · O pior caso e o pivô aleatório** (KaTeX: $n(n-1)/2$, $\approx 1{,}39\,n\log_2 n$ esperado; `[7] * 3000` derruba Lomuto mesmo com sorteio)
+  5. **Exercício (código) · Quick sort aleatorizado em três vias** (`particionar_3vias(v, lo, hi)`, `quick_sort_aleatorio(lista)` → `None`; `random.seed` no setup)
+  6. **Exercício (código) · Quickselect: o k-ésimo menor** (`k_esimo_menor(lista, k)`, `k` a partir de 0, sem alterar a entrada; comparações contadas)
+  7. **Quiz · Pivôs e escolhas**
 
 ### n3-m4-05-ordenacao-no-python · Ordenação no Python: sorted, key, estabilidade e Timsort
 - **Arquivo:** `04-busca-e-ordenacao/05-ordenacao-no-python.lvl.md` · 100 XP · 40 min
-- **Passos (5):**
-  1. **Leitura · Tuplas em `key`, critérios mistos, estabilidade encadeada, `cmp_to_key` e Timsort** (Mermaid)
-  2. **Previsão · Ordenação em duas passagens aproveitando a estabilidade do Timsort**
-  3. **Exercício (código) · Ordenando alunos, versões semânticas, frequências e comparador customizado** (`ordenar_alunos`, `ordenar_versoes`, `ordenar_por_frequencia`, `maior_numero_concatenado`)
-  4. **Quiz · `sorted` vs `.sort()`, transformada de Schwartz (`key`) e *runs* do Timsort**
+- **Passos (8):**
+  1. **Leitura · sorted, .sort() e a chave** (KaTeX; tupla com sinal invertido contra `reverse=True`)
+  2. **Previsão · Duas ordenações seguidas**
+  3. **Exercício (código) · Vários critérios com key** (`ordenar_alunos(alunos)`, `ordenar_versoes(versoes)`, `ordenar_por_frequencia(palavras)`)
+  4. **Leitura · Estabilidade em cadeia e o Timsort** (Mermaid + KaTeX; *runs*, galloping, powersort)
+  5. **Exercício (código) · Autor decrescente, título crescente** (`ordenar_estante(livros)`, em duas passagens estáveis)
+  6. **Leitura · Quando a ordem depende do par: cmp_to_key** (KaTeX)
+  7. **Exercício (código) · O maior número concatenado** (`maior_numero_concatenado(numeros)`)
+  8. **Quiz · sorted por dentro**
 
 ### n3-m4-06-ordenacoes-lineares · Ordenações em tempo linear: counting, bucket e radix
 - **Arquivo:** `04-busca-e-ordenacao/06-ordenacoes-lineares.lvl.md` · 110 XP · 45 min
-- **Passos (5):**
-  1. **Leitura · Limite inferior $\Omega(n \log n)$ por comparações, Counting Sort estável e Radix Sort LSD** (KaTeX: $\log_2(n!) = \Theta(n \log n)$, $O(n + k)$)
-  2. **Exercício (código) · Counting Sort estável de registros `(chave, valor)` e histograma de notas** (`counting_sort(registros, k)`, `histograma_de_notas(notas)`)
-  3. **Exercício (código) · Radix Sort LSD para inteiros até $10^9$ e ordenação de CEPs** (`radix_sort(lista)`, `ordenar_ceps(lista)`)
-  4. **Quiz · Limite inferior de comparação, estabilidade no Radix LSD e papel de $k$**
+- **Passos (6):** sem Previsão; o bucket sort fica na leitura e no quiz.
+  1. **Leitura · Por que comparar custa pelo menos n log n** (KaTeX: árvore de decisão, $n! \ge (n/2)^{n/2}$)
+  2. **Leitura · Counting sort estável** (Visualizar + KaTeX: $\Theta(n + k)$; `cont[-1]` não falha em Python)
+  3. **Exercício (lacunas) · counting_sort com chaves negativas** (`counting_sort(registros)`, sem parâmetro `k`: o intervalo vem da menor e da maior chave)
+  4. **Leitura · Radix sort LSD e bucket sort** (Mermaid + KaTeX)
+  5. **Exercício (código) · Radix sort e CEPs** (`radix_sort(lista)`, `ordenar_ceps(ceps)` com CEPs como texto; os dois devolvem lista nova)
+  6. **Quiz · Quando ordenar sem comparar**
 
 ## Módulo 5 · Estruturas lineares
 
-Pilhas, filas/deques (e deque monotônica), listas ligadas simples e listas duplamente ligadas com cache LRU.
+Pilhas (delimitadores, posfixa, *shunting-yard*, desfazer/refazer), filas, fila circular, `deque` e deque monotônica, listas ligadas simples (cabeça e cauda, dois ponteiros) e listas duplamente ligadas com sentinelas e cache LRU.
 
 ### n3-m5-01-pilhas · Pilhas
 - **Arquivo:** `05-estruturas-lineares/01-pilhas.lvl.md` · 110 XP · 45 min
-- **Passos (6):**
-  1. **Leitura · LIFO em $O(1)$, delimitadores balanceados, RPN, *Shunting-Yard* e desfazer/refazer** (Mermaid + Visualizar)
-  2. **Previsão · Duas pilhas em ação: histórico de desfazer e refazer**
-  3. **Exercício (lacunas) · Classe `Pilha` e verificação de delimitadores `()[]{}`** (`Pilha`, `balanceado(texto)`)
-  4. **Exercício (código) · Avaliação de RPN, conversão infixa $\to$ posfixa e editor com desfazer/refazer** (`avaliar_rpn`, `infixa_para_posfixa`, `editor_com_desfazer`)
-  5. **Quiz · LIFO, ordem dos operandos no RPN e `append`/`pop` vs `pop(0)`**
+- **Passos (8):** a conversão de recursão em pilha explícita é praticada no m3-01; aqui ela é explicada e cobrada no quiz.
+  1. **Leitura · LIFO no fim da list e delimitadores balanceados** (Mermaid + Visualizar + KaTeX)
+  2. **Exercício (lacunas) · Classe Pilha e balanceado** (`Pilha` com `empilhar`, `desempilhar`, `topo`, `vazia`, `__len__`; `balanceado(texto)` usando a classe)
+  3. **Leitura · Notação posfixa e shunting-yard** (KaTeX; o primeiro `pop()` é o operando direito)
+  4. **Exercício (código) · Avaliar posfixa** (`avaliar_rpn(tokens)`, `ValueError` para expressão malformada)
+  5. **Exercício (código) · De infixa para posfixa** (`infixa_para_posfixa(tokens)`, `^` associativo à direita)
+  6. **Previsão · Duas pilhas: desfazer e refazer**
+  7. **Exercício (código) · Editor com desfazer e refazer** (`editor(comandos)` com `ESCREVER`/`APAGAR`/`DESFAZER`/`REFAZER`)
+  8. **Quiz · Pilhas no lugar certo**
 
 ### n3-m5-02-filas-e-deque · Filas e deque
 - **Arquivo:** `05-estruturas-lineares/02-filas-e-deque.lvl.md` · 110 XP · 45 min
-- **Passos (5):**
-  1. **Leitura · FIFO, fila circular com aritmética modular, `collections.deque` e deque monotônica** (Mermaid + KaTeX)
-  2. **Exercício (código) · Classe `FilaCircular` e simulação de fila de atendimento** (`FilaCircular`, `simular_atendimento(chegadas, duracao)`, `ultimos_k(eventos, k)`)
-  3. **Exercício (código) · Máximo em janela deslizante em $O(n)$ com deque monotônica** (`maximo_janela(lista, k)` para $10^5$ elementos)
-  4. **Quiz · `deque.popleft()` vs `list.pop(0)`, fila circular e invariante da deque monotônica**
+- **Passos (8):**
+  1. **Leitura · FIFO e o custo escondido de list.pop(0)** (KaTeX: $n(n-1)/2$)
+  2. **Previsão · As duas pontas, maxlen e rotate**
+  3. **Leitura · Fila circular: arranjo fixo e índices módulo n** (Mermaid + Visualizar + KaTeX)
+  4. **Exercício (lacunas) · FilaCircular** (`FilaCircular(capacidade)` com `enfileirar`, `desenfileirar`, `vazia`, `cheia`, `para_lista`, `__len__`)
+  5. **Exercício (código) · Round-robin e Josephus com deque** (`round_robin(processos, quantum)`, `josephus(n, k)`)
+  6. **Leitura · Máximo em janela deslizante com deque monotônica** (KaTeX)
+  7. **Exercício (código) · maximo_janela em O(n)** (`maximo_janela(lista, k)`, `ValueError` com `k < 1`; comparações contadas)
+  8. **Quiz · Fila certa para cada problema**
 
 ### n3-m5-03-listas-ligadas · Listas ligadas simples
 - **Arquivo:** `05-estruturas-lineares/03-listas-ligadas.lvl.md` · 130 XP · 55 min
-- **Passos (6):**
-  1. **Leitura · Nós e referências, cabeça/cauda, inversão com 3 ponteiros e tartaruga/lebre de Floyd** (Mermaid + Visualizar)
-  2. **Previsão · O que acontece quando trocamos `atual.proximo` na ordem errada?**
-  3. **Exercício (ordenar) · Detectando ciclo com tartaruga e lebre (Floyd)** (`No`, `tem_ciclo(cabeca)`)
-  4. **Exercício (código) · Classe `ListaLigada` com cabeça e cauda ($O(1)$ no início e no fim) e inversão *in-place*** (`No`, `ListaLigada`)
-  5. **Exercício (código) · $k$-ésimo a partir do fim e intercalação de listas ligadas ordenadas** (`k_esimo_do_fim(cabeca, k)`, `intercalar_ordenadas(a, b)`)
-  6. **Quiz · Custos de `ListaLigada` vs `list` e técnica dos dois ponteiros**
+- **Passos (8):**
+  1. **Leitura · Nós, referências e o custo de cada operação** (Mermaid + KaTeX)
+  2. **Previsão · A ordem das atribuições**
+  3. **Exercício (lacunas) · ListaLigada com cabeça e cauda** (`No(valor, proximo=None)`, `ListaLigada` com `inserir_inicio`, `inserir_fim` em O(1), `buscar` → nó ou `None`, `__len__`, `__iter__`; leituras de `.proximo` contadas)
+  4. **Exercício (código) · Inserir após, remover e inverter** (Visualizar; `inserir_apos(no, valor)`, `remover(valor)`, `inverter()` no lugar)
+  5. **Leitura · Dois ponteiros: ciclo de Floyd e k-ésimo do fim** (KaTeX)
+  6. **Exercício (ordenar) · Monte o detector de ciclo** (`tem_ciclo(cabeca)`)
+  7. **Exercício (código) · k-ésimo do fim e intercalação** (`k_esimo_do_fim(cabeca, k)`, `intercalar(a, b)` reaproveitando os nós)
+  8. **Quiz · Ponteiros na prática**
 
 ### n3-m5-04-listas-duplamente-ligadas-e-lru · Listas duplamente ligadas e cache LRU
 - **Arquivo:** `05-estruturas-lineares/04-listas-duplamente-ligadas-e-lru.lvl.md` · 120 XP · 50 min
-- **Passos (5):**
-  1. **Leitura · Sentinelas `inicio`/`fim`, remoção $O(1)$ dado o nó e arquitetura do Cache LRU (`dict` + lista dupla)** (Mermaid)
-  2. **Exercício (código) · `ListaDupla` com nós sentinelas e histórico de navegação** (`NoDuplo`, `ListaDupla`, `HistoricoNavegacao`)
-  3. **Exercício (código) · `CacheLRU` com `get` e `put` em $O(1)$ verificado para $10^5$ operações** (`CacheLRU`)
-  4. **Quiz · Papel das sentinelas, combinação hash + lista dupla e política de descarte LRU**
+- **Passos (7):**
+  1. **Leitura · Nó duplo e sentinelas** (Mermaid + KaTeX)
+  2. **Exercício (lacunas) · ListaDupla com sentinelas** (`NoDuplo`, `ListaDupla` com `inserir_frente`, `inserir_tras`, `remover_no(no)`, `para_lista`, `para_lista_reversa`, `__len__`)
+  3. **Exercício (código) · Mover para a frente e remover o último** (`mover_para_frente(no)`, `remover_ultimo()` com `IndexError` na lista vazia; leituras de `.proximo` contadas)
+  4. **Leitura · Cache LRU: dicionário + lista dupla** (Mermaid + KaTeX; `OrderedDict` e `lru_cache`)
+  5. **Previsão · lru_cache por dentro**
+  6. **Exercício (código) · CacheLRU** (`CacheLRU(capacidade)` com `get(chave)` → valor ou `None`, `put(chave, valor)`, `chaves()`, `__len__`; ≤ 3 `__eq__` de chave por operação, sem `OrderedDict` nem `lru_cache`)
+  7. **Quiz · Sentinelas e política de despejo**
 
 ## Módulo 6 · Árvores, heaps e tabelas hash
 
-Árvores binárias e percursos, árvores de busca binária (BST), heaps e filas de prioridade, tabelas hash do zero e árvores balanceadas (AVL) e tries.
+Árvores binárias e percursos (recursivos e iterativos), árvores de busca binária e sua degeneração, heaps em lista e `heapq`, tabelas hash com encadeamento e endereçamento aberto, AVL, rubro-negras/B-trees (descrição) e tries.
 
 ### n3-m6-01-arvores-binarias-e-percursos · Árvores binárias e percursos
 - **Arquivo:** `06-arvores-e-tabelas-hash/01-arvores-binarias-e-percursos.lvl.md` · 110 XP · 45 min
-- **Passos (6):**
-  1. **Leitura · Altura, folhas, os 4 percursos (pré, em, pós e por níveis) e árvores de expressão** (Mermaid)
-  2. **Previsão · Pré-ordem, em-ordem e pós-ordem na mesma árvore**
-  3. **Exercício (lacunas) · Altura, tamanho, contagem de folhas e simetria** (`No`, `altura`, `tamanho`, `contar_folhas`, `eh_simetrica`)
-  4. **Exercício (código) · Os quatro percursos, árvore de expressão e reconstrução a partir de pré + em-ordem** (`pre_ordem`, `em_ordem`, `pos_ordem`, `por_niveis`, `avaliar_expressao`, `para_infixa`, `reconstruir`)
-  5. **Quiz · Percursos, altura de árvore e reconstrução única**
+- **Passos (8):**
+  1. **Leitura · Uma estrutura definida por ela mesma** (Mermaid + KaTeX: $\lfloor\log_2 n\rfloor \le h \le n-1$; altura da vazia é $-1$)
+  2. **Exercício (lacunas) · Tamanho, altura, folhas e espelho** (`No(valor, esq=None, dir=None)`, `tamanho`, `altura`, `contar_folhas`, `espelhos(a, b)`, `eh_simetrica`)
+  3. **Leitura · Percursos: quando a raiz é visitada** (KaTeX)
+  4. **Previsão · Três percursos na mesma árvore**
+  5. **Exercício (código) · Pós-ordem, em-ordem com pilha e por níveis** (`pos_ordem(raiz)`, `em_ordem_iterativa(raiz)`, `por_niveis(raiz)` → lista de níveis; correntes de 5 000 nós)
+  6. **Leitura · Árvores de expressão e reconstrução** (Mermaid)
+  7. **Exercício (código) · Avaliar, escrever e reconstruir** (`avaliar(raiz)`, `para_infixa(raiz)`, `reconstruir(pre, em)`)
+  8. **Quiz · Percursos e formas**
 
 ### n3-m6-02-arvores-de-busca-binaria · Árvores de busca binária
 - **Arquivo:** `06-arvores-e-tabelas-hash/02-arvores-de-busca-binaria.lvl.md` · 130 XP · 55 min
-- **Passos (5):**
-  1. **Leitura · Propriedade global da BST, remoção nos 3 casos e degeneração com entrada ordenada** (Mermaid + KaTeX)
-  2. **Exercício (ordenar) · Validação de BST com intervalo `(minimo, maximo)`** (`No`, `eh_bst(raiz)`)
-  3. **Exercício (código) · Classe `BST` com `inserir`, `buscar`, `em_ordem`, `remover` (3 casos) e `k_esimo_menor`** (`BST`, `k_esimo_menor`, `comparar_alturas_bst`)
-  4. **Quiz · Remoção com dois filhos (sucessor), armadilha da validação local e altura $O(n)$ no pior caso**
+- **Passos (8):** sem Previsão (única do módulo).
+  1. **Leitura · A propriedade de busca e o caminho de uma consulta** (Mermaid + KaTeX)
+  2. **Exercício (lacunas) · Inserir e buscar** (`No`, `inserir(raiz, valor)` → raiz, `buscar(raiz, valor)` → `bool`, sem recursão)
+  3. **Leitura · Validar: olhar os filhos não basta** (Mermaid + KaTeX)
+  4. **Exercício (ordenar) · Monte eh_bst com intervalos** (`eh_bst(raiz)`)
+  5. **Leitura · Remover em três casos** (Mermaid + KaTeX)
+  6. **Exercício (código) · Remover com os três casos** (`remover(raiz, valor)` → raiz, com o sucessor em-ordem)
+  7. **Exercício (código) · A BST que virou lista** (`nos_visitados(raiz, valor)`, `ordem_balanceada(chaves)`, `custo_total(ordem)`)
+  8. **Quiz · Busca, validação e remoção**
 
 ### n3-m6-03-heaps-e-filas-de-prioridade · Heaps e filas de prioridade
 - **Arquivo:** `06-arvores-e-tabelas-hash/03-heaps-e-filas-de-prioridade.lvl.md` · 120 XP · 50 min
-- **Passos (5):**
-  1. **Leitura · Heap binário em array, `subir`/`descer`, `heapify` em $O(n)$ e aplicações com `heapq`** (Mermaid + Visualizar + KaTeX: $\text{pai}(i)=\lfloor(i-1)/2\rfloor$)
-  2. **Exercício (código) · Classe `MinHeap` do zero (`inserir`, `extrair_min`, `construir` $O(n)$) e `heap_sort`** (`MinHeap`, `heap_sort`)
-  3. **Exercício (código) · `k_maiores` em $O(n \log k)$, `fundir_k_listas` e `mediana_em_fluxo` com dois heaps** (`k_maiores`, `fundir_k_listas`, `mediana_em_fluxo`)
-  4. **Quiz · Índices no vetor, custo $O(n)$ do `heapify` e técnica dos dois heaps**
+- **Passos (8):** o heap é uma lista comum com funções (sem classe `MinHeap`).
+  1. **Leitura · Um heap cabe numa lista** (Mermaid + KaTeX: $\text{pai}(i)=\lfloor(i-1)/2\rfloor$)
+  2. **Previsão · Cinco inserções e uma extração**
+  3. **Exercício (lacunas) · subir e descer** (`subir(h, i)`, `descer(h, i, n)`, `inserir(h, x)`, `extrair_min(h)`)
+  4. **Leitura · Heapify em O(n) e heap sort no lugar** (KaTeX: $\sum k\,n/2^{k+1} = n$)
+  5. **Exercício (código) · construir_heap e heap_sort** (`construir_heap(v)` com ≤ $2n$ comparações, `heap_sort(v)` no lugar, crescente, → `None`)
+  6. **Leitura · heapq, desempate e top-k** (KaTeX; o `TypeError` de `dict` no empate)
+  7. **Exercício (código) · Agenda, top-k e fusão com heapq** (`FilaDePrioridade` com `inserir(prioridade, item)` e `remover()`, `k_maiores(valores, k)`, `fundir(fontes, m)` sob demanda)
+  8. **Quiz · Escolhas com heaps**
 
 ### n3-m6-04-tabelas-hash · Tabelas hash do zero
 - **Arquivo:** `06-arvores-e-tabelas-hash/04-tabelas-hash.lvl.md` · 130 XP · 55 min
-- **Passos (6):**
-  1. **Leitura · Hash polinomial, encadeamento separado, fator de carga $\alpha$, sondagem linear com lápide (*tombstone*) e `__hash__`/`__eq__`** (Mermaid + Visualizar + KaTeX: $\alpha = n/m$)
-  2. **Previsão · Por que objetos mutáveis ou com `__eq__` sem `__hash__` falham como chaves de `dict`?**
-  3. **Exercício (código) · Hash polinomial, contagem de colisões e classe `Ponto` imutável hasheável** (`hash_polinomial`, `contar_colisoes`, `Ponto`)
-  4. **Exercício (código) · `TabelaHash` com encadeamento e redimensionamento automático ($10^5$ inserções) e `TabelaHashAberta` com lápide** (`TabelaHash`, `TabelaHashAberta`)
-  5. **Quiz · Colisões de anagramas, necessidade da lápide na sondagem linear e redimensionamento**
+- **Passos (8):**
+  1. **Leitura · Do hash ao compartimento** (Mermaid + KaTeX; contrato `a == b ⇒ hash(a) == hash(b)`)
+  2. **Previsão · Chaves que se confundem e chaves que somem** (`1`/`True`/`1.0`, `__eq__` sem `__hash__`, chave mutável)
+  3. **Exercício (lacunas) · TabelaHash com encadeamento** (`TabelaHash(capacidade_inicial=8)` com `put`, `get(chave, padrao=None)`, `delete`, `__len__`)
+  4. **Leitura · Fator de carga, redimensionamento e hashes ruins** (KaTeX: $\alpha = n/m$)
+  5. **Exercício (código) · Redimensionar e uma chave composta** (`_redimensionar()`, `Ponto(x, y)` imutável com `__eq__`/`__hash__`; hashes e `__eq__` contados)
+  6. **Leitura · Endereçamento aberto e a lápide** (Visualizar + KaTeX)
+  7. **Exercício (código) · TabelaHashAberta com lápide** (`TabelaHashAberta(capacidade=8)` com `put`/`get`/`delete`; `put` em tabela cheia levanta `RuntimeError`)
+  8. **Quiz · Tabelas hash na prática**
 
 ### n3-m6-05-arvores-balanceadas-e-tries · Árvores balanceadas e tries
 - **Arquivo:** `06-arvores-e-tabelas-hash/05-arvores-balanceadas-e-tries.lvl.md` · 120 XP · 50 min
-- **Passos (5):**
-  1. **Leitura · Fator de balanceamento e rotações AVL, ideia de B-trees e estrutura da Trie (árvore de prefixos)** (Mermaid)
-  2. **Exercício (código) · Rotações à esquerda/direita e inserção em `AVL` mantendo altura $O(\log n)$ para $10^4$ chaves ordenadas** (`NoAVL`, `rotacao_direita`, `rotacao_esquerda`, `AVL`)
-  3. **Exercício (código) · `Trie` com `inserir`, `contem`, `com_prefixo` e `autocompletar(trie, prefixo, k)`** (`Trie`, `autocompletar`)
-  4. **Quiz · Rotações simples vs duplas na AVL, marcação de `fim_de_palavra` na Trie e B-trees**
+- **Passos (8):**
+  1. **Leitura · Fator de balanceamento e rotações** (Mermaid + KaTeX: $h \le 1{,}44\log_2(n+2)$)
+  2. **Exercício (lacunas) · Rotações** (`NoAVL`, `altura_no`, `atualizar_altura`, `fator_balanceamento`, `rotacao_direita(y)`, `rotacao_esquerda(x)`)
+  3. **Leitura · Os quatro casos da inserção** (Visualizar + KaTeX)
+  4. **Exercício (código) · balancear e a classe AVL** (`balancear(no)`, `AVL` com `inserir`, `altura`, `em_ordem`; altura exata 9 para 1023 chaves crescentes)
+  5. **Previsão · Sete inserções numa AVL**
+  6. **Leitura · Rubro-negras, B-trees e tries** (Mermaid + KaTeX)
+  7. **Exercício (código) · Trie e autocompletar** (`Trie` com `inserir`, `contem`, `com_prefixo`; `autocompletar(trie, prefixo, k)`; leituras de `filhos` contadas)
+  8. **Quiz · Balancear, paginar e completar**
 
 ## Módulo 7 · Grafos
 
@@ -414,7 +521,7 @@ Memoização (*top-down*), programação dinâmica tabular (*bottom-up*), DP em 
 ### n3-m8-05-projeto-planejador-de-rotas · Projeto final: planejador de rotas do campus
 - **Arquivo:** `08-programacao-dinamica-e-projeto/05-projeto-planejador-de-rotas.lvl.md` · projeto (`projeto: true`) · 300 XP · 240 min
 - **Passos (8):**
-  1. **Leitura · Especificação completa do Planejador de Rotas do Campus da USP** (Mermaid + tabela de requisitos funcionais e de desempenho)
+  1. **Leitura · Especificação completa do Planejador de Rotas do Campus** (Mermaid + tabela de requisitos funcionais e de desempenho)
   2. **Exercício (código) · Leitura e representação do mapa do campus** (`carregar_mapa(texto)`)
   3. **Exercício (código) · Menor rota com Dijkstra, reconstrução de caminho e filtro de acessibilidade ($2 \times 10^4$ nós)** (`menor_rota(mapa, origem, destino, apenas_acessivel=False)`)
   4. **Exercício (código) · Locais alcançáveis até $M$ minutos e top-$k$ locais mais próximos com heap** (`locais_a_ate(mapa, origem, minutos)`, `top_k_mais_proximos(mapa, origem, k)`)

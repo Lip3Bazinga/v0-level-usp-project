@@ -8,101 +8,101 @@ questoes:
 - enunciado: Qual é a negação de 'todo aluno passou'?
   opcoes:
   - Nenhum aluno passou
+  - Existe pelo menos um aluno que passou
+  - Alguns alunos passaram e outros não
   - Existe pelo menos um aluno que não passou
-  - Todo aluno não passou
-  - Alguns alunos passaram
-  correta: 1
-  explicacao: A negação de 'para todo x, P(x)' é 'existe x tal que não P(x)'.
+  correta: 3
+  explicacao: 'A negação de "para todo x, P(x)" é "existe x tal que não P(x)". "Nenhum passou" é mais forte do que a negação, e "alguns passaram e outros não" exclui o caso em que ninguém passou, que também torna a frase original falsa.'
   topico: matematica-discreta-essencial
 - enunciado: Quantos subconjuntos de 2 elementos tem um conjunto com 5 elementos?
   opcoes:
-  - '5'
   - '10'
+  - '5'
   - '20'
   - '25'
-  correta: 1
+  correta: 0
   explicacao: C(5, 2) = 5! / (2! · 3!) = 10. A ordem não importa, por isso não é arranjo (20).
   topico: matematica-discreta-essencial
-- enunciado: Qual é a complexidade de tempo de `for i in range(n):` contendo `for j in range(i):`?
+- enunciado: 'Quantas vezes, em ordem de grandeza, roda o corpo de `for j in range(i):` dentro de `for i in range(n):`?'
   opcoes:
-  - O(n)
-  - O(n log n)
-  - O(n²)
-  - O(2ⁿ)
+  - Θ(n)
+  - Θ(n log n)
+  - Θ(n²)
+  - Θ(2ⁿ)
   correta: 2
-  explicacao: O laço interno roda 0 + 1 + … + (n−1) = n(n−1)/2 vezes, que é Θ(n²).
+  explicacao: 'O laço interno roda 0 + 1 + … + (n−1) = n(n−1)/2 vezes, que é Θ(n²). Laços aninhados multiplicam; o interno depender de i só muda a constante.'
   topico: analise-de-algoritmos
-- enunciado: Qual destas operações custa O(n) em uma lista do Python?
+- enunciado: 'Qual destas linhas, executada uma vez numa `list` de n elementos, custa Θ(n)?'
   opcoes:
-  - lista[i]
-  - lista.append(x)
-  - x in lista
-  - len(lista)
-  correta: 2
-  explicacao: '`in` percorre a lista até achar (ou até o fim); as outras são O(1) (append amortizado).'
-  topico: analise-de-algoritmos
-- enunciado: No backtracking, o que acontece logo depois da chamada recursiva voltar?
-  opcoes:
-  - Nada
-  - A escolha é desfeita (pop) para tentar a próxima alternativa
-  - A lista de escolhas é copiada
-  - O laço reinicia do zero
+  - '`lista.pop()`'
+  - '`lista.insert(0, x)`'
+  - '`lista[-1]`'
+  - '`len(lista)`'
   correta: 1
-  explicacao: 'Escolher → recursar → desfazer: sem desfazer, o estado contamina as próximas tentativas.'
+  explicacao: '`insert(0, x)` desloca as n referências uma posição para a direita. `pop()` tira do fim, e indexar e `len` leem valores já guardados: os três são O(1).'
+  topico: analise-de-algoritmos
+- enunciado: 'Num backtracking que faz `caminho.append(x)` antes da chamada recursiva, o que precisa acontecer logo depois que ela volta?'
+  opcoes:
+  - '`res.append(caminho)`, para guardar a resposta parcial'
+  - 'Nada: cada chamada recursiva recebe a sua própria cópia de `caminho`'
+  - '`caminho.pop()`, para desfazer a escolha antes de tentar a próxima alternativa'
+  - '`caminho = []`, para recomeçar o caminho do zero'
+  correta: 2
+  explicacao: 'Escolher, explorar, desfazer. A lista é a mesma em todas as chamadas (só a referência é passada), então sem o `pop()` a escolha contamina as próximas tentativas. Guardar uma resposta exige uma cópia, `res.append(caminho[:])`; sem ela, todas as respostas apontam para a mesma lista.'
   topico: recursao-e-divisao-e-conquista
 - enunciado: 'A busca binária exige que a lista esteja:'
   opcoes:
   - Sem elementos repetidos
+  - Com tamanho igual a uma potência de 2
+  - Com o alvo presente, senão o laço não termina
   - Ordenada
-  - Com tamanho par
-  - Composta só de números
-  correta: 1
-  explicacao: A cada passo ela descarta metade com base na comparação com o meio, o que só vale em dados ordenados.
+  correta: 3
+  explicacao: 'A cada passo ela descarta metade com base na comparação com o meio, o que só vale em dados ordenados. Repetidos são tratados pelo limite inferior (primeira ocorrência), qualquer tamanho serve, e com o alvo ausente o intervalo fica vazio e a busca termina.'
   topico: busca-e-ordenacao
-- enunciado: Qual algoritmo de ordenação tem pior caso O(n²), mas O(n log n) esperado com pivô aleatório?
+- enunciado: 'Um quick sort com pivô sorteado e partição de Lomuto ordena `[7] * 3000`. O que acontece?'
   opcoes:
-  - Merge sort
-  - Quick sort
-  - Insertion sort
-  - Counting sort
-  correta: 1
-  explicacao: O quick sort degenera com pivôs ruins (dados ordenados e pivô fixo); a escolha aleatória torna isso improvável.
+  - Cada partição separa n − 1 e 0 elementos, o custo é Θ(n²) e a recursão fica com cerca de 3000 níveis
+  - O custo é Θ(n log n) esperado, porque sortear o pivô evita o pior caso em qualquer entrada
+  - O custo é Θ(n), porque a lista já está ordenada e nenhuma troca é feita
+  - O custo é Θ(n log n) garantido, porque todo pivô é igual à mediana
+  correta: 0
+  explicacao: 'Com todos iguais, Lomuto manda todos para o mesmo lado com qualquer sorteio; com o limite padrão, a recursão estoura em RecursionError. A partição em três vias (< pivô, == pivô, > pivô) põe os iguais no meio e só recursa nas pontas.'
   topico: busca-e-ordenacao
-- enunciado: Qual estrutura devolve os elementos na ordem inversa da inserção (o último a entrar é o primeiro a sair)?
+- enunciado: 'Avaliando a expressão posfixa `8 2 / 3 -` com uma pilha (o `/` é a divisão do Python), qual é o resultado?'
   opcoes:
-  - Fila
-  - Pilha
-  - Lista ligada
-  - Tabela hash
+  - '2.75'
+  - '1.0'
+  - '-8.0'
+  - 'Erro: falta operando para o `-`'
   correta: 1
-  explicacao: Pilha é LIFO; a fila é FIFO.
+  explicacao: 'O primeiro valor desempilhado é o operando da direita: `/` calcula 8 / 2 = 4.0 e `-` calcula 4.0 − 3 = 1.0. Inverter os operandos dá 2 / 8 = 0.25 e 3 − 0.25 = 2.75; -8.0 seria 8 / (2 − 3), que em posfixa é `8 2 3 - /`.'
   topico: estruturas-lineares
-- enunciado: Por que `lista.pop(0)` é inadequado para implementar uma fila grande?
+- enunciado: 'Uma fila de atendimento usa uma `list`, com `append` para entrar e `pop(0)` para sair, e ficou lenta com milhares de pedidos. Qual troca mantém a ordem de chegada e deixa cada saída em O(1)?'
   opcoes:
-  - Devolve o último elemento
-  - Custa O(n), porque desloca todos os elementos restantes
-  - Não existe em listas
-  - Remove dois elementos
-  correta: 1
-  explicacao: Use `collections.deque`, cujo `popleft()` é O(1).
+  - 'Trocar `pop(0)` por `pop()`, que é O(1)'
+  - 'Ordenar a lista antes de cada `pop(0)`'
+  - 'Usar `collections.deque` e tirar da frente com `popleft()`'
+  - 'Usar `heapq.heappop(lista)` no lugar de `pop(0)`'
+  correta: 2
+  explicacao: 'Cada `pop(0)` desloca os n − 1 itens restantes, e esvaziar a fila custa n(n−1)/2 movimentos. `deque.popleft()` é O(1). `pop()` tira o último a chegar (vira pilha), e `heappop` tira o menor valor, não o mais antigo.'
   topico: estruturas-lineares
 - enunciado: Qual percurso de uma árvore de busca binária produz as chaves em ordem crescente?
   opcoes:
   - Pré-ordem
-  - Em-ordem
   - Pós-ordem
   - Por níveis
-  correta: 1
+  - Em-ordem
+  correta: 3
   explicacao: Em-ordem visita esquerda, raiz e direita; pela propriedade da BST isso sai ordenado.
   topico: arvores-e-tabelas-hash
-- enunciado: Qual algoritmo encontra o caminho com menor número de arestas entre dois vértices de um grafo sem pesos?
+- enunciado: Num grafo sem pesos, qual algoritmo encontra em O(V + E) um caminho com o menor número de arestas entre dois vértices?
   opcoes:
-  - DFS
-  - BFS
+  - BFS (busca em largura)
+  - DFS (busca em profundidade)
   - Dijkstra
   - Kruskal
-  correta: 1
-  explicacao: A busca em largura visita por camadas de distância; o Dijkstra é para pesos e o Kruskal para árvore geradora.
+  correta: 0
+  explicacao: 'A BFS visita os vértices por camadas de distância, então a primeira vez que alcança o destino é pelo menor número de arestas. A DFS também é O(V + E), mas não garante o menor caminho; o Dijkstra acharia, mas com heap custa O((V + E) log V) e serve para pesos; o Kruskal monta árvore geradora mínima.'
   topico: grafos
 - enunciado: Quais duas propriedades caracterizam um problema adequado à programação dinâmica?
   opcoes:
