@@ -205,7 +205,7 @@ passo_a_passo 4 16
 
 ## Passo 4 · Exercício · Meça o efeito da cadeia de pensamento
 
-O atalho da previsão é uma caricatura: um modelo real não "soma só as duas primeiras", mas erra mais quando precisa responder de uma vez a uma conta de muitas etapas. O cliente é o `llm_simulado.py` do módulo 1; o texto que ele devolve vem da função `responder` de `modelo_secretaria.py` (`ClienteLLM(responder)`), que imita esse comportamento com regras fixas, descritas no topo do arquivo. O tokenizador de brinquedo do cliente junta os tokens com espaços, então o raciocínio chega numa linha só; o marcador continua separando o veredito. Agora você mede, com a interface `completar(mensagens, max_tokens=...)`, a acurácia **e** o custo de cada modo.
+O atalho da previsão é uma caricatura: um modelo real não "soma só as duas primeiras", mas erra mais quando precisa responder de uma vez a uma conta de muitas etapas. O cliente é o `llm_simulado.py` do módulo 1; o texto que ele devolve vem da função `responder` de `modelo_secretaria.py` (`ClienteLLM(responder)`), que imita esse comportamento com regras fixas, descritas no topo do arquivo. O tokenizador do cliente preserva as quebras de linha, então o raciocínio chega em várias linhas e o marcador separa o veredito do rascunho. Agora você mede, com a interface `completar(mensagens, max_tokens=...)`, a acurácia **e** o custo de cada modo.
 
 Escreva `avaliar_modo(cliente, problemas, modo, max_tokens=200)`:
 
@@ -401,8 +401,8 @@ devolve, com regras fixas:
      valores (caricatura de um modelo que erra contas de muitas etapas).
 2. Etapas de pipeline (system começa com "ETAPA extrair", "ETAPA classificar"
    ou "ETAPA redigir"): ver as funções _extrair, _classificar e _redigir.
-Atenção: o tokenizador de brinquedo do cliente junta os tokens com espaços, então
-as quebras de linha do texto gerado viram espaços na resposta.
+O tokenizador do cliente preserva o espaço em branco: as quebras de linha do
+texto gerado chegam intactas na resposta.
 """
 import json
 import re
@@ -429,7 +429,7 @@ def _creditos(sistema, usuario):
 
 def _extrair(usuario):
     aluno = re.search(r"[Ss]ou (?:a|o) (\w+)", usuario)
-    disciplina = re.search(r"[A-Z]{3}\d{4}", usuario)
+    disciplina = re.search(r"[A-Z]{3}\d{3}", usuario)
     texto = usuario.lower()
     acao = None
     if "trancar" in texto or "trancamento" in texto:
@@ -675,8 +675,8 @@ devolve, com regras fixas:
      valores (caricatura de um modelo que erra contas de muitas etapas).
 2. Etapas de pipeline (system começa com "ETAPA extrair", "ETAPA classificar"
    ou "ETAPA redigir"): ver as funções _extrair, _classificar e _redigir.
-Atenção: o tokenizador de brinquedo do cliente junta os tokens com espaços, então
-as quebras de linha do texto gerado viram espaços na resposta.
+O tokenizador do cliente preserva o espaço em branco: as quebras de linha do
+texto gerado chegam intactas na resposta.
 """
 import json
 import re
@@ -703,7 +703,7 @@ def _creditos(sistema, usuario):
 
 def _extrair(usuario):
     aluno = re.search(r"[Ss]ou (?:a|o) (\w+)", usuario)
-    disciplina = re.search(r"[A-Z]{3}\d{4}", usuario)
+    disciplina = re.search(r"[A-Z]{3}\d{3}", usuario)
     texto = usuario.lower()
     acao = None
     if "trancar" in texto or "trancamento" in texto:
@@ -1037,7 +1037,7 @@ Implemente o pipeline do passo anterior com o cliente simulado e a função de c
 
 `custo_de_pipeline(etapas, precos)`: `etapas` é uma lista de `{"modelo": str, "tokens_entrada": int, "tokens_saida": int}` e `precos[modelo]` é `{"entrada_por_milhao": float, "saida_por_milhao": float}` (valores fictícios). Devolve o custo total em `float`, `0.0` para lista vazia.
 
-Exemplo: `executar_pipeline(ClienteLLM(responder), "Sou a Bia, quero trancar MAE0119.")` devolve setor `SECAO_DE_ALUNOS`, resposta `Olá, Bia. Seu pedido de trancamento em MAE0119 foi encaminhado para SECAO_DE_ALUNOS.`, 138 tokens de entrada e 43 de saída.
+Exemplo: `executar_pipeline(ClienteLLM(responder), "Sou a Bia, quero trancar EST202.")` devolve setor `SECAO_DE_ALUNOS`, resposta `Olá, Bia. Seu pedido de trancamento em EST202 foi encaminhado para SECAO_DE_ALUNOS.`, 138 tokens de entrada e 43 de saída.
 
 ### Instruções
 1. Faça a extração e valide o JSON e os três campos, parando com `ErroDeEtapa("extrair", ...)`.
@@ -1074,7 +1074,7 @@ def custo_de_pipeline(etapas, precos):
 
 if __name__ == "__main__":
     cliente = ClienteLLM(responder)
-    print(executar_pipeline(cliente, "Sou a Bia, quero trancar MAE0119."))
+    print(executar_pipeline(cliente, "Sou a Bia, quero trancar EST202."))
     try:
         executar_pipeline(cliente, "Sou a Eva e quero trancar")
     except ErroDeEtapa as erro:
@@ -1219,8 +1219,8 @@ devolve, com regras fixas:
      valores (caricatura de um modelo que erra contas de muitas etapas).
 2. Etapas de pipeline (system começa com "ETAPA extrair", "ETAPA classificar"
    ou "ETAPA redigir"): ver as funções _extrair, _classificar e _redigir.
-Atenção: o tokenizador de brinquedo do cliente junta os tokens com espaços, então
-as quebras de linha do texto gerado viram espaços na resposta.
+O tokenizador do cliente preserva o espaço em branco: as quebras de linha do
+texto gerado chegam intactas na resposta.
 """
 import json
 import re
@@ -1247,7 +1247,7 @@ def _creditos(sistema, usuario):
 
 def _extrair(usuario):
     aluno = re.search(r"[Ss]ou (?:a|o) (\w+)", usuario)
-    disciplina = re.search(r"[A-Z]{3}\d{4}", usuario)
+    disciplina = re.search(r"[A-Z]{3}\d{3}", usuario)
     texto = usuario.lower()
     acao = None
     if "trancar" in texto or "trancamento" in texto:
@@ -1353,7 +1353,7 @@ def custo_de_pipeline(etapas, precos):
 
 if __name__ == "__main__":
     cliente = ClienteLLM(responder)
-    print(executar_pipeline(cliente, "Sou a Bia, quero trancar MAE0119."))
+    print(executar_pipeline(cliente, "Sou a Bia, quero trancar EST202."))
     try:
         executar_pipeline(cliente, "Sou a Eva e quero trancar")
     except ErroDeEtapa as erro:
@@ -1498,8 +1498,8 @@ devolve, com regras fixas:
      valores (caricatura de um modelo que erra contas de muitas etapas).
 2. Etapas de pipeline (system começa com "ETAPA extrair", "ETAPA classificar"
    ou "ETAPA redigir"): ver as funções _extrair, _classificar e _redigir.
-Atenção: o tokenizador de brinquedo do cliente junta os tokens com espaços, então
-as quebras de linha do texto gerado viram espaços na resposta.
+O tokenizador do cliente preserva o espaço em branco: as quebras de linha do
+texto gerado chegam intactas na resposta.
 """
 import json
 import re
@@ -1526,7 +1526,7 @@ def _creditos(sistema, usuario):
 
 def _extrair(usuario):
     aluno = re.search(r"[Ss]ou (?:a|o) (\w+)", usuario)
-    disciplina = re.search(r"[A-Z]{3}\d{4}", usuario)
+    disciplina = re.search(r"[A-Z]{3}\d{3}", usuario)
     texto = usuario.lower()
     acao = None
     if "trancar" in texto or "trancamento" in texto:
@@ -1582,13 +1582,13 @@ def responder(mensagens):
 ```json
 [
   { "id": "trancamento", "checkpoint": 2, "kind": "expr",
-    "expr": "executar_pipeline(ClienteLLM(responder), 'Sou o Davi, quero me matricular em MAC0121.')",
-    "expected": { "dados": { "aluno": "Davi", "disciplina": "MAC0121", "acao": "matricula" }, "setor": "COMISSAO_DE_GRADUACAO",
-      "resposta": "Olá, Davi. Seu pedido de matricula em MAC0121 foi encaminhado para COMISSAO_DE_GRADUACAO.",
+    "expr": "executar_pipeline(ClienteLLM(responder), 'Sou o Davi, quero me matricular em PRG102.')",
+    "expected": { "dados": { "aluno": "Davi", "disciplina": "PRG102", "acao": "matricula" }, "setor": "COMISSAO_DE_GRADUACAO",
+      "resposta": "Olá, Davi. Seu pedido de matricula em PRG102 foi encaminhado para COMISSAO_DE_GRADUACAO.",
       "tokens_entrada": 141, "tokens_saida": 47 },
     "name": "Pipeline completo de um pedido de matrícula" },
   { "id": "historico", "checkpoint": 2, "kind": "expr",
-    "expr": "executar_pipeline(ClienteLLM(responder), 'Sou a Eva, quero o histórico de MAE0119')['setor']",
+    "expr": "executar_pipeline(ClienteLLM(responder), 'Sou a Eva, quero o histórico de EST202')['setor']",
     "expected": "ARQUIVO_ACADEMICO", "name": "A etapa 2 decide a partir dos dados extraídos",
     "hint": "Mande para a classificação o JSON da etapa 1, não o e-mail bruto." },
   { "id": "nao-e-json", "checkpoint": 1, "kind": "expr",
@@ -1598,14 +1598,14 @@ def responder(mensagens):
     "setup": "c = ClienteLLM(responder)\ntry:\n    executar_pipeline(c, 'Sou a Eva e quero trancar')\nexcept ErroDeEtapa:\n    pass",
     "expr": "c.chamadas", "expected": 1, "name": "Campo nulo na extração para o pipeline sem chamar as outras etapas" },
   { "id": "campo-nulo", "checkpoint": 1, "kind": "expr",
-    "expr": "executar_pipeline(ClienteLLM(responder), 'Quero trancar MAC0110')", "raises": "ErroDeEtapa", "message_contains": "extrair",
+    "expr": "executar_pipeline(ClienteLLM(responder), 'Quero trancar PRG101')", "raises": "ErroDeEtapa", "message_contains": "extrair",
     "name": "Aluno não identificado levanta ErroDeEtapa" },
   { "id": "setor-invalido", "checkpoint": 2, "kind": "expr",
     "setup": "class Confuso(ClienteLLM):\n    def completar(self, mensagens, max_tokens=200):\n        if mensagens[0]['content'].startswith('ETAPA classificar'):\n            return Resposta('FINANCEIRO', 'stop', 20, 3)\n        return super().completar(mensagens, max_tokens)",
-    "expr": "executar_pipeline(Confuso(responder), 'Sou a Bia, quero trancar MAE0119.')", "raises": "ErroDeEtapa", "message_contains": "classificar",
+    "expr": "executar_pipeline(Confuso(responder), 'Sou a Bia, quero trancar EST202.')", "raises": "ErroDeEtapa", "message_contains": "classificar",
     "name": "Setor fora da lista levanta ErroDeEtapa da etapa classificar" },
   { "id": "tokens-somados", "checkpoint": 3, "kind": "expr",
-    "setup": "class Fixo:\n    def __init__(self):\n        self.saidas = iter(['{\"aluno\": \"Ana\", \"disciplina\": \"MAC0110\", \"acao\": \"trancamento\"}', 'SECAO_DE_ALUNOS', 'Feito.'])\n    def completar(self, mensagens, max_tokens=200):\n        return Resposta(next(self.saidas), 'stop', 100, 7)\nr = executar_pipeline(Fixo(), 'qualquer')",
+    "setup": "class Fixo:\n    def __init__(self):\n        self.saidas = iter(['{\"aluno\": \"Ana\", \"disciplina\": \"PRG101\", \"acao\": \"trancamento\"}', 'SECAO_DE_ALUNOS', 'Feito.'])\n    def completar(self, mensagens, max_tokens=200):\n        return Resposta(next(self.saidas), 'stop', 100, 7)\nr = executar_pipeline(Fixo(), 'qualquer')",
     "expr": "[r['tokens_entrada'], r['tokens_saida'], r['resposta']]", "expected": [300, 21, "Feito."],
     "name": "Soma os tokens das três chamadas" },
   { "id": "custo", "checkpoint": 4, "kind": "call", "function": "custo_de_pipeline",

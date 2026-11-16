@@ -43,7 +43,8 @@ Cada simulador existe **uma vez** no curso. Quando uma lição precisa dele, o a
 | `bm25.py` | o `IndiceBM25` da solução do m4-03, sem o bloco `__main__` | m7-04 |
 | `busca.py` | `EmbedderPuro` (a mesma conta do `EmbedderSimulado`, em listas, para o runtime sem numpy), `cosseno` e o `rrf` do m4-03 | m7-04 |
 | `roteiro.py` | dublê de teste declarado sobre o `ClienteLLM`: `cliente_roteirizado(saidas, limite_de_seguranca=50)` devolve a saída *n* na chamada *n*, repete a última quando o roteiro acaba, guarda `cliente.vistas` e levanta `RoteiroEsgotado` depois de 50 chamadas | m5-01, m7-04 |
-| `modelo_triagem.py` | classificador de pedidos por palavras, que lê o formato pedido no `system` e o dado entre `<entrada>` | m2-01 e m2-03 (**duas versões com regras diferentes**; ver "Decisões pendentes") |
+| `modelo_triagem.py` | classificador de pedidos por palavras, que lê o formato pedido no `system` e o dado entre `<entrada>` | m2-01 |
+| `modelo_triagem_glossario.py` | classificador que lê no `system` um glossário de linhas `CATEGORIA: palavra, palavra` e o dado entre `<entrada>` | m2-03 |
 | `modelo_secretaria.py` | elegibilidade com e sem cadeia de pensamento e as etapas do pipeline de atendimento | m2-02 |
 | `modelo_extracao.py` | extração de ação e sigla em JSON, com saídas cortadas e inválidas programadas | m2-04 |
 | `modelo_rag.py` | gerador que copia o trecho com mais palavras em comum e cita `[n]`, devolve a recusa exata e inventa sem a instrução de aterramento | m4-01, m4-04, m7-04 |
@@ -523,8 +524,4 @@ Os modelos são os simuladores do curso, byte a byte: `llm_simulado.py` (m1), `m
 
 ## Decisões pendentes
 
-- `modelo_triagem.py` tem duas versões no curso (m2-01 e m2-03, com regras diferentes). Ou a m2-03 passa a usar um nome próprio (por exemplo, `modelo_triagem_versoes.py`), ou as duas lições passam a usar um arquivo só.
-- As lições do módulo 2 ainda usam códigos reais de disciplina nos exemplos, nos casos de teste e nos arquivos de modelo; a convenção do nível pede `PRG101`, `EST202` e similares.
-- `modelo_secretaria.py` (m2-02) e `modelo_extracao.py` (m2-04), e a narrativa do passo 4 da m2-02, ainda dizem que o tokenizador junta os tokens com espaços e apaga as quebras de linha. Desde a correção do `llm_simulado.py` isso deixou de valer.
-- O quiz da m1-05 tem 4 perguntas; a régua do nível é 3.
 - As citações da LGPD na m6-03 foram conferidas de memória e precisam de revisão contra o texto da lei.

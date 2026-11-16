@@ -485,14 +485,6 @@ def ranquear(candidatos, pesos, minimos):
 ## Passo 6 · Quiz · Escolha de modelos, quantização e multimodalidade
 
 ### Pergunta
-Um modelo de 8 bilhões de parâmetros em 16 bits não cabe na GPU de 12 GB do laboratório. Qual opção resolve, e a que custo?
-- [ ] Reduzir `max_tokens` para 50: os pesos encolhem junto com a resposta.
-- [x] Quantizar os pesos para 4 bits (cerca de 4 GB de pesos), aceitando uma possível perda de qualidade que precisa ser medida na sua avaliação.
-- [ ] Quantizar para 4 bits, o que mantém a qualidade idêntica em qualquer tarefa.
-- [ ] Usar `temperature = 0`, que dispensa o KV cache.
-> Quantização corta a memória dos pesos de 16 GB para 4 GB, mas não é de graça: a perda de qualidade varia com o modelo e a tarefa. `max_tokens` e temperatura não mudam o tamanho dos pesos.
-
-### Pergunta
 O modelo do laboratório cabe com folga atendendo uma pessoa com contexto curto, mas dá falta de memória quando 20 alunos usam ao mesmo tempo com documentos longos. Por quê?
 - [ ] Os pesos são copiados uma vez por usuário.
 - [x] O KV cache cresce com o total de tokens em contexto, somando todas as requisições simultâneas.
@@ -505,13 +497,13 @@ A secretaria precisa extrair dados de 5 000 requerimentos em PDF gerados pelo si
 - [ ] Converter cada página em imagem de alta resolução e mandar a um modelo multimodal.
 - [x] Extrair o texto do PDF com uma biblioteca e mandar só o texto ao modelo.
 - [ ] Mandar imagem e texto juntos, para garantir.
-- [ ] Imagens não contam tokens, então tanto faz.
-> Imagens viram muitos tokens e passam por mais uma etapa sujeita a erro (ler a imagem). Com texto disponível, mandar o texto custa menos e evita erros de leitura; o multimodal fica para documentos escaneados, fotos e tabelas desenhadas.
+- [ ] Mandar cada página como imagem em baixa resolução, que gasta poucos tokens de entrada.
+> Imagens viram muitos tokens e passam por mais uma etapa sujeita a erro (ler a imagem). Com texto disponível, mandar o texto custa menos e evita erros de leitura; em baixa resolução, a leitura da imagem erra ainda mais. O multimodal fica para documentos escaneados, fotos e tabelas desenhadas.
 
 ### Pergunta
 Um modelo lidera o ranking público geral, mas no conjunto de 40 requerimentos reais da secretaria acerta 70 %, contra 85 % de um modelo menor. O que fazer?
 - [ ] Ficar com o líder do ranking: ele foi avaliado em muito mais perguntas.
 - [x] Dar mais peso ao resultado no seu conjunto, que mede a sua tarefa, e investigar onde o líder errou antes de decidir.
-- [ ] Descartar os dois e escolher o de maior número de parâmetros.
-- [ ] Repetir a avaliação até o líder do ranking ganhar.
-> O ranking mede tarefas genéricas e pode estar inflado por contaminação dos dados de treino. Uma avaliação pequena mas representativa da sua tarefa responde à pergunta que importa; olhar os erros mostra se a diferença é real ou um acaso de poucos casos.
+- [ ] Tirar a média entre a posição no ranking e o resultado no seu conjunto, com o mesmo peso.
+- [ ] Trocar já pelo modelo menor: 85 % contra 70 % encerra a questão.
+> O ranking mede tarefas genéricas e pode estar inflado por contaminação dos dados de treino. Uma avaliação pequena mas representativa da sua tarefa responde à pergunta que importa; com só 40 casos, olhar os erros mostra se a diferença é real ou um acaso de poucos casos.

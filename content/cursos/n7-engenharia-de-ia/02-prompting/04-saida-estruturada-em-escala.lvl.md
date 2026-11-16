@@ -65,11 +65,11 @@ Cinco saídas que um modelo pode devolver para o mesmo pedido. Leia o programa s
 import json
 
 saidas = [
-    '{"acao": "trancar", "sigla": "MAC0121"}',
+    '{"acao": "trancar", "sigla": "PRG102"}',
     '```json\n{"acao": "trancar"}\n```',
-    '{"acao": "trancar", "sigla": "MAC01',
+    '{"acao": "trancar", "sigla": "PRG10',
     'Claro! {"acao": "trancar"}',
-    '["trancar", "MAC0121"]',
+    '["trancar", "PRG102"]',
 ]
 for texto in saidas:
     try:
@@ -81,7 +81,7 @@ for texto in saidas:
 
 ### Dicas
 1. O parser lê da esquerda para a direita e desiste no primeiro caractere que não pode iniciar um valor JSON; a crase e a letra `C` não podem.
-2. Na terceira saída, a string `"MAC01` começa na posição 29 e nunca é fechada.
+2. Na terceira saída, a string `"PRG10` começa na posição 29 e nunca é fechada.
 3. A última saída é JSON válido; o problema dela não é de sintaxe.
 
 ### Saída esperada
@@ -124,7 +124,7 @@ def ler_saida(texto, campos):
 
 
 if __name__ == "__main__":
-    print(ler_saida('```json\n{"acao": "trancar", "sigla": "MAC0121"}\n```', {"acao": str, "sigla": str}))
+    print(ler_saida('```json\n{"acao": "trancar", "sigla": "PRG102"}\n```', {"acao": str, "sigla": str}))
     try:
         ler_saida('Claro! {"acao": "trancar"}', {"acao": str})
     except ErroDeSaida as erro:
@@ -165,7 +165,7 @@ def ler_saida(texto, campos):
 
 
 if __name__ == "__main__":
-    print(ler_saida('```json\n{"acao": "trancar", "sigla": "MAC0121"}\n```', {"acao": str, "sigla": str}))
+    print(ler_saida('```json\n{"acao": "trancar", "sigla": "PRG102"}\n```', {"acao": str, "sigla": str}))
     try:
         ler_saida('Claro! {"acao": "trancar"}', {"acao": str})
     except ErroDeSaida as erro:
@@ -181,25 +181,25 @@ if __name__ == "__main__":
 ```json
 [
   { "id": "simples", "checkpoint": 3, "kind": "call", "function": "ler_saida",
-    "args": ["  {\"acao\": \"historico\", \"sigla\": \"MAE0119\", \"extra\": 1}\n", { }],
-    "expected": { "acao": "historico", "sigla": "MAE0119", "extra": 1 }, "name": "JSON com espaços nas pontas e campo a mais" },
+    "args": ["  {\"acao\": \"historico\", \"sigla\": \"EST202\", \"extra\": 1}\n", { }],
+    "expected": { "acao": "historico", "sigla": "EST202", "extra": 1 }, "name": "JSON com espaços nas pontas e campo a mais" },
   { "id": "cerca-json", "checkpoint": 1, "kind": "expr",
-    "expr": "ler_saida('```json\\n{\"acao\": \"matricula\", \"sigla\": \"MAC0110\"}\\n```', {'acao': str, 'sigla': str})",
-    "expected": { "acao": "matricula", "sigla": "MAC0110" }, "name": "Aceita a cerca ```json" },
+    "expr": "ler_saida('```json\\n{\"acao\": \"matricula\", \"sigla\": \"PRG101\"}\\n```', {'acao': str, 'sigla': str})",
+    "expected": { "acao": "matricula", "sigla": "PRG101" }, "name": "Aceita a cerca ```json" },
   { "id": "cerca-sem-linguagem", "checkpoint": 1, "kind": "expr",
     "expr": "ler_saida('```\\n{\"n\": 3}\\n```\\n', {'n': int})",
     "expected": { "n": 3 }, "name": "Aceita a cerca sem nome de linguagem" },
   { "id": "cerca-uma-linha", "checkpoint": 1, "kind": "expr",
-    "expr": "ler_saida('```json {\"acao\": \"historico\", \"sigla\": \"MAC0121\"} ```', {'acao': str, 'sigla': str})",
-    "expected": { "acao": "historico", "sigla": "MAC0121" }, "name": "Aceita a cerca numa linha só" },
+    "expr": "ler_saida('```json {\"acao\": \"historico\", \"sigla\": \"PRG102\"} ```', {'acao': str, 'sigla': str})",
+    "expected": { "acao": "historico", "sigla": "PRG102" }, "name": "Aceita a cerca numa linha só" },
   { "id": "truncado", "checkpoint": 2, "kind": "expr",
-    "expr": "ler_saida('{\"acao\": \"trancar\", \"sigla\": \"MAC01', {'acao': str})",
+    "expr": "ler_saida('{\"acao\": \"trancar\", \"sigla\": \"PRG10', {'acao': str})",
     "raises": "ErroDeSaida", "message_contains": "JSON inválido: Unterminated string", "name": "JSON cortado levanta ErroDeSaida com a causa" },
   { "id": "texto-antes", "checkpoint": 2, "kind": "expr",
     "expr": "ler_saida('Claro! Aqui está: {\"acao\": \"trancar\"}', {'acao': str})",
     "raises": "ErroDeSaida", "message_contains": "JSON inválido", "name": "Texto livre antes do JSON é recusado" },
   { "id": "lista", "checkpoint": 2, "kind": "expr",
-    "expr": "ler_saida('[\"trancar\", \"MAC0121\"]', {'acao': str})",
+    "expr": "ler_saida('[\"trancar\", \"PRG102\"]', {'acao': str})",
     "raises": "ErroDeSaida", "message_contains": "objeto", "name": "Lista JSON não é o objeto pedido" },
   { "id": "ausente", "checkpoint": 3, "kind": "expr",
     "expr": "ler_saida('{\"acao\": \"trancar\"}', {'acao': str, 'sigla': str})",
@@ -440,11 +440,11 @@ def processar_lote(cliente, itens, campos, max_tentativas=3, max_tokens=40):
 
 if __name__ == "__main__":
     lote = [
-        {"id": "r1", "texto": "Quero trancar MAC0121"},
-        {"id": "r2", "texto": "cerca: matricula em MAE0119"},
-        {"id": "r3", "texto": "confuso: historico de MAC0110"},
-        {"id": "r4", "texto": "pressa: trancar MAC0110"},
-        {"id": "r5", "texto": "anexo: trancar MAE0119"},
+        {"id": "r1", "texto": "Quero trancar PRG102"},
+        {"id": "r2", "texto": "cerca: matricula em EST202"},
+        {"id": "r3", "texto": "confuso: historico de PRG101"},
+        {"id": "r4", "texto": "pressa: trancar PRG101"},
+        {"id": "r5", "texto": "anexo: trancar EST202"},
         {"id": "r6", "texto": "ilegivel"},
     ]
     resultado = processar_lote(ClienteLLM(responder), lote, CAMPOS)
@@ -593,8 +593,8 @@ devolve, pelo pedido (entre <entrada> e </entrada> na primeira mensagem user):
   mensagem user de reparo (com a palavra "inválida"), vem o JSON certo;
 - "pressa": a primeira resposta não tem "sigla"; depois do reparo, vem completa;
 - "ilegivel": nunca devolve JSON válido.
-O tokenizador de brinquedo do cliente junta os tokens com espaços: quebras de
-linha viram espaços, e a cerca chega numa linha só.
+O tokenizador do cliente preserva o espaço em branco: a cerca chega com as
+quebras de linha que o modelo escreveu.
 """
 import json
 import re
@@ -607,7 +607,7 @@ def _dados(pedido):
         if palavra in texto:
             acao = nome
             break
-    sigla = re.search(r"[A-Z]{3}\d{4}", pedido)
+    sigla = re.search(r"[A-Z]{3}\d{3}", pedido)
     return {"acao": acao, "sigla": sigla.group(0) if sigla else "N/D"}
 
 
@@ -711,11 +711,11 @@ def processar_lote(cliente, itens, campos, max_tentativas=3, max_tokens=40):
 
 if __name__ == "__main__":
     lote = [
-        {"id": "r1", "texto": "Quero trancar MAC0121"},
-        {"id": "r2", "texto": "cerca: matricula em MAE0119"},
-        {"id": "r3", "texto": "confuso: historico de MAC0110"},
-        {"id": "r4", "texto": "pressa: trancar MAC0110"},
-        {"id": "r5", "texto": "anexo: trancar MAE0119"},
+        {"id": "r1", "texto": "Quero trancar PRG102"},
+        {"id": "r2", "texto": "cerca: matricula em EST202"},
+        {"id": "r3", "texto": "confuso: historico de PRG101"},
+        {"id": "r4", "texto": "pressa: trancar PRG101"},
+        {"id": "r5", "texto": "anexo: trancar EST202"},
         {"id": "r6", "texto": "ilegivel"},
     ]
     resultado = processar_lote(ClienteLLM(responder), lote, CAMPOS)
@@ -864,8 +864,8 @@ devolve, pelo pedido (entre <entrada> e </entrada> na primeira mensagem user):
   mensagem user de reparo (com a palavra "inválida"), vem o JSON certo;
 - "pressa": a primeira resposta não tem "sigla"; depois do reparo, vem completa;
 - "ilegivel": nunca devolve JSON válido.
-O tokenizador de brinquedo do cliente junta os tokens com espaços: quebras de
-linha viram espaços, e a cerca chega numa linha só.
+O tokenizador do cliente preserva o espaço em branco: a cerca chega com as
+quebras de linha que o modelo escreveu.
 """
 import json
 import re
@@ -878,7 +878,7 @@ def _dados(pedido):
         if palavra in texto:
             acao = nome
             break
-    sigla = re.search(r"[A-Z]{3}\d{4}", pedido)
+    sigla = re.search(r"[A-Z]{3}\d{3}", pedido)
     return {"acao": acao, "sigla": sigla.group(0) if sigla else "N/D"}
 
 
@@ -910,42 +910,42 @@ def responder(mensagens):
 ```json
 [
   { "id": "lote-misto", "checkpoint": 1, "kind": "expr",
-    "setup": "T = [{'id': 'a', 'texto': 'anexo: matricula em MAC0121'}, {'id': 'b', 'texto': 'Preciso trancar MAE0119'}, {'id': 'c', 'texto': 'pressa: historico MAC0110'}, {'id': 'd', 'texto': 'ilegivel: trancar'}, {'id': 'e', 'texto': 'cerca: trancar MAC0121'}, {'id': 'f', 'texto': 'confuso: matricula MAE0119'}]\nr = processar_lote(ClienteLLM(responder), T, CAMPOS)",
+    "setup": "T = [{'id': 'a', 'texto': 'anexo: matricula em PRG102'}, {'id': 'b', 'texto': 'Preciso trancar EST202'}, {'id': 'c', 'texto': 'pressa: historico PRG101'}, {'id': 'd', 'texto': 'ilegivel: trancar'}, {'id': 'e', 'texto': 'cerca: trancar PRG102'}, {'id': 'f', 'texto': 'confuso: matricula EST202'}]\nr = processar_lote(ClienteLLM(responder), T, CAMPOS)",
     "expr": "[[(s['id'], s['tentativas']) for s in r['sucessos']], r['falhas']]",
     "expected": [[["a", 2], ["b", 1], ["c", 2], ["e", 1], ["f", 2]], [{ "id": "d", "erro": "JSON inválido: Expecting value", "tentativas": 3 }]],
     "name": "Lote misto: cinco sucessos com o número de tentativas e uma falha com motivo",
     "hint": "Uma falha registrada não interrompe os itens seguintes." },
   { "id": "dados", "checkpoint": 1, "kind": "expr",
-    "setup": "T = [{'id': 'c', 'texto': 'pressa: historico MAC0110'}, {'id': 'e', 'texto': 'cerca: trancar MAC0121'}]\nr = processar_lote(ClienteLLM(responder), T, CAMPOS)",
+    "setup": "T = [{'id': 'c', 'texto': 'pressa: historico PRG101'}, {'id': 'e', 'texto': 'cerca: trancar PRG102'}]\nr = processar_lote(ClienteLLM(responder), T, CAMPOS)",
     "expr": "[s['dados'] for s in r['sucessos']]",
-    "expected": [{ "acao": "historico", "sigla": "MAC0110" }, { "acao": "trancamento", "sigla": "MAC0121" }],
+    "expected": [{ "acao": "historico", "sigla": "PRG101" }, { "acao": "trancamento", "sigla": "PRG102" }],
     "name": "Os dados lidos vão para o sucesso" },
   { "id": "truncada-dobra", "checkpoint": 2, "kind": "expr",
-    "setup": "r = processar_lote(ClienteLLM(responder), [{'id': 'a', 'texto': 'anexo: trancar MAE0119'}], CAMPOS)",
-    "expr": "[r['sucessos'][0]['tentativas'], r['sucessos'][0]['dados']['sigla']]", "expected": [2, "MAE0119"],
+    "setup": "r = processar_lote(ClienteLLM(responder), [{'id': 'a', 'texto': 'anexo: trancar EST202'}], CAMPOS)",
+    "expr": "[r['sucessos'][0]['tentativas'], r['sucessos'][0]['dados']['sigla']]", "expected": [2, "EST202"],
     "name": "Resposta truncada passa na segunda tentativa com o dobro de tokens",
     "hint": "Pedir reparo não aumenta o espaço da resposta." },
   { "id": "limite-por-item", "checkpoint": 2, "kind": "expr",
-    "setup": "class Medidor(ClienteLLM):\n    def __init__(self):\n        super().__init__(responder)\n        self.limites = []\n    def completar(self, mensagens, max_tokens=40):\n        self.limites.append(max_tokens)\n        return super().completar(mensagens, max_tokens)\nm = Medidor()\nprocessar_lote(m, [{'id': 'a', 'texto': 'anexo: trancar MAE0119'}, {'id': 'b', 'texto': 'Quero trancar MAC0110'}], CAMPOS)",
+    "setup": "class Medidor(ClienteLLM):\n    def __init__(self):\n        super().__init__(responder)\n        self.limites = []\n    def completar(self, mensagens, max_tokens=40):\n        self.limites.append(max_tokens)\n        return super().completar(mensagens, max_tokens)\nm = Medidor()\nprocessar_lote(m, [{'id': 'a', 'texto': 'anexo: trancar EST202'}, {'id': 'b', 'texto': 'Quero trancar PRG101'}], CAMPOS)",
     "expr": "m.limites", "expected": [40, 80, 40],
     "name": "O limite dobrado vale só para o item que foi cortado",
     "hint": "Cada item começa com o max_tokens recebido." },
   { "id": "truncada-esgota", "checkpoint": 2, "kind": "expr",
-    "setup": "r = processar_lote(ClienteLLM(responder), [{'id': 'a', 'texto': 'anexo: trancar MAE0119'}], CAMPOS, max_tokens=10)",
+    "setup": "r = processar_lote(ClienteLLM(responder), [{'id': 'a', 'texto': 'anexo: trancar EST202'}], CAMPOS, max_tokens=10)",
     "expr": "r['falhas']", "expected": [{ "id": "a", "erro": "resposta truncada", "tentativas": 3 }],
     "name": "Com 10, 20 e 40 tokens a resposta não cabe: falha por truncamento" },
   { "id": "reparo", "checkpoint": 3, "kind": "expr",
-    "setup": "class Gravador(ClienteLLM):\n    def __init__(self):\n        super().__init__(responder)\n        self.conversas = []\n    def completar(self, mensagens, max_tokens=40):\n        self.conversas.append([m['role'] for m in mensagens])\n        return super().completar(mensagens, max_tokens)\ng = Gravador()\nr = processar_lote(g, [{'id': 'f', 'texto': 'confuso: matricula MAE0119'}], CAMPOS)",
+    "setup": "class Gravador(ClienteLLM):\n    def __init__(self):\n        super().__init__(responder)\n        self.conversas = []\n    def completar(self, mensagens, max_tokens=40):\n        self.conversas.append([m['role'] for m in mensagens])\n        return super().completar(mensagens, max_tokens)\ng = Gravador()\nr = processar_lote(g, [{'id': 'f', 'texto': 'confuso: matricula EST202'}], CAMPOS)",
     "expr": "[g.conversas, r['sucessos'][0]['tentativas']]", "expected": [[["system", "user"], ["system", "user", "assistant", "user"]], 2],
     "name": "A segunda tentativa leva a resposta inválida e o pedido de reparo" },
   { "id": "uma-tentativa", "checkpoint": 1, "kind": "expr",
-    "setup": "T = [{'id': 'a', 'texto': 'anexo: matricula em MAC0121'}, {'id': 'b', 'texto': 'Preciso trancar MAE0119'}, {'id': 'c', 'texto': 'pressa: historico MAC0110'}, {'id': 'f', 'texto': 'confuso: matricula MAE0119'}]\nr = processar_lote(ClienteLLM(responder), T, CAMPOS, max_tentativas=1)",
+    "setup": "T = [{'id': 'a', 'texto': 'anexo: matricula em PRG102'}, {'id': 'b', 'texto': 'Preciso trancar EST202'}, {'id': 'c', 'texto': 'pressa: historico PRG101'}, {'id': 'f', 'texto': 'confuso: matricula EST202'}]\nr = processar_lote(ClienteLLM(responder), T, CAMPOS, max_tentativas=1)",
     "expr": "r['falhas']",
     "expected": [{ "id": "a", "erro": "resposta truncada", "tentativas": 1 }, { "id": "c", "erro": "campo ausente: sigla", "tentativas": 1 }, { "id": "f", "erro": "JSON inválido: Expecting value", "tentativas": 1 }],
     "name": "Com uma tentativa só, cada falha guarda o seu motivo" },
   { "id": "tokens-lote", "checkpoint": 4, "kind": "expr",
-    "setup": "T = [{'id': 'a', 'texto': 'anexo: matricula em MAC0121'}, {'id': 'b', 'texto': 'Preciso trancar MAE0119'}, {'id': 'c', 'texto': 'pressa: historico MAC0110'}, {'id': 'd', 'texto': 'ilegivel: trancar'}, {'id': 'e', 'texto': 'cerca: trancar MAC0121'}, {'id': 'f', 'texto': 'confuso: matricula MAE0119'}]\nr = processar_lote(ClienteLLM(responder), T, CAMPOS)",
-    "expr": "r['tokens']", "expected": { "entrada": 690, "saida": 202 },
+    "setup": "T = [{'id': 'a', 'texto': 'anexo: matricula em PRG102'}, {'id': 'b', 'texto': 'Preciso trancar EST202'}, {'id': 'c', 'texto': 'pressa: historico PRG101'}, {'id': 'd', 'texto': 'ilegivel: trancar'}, {'id': 'e', 'texto': 'cerca: trancar PRG102'}, {'id': 'f', 'texto': 'confuso: matricula EST202'}]\nr = processar_lote(ClienteLLM(responder), T, CAMPOS)",
+    "expr": "r['tokens']", "expected": { "entrada": 682, "saida": 202 },
     "name": "Tokens de todas as tentativas do lote" },
   { "id": "tokens-da-falha", "checkpoint": 4, "kind": "expr",
     "setup": "r = processar_lote(ClienteLLM(responder), [{'id': 'd', 'texto': 'ilegivel: trancar'}], CAMPOS)",
