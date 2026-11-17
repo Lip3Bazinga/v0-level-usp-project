@@ -27,7 +27,7 @@ escrito e verificado, um nível por vez.
 | 2 | Python intermediário e engenharia de software (`n2-python-intermediario`) | 40 h | 30,9 h | 7 | 35 | biblioteca com empréstimos; analisador de logs | 40 questões no banco | Certificado do Nível 2 |
 | 3 | Estruturas de dados e algoritmos (`n3-estruturas-de-dados-e-algoritmos`) | 44 h | 33,7 h | 8 | 39 | planejador de rotas do campus | 40 questões no banco | Certificado do Nível 3 |
 | 4 | Análise de dados (`n4-analise-de-dados`) | 35 h | 26,8 h | 7 | 31 | análise de dados reais (amostra do ENEM 2023, INEP) | 40 questões no banco | Certificado do Nível 4 |
-| 5 | Machine Learning (`n5-machine-learning`) | 41 h | 31,8 h | 8 | 36 | previsão de inadimplência | 12 questões no banco | Certificado do Nível 5 |
+| 5 | Machine Learning (`n5-machine-learning`) | 41 h | 31,8 h | 8 | 36 | previsão de inadimplência | 40 questões no banco | Certificado do Nível 5 |
 | 6 | Deep Learning: a IA por dentro (`n6-deep-learning`) | 44 h | 33,6 h | 8 | 36 | seu próprio modelo de linguagem | 12 questões no banco | Certificado do Nível 6 |
 | 7 | Engenharia de IA (`n7-engenharia-de-ia`) | 33 h | 25,1 h | 7 | 29 | assistente de atendimento da secretaria | 40 questões no banco | Certificado do Nível 7 |
 | **Total** | 7 cursos | **287 h** | 220,5 h | 54 | 253 | 8 | 224 | + certificado da trilha |

@@ -354,6 +354,16 @@ Estado em 2026-11-16:
 - **Cuidado com o `content:verify`:** mesmo com `--licao`, ele gera antes as Previsões de todos os cursos; uma cópia
   inteira de `content/` com uma lição de rascunho chegou a derrubar o runner (saída 139). Para rascunhos, use
   `--content` com uma cópia só do curso e do módulo; o check também recusa rodar se outro arquivo estiver quebrado.
-- Próximos: N5 e N6; depois `content:build`, bateria completa e um único PR para `develop`.
+- **Nível 5 concluído (2026-11-16):** 36 lições em 8 módulos escritas, verificadas e publicadas (perfil `ml`,
+  scikit-learn 1.8.0), 0 lições suspeitas no `content:metrics`, prova com 40 questões (10 por tentativa), `PLANO.md`
+  atualizado com assinaturas finais, mensagens reais e 15 decisões para o Filipe. Projeto com clientes fictícios
+  gerados (`sklearn.datasets` não importa no executor). Ressalva: o passo 3 do projeto só passa no verify com um
+  lote por vez — o `content:verify` manda 4 lotes `ml` simultâneos e o executor fecha a conexão (`fetch failed`).
+- **`content:verify` no perfil `ml`:** rode uma lição por vez e nunca dois verifies ao mesmo tempo; com a fila
+  cheia aparecem `fetch failed` e "Tempo limite excedido" sem o contêiner reiniciar. Decidir: baixar a concorrência
+  do verify (`DEFAULT_VERIFY_CONCURRENCY`) para lições `ml` ou corrigir o executor.
+- **Nível 6 em andamento:** `PLANO.md` e piloto (m4-01) e o módulo 1 commitados. Não existe PyTorch no executor:
+  o nível é todo em numpy; o mini-GPT é treinado por poucos passos e usa pesos pré-treinados embutidos.
+- Próximos: terminar o N6; depois `content:build`, bateria completa e um único PR para `develop`.
 
 Um nível por sessão: escrever o `PLANO.md` do nível a partir dos roteiros, escrever as lições, provas com 40 questões, `content:verify` (níveis 4–6 usam `runtime: python-dados`; precisa do Pyodide no runner: `pnpm --filter @levelusp/runner setup:pyodide`), publicar.
