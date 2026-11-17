@@ -77,6 +77,9 @@ pnpm -s content:metrics --curso n6-deep-learning 2>&1 | grep -i "<slug>\|suspeit
 - Previsão não imprime mensagem longa de exceção: `except ValueError: print("ValueError")`.
 - Não compare pesos depois de muitas épocas com mini-lotes, nem amostras de um modelo treinado pelo aluno.
 - Duas lições não podem ser verificadas no mesmo diretório de rascunho ao mesmo tempo.
+- O corretor executa o bloco `if __name__ == "__main__":` do `main.py` em **cada caso**: deixe ali só uma demonstração curta (frações de segundo), nunca um treino longo.
+- Otimizador pronto: `adam.py` com `Adam(taxa)` e `passo(params, grads)` recebendo **listas planas** de arrays, atualizados no lugar (copie o bloco de `04-mlp-em-numpy/02-classificador-de-digitos.lvl.md`).
+- Com a fila do executor disputada, um pedido pode estourar 120 s (`o executor não respondeu`): é fila, não conteúdo; rode de novo.
 
 ## Relatório do agente (só isto)
 
