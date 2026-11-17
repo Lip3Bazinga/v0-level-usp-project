@@ -7,7 +7,6 @@ tipo: guiada
 runtime: python-dados
 bibliotecas:
 - numpy
-- scikit-learn
 xp: 120
 tempo_min: 50
 publicada: false

@@ -25,9 +25,13 @@ export interface VerifyFilter {
   lesson?: string
 }
 
-/** Opções da verificação; `concurrency` é o número de lotes simultâneos no executor. */
+/**
+ * Opções da verificação: `concurrency` é o número de lotes simultâneos no executor para lições
+ * leves (CPython e perfil `dados`); `heavyConcurrency`, para lições do perfil `ml`.
+ */
 export interface VerifyOptions extends VerifyFilter {
   concurrency?: number
+  heavyConcurrency?: number
 }
 
 /** Código inicial efetivo do passo: o próprio ou, numa lição guiada, a solução do exercício anterior. */
@@ -91,6 +95,12 @@ export type Scheduler = <T>(task: () => Promise<T>) => Promise<T>
 
 /** Lotes simultâneos no executor quando não informado. */
 export const DEFAULT_VERIFY_CONCURRENCY = 4
+/** Lotes simultâneos para lições do perfil `ml`: com mais de um, o executor fecha a conexão (`fetch failed`). */
+export const HEAVY_VERIFY_CONCURRENCY = 1
+/** Tempo limite de cada pedido HTTP ao executor (fila + aquecimento do perfil + lote). */
+export const RUNNER_REQUEST_TIMEOUT_MS = 120_000
+/** Bibliotecas do perfil `dados` do executor; qualquer outra leva a lição ao perfil `ml` (espelha `pyodide-profiles.ts`). */
+const LIGHT_LIBRARIES: ReadonlySet<string> = new Set(["numpy", "pandas"])
 /** Tentativas contra o executor quando ele responde "ocupado" (503). */
 const MAX_BUSY_RETRIES = 3
 const DEFAULT_RETRY_AFTER_SECONDS = 5
@@ -131,6 +141,12 @@ export function createPool(limit: number): Scheduler {
 }
 
 const runImmediately: Scheduler = (task) => task()
+
+/** Diz se a lição roda no perfil `ml` do executor (`python-dados` com biblioteca além de numpy e pandas). */
+export function usesHeavyProfile(lesson: BundleLesson): boolean {
+  if (lesson.runtime !== "python-dados") return false
+  return lesson.libraries.some((library) => !LIGHT_LIBRARIES.has(library.trim().toLowerCase().replace(/[-_.]+/g, "-")))
+}
 
 /**
  * Código inicial efetivo do passo: o próprio ou, em lição guiada, a solução do exercício
@@ -263,20 +279,21 @@ interface LessonGroup {
 }
 
 /** Agrupa os passos por lição, preservando a ordem do pacote. */
-function groupByLesson(targets: readonly ExerciseTarget[], runner: StepRunner, schedule: Scheduler): LessonGroup[] {
+function groupByLesson(targets: readonly ExerciseTarget[], runner: StepRunner, scheduleFor: (lesson: BundleLesson) => Scheduler): LessonGroup[] {
   const groups: LessonGroup[] = []
   for (const target of targets) {
     const current = groups[groups.length - 1]
     const group = current?.lesson === target.lesson ? current : { course: target.course, module: target.module, lesson: target.lesson, verdicts: [] }
     if (group !== current) groups.push(group)
-    group.verdicts.push(verifyStep(target, runner, schedule))
+    group.verdicts.push(verifyStep(target, runner, scheduleFor(target.lesson)))
   }
   return groups
 }
 
 /**
  * Verifica todos os passos de exercício do pacote (ou do filtro), com até
- * `concurrency` lotes simultâneos no executor. `onLesson` recebe o relatório
+ * `concurrency` lotes simultâneos no executor para lições leves e `heavyConcurrency`
+ * (um, por padrão) para lições do perfil `ml`. `onLesson` recebe o relatório
  * de cada lição assim que ela termina, na ordem do pacote.
  */
 export async function verifyBundle(
@@ -285,9 +302,11 @@ export async function verifyBundle(
   options: VerifyOptions = {},
   onLesson?: (report: LessonReport) => void,
 ): Promise<{ reports: LessonReport[]; summary: VerifySummary }> {
-  const schedule = createPool(options.concurrency ?? DEFAULT_VERIFY_CONCURRENCY)
+  const light = createPool(options.concurrency ?? DEFAULT_VERIFY_CONCURRENCY)
+  const heavy = createPool(options.heavyConcurrency ?? HEAVY_VERIFY_CONCURRENCY)
+  const scheduleFor = (lesson: BundleLesson): Scheduler => (usesHeavyProfile(lesson) ? heavy : light)
   const reports: LessonReport[] = []
-  for (const group of groupByLesson(listExerciseTargets(bundle, options), runner, schedule)) {
+  for (const group of groupByLesson(listExerciseTargets(bundle, options), runner, scheduleFor)) {
     const report: LessonReport = { course: group.course, module: group.module, lesson: group.lesson, verdicts: await Promise.all(group.verdicts) }
     reports.push(report)
     onLesson?.(report)
@@ -318,29 +337,46 @@ function isRunnerResult(value: unknown): value is RunnerResult {
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
-/** Dependências substituíveis do executor HTTP (os testes trocam o `fetch` e a espera). */
+/** Dependências substituíveis do executor HTTP (os testes trocam o `fetch`, a espera e o tempo limite). */
 export interface HttpRunnerOptions {
   fetchImpl?: typeof fetch
   wait?: (ms: number) => Promise<void>
+  /** Tempo limite de cada pedido, em ms; ausente = `RUNNER_REQUEST_TIMEOUT_MS`. */
+  requestTimeoutMs?: number
+}
+
+function isTimeoutError(error: unknown): boolean {
+  return error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")
 }
 
 /**
  * Executor HTTP (`POST /v1/run` com o token da API). Quando o executor responde
- * 503 (fila cheia), espera o `Retry-After` e tenta de novo algumas vezes.
+ * 503 (fila cheia), espera o `Retry-After` e tenta de novo algumas vezes. Cada
+ * pedido tem tempo limite (`requestTimeoutMs`).
  *
- * @throws Error quando o executor responde erro ou um corpo fora do contrato.
+ * @throws Error quando o executor responde erro, um corpo fora do contrato ou não responde no tempo limite.
  */
 export function createHttpRunner(runnerUrl: string, token: string, options: HttpRunnerOptions = {}): StepRunner {
   const fetchImpl = options.fetchImpl ?? fetch
   const wait = options.wait ?? sleep
+  const requestTimeoutMs = options.requestTimeoutMs ?? RUNNER_REQUEST_TIMEOUT_MS
+  const post = async (job: RunnerJob): Promise<Response> => {
+    try {
+      return await fetchImpl(new URL("/v1/run", runnerUrl), {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify(job),
+        signal: AbortSignal.timeout(requestTimeoutMs),
+      })
+    } catch (error) {
+      if (!isTimeoutError(error)) throw error
+      throw new Error(`o executor não respondeu em ${requestTimeoutMs / MS_PER_SECOND} s (tempo limite do pedido): confira se o contêiner está de pé e sem fila, e rode de novo`, { cause: error })
+    }
+  }
   return {
     async run(job: RunnerJob): Promise<RunnerResult> {
       for (let attempt = 0; ; attempt++) {
-        const response = await fetchImpl(new URL("/v1/run", runnerUrl), {
-          method: "POST",
-          headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-          body: JSON.stringify(job),
-        })
+        const response = await post(job)
         if (response.status === 503 && attempt < MAX_BUSY_RETRIES) {
           const seconds = retryAfterSeconds(response.headers.get("retry-after"))
           await response.body?.cancel()
