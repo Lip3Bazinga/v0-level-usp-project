@@ -646,7 +646,7 @@ O treino também organiza a tabela. Na rede com $d = 2$, as cinco vogais termina
 
 ## Passo 7 · Exercício · Treinar e amostrar
 
-O arquivo `modelo.py` traz o que você já escreveu (`montar_dados`, `perda_e_gradientes_lm`) e mais duas funções: `iniciar_params(V, bloco, d, H, semente)`, que sorteia os parâmetros com logits pequenos, e `probabilidades_lm(params, X)`, que devolve as probabilidades do próximo caractere, de forma `(n, V)`. O bloco no fim do código treina nos nomes quando você clica em "Executar".
+O arquivo `modelo.py` traz o que você já escreveu (`montar_dados`, `perda_e_gradientes_lm`) e mais duas funções: `iniciar_params(V, bloco, d, H, semente)`, que sorteia os parâmetros com logits pequenos, e `probabilidades_lm(params, X)`, que devolve as probabilidades do próximo caractere, de forma `(n, V)`. O bloco no fim do código treina nos nomes quando você clica em "Executar". Ele vem com 200 passos, porque esse bloco também roda em cada caso da correção: para ver o treino completo, troque 200 por 3000, execute (leva alguns segundos) e volte a 200 antes de enviar.
 
 ### Instruções
 
@@ -679,7 +679,7 @@ if __name__ == "__main__":
     X, Y = montar_dados(treino, bloco, stoi)
     Xv, Yv = montar_dados(validacao, bloco, stoi)
     params = iniciar_params(len(itos), bloco, 2, 32, 0)
-    historico = treinar_lm(params, X, Y, 3000, 32, 0.1, 0)
+    historico = treinar_lm(params, X, Y, 200, 32, 0.1, 0)  # 3000 para o treino completo
     print("perda no primeiro lote:", round(historico[0], 4))
     print("NLL de treino:", round(perda_e_gradientes_lm(params, X, Y)[0], 4))
     print("NLL de validação:", round(perda_e_gradientes_lm(params, Xv, Yv)[0], 4))
@@ -1800,7 +1800,7 @@ if __name__ == "__main__":
     X, Y = montar_dados(treino, bloco, stoi)
     Xv, Yv = montar_dados(validacao, bloco, stoi)
     params = iniciar_params(len(itos), bloco, 2, 32, 0)
-    historico = treinar_lm(params, X, Y, 3000, 32, 0.1, 0)
+    historico = treinar_lm(params, X, Y, 200, 32, 0.1, 0)  # 3000 para o treino completo
     print("perda no primeiro lote:", round(historico[0], 4))
     print("NLL de treino:", round(perda_e_gradientes_lm(params, X, Y)[0], 4))
     print("NLL de validação:", round(perda_e_gradientes_lm(params, Xv, Yv)[0], 4))
@@ -2946,7 +2946,7 @@ if __name__ == "__main__":
     X, Y = montar_dados(treino, bloco, stoi)
     Xv, Yv = montar_dados(validacao, bloco, stoi)
     params = iniciar_params(len(itos), bloco, 2, 32, 0)
-    historico = treinar_lm(params, X, Y, 3000, 32, 0.1, 0)
+    historico = treinar_lm(params, X, Y, 200, 32, 0.1, 0)  # 3000 para o treino completo
     print("perda no primeiro lote:", round(historico[0], 4))
     print("NLL de treino:", round(perda_e_gradientes_lm(params, X, Y)[0], 4))
     print("NLL de validação:", round(perda_e_gradientes_lm(params, Xv, Yv)[0], 4))
@@ -2996,7 +2996,7 @@ if __name__ == "__main__":
     X, Y = montar_dados(treino, bloco, stoi)
     Xv, Yv = montar_dados(validacao, bloco, stoi)
     params = iniciar_params(len(itos), bloco, 2, 32, 0)
-    historico = treinar_lm(params, X, Y, 3000, 32, 0.1, 0)
+    historico = treinar_lm(params, X, Y, 200, 32, 0.1, 0)  # 3000 para o treino completo
     print("perda no primeiro lote:", round(historico[0], 4))
     print("NLL de treino:", round(perda_e_gradientes_lm(params, X, Y)[0], 4))
     print("NLL de validação:", round(perda_e_gradientes_lm(params, Xv, Yv)[0], 4))
@@ -3046,7 +3046,7 @@ if __name__ == "__main__":
     X, Y = montar_dados(treino, bloco, stoi)
     Xv, Yv = montar_dados(validacao, bloco, stoi)
     params = iniciar_params(len(itos), bloco, 2, 32, 0)
-    historico = treinar_lm(params, X, Y, 3000, 32, 0.1, 0)
+    historico = treinar_lm(params, X, Y, 200, 32, 0.1, 0)  # 3000 para o treino completo
     print("perda no primeiro lote:", round(historico[0], 4))
     print("NLL de treino:", round(perda_e_gradientes_lm(params, X, Y)[0], 4))
     print("NLL de validação:", round(perda_e_gradientes_lm(params, Xv, Yv)[0], 4))
@@ -3097,7 +3097,7 @@ if __name__ == "__main__":
     X, Y = montar_dados(treino, bloco, stoi)
     Xv, Yv = montar_dados(validacao, bloco, stoi)
     params = iniciar_params(len(itos), bloco, 2, 32, 0)
-    historico = treinar_lm(params, X, Y, 3000, 32, 0.1, 0)
+    historico = treinar_lm(params, X, Y, 200, 32, 0.1, 0)  # 3000 para o treino completo
     print("perda no primeiro lote:", round(historico[0], 4))
     print("NLL de treino:", round(perda_e_gradientes_lm(params, X, Y)[0], 4))
     print("NLL de validação:", round(perda_e_gradientes_lm(params, Xv, Yv)[0], 4))
@@ -3147,7 +3147,7 @@ if __name__ == "__main__":
     X, Y = montar_dados(treino, bloco, stoi)
     Xv, Yv = montar_dados(validacao, bloco, stoi)
     params = iniciar_params(len(itos), bloco, 2, 32, 0)
-    historico = treinar_lm(params, X, Y, 3000, 32, 0.1, 0)
+    historico = treinar_lm(params, X, Y, 200, 32, 0.1, 0)  # 3000 para o treino completo
     print("perda no primeiro lote:", round(historico[0], 4))
     print("NLL de treino:", round(perda_e_gradientes_lm(params, X, Y)[0], 4))
     print("NLL de validação:", round(perda_e_gradientes_lm(params, Xv, Yv)[0], 4))
@@ -3196,7 +3196,7 @@ if __name__ == "__main__":
     X, Y = montar_dados(treino, bloco, stoi)
     Xv, Yv = montar_dados(validacao, bloco, stoi)
     params = iniciar_params(len(itos), bloco, 2, 32, 0)
-    historico = treinar_lm(params, X, Y, 3000, 32, 0.1, 0)
+    historico = treinar_lm(params, X, Y, 200, 32, 0.1, 0)  # 3000 para o treino completo
     print("perda no primeiro lote:", round(historico[0], 4))
     print("NLL de treino:", round(perda_e_gradientes_lm(params, X, Y)[0], 4))
     print("NLL de validação:", round(perda_e_gradientes_lm(params, Xv, Yv)[0], 4))
@@ -3246,7 +3246,7 @@ if __name__ == "__main__":
     X, Y = montar_dados(treino, bloco, stoi)
     Xv, Yv = montar_dados(validacao, bloco, stoi)
     params = iniciar_params(len(itos), bloco, 2, 32, 0)
-    historico = treinar_lm(params, X, Y, 3000, 32, 0.1, 0)
+    historico = treinar_lm(params, X, Y, 200, 32, 0.1, 0)  # 3000 para o treino completo
     print("perda no primeiro lote:", round(historico[0], 4))
     print("NLL de treino:", round(perda_e_gradientes_lm(params, X, Y)[0], 4))
     print("NLL de validação:", round(perda_e_gradientes_lm(params, Xv, Yv)[0], 4))
@@ -3296,7 +3296,7 @@ if __name__ == "__main__":
     X, Y = montar_dados(treino, bloco, stoi)
     Xv, Yv = montar_dados(validacao, bloco, stoi)
     params = iniciar_params(len(itos), bloco, 2, 32, 0)
-    historico = treinar_lm(params, X, Y, 3000, 32, 0.1, 0)
+    historico = treinar_lm(params, X, Y, 200, 32, 0.1, 0)  # 3000 para o treino completo
     print("perda no primeiro lote:", round(historico[0], 4))
     print("NLL de treino:", round(perda_e_gradientes_lm(params, X, Y)[0], 4))
     print("NLL de validação:", round(perda_e_gradientes_lm(params, Xv, Yv)[0], 4))

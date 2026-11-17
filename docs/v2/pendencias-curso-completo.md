@@ -362,9 +362,9 @@ Estado em 2026-11-16:
 - **`content:verify` no perfil `ml`:** rode uma lição por vez e nunca dois verifies ao mesmo tempo; com a fila
   cheia aparecem `fetch failed` e "Tempo limite excedido" sem o contêiner reiniciar. Decidir: baixar a concorrência
   do verify (`DEFAULT_VERIFY_CONCURRENCY`) para lições `ml` ou corrigir o executor.
-- **Nível 6 em andamento:** módulos 1 a 7 escritos, verificados e publicados (33 de 36 lições). Faltam m8 (em escrita) e a prova de 40 questões.
-  Autores leem só `content/cursos/n6-deep-learning/BRIEF.md`, a seção do módulo no `PLANO.md` e as lições do módulo; cópia mínima com `.claude-transfer/copia-minima.py`.
-  Tudo em numpy no perfil `dados` (sem PyTorch); `content:verify` já roda um lote por vez no perfil `ml` e tem tempo limite por pedido.
-- Próximos: terminar o N6; depois `content:build`, bateria completa e um único PR para `develop`.
+- **Nível 6 concluído (2026-11-17):** 36 lições em 8 módulos e a prova de 40 questões escritas, verificadas e publicadas, tudo em numpy no perfil `dados` (sem PyTorch); `curso.yaml` com `publicado: true`.
+  Divergências do `PLANO.md` medidas no executor: corpus com 62 879 caracteres e validação 0,56 no mini-GPT (m7-05); CNN e MLP empatam em robustez a deslocamento (m5-03); o projeto usa pesos próprios (`pesos_projeto.txt`).
+  A rever: o corretor executa o `if __name__ == "__main__":` em cada caso (m2-02, m5-03, m6-02, m6-03 pagam esse custo); a lição do projeto tem 384 mil caracteres; com dois verifies ao mesmo tempo, um pedido pode estourar os 120 s.
+- Próximos: bateria completa (`content:build`, lint, testes, verify dos níveis 4 a 6) e um único PR para `develop`.
 
 Um nível por sessão: escrever o `PLANO.md` do nível a partir dos roteiros, escrever as lições, provas com 40 questões, `content:verify` (níveis 4–6 usam `runtime: python-dados`; precisa do Pyodide no runner: `pnpm --filter @levelusp/runner setup:pyodide`), publicar.
