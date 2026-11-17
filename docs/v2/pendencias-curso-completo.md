@@ -362,8 +362,9 @@ Estado em 2026-11-16:
 - **`content:verify` no perfil `ml`:** rode uma lição por vez e nunca dois verifies ao mesmo tempo; com a fila
   cheia aparecem `fetch failed` e "Tempo limite excedido" sem o contêiner reiniciar. Decidir: baixar a concorrência
   do verify (`DEFAULT_VERIFY_CONCURRENCY`) para lições `ml` ou corrigir o executor.
-- **Nível 6 em andamento:** `PLANO.md` e piloto (m4-01) e o módulo 1 commitados. Não existe PyTorch no executor:
-  o nível é todo em numpy; o mini-GPT é treinado por poucos passos e usa pesos pré-treinados embutidos.
+- **Nível 6 em andamento:** módulos 1 a 4 escritos, verificados e publicados (18 de 36 lições). Faltam m5 a m8 e a prova de 40 questões.
+  Autores leem só `content/cursos/n6-deep-learning/BRIEF.md`, a seção do módulo no `PLANO.md` e as lições do módulo; cópia mínima com `.claude-transfer/copia-minima.py`.
+  Tudo em numpy no perfil `dados` (sem PyTorch); `content:verify` já roda um lote por vez no perfil `ml` e tem tempo limite por pedido.
 - Próximos: terminar o N6; depois `content:build`, bateria completa e um único PR para `develop`.
 
 Um nível por sessão: escrever o `PLANO.md` do nível a partir dos roteiros, escrever as lições, provas com 40 questões, `content:verify` (níveis 4–6 usam `runtime: python-dados`; precisa do Pyodide no runner: `pnpm --filter @levelusp/runner setup:pyodide`), publicar.
