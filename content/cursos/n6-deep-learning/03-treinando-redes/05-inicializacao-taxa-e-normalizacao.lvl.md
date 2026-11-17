@@ -1,7 +1,7 @@
 ---
 slug: n6-m3-05-inicializacao-taxa-e-normalizacao
 titulo: Inicialização, taxa de aprendizado e normalização
-descricao: Xavier e He, o que acontece com ativações e gradientes em redes profundas mal inicializadas, agendamento da taxa (warmup, cosseno), Batch Normalization e Layer Normalization com forward e backward.
+descricao: Xavier e He, o que acontece com ativações e gradientes em redes profundas mal inicializadas, agendamento da taxa (warmup, cosseno), Batch Normalization e Layer Normalization no forward.
 dificuldade: avancado
 tipo: guiada
 runtime: python-dados
@@ -15,7 +15,7 @@ solucao_apos_tentativas: 3
 objetivos:
 - Implementar inicializações Xavier e He e medir estatísticas de ativação por camada
 - Implementar agendamentos de taxa de aprendizado (passo, cosseno, warmup)
-- Implementar BatchNorm e LayerNorm com forward e backward e explicar os modos treino/avaliação
+- Implementar o forward da BatchNorm e da LayerNorm e explicar os modos treino/avaliação
 ---
 
 ## Passo 1 · Leitura · A variância atravessando 10 camadas
@@ -63,7 +63,7 @@ Os vieses começam em zero: a quebra de simetria entre os neurônios já vem dos
 
 ## Passo 2 · Previsão · Desvio das ativações em 10 camadas
 
-O programa passa 200 entradas por 10 camadas de 100 neurônios com tanh e imprime o desvio padrão das ativações da última camada, arredondado a uma casa, para três desvios dos pesos. Leia sem executar e digite o que o programa imprime.
+O programa passa uma entrada de quatro números por 10 camadas lineares, todas com a mesma matriz de pesos: a identidade multiplicada por `escala`. No fim, imprime o desvio padrão das ativações, para três valores de `escala`. Leia sem executar e digite o que o programa imprime.
 
 ### Código
 ```python
@@ -71,29 +71,28 @@ import numpy as np
 
 
 def desvio_final(escala):
-    rng = np.random.default_rng(0)
-    A = rng.normal(0.0, 1.0, (200, 100))
+    A = np.array([[1.0, -1.0, 1.0, -1.0]])
+    W = escala * np.eye(4)
     for camada in range(10):
-        W = rng.normal(0.0, escala, (100, 100))
-        A = np.tanh(A @ W)
-    return round(float(A.std()), 1)
+        A = A @ W
+    return float(A.std())
 
 
-print(desvio_final(0.01))
-print(desvio_final(np.sqrt(1 / 100)))
+print(desvio_final(0.5))
 print(desvio_final(1.0))
+print(desvio_final(2.0))
 ```
 
 ### Dicas
-1. Com desvio 0,01, cada camada divide o sinal por 10: depois de 10 camadas, sobra zero no arredondamento.
-2. A segunda chamada é o Xavier: na tabela da leitura, a tanh com Xavier termina perto de 0,22.
-3. Com desvio 1,0, a tanh satura, e quase todas as ativações valem $-1$ ou $1$.
+1. Multiplicar pela identidade vezes `escala` multiplica cada ativação por `escala`; a entrada tem média 0 e desvio padrão 1.
+2. São 10 camadas seguidas: o desvio final é `escala` elevada a 10.
+3. $2^{10} = 1024$, e $0{,}5^{10} = 1/1024 = 0{,}0009765625$.
 
 ### Saída esperada
 ```text
-0.0
-0.2
+0.0009765625
 1.0
+1024.0
 ```
 
 ## Passo 3 · Exercício · Xavier e He

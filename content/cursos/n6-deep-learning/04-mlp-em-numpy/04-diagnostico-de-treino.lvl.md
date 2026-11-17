@@ -733,19 +733,19 @@ Um treino com taxa 0,0001 termina oito épocas com a perda em 2,44 (começou em 
 > Com três mudanças juntas, a melhora não pode ser atribuída a nenhuma delas: uma pode ter resolvido sozinha e outra pode até ter atrapalhado. Nesta lição, só a taxa 0,01, com a rede de 32 neurônios e o lote 32, já leva a perda a 0,019. Nada no experimento mostra que a rede maior era necessária, que as três ajudaram ou que o lote foi a causa: essas são hipóteses que só um teste isolado confirma.
 
 ### Pergunta
-As normas de gradiente por camada de uma rede de cinco camadas, no primeiro lote, e a curva de treino:
+As normas de gradiente por camada de uma rede de cinco camadas, no primeiro lote, e a perda média de treino em cinco épocas de descida do gradiente com taxa 0,01:
 
 ```text
 normas:  4.8e-03  9.2e-03  3.8e-02  1.9e-01  9.5e-01
-perda:   2.303  2.301  2.300  2.298  2.297
+perda:   2.303  2.303  2.303  2.303  2.303
 ```
 
 Qual é a primeira coisa a mudar?
 - [ ] Ligar o clipping pela norma global com limite 1
 - [x] A inicialização: os pesos estão pequenos demais, e o gradiente some no caminho até as primeiras camadas
-- [ ] Aumentar o número de épocas, porque a perda está caindo
+- [ ] Aumentar o número de épocas, porque cinco é pouco para uma rede funda
 - [ ] Acrescentar dropout, porque a rede é funda
-> A norma cai 200 vezes da última camada para a primeira, o quadro medido com pesos de desvio 0,05: as primeiras camadas quase não recebem sinal, e a curva fica colada em $\ln 10$. O clipping só diminui gradientes grandes; com norma global abaixo de 1, ele não faz nada. Mais épocas mantêm o mesmo ritmo de 0,001 por época. O dropout combate sobreajuste, e essa rede ainda nem começou a aprender.
+> A norma cai 200 vezes da última camada para a primeira, o quadro medido com pesos de desvio 0,05: as primeiras camadas quase não recebem sinal, e a curva fica colada em $\ln 10$. O clipping só diminui gradientes grandes; com norma global abaixo de 1, ele não faz nada. Mais épocas repetem o que as cinco primeiras mostraram: a perda não saiu de 2,303 nem na terceira casa. O dropout combate sobreajuste, e essa rede ainda nem começou a aprender.
 
 ### Pergunta
 Num treino, a perda fica entre 0,4 e 0,6 por várias épocas e, de repente, um lote produz um gradiente com norma global 850; a perda salta para 37 e nunca mais volta. As normas dos outros lotes ficam abaixo de 3. Qual ajuste ataca exatamente esse defeito, sem mudar o resto do treino?

@@ -914,12 +914,13 @@ def deslocar(X, dx, dy):
 ## Passo 8 · Quiz · Dropout na avaliação
 
 ### Pergunta
-Uma rede com dropout ($p = 0{,}5$) terminou de treinar. A mesma pessoa avalia três vezes seguidas, com os mesmos pesos e as mesmas 300 imagens de validação:
+Uma rede com dropout ($p = 0{,}5$) terminou de treinar. A mesma pessoa avalia quatro vezes seguidas, com os mesmos pesos e as mesmas 300 imagens de validação (medido no executor, na rede 64 → 128 → 10 treinada com 100 dígitos):
 
 ```text
-execução 1: acurácia 0.887
-execução 2: acurácia 0.903
-execução 3: acurácia 0.893
+execução 1: acurácia 0.690
+execução 2: acurácia 0.677
+execução 3: acurácia 0.677
+execução 4: acurácia 0.703
 ```
 
 Qual é a causa mais provável da variação?
@@ -927,7 +928,7 @@ Qual é a causa mais provável da variação?
 - [x] O dropout ficou ligado na avaliação, e cada execução sorteia uma máscara diferente
 - [ ] O Adam continua atualizando os pesos durante a avaliação
 - [ ] A ordem das imagens muda a acurácia
-> Com pesos e dados fixos, a avaliação é uma conta determinística: o único sorteio possível é a máscara do dropout, que só deveria existir no treino. Um conjunto pequeno dá um número impreciso, mas sempre o mesmo. O otimizador só mexe nos pesos quando alguém chama o passo dele. A acurácia é uma média sobre as imagens e não depende da ordem.
+> Com pesos e dados fixos, a avaliação é uma conta determinística: o único sorteio possível é a máscara do dropout, que só deveria existir no treino. Com o dropout desligado, essa mesma rede dá 0,763 em todas as execuções: a máscara esquecida, além de fazer o número variar, tira de 6 a 9 pontos de acurácia. Um conjunto pequeno dá um número impreciso, mas sempre o mesmo. O otimizador só mexe nos pesos quando alguém chama o passo dele. A acurácia é uma média sobre as imagens e não depende da ordem.
 
 ### Pergunta
 Alguém implementa o dropout assim, com $p = 0{,}5$, e na avaliação devolve a entrada sem mudar:

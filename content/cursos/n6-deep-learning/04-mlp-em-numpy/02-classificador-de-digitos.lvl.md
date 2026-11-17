@@ -212,18 +212,21 @@ def preparar(X_treino, X_val):
 
 ## Passo 4 · Leitura · Treinar com Adam e mini-lotes
 
-As peças já existem. O arquivo `mlp.py` da lição anterior traz `perda_e_gradientes(params, X, y)`, e o `adam.py` traz o otimizador do módulo 3 escrito para a lista `params = [(W, b), ...]`: `Adam(taxa)` cria o otimizador, e `otimizador.passo(params, grads)` atualiza os arrays **no lugar**. Como o passo escreve por cima dos arrays, a função de treino começa copiando os parâmetros que recebeu; quem chamou continua com a inicialização intacta para comparar depois.
+As peças já existem. O arquivo `mlp.py` da lição anterior traz `perda_e_gradientes(params, X, y)`, e o `adam.py` traz o `Adam` que você escreveu no módulo 3, com a mesma assinatura: `Adam(taxa)` cria o otimizador, e o método `passo` recebe **listas planas** de arrays e os atualiza **no lugar**. Como o `mlp.py` trabalha com pares `[(W, b), ...]`, a função `plano` desfaz os pares antes de cada passo; os arrays da lista plana são os mesmos objetos dos pares, então atualizar uns atualiza os outros. Como o passo escreve por cima dos arrays, a função de treino começa copiando os parâmetros que recebeu; quem chamou continua com a inicialização intacta para comparar depois.
 
 Uma **época** é uma passada por todos os exemplos, em mini-lotes. A ordem é sorteada de novo a cada época, e isso importa aqui: `gerar_digitos` devolve os rótulos em ordem (cem zeros, cem uns, ...), então lotes tirados em sequência teriam uma classe só.
 
 ```python
+def plano(pares):                             # [(W1, b1), (W2, b2)] -> [W1, b1, W2, b2]
+    return [a for par in pares for a in par]
+
 otimizador = Adam(taxa)                       # um só, criado antes do laço
 for epoca in range(epocas):
     ordem = rng.permutation(len(X))           # nova ordem a cada época
     for i in range(0, len(X), lote):
         idx = ordem[i:i + lote]               # o último lote pode ser menor
         perda, grads = perda_e_gradientes(params, X[idx], y[idx])
-        otimizador.passo(params, grads)
+        otimizador.passo(plano(params), plano(grads))
 ```
 
 Indexar `X` e `y` com o **mesmo** `idx` mantém cada imagem ao lado do rótulo dela. O otimizador é criado uma vez: ele guarda as médias móveis $m$ e $v$ e o contador $t$, e criá-lo de novo dentro do laço joga essa memória fora.
@@ -239,7 +242,7 @@ A taxa decide quase tudo. Com as mesmas dez épocas: taxa 0,0001 leva a perda de
 
 ## Passo 5 · Exercício · Treinar nos dígitos
 
-Escreva o treino no `main.py`. Os arquivos `mlp.py` e `camadas.py` são os da lição anterior; `adam.py` traz o otimizador (`Adam(taxa)` e `passo(params, grads)`, que atualiza os arrays no lugar); `digitos.py` gera os dados.
+Escreva o treino no `main.py`. Os arquivos `mlp.py` e `camadas.py` são os da lição anterior; `adam.py` traz o otimizador do módulo 3 (`Adam(taxa)` e `passo(params, grads)`, com listas planas de arrays atualizados no lugar), e o código inicial já traz `plano`, que desfaz os pares `(W, b)`; `digitos.py` gera os dados.
 
 ### Instruções
 1. `treinar_digitos(params, X, y, epocas, lote, taxa, semente)` treina uma **cópia** de `params`: os arrays recebidos não mudam.
@@ -252,6 +255,10 @@ Escreva o treino no `main.py`. Os arquivos `mlp.py` e `camadas.py` são os da li
 import numpy as np
 from mlp import mlp_forward, perda_e_gradientes
 from adam import Adam
+
+
+def plano(pares):
+    return [a for par in pares for a in par]
 
 
 def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
@@ -332,28 +339,28 @@ import numpy as np
 
 
 class Adam:
-    """Adam para params = [(W, b), ...]; passo() atualiza os arrays no lugar."""
+    """O Adam da lição de otimizadores: params e grads são listas planas de arrays, atualizados no lugar."""
 
-    def __init__(self, taxa=0.01, beta1=0.9, beta2=0.999, eps=1e-8):
-        self.taxa, self.beta1, self.beta2, self.eps = taxa, beta1, beta2, eps
+    def __init__(self, taxa=0.001, beta1=0.9, beta2=0.999, eps=1e-8):
+        self.taxa = taxa
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.eps = eps
         self.t = 0
         self.m = None
         self.v = None
 
     def passo(self, params, grads):
         if self.m is None:
-            self.m = [[np.zeros_like(p) for p in par] for par in params]
-            self.v = [[np.zeros_like(p) for p in par] for par in params]
+            self.m = [np.zeros_like(p) for p in params]
+            self.v = [np.zeros_like(p) for p in params]
         self.t += 1
-        for par, gpar, mpar, vpar in zip(params, grads, self.m, self.v):
-            for p, g, m, v in zip(par, gpar, mpar, vpar):
-                m *= self.beta1
-                m += (1 - self.beta1) * g
-                v *= self.beta2
-                v += (1 - self.beta2) * g * g
-                m_hat = m / (1 - self.beta1 ** self.t)
-                v_hat = v / (1 - self.beta2 ** self.t)
-                p -= self.taxa * m_hat / (np.sqrt(v_hat) + self.eps)
+        for i, (p, g) in enumerate(zip(params, grads)):
+            self.m[i] = self.beta1 * self.m[i] + (1 - self.beta1) * g
+            self.v[i] = self.beta2 * self.v[i] + (1 - self.beta2) * g * g
+            m_c = self.m[i] / (1 - self.beta1 ** self.t)
+            v_c = self.v[i] / (1 - self.beta2 ** self.t)
+            p -= self.taxa * m_c / (np.sqrt(v_c) + self.eps)
 ```
 ```python path=digitos.py
 import numpy as np
@@ -397,6 +404,10 @@ from mlp import mlp_forward, perda_e_gradientes
 from adam import Adam
 
 
+def plano(pares):
+    return [a for par in pares for a in par]
+
+
 def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
     params = [(W.copy(), b.copy()) for W, b in params]
     rng = np.random.default_rng(semente)
@@ -408,7 +419,7 @@ def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
         for i in range(0, len(X), lote):
             idx = ordem[i:i + lote]
             perda, grads = perda_e_gradientes(params, X[idx], y[idx])
-            otimizador.passo(params, grads)
+            otimizador.passo(plano(params), plano(grads))
             perdas.append(perda)
         historico.append(float(np.mean(perdas)))
     return params, historico
@@ -488,28 +499,28 @@ import numpy as np
 
 
 class Adam:
-    """Adam para params = [(W, b), ...]; passo() atualiza os arrays no lugar."""
+    """O Adam da lição de otimizadores: params e grads são listas planas de arrays, atualizados no lugar."""
 
-    def __init__(self, taxa=0.01, beta1=0.9, beta2=0.999, eps=1e-8):
-        self.taxa, self.beta1, self.beta2, self.eps = taxa, beta1, beta2, eps
+    def __init__(self, taxa=0.001, beta1=0.9, beta2=0.999, eps=1e-8):
+        self.taxa = taxa
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.eps = eps
         self.t = 0
         self.m = None
         self.v = None
 
     def passo(self, params, grads):
         if self.m is None:
-            self.m = [[np.zeros_like(p) for p in par] for par in params]
-            self.v = [[np.zeros_like(p) for p in par] for par in params]
+            self.m = [np.zeros_like(p) for p in params]
+            self.v = [np.zeros_like(p) for p in params]
         self.t += 1
-        for par, gpar, mpar, vpar in zip(params, grads, self.m, self.v):
-            for p, g, m, v in zip(par, gpar, mpar, vpar):
-                m *= self.beta1
-                m += (1 - self.beta1) * g
-                v *= self.beta2
-                v += (1 - self.beta2) * g * g
-                m_hat = m / (1 - self.beta1 ** self.t)
-                v_hat = v / (1 - self.beta2 ** self.t)
-                p -= self.taxa * m_hat / (np.sqrt(v_hat) + self.eps)
+        for i, (p, g) in enumerate(zip(params, grads)):
+            self.m[i] = self.beta1 * self.m[i] + (1 - self.beta1) * g
+            self.v[i] = self.beta2 * self.v[i] + (1 - self.beta2) * g * g
+            m_c = self.m[i] / (1 - self.beta1 ** self.t)
+            v_c = self.v[i] / (1 - self.beta2 ** self.t)
+            p -= self.taxa * m_c / (np.sqrt(v_c) + self.eps)
 ```
 ```python path=digitos.py
 import numpy as np
@@ -558,7 +569,7 @@ def gerar_digitos(n_por_classe, semente, ruido=0.3, deslocar=True):
   {"id": "devolve-treinados", "checkpoint": 1, "kind": "expr", "setup": "import numpy as np\nfrom digitos import gerar_digitos\nfrom mlp import mlp_forward as _forward, perda_e_gradientes as _pg\nfrom adam import Adam as _Adam\nX, y = gerar_digitos(30, 3)\nX = (X - X.mean(axis=0)) / X.std(axis=0)\nr = np.random.default_rng(1)\nparams = [(r.normal(0, (2 / 64) ** 0.5, (64, 32)), np.zeros(32)), (r.normal(0, (2 / 32) ** 0.5, (32, 10)), np.zeros(10))]\nnovos, h = treinar_digitos(params, X, y, 2, 32, 0.01, 0)", "expr": "[[list(W.shape), list(b.shape)] for W, b in novos] + [not np.array_equal(novos[0][0], params[0][0])]", "expected": [[[64, 32], [32]], [[32, 10], [10]], true], "name": "Devolve parâmetros com as mesmas formas e valores diferentes dos recebidos"},
   {"id": "historico-forma", "checkpoint": 3, "kind": "expr", "setup": "import numpy as np\nfrom digitos import gerar_digitos\nfrom mlp import mlp_forward as _forward, perda_e_gradientes as _pg\nfrom adam import Adam as _Adam\nX, y = gerar_digitos(30, 3)\nX = (X - X.mean(axis=0)) / X.std(axis=0)\nr = np.random.default_rng(1)\nparams = [(r.normal(0, (2 / 64) ** 0.5, (64, 32)), np.zeros(32)), (r.normal(0, (2 / 32) ** 0.5, (32, 10)), np.zeros(10))]\nnovos, h = treinar_digitos(params, X, y, 4, 32, 0.01, 0)", "expr": "[type(h).__name__, len(h), all(isinstance(v, float) for v in h)]", "expected": ["list", 4, true], "name": "O histórico é uma lista com um float por época", "hint": "Um número por época, e não um por lote."},
   {"id": "taxa-zero", "checkpoint": 3, "kind": "expr", "setup": "import numpy as np\nfrom digitos import gerar_digitos\nfrom mlp import mlp_forward as _forward, perda_e_gradientes as _pg\nfrom adam import Adam as _Adam\nX, y = gerar_digitos(30, 3)\nX = (X - X.mean(axis=0)) / X.std(axis=0)\nr = np.random.default_rng(1)\nparams = [(r.normal(0, (2 / 64) ** 0.5, (64, 32)), np.zeros(32)), (r.normal(0, (2 / 32) ** 0.5, (32, 10)), np.zeros(10))]\nnovos, h = treinar_digitos(params, X, y, 3, 30, 0.0, 0)\n_inicial = _pg(params, X, y)[0]", "expr": "bool(np.allclose(h, [_inicial] * 3, atol=1e-9))", "expected": true, "name": "Com taxa 0 e 10 lotes de 30, a perda de cada época é a perda da rede nos 300 exemplos", "hint": "A perda da época é a média das perdas dos lotes daquela época."},
-  {"id": "lote-cheio", "checkpoint": 2, "kind": "expr", "setup": "import numpy as np\nfrom digitos import gerar_digitos\nfrom mlp import mlp_forward as _forward, perda_e_gradientes as _pg\nfrom adam import Adam as _Adam\nX, y = gerar_digitos(30, 3)\nX = (X - X.mean(axis=0)) / X.std(axis=0)\nr = np.random.default_rng(1)\nparams = [(r.normal(0, (2 / 64) ** 0.5, (64, 32)), np.zeros(32)), (r.normal(0, (2 / 32) ** 0.5, (32, 10)), np.zeros(10))]\nnovos, h = treinar_digitos(params, X, y, 3, 500, 0.05, 0)\n_p = [(W.copy(), b.copy()) for W, b in params]\n_o = _Adam(0.05)\n_h = []\nfor _ in range(3):\n    _perda, _g = _pg(_p, X, y)\n    _o.passo(_p, _g)\n    _h.append(_perda)", "expr": "[bool(np.allclose(h, _h, atol=1e-9)), bool(all(np.allclose(a[0], c[0], atol=1e-9) and np.allclose(a[1], c[1], atol=1e-9) for a, c in zip(novos, _p)))]", "expected": [true, true], "name": "Com lote 500 para 300 exemplos, cada época é um passo do Adam com todos os dados e taxa 0,05", "hint": "Um lote maior que os dados vira um lote só, com tudo; o Adam é um só do começo ao fim e recebe a taxa pedida."},
+  {"id": "lote-cheio", "checkpoint": 2, "kind": "expr", "setup": "import numpy as np\nfrom digitos import gerar_digitos\nfrom mlp import mlp_forward as _forward, perda_e_gradientes as _pg\nfrom adam import Adam as _Adam\nX, y = gerar_digitos(30, 3)\nX = (X - X.mean(axis=0)) / X.std(axis=0)\nr = np.random.default_rng(1)\nparams = [(r.normal(0, (2 / 64) ** 0.5, (64, 32)), np.zeros(32)), (r.normal(0, (2 / 32) ** 0.5, (32, 10)), np.zeros(10))]\nnovos, h = treinar_digitos(params, X, y, 3, 500, 0.05, 0)\n_p = [(W.copy(), b.copy()) for W, b in params]\n_o = _Adam(0.05)\n_h = []\nfor _ in range(3):\n    _perda, _g = _pg(_p, X, y)\n    _o.passo([a for par in _p for a in par], [g for par in _g for g in par])\n    _h.append(_perda)", "expr": "[bool(np.allclose(h, _h, atol=1e-9)), bool(all(np.allclose(a[0], c[0], atol=1e-9) and np.allclose(a[1], c[1], atol=1e-9) for a, c in zip(novos, _p)))]", "expected": [true, true], "name": "Com lote 500 para 300 exemplos, cada época é um passo do Adam com todos os dados e taxa 0,05", "hint": "Um lote maior que os dados vira um lote só, com tudo; o Adam é um só do começo ao fim e recebe a taxa pedida."},
   {"id": "perda-cai", "checkpoint": 3, "kind": "expr", "setup": "import numpy as np\nfrom digitos import gerar_digitos\nfrom mlp import mlp_forward as _forward, perda_e_gradientes as _pg\nfrom adam import Adam as _Adam\nX, y = gerar_digitos(30, 3)\nX = (X - X.mean(axis=0)) / X.std(axis=0)\nr = np.random.default_rng(1)\nparams = [(r.normal(0, (2 / 64) ** 0.5, (64, 32)), np.zeros(32)), (r.normal(0, (2 / 32) ** 0.5, (32, 10)), np.zeros(10))]\nnovos, h = treinar_digitos(params, X, y, 5, 32, 0.01, 0)", "expr": "bool(h[-1] < 0.5 * h[0])", "expected": true, "name": "Em 5 épocas com lote 32 e taxa 0,01, a perda cai a menos da metade", "hint": "Confira se cada imagem continua ao lado do rótulo dela depois de embaralhar."},
   {"id": "mesma-semente", "checkpoint": 2, "kind": "expr", "setup": "import numpy as np\nfrom digitos import gerar_digitos\nfrom mlp import mlp_forward as _forward, perda_e_gradientes as _pg\nfrom adam import Adam as _Adam\nX, y = gerar_digitos(30, 3)\nX = (X - X.mean(axis=0)) / X.std(axis=0)\nr = np.random.default_rng(1)\nparams = [(r.normal(0, (2 / 64) ** 0.5, (64, 32)), np.zeros(32)), (r.normal(0, (2 / 32) ** 0.5, (32, 10)), np.zeros(10))]\nh1 = treinar_digitos(params, X, y, 2, 32, 0.01, 7)[1]\nh2 = treinar_digitos(params, X, y, 2, 32, 0.01, 7)[1]", "expr": "h1 == h2", "expected": true, "name": "A mesma semente dá o mesmo histórico", "hint": "Crie o gerador com `np.random.default_rng(semente)`."},
   {"id": "outra-semente", "checkpoint": 2, "kind": "expr", "setup": "import numpy as np\nfrom digitos import gerar_digitos\nfrom mlp import mlp_forward as _forward, perda_e_gradientes as _pg\nfrom adam import Adam as _Adam\nX, y = gerar_digitos(30, 3)\nX = (X - X.mean(axis=0)) / X.std(axis=0)\nr = np.random.default_rng(1)\nparams = [(r.normal(0, (2 / 64) ** 0.5, (64, 32)), np.zeros(32)), (r.normal(0, (2 / 32) ** 0.5, (32, 10)), np.zeros(10))]\nh1 = treinar_digitos(params, X, y, 2, 32, 0.01, 7)[1]\nh2 = treinar_digitos(params, X, y, 2, 32, 0.01, 8)[1]", "expr": "h1 != h2", "expected": true, "name": "Outra semente embaralha em outra ordem e dá outro histórico", "hint": "A ordem dos exemplos é sorteada a cada época com o gerador da semente."},
@@ -574,6 +585,10 @@ from mlp import mlp_forward, perda_e_gradientes
 from adam import Adam
 
 
+def plano(pares):
+    return [a for par in pares for a in par]
+
+
 def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
     rng = np.random.default_rng(semente)
     otimizador = Adam(taxa)
@@ -584,7 +599,7 @@ def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
         for i in range(0, len(X), lote):
             idx = ordem[i:i + lote]
             perda, grads = perda_e_gradientes(params, X[idx], y[idx])
-            otimizador.passo(params, grads)
+            otimizador.passo(plano(params), plano(grads))
             perdas.append(perda)
         historico.append(float(np.mean(perdas)))
     return params, historico
@@ -593,6 +608,10 @@ def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
 import numpy as np
 from mlp import mlp_forward, perda_e_gradientes
 from adam import Adam
+
+
+def plano(pares):
+    return [a for par in pares for a in par]
 
 
 def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
@@ -606,7 +625,7 @@ def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
         for i in range(0, len(X), lote):
             idx = ordem[i:i + lote]
             perda, grads = perda_e_gradientes(params, X[idx], y[idx])
-            otimizador.passo(params, grads)
+            otimizador.passo(plano(params), plano(grads))
             perdas.append(perda)
         historico.append(float(np.mean(perdas)))
     return params, historico
@@ -615,6 +634,10 @@ def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
 import numpy as np
 from mlp import mlp_forward, perda_e_gradientes
 from adam import Adam
+
+
+def plano(pares):
+    return [a for par in pares for a in par]
 
 
 def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
@@ -628,7 +651,7 @@ def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
         for i in range(0, len(X), lote):
             idx = ordem[i:i + lote]
             perda, grads = perda_e_gradientes(params, X[idx], y[idx])
-            otimizador.passo(params, grads)
+            otimizador.passo(plano(params), plano(grads))
             perdas.append(perda)
         historico.append(float(np.mean(perdas)))
     return params, historico
@@ -637,6 +660,10 @@ def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
 import numpy as np
 from mlp import mlp_forward, perda_e_gradientes
 from adam import Adam
+
+
+def plano(pares):
+    return [a for par in pares for a in par]
 
 
 def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
@@ -650,7 +677,7 @@ def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
         for i in range(0, len(X), lote):
             idx = ordem[i:i + lote]
             perda, grads = perda_e_gradientes(params, X[idx], y[idx])
-            otimizador.passo(params, grads)
+            otimizador.passo(plano(params), plano(grads))
             perdas.append(perda)
         historico.append(float(np.mean(perdas)))
     return params, historico
@@ -659,6 +686,10 @@ def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
 import numpy as np
 from mlp import mlp_forward, perda_e_gradientes
 from adam import Adam
+
+
+def plano(pares):
+    return [a for par in pares for a in par]
 
 
 def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
@@ -672,7 +703,7 @@ def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
         for i in range(0, len(X) - lote + 1, lote):
             idx = ordem[i:i + lote]
             perda, grads = perda_e_gradientes(params, X[idx], y[idx])
-            otimizador.passo(params, grads)
+            otimizador.passo(plano(params), plano(grads))
             perdas.append(perda)
         historico.append(float(np.mean(perdas)))
     return params, historico
@@ -681,6 +712,10 @@ def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
 import numpy as np
 from mlp import mlp_forward, perda_e_gradientes
 from adam import Adam
+
+
+def plano(pares):
+    return [a for par in pares for a in par]
 
 
 def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
@@ -694,7 +729,7 @@ def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
         for i in range(0, len(X), lote):
             idx = ordem[i:i + lote]
             perda, grads = perda_e_gradientes(params, X[idx], y[idx])
-            otimizador.passo(params, grads)
+            otimizador.passo(plano(params), plano(grads))
             perdas.append(perda)
         historico.append(float(np.sum(perdas)))
     return params, historico
@@ -703,6 +738,10 @@ def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
 import numpy as np
 from mlp import mlp_forward, perda_e_gradientes
 from adam import Adam
+
+
+def plano(pares):
+    return [a for par in pares for a in par]
 
 
 def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
@@ -716,7 +755,7 @@ def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
         for i in range(0, len(X), lote):
             idx = ordem[i:i + lote]
             perda, grads = perda_e_gradientes(params, X[idx], y[rng.permutation(len(X))[:len(idx)]])
-            otimizador.passo(params, grads)
+            otimizador.passo(plano(params), plano(grads))
             perdas.append(perda)
         historico.append(float(np.mean(perdas)))
     return params, historico
@@ -725,6 +764,10 @@ def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
 import numpy as np
 from mlp import mlp_forward, perda_e_gradientes
 from adam import Adam
+
+
+def plano(pares):
+    return [a for par in pares for a in par]
 
 
 def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
@@ -738,7 +781,7 @@ def treinar_digitos(params, X, y, epocas, lote, taxa, semente):
         for i in range(0, len(X), lote):
             idx = ordem[i:i + lote]
             perda, grads = perda_e_gradientes(params, X[idx], y[idx])
-            otimizador.passo(params, grads)
+            otimizador.passo(plano(params), plano(grads))
             perdas.append(perda)
         historico.append(float(np.mean(perdas)))
     return params, historico
