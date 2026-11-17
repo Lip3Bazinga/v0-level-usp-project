@@ -1,115 +1,496 @@
 titulo: 'Prova do Nível 6 — Deep Learning: a IA por dentro'
-descricao: 'Banco inicial de 12 questões (10 sorteadas por tentativa) sobre perceptron, autograd, treino de redes, MLP, CNN, RNN, atenção, transformers e limitações. Nota mínima: 70 %.'
+descricao: 'Banco de 40 questões (10 sorteadas por tentativa) sobre perceptron, autograd, treino de redes, MLP, CNN, RNN, atenção, transformers e limitações. Nota mínima: 70 %.'
 nota_minima: 70
 tempo_min: 45
 intervalo_min: 60
 questoes_por_tentativa: 10
 questoes:
-- enunciado: Por que um único perceptron não resolve o XOR?
+- enunciado: |-
+    Um perceptron usa a convenção da lição: a saída é 1 só quando z > 0. O que o trecho imprime?
+
+    X = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
+    w = np.array([2.0, 1.0])
+    b = -2.0
+    z = X @ w + b
+    print((z > 0).astype(int).tolist())
   opcoes:
-  - Precisa de mais épocas
-  - O XOR não é linearmente separável
-  - Falta o viés
-  - A taxa de aprendizado é baixa
-  correta: 1
-  explicacao: Nenhuma reta separa (0,0) e (1,1) de (0,1) e (1,0); é preciso uma camada escondida com não linearidade.
+  - '[0, 0, 1, 1]'
+  - '[0, 1, 1, 1]'
+  - '[0, 0, 0, 1]'
+  - '[1, 1, 1, 1]'
+  correta: 2
+  explicacao: 'z vale [-2, -1, 0, 1], e só o último passa de zero. [0, 0, 1, 1] é o degrau com z >= 0, que conta o z = 0 como 1. [0, 1, 1, 1] é o que sai quando o viés é esquecido. [1, 1, 1, 1] é o viés com o sinal trocado (+2).'
   topico: neuronios-e-perceptron
-- enunciado: 'Compor duas camadas lineares sem função de ativação entre elas equivale a:'
+- enunciado: |-
+    Uma rede 1 → 2 → 1 tem os pesos abaixo e vieses zero. Ela é calculada duas vezes: sem ativação entre as camadas e com ReLU na camada escondida. O que o trecho imprime?
+
+    X = np.array([[-3.0], [2.0]])
+    W1 = np.array([[1.0, -1.0]])
+    W2 = np.array([[1.0], [1.0]])
+    sem = (X @ W1) @ W2
+    com = np.maximum(0, X @ W1) @ W2
+    print(sem.ravel().tolist(), com.ravel().tolist())
   opcoes:
-  - Uma rede mais profunda e mais expressiva
-  - Uma única transformação linear
-  - Uma ReLU
-  - 'Nada: é inválido'
-  correta: 1
-  explicacao: W₂(W₁x) = (W₂W₁)x; sem não linearidade a profundidade não acrescenta capacidade.
+  - '[0.0, 0.0] [3.0, 2.0]'
+  - '[0.0, 0.0] [0.0, 0.0]'
+  - '[-6.0, 4.0] [3.0, 2.0]'
+  - '[0.0, 0.0] [0.0, 2.0]'
+  correta: 0
+  explicacao: 'Sem ativação, as duas camadas são uma só: W1 @ W2 = [[0]], e a saída é 0 para qualquer x. Com a ReLU, cada neurônio escondido deixa passar um lado, e a soma dá o módulo de x. Dois zeros nas duas contas supõe que a ReLU não muda uma composição linear. [-6.0, 4.0] ignora o sinal do peso -1. [0.0, 2.0] conta só o neurônio de peso 1 e perde o que responde às entradas negativas.'
   topico: neuronios-e-perceptron
-- enunciado: No autograd, por que o gradiente dos filhos é acumulado com `+=` em vez de atribuído com `=`?
+- enunciado: |-
+    Alguém escreve a sigmoide pela fórmula direta. O numpy só mostra um aviso e segue. O que o trecho imprime?
+
+    z = np.array([-1000.0, 0.0, 1000.0])
+    s = np.exp(z) / (1 + np.exp(z))
+    print(s.tolist())
   opcoes:
-  - Por desempenho
-  - Porque um nó pode ser usado em mais de um lugar e as contribuições se somam
-  - Porque o numpy exige
-  - Por convenção de estilo
+  - '[0.0, 0.5, 1.0]'
+  - '[nan, 0.5, nan]'
+  - '[0.0, 0.5, inf]'
+  - '[0.0, 0.5, nan]'
+  correta: 3
+  explicacao: 'exp(1000) estoura para inf, e inf / inf dá nan; exp(-1000) vale 0, e 0 / 1 dá 0. [0.0, 0.5, 1.0] é o que a versão estável devolve, não esta. No lado negativo não há nan, porque nada estoura ali. inf dividido por inf não é inf.'
+  topico: neuronios-e-perceptron
+- enunciado: |-
+    Uma camada tem 400 entradas com desvio 1 e pesos sorteados com desvio 0,1. O que o trecho imprime?
+
+    rng = np.random.default_rng(0)
+    X = rng.normal(0, 1, (2000, 400))
+    W = rng.normal(0, 0.1, (400, 50))
+    print(round(float((X @ W).std()), 1))
+  opcoes:
+  - '0.1'
+  - '2.0'
+  - '4.0'
+  - '40.0'
   correta: 1
-  explicacao: Pela regra da cadeia, o gradiente de uma variável é a soma dos gradientes por todos os caminhos em que ela aparece.
-  topico: autograd-do-zero
-- enunciado: Em qual ordem o `backward` percorre o grafo computacional?
+  explicacao: 'A variância da pré-ativação é d_in vezes a variância dos pesos vezes a das entradas: 400 · 0,01 · 1 = 4, desvio 2. 0.1 ignora que cada pré-ativação soma 400 parcelas. 4.0 é a variância, não o desvio. 40.0 multiplica d_in pelo desvio, como se desvios se somassem.'
+  topico: neuronios-e-perceptron
+- enunciado: 'No grafo de L = (a * b + c) * f, com a = 3, b = 2, c = -1 e f = 4, quanto valem a derivada de L em relação a a e a derivada de L em relação a b?'
   opcoes:
-  - Topológica direta
-  - Topológica inversa (da saída para as entradas)
-  - Aleatória
-  - Por níveis a partir das entradas
+  - 12 e 8
+  - 8 e 12
+  - 2 e 3
+  - 6 e 7
   correta: 1
-  explicacao: Um nó só pode propagar seu gradiente depois de receber as contribuições de todos os que dependem dele.
+  explicacao: 'O gradiente que chega ao produto a * b é f = 4. A derivada local em relação a a é b, e em relação a b é a: 4 · 2 = 8 e 4 · 3 = 12. 12 e 8 usa o próprio operando no lugar do outro. 2 e 3 esquece de multiplicar pelo gradiente que vem de cima. 6 e 7 soma o gradiente de cima à derivada local no lugar de multiplicar.'
   topico: autograd-do-zero
-- enunciado: 'A perda inicial esperada de um classificador de 10 classes com softmax e pesos pequenos é aproximadamente:'
+- enunciado: 'Numa classe Valor, um caso de teste faz a = Valor(2.0), b = Valor(5.0), c = a * b, c.grad = 1.0 e c._backward(). A lista [a.grad, b.grad] sai [2.0, 5.0], e o esperado era [5.0, 2.0]. Qual defeito produz exatamente essa saída?'
   opcoes:
+  - O _backward do produto usa = no lugar de +=
+  - O grad da saída ficou em 0 antes da chamada
+  - Falta o __rmul__ na classe
+  - O _backward do produto multiplica cada operando pelo próprio dado, e não pelo dado do outro
+  correta: 3
+  explicacao: 'A derivada de a * b em relação a a é b: o gradiente de a deveria ser 5, e saiu 2, o dado do próprio a. Com = no lugar de +=, este caso passaria, porque cada operando aparece uma vez só (o defeito aparece em v * v). Com o grad da saída em 0, a lista seria [0.0, 0.0]. Sem __rmul__, o erro seria um TypeError em contas como 2 * v, que este caso não faz.'
+  topico: autograd-do-zero
+- enunciado: |-
+    Com a classe Valor da lição, alguém chama os _backward na ordem direta, das entradas para a saída. O que o trecho imprime?
+
+    a = Valor(2.0)
+    b = a * 3
+    c = b * 2
+    c.grad = 1.0
+    for no in [a, b, c]:
+        no._backward()
+    print(a.grad, b.grad)
+  opcoes:
+  - '0.0 2.0'
+  - '6.0 2.0'
+  - '0.0 0.0'
+  - '3.0 2.0'
+  correta: 0
+  explicacao: 'O _backward de b roda quando b.grad ainda é 0 e repassa 3 · 0 para a; só depois o de c põe 2 em b, tarde demais. 6.0 2.0 é o resultado da ordem inversa (c, b, a), a correta. 0.0 0.0 sairia se o grad da saída não fosse posto em 1. 3.0 2.0 supõe que a recebe a derivada local sem o gradiente de cima.'
+  topico: autograd-do-zero
+- enunciado: |-
+    A divisão do Valor é escrita como a * b ** -1. O que o trecho imprime?
+
+    a = Valor(6.0)
+    b = Valor(3.0)
+    c = a / b
+    c.backward()
+    print(round(a.grad, 3), round(b.grad, 3))
+  opcoes:
+  - '0.333 0.667'
+  - '3.0 6.0'
+  - '0.333 -0.667'
+  - '0.333 -2.0'
+  correta: 2
+  explicacao: 'A derivada de a / b em relação a a é 1 / b = 0,333, e em relação a b é -a / b², ou -6 / 9. O sinal positivo esquece que o expoente -1 desce multiplicando. 3.0 6.0 trata a divisão como produto. -2.0 é a potência derivada como k · x^k, sem baixar o expoente: -1 · 3^-1 · 6.'
+  topico: autograd-do-zero
+- enunciado: 'Um MLP com 5 entradas, uma camada escondida de 8 neurônios e uma saída de 2 neurônios é montado com as classes da lição: cada neurônio tem um peso por entrada e um viés. Quanto vale len(mlp.parametros())?'
+  opcoes:
+  - '56'
+  - '80'
+  - '66'
+  - '64'
+  correta: 2
+  explicacao: 'A camada escondida tem 5 · 8 + 8 = 48 parâmetros e a saída, 8 · 2 + 2 = 18. 56 é a conta sem nenhum viés, o que sai quando parametros() esquece os vieses. 80 multiplica os três tamanhos. 64 esquece os vieses da camada de saída.'
+  topico: autograd-do-zero
+- enunciado: |-
+    Um treino com Valor usa taxa 0,01. A perda sobe um pouco a cada passo, desde o primeiro, sem oscilar. O laço é este:
+
+    for passo in range(100):
+        perda = calcular_perda(mlp, X, y)
+        for p in mlp.parametros():
+            p.grad = 0.0
+        perda.backward()
+        for p in mlp.parametros():
+            p.dado += taxa * p.grad
+
+    Qual é o defeito?
+  opcoes:
+  - 'A atualização soma o gradiente e anda no sentido em que a perda cresce; o certo é p.dado -= taxa * p.grad'
+  - Os gradientes são zerados no lugar errado e deveriam ser zerados depois do backward
+  - A taxa 0,01 é alta demais para uma rede com tanh
+  - O método parametros() devolve cópias dos parâmetros
+  correta: 0
+  explicacao: 'O gradiente aponta para onde a perda sobe; somar em vez de subtrair faz a perda crescer a cada passo. Zerar antes do backward é o lugar certo: zerar depois apagaria o gradiente antes da atualização. Uma taxa alta faz a perda oscilar ou saturar, não subir devagar e sempre. Com cópias, os parâmetros não mudariam e a perda ficaria igual em todos os passos.'
+  topico: autograd-do-zero
+- enunciado: |-
+    O trecho calcula o gradiente da entropia cruzada média em relação aos logits, com a softmax estável da lição. O que ele imprime?
+
+    Z = np.zeros((2, 4))
+    y = np.array([1, 3])
+    G = softmax(Z)
+    G[np.arange(2), y] -= 1
+    G /= 2
+    print(G[0].tolist())
+  opcoes:
+  - '[0.25, -0.75, 0.25, 0.25]'
+  - '[0.125, 0.125, 0.125, 0.125]'
+  - '[-0.375, 0.125, 0.125, 0.125]'
+  - '[0.125, -0.375, 0.125, 0.125]'
+  correta: 3
+  explicacao: 'Com logits iguais, cada probabilidade vale 0,25; subtrai-se 1 na classe certa do exemplo 0, a classe 1, e divide-se por n = 2. [0.25, -0.75, 0.25, 0.25] é o gradiente sem a divisão por n. A lista só com 0.125 não subtraiu o 1 da classe certa. Com -0.375 na primeira posição, o 1 foi subtraído na classe 0, e o rótulo é 1.'
+  topico: treinando-redes
+- enunciado: 'A perda de validação por época foi [0.92, 0.61, 0.58, 0.58, 0.63], com as épocas contadas a partir de 0. A função melhor_estado escolhe a menor perda e desempata pela época mais cedo. Qual índice ela devolve?'
+  opcoes:
+  - '3'
+  - '2'
   - '0'
-  - ln(10) ≈ 2,3
-  - '10'
-  - '1'
+  - '4'
   correta: 1
-  explicacao: Com probabilidades uniformes, a entropia cruzada é −ln(1/10) = ln 10. É o primeiro teste de sanidade do treino.
+  explicacao: 'A menor perda, 0,58, aparece nas épocas 2 e 3, e o desempate fica com a mais cedo. 3 é o que sai quando a comparação aceita o empate e troca pelo estado mais novo. 0 escolhe o maior valor, a pior época. 4 é o último estado, o que se tem quando nenhum melhor estado é guardado.'
   topico: treinando-redes
-- enunciado: O que o otimizador Adam combina?
+- enunciado: |-
+    Um classificador de 10 classes treina com mini-lotes. A perda fica perto de 2,30 em todas as épocas e a acurácia de treino não sai de 0,10. A preparação de cada época é esta:
+
+    X = X[rng.permutation(n)]
+    y = y[rng.permutation(n)]
+
+    Qual é a causa?
   opcoes:
-  - Momentum e taxa adaptativa por parâmetro
-  - Dropout e L2
-  - BatchNorm e warmup
-  - SGD e parada antecipada
+  - 'X e y são embaralhados com permutações diferentes: cada exemplo fica com o rótulo de outro, e não há relação para aprender'
+  - Embaralhar a cada época atrapalha, e o certo é embaralhar uma vez só antes do treino
+  - O último lote, menor que os outros, foi descartado
+  - O gradiente do lote foi somado no lugar de tirar a média
   correta: 0
-  explicacao: Adam mantém médias móveis do gradiente (momento) e do gradiente ao quadrado (escala), com correção de viés.
+  explicacao: 'Cada chamada sorteia uma permutação nova; X e y precisam ser indexados pela mesma. Com rótulos desalinhados, o melhor que a rede faz é o chute uniforme: perda ln 10 = 2,30 e acurácia 0,10. Embaralhar a cada época é o procedimento normal. Perder o último lote só tira alguns exemplos de cada época. A soma no lugar da média muda a escala do passo, e a rede ainda aprenderia ou divergiria, sem ficar parada no chute.'
   topico: treinando-redes
-- enunciado: 'Durante a avaliação, o dropout deve estar:'
+- enunciado: |-
+    O momentum abaixo guarda a média móvel dos gradientes. O que o trecho imprime?
+
+    v = 0.0
+    x = 1.0
+    for g in [2.0, 2.0]:
+        v = 0.9 * v + 0.1 * g
+        x = x - 0.5 * v
+    print(round(v, 2), round(x, 2))
   opcoes:
-  - Ativo com probabilidade maior
-  - Desligado (com a escala invertida aplicada no treino)
-  - Ativo com a mesma máscara do treino
-  - Depende do otimizador
+  - '0.2 0.8'
+  - '3.8 -1.9'
+  - '0.38 0.71'
+  - '0.2 0.9'
+  correta: 2
+  explicacao: 'No primeiro passo v = 0,2 e x = 0,9; no segundo, v = 0,9 · 0,2 + 0,2 = 0,38 e x = 0,9 - 0,19 = 0,71. 0.2 0.8 esquece de carregar a velocidade de um passo para o outro. 3.8 -1.9 soma o gradiente inteiro, sem o fator 0,1 da média móvel. 0.2 0.9 para no primeiro passo.'
+  topico: treinando-redes
+- enunciado: 'Um Adam com correção de viés (beta1 = 0,9, beta2 = 0,999, eps = 1e-8 e t começando em 1) usa taxa 0,01. No primeiro passo, um parâmetro recebe gradiente 0,5 e outro recebe gradiente 50. Quanto cada um anda?'
+  opcoes:
+  - 0,005 e 0,5
+  - 0,0316 e 0,0316
+  - 0,01 e 1,0
+  - 0,01 e 0,01
+  correta: 3
+  explicacao: 'Com a correção, no primeiro passo o momento corrigido é g e a raiz da escala corrigida é o módulo de g: o passo é a taxa, 0,01, qualquer que seja o tamanho do gradiente. 0,005 e 0,5 é o passo da descida simples, taxa vezes gradiente. 0,0316 é o Adam sem a correção de viés (0,1 g sobre a raiz de 0,001 g²). 0,01 e 1,0 supõe que o passo ainda cresce com o gradiente.'
+  topico: treinando-redes
+- enunciado: |-
+    O trecho normaliza um lote de 2 exemplos com 3 atributos. O que ele imprime?
+
+    X = np.array([[1.0, 2.0, 3.0], [10.0, 20.0, 30.0]])
+    m = X.mean(axis=1, keepdims=True)
+    v = X.var(axis=1, keepdims=True)
+    print(np.round((X - m) / np.sqrt(v + 1e-5), 2).tolist())
+  opcoes:
+  - '[[-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]]'
+  - '[[-1.22, 0.0, 1.22], [-1.22, 0.0, 1.22]]'
+  - '[[-1.0, 0.0, 1.0], [-1.0, 0.0, 1.0]]'
+  - '[[-1.22, 0.0, 1.22], [-12.25, 0.0, 12.25]]'
   correta: 1
-  explicacao: O dropout é um ruído de treino; na avaliação usa-se a rede completa, e o dropout invertido já compensa a escala.
+  explicacao: 'Com axis=1, cada exemplo é normalizado pela própria média e variância (a conta da LayerNorm): as duas linhas saem iguais, apesar da escala 10 vezes maior. A primeira opção normaliza no eixo do lote, axis=0, a conta da BatchNorm em treino. [-1.0, 0.0, 1.0] usa a variância com ddof=1. A última divide a segunda linha pelo desvio da primeira.'
+  topico: treinando-redes
+- enunciado: |-
+    No backward de uma camada densa, X tem forma (8, 20), W tem forma (20, 5) e dZ tem forma (8, 5). O que o trecho imprime?
+
+    dW = X.T @ dZ
+    db = dZ.sum(axis=0)
+    dX = dZ @ W.T
+    print(dW.shape, db.shape, dX.shape)
+  opcoes:
+  - '(20, 5) (5,) (8, 20)'
+  - '(5, 20) (5,) (8, 20)'
+  - '(20, 5) (8,) (8, 20)'
+  - '(20, 5) (5,) (8, 5)'
+  correta: 0
+  explicacao: 'Cada gradiente tem a forma daquilo que ele deriva: dW como W, db com um número por neurônio, dX como X. (5, 20) é a transposta, o que dZ.T @ X daria. (8,) soma no eixo dos neurônios e deixa um número por exemplo. (8, 5) é a forma de dZ: faltou voltar por W.T.'
   topico: mlp-em-numpy
-- enunciado: Qual é a principal vantagem de uma camada convolucional sobre uma densa em imagens?
+- enunciado: |-
+    A checagem numérica de um MLP de 3 camadas, com 6 exemplos, devolve um par (erro de dW, erro de db) por camada:
+
+    [(7.8e-11, 0.714), (4.0e-11, 0.714), (3.3e-11, 0.714)]
+
+    Qual é o defeito?
   opcoes:
-  - Tem mais parâmetros
-  - 'Compartilhamento de pesos e localidade: menos parâmetros e invariância a translação'
-  - Treina sem gradiente
-  - Dispensa função de ativação
+  - O gradiente inteiro foi dividido por n duas vezes
+  - A máscara da ReLU não foi aplicada no backward
+  - 'O db usa a média de dZ no lote, mas dZ já vem dividido por n: só os vieses saem com um fator n a mais na divisão'
+  - O passo h = 1e-5 é grande demais para os vieses
+  correta: 2
+  explicacao: 'O erro (n - 1) / (n + 1) = 5 / 7 = 0,714 é a assinatura de um fator n entre o analítico e o numérico, e aqui ele só aparece nos vieses: os dW estão certos. Se o gradiente inteiro fosse dividido duas vezes, os dW também dariam 0,714. Sem a máscara da ReLU, erram dW e db das primeiras camadas, e a última fica certa. Um h grande demais dá erros perto de 1e-7, não de 0,7.'
+  topico: mlp-em-numpy
+- enunciado: |-
+    A padronização dos dígitos é feita assim, e a perda sai nan já no primeiro passo. Os pixels dos cantos valem 0 em todas as imagens de treino.
+
+    media = X_treino.mean(axis=0)
+    desvio = X_treino.std(axis=0)
+    X_treino = (X_treino - media) / desvio
+
+    Qual é a correção?
+  opcoes:
+  - Reduzir a taxa de aprendizado, porque nan no primeiro passo indica divergência
+  - 'Trocar por 1 o desvio das colunas em que ele é zero: nelas a conta é 0 / 0, que dá nan'
+  - Converter os rótulos para inteiros, porque rótulos float geram nan na indexação
+  - Padronizar o treino com a média e o desvio da validação
   correta: 1
-  explicacao: O mesmo filtro percorre a imagem inteira, detectando o padrão onde quer que ele apareça.
-  topico: redes-convolucionais
-- enunciado: O que causa o gradiente que some em RNNs com sequências longas?
+  explicacao: 'Um pixel constante tem desvio 0, e (0 - 0) / 0 dá nan em silêncio; o nan entra no forward e na perda. A taxa não participa da primeira perda, calculada antes de qualquer atualização. Rótulos float dão IndexError, não nan. As estatísticas vêm sempre do treino, e as da validação teriam o mesmo desvio zero nos cantos.'
+  topico: mlp-em-numpy
+- enunciado: 'A perda de dados de um lote é 0,5. A rede tem uma matriz W = [[1, 2], [2, 0]] e um viés b = [3, 4], e a penalidade é a da lição: lambda / 2 vezes a soma dos quadrados dos pesos, com lambda = 0,1. Quanto vale a perda com L2?'
   opcoes:
-  - Taxa de aprendizado alta
-  - Produtos repetidos de derivadas da ativação e de W_hh ao longo do tempo
-  - Dropout
-  - Falta de viés
-  correta: 1
-  explicacao: O BPTT multiplica os mesmos fatores a cada passo; se forem menores que 1, o gradiente decai exponencialmente.
-  topico: sequencias-embeddings-e-rnn
-- enunciado: 'A máscara causal na self-attention serve para:'
+  - 1,40
+  - 2,20
+  - 0,65
+  - 0,95
+  correta: 3
+  explicacao: 'A soma dos quadrados de W é 1 + 4 + 4 = 9, e a penalidade é 0,05 · 9 = 0,45. 1,40 esquece o 1 / 2. 2,20 inclui os vieses (9 + 25 = 34), que a L2 da lição não regulariza. 0,65 usa a norma, 3, sem elevar ao quadrado.'
+  topico: mlp-em-numpy
+- enunciado: 'Os gradientes de duas camadas são g1 = [3, 4] e g2 = [0, 12]. A função clip_por_norma usa a norma global, com limite 2,6. O que ela devolve?'
   opcoes:
-  - Acelerar o softmax
-  - Impedir que uma posição use informação de posições futuras
-  - Normalizar as pontuações
-  - Reduzir o número de parâmetros
-  correta: 1
-  explicacao: No treino todas as posições são previstas em paralelo; sem a máscara o modelo 'veria' a resposta.
-  topico: atencao-e-transformers
-- enunciado: Por que os transformers precisam de codificação posicional?
-  opcoes:
-  - Porque a atenção, sozinha, é invariante à ordem dos tokens
-  - Para reduzir o custo computacional
-  - Porque o softmax exige
-  - Para evitar overflow
+  - '[0.6, 0.8] e [0.0, 2.4]'
+  - '[1.56, 2.08] e [0.0, 2.6]'
+  - '[2.6, 2.6] e [0.0, 2.6]'
+  - '[0.23, 0.31] e [0.0, 0.92]'
   correta: 0
-  explicacao: Sem informação de posição, 'o gato viu o rato' e 'o rato viu o gato' teriam a mesma representação.
-  topico: atencao-e-transformers
-- enunciado: 'A alucinação em modelos de linguagem decorre principalmente de:'
+  explicacao: 'A norma global é a raiz de 9 + 16 + 144, ou 13; todos os gradientes são multiplicados por 2,6 / 13 = 0,2, e a direção não muda. A segunda opção corta cada camada pela própria norma (5 e 12) e muda a proporção entre as camadas. A terceira é o clipping por valor, que muda a direção. A quarta divide pela norma e esquece de multiplicar pelo limite.'
+  topico: mlp-em-numpy
+- enunciado: 'Uma imagem 28 × 28 passa por uma convolução 5 × 5 (sem padding, stride 1), por um max pooling 2 × 2 e por uma convolução 3 × 3 com padding 1 e stride 2. Qual é o lado do mapa de saída?'
   opcoes:
-  - Bugs de implementação
-  - O objetivo de treino ser prever o próximo token plausível, não o verdadeiro
-  - Falta de GPU
-  - Temperatura zero
+  - '7'
+  - '6'
+  - '12'
+  - '5'
   correta: 1
-  explicacao: O modelo maximiza plausibilidade estatística; nada no objetivo exige que o texto seja factual.
+  explicacao: 'A primeira convolução dá 28 - 5 + 1 = 24, o pooling dá 12, e a última dá o piso de (12 + 2 - 3) / 2, que é 5, mais 1. 7 arredonda 5,5 para cima. 12 ignora o stride da última convolução. 5 esquece o + 1 da fórmula.'
+  topico: redes-convolucionais
+- enunciado: 'Uma rede empilha uma convolução 3 × 3 (stride 1), um max pooling 2 × 2 (stride 2) e outra convolução 3 × 3 (stride 1). Qual é o campo receptivo de um valor da saída, em pixels de lado na imagem de entrada?'
+  opcoes:
+  - '6'
+  - '18'
+  - '7'
+  - '8'
+  correta: 3
+  explicacao: 'Cada camada soma (k - 1) vezes o salto acumulado: 3 depois da primeira convolução, 4 depois do pooling e 4 + 2 · 2 = 8 depois da segunda, porque o pooling dobrou o salto. 6 ignora o stride do pooling. 18 multiplica os tamanhos das janelas. 7 conta o salto dobrado e esquece a janela do próprio pooling.'
+  topico: redes-convolucionais
+- enunciado: 'A CNN da lição (8 filtros 3 × 3 com padding 1, ReLU, max pooling 2 × 2, achatar e uma densa para 10 classes) tem 1 370 parâmetros com imagens 8 × 8 de um canal: 80 na convolução e 1 290 na densa. Quantos parâmetros a mesma arquitetura tem com imagens 16 × 16 de um canal?'
+  opcoes:
+  - 1 370
+  - 5 480
+  - 5 210
+  - 2 650
+  correta: 2
+  explicacao: 'A convolução não depende do tamanho da imagem e continua com 80. O vetor achatado passa de 8 · 4 · 4 = 128 para 8 · 8 · 8 = 512, e a densa vai a 512 · 10 + 10 = 5 130. 1 370 supõe que nada muda, o que só vale para a convolução. 5 480 multiplica a rede inteira por 4. 2 650 dobra o vetor achatado, mas dobrar o lado quadruplica a área.'
+  topico: redes-convolucionais
+- enunciado: 'Uma equipe compara duas formas de levar 16 canais a 16 canais: uma pilha de três convoluções 3 × 3 e uma única convolução 7 × 7, todas com viés. Qual linha descreve o campo receptivo e os parâmetros de cada uma?'
+  opcoes:
+  - As duas enxergam 7 × 7; a pilha tem 6 960 parâmetros e a 7 × 7 tem 12 560
+  - A pilha enxerga 9 × 9 e a outra 7 × 7; a pilha tem 6 960 parâmetros e a 7 × 7 tem 12 560
+  - As duas enxergam 7 × 7; a pilha tem 12 560 parâmetros e a 7 × 7 tem 6 960
+  - A pilha enxerga 3 × 3 e a outra 7 × 7; as duas têm 6 960 parâmetros
+  correta: 0
+  explicacao: 'Cada 3 × 3 com stride 1 soma 2 ao campo receptivo: 3, 5, 7. A pilha tem 3 · (9 · 16 · 16 + 16) = 6 960 parâmetros, e a 7 × 7 tem 49 · 16 · 16 + 16 = 12 560. 9 × 9 multiplica os tamanhos no lugar de somar o que cada camada acrescenta. A terceira opção troca as contagens. A última supõe que empilhar não aumenta o campo.'
+  topico: redes-convolucionais
+- enunciado: |-
+    A tabela de embeddings tem 4 linhas. A função vizinhos usa a similaridade do cosseno e não devolve o próprio índice. Qual é o vizinho mais próximo do índice 0?
+
+    E = np.array([[1.0, 0.0], [10.0, 0.5], [0.9, 0.5], [-1.0, 0.0]])
+  opcoes:
+  - O índice 2
+  - O índice 0
+  - O índice 1
+  - O índice 3
+  correta: 2
+  explicacao: 'Os cossenos com a linha 0 são 0,9988 para a linha 1, 0,8742 para a linha 2 e -1 para a linha 3: a linha 1 aponta quase na mesma direção, embora seja 10 vezes mais comprida. A linha 2 só ganha pela distância euclidiana (0,51 contra 9,01), que mistura direção com tamanho. O índice 0 é o próprio, que fica fora. O índice 3 aponta no sentido oposto, e sairia de uma ordenação crescente.'
+  topico: sequencias-embeddings-e-rnn
+- enunciado: 'Um modelo de bigramas por contagem, sem suavização, é montado com os nomes ana, ana e eva, com o ponto no começo e no fim de cada nome. Qual é a probabilidade de o ponto vir depois da letra a?'
+  opcoes:
+  - 0,6
+  - 0,4
+  - 0,0
+  - 1,0
+  correta: 0
+  explicacao: 'Depois de a vêm n duas vezes e o ponto três vezes: 3 / 5. 0,4 é a probabilidade de n depois de a. 0,0 é o que sai quando o ponto final é esquecido, e aí os nomes amostrados nunca terminam. 1,0 normaliza pela coluna: todo ponto final vem depois de a, mas a pergunta é o que vem depois de a.'
+  topico: sequencias-embeddings-e-rnn
+- enunciado: |-
+    Num MLP de linguagem, o vocabulário tem 27 caracteres, os embeddings têm 8 dimensões e o contexto tem 4 caracteres. O que o trecho imprime?
+
+    C = np.zeros((27, 8))
+    X = np.zeros((50, 4), dtype=int)
+    emb = C[X]
+    print(emb.shape, emb.reshape(50, -1).shape)
+  opcoes:
+  - '(50, 8) (50, 8)'
+  - '(50, 4, 8) (50, 32)'
+  - '(50, 4, 27) (50, 108)'
+  - '(50, 27, 8) (50, 216)'
+  correta: 1
+  explicacao: 'Indexar a tabela com um array (50, 4) devolve uma linha de 8 números para cada índice: (50, 4, 8). Achatado, cada exemplo vira 4 · 8 = 32 números, a entrada da camada escondida. (50, 8) supõe um embedding por exemplo, e não um por caractere do contexto. (50, 4, 27) é a forma do one-hot, que a indexação dispensa. (50, 27, 8) copiaria a tabela inteira para cada exemplo.'
+  topico: sequencias-embeddings-e-rnn
+- enunciado: |-
+    Uma RNN de uma unidade tem peso recorrente 0,5. O trecho acumula a derivada do estado final em relação ao estado inicial ao longo de 3 passos. O que se pode afirmar sobre o valor impresso?
+
+    w = 0.5
+    h = 0.0
+    fator = 1.0
+    for x in [1.0, 1.0, 1.0]:
+        h = np.tanh(w * h + x)
+        fator = fator * w * (1 - h ** 2)
+    print(round(float(fator), 4))
+  opcoes:
+  - É 0.125, porque só o peso recorrente entra no produto
+  - É 1.5, porque as contribuições dos três passos se somam
+  - É maior que 0.125, porque as entradas iguais a 1 reforçam o estado
+  - É 0.0024, bem menor que 0.125, porque cada passo multiplica também por 1 - h ** 2
+  correta: 3
+  explicacao: 'A derivada de um passo é o peso vezes a derivada da tanh, 1 - h², que aqui fica bem abaixo de 1 porque o estado está perto da saturação. 0,125 é 0,5 ao cubo e esquece a derivada da tanh. Ao longo do tempo os fatores se multiplicam, não se somam. Entradas grandes saturam a tanh e encolhem o gradiente; não o aumentam.'
+  topico: sequencias-embeddings-e-rnn
+- enunciado: 'Uma célula LSTM escalar tem c anterior = 2,0. Neste passo, as portas valem f = 0,5, i = 0,5 e o = 1,0, e o candidato vale g = 1,0. Quanto valem o novo c e o novo h?'
+  opcoes:
+  - c = 1,5 e h = 1,5
+  - c = 1,5 e h = 0,905
+  - c = 0,5 e h = 0,462
+  - c = 2,5 e h = 0,987
+  correta: 1
+  explicacao: 'c = f · c anterior + i · g = 1,0 + 0,5 = 1,5, e h = o · tanh(c) = 0,905. h = 1,5 esquece a tanh na saída. c = 0,5 multiplica as duas parcelas no lugar de somar, e perde o caminho aditivo da célula. c = 2,5 ignora a porta de esquecimento e guarda o c anterior inteiro.'
+  topico: sequencias-embeddings-e-rnn
+- enunciado: 'A função mesclar percorre os ids da esquerda para a direita e não reaproveita um id que acabou de entrar numa mesclagem. Quanto devolve mesclar([97, 97, 97, 98, 97, 97], (97, 97), 256)?'
+  opcoes:
+  - '[256, 256, 98, 256]'
+  - '[97, 256, 98, 256]'
+  - '[256, 97, 98, 97, 97]'
+  - '[256, 97, 98, 256]'
+  correta: 3
+  explicacao: 'Os dois primeiros 97 viram 256; o terceiro 97 sobra, porque o vizinho da esquerda já foi usado e o da direita é 98; o par do fim também vira 256. [256, 256, 98, 256] conta pares sobrepostos nos três 97. [97, 256, 98, 256] percorre da direita para a esquerda. [256, 97, 98, 97, 97] troca só a primeira ocorrência.'
+  topico: atencao-e-transformers
+- enunciado: |-
+    Uma implementação de atenção devolve os pesos abaixo para uma sequência de 2 posições, uma linha por posição que consulta. As linhas somam 0,85 e 1,15; as colunas somam 1.
+
+    [[0.119, 0.731],
+     [0.881, 0.269]]
+
+    Qual é o defeito?
+  opcoes:
+  - 'A softmax foi aplicada no eixo errado: normalizou as colunas, e não cada linha'
+  - Faltou dividir as pontuações pela raiz de d
+  - Faltou a máscara causal
+  - Os valores V não foram multiplicados pelos pesos
+  correta: 0
+  explicacao: 'Cada posição distribui a atenção dela entre as outras: cada linha precisa somar 1. Aqui quem soma 1 são as colunas, sinal de softmax no eixo 0. Sem a escala, as linhas continuam somando 1, só mais concentradas. Sem a máscara, as linhas também somam 1. Os valores V entram depois dos pesos e não mudam as somas.'
+  topico: atencao-e-transformers
+- enunciado: |-
+    A máscara causal foi montada com deslocamento 0 no triu. O que o trecho imprime?
+
+    S = np.zeros((3, 3))
+    S = np.where(np.triu(np.ones((3, 3)), 0) == 1, -np.inf, S)
+    e = np.exp(S - S.max(axis=1, keepdims=True))
+    print(np.round(e / e.sum(axis=1, keepdims=True), 3).tolist())
+  opcoes:
+  - '[[1.0, 0.0, 0.0], [0.5, 0.5, 0.0], [0.333, 0.333, 0.333]]'
+  - '[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.5, 0.5, 0.0]]'
+  - '[[nan, nan, nan], [1.0, 0.0, 0.0], [0.5, 0.5, 0.0]]'
+  - '[[0.333, 0.333, 0.333], [1.0, 0.0, 0.0], [0.5, 0.5, 0.0]]'
+  correta: 2
+  explicacao: 'Com deslocamento 0, a diagonal também é mascarada: nenhuma posição vê a si mesma, e a primeira linha fica toda em -inf. Nela, -inf menos -inf dá nan, e a linha inteira sai nan. A primeira opção é o resultado da máscara correta, com deslocamento 1. Uma linha toda mascarada não vira zeros nem uma distribuição uniforme: a softmax não tem o que normalizar.'
+  topico: atencao-e-transformers
+- enunciado: 'No backward da LayerNorm de um transformer, dY e a entrada normalizada x_norm têm forma (2, 5, 8): lote 2, tempo 5 e d = 8. O parâmetro gamma tem forma (8,). Qual conta dá o dgamma com a forma certa?'
+  opcoes:
+  - dY * x_norm, de forma (2, 5, 8)
+  - (dY * x_norm).sum(axis=(0, 1)), de forma (8,)
+  - (dY * x_norm).sum(axis=0), de forma (5, 8)
+  - (dY * x_norm).sum(), um número só
+  correta: 1
+  explicacao: 'O mesmo gamma é usado em todas as posições do lote e do tempo; o gradiente dele soma as contribuições desses dois eixos e fica com a forma do parâmetro, (8,). Sem somar, a forma (2, 5, 8) não é a de gamma. Somar só no lote deixa um gradiente por posição do tempo. Somar tudo mistura as 8 dimensões, que têm um gamma cada.'
+  topico: atencao-e-transformers
+- enunciado: 'O mini-GPT tem vocabulário de 29 caracteres e treina com lotes de 16 sequências de 16 tokens. Antes de qualquer atualização, a perda impressa é 862,0. Qual é a explicação?'
+  opcoes:
+  - 'A perda foi somada sobre as 256 posições do lote, e não tirada a média: 256 vezes ln 29, que é 3,37, dá 862'
+  - O alvo não foi deslocado de uma posição
+  - A máscara causal está vazando o futuro
+  - A perda foi calculada com logaritmo na base 10
+  correta: 0
+  explicacao: 'Um modelo sem treino dá probabilidade perto de 1 / 29 a cada caractere, e a perda média esperada é ln 29 = 3,37; 862 é esse valor vezes 16 · 16. O alvo não deslocado e a máscara vazando não mudam a perda inicial: aparecem depois, como uma perda de treino que despenca. Com logaritmo na base 10, a perda seria menor, 1,46.'
+  topico: atencao-e-transformers
+- enunciado: 'Os logits do próximo token são [3.0, 1.0]. Quais são as probabilidades com temperatura 2, com os logits divididos pela temperatura antes da softmax?'
+  opcoes:
+  - '[0.881, 0.119]'
+  - '[0.982, 0.018]'
+  - '[0.75, 0.25]'
+  - '[0.731, 0.269]'
+  correta: 3
+  explicacao: 'Os logits viram [1.5, 0.5], e a softmax de uma diferença de 1 dá 0,731 e 0,269: a temperatura acima de 1 achata a distribuição. [0.881, 0.119] é a temperatura 1, e também o que sai de dividir as probabilidades depois da softmax e renormalizar. [0.982, 0.018] multiplica os logits por 2, o efeito da temperatura 0,5. [0.75, 0.25] normaliza os logits direto, sem a exponencial.'
+  topico: atencao-e-transformers
+- enunciado: 'A função top_p ordena as probabilidades da maior para a menor, acumula, mantém os tokens até o primeiro em que o acumulado passa de p (ele incluído), zera os outros e renormaliza. Quanto devolve top_p([0.15, 0.5, 0.05, 0.3], 0.75)?'
+  opcoes:
+  - '[0.0, 1.0, 0.0, 0.0]'
+  - '[0.0, 0.5, 0.0, 0.3]'
+  - '[0.0, 0.625, 0.0, 0.375]'
+  - '[0.15, 0.5, 0.05, 0.3]'
+  correta: 2
+  explicacao: 'Em ordem, o acumulado é 0,5 e depois 0,8, que passa de 0,75: ficam os tokens de 0,5 e 0,3, e a renormalização divide por 0,8. [0.0, 1.0, 0.0, 0.0] corta antes do token que faz o acumulado passar de p. [0.0, 0.5, 0.0, 0.3] esquece de renormalizar e não soma 1. A lista original é o que sai sem ordenar: o acumulado na ordem dada só passa de 0,75 no último token, e nada é cortado.'
+  topico: atencao-e-transformers
+- enunciado: 'Um treino hipotético tem 10^9 parâmetros e 10^10 tokens. O hardware entrega 10^15 FLOP por segundo, com eficiência 0,5. Pela estimativa de custo 6 vezes N vezes D, quanto tempo leva o treino?'
+  opcoes:
+  - Cerca de 8 horas
+  - Cerca de 33 horas
+  - Cerca de 17 horas
+  - Cerca de 11 horas
+  correta: 1
+  explicacao: 'O custo é 6 · 10^9 · 10^10 = 6 · 10^19 FLOP. Com metade da capacidade aproveitada, são 5 · 10^14 FLOP úteis por segundo: 1,2 · 10^5 segundos, ou 33 horas. 8 horas multiplica o tempo pela eficiência, e ela divide a velocidade. 17 horas ignora a eficiência. 11 horas usa 2 no lugar de 6, o custo só do forward.'
+  topico: limites-e-projeto
+- enunciado: 'Um modelo dá probabilidade 0,75 a nomes do estilo majoritário e 0,25 ao outro estilo. Com temperatura 0,5, cada probabilidade é elevada a 1 / 0,5 e o resultado é renormalizado. Que fração o estilo majoritário passa a ter na geração?'
+  opcoes:
+  - 0,75
+  - 0,634
+  - 0,5625
+  - 0,90
+  correta: 3
+  explicacao: 'Os quadrados são 0,5625 e 0,0625, e 0,5625 / 0,625 = 0,90: a temperatura baixa amplia a proporção que já estava nos dados. 0,75 supõe que a temperatura não mexe na proporção. 0,634 é o efeito da temperatura 2, que achata a distribuição. 0,5625 é o quadrado sem renormalizar, e as duas frações deixam de somar 1.'
+  topico: limites-e-projeto
+- enunciado: 'Uma sonda linear treinada nos estados escondidos de um modelo prevê se a frase está no plural com acurácia 0,93, medida em estados separados para teste. Com os rótulos embaralhados, a mesma sonda fica em 0,51. O que esses números sustentam?'
+  opcoes:
+  - O modelo usa a informação de plural para escolher o próximo token
+  - A sonda decorou os estados, e o 0,93 não quer dizer nada
+  - A informação de plural pode ser recuperada dos estados por uma conta linear; se o modelo a usa para gerar, a sonda não diz
+  - Os pesos de atenção do modelo explicam por que ele acerta o plural
+  correta: 2
+  explicacao: 'A sonda mede se a informação está disponível nos estados, e o controle com rótulos embaralhados, perto do acaso, mostra que o 0,93 não vem da capacidade da própria sonda. Disponível não é o mesmo que usada: para afirmar uso, seria preciso intervir nos estados e ver a saída mudar. A hipótese de decorar cai com a medida em estados de teste e com o controle. Os pesos de atenção nem entraram na medida, e mostram para onde a média ponderada olhou, não a causa da saída.'
   topico: limites-e-projeto
