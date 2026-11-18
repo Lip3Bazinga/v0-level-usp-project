@@ -33,10 +33,10 @@ questoes:
   opcoes:
   - '[0.0, 0.0] [3.0, 2.0]'
   - '[0.0, 0.0] [0.0, 0.0]'
-  - '[-6.0, 4.0] [3.0, 2.0]'
+  - '[-6.0, 4.0] [0.0, 4.0]'
   - '[0.0, 0.0] [0.0, 2.0]'
   correta: 0
-  explicacao: 'Sem ativação, as duas camadas são uma só: W1 @ W2 = [[0]], e a saída é 0 para qualquer x. Com a ReLU, cada neurônio escondido deixa passar um lado, e a soma dá o módulo de x. Dois zeros nas duas contas supõe que a ReLU não muda uma composição linear. [-6.0, 4.0] ignora o sinal do peso -1. [0.0, 2.0] conta só o neurônio de peso 1 e perde o que responde às entradas negativas.'
+  explicacao: 'Sem ativação, as duas camadas são uma só: W1 @ W2 = [[0]], e a saída é 0 para qualquer x. Com a ReLU, cada neurônio escondido deixa passar um lado, e a soma dá o módulo de x. Dois zeros nas duas contas supõe que a ReLU não muda uma composição linear. [-6.0, 4.0] [0.0, 4.0] lê o peso -1 como 1 nas duas contas: os dois neurônios ficam iguais, e a ReLU zera a entrada negativa. [0.0, 2.0] conta só o neurônio de peso 1 e perde o que responde às entradas negativas.'
   topico: neuronios-e-perceptron
 - enunciado: |-
     Alguém escreve a sigmoide pela fórmula direta. O numpy só mostra um aviso e segue. O que o trecho imprime?
@@ -165,7 +165,7 @@ questoes:
   correta: 3
   explicacao: 'Com logits iguais, cada probabilidade vale 0,25; subtrai-se 1 na classe certa do exemplo 0, a classe 1, e divide-se por n = 2. [0.25, -0.75, 0.25, 0.25] é o gradiente sem a divisão por n. A lista só com 0.125 não subtraiu o 1 da classe certa. Com -0.375 na primeira posição, o 1 foi subtraído na classe 0, e o rótulo é 1.'
   topico: treinando-redes
-- enunciado: 'A perda de validação por época foi [0.92, 0.61, 0.58, 0.58, 0.63], com as épocas contadas a partir de 0. A função melhor_estado escolhe a menor perda e desempata pela época mais cedo. Qual índice ela devolve?'
+- enunciado: 'A função melhor_estado(historico_val, estados) da lição devolve o par (índice, cópia do estado): escolhe a menor perda de validação e, no empate, fica com a época mais cedo. Com historico_val = [0.92, 0.61, 0.58, 0.58, 0.63] e um estado guardado por época, qual é o índice devolvido?'
   opcoes:
   - '3'
   - '2'
@@ -246,18 +246,24 @@ questoes:
   explicacao: 'Cada gradiente tem a forma daquilo que ele deriva: dW como W, db com um número por neurônio, dX como X. (5, 20) é a transposta, o que dZ.T @ X daria. (8,) soma no eixo dos neurônios e deixa um número por exemplo. (8, 5) é a forma de dZ: faltou voltar por W.T.'
   topico: mlp-em-numpy
 - enunciado: |-
-    A checagem numérica de um MLP de 3 camadas, com 6 exemplos, devolve um par (erro de dW, erro de db) por camada:
+    O trecho mede, pela diferença central, a derivada de uma perda em relação a um peso, perturbando o número no próprio array, como o gradiente_numerico da lição. O que ele imprime?
 
-    [(7.8e-11, 0.714), (4.0e-11, 0.714), (3.3e-11, 0.714)]
-
-    Qual é o defeito?
+    w = np.array([3.0])
+    f = lambda: float((w ** 2).sum())
+    h = 0.5
+    original = w[0]
+    w[0] = original + h
+    mais = f()
+    w[0] = original - h
+    menos = f()
+    print((mais - menos) / (2 * h), w[0])
   opcoes:
-  - O gradiente inteiro foi dividido por n duas vezes
-  - A máscara da ReLU não foi aplicada no backward
-  - 'O db usa a média de dZ no lote, mas dZ já vem dividido por n: só os vieses saem com um fator n a mais na divisão'
-  - O passo h = 1e-5 é grande demais para os vieses
+  - '6.0 3.0'
+  - '6.5 2.5'
+  - '6.0 2.5'
+  - '3.25 2.5'
   correta: 2
-  explicacao: 'O erro (n - 1) / (n + 1) = 5 / 7 = 0,714 é a assinatura de um fator n entre o analítico e o numérico, e aqui ele só aparece nos vieses: os dW estão certos. Se o gradiente inteiro fosse dividido duas vezes, os dW também dariam 0,714. Sem a máscara da ReLU, erram dW e db das primeiras camadas, e a última fica certa. Um h grande demais dá erros perto de 1e-7, não de 0,7.'
+  explicacao: 'A derivada sai certa, (12,25 - 6,25) / 1 = 6, mas o array termina em 2,5: faltou devolver o valor original depois das duas medidas, e o próximo parâmetro seria medido com este fora do lugar. 6.0 3.0 supõe que o valor foi devolvido, e o trecho não tem essa linha. 6.5 é a diferença para a frente, (12,25 - 9) / 0,5, que não usa a medida em w - h. 3.25 divide por 2h a diferença para a frente.'
   topico: mlp-em-numpy
 - enunciado: |-
     A padronização dos dígitos é feita assim, e a perda sai nan já no primeiro passo. Os pixels dos cantos valem 0 em todas as imagens de treino.
@@ -284,14 +290,14 @@ questoes:
   correta: 3
   explicacao: 'A soma dos quadrados de W é 1 + 4 + 4 = 9, e a penalidade é 0,05 · 9 = 0,45. 1,40 esquece o 1 / 2. 2,20 inclui os vieses (9 + 25 = 34), que a L2 da lição não regulariza. 0,65 usa a norma, 3, sem elevar ao quadrado.'
   topico: mlp-em-numpy
-- enunciado: 'Os gradientes de duas camadas são g1 = [3, 4] e g2 = [0, 12]. A função clip_por_norma usa a norma global, com limite 2,6. O que ela devolve?'
+- enunciado: 'A função clip_por_norma(grads, max_norma) da lição recebe uma lista de pares (dW, db), um por camada, e usa a norma global. Em grads = [(dW1, db1), (dW2, db2)], dW1 = [[3.0, 4.0]], dW2 = [[0.0], [12.0]] e os dois db só têm zeros. Quais são os dW devolvidos por clip_por_norma(grads, 2.6)?'
   opcoes:
-  - '[0.6, 0.8] e [0.0, 2.4]'
-  - '[1.56, 2.08] e [0.0, 2.6]'
-  - '[2.6, 2.6] e [0.0, 2.6]'
-  - '[0.23, 0.31] e [0.0, 0.92]'
+  - '[[0.6, 0.8]] e [[0.0], [2.4]]'
+  - '[[1.56, 2.08]] e [[0.0], [2.6]]'
+  - '[[2.6, 2.6]] e [[0.0], [2.6]]'
+  - '[[0.23, 0.31]] e [[0.0], [0.92]]'
   correta: 0
-  explicacao: 'A norma global é a raiz de 9 + 16 + 144, ou 13; todos os gradientes são multiplicados por 2,6 / 13 = 0,2, e a direção não muda. A segunda opção corta cada camada pela própria norma (5 e 12) e muda a proporção entre as camadas. A terceira é o clipping por valor, que muda a direção. A quarta divide pela norma e esquece de multiplicar pelo limite.'
+  explicacao: 'A norma global é a raiz de 9 + 16 + 144, ou 13; todos os gradientes, os db incluídos, são multiplicados por 2,6 / 13 = 0,2, e a direção não muda. A segunda opção corta cada camada pela própria norma (5 e 12) e muda a proporção entre as camadas. A terceira é o clipping por valor, que muda a direção. A quarta divide pela norma e esquece de multiplicar pelo limite.'
   topico: mlp-em-numpy
 - enunciado: 'Uma imagem 28 × 28 passa por uma convolução 5 × 5 (sem padding, stride 1), por um max pooling 2 × 2 e por uma convolução 3 × 3 com padding 1 e stride 2. Qual é o lado do mapa de saída?'
   opcoes:
@@ -376,12 +382,12 @@ questoes:
         fator = fator * w * (1 - h ** 2)
     print(round(float(fator), 4))
   opcoes:
-  - É 0.125, porque só o peso recorrente entra no produto
+  - É igual a 0.125, porque só o peso recorrente entra no produto
   - É 1.5, porque as contribuições dos três passos se somam
   - É maior que 0.125, porque as entradas iguais a 1 reforçam o estado
-  - É 0.0024, bem menor que 0.125, porque cada passo multiplica também por 1 - h ** 2
+  - É bem menor que 0.125, porque cada passo multiplica também por 1 - h ** 2
   correta: 3
-  explicacao: 'A derivada de um passo é o peso vezes a derivada da tanh, 1 - h², que aqui fica bem abaixo de 1 porque o estado está perto da saturação. 0,125 é 0,5 ao cubo e esquece a derivada da tanh. Ao longo do tempo os fatores se multiplicam, não se somam. Entradas grandes saturam a tanh e encolhem o gradiente; não o aumentam.'
+  explicacao: 'A derivada de um passo é o peso vezes a derivada da tanh, 1 - h², que aqui fica bem abaixo de 1 porque o estado está perto da saturação: o valor impresso é 0.0024. 0,125 é 0,5 ao cubo e esquece a derivada da tanh. Ao longo do tempo os fatores se multiplicam, não se somam. Entradas grandes saturam a tanh e encolhem o gradiente; não o aumentam.'
   topico: sequencias-embeddings-e-rnn
 - enunciado: 'Uma célula LSTM escalar tem c anterior = 2,0. Neste passo, as portas valem f = 0,5, i = 0,5 e o = 1,0, e o candidato vale g = 1,0. Quanto valem o novo c e o novo h?'
   opcoes:
