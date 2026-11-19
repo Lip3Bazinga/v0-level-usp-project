@@ -48,3 +48,13 @@ export { isOneOf } from "./guards"
 export { diffChangedFields } from "./object-diff"
 export { moveItem, removeChoiceAt, type MoveDirection } from "./list-editing"
 export { PASSWORD_MIN_LENGTH, getPasswordPolicyError } from "./password"
+export {
+  PREVIEW_WIDTH_MIN,
+  PREVIEW_WIDTH_MAX,
+  PREVIEW_WIDTH_DEFAULT,
+  clampPreviewWidth,
+  readPreviewHidden,
+  writePreviewHidden,
+  readPreviewWidth,
+  writePreviewWidth,
+} from "./preview-layout"
