@@ -32,6 +32,6 @@ tags:
 - clustering
 horas: 41
 ordem: 5
-publicado: false
+publicado: true
 prerequisito: n4-analise-de-dados
 sequencial: false

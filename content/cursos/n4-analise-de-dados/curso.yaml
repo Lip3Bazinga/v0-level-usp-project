@@ -31,6 +31,6 @@ tags:
 - visualização
 horas: 35
 ordem: 4
-publicado: false
+publicado: true
 prerequisito: n3-estruturas-de-dados-e-algoritmos
 sequencial: false

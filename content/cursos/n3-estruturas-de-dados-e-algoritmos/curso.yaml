@@ -30,6 +30,6 @@ tags:
 - matemática discreta
 horas: 44
 ordem: 3
-publicado: false
+publicado: true
 prerequisito: n2-python-intermediario
 sequencial: false
