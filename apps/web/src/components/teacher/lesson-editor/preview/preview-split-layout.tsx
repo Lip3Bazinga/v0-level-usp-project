@@ -136,7 +136,7 @@ export function PreviewSplitLayout({ editor, preview }: PreviewSplitLayoutProps)
             <section
               id={previewId}
               aria-label="Prévia da aula"
-              className="sticky top-4 max-h-[calc(100vh-2rem)] min-w-0 flex-1 overflow-y-auto rounded-2xl border-2 border-border bg-white p-4"
+              className="sticky top-[7.5rem] h-[calc(100vh-8.5rem)] min-w-0 flex-1 overflow-hidden rounded-2xl border-2 border-border bg-white"
             >
               {preview}
             </section>
@@ -166,7 +166,7 @@ function FullscreenPreview({ onClose, children }: FullscreenPreviewProps): React
         </button>
         <h2 id={titleId} className="text-base font-semibold text-level-purple-dark">Prévia da aula</h2>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>
+      <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
     </div>
   )
 }

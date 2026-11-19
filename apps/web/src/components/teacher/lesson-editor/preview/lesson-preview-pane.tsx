@@ -160,7 +160,7 @@ function GuidedPreview({ form, activeStepIndex, lessonId }: LessonPreviewPanePro
     setProgressByStep((current) => ({ ...current, [step.id]: mergeStepProgress(current[step.id], step.id, patch) }))
 
   return (
-    <section aria-label="Prévia da lição" className="flex h-full min-h-0 flex-col bg-white">
+    <section aria-label="Prévia da lição" className="@container flex h-full min-h-0 flex-col bg-white">
       <PreviewHeader title={form.title} detail={`Passo ${stepIndex + 1} de ${steps.length}`} />
       <div role="status" aria-label="Avisos de conteúdo">
         {allWarnings.length > 0 && (
@@ -169,7 +169,7 @@ function GuidedPreview({ form, activeStepIndex, lessonId }: LessonPreviewPanePro
           </ul>
         )}
       </div>
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col @5xl:flex-row">
         <StepSidebar steps={steps} states={states} onSelect={setChosenIndex} />
         <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           <StepBackendProvider backend={backend}>

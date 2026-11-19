@@ -205,8 +205,8 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-      <section aria-label="Enunciado do passo" className="overflow-y-auto border-b border-border p-6 lg:w-2/5 lg:border-b-0 lg:border-r">
+    <div className="flex min-h-0 flex-1 flex-col @5xl:flex-row">
+      <section aria-label="Enunciado do passo" className="overflow-y-auto border-b border-border p-6 @5xl:w-2/5 @5xl:border-b-0 @5xl:border-r">
         <h2 className="mb-4 text-xl font-bold text-level-purple-dark">{step.title}</h2>
         <StepMarkdown content={step.narrative_markdown} />
 
@@ -284,7 +284,7 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
         <SolutionCountdown progress={progress} solutionAfterAttempts={lesson.solution_after_attempts} />
       </section>
 
-      <section aria-label={WORKSPACE_LABELS[mode]} className="flex min-h-[28rem] flex-1 flex-col lg:min-h-0">
+      <section aria-label={WORKSPACE_LABELS[mode]} className="flex min-h-[28rem] flex-1 flex-col @5xl:min-h-0">
         {trace.state.status === "ready" ? (
           <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50 p-3">
             <ExecutionVisualizer code={trace.state.code} trace={trace.state.trace} onClose={trace.close} />

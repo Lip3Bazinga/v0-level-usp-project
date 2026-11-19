@@ -18,13 +18,13 @@ interface StepSidebarProps {
 /** Lista dos passos da lição com a situação de cada um; passos travados não são clicáveis. */
 export function StepSidebar({ steps, states, onSelect }: StepSidebarProps): React.JSX.Element {
   return (
-    <nav aria-label="Passos da lição" className="shrink-0 border-b border-border bg-gray-50 lg:w-64 lg:border-b-0 lg:border-r">
-      <ol className="flex gap-1 overflow-x-auto p-2 lg:flex-col lg:overflow-visible lg:p-3">
+    <nav aria-label="Passos da lição" className="shrink-0 border-b border-border bg-gray-50 @5xl:w-64 @5xl:border-b-0 @5xl:border-r">
+      <ol className="flex gap-1 overflow-x-auto p-2 @5xl:flex-col @5xl:overflow-visible @5xl:p-3">
         {steps.map((step, index) => {
           const state = states[index] ?? "locked"
           const Icon = state === "completed" ? CheckCircle2 : state === "locked" ? Lock : KIND_ICONS[step.kind]
           return (
-            <li key={step.id} className="shrink-0 lg:shrink">
+            <li key={step.id} className="shrink-0 @5xl:shrink">
               <button
                 type="button"
                 onClick={() => onSelect(index)}
@@ -40,7 +40,7 @@ export function StepSidebar({ steps, states, onSelect }: StepSidebarProps): Reac
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className="max-w-40 truncate lg:max-w-none">
+                <span className="max-w-40 truncate @5xl:max-w-none">
                   <span className="font-semibold">{step.order}.</span> {step.title}
                 </span>
               </button>
