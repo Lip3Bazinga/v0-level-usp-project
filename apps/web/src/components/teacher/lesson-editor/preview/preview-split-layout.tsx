@@ -94,7 +94,7 @@ export function PreviewSplitLayout({ editor, preview }: PreviewSplitLayoutProps)
     <div>
       <div className="mb-3 flex justify-end">
         {isSideBySide ? (
-          <button type="button" onClick={toggleHidden} aria-controls={previewId} aria-expanded={!isHidden} className={ADD_BUTTON_CLASS}>
+          <button type="button" onClick={toggleHidden} aria-controls={isHidden ? undefined : previewId} aria-expanded={!isHidden} className={ADD_BUTTON_CLASS}>
             {isHidden ? <Eye className="h-4 w-4" aria-hidden="true" /> : <EyeOff className="h-4 w-4" aria-hidden="true" />}
             {isHidden ? "Mostrar prévia" : "Esconder prévia"}
           </button>
