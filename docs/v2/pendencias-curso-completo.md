@@ -365,6 +365,23 @@ Estado em 2026-11-16:
 - **Nível 6 concluído (2026-11-17):** 36 lições em 8 módulos e a prova de 40 questões escritas, verificadas e publicadas, tudo em numpy no perfil `dados` (sem PyTorch); `curso.yaml` com `publicado: true`.
   Divergências do `PLANO.md` medidas no executor: corpus com 62 879 caracteres e validação 0,56 no mini-GPT (m7-05); CNN e MLP empatam em robustez a deslocamento (m5-03); o projeto usa pesos próprios (`pesos_projeto.txt`).
   A rever: o corretor executa o `if __name__ == "__main__":` em cada caso (m2-02, m5-03, m6-02, m6-03 pagam esse custo); a lição do projeto tem 384 mil caracteres; com dois verifies ao mesmo tempo, um pedido pode estourar os 120 s.
-- Próximos: bateria completa (`content:build`, lint, testes, verify dos níveis 4 a 6) e um único PR para `develop`.
+- **Fase A concluída (2026-11-19), fechamento da branch:**
+  - Os 7 níveis estão com `publicado: true`. `content:verify` do curso inteiro aprovado no N4 (95 passos, 35 previsões)
+    e no N5 (110 passos, 40 previsões); N3 e N7 já tinham o registro. No verify do curso, 2 lições do N4 e 4 do N5
+    estouraram os 120 s do pedido no arranque da fila e passaram rodadas sozinhas com `--licao`.
+  - Prova do N6 revisada (Q2, Q12, Q18, Q21, Q29), correta 10 vezes em cada posição.
+  - Pacote `packages/db/seed/trilha-python-ia.json`: 19 500 829 bytes com os 7 níveis, dentro do limite de 20 MB
+    (20 971 520 bytes) do `POST /admin/content/import`; nada foi mudado na importação. Folga de 7 %: o mesmo pacote
+    minificado tem 14,0 MB e, em gzip, 3,0 MB. Se crescer, a saída mais barata é enviar o JSON minificado; o `json()` do
+    Express aplica o limite ao corpo já descompactado, então gzip sozinho não resolve.
+  - Bateria: build, lint (0 avisos), typecheck, unitários (API 321, web 374, contratos 43, db 11, carga 22), API
+    `test:e2e` 148, `test:security` 111, `test:attacks` 40 (executor real); runner `test` 62 e `test:attacks` 73 com Pyodide.
+  - Consertos da bateria: o e2e da importação esperava só o N1 publicado (agora lê os publicados do pacote); o contrato
+    passou a aceitar `recursion` em `not_uses`, que o domínio e o teste já tratavam (o `typecheck` estava quebrado).
+  - Ambiente local: no Windows não há Wasmtime nem Pyodide; os testes do runner rodam na imagem `levelusp-runner-test`
+    (estágio de build do `runner.Dockerfile`) com `PYODIDE_DIR=/opt/levelusp-pyodide`, `PYTHON_WASI_DIR=/opt/levelusp-python`
+    e `apps/runner/{src,test,python}` montados. Pare o `levelusp-dev-runner-1` antes, por causa da memória.
+  - Dívidas da Fase C (`__main__` em cada caso e piso de ~4 s por lote) registradas em `divida-tecnica.md`.
+- Próximos: merge do PR `feat/niveis-2-a-7` → `develop` (Filipe, merge commit) e Fase B.
 
 Um nível por sessão: escrever o `PLANO.md` do nível a partir dos roteiros, escrever as lições, provas com 40 questões, `content:verify` (níveis 4–6 usam `runtime: python-dados`; precisa do Pyodide no runner: `pnpm --filter @levelusp/runner setup:pyodide`), publicar.

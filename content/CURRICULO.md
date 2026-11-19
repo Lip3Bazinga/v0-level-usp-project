@@ -15,9 +15,9 @@ Os arquivos de conteúdo vivem em `content/` (formato em `docs/v2/curso-e-passos
 visualização verificados no executor real (`pnpm content:verify --curso n1-fundamentos`). O Nível 2
 está publicado e completo (estado em 2026-11-15): 35 lições (2 projetos de nível) com 263 passos — 113
 exercícios e 34 previsões e blocos de visualização verificados — e prova com 40 questões
-(`content/cursos/n2-python-intermediario/PLANO.md`). Os Níveis 3 a 7 têm a estrutura completa (módulos,
-lições com objetivos e roteiro, provas iniciais) e ficam despublicados até o conteúdo de cada lição ser
-escrito e verificado, um nível por vez.
+(`content/cursos/n2-python-intermediario/PLANO.md`). Os Níveis 3 a 7 também estão
+escritos, verificados no executor real (`content:verify` do curso inteiro) e publicados (estado em
+2026-11-19): a trilha tem os 7 níveis publicados, 253 lições e 1878 passos, com prova de 40 questões por nível.
 
 ## Tabela de níveis
 
