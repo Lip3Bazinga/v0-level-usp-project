@@ -1,9 +1,9 @@
 import { useState } from "react"
 import { fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { beforeEach, describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { isParsonsSolutionOrder, type LessonStepInput } from "@levelusp/contracts"
-import { validateSteps } from "./steps-form"
+import { createStep, validateSteps } from "./steps-form"
 import { StepsTab } from "./steps-tab"
 
 let latest: LessonStepInput[] = []
@@ -80,5 +80,40 @@ describe("aba Passos do editor do professor", () => {
 
     await userEvent.selectOptions(screen.getByLabelText("Como o aluno responde"), "codigo")
     expect(latest[0]?.parsons_lines).toEqual([])
+  })
+
+  it("sem openIndex abre um passo por vez sozinho e avisa onOpenIndexChange", async () => {
+    const onOpenIndexChange = vi.fn()
+    const steps = [createStep("leitura", 1), createStep("quiz", 2)]
+    render(<StepsTab steps={steps} onChange={() => undefined} onOpenIndexChange={onOpenIndexChange} />)
+    expect(screen.getAllByRole("button", { expanded: true })).toHaveLength(1)
+    expect(screen.getByRole("button", { name: /^1\. / })).toHaveAttribute("aria-expanded", "true")
+
+    await userEvent.click(screen.getByRole("button", { name: /^2\. / }))
+    expect(onOpenIndexChange).toHaveBeenCalledWith(1)
+    expect(screen.getByRole("button", { name: /^2\. / })).toHaveAttribute("aria-expanded", "true")
+    expect(screen.getByRole("button", { name: /^1\. / })).toHaveAttribute("aria-expanded", "false")
+  })
+
+  it("controlado: o passo aberto vem de openIndex e o clique só avisa a tela", async () => {
+    const onOpenIndexChange = vi.fn()
+    const steps = [createStep("leitura", 1), createStep("quiz", 2)]
+    const { rerender } = render(<StepsTab steps={steps} onChange={() => undefined} openIndex={1} onOpenIndexChange={onOpenIndexChange} />)
+    expect(screen.getByRole("button", { name: /^2\. / })).toHaveAttribute("aria-expanded", "true")
+
+    await userEvent.click(screen.getByRole("button", { name: /^1\. / }))
+    expect(onOpenIndexChange).toHaveBeenCalledWith(0)
+    // A tela não atualizou openIndex: continua aberto o passo 2.
+    expect(screen.getByRole("button", { name: /^2\. / })).toHaveAttribute("aria-expanded", "true")
+
+    rerender(<StepsTab steps={steps} onChange={() => undefined} openIndex={0} onOpenIndexChange={onOpenIndexChange} />)
+    expect(screen.getByRole("button", { name: /^1\. / })).toHaveAttribute("aria-expanded", "true")
+  })
+
+  it("adicionar um passo avisa o índice do novo passo", async () => {
+    const onOpenIndexChange = vi.fn()
+    render(<StepsTab steps={[createStep("leitura", 1)]} onChange={() => undefined} onOpenIndexChange={onOpenIndexChange} />)
+    await userEvent.click(screen.getByRole("button", { name: "Quiz" }))
+    expect(onOpenIndexChange).toHaveBeenCalledWith(1)
   })
 })
