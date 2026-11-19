@@ -20,6 +20,7 @@
     "content:build": "pnpm --filter @levelusp/api content:build",
     "content:check": "pnpm --filter @levelusp/api content:check",
     "content:verify": "pnpm --filter @levelusp/api content:verify",
+    "content:metrics": "pnpm --filter @levelusp/api content:metrics",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

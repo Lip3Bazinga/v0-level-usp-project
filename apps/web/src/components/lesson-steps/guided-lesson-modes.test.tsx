@@ -373,7 +373,7 @@ describe("player: Visualizar no exercício de código", () => {
     await userEvent.clear(editor)
     await userEvent.type(editor, "total = 5")
     await userEvent.click(screen.getByRole("button", { name: "Visualizar" }))
-    expect(requestTrace).toHaveBeenCalledWith({ files: [{ path: "main.py", content: "total = 5" }], entryPath: "main.py", stdin: "" })
+    expect(requestTrace).toHaveBeenCalledWith({ files: [{ path: "main.py", content: "total = 5" }], entryPath: "main.py", stdin: "", packages: [] })
     expect(await screen.findByRole("group", { name: /Visualizador de execução/ })).toBeInTheDocument()
     expect(screen.queryByLabelText("Editor de código")).toBeNull()
     expect(api.submitStep).not.toHaveBeenCalled()
@@ -403,7 +403,7 @@ describe("player: campo Entrada (stdin)", () => {
     await userEvent.type(stdinField(), "Ana{Enter}20")
     expect(stdinToggle()).toHaveTextContent("2 linhas")
     await userEvent.click(screen.getByRole("button", { name: "Visualizar" }))
-    expect(requestTrace).toHaveBeenCalledWith({ files: [{ path: "main.py", content: INPUT_CODE }], entryPath: "main.py", stdin: "Ana\n20" })
+    expect(requestTrace).toHaveBeenCalledWith({ files: [{ path: "main.py", content: INPUT_CODE }], entryPath: "main.py", stdin: "Ana\n20", packages: [] })
   })
 
   it("código: fica fechado sem input(), abre quando o aluno escreve input() e pode ser fechado à mão", async () => {

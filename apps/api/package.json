@@ -17,6 +17,7 @@
     "content:build": "tsx scripts/content-build.mts",
     "content:check": "tsx scripts/content-check.mts",
     "content:verify": "tsx scripts/content-verify.mts",
+    "content:metrics": "tsx scripts/content-metrics.mts",
     "test:attacks": "vitest run --config test/security/vitest.grading.config.mts",
     "mail:test": "tsx src/cli/mail-test.ts"
   },

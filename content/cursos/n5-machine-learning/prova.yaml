@@ -1,115 +1,523 @@
 titulo: Prova do Nível 5 — Machine Learning
-descricao: 'Banco inicial de 12 questões (10 sorteadas por tentativa) sobre matemática para ML, regressão, classificação, scikit-learn, validação, árvores e ensembles, aprendizado não supervisionado e boas práticas. Nota mínima: 70 %.'
+descricao: 'Banco de 40 questões (10 sorteadas por tentativa) sobre matemática para ML, regressão linear do zero, classificação, scikit-learn na prática, árvores e ensembles, SVM e aprendizado não supervisionado, boas práticas e o projeto de previsão de inadimplência, na proporção das lições de cada módulo. A maioria pede para prever a saída de um trecho, achar o defeito de um fluxo, escolher a ação certa diante de um diagnóstico ou interpretar uma métrica. Nota mínima: 70 %.'
 nota_minima: 70
 tempo_min: 45
 intervalo_min: 60
 questoes_por_tentativa: 10
 questoes:
-- enunciado: 'O gradiente de uma função em um ponto aponta na direção de:'
+- enunciado: |
+    Para achar os clientes mais parecidos com x, um colega calcula as distâncias assim. O que o trecho imprime?
+
+    X = np.array([[0, 0], [3, 4], [6, 8]])
+    x = np.array([0, 0])
+    print(np.round(np.linalg.norm(X - x, axis=1), 2).tolist())
+    print(round(float(np.linalg.norm(X - x)), 2))
   opcoes:
-  - Menor crescimento da função
-  - Maior crescimento da função
-  - Sempre para a origem
-  - O mínimo global
-  correta: 1
-  explicacao: Por isso o gradiente descendente anda no sentido oposto ao gradiente.
+  - '[0.0, 5.0, 10.0] e depois 11.18'
+  - '[6.71, 8.94] e depois 11.18'
+  - '[0.0, 5.0, 10.0] e depois [0.0, 5.0, 10.0]'
+  - '[0.0, 25.0, 100.0] e depois 125.0'
+  correta: 0
+  explicacao: 'Com axis=1, a norma é calculada ao longo de cada linha: uma distância por cliente, 0, 5 (raiz de 9 + 16) e 10. Sem axis, o numpy trata a matriz inteira como um vetor só e devolve um número, a raiz de 125 = 11.18, que não é a distância de ninguém. [6.71, 8.94] é axis=0, uma norma por coluna; [0.0, 25.0, 100.0] esquece a raiz (são as distâncias ao quadrado).'
   topico: matematica-para-ml
-- enunciado: 'Se a curva de custo do gradiente descendente sobe e oscila, a causa mais provável é:'
+- enunciado: 'O custo f(w) = (w1 − 2)² + 3·w2² está no ponto w = (0, 1). Qual é o novo ponto depois de um passo de gradiente descendente com taxa 0,1?'
   opcoes:
-  - Taxa de aprendizado alta demais
-  - Poucos dados
-  - Custo não convexo
-  - Épocas demais
-  correta: 0
-  explicacao: Passos grandes demais 'pulam' o vale e divergem; reduza a taxa.
-  topico: regressao-linear-do-zero
-- enunciado: Qual regularização pode zerar coeficientes exatamente, servindo como seleção de atributos?
-  opcoes:
-  - Ridge (L2)
-  - Lasso (L1)
-  - Nenhuma
-  - As duas igualmente
-  correta: 1
-  explicacao: A penalidade L1 tem 'quinas' que levam coeficientes a exatamente zero; a L2 só os encolhe.
-  topico: regressao-linear-do-zero
-- enunciado: 'Em um problema com 1 % de positivos, um modelo que prevê sempre ''negativo'' tem acurácia de:'
-  opcoes:
-  - 1 %
-  - 50 %
-  - 99 %
-  - 0 %
+  - '(−0,4; 1,6)'
+  - '(0,2; 0,7)'
+  - '(0,4; 0,4)'
+  - '(−0,4; 0,4)'
   correta: 2
-  explicacao: 'Por isso acurácia engana em classes desbalanceadas: use precisão, recall, F1 ou PR-AUC.'
-  topico: classificacao
-- enunciado: Qual métrica prioriza não deixar passar casos positivos (por exemplo, fraudes)?
+  explicacao: 'O gradiente é (2·(w1 − 2), 6·w2) = (−4, 6) em (0, 1), e o passo anda no sentido oposto: (0, 1) − 0,1·(−4, 6) = (0,4; 0,4). (−0,4; 1,6) soma o gradiente e sobe o custo. (0,2; 0,7) esquece o fator 2 que vem da derivada do quadrado. (−0,4; 0,4) troca o sinal dentro do parêntese, derivando (w1 + 2)².'
+  topico: matematica-para-ml
+- enunciado: 'Um neurônio simples calcula p = σ(w·x), com a sigmoide σ(z) = 1 / (1 + e^(−z)). Com x = 2 e w = 0, quanto vale a derivada de p em relação a w?'
   opcoes:
-  - Precisão
-  - Recall
-  - Acurácia
-  - Especificidade
+  - '0,25'
+  - '0,5'
+  - '1,0'
+  - '2'
   correta: 1
-  explicacao: Recall = positivos encontrados / positivos existentes; mede o quanto o modelo deixa escapar.
-  topico: classificacao
-- enunciado: Qual é a sequência correta de uso de um `StandardScaler`?
+  explicacao: 'Pela regra da cadeia, dp/dw = σ''(z) · dz/dw, com z = w·x. A derivada da sigmoide é σ(z)·(1 − σ(z)), que vale 0,5 · 0,5 = 0,25 em z = 0, e dz/dw = x = 2: o produto dá 0,5. 0,25 esquece a derivada de dentro; 1,0 multiplica o valor da sigmoide (e não a derivada dela) por x; 2 fica só com a derivada de dentro.'
+  topico: matematica-para-ml
+- enunciado: |
+    Um colega guarda o histórico de uma descida do gradiente em f(x) = x², com taxa 0,25. O que o trecho imprime?
+
+    x = np.array([1.0])
+    historico = [x]
+    for _ in range(3):
+        x -= 0.25 * 2 * x
+        historico.append(x)
+    print([float(h[0]) for h in historico])
   opcoes:
-  - fit_transform no treino e transform no teste
-  - fit_transform no teste e transform no treino
-  - fit no conjunto inteiro e transform nos dois
-  - transform sem fit
+  - '[1.0, 0.5, 0.25, 0.125]'
+  - '[0.125, 0.125, 0.125, 0.125]'
+  - '[1.0, 1.0, 1.0, 1.0]'
+  - '[0.5, 0.25, 0.125, 0.0625]'
+  correta: 1
+  explicacao: 'O x -= ... altera o próprio array, sem criar outro: as quatro entradas da lista apontam para o mesmo objeto, que termina valendo 0,125 depois dos três passos (cada passo multiplica x por 0,5). [1.0, 0.5, 0.25, 0.125] é o histórico que se queria; ele sai com x = x - 0.25 * 2 * x, que cria um array novo, ou com historico.append(x.copy()). [0.5, 0.25, ...] esquece o ponto inicial e ainda assim ignora o efeito da alteração no lugar.'
+  topico: matematica-para-ml
+- enunciado: |
+    Uma moeda deu 6 caras (1) em 8 lançamentos. Para achar o p de máxima verossimilhança, um colega escreveu:
+
+    y = np.array([1, 0, 1, 1, 0, 1, 1, 1])
+    grade = np.linspace(0.01, 0.99, 99)
+    ll = np.array([np.sum(y * np.log(p) + (1 - y) * np.log(1 - p)) for p in grade])
+    print(round(float(grade[np.argmin(ll)]), 2))
+
+    O que o trecho imprime?
+  opcoes:
+  - '0.75'
+  - '0.25'
+  - '0.99'
+  - '0.01'
+  correta: 3
+  explicacao: 'll é a log-verossimilhança, que se maximiza: o argmin aponta para o p que pior explica os dados. Com 6 caras, p = 0,01 dá ll ≈ −27,6, o menor da grade, e o trecho imprime 0.01. Com np.argmax sairia 0.75, a proporção de caras (o estimador de máxima verossimilhança da Bernoulli é a média). 0.25 seria o argmax com os logaritmos trocados; 0.99 tem ll ≈ −9,3, ruim, mas não o pior.'
+  topico: matematica-para-ml
+- enunciado: |
+    Quanto vale o MSE da reta abaixo nesses três exemplos?
+
+    X = np.array([[1.0], [2.0], [3.0]])
+    y = np.array([3.0, 5.0, 7.0])
+    w = np.array([1.0])
+    b = 0.0
+  opcoes:
+  - '29,0'
+  - '9,0'
+  - 'cerca de 9,67'
+  - 'cerca de 3,11'
+  correta: 2
+  explicacao: 'As previsões X @ w + b são [1, 2, 3], os erros são −2, −3 e −4, e o MSE é a média dos quadrados: (4 + 9 + 16) / 3 ≈ 9,67. 29,0 é a soma dos quadrados, sem dividir por n; 9,0 é o quadrado da média dos erros, (−3)², em que erros de sinais opostos se cancelariam; 3,11 é a raiz do MSE, o RMSE.'
+  topico: regressao-linear-do-zero
+- enunciado: |
+    O treino por mini-lotes de um colega tem este começo de laço:
+
+    for epoca in range(epocas):
+        rng = np.random.default_rng(semente)
+        ordem = rng.permutation(n)
+        for inicio in range(0, n, tamanho_lote):
+            lote = ordem[inicio:inicio + tamanho_lote]
+            ...
+
+    O que acontece?
+  opcoes:
+  - 'Toda época percorre os exemplos na mesma ordem, porque o gerador recomeça da semente; ele deve ser criado uma vez, antes do laço de épocas'
+  - 'Nada de errado: cada época chama permutation de novo, e cada chamada sorteia uma ordem nova, como pede o treino por mini-lotes'
+  - 'Os treinos com sementes diferentes passam a dar os mesmos pesos, porque o gerador recriado ignora a semente recebida'
+  - 'O código levanta erro ao criar um segundo gerador com a mesma semente'
   correta: 0
-  explicacao: As estatísticas (média e desvio) devem vir só do treino; usar o teste é vazamento.
-  topico: scikit-learn-na-pratica
-- enunciado: Para que serve a validação cruzada k-fold?
+  explicacao: 'default_rng(semente) recriado a cada época volta ao mesmo estado, e o primeiro permutation(n) é sempre o mesmo: a primeira época sai certa, mas as seguintes repetem os mesmos lotes na mesma ordem. Criado uma vez antes das épocas, o gerador avança e cada época tem uma ordem nova, reproduzível pela semente. Sementes diferentes continuam dando treinos diferentes (o que dá pesos iguais é não sortear nada, como np.arange(n)), e recriar o gerador não é erro.'
+  topico: regressao-linear-do-zero
+- enunciado: 'Num treino em lote de uma regressão linear com duas colunas, área em m² (de 40 a 200) e distância ao centro em metros (de 500 a 20 000), a taxa 0,01 faz o custo virar inf e depois nan; com a taxa 1e-7, o custo ainda cai devagar depois de 5 000 épocas. O que fazer?'
   opcoes:
-  - Treinar mais rápido
-  - Estimar o desempenho com menos variância usando várias divisões treino/validação
-  - Substituir o conjunto de teste
-  - Aumentar a quantidade de dados
-  correta: 1
-  explicacao: Cada fold serve de validação uma vez; a média e o desvio das pontuações são a estimativa.
-  topico: scikit-learn-na-pratica
-- enunciado: 'Erro de treino baixo e erro de validação alto indicam:'
+  - 'Procurar com mais cuidado uma taxa entre 1e-7 e 0,01 que sirva para as duas colunas ao mesmo tempo'
+  - 'Manter a taxa 1e-7 e treinar por 500 000 épocas, já que o custo continua caindo'
+  - 'Trocar o MSE pelo MAE, cujo gradiente tem tamanho limitado e por isso não diverge'
+  - 'Padronizar as colunas com a média e o desvio do treino e treinar de novo com uma taxa como 0,1'
+  correta: 3
+  explicacao: 'Com escalas tão diferentes, o custo é um vale muito alongado: a taxa que não diverge na direção da distância é minúscula na direção da área, e nenhuma taxa única serve às duas. Padronizadas, as duas direções ficam parecidas e o gradiente converge em algumas dezenas de épocas. Mais épocas com a taxa minúscula só adiam o problema; o MAE não muda a geometria do vale, que vem da escala das colunas.'
+  topico: regressao-linear-do-zero
+- enunciado: 'Com X de forma (100, 2), y de forma (100,) e Xb = np.column_stack([np.ones(100), X]), qual linha devolve [b, w1, w2] pela equação normal?'
   opcoes:
-  - Viés alto (subajuste)
-  - Variância alta (sobreajuste)
-  - Dados perfeitos
-  - Taxa de aprendizado baixa
+  - 'np.linalg.solve(Xb, y)'
+  - 'np.linalg.solve(Xb.T @ Xb, Xb.T @ y)'
+  - 'np.linalg.solve(Xb @ Xb.T, Xb.T @ y)'
+  - 'np.linalg.solve(X.T @ X, X.T @ y)'
   correta: 1
-  explicacao: O modelo decorou o treino; regularizar, simplificar ou obter mais dados ajuda.
-  topico: scikit-learn-na-pratica
-- enunciado: O que a floresta aleatória faz para que suas árvores sejam diferentes entre si?
+  explicacao: 'A equação normal é (XbᵀXb) w = Xbᵀy: uma matriz 3 × 3 e um vetor de 3 posições, com o intercepto na coluna de uns. solve(Xb, y) recebe uma matriz 100 × 3 e levanta LinAlgError: Last 2 dimensions of the array must be square. Xb @ Xb.T é 100 × 100 e não combina com o vetor de 3 posições (ValueError: solve1 ... mismatch in its core dimension). Sem a coluna de uns, o solve roda, mas força b = 0 e devolve só dois coeficientes.'
+  topico: regressao-linear-do-zero
+- enunciado: 'Um modelo de tempo de entrega usa duas colunas igualmente úteis: a distância até a loja em km (de 1 a 20) e a distância até o depósito em metros (de 1 000 a 20 000). Sem padronizar, Lasso(alpha=1.0) dá coef_ ≈ [2.97, 0.003]. O que acontece quando o alpha aumenta?'
   opcoes:
-  - Usa o mesmo conjunto em todas
-  - Bootstrap das linhas e subamostragem de atributos a cada divisão
-  - Limita a profundidade a 1
-  - Muda só o critério de impureza
+  - 'O coeficiente da distância em metros zera primeiro, porque já é o menor e a penalidade o alcança antes'
+  - 'Os dois encolhem na mesma proporção, porque as duas colunas são igualmente úteis para prever o tempo'
+  - 'O coeficiente da distância em km zera primeiro (com alpha=100 ele já é 0.0) e o da distância em metros quase não muda'
+  - 'Nenhum zera: só o Ridge leva coeficientes a exatamente zero; o lasso apenas os encolhe'
+  correta: 2
+  explicacao: 'A penalidade L1 cobra o tamanho de cada peso, e o tamanho depende da unidade: a coluna em km precisa de um peso mil vezes maior que a em metros para o mesmo efeito, e é esse peso que o lasso corta. Medido nesses dados: alpha=100 dá [0.0, 0.00285], e o modelo fica só com a coluna em metros. Por isso se padroniza antes do lasso. Quem zera coeficientes é o lasso; o ridge só encolhe.'
+  topico: regressao-linear-do-zero
+- enunciado: |
+    Uma logística do zero tem w = [2.0] e b = -1.0. O que o trecho imprime?
+
+    X = np.array([[0.4], [0.6], [0.7], [1.0]])
+    z = X @ w + b
+    print((z > 0.5).astype(int).tolist())
+    print((1 / (1 + np.exp(-z)) > 0.5).astype(int).tolist())
+  opcoes:
+  - '[0, 1, 1, 1] e depois [0, 1, 1, 1]'
+  - '[0, 0, 0, 1] e depois [0, 0, 0, 1]'
+  - '[0, 1, 1, 1] e depois [0, 0, 0, 1]'
+  - '[0, 0, 0, 1] e depois [0, 1, 1, 1]'
+  correta: 3
+  explicacao: 'Os logitos são z = [−0,2; 0,2; 0,4; 1,0]. A probabilidade σ(z) passa de 0,5 exatamente quando z passa de 0, e a segunda linha marca [0, 1, 1, 1]. A primeira compara o logito com 0,5, o que equivale a exigir probabilidade acima de σ(0,5) ≈ 0,62: só o último exemplo passa. Ou se compara a probabilidade com 0,5, ou o logito com 0; misturar os dois desloca a fronteira em silêncio.'
+  topico: classificacao
+- enunciado: |
+    O que o trecho imprime?
+
+    y      = [1, 1, 1, 0, 0, 0, 0, 0, 1, 0]
+    y_pred = [1, 0, 1, 1, 0, 0, 0, 0, 0, 0]
+    print(confusion_matrix(y, y_pred).tolist())
+    print(round(precision_score(y, y_pred), 2), recall_score(y, y_pred))
+  opcoes:
+  - '[[5, 2], [1, 2]], depois 0.5 0.67'
+  - '[[5, 1], [2, 2]], depois 0.67 0.5'
+  - '[[2, 2], [1, 5]], depois 0.67 0.5'
+  - '[[5, 1], [2, 2]], depois 0.5 0.67'
   correta: 1
-  explicacao: A diversidade entre árvores é o que faz a média reduzir a variância.
+  explicacao: 'O confusion_matrix põe a classe real nas linhas e a prevista nas colunas, na ordem 0, 1: [[VN, FP], [FN, VP]] = [[5, 1], [2, 2]]. Precisão = VP / (VP + FP) = 2/3 ≈ 0,67 (das 3 marcações, 2 certas); recall = VP / (VP + FN) = 2/4 = 0,5 (dos 4 positivos, 2 encontrados). [[5, 2], [1, 2]] é a matriz transposta; [[2, 2], [1, 5]] põe o positivo primeiro; a última alternativa troca precisão e recall.'
+  topico: classificacao
+- enunciado: 'Um modelo de triagem de chamados urgentes tem precisão 0,9 e recall 0,1 na validação. O relatório da equipe diz "F1 = 0,5, desempenho médio". Quanto vale o F1?'
+  opcoes:
+  - '0,18'
+  - '0,5'
+  - '0,09'
+  - '0,9'
+  correta: 0
+  explicacao: 'O F1 é a média harmônica, 2·P·R / (P + R) = 2 · 0,09 / 1,0 = 0,18. Ela fica perto da menor das duas métricas, e é por isso que se usa: um modelo que encontra só 10 % dos urgentes não pode parecer "médio". 0,5 é a média aritmética, que esconde o recall péssimo; 0,09 é o produto, sem o 2 e sem o denominador; 0,9 é só a precisão.'
+  topico: classificacao
+- enunciado: |
+    O que o trecho imprime?
+
+    y = [1, 1, 1, 0, 0, 0]
+    s = [0.9, 0.6, 0.3, 0.6, 0.2, 0.1]
+    print(round(roc_auc_score(y, s), 3))
+  opcoes:
+  - '0.667'
+  - '0.778'
+  - '0.833'
+  - '0.889'
+  correta: 2
+  explicacao: 'A AUC é a fração dos pares (positivo, negativo) em que o positivo tem score maior, com empate valendo meio. São 9 pares: o 0,9 vence os 3; o 0,6 vence 0,2 e 0,1 e empata com o 0,6 negativo (2,5); o 0,3 vence 0,2 e 0,1 (2). Total 7,5 / 9 ≈ 0,833. 0,778 conta o empate como derrota; 0,889, como vitória; 0,667 é a "AUC" das classes já decididas no limiar 0,5, que só enxerga um ponto da curva.'
+  topico: classificacao
+- enunciado: |
+    O que o trecho imprime?
+
+    X = np.array([[0.0], [1.0], [2.0], [3.0]])
+    y = np.array([10.0, 20.0, 30.0, 100.0])
+    m1 = KNeighborsRegressor(n_neighbors=3).fit(X, y)
+    m2 = KNeighborsRegressor(n_neighbors=3, weights="distance").fit(X, y)
+    print(m1.predict([[2.0]]).tolist(), m2.predict([[2.0]]).tolist())
+  opcoes:
+  - '[50.0] [50.0]'
+  - '[30.0] [30.0]'
+  - '[50.0] [nan], porque a distância zero divide por zero'
+  - '[50.0] [30.0]'
+  correta: 3
+  explicacao: 'Os 3 vizinhos de 2.0 são o próprio ponto 2.0 (distância 0) e os pontos 1.0 e 3.0 (distância 1). Com pesos uniformes, a previsão é a média de 30, 20 e 100, 50.0. Com weights="distance", o peso é 1/d; quando há vizinho a distância zero, o scikit-learn dá todo o peso a ele, sem erro e sem nan, e a previsão é 30.0. O nan só aparece numa implementação própria que divide por d sem tratar o zero.'
+  topico: classificacao
+- enunciado: |
+    O que o trecho imprime?
+
+    v = CountVectorizer()
+    M = v.fit_transform(["Promoção de verão", "verão de novo o cupom de verão"])
+    print(v.get_feature_names_out().tolist())
+    print(M.toarray().tolist())
+  opcoes:
+  - '[''cupom'', ''de'', ''novo'', ''promoção'', ''verão''] e [[0, 1, 0, 1, 1], [1, 2, 1, 0, 2]]'
+  - '[''cupom'', ''de'', ''novo'', ''promoção'', ''verão''] e [[0, 1, 0, 1, 1], [1, 1, 1, 0, 1]]'
+  - '[''promoção'', ''de'', ''verão'', ''novo'', ''cupom''] e [[1, 1, 1, 0, 0], [0, 2, 2, 1, 1]]'
+  - '[''cupom'', ''de'', ''novo'', ''o'', ''promoção'', ''verão''] e [[0, 1, 0, 0, 1, 1], [1, 2, 1, 1, 0, 2]]'
+  correta: 0
+  explicacao: 'O CountVectorizer passa tudo para minúsculas, só aceita tokens de 2 ou mais caracteres (o "o" some) e ordena o vocabulário em ordem alfabética, não na ordem de aparição. Cada célula é uma contagem: na segunda frase, "de" e "verão" aparecem 2 vezes. A segunda alternativa marca só presença; a terceira usa a ordem de aparição; a quarta mantém o token de uma letra.'
+  topico: classificacao
+- enunciado: |
+    O que o trecho imprime?
+
+    z = np.array([3.0, 1.0, 0.0])
+    e = np.exp(z - z.max())
+    print(np.round(e / e.sum(), 3).tolist())
+  opcoes:
+  - '[0.75, 0.25, 0.0]'
+  - '[0.953, 0.731, 0.5]'
+  - '[0.844, 0.114, 0.042]'
+  - '[1.0, 0.135, 0.05]'
+  correta: 2
+  explicacao: 'É a softmax: subtrair o máximo não muda o resultado (só evita estouro), e e^0, e^−2 e e^−3 valem 1, 0,135 e 0,050, que somam 1,185; divididos pela soma, dão [0.844, 0.114, 0.042], que somam 1. [0.75, 0.25, 0.0] divide os logitos pela soma deles, sem exponencial; [0.953, 0.731, 0.5] aplica a sigmoide a cada logito, e as três probabilidades nem somam 1; [1.0, 0.135, 0.05] esquece de dividir pela soma.'
+  topico: classificacao
+- enunciado: |
+    Que nomes de exceção o trecho imprime?
+
+    m = LinearRegression()
+    try:
+        m.predict([[1.0]])
+    except Exception as erro:
+        print(type(erro).__name__)
+    try:
+        m.coef_
+    except Exception as erro:
+        print(type(erro).__name__)
+  opcoes:
+  - 'NotFittedError e depois NotFittedError'
+  - 'NotFittedError e depois AttributeError'
+  - 'AttributeError e depois AttributeError'
+  - 'ValueError e depois AttributeError'
+  correta: 1
+  explicacao: 'O predict confere se o estimador foi ajustado e levanta NotFittedError ("This LinearRegression instance is not fitted yet"). Os atributos aprendidos, com _ no fim, só passam a existir no fit: ler coef_ antes dele é um AttributeError comum (''LinearRegression'' object has no attribute ''coef_''), e não um NotFittedError. [[1.0]] já é 2D, então não há o ValueError de array 1D.'
+  topico: scikit-learn-na-pratica
+- enunciado: |
+    Uma colega obtém score 1.0 no teste com este fluxo:
+
+    pre = ColumnTransformer(
+        [("num", StandardScaler(), ["idade", "renda"]),
+         ("cat", OneHotEncoder(handle_unknown="ignore"), ["plano"])],
+        remainder="passthrough")
+    pipe = Pipeline([("prep", pre), ("modelo", LogisticRegression())])
+    X_tr, X_te, y_tr, y_te = train_test_split(
+        df, df["cancelou"], stratify=df["cancelou"], random_state=0)
+    pipe.fit(X_tr, y_tr)
+    print(pipe.score(X_te, y_te))
+
+    O que explica o 1.0?
+  opcoes:
+  - 'O OneHotEncoder com handle_unknown="ignore" deixa as categorias do teste vazarem para o treino'
+  - 'O StandardScaler foi ajustado no df inteiro antes da divisão, e as estatísticas do teste vazaram'
+  - 'Nada de errado: com stratify e dados sem ausentes, um score de 1.0 é possível e esperado'
+  - 'X é o df inteiro, com a coluna cancelou, e o remainder="passthrough" entrega o próprio alvo ao modelo'
+  correta: 3
+  explicacao: 'O alvo precisa sair de X (df.drop(columns="cancelou")). Com o remainder padrão, "drop", essa coluna sumiria em silêncio; com "passthrough", tudo o que não foi listado chega ao modelo, inclusive o alvo, e a avaliação vira 1.0. O escalador está dentro do pipeline e só é ajustado no treino, e o handle_unknown só decide o que fazer com uma categoria nova no transform: nenhum dos dois vaza.'
+  topico: scikit-learn-na-pratica
+- enunciado: |
+    Para dividir 200 linhas em 60 % de treino, 20 % de validação e 20 % de teste, um colega escreve:
+
+    X_resto, X_teste, y_resto, y_teste = train_test_split(
+        X, y, test_size=0.2, stratify=y, random_state=0)
+    X_treino, X_val, y_treino, y_val = train_test_split(
+        X_resto, y_resto, test_size=0.2, stratify=y_resto, random_state=0)
+
+    Quantas linhas ficam em treino, validação e teste, e o que corrige a divisão?
+  opcoes:
+  - '120, 40 e 40; o código já está certo'
+  - '128, 32 e 40; a segunda chamada precisa de test_size=0.25'
+  - '128, 32 e 40; a segunda chamada precisa de test_size=0.16'
+  - '128, 32 e 40; a segunda chamada precisa de test_size=0.4'
+  correta: 1
+  explicacao: 'O test_size da segunda chamada é uma fração do resto (160 linhas), e não das 200: 20 % de 160 dá 32 de validação e 128 de treino. Para 40 de validação, a fração é 0,2 / (1 − 0,2) = 0,25 (160 · 0,25 = 40). 0,16 multiplica as frações em vez de dividir (dá 26 de validação); 0,4 confunde a fração da validação com tudo o que não é treino.'
+  topico: scikit-learn-na-pratica
+- enunciado: |
+    Numa série de 12 dias de vendas, em ordem, o que o trecho imprime?
+
+    divisor = TimeSeriesSplit(n_splits=3)
+    for treino, teste in divisor.split(np.arange(12)):
+        print(len(treino), teste[0], teste[-1])
+  opcoes:
+  - '3 3 5, depois 6 6 8, depois 9 9 11'
+  - '8 0 3, depois 8 4 7, depois 8 8 11'
+  - '3 3 5, depois 3 6 8, depois 3 9 11'
+  - '3 0 5, depois 6 0 8, depois 9 0 11'
+  correta: 0
+  explicacao: 'O TimeSeriesSplit corta a série em k + 1 = 4 blocos de 3 dias: cada partição valida no bloco seguinte e treina com tudo o que vem antes, e o treino cresce (3, 6 e 9 dias). O teste nunca vem antes do treino nem se mistura com ele. "8 0 3, ..." é o KFold(3), que valida no começo da série com um treino que inclui o futuro; a janela fixa de 3 dias não é o padrão; e o teste não começa no dia 0.'
+  topico: scikit-learn-na-pratica
+- enunciado: |
+    Quantas vezes o fit da logística é chamado ao todo nesta busca?
+
+    pipe = Pipeline([("escala", StandardScaler()), ("modelo", LogisticRegression())])
+    grade = {"modelo__C": [0.01, 0.1, 1, 10],
+             "modelo__class_weight": [None, "balanced"]}
+    busca = GridSearchCV(pipe, grade, cv=5).fit(X_treino, y_treino)
+  opcoes:
+  - '40'
+  - '31'
+  - '9'
+  - '41'
+  correta: 3
+  explicacao: 'A grade é o produto dos valores: 4 · 2 = 8 combinações, cada uma ajustada nas 5 partições (40 ajustes), e no fim o refit treina a melhor combinação com o treino inteiro: 41 (conferido com uma logística que conta as próprias chamadas). 40 esquece o refit; 31 soma os tamanhos da grade, (4 + 2) · 5 + 1; 9 esquece as partições.'
+  topico: scikit-learn-na-pratica
+- enunciado: 'Dois modelos de previsão de demanda erram, em unidades, nos mesmos 5 dias. Erros absolutos de A: 4, 4, 4, 4, 4. Erros absolutos de B: 1, 1, 1, 1, 12. Qual modelo vence pelo MAE e qual vence pelo RMSE?'
+  opcoes:
+  - 'A pelas duas métricas, porque o erro de 12 pesa nas duas'
+  - 'B pelas duas métricas, porque erra menos em 4 dos 5 dias'
+  - 'B pelo MAE (3,2 contra 4,0) e A pelo RMSE (4,0 contra cerca de 5,44)'
+  - 'Empate no MAE e A pelo RMSE'
+  correta: 2
+  explicacao: 'MAE de A = 4,0 e de B = 16 / 5 = 3,2. RMSE de A = 4,0 e de B = raiz de (4 + 144) / 5 = raiz de 29,6 ≈ 5,44. O RMSE eleva os erros ao quadrado antes da média e pesa muito o dia de erro 12; o MAE trata cada unidade de erro igual. A escolha da métrica é uma decisão do problema: se um erro grande custa caro, o RMSE é a régua certa.'
+  topico: scikit-learn-na-pratica
+- enunciado: 'Numa simulação, os dados vêm de y = sen(2πx) + ε, com ruído ε normal de média 0 e desvio 0,3. Qual é o menor erro quadrático médio esperado, em dados novos, que um modelo pode alcançar?'
+  opcoes:
+  - 'Zero, com um modelo flexível o bastante e dados suficientes'
+  - '0,09, a variância do ruído'
+  - '0,3, o desvio do ruído'
+  - 'Não há piso: com validação cruzada, o erro pode ficar abaixo do ruído'
+  correta: 1
+  explicacao: 'O erro esperado se divide em viés² + variância + ruído, e o ruído σ² = 0,3² = 0,09 vem dos dados: nem o modelo que conhece sen(2πx) prevê o ε de um ponto novo. O zero só aparece no treino, quando o modelo decorou o ruído da amostra, e esse modelo vai pior em dados novos. 0,3 é o desvio, não a variância; e nenhuma forma de validar baixa o piso.'
+  topico: scikit-learn-na-pratica
+- enunciado: 'Um nó tem 10 clientes, 5 inadimplentes e 5 não (Gini 0,5). Uma pergunta manda 4 clientes, todos inadimplentes, para a esquerda, e 6 clientes, 1 inadimplente e 5 não, para a direita. Qual é o ganho de Gini dessa divisão?'
+  opcoes:
+  - 'cerca de 0,333'
+  - 'cerca de 0,361'
+  - 'cerca de 0,222'
+  - '0,5'
+  correta: 0
+  explicacao: 'O filho da esquerda é puro (Gini 0). O da direita tem Gini 1 − (1/6)² − (5/6)² = 10/36 ≈ 0,278. A impureza dos filhos é ponderada pelo tamanho: 0,4 · 0 + 0,6 · 0,278 ≈ 0,167, e o ganho é 0,5 − 0,167 ≈ 0,333. 0,361 usa a média simples dos filhos, sem ponderar; 0,222 olha só o filho impuro com peso 1; 0,5 supõe que um filho puro zera a impureza toda.'
   topico: arvores-e-ensembles
-- enunciado: 'No gradient boosting, cada nova árvore é ajustada a:'
+- enunciado: 'Numa floresta aleatória com bootstrap, cada árvore sorteia, com reposição, 1 000 linhas de um treino de 1 000 linhas. Cerca de quantas linhas distintas do treino cada árvore vê?'
   opcoes:
-  - O alvo original
-  - Os resíduos (gradiente negativo da perda) do modelo atual
-  - Uma amostra sem reposição
-  - Os atributos mais importantes
-  correta: 1
-  explicacao: Cada estágio corrige os erros do conjunto anterior, com um fator de encolhimento (taxa de aprendizado).
+  - '1 000, porque a amostra tem o tamanho do treino'
+  - '500'
+  - 'cerca de 368'
+  - 'cerca de 632'
+  correta: 3
+  explicacao: 'A chance de uma linha nunca ser sorteada em 1 000 sorteios é (1 − 1/1000)^1000 ≈ e^(−1) ≈ 0,368, então cerca de 63,2 % das linhas (632) entram na amostra, e as outras se repetem. As cerca de 368 que ficam de fora são as linhas fora da bolsa, que dão a estimativa OOB. 1 000 só sairia de um sorteio sem reposição, que daria a mesma amostra a todas as árvores.'
   topico: arvores-e-ensembles
-- enunciado: 'Antes de aplicar PCA, é essencial:'
+- enunciado: 'Uma colega treina HistGradientBoostingRegressor(max_iter=300, random_state=0) em 600 linhas, esperando a parada antecipada que leu na documentação, mas n_iter_ sai 300. O que aconteceu?'
   opcoes:
-  - Normalizar os rótulos
-  - Centralizar (e, com escalas diferentes, padronizar) os atributos
-  - Remover todos os outliers
-  - Converter os dados para inteiros
+  - 'A validação interna piorou desde a primeira iteração, e por isso o modelo decidiu não parar antes do máximo'
+  - 'O random_state fixo desliga a parada antecipada, para que o ajuste seja sempre reproduzível'
+  - 'O early_stopping="auto" só liga a parada com mais de 10 000 linhas; com 600, é preciso pedir early_stopping=True'
+  - 'n_iter_ conta as iterações de todas as tentativas internas, e não a iteração em que o modelo parou'
+  correta: 2
+  explicacao: 'Com menos de 10 000 linhas, o "auto" deixa a parada desligada, e o modelo roda todas as iterações pedidas. Com early_stopping=True, ele separa validation_fraction=0.1 do treino e para depois de n_iter_no_change iterações sem melhora (numa sonda com 600 linhas, parou em 42). O random_state só fixa qual fatia vira validação; se a validação piorasse desde o início, a parada seria cedo, e não nunca.'
+  topico: arvores-e-ensembles
+- enunciado: 'Num gradient boosting de consumo fictício, a dependência parcial de x1 sobe 2,0 ao longo da grade. As curvas ICE de x1 sobem em média 3,7 nas linhas com x2 > 5 e ficam quase planas (−0,4) nas outras. Como ler isso?'
+  opcoes:
+  - 'A dependência parcial está errada e deve ser trocada pela importância por permutação'
+  - 'Há interação: o efeito de x1 depende de x2, e a média 2,0 não descreve linha nenhuma'
+  - 'As ICE são o ruído de cada linha, e a média 2,0 é o efeito verdadeiro de x1 no modelo'
+  - 'Aumentar x1 causa mais consumo, mas só nas linhas em que x2 passa de 5'
   correta: 1
-  explicacao: O PCA busca direções de maior variância; sem centralizar a primeira componente aponta para a média, e escalas desiguais dominam.
+  explicacao: 'A dependência parcial é a média das curvas ICE. Quando as ICE se separam em grupos, o modelo usa x1 de um jeito para x2 > 5 e de outro para o resto, e a média mistura os dois. A dependência parcial continua certa como média; só não basta. E nenhuma das duas curvas mostra causa: elas descrevem o modelo, que aprendeu associações dos dados.'
+  topico: arvores-e-ensembles
+- enunciado: |
+    Com rótulos em −1 e +1, o que o trecho imprime?
+
+    w = np.array([1.0, 0.0])
+    b = 0.0
+    X = np.array([[2.0, 0.0], [0.5, 0.0], [1.0, 0.0]])
+    y = np.array([1, 1, -1])
+    print(np.maximum(0, 1 - y * (X @ w + b)).tolist())
+  opcoes:
+  - '[0.0, 0.5, 2.0]'
+  - '[-1.0, 0.5, 2.0]'
+  - '[0.0, 0.5, 0.0]'
+  - '[0.0, 0.5, 1.0]'
+  correta: 0
+  explicacao: 'São as multas da perda hinge, max(0, 1 − y·f(x)), com f(x) = [2; 0,5; 1]. O primeiro ponto está do lado certo e fora da faixa (margem 2): multa 0. O segundo está do lado certo, mas dentro da faixa (margem 0,5): multa 0,5. O terceiro está do lado errado (margem −1): multa 2. [-1.0, ...] esquece o max; [0.0, 0.5, 0.0] esquece o rótulo na margem; [0.0, 0.5, 1.0] é o que sairia com rótulos 0 e 1 sem converter.'
   topico: svm-e-aprendizado-nao-supervisionado
-- enunciado: 'Padronizar os dados com estatísticas do conjunto inteiro antes de dividir em treino e teste causa:'
+- enunciado: |
+    O que o trecho imprime?
+
+    X = np.array([[0.0], [2.0], [4.0], [10.0], [12.0], [14.0]])
+    km = KMeans(2, init=np.array([[0.0], [2.0]]), n_init=1).fit(X)
+    print(km.cluster_centers_.ravel().tolist(), km.inertia_)
   opcoes:
-  - Nada
-  - Vazamento de informação do teste para o treino
-  - Erro de shape
-  - Uma melhora legítima
+  - '[2.0, 12.0] 8.0'
+  - '[0.0, 8.4] 66.88'
+  - '[2.0, 12.0] 2.67'
+  - '[2.0, 12.0] 16.0'
+  correta: 3
+  explicacao: 'Com os centróides 0 e 2, só o 0 fica com o primeiro; o segundo vira a média de 2, 4, 10, 12 e 14, 8,4. Na atribuição seguinte, 2 e 4 passam para o primeiro grupo, e os centróides vão para 2 e 12, onde param. A inércia é a soma das distâncias ao quadrado: 4 + 0 + 4 + 4 + 0 + 4 = 16. 8.0 soma as distâncias sem o quadrado; 2.67 é a média por ponto; [0.0, 8.4] 66.88 é o estado depois de uma única iteração (max_iter=1).'
+  topico: svm-e-aprendizado-nao-supervisionado
+- enunciado: |
+    O que o trecho imprime?
+
+    X = np.array([[0.0], [0.5], [1.0], [5.0], [5.4], [9.0]])
+    print(DBSCAN(eps=0.6, min_samples=3).fit_predict(X).tolist())
+  opcoes:
+  - '[0, 0, 0, 1, 1, -1]'
+  - '[0, 0, 0, -1, -1, -1]'
+  - '[-1, 0, -1, -1, -1, -1]'
+  - '[0, 0, 0, 1, 1, 2]'
   correta: 1
-  explicacao: O teste deixa de ser uma amostra 'nunca vista'; a avaliação fica otimista.
+  explicacao: 'A vizinhança de raio 0,6 conta o próprio ponto. O 0.5 tem 3 pontos na vizinhança (0, 0,5 e 1,0) e é núcleo; 0 e 1.0 têm 2 e são bordas alcançadas por ele, e entram no mesmo grupo. 5.0 e 5.4 têm 2 pontos cada: nenhum é núcleo, então os dois são ruído, como o 9.0. [0, 0, 0, 1, 1, -1] é o que sai com min_samples=2 (ou contando sem o próprio ponto); a terceira alternativa joga as bordas no ruído; a última transforma o ruído num grupo.'
+  topico: svm-e-aprendizado-nao-supervisionado
+- enunciado: 'Um analista quer comprimir 4 medidas padronizadas de peças mantendo pelo menos 90 % da variância. O PCA com todos os componentes deu explained_variance_ratio_ = [0.55, 0.30, 0.10, 0.05]. Quantos componentes PCA(n_components=0.9) mantém?'
+  opcoes:
+  - '1'
+  - '2'
+  - '3'
+  - '4'
+  correta: 2
+  explicacao: 'A variância acumulada é 0,55, 0,85, 0,95 e 1,0. Dois componentes guardam 85 %, ainda abaixo dos 90 %; o terceiro leva a 95 %, e o PCA fica com 3. 1 olharia só o maior componente; 4 manteria tudo e não comprimiria nada.'
+  topico: svm-e-aprendizado-nao-supervisionado
+- enunciado: |
+    Para detectar transações estranhas pelo erro de reconstrução, um colega escreve, com X de 4 colunas já padronizadas:
+
+    pca = PCA(n_components=4).fit(X)
+    X_rec = pca.inverse_transform(pca.transform(X))
+    erro = ((X - X_rec) ** 2).sum(axis=1)
+
+    Todos os erros saem perto de 1e-29. O que aconteceu?
+  opcoes:
+  - 'Com tantos componentes quanto colunas, o PCA reconstrói qualquer linha exatamente; o detector precisa de menos componentes'
+  - 'As transações não têm anomalias: todas foram reconstruídas sem erro, inclusive as suspeitas'
+  - 'Faltou centralizar: o PCA do scikit-learn não subtrai a média, e os erros se anulam'
+  - 'O erro deveria usar o valor absoluto, porque o quadrado de diferenças pequenas fica perto de zero'
+  correta: 0
+  explicacao: 'Com k = d, os componentes formam uma base completa, e transform seguido de inverse_transform devolve os próprios dados, a menos do arredondamento. A ideia do detector é usar menos componentes que colunas, que capturam a estrutura das transações normais: uma transação fora do padrão sai mal reconstruída e tem erro alto. O PCA do scikit-learn centraliza sozinho, e trocar o quadrado pelo módulo não muda o zero: as diferenças é que são nulas.'
+  topico: svm-e-aprendizado-nao-supervisionado
+- enunciado: |
+    Os scores de um detector valem mais para as transações mais suspeitas. Para medir a precisão nas 3 primeiras, um colega escreve:
+
+    scores = np.array([0.9, 0.2, 0.8, 0.7, 0.1, 0.6])
+    rotulos = np.array([1, 0, 1, 1, 0, 1])   # 1 = anomalia confirmada
+    topo = np.argsort(scores)[:3]
+    print(rotulos[topo].mean())
+
+    O que o trecho imprime, e o que corrige?
+  opcoes:
+  - '1.0; o código está certo, porque as 3 primeiras posições do argsort são as mais suspeitas'
+  - '0.3333333333333333; o argsort é crescente, e o topo certo é np.argsort(-scores)[:3]'
+  - '0.75; a precisão em 3 deveria dividir pelas 4 anomalias, e não pelas 3 marcadas'
+  - '0.6666666666666666; argsort devolve os scores ordenados, e não as posições'
+  correta: 1
+  explicacao: 'np.argsort devolve as posições em ordem crescente de score: as 3 primeiras são as transações menos suspeitas (0,1, 0,2 e 0,6), com rótulos 0, 0 e 1. Com o sinal trocado, o topo são 0,9, 0,8 e 0,7, todas anomalias: precisão em 3 igual a 1,0. Dividir pelas 4 anomalias daria o recall em 3 (0,75), outra métrica. 0,667 é a fração de anomalias no conjunto inteiro.'
+  topico: svm-e-aprendizado-nao-supervisionado
+- enunciado: 'Numa tabela com 60 linhas, 1 000 colunas de ruído puro e um alvo sorteado, um colega escolhe as 20 colunas de maior f_classif com SelectKBest na tabela inteira e depois roda a validação cruzada da logística: AUC 0,961. Com o SelectKBest dentro do pipeline, a mesma validação dá 0,522. Que número descreve o modelo?'
+  opcoes:
+  - '0,961, porque o SelectKBest e a logística são os mesmos nos dois fluxos'
+  - 'A média dos dois, cerca de 0,74, que equilibra o otimismo de um e o pessimismo do outro'
+  - '0,522: fora do pipeline, a seleção usou as 60 linhas, inclusive as de validação'
+  - 'Nenhum: ruído com AUC 0,961 indica um erro de código na logística'
+  correta: 2
+  explicacao: 'Com 1 000 colunas e 60 linhas, algumas colunas se correlacionam com o alvo só por acaso (a maior correlação fica perto de 0,48), e a seleção feita com todas as linhas escolhe justamente essas, inclusive pelas linhas de validação. Dentro do pipeline, a seleção é refeita em cada partição só com o treino, e o acaso não se repete na validação: a AUC volta para perto de 0,5, que é a verdade para ruído. Não há erro de código: é vazamento pela seleção.'
   topico: boas-praticas-de-ml
+- enunciado: |
+    O que o trecho imprime?
+
+    y = np.array([0] * 900 + [1] * 100)
+    pesos = compute_class_weight("balanced", classes=np.array([0, 1]), y=y)
+    print(np.round(pesos, 3).tolist())
+  opcoes:
+  - '[0.9, 0.1]'
+  - '[0.1, 0.9]'
+  - '[1.0, 9.0]'
+  - '[0.556, 5.0]'
+  correta: 3
+  explicacao: 'O peso balanced de cada classe é n / (k · n_c): 1000 / (2 · 900) ≈ 0,556 e 1000 / (2 · 100) = 5,0. As duas classes passam a somar o mesmo peso total (500 cada), como se cada positivo valesse 5 linhas. [0.9, 0.1] são as proporções; [0.1, 0.9] as inverte, sem a escala de n / k; [1.0, 9.0] dá a mesma razão entre as classes, mas não a escala da fórmula.'
+  topico: boas-praticas-de-ml
+- enunciado: |
+    Os dias 13, 14 e 15 de novembro de 2026 caem numa sexta, num sábado e num domingo. O que o trecho imprime?
+
+    d = pd.to_datetime(pd.Series(["2026-11-13", "2026-11-14", "2026-11-15"]))
+    print(d.dt.dayofweek.tolist(), (d.dt.dayofweek > 5).tolist())
+  opcoes:
+  - '[4, 5, 6] [False, False, True]'
+  - '[4, 5, 6] [False, True, True]'
+  - '[5, 6, 0] [False, True, False]'
+  - '[13, 14, 15] [True, True, True]'
+  correta: 0
+  explicacao: 'No pandas, dayofweek vai de 0 (segunda) a 6 (domingo): sexta, sábado e domingo são 4, 5 e 6. O "> 5" só pega o domingo; o fim de semana é dayofweek >= 5 (ou .isin([5, 6])), que daria [False, True, True]. [5, 6, 0] numera a partir do domingo, como em outros sistemas; [13, 14, 15] é o dt.day, o dia do mês.'
+  topico: boas-praticas-de-ml
+- enunciado: 'Para procurar proxies do grupo protegido, uma equipe calcula roc_auc_score(grupo, X[coluna]) para cada coluna. A coluna tempo_no_endereco dá AUC 0,20, e um colega a descarta como proxy "porque ficou abaixo de 0,5". O que dizer?'
+  opcoes:
+  - 'Ele tem razão: abaixo de 0,5 a coluna não tem relação com o grupo'
+  - 'É um proxy fraco, com força 0,2, abaixo de qualquer limiar razoável'
+  - 'Não dá para dizer: a AUC só vale para o alvo do modelo, não para o atributo sensível'
+  - 'É um proxy forte: a força é max(AUC, 1 − AUC) = 0,8, com a associação invertida'
+  correta: 3
+  explicacao: 'AUC 0,5 é que quer dizer "não separa". Uma AUC de 0,2 significa que valores menores da coluna indicam o grupo positivo em 80 % dos pares: a associação existe, invertida. Por isso a força de um proxy é max(AUC, 1 − AUC). A AUC mede quão bem um score ordena qualquer rótulo binário, inclusive o atributo sensível.'
+  topico: boas-praticas-de-ml
+- enunciado: 'No cadastro do projeto de inadimplência, a coluna dias_em_cobranca tem AUC 1,0 com o alvo e correlação de 0,915 com ele. O que fazer com ela?'
+  opcoes:
+  - 'Retirá-la: ela só existe depois que o cliente já está inadimplente'
+  - 'Mantê-la, porque é o atributo mais informativo do cadastro'
+  - 'Mantê-la, mas padronizada, para não dominar os outros atributos'
+  - 'Usá-la na validação cruzada e retirá-la só na avaliação final, no teste'
+  correta: 0
+  explicacao: 'Uma coluna que separa o alvo perfeitamente é o primeiro sinal de vazamento: dias em cobrança é consequência da inadimplência, e um cliente novo ainda não tem esse dado. Com ela, a validação mostra um modelo perfeito que não existe em produção. Padronizar não muda a informação que ela carrega, e usá-la só em parte da avaliação deixaria a validação e o teste medindo modelos diferentes.'
+  topico: n5-projeto-do-nivel
+- enunciado: 'No teste do projeto, com 500 clientes e 59 inadimplentes, o modelo marca 91 clientes e acerta 30 deles. Um inadimplente não marcado custa 5 e um adimplente marcado custa 1. Qual é o custo por cliente, e como ele se compara com não marcar ninguém?'
+  opcoes:
+  - '0,18 por cliente, contra 0,118 de não marcar ninguém: o modelo é pior'
+  - '0,668 por cliente, contra 0,118 de não marcar ninguém: o modelo é pior'
+  - '0,412 por cliente, contra 0,590 de não marcar ninguém'
+  - '0,412 por cliente, contra 0,118 de não marcar ninguém: o modelo é pior'
+  correta: 2
+  explicacao: 'Dos 91 marcados, 30 são inadimplentes e 61 são falsos positivos; ficam 59 − 30 = 29 inadimplentes sem marcar. Custo: (61 · 1 + 29 · 5) / 500 = 206 / 500 = 0,412. Sem marcar ninguém, os 59 escapam: 59 · 5 / 500 = 0,590. 0,18 e 0,118 contam erros sem custo, como a acurácia; 0,668 troca os custos; 0,118 na baseline esquece que cada inadimplente perdido custa 5.'
+  topico: n5-projeto-do-nivel

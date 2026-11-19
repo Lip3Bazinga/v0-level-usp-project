@@ -1,10 +1,10 @@
 import { createServer, type Server } from "node:http"
-import { contentBundleSchema, type AstFeatures, type ContentBundle, type Json, type ProbeObservation, type RunnerJob, type RunnerResult, type SourceRule, type TestCase } from "@levelusp/contracts"
+import { contentBundleSchema, type AstFeatures, type BundleStep, type ContentBundle, type Json, type ProbeObservation, type RunnerJob, type RunnerResult, type SourceRule, type TestCase } from "@levelusp/contracts"
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
 import { buildProbes } from "../../../src/modules/grading/grading.domain"
 import { validateBundle } from "../../../scripts/content/bundle"
 import { compileContent } from "../../../scripts/content/compiler"
-import { buildVerifyJob, createHttpRunner, createPool, formatLessonHeading, formatVerdict, listExerciseTargets, resolveStarter, verifyBundle, verifyStep, type StepRunner } from "../../../scripts/content/verify"
+import { buildVerifyJob, createHttpRunner, createPool, formatLessonHeading, formatVerdict, listExerciseTargets, resolveStarter, usesHeavyProfile, verifyBundle, verifyStep, wrongSolutionFiles, type StepRunner } from "../../../scripts/content/verify"
 import { EXAMPLE_DIR, exerciseStep, frontmatter, validTree, writeTree, type TempTree } from "./fixtures"
 
 /** Pacote validado a partir de uma árvore em disco. */
@@ -221,6 +221,26 @@ describe("verifyStep: código inicial herdado, python-dados e soluções erradas
   })
 })
 
+describe("wrongSolutionFiles", () => {
+  const step = {
+    solution_files: [
+      { path: "main.py", content: "import util\nprint(util.dobro(2))\n" },
+      { path: "util.py", content: "def dobro(x):\n    return 2 * x\n" },
+      { path: "dados.txt", content: "1\n2\n" },
+    ],
+  } as unknown as BundleStep
+
+  it("herda da solução os arquivos que a errada não declara e troca os que ela declara", () => {
+    const files = wrongSolutionFiles(step, [{ path: "util.py", content: "def dobro(x):\n    return x + 2\n" }])
+    expect(files.map((file) => file.path).sort()).toEqual(["dados.txt", "main.py", "util.py"])
+    expect(files.find((file) => file.path === "util.py")?.content).toContain("x + 2")
+  })
+
+  it("aceita arquivo novo que só a errada tem", () => {
+    expect(wrongSolutionFiles(step, [{ path: "extra.py", content: "" }])).toHaveLength(4)
+  })
+})
+
 describe("createPool", () => {
   it("nunca passa do limite de tarefas simultâneas", async () => {
     const schedule = createPool(2)
@@ -302,6 +322,48 @@ describe("createHttpRunner contra um executor HTTP local", () => {
     await expect(createHttpRunner(url, "segredo").run(job)).rejects.toThrow("executor respondeu 500: quebrou")
     responses = [{ status: 200, body: '{"sem":"observacoes"}' }]
     await expect(createHttpRunner(url, "segredo").run(job)).rejects.toThrow("fora do formato esperado")
+  })
+
+  it("falha com mensagem clara quando o executor não responde no tempo limite", async () => {
+    const neverAnswers: typeof fetch = (_input, init) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          reject(init.signal?.reason instanceof Error ? init.signal.reason : new Error("abortado"))
+        })
+      })
+    const runner = createHttpRunner(url, "segredo", { fetchImpl: neverAnswers, requestTimeoutMs: 50 })
+    await expect(runner.run(job)).rejects.toThrow("o executor não respondeu em 0.05 s (tempo limite do pedido)")
+  })
+})
+
+describe("usesHeavyProfile", () => {
+  const lesson = bundleOf(EXAMPLE_DIR).courses[0]?.modules[0]?.lessons[0]
+  if (!lesson) throw new Error("exemplo sem lição")
+
+  it("só é pesado o python-dados com biblioteca fora do perfil dados", () => {
+    expect(usesHeavyProfile({ ...lesson, runtime: "python", libraries: [] })).toBe(false)
+    expect(usesHeavyProfile({ ...lesson, runtime: "python-dados", libraries: ["numpy", "pandas"] })).toBe(false)
+    expect(usesHeavyProfile({ ...lesson, runtime: "python-dados", libraries: ["numpy", "scikit-learn"] })).toBe(true)
+    expect(usesHeavyProfile({ ...lesson, runtime: "python-dados", libraries: ["Matplotlib"] })).toBe(true)
+  })
+
+  it("verifyBundle roda um lote por vez numa lição do perfil ml", async () => {
+    const bundle = bundleOf(EXAMPLE_DIR)
+    for (const course of bundle.courses) for (const module of course.modules) for (const item of module.lessons) Object.assign(item, { runtime: "python-dados", libraries: ["scikit-learn"] })
+    let active = 0
+    let peak = 0
+    const runner: StepRunner = {
+      async run(): Promise<RunnerResult> {
+        active++
+        peak = Math.max(peak, active)
+        await new Promise((resolve) => setTimeout(resolve, 2))
+        active--
+        return { observations: [], engine: { python: "3.14", runtime: "pyodide" }, durationMs: 1 }
+      },
+    }
+    const { summary } = await verifyBundle(bundle, runner)
+    expect(summary.steps).toBeGreaterThan(0)
+    expect(peak).toBe(1)
   })
 })
 

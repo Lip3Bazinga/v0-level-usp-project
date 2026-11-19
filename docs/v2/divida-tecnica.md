@@ -29,6 +29,8 @@
 | Gabaritos do seed/importação gravados sem passar pelo `testCasesSchema` | A web trata campos com default ausentes (`args`, `kwargs`, `stdin`, `match`) com `eslint-disable` justificado | Normalizar os casos na importação/seed (ou devolver o gabarito já parseado em `/authoring`) e remover os fallbacks |
 | Imagens no Storage do Supabase | Dependência residual após a importação | Script de cópia para o volume `uploads` |
 | Prova final de demonstração (5 questões) | Seed de homologação | Importar o banco de questões real |
+| O corretor executa o bloco `if __name__ == "__main__":` do aluno em cada caso da correção | Lições com treino ou demonstração no `__main__` pagam esse custo uma vez por caso (N6: m2-02, m5-03, m6-02, m6-03; os treinos de m6-03 e m6-04 foram encurtados por isso) e podem estourar o tempo | Fase C: rodar o código com `__name__` diferente de `"__main__"` nos casos `call`, `variable`, `expr`, `source` e `unittest` (`apps/runner/python/harness.py`) |
+| Piso de ~4 s por lote no executor `python-dados` | Um passo com 6 soluções erradas leva ~28 s no `content:verify` (8 lotes; N4, 2026-11-18), mesmo com código trivial; no arranque a fila estoura os 120 s do pedido | Fase C: medir 20 lotes triviais por motor, decompor o tempo (fila, worker, carga de pacotes, harness, HTTP) em `desempenho-executor.md` e corrigir a causa se for local |
 
 Resolvido na auditoria de clean code: os 32 avisos de ESLint da web (lint com 0 erros e 0 avisos em todos
 os pacotes; `react-hooks/*` agora é erro), duplicações entre telas (marca, spinner, downloads, validação de

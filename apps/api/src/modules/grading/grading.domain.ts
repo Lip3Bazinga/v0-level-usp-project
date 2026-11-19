@@ -377,10 +377,14 @@ const CONSTRUCT_NAMES: Record<string, string> = {
 
 const constructName = (construct: string): string => CONSTRUCT_NAMES[construct] ?? construct
 
-/** Construções do projeto inteiro, ou só do corpo da função (vazio se ela não existe). */
+/**
+ * Construções do projeto inteiro, ou só do corpo da função (vazio se ela não existe). O executor
+ * marca a recursão por função em `recursive_functions`, não em `function_constructs`.
+ */
 function constructsIn(features: AstFeatures, functionName: string | undefined): string[] {
   if (functionName === undefined) return features.constructs
-  return features.function_constructs[functionName] ?? []
+  const scoped = features.function_constructs[functionName] ?? []
+  return features.recursive_functions.includes(functionName) ? [...scoped, "recursion"] : scoped
 }
 
 function inFunction(functionName: string | undefined): string {

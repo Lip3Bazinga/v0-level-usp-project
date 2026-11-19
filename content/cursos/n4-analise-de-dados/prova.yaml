@@ -1,115 +1,464 @@
 titulo: Prova do Nível 4 — Análise de dados
-descricao: 'Banco inicial de 12 questões (10 sorteadas por tentativa) sobre numpy, pandas, limpeza, agregação, visualização, probabilidade e estatística. Nota mínima: 70 %.'
+descricao: 'Banco de 40 questões (10 sorteadas por tentativa) sobre numpy, pandas, limpeza e transformação, agregação e séries temporais, visualização, probabilidade e estatística e o projeto com a amostra do ENEM, na proporção das lições de cada módulo. A maioria pede para prever a saída de um trecho, escolher a operação certa, achar o defeito de um código ou interpretar um resultado estatístico. Nota mínima: 70 %.'
 nota_minima: 70
 tempo_min: 45
 intervalo_min: 60
 questoes_por_tentativa: 10
 questoes:
-- enunciado: O que `np.array([1, 2, 3]) * 2` devolve?
+- enunciado: |
+    O que este trecho imprime?
+
+    m = np.array([[1, 2, 3], [4, 5, 6]])
+    print(m.sum(axis=0).tolist())
   opcoes:
-  - '[1, 2, 3, 1, 2, 3]'
-  - array([2, 4, 6])
-  - Erro
-  - A lista [2, 4, 6]
+  - '[6, 15]'
+  - '[5, 7, 9]'
+  - '21'
+  - '[[5, 7, 9]]'
   correta: 1
-  explicacao: Operações em arrays são elemento a elemento (vetorizadas); em listas, `* 2` repetiria a lista.
+  explicacao: 'O eixo passado é o que some: axis=0 soma descendo as linhas e sobra um valor por coluna, 1 + 4, 2 + 5 e 3 + 6. [6, 15] é a soma por linha (axis=1); 21 é a soma sem axis; e a matriz [[5, 7, 9]], de forma (1, 3), só sairia com keepdims=True.'
   topico: numpy
-- enunciado: Em `a[(a > 0) & (a < 5)]`, por que não se usa `and`?
+- enunciado: |
+    O que este trecho imprime?
+
+    precos = np.array([2.7, -2.7, 1.5])
+    print(precos.astype(int).tolist())
   opcoes:
-  - '`and` não existe no numpy'
-  - '`and` não opera elemento a elemento em arrays e levanta ValueError'
-  - '`&` é apenas mais rápido'
-  - Por convenção de estilo
-  correta: 1
-  explicacao: '`and` tenta converter o array inteiro em um único booleano, o que é ambíguo; `&` combina as máscaras posição a posição.'
+  - '[3, -3, 2]'
+  - '[2, -3, 1]'
+  - 'ValueError, porque 2.7 não é um inteiro'
+  - '[2, -2, 1]'
+  correta: 3
+  explicacao: 'astype(int) corta a parte fracionária em direção ao zero, sem erro e sem arredondar: 2.7 vira 2 e -2.7 vira -2. [3, -3, 2] seria np.round antes da conversão; [2, -3, 1] seria np.floor, que vai para baixo também nos negativos. O mesmo corte acontece ao gravar 9.99 numa posição de um array inteiro.'
   topico: numpy
-- enunciado: Qual seletor do pandas usa rótulos (nomes de índice e de coluna) em vez de posições?
+- enunciado: |
+    O que este trecho imprime?
+
+    a = np.array([10, 20, 30, 40])
+    b = a[1:3]
+    c = a[[0, 3]]
+    b[0] = 0
+    c[0] = 0
+    print(a.tolist())
   opcoes:
-  - iloc
-  - loc
-  - iat
-  - head
-  correta: 1
-  explicacao: '`loc` seleciona por rótulo (com fatias inclusivas); `iloc` e `iat` usam posições inteiras.'
-  topico: pandas-fundamentos
-- enunciado: Como ler um CSV brasileiro com `;` como separador e vírgula decimal?
-  opcoes:
-  - pd.read_csv(caminho, sep=';', decimal=',')
-  - pd.read_csv(caminho, delimiter=',', decimal=';')
-  - pd.read_csv(caminho) detecta sozinho
-  - pd.read_csv(caminho, sep=',', decimal=',')
+  - '[10, 0, 30, 40]'
+  - '[10, 20, 30, 40]'
+  - '[0, 0, 30, 40]'
+  - '[0, 20, 30, 40]'
   correta: 0
-  explicacao: Sem `decimal=','` os números viram texto; sem `sep=';'` tudo cai em uma coluna só.
-  topico: pandas-fundamentos
-- enunciado: Por que `df[df.col == np.nan]` devolve sempre um DataFrame vazio?
+  explicacao: 'A fatia a[1:3] é uma vista: b[0] = 0 escreve no próprio a, na posição 1. A indexação por lista a[[0, 3]] é uma cópia: c[0] = 0 não toca em a. [10, 20, 30, 40] trata a fatia como cópia, como numa lista do Python; [0, 0, 30, 40] trata as duas como vista; [0, 20, 30, 40] inverte as duas regras. Para uma fatia independente, use .copy().'
+  topico: numpy
+- enunciado: 'A matriz m tem forma (4, 3): 4 lojas nas linhas e 3 produtos nas colunas. Qual expressão subtrai de cada linha a média da própria linha?'
   opcoes:
-  - Porque NaN não é igual a nada, nem a si mesmo; use `isna()`
-  - Porque a coluna não existe
-  - Porque `==` não funciona em DataFrames
-  - Porque NaN vale zero
+  - m - m.mean(axis=1)
+  - m - m.mean(axis=0)
+  - m - m.mean(axis=1, keepdims=True)
+  - m - m.mean()
+  correta: 2
+  explicacao: 'm.mean(axis=1) tem forma (4,); com keepdims=True, (4, 1), que o broadcasting estica pelas 3 colunas. Sem keepdims, as formas (4, 3) e (4,) são alinhadas pela direita, 3 contra 4, e o resultado é ValueError: operands could not be broadcast together with shapes (4,3) (4,). Com axis=0 o código roda, mas tira de cada coluna a média da coluna; m.mean() tira a média geral de tudo.'
+  topico: numpy
+- enunciado: |
+    O que este trecho imprime?
+
+    A = np.array([[1, 2], [3, 4]])
+    v = np.array([1, 1])
+    print((A @ v).tolist())
+  opcoes:
+  - '[4, 6]'
+  - '[3, 7]'
+  - '[[1, 2], [3, 4]]'
+  - '10'
+  correta: 1
+  explicacao: 'A @ v é o produto matricial: cada linha de A com v, 1 + 2 = 3 e 3 + 4 = 7. [4, 6] é v @ A, que soma as colunas: a ordem dos fatores importa. [[1, 2], [3, 4]] é A * v, elemento a elemento com broadcasting. 10 seria somar tudo.'
+  topico: numpy
+- enunciado: |
+    Para simular 10 000 lançamentos de um dado de seis faces, uma colega escreveu:
+
+    rng = np.random.default_rng(7)
+    lancamentos = rng.integers(1, 6, size=10_000)
+
+    O que há de errado?
+  opcoes:
+  - 'O fim é exclusivo: só saem os números de 1 a 5. O certo é rng.integers(1, 7, size=10_000)'
+  - 'Nada: saem os números de 1 a 6, como num dado'
+  - 'Saem os números de 0 a 5, como em range(6); falta somar 1'
+  - 'Cada execução dá uma sequência diferente, porque falta np.random.seed(7)'
   correta: 0
-  explicacao: Por definição do padrão de ponto flutuante, `nan == nan` é False.
-  topico: limpeza-e-transformacao
-- enunciado: Em um `merge` com `how='inner'`, o que acontece com as linhas cuja chave existe em apenas uma das tabelas?
+  explicacao: 'Em rng.integers(baixo, alto) o alto fica de fora, como em range: o 6 nunca sai (conferido: os 10 000 valores ficam entre 1 e 5). O início 1 é respeitado, então não há 0. E default_rng(7) já fixa a sequência; np.random.seed é o gerador legado, um estado global que outras partes do programa compartilham, e não deve ser misturado com o rng.'
+  topico: numpy
+- enunciado: |
+    O que este trecho imprime?
+
+    s1 = pd.Series([1, 2], index=["a", "b"])
+    s2 = pd.Series([10, 20], index=["b", "c"])
+    print((s1 + s2).tolist())
   opcoes:
-  - Recebem NaN nas colunas faltantes
-  - São descartadas
-  - Geram erro
-  - São duplicadas
-  correta: 1
-  explicacao: Inner mantém só as chaves presentes nos dois lados; para manter todas as linhas da esquerda use `left`.
-  topico: limpeza-e-transformacao
-- enunciado: O que `df.groupby('uf')['valor'].transform('mean')` devolve?
+  - '[11, 22]'
+  - '[1.0, 12.0, 20.0]'
+  - '[nan, 12.0, nan]'
+  - 'ValueError, porque os índices são diferentes'
+  correta: 2
+  explicacao: 'O pandas soma pelo rótulo, não pela posição: o resultado tem a união dos índices (a, b, c), e só b existe nos dois lados. Onde falta um lado, sai NaN, e a coluna vira float. [11, 22] é a soma por posição, como num array; [1.0, 12.0, 20.0] é s1.add(s2, fill_value=0). Índices diferentes não são erro: são o alinhamento.'
+  topico: pandas-fundamentos
+- enunciado: |
+    Quantos elementos têm as duas seleções abaixo?
+
+    s = pd.Series([5, 6, 7, 8], index=[10, 20, 30, 40])
+    s.loc[10:30]
+    s.iloc[1:3]
   opcoes:
-  - Uma linha por UF com a média
-  - Uma Series do tamanho original, com a média do grupo repetida em cada linha
-  - Um único número
-  - Um DataFrame com MultiIndex
+  - 2 e 2
+  - 3 e 3
+  - 'Erro no loc, porque 10 e 30 não são posições da Series'
+  - 3 e 2
+  correta: 3
+  explicacao: 'loc usa rótulos e a fatia inclui o fim: 10, 20 e 30 dão [5, 6, 7]. iloc usa posições e exclui o fim, como no Python: posições 1 e 2 dão [6, 7]. 2 e 2 aplica ao loc a regra do Python; 3 e 3 aplica ao iloc a regra do loc. Como loc procura rótulos, 10 e 30 existem e não há erro.'
+  topico: pandas-fundamentos
+- enunciado: |
+    No pandas 3, o que acontece com a linha abaixo?
+
+    df[df["nota"] < 5]["nota"] = 5
+  opcoes:
+  - 'Aparece o aviso ChainedAssignmentError e nenhuma nota muda; o certo é df.loc[df["nota"] < 5, "nota"] = 5'
+  - 'As notas abaixo de 5 viram 5, com um SettingWithCopyWarning que pode ser ignorado'
+  - 'Todas as notas viram 5, porque a atribuição vale para a coluna inteira'
+  - 'As notas mudam se o filtro for copiado antes: df[df["nota"] < 5].copy()["nota"] = 5'
+  correta: 0
+  explicacao: 'O filtro devolve uma tabela nova (Copy-on-Write) e a atribuição cai nela, que é jogada fora: df fica igual (conferido no executor, com o aviso ChainedAssignmentError). O SettingWithCopyWarning não existe mais no pandas 3. Com .copy() a atribuição vai para uma cópia explícita: a nota muda só nela, e o pandas ainda mostra o mesmo aviso. Uma atribuição só, com loc, altera df.'
+  topico: pandas-fundamentos
+- enunciado: |
+    O que acontece com o filtro abaixo?
+
+    clientes = pd.DataFrame({"idade": [20, 15, 40], "cidade": ["Norte", "Norte", "Sul"]})
+    clientes[clientes["idade"] > 18 & clientes["cidade"] == "Norte"]
+  opcoes:
+  - 'Devolve a linha da cliente de 20 anos do Norte, como esperado'
+  - 'TypeError: o & é avaliado antes das comparações, e o Python tenta calcular 18 & clientes["cidade"]'
+  - 'ValueError: The truth value of a Series is ambiguous, o mesmo erro do and'
+  - 'Devolve uma tabela vazia, sem erro'
   correta: 1
-  explicacao: '`transform` devolve um resultado alinhado com as linhas originais; `agg` é que reduz a uma linha por grupo.'
+  explicacao: 'O & tem precedência maior que > e ==, então a conta começa por 18 & clientes["cidade"], um inteiro com uma coluna de texto: TypeError: unsupported operand type(s) for &: ''int'' and ''StringArray''. Cada condição precisa de parênteses: (clientes["idade"] > 18) & (clientes["cidade"] == "Norte"). O ValueError do valor-verdade ambíguo é o que sai com and.'
+  topico: pandas-fundamentos
+- enunciado: |
+    Em que faixa cai cada valor?
+
+    pd.cut(pd.Series([0, 5, 10]), bins=[0, 5, 10])
+  opcoes:
+  - '(0, 5], (0, 5] e (5, 10]'
+  - '[0, 5), [5, 10) e NaN'
+  - 'Erro, porque o 0 coincide com a primeira borda'
+  - 'NaN, (0, 5] e (5, 10]'
+  correta: 3
+  explicacao: 'Por padrão (right=True) as faixas são abertas à esquerda e fechadas à direita: o 5 fica em (0, 5], o 10 em (5, 10], e o 0 não cabe em nenhuma, então vira NaN sem erro. include_lowest=True inclui o 0 na primeira faixa. [0, 5), [5, 10) e NaN é o resultado de right=False, em que o 10 é que sobra.'
+  topico: pandas-fundamentos
+- enunciado: 'O arquivo vendas.csv foi gravado em latin-1 (tem "Pão de queijo" e "Café"), usa ponto e vírgula entre as colunas e traz preços como 1.234,56. Qual leitura dá a coluna de preços como float, com 1234.56?'
+  opcoes:
+  - 'pd.read_csv("vendas.csv", sep=";", decimal=",", thousands=".")'
+  - 'pd.read_csv("vendas.csv", sep=";", decimal=",", encoding="latin-1")'
+  - 'pd.read_csv("vendas.csv", sep=";", decimal=",", thousands=".", encoding="latin-1")'
+  - 'pd.read_csv("vendas.csv", sep=",", decimal=";", thousands=".", encoding="latin-1")'
+  correta: 2
+  explicacao: 'Cada parâmetro resolve um defeito. Sem encoding, a leitura em UTF-8 para em UnicodeDecodeError: ''utf-8'' codec can''t decode byte 0xe3. Sem thousands=".", o 1.234,56 não vira número e a coluna inteira fica com dtype str. Com sep e decimal trocados, a linha não é dividida e tudo cai numa coluna só.'
+  topico: pandas-fundamentos
+- enunciado: |
+    O que este trecho imprime?
+
+    s = pd.Series([4.0, np.nan, 8.0])
+    s.fillna(0)
+    print(s.mean())
+  opcoes:
+  - '4.0'
+  - '6.0'
+  - 'nan'
+  - '4.0 no pandas 2 e 6.0 no pandas 3, por causa do Copy-on-Write'
+  correta: 1
+  explicacao: 'fillna devolve uma Series nova, e o resultado foi descartado: s continua com o NaN. O mean ignora ausentes, (4 + 8) / 2 = 6.0. 4.0 seria (4 + 0 + 8) / 3, a média com o ausente trocado por zero; nan é o que a aritmética faz (s + 1 propaga), não as reduções. fillna sem atribuição nunca alterou a Series, em versão nenhuma.'
+  topico: limpeza-e-transformacao
+- enunciado: |
+    As datas abaixo estão no formato dia/mês/ano: 3 e 10 de abril. O que o trecho imprime?
+
+    d = pd.to_datetime(pd.Series(["03/04/2025", "10/04/2025"]))
+    print(d.dt.month.tolist())
+  opcoes:
+  - '[3, 10]'
+  - '[4, 4]'
+  - 'ValueError, porque as datas são ambíguas'
+  - '[NaT, NaT]'
+  correta: 0
+  explicacao: 'Sem format, o pandas supõe mês/dia/ano e, como nenhum dia passa de 12, converte sem erro: 4 de março e 4 de outubro. O ValueError (time data "13/04/2025" doesn''t match format "%m/%d/%Y") só aparece quando surge um dia acima de 12. [4, 4] exige format="%d/%m/%Y" (ou dayfirst=True). NaT só sairia com errors="coerce" e datas inválidas.'
+  topico: limpeza-e-transformacao
+- enunciado: |
+    p = pd.Series(["R$ 1.234,56", "R$ 89,90"]) e t = p.str.replace("R$ ", "", regex=False). Qual expressão dá os números 1234.56 e 89.9?
+  opcoes:
+  - 't.astype(float)'
+  - 'pd.to_numeric(t.str.replace(",", ".", regex=False).str.replace(".", "", regex=False))'
+  - 'pd.to_numeric(t.str.replace(".", "", regex=True).str.replace(",", ".", regex=False), errors="coerce")'
+  - 'pd.to_numeric(t.str.replace(".", "", regex=False).str.replace(",", ".", regex=False))'
+  correta: 3
+  explicacao: 'A ordem importa: primeiro sai o ponto de milhar, depois a vírgula vira ponto decimal. Trocar a vírgula antes faz o segundo replace apagar também o ponto decimal, e saem 123456 e 8990. Com regex=True o "." casa qualquer caractere, o texto inteiro some e o coerce devolve dois NaN. astype(float) para em ValueError: could not convert string to float: ''1.234,56''.'
+  topico: limpeza-e-transformacao
+- enunciado: |
+    Tempos de entrega fictícios, em minutos:
+
+    s = pd.Series([10, 12, 11, 13, 12, 95])
+
+    Com o quantile padrão do pandas, Q1 = 11,25 e Q3 = 12,75. Qual é o limite superior da regra do IQR e quem fica fora dos limites?
+  opcoes:
+  - '14,25, e só o 95 fica fora'
+  - '140,25, e ninguém fica fora'
+  - '15,0, e só o 95 fica fora'
+  - '15,0, e o 10 também fica fora, porque o limite inferior é 10,5'
+  correta: 2
+  explicacao: 'IQR = 12,75 − 11,25 = 1,5; limites: 11,25 − 1,5 × 1,5 = 9,0 e 12,75 + 1,5 × 1,5 = 15,0. Só o 95 passa. 14,25 soma o IQR sem o fator 1,5; 140,25 usa a amplitude (95 − 10 = 85) no lugar do IQR; 10,5 é 12,75 − 2,25, o limite inferior calculado a partir de Q3. Note que a regra |z| > 3 não marcaria o 95: o próprio outlier infla o desvio e o z dele fica em 2,04.'
+  topico: limpeza-e-transformacao
+- enunciado: |
+    Qual é a forma (shape) de longo?
+
+    largo = pd.DataFrame({"loja": ["A", "B", "C"], "jan": [1, 2, 3], "fev": [4, 5, 6], "mar": [7, 8, 9]})
+    longo = largo.melt(id_vars="loja")
+  opcoes:
+  - (9, 3)
+  - (3, 4)
+  - (12, 2)
+  - (9, 2)
+  correta: 0
+  explicacao: 'Cada loja vira uma linha por mês, 3 × 3 = 9 linhas, com as colunas loja, variable e value. (3, 4) é a tabela larga original; (12, 2) é largo.melt() sem id_vars, que derrete também a coluna loja; (9, 2) esquece que a coluna de identificação é mantida.'
+  topico: limpeza-e-transformacao
+- enunciado: |
+    Quantas linhas tem a junção?
+
+    a = pd.DataFrame({"k": [1, 1, 2, 3], "x": [10, 20, 30, 40]})
+    b = pd.DataFrame({"k": [1, 1, 2, 4], "y": [5, 6, 7, 8]})
+    a.merge(b, on="k")
+  opcoes:
+  - '2'
+  - '5'
+  - '4'
+  - '6'
+  correta: 1
+  explicacao: 'O merge interno faz todos os pares com a mesma chave: o 1 aparece duas vezes em cada lado e gera 2 × 2 = 4 linhas, e o 2 gera mais 1. O 3 e o 4 só existem de um lado e somem. 2 conta uma linha por chave comum; 4 supõe que o tamanho não muda; 6 é o how="left", que mantém o 3 com NaN. Chave repetida dos dois lados multiplica linhas: validate="one_to_many" pega isso.'
+  topico: limpeza-e-transformacao
+- enunciado: |
+    O que este trecho imprime?
+
+    df = pd.DataFrame({"loja": ["A", "A", "B", "B", "B"], "valor": [10, np.nan, 5, 5, 20]})
+    g = df.groupby("loja")["valor"]
+    print(g.size().tolist(), g.count().tolist(), g.mean().tolist())
+  opcoes:
+  - '[2, 3] [2, 3] [5.0, 10.0]'
+  - '[1, 3] [2, 3] [10.0, 10.0]'
+  - '[2, 3] [1, 3] [5.0, 10.0]'
+  - '[2, 3] [1, 3] [10.0, 10.0]'
+  correta: 3
+  explicacao: 'size conta as linhas do grupo, com ou sem NaN (A tem 2); count conta só os valores presentes (A tem 1); mean ignora o NaN, e a média de A é 10 / 1 = 10.0. A primeira opção trata o ausente como zero; a segunda troca size e count; a terceira divide a soma de A pelo size.'
   topico: agregacao-e-series-temporais
-- enunciado: Para comparar a distribuição de uma variável entre vários grupos, qual gráfico é mais adequado?
+- enunciado: 'A tabela vendas tem 1 000 linhas e as colunas uf (27 valores) e valor. A = vendas.groupby("uf")["valor"].mean() e B = vendas.groupby("uf")["valor"].transform("mean"). Quantas linhas tem cada uma, e qual serve para criar a coluna vendas["media_uf"]?'
   opcoes:
-  - Pizza
-  - Boxplot por grupo
-  - Gráfico de linha
-  - Dispersão
-  correta: 1
-  explicacao: O boxplot mostra mediana, quartis e outliers de cada grupo lado a lado.
-  topico: visualizacao
-- enunciado: Qual destes é um erro clássico que torna um gráfico enganoso?
+  - 'As duas têm 1 000 linhas, e qualquer uma serve'
+  - 'A tem 27 e B tem 1 000, e as duas servem, porque o pandas alinha pela UF'
+  - 'A tem 27 e B tem 1 000; só B serve'
+  - 'As duas têm 27 linhas; para criar a coluna é preciso um merge'
+  correta: 2
+  explicacao: 'mean reduz a uma linha por grupo; transform devolve um valor por linha original, com o índice de vendas. Gravar A em vendas["media_uf"] não dá erro, mas a coluna sai inteira com NaN: o índice de A são as UFs e o de vendas são 0 a 999, e a atribuição alinha pelo índice, não pela coluna uf. O merge de A com vendas também funciona, mas o transform faz isso numa linha.'
+  topico: agregacao-e-series-temporais
+- enunciado: |
+    A tabela longa tem duas vendas da região Norte em janeiro, de 100 e 200 reais. A tabela dinâmica abaixo mostra 150 para Norte em janeiro. O que fazer para ver o total do mês?
+
+    pd.pivot_table(vendas, index="regiao", columns="mes", values="vendas")
   opcoes:
-  - Eixo y de um gráfico de barras começando acima de zero
-  - Usar título com a mensagem
-  - Rotular os eixos com unidades
-  - Usar cores acessíveis
+  - 'Passar aggfunc="sum": o padrão do pivot_table é a média'
+  - 'Apagar a linha repetida com drop_duplicates antes da tabela'
+  - 'Trocar por vendas.pivot(index="regiao", columns="mes", values="vendas"), que soma as repetidas'
+  - 'Passar margins=True, que acrescenta a linha de totais'
   correta: 0
-  explicacao: Barras codificam valor pelo comprimento; truncar o eixo exagera diferenças pequenas.
+  explicacao: 'Com o aggfunc padrão, as duas vendas viram a média, 150; com aggfunc="sum", 300. As duas linhas são vendas diferentes, não duplicatas: apagar uma perde 100 ou 200 reais. pivot não agrega e para em ValueError: Index contains duplicate entries, cannot reshape. margins=True acrescenta a linha e a coluna All, mas com a mesma função de agregação, a média.'
+  topico: agregacao-e-series-temporais
+- enunciado: 'vendas é uma Series diária, com índice de datas de janeiro de 2024 a dezembro de 2025. vendas.resample("M").sum() terminou em ValueError: Invalid frequency: M. Qual expressão dá o total de cada um dos 24 meses?'
+  opcoes:
+  - vendas.groupby(vendas.index.month).sum()
+  - vendas.rolling(30).sum()
+  - vendas.asfreq("ME")
+  - vendas.resample("ME").sum()
+  correta: 3
+  explicacao: 'No pandas 3 o fim de mês se escreve "ME" (a própria mensagem do erro sugere a troca), e resample("ME").sum() devolve 24 totais. Agrupar por index.month devolve 12 linhas, somando janeiro de 2024 com janeiro de 2025. rolling(30) é uma janela móvel, com um valor por dia. asfreq("ME") só pega o valor do último dia de cada mês, sem somar.'
+  topico: agregacao-e-series-temporais
+- enunciado: |
+    Em qual painel aparece o título?
+
+    fig, axs = plt.subplots(1, 2)
+    axs[0].plot([1, 2, 3])
+    plt.title("Receita")
+  opcoes:
+  - 'No da esquerda, axs[0], o último em que se desenhou'
+  - 'No da direita, axs[1], o último criado pelo subplots'
+  - 'Acima dos dois, como título da figura'
+  - 'Nos dois painéis'
+  correta: 1
+  explicacao: 'plt.title age no Axes atual, e depois de subplots(1, 2) o atual é o último criado, axs[1]. Desenhar com axs[0].plot não muda o Axes atual (conferido: axs[0].get_title() fica vazio e axs[1].get_title() é Receita). O título da figura é fig.suptitle. Para não depender do Axes atual, use axs[0].set_title("Receita").'
   topico: visualizacao
-- enunciado: Qual medida de tendência central é mais adequada para renda, cuja distribuição é fortemente assimétrica?
+- enunciado: 'Você quer comparar a distribuição do tempo de entrega de cinco transportadoras fictícias, cada uma com centenas de entregas, e mostrar quais têm atrasos muito longos. Qual gráfico responde melhor?'
   opcoes:
-  - Média
-  - Mediana
-  - Moda
-  - Desvio padrão
-  correta: 1
-  explicacao: A média é puxada pelos valores extremos; a mediana representa melhor a pessoa 'típica'.
-  topico: probabilidade-e-estatistica
-- enunciado: 'O p-valor de um teste de hipótese é:'
+  - Barras com o tempo médio de cada transportadora
+  - Uma pizza com o total de entregas de cada transportadora
+  - Um boxplot por transportadora, lado a lado
+  - Uma linha ligando os tempos médios das cinco transportadoras
+  correta: 2
+  explicacao: 'O boxplot mostra mediana, quartis e os pontos extremos de cada grupo, lado a lado: é a pergunta de distribuição. As barras de média escondem a dispersão e os atrasos longos (duas transportadoras com a mesma média podem ser muito diferentes). A pizza mostra participação no total, outra pergunta. A linha sugere uma ordem ou evolução entre categorias que não existe.'
+  topico: visualizacao
+- enunciado: 'Para saber se quem estuda mais horas tira notas maiores, você tem as horas de estudo e a nota de 300 alunos fictícios. Qual gráfico usar?'
   opcoes:
-  - A probabilidade de H0 ser verdadeira
-  - A probabilidade de observar dados tão ou mais extremos que os obtidos, supondo H0 verdadeira
-  - A probabilidade de H1 ser verdadeira
-  - O tamanho do efeito
-  correta: 1
-  explicacao: O p-valor é condicional a H0; ele não mede a probabilidade das hipóteses.
-  topico: probabilidade-e-estatistica
-- enunciado: 'Uma correlação de 0,9 entre vendas de sorvete e afogamentos indica mais provavelmente:'
+  - 'Dispersão: ax.scatter(horas, notas), um ponto por aluno'
+  - 'Linha: ax.plot(horas, notas), que mostra a tendência'
+  - 'Barras com a nota de cada aluno, na ordem da tabela'
+  - 'Histograma das notas'
+  correta: 0
+  explicacao: 'Relação entre duas variáveis numéricas é dispersão. ax.plot liga os pontos na ordem da tabela e desenha um zigue-zague sem significado. Barras de 300 alunos não mostram as horas. O histograma mostra só a distribuição das notas, sem as horas.'
+  topico: visualizacao
+- enunciado: 'Num gráfico de linha com os atendimentos de três trimestres (950, 970 e 1 010), o matplotlib escolheu sozinho o eixo y de 947 a 1 013. No gráfico de barras com os mesmos números, o eixo foi de 0 a 1 060. Um colega quer fazer as barras "imitarem" a linha com ax.set_ylim(940, 1020). O que você responde?'
   opcoes:
-  - Que sorvete causa afogamentos
-  - Uma variável de confusão (o calor) que afeta as duas
-  - Erro nos dados
-  - Causalidade reversa comprovada
+  - 'Pode: aproximar o eixo mostra melhor a diferença, e o gráfico de linha já faz isso'
+  - 'Pode, desde que os valores exatos fiquem escritos em cima das barras'
+  - 'Não tem efeito: o set_ylim é ignorado em gráficos de barras, que sempre começam no zero'
+  - 'Não: na barra o valor é lido pelo comprimento a partir do zero; com o eixo em 940, a barra de 1 010 pareceria 7 vezes a de 950'
+  correta: 3
+  explicacao: 'Na linha o que se lê é a posição e a variação, por isso o eixo não precisa partir do zero, e o matplotlib não parte. Na barra o comprimento é o valor: com o eixo em 940, as barras teriam 10 e 70 de altura visível, (1 010 − 940) / (950 − 940) = 7. Os rótulos com o valor não desfazem a impressão visual. O set_ylim vale para barras também: por isso é preciso cuidado.'
+  topico: visualizacao
+- enunciado: 'Depois de fig, axs = plt.subplots(2, 3), como você pega o painel da segunda linha e terceira coluna?'
+  opcoes:
+  - axs[2, 3]
+  - axs[1, 2]
+  - axs[5]
+  - axs[2, 1]
   correta: 1
-  explicacao: Correlação não implica causação; uma terceira variável pode explicar a associação.
+  explicacao: 'axs é um array de forma (2, 3), indexado a partir de 0 por [linha, coluna]: segunda linha é 1, terceira coluna é 2. axs[2, 3] conta a partir de 1 e axs[2, 1] ainda troca linha e coluna; os dois dão IndexError: index 2 is out of bounds for axis 0 with size 2. axs[5] trata o array como lista de 6 e dá IndexError também; para a posição corrida, axs.flat[5].'
+  topico: visualizacao
+- enunciado: 'Qual é a probabilidade de sair pelo menos um seis ao lançar quatro dados honestos?'
+  opcoes:
+  - 4 × 1/6 ≈ 0,667
+  - (1/6)⁴ ≈ 0,0008
+  - 1 − (5/6)⁴ ≈ 0,518
+  - (5/6)⁴ ≈ 0,482
+  correta: 2
+  explicacao: 'Pelo complemento: nenhum seis em quatro dados independentes tem probabilidade (5/6)⁴ ≈ 0,482, e pelo menos um é 1 − 0,482 ≈ 0,518. Somar 1/6 quatro vezes conta duas vezes os casos com mais de um seis (com seis dados daria 1, um absurdo). (1/6)⁴ é a chance de quatro seis; 0,482 é a de nenhum.'
   topico: probabilidade-e-estatistica
+- enunciado: 'Uma doença fictícia atinge 1 % da população. O teste dá positivo em 90 % dos doentes (sensibilidade) e negativo em 95 % dos saudáveis (especificidade). Uma pessoa sorteada testou positivo. Qual é, aproximadamente, a chance de ela ter a doença?'
+  opcoes:
+  - Cerca de 15 %
+  - '90 %'
+  - '95 %'
+  - 0,9 %
+  correta: 0
+  explicacao: 'Em 10 000 pessoas: 100 doentes, dos quais 90 dão positivo; 9 900 saudáveis, dos quais 5 % (495) dão positivo. P(doença | positivo) = 90 / (90 + 495) ≈ 0,154. 90 % é P(positivo | doença), a pergunta invertida; 95 % é a especificidade; 0,9 % é a chance de ter a doença e dar positivo, sem condicionar ao positivo.'
+  topico: probabilidade-e-estatistica
+- enunciado: 'Notas de um exame fictício seguem uma normal com média 100 e desvio 15. Quanto vale stats.norm.cdf(130, 100, 15) - stats.norm.cdf(70, 100, 15)?'
+  opcoes:
+  - Cerca de 0,683
+  - Cerca de 0,977
+  - Cerca de 0,023
+  - Cerca de 0,954
+  correta: 3
+  explicacao: 'A diferença de cdf é a probabilidade de ficar entre 70 e 130, a média mais ou menos 2 desvios: cerca de 95 % (0,9545 no scipy). 0,683 é o intervalo de 1 desvio (85 a 115); 0,977 é só cdf(130), a chance de ficar abaixo de 130; 0,023 é stats.norm.sf(130), a cauda acima de 130.'
+  topico: probabilidade-e-estatistica
+- enunciado: |
+    O que este trecho imprime, com os números arredondados?
+
+    v = [2, 4, 4, 4, 5, 5, 7, 9]
+    print(np.std(v), pd.Series(v).std())
+  opcoes:
+  - 2.14 e 2.0
+  - 2.0 e 2.14
+  - 2.0 e 2.0
+  - 2.14 e 2.14
+  correta: 1
+  explicacao: 'np.std usa ddof=0 e divide a soma dos quadrados (32) por n = 8: raiz de 4 = 2.0. Series.std usa ddof=1 e divide por n − 1 = 7: raiz de 32/7 ≈ 2.138. Para estimar a variabilidade da população a partir de uma amostra, use ddof=1; np.std(v, ddof=1) dá o mesmo 2.14 da Series.'
+  topico: probabilidade-e-estatistica
+- enunciado: 'Com uma amostra aleatória de 100 clientes, o erro padrão da média do tempo de espera foi 3,0 minutos. Mantida a variabilidade, quantos clientes seriam necessários para o erro padrão cair para cerca de 1,0 minuto?'
+  opcoes:
+  - '300'
+  - '173'
+  - '900'
+  - 'Nenhum número: o erro padrão não depende do tamanho da amostra'
+  correta: 2
+  explicacao: 'O erro padrão é σ / √n: para dividi-lo por 3, √n precisa triplicar, e n fica 9 vezes maior, 900. 300 supõe que o erro cai na proporção de n; 173 é 100 × √3, a raiz aplicada no lugar errado. O erro padrão cai com n, ao contrário do desvio da população, que não depende da amostra.'
+  topico: probabilidade-e-estatistica
+- enunciado: 'Com uma amostra de 10 lotes, o intervalo de confiança de 95 % para o rendimento médio de uma receita fictícia foi de 47,1 a 52,9. Qual frase está correta?'
+  opcoes:
+  - 'Há 95 % de probabilidade de o rendimento médio verdadeiro estar entre 47,1 e 52,9'
+  - '95 % dos lotes têm rendimento entre 47,1 e 52,9'
+  - 'Se a coleta fosse repetida, 95 % das médias amostrais cairiam entre 47,1 e 52,9'
+  - 'O método, repetido em muitas amostras, gera intervalos que contêm a média verdadeira em cerca de 95 % das vezes'
+  correta: 3
+  explicacao: 'A média verdadeira é fixa; quem varia é o intervalo. Os 95 % descrevem a taxa de acerto do procedimento, não a deste intervalo, que contém ou não contém a média. O intervalo é sobre a média, não sobre os lotes, que se espalham bem mais. E as médias de novas amostras se distribuem em torno da média verdadeira, não em torno deste intervalo.'
+  topico: probabilidade-e-estatistica
+- enunciado: 'Uma amostra de 10 lotes tem média 50 e desvio padrão amostral (ddof=1) igual a 4. Com stats.t.ppf(0.975, 9) ≈ 2,262, qual é o intervalo de confiança de 95 % da média, com uma casa decimal?'
+  opcoes:
+  - 47,1 a 52,9
+  - 47,5 a 52,5
+  - 47,2 a 52,8
+  - 41,0 a 59,0
+  correta: 0
+  explicacao: 'O erro padrão é 4 / √10 ≈ 1,265, e 2,262 × 1,265 ≈ 2,86: de 47,1 a 52,9. 47,5 a 52,5 usa 1,96, o quantil da normal, que com n = 10 e desvio estimado entrega menos de 95 %. 47,2 a 52,8 usa o t com 10 graus de liberdade (2,228) em vez de n − 1 = 9. 41,0 a 59,0 multiplica o desvio sem dividir por √n: é uma faixa para os lotes, não para a média.'
+  topico: probabilidade-e-estatistica
+- enunciado: 'Um teste t comparou dois métodos de ensino fictícios, com 12 alunos em cada grupo, e deu p = 0,20. Com α = 0,05, qual conclusão é correta?'
+  opcoes:
+  - 'Os dois métodos têm o mesmo efeito: o teste provou a hipótese nula'
+  - 'Os dados não dão evidência de diferença ao nível de 5 %; uma diferença real pode existir e não ter sido detectada com 12 alunos por grupo'
+  - 'Há 20 % de chance de a hipótese nula ser verdadeira'
+  - 'Há 80 % de chance de o método novo ser melhor'
+  correta: 1
+  explicacao: 'Não rejeitar H0 não é provar H0: com amostras pequenas o poder é baixo e um efeito real escapa com facilidade. O p-valor é calculado supondo H0 verdadeira (a chance de uma diferença tão grande ou maior só pelo acaso), então não é a probabilidade de H0, e 1 − p não é a probabilidade de H1.'
+  topico: probabilidade-e-estatistica
+- enunciado: 'Um analista compara dois grupos em 20 métricas independentes, e em nenhuma delas há diferença real. Com α = 0,05 em cada teste, qual é a chance de pelo menos uma métrica dar p < 0,05?'
+  opcoes:
+  - '5 %, a mesma de cada teste'
+  - '100 %, porque 20 × 5 % = 100 %'
+  - 'Cerca de 64 %'
+  - 'Cerca de 36 %'
+  correta: 2
+  explicacao: 'Cada teste sem efeito tem 95 % de não dar falso positivo; os 20 juntos, 0,95²⁰ ≈ 0,36. Pelo menos um falso positivo: 1 − 0,36 ≈ 0,64. Os 5 % valem para um teste só; somar as chances conta várias vezes os casos com mais de um acerto; 36 % é a chance de nenhum. Bonferroni compara cada p com 0,05 / 20 = 0,0025.'
+  topico: probabilidade-e-estatistica
+- enunciado: |
+    Uma colega calculou a correlação abaixo, obteve 0.0 e concluiu que x e y não têm relação. O que você responde?
+
+    x = np.arange(-3, 4)
+    y = x ** 2
+    np.corrcoef(x, y)[0, 1]
+  opcoes:
+  - 'A relação é perfeita, mas não é linear: o Pearson mede só a tendência linear, e os dois lados da parábola se anulam'
+  - 'Ela está certa: correlação zero quer dizer que as variáveis são independentes'
+  - 'O Pearson falhou por causa dos valores negativos; o Spearman daria 1'
+  - 'Há relação, mas fraca: r perto de zero indica pontos muito espalhados em torno da reta'
+  correta: 0
+  explicacao: 'y é uma função exata de x, então a relação é perfeita; mas para x negativo y cai e para x positivo sobe, e a covariância se anula. O Spearman também dá 0 aqui (conferido no scipy), porque a relação não é monotônica; ele daria 1 para y = x³. Os pontos estão exatamente sobre a parábola, nada espalhados: por isso sempre se olha o gráfico de dispersão.'
+  topico: probabilidade-e-estatistica
+- enunciado: |
+    Quais colunas tem o resultado?
+
+    imoveis = pd.DataFrame({"area": [50, 70, 90], "bairro": ["Norte", "Centro", "Sul"]})
+    pd.get_dummies(imoveis, columns=["bairro"], drop_first=True)
+  opcoes:
+  - area, bairro_Centro, bairro_Norte e bairro_Sul
+  - area, bairro_Centro e bairro_Sul
+  - bairro_Norte e bairro_Sul
+  - area, bairro_Norte e bairro_Sul
+  correta: 3
+  explicacao: 'As categorias são ordenadas em ordem alfabética e drop_first tira a primeira, Centro, que vira a referência: o coeficiente de bairro_Norte é a diferença em relação ao Centro, com a área fixa. Não é a primeira que aparece na tabela (Norte). Com as três dummies, a soma delas repetiria a coluna de uns do intercepto e a matriz ficaria singular. A coluna area é mantida, e as dummies saem como bool no pandas 3 (astype(float) antes da equação normal).'
+  topico: probabilidade-e-estatistica
+- enunciado: 'Na amostra do ENEM 2023 usada no projeto (3 000 inscrições: 2 298 presentes, 700 faltosos e 2 eliminados na prova de matemática), quem não fez a prova tem nota em branco. A média dos presentes é 528,2; df["NU_NOTA_MT"].fillna(0).mean() dá 404,6. Qual é a leitura certa?'
+  opcoes:
+  - '404,6 é a média mais honesta, porque usa as 3 000 inscrições'
+  - '528,2: a nota em branco é ausência de prova, e tratá-la como zero mistura faltosos com desempenho'
+  - 'Nenhuma das duas: antes da média é preciso apagar também os 14 presentes com nota 0,0'
+  - '528,2, mas só depois de um dropna() em todas as colunas'
+  correta: 1
+  explicacao: 'O fillna(0) transforma 702 ausências em notas zero e derruba a média em mais de 120 pontos. Os 14 presentes com 0,0 fizeram a prova e o arquivo não diz por que zeraram: apagá-los é decidir sem dado. O dropna() em todas as colunas também tira presentes que só não têm a nota de outra prova (sobram 2 291), mudando a amostra sem motivo.'
+  topico: n4-projeto-do-nivel
+- enunciado: 'No projeto, a nota média de matemática da escola privada ficou 134,6 pontos acima da pública (p ≈ 10⁻⁸²). Numa regressão com a faixa de renda, o coeficiente da escola privada caiu para 70,3 pontos, e cada letra de renda somou 12,4. Qual conclusão os dados sustentam?'
+  opcoes:
+  - 'Matricular um aluno em escola privada aumenta a nota dele em cerca de 70 pontos'
+  - 'A renda explica toda a diferença, e o tipo de escola não importa'
+  - 'Parte da diferença acompanha a renda; os 70,3 pontos que sobram ainda são uma associação em dados observacionais, que pode vir de fatores não medidos'
+  - 'Como o p-valor é minúsculo, a diferença de 134,6 pontos é causada pelo tipo de escola'
+  correta: 2
+  explicacao: 'Controlar pela renda reduziu a diferença quase à metade, mas não a zerou: a renda não explica tudo. Ainda assim, os dados são observacionais e a renda entrou só como faixa; outros fatores (escolaridade dos pais, região, seleção de alunos) podem explicar parte do que sobra, então o coeficiente não é o efeito de trocar de escola. Um p-valor pequeno diz que a diferença dificilmente é acaso, não qual é a causa.'
+  topico: n4-projeto-do-nivel

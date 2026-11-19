@@ -242,6 +242,14 @@ describe("checkRule", () => {
     expect(checkRule({ type: "uses", construct: "def", function: "nao_existe" }, features)).toBe(false)
     expect(checkRule({ type: "not_uses", construct: "for", function: "soma" }, features)).toBe(true)
   })
+
+  it("recursão restrita a uma função usa recursive_functions do executor", () => {
+    const recursive: AstFeatures = { ...features, constructs: [...features.constructs, "recursion"], recursive_functions: ["fatorial"],
+      function_constructs: { ...features.function_constructs, fatorial: ["def", "if", "return"] } }
+    expect(checkRule({ type: "uses", construct: "recursion", function: "fatorial" }, recursive)).toBe(true)
+    expect(checkRule({ type: "uses", construct: "recursion", function: "soma" }, recursive)).toBe(false)
+    expect(checkRule({ type: "not_uses", construct: "recursion", function: "fatorial" }, recursive)).toBe(false)
+  })
 })
 
 describe("jsonEquals / pyRepr", () => {

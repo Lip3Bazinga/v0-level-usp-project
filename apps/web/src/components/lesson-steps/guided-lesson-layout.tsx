@@ -19,6 +19,7 @@ import { indexBy } from "@/lib/utils"
 import { listPendingBeforeProject } from "@/lib/utils/course-outline"
 import { firstPendingStepIndex, initialStepFiles, isStepCompleted, mergeStepProgress, readStepDraft, stepStates, toCompletionLike } from "@/lib/utils/step-player"
 import { ExerciseStep } from "./exercise-step"
+import { LessonLibrariesProvider } from "./lesson-libraries-context"
 import { ProjectLockedNotice } from "./project-locked-notice"
 import { PredictionStep } from "./prediction-step"
 import { QuizStep } from "./quiz-step"
@@ -193,46 +194,48 @@ export function GuidedLessonLayout({ lesson, allLessons, currentIndex }: GuidedL
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <StepSidebar steps={steps} states={states} onSelect={selectStep} />
         <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-          {step.kind === "leitura" && (
-            <ReadingStep step={step} isCompleted={stepProgress?.status === "completed"} isBusy={isBusy} onContinue={() => void handleReadingContinue()} />
-          )}
-          {step.kind === "exercicio" && (
-            <ExerciseStep
-              key={step.id}
-              lesson={lesson}
-              step={step}
-              initialFiles={readStepDraft(step.id) ?? initialStepFiles(steps, stepIndex)}
-              progress={stepProgress}
-              onProgress={(patch) => patchProgress(step.id, patch)}
-              onVerified={handleVerified}
-              onContinue={goToNextStep}
-              onUnauthorized={goToLogin}
-            />
-          )}
-          {step.kind === "previsao" && (
-            <PredictionStep
-              key={step.id}
-              lesson={lesson}
-              step={step}
-              progress={stepProgress}
-              onProgress={(patch) => patchProgress(step.id, patch)}
-              onPredicted={handleVerified}
-              onContinue={goToNextStep}
-              onUnauthorized={goToLogin}
-            />
-          )}
-          {step.kind === "quiz" && (
-            <QuizStep
-              key={step.id}
-              step={step}
-              isCompleted={stepProgress?.status === "completed"}
-              isBusy={isBusy}
-              result={quizResult}
-              onSubmit={(answers) => void handleQuizSubmit(answers)}
-              onRetry={() => setQuizResult(null)}
-              onContinue={goToNextStep}
-            />
-          )}
+          <LessonLibrariesProvider libraries={lesson.libraries}>
+            {step.kind === "leitura" && (
+              <ReadingStep step={step} isCompleted={stepProgress?.status === "completed"} isBusy={isBusy} onContinue={() => void handleReadingContinue()} />
+            )}
+            {step.kind === "exercicio" && (
+              <ExerciseStep
+                key={step.id}
+                lesson={lesson}
+                step={step}
+                initialFiles={readStepDraft(step.id) ?? initialStepFiles(steps, stepIndex)}
+                progress={stepProgress}
+                onProgress={(patch) => patchProgress(step.id, patch)}
+                onVerified={handleVerified}
+                onContinue={goToNextStep}
+                onUnauthorized={goToLogin}
+              />
+            )}
+            {step.kind === "previsao" && (
+              <PredictionStep
+                key={step.id}
+                lesson={lesson}
+                step={step}
+                progress={stepProgress}
+                onProgress={(patch) => patchProgress(step.id, patch)}
+                onPredicted={handleVerified}
+                onContinue={goToNextStep}
+                onUnauthorized={goToLogin}
+              />
+            )}
+            {step.kind === "quiz" && (
+              <QuizStep
+                key={step.id}
+                step={step}
+                isCompleted={stepProgress?.status === "completed"}
+                isBusy={isBusy}
+                result={quizResult}
+                onSubmit={(answers) => void handleQuizSubmit(answers)}
+                onRetry={() => setQuizResult(null)}
+                onContinue={goToNextStep}
+              />
+            )}
+          </LessonLibrariesProvider>
         </main>
       </div>
 

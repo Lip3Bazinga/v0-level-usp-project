@@ -4,7 +4,7 @@ descricao: Matemática discreta essencial, análise de complexidade, recursão e
 descricao_longa: |
   ## Para quem é
 
-  Para quem já escreve programas organizados (Nível 2) e quer entender por que alguns programas são rápidos e outros não terminam nunca — o conteúdo clássico de uma disciplina de estruturas de dados, no espírito do MAC0121 da USP, com implementação de tudo em Python puro.
+  Para quem já escreve programas organizados (Nível 2) e quer entender por que alguns programas são rápidos e outros não terminam nunca — o conteúdo clássico de uma disciplina universitária de estruturas de dados, com implementação de tudo em Python puro.
 
   ## O que você vai construir
 
@@ -18,7 +18,7 @@ descricao_longa: |
 
   ## Como é avaliado
 
-  - Lições em passos verificados por casos de teste, inclusive de desempenho (um algoritmo quadrático reprova onde se exige n log n).
+  - Lições em passos verificados por casos de teste, inclusive de desempenho, medido contando operações (um algoritmo quadrático reprova onde se exige n log n).
   - Certificado do nível: 100 % das lições + prova (nota mínima 70 %) + projeto final aprovado.
 nivel: intermediario
 tags:
@@ -28,8 +28,8 @@ tags:
 - grafos
 - programação dinâmica
 - matemática discreta
-horas: 60
+horas: 44
 ordem: 3
-publicado: false
+publicado: true
 prerequisito: n2-python-intermediario
 sequencial: false

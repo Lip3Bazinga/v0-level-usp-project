@@ -16,8 +16,11 @@ export type ExecutionTraceState =
 /** Estado e comandos do visualizador de execução devolvidos por `useExecutionTrace`. */
 export interface UseExecutionTraceResult {
   state: ExecutionTraceState
-  /** Executa o projeto no navegador registrando cada passo do arquivo `entryPath`; `stdin` é o que `input()` lê. */
-  start: (files: readonly ProjectFile[], entryPath: string, stdin?: string) => void
+  /**
+   * Executa o projeto no navegador registrando cada passo do arquivo `entryPath`; `stdin` é o que
+   * `input()` lê e `packages` são as bibliotecas da lição, instaladas antes da execução.
+   */
+  start: (files: readonly ProjectFile[], entryPath: string, stdin?: string, packages?: readonly string[] | null) => void
   close: () => void
 }
 
@@ -32,12 +35,12 @@ export function useExecutionTrace(): UseExecutionTraceResult {
   // Só o pedido mais recente pode mudar a tela (o aluno pode fechar ou pedir de novo).
   const latestRequest = useRef(0)
 
-  const start = useCallback((files: readonly ProjectFile[], entryPath: string, stdin = ""): void => {
+  const start = useCallback((files: readonly ProjectFile[], entryPath: string, stdin = "", packages: readonly string[] | null = null): void => {
     latestRequest.current += 1
     const request = latestRequest.current
     const code = files.find((file) => file.path === entryPath)?.content ?? ""
     setState({ status: "loading" })
-    requestTrace({ files, entryPath, stdin }).then(
+    requestTrace({ files, entryPath, stdin, packages: packages ?? [] }).then(
       (trace) => {
         if (latestRequest.current === request) setState({ status: "ready", code, trace: limitTrace(trace) })
       },

@@ -29,8 +29,8 @@ tags:
 - transformers
 - numpy
 - modelos de linguagem
-horas: 60
+horas: 44
 ordem: 6
-publicado: false
+publicado: true
 prerequisito: n5-machine-learning
 sequencial: false

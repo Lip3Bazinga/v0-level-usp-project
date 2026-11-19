@@ -321,5 +321,67 @@ Falta, e depende do Filipe:
    `aluno.teste.claude@levelusp.dev`; push do `fix/ps1-utf8-bom`; SMTP; promover professores; rotacionar
    a chave do Supabase e desligar Supabase/Vercel.
 
-### P5 — Níveis 2–7 (sessões futuras)
+### P5 — Níveis 2–7 (em andamento na branch `feat/niveis-2-a-7`)
+Estado em 2026-11-16:
+- **Nível 2 concluído e publicado:** 35 lições, 263 passos, 113 exercícios e 34 previsões/visualizações
+  verificados (`content:verify --curso n2-python-intermediario`), prova com 40 questões, sequência de
+  passos no `PLANO.md` do nível.
+- `content:verify`: a solução errada agora herda os arquivos de `### Solução` e só troca os que declara
+  (`wrongSolutionFiles` em `apps/api/scripts/content/verify.ts`; `content/README.md` §3.3).
+- `pnpm content:metrics` (`apps/api/scripts/content-metrics.mts`): métricas de densidade por lição contra
+  o Nível 1, para a auditoria de qualidade.
+- **Níveis 7 e 3 concluídos e auditados (2026-11-16):** `feat/niveis-7-e-3` integrada; N7 (28 lições)
+  e N3 (39 lições, módulos 7–8 escritos do zero) na régua do Nível 1, 0 lições suspeitas no
+  `content:metrics`, `content:verify` dos dois cursos OK, `PLANO.md` reescritos, provas com 40
+  questões. Nenhuma menção à USP nem a códigos reais de disciplina. Resultado, métricas antes/depois e
+  decisões em aberto em [`auditoria-niveis-7-e-3.md`](auditoria-niveis-7-e-3.md).
+- Pendentes da auditoria (dependem do Filipe): conferir as citações da LGPD no N7 m6-03; avaliar a
+  pilha do Wasmtime no runner (recursão com `lru_cache` acima de ~250 níveis derruba a instância).
+- **Memória do runner para a homologação (N4–N7):** as lições `python-dados` com scipy, matplotlib ou
+  scikit-learn usam o perfil `ml` do Pyodide (~1,3 GB de heap wasm por worker; o `dados` ~0,6 GB). Hoje
+  `infra/compose/compose.yml` usa `RUNNER_MEMORY=1g` e `RUNNER_PYODIDE_WARM=dados:1,ml:0`, o que não roda o
+  perfil `ml`. Antes de publicar o N4 na homologação: `RUNNER_MEMORY` de pelo menos **4g** com `ml:0`
+  (cada verificação `ml` espera ~10 s de boot) ou **6g** com `RUNNER_PYODIDE_WARM=dados:1,ml:1` (configuração
+  do ambiente local desde 2026-11-16), em `infra/env/homolog.env`; a VM precisa ter essa memória livre além
+  da API, da web e do Postgres. Dois boots `ml` simultâneos em 4 GB já derrubaram o executor (`fetch failed`).
+- **Horas dos cursos (2026-11-16):** `horas` = soma dos `tempo_min` + 30 %, arredondada (regra em
+  `content/CURRICULO.md`); recalcular ao mudar o `tempo_min` de uma lição.
+- **Nível 4 concluído (2026-11-16):** 31 lições em 7 módulos escritas, verificadas e publicadas
+  (`runtime: python-dados`), 0 lições suspeitas no `content:metrics`, prova com 40 questões (10 por tentativa),
+  `PLANO.md` com as convenções e os comportamentos do executor Pyodide (numpy 2.4.6, pandas 3.0.2, scipy 1.18,
+  matplotlib 3.10). Projeto final com amostra real do ENEM 2023 (INEP) — dados, script e fonte em
+  `docs/v2/dados/enem-2023-amostra/`. O visualizador da web instala as bibliotecas da lição (`8ec2a1b`).
+- **Cuidado com o `content:verify`:** mesmo com `--licao`, ele gera antes as Previsões de todos os cursos; uma cópia
+  inteira de `content/` com uma lição de rascunho chegou a derrubar o runner (saída 139). Para rascunhos, use
+  `--content` com uma cópia só do curso e do módulo; o check também recusa rodar se outro arquivo estiver quebrado.
+- **Nível 5 concluído (2026-11-16):** 36 lições em 8 módulos escritas, verificadas e publicadas (perfil `ml`,
+  scikit-learn 1.8.0), 0 lições suspeitas no `content:metrics`, prova com 40 questões (10 por tentativa), `PLANO.md`
+  atualizado com assinaturas finais, mensagens reais e 15 decisões para o Filipe. Projeto com clientes fictícios
+  gerados (`sklearn.datasets` não importa no executor). Ressalva: o passo 3 do projeto só passa no verify com um
+  lote por vez — o `content:verify` manda 4 lotes `ml` simultâneos e o executor fecha a conexão (`fetch failed`).
+- **`content:verify` no perfil `ml`:** rode uma lição por vez e nunca dois verifies ao mesmo tempo; com a fila
+  cheia aparecem `fetch failed` e "Tempo limite excedido" sem o contêiner reiniciar. Decidir: baixar a concorrência
+  do verify (`DEFAULT_VERIFY_CONCURRENCY`) para lições `ml` ou corrigir o executor.
+- **Nível 6 concluído (2026-11-17):** 36 lições em 8 módulos e a prova de 40 questões escritas, verificadas e publicadas, tudo em numpy no perfil `dados` (sem PyTorch); `curso.yaml` com `publicado: true`.
+  Divergências do `PLANO.md` medidas no executor: corpus com 62 879 caracteres e validação 0,56 no mini-GPT (m7-05); CNN e MLP empatam em robustez a deslocamento (m5-03); o projeto usa pesos próprios (`pesos_projeto.txt`).
+  A rever: o corretor executa o `if __name__ == "__main__":` em cada caso (m2-02, m5-03, m6-02, m6-03 pagam esse custo); a lição do projeto tem 384 mil caracteres; com dois verifies ao mesmo tempo, um pedido pode estourar os 120 s.
+- **Fase A concluída (2026-11-19), fechamento da branch:**
+  - Os 7 níveis estão com `publicado: true`. `content:verify` do curso inteiro aprovado no N4 (95 passos, 35 previsões)
+    e no N5 (110 passos, 40 previsões); N3 e N7 já tinham o registro. No verify do curso, 2 lições do N4 e 4 do N5
+    estouraram os 120 s do pedido no arranque da fila e passaram rodadas sozinhas com `--licao`.
+  - Prova do N6 revisada (Q2, Q12, Q18, Q21, Q29), correta 10 vezes em cada posição.
+  - Pacote `packages/db/seed/trilha-python-ia.json`: 19 500 829 bytes com os 7 níveis, dentro do limite de 20 MB
+    (20 971 520 bytes) do `POST /admin/content/import`; nada foi mudado na importação. Folga de 7 %: o mesmo pacote
+    minificado tem 14,0 MB e, em gzip, 3,0 MB. Se crescer, a saída mais barata é enviar o JSON minificado; o `json()` do
+    Express aplica o limite ao corpo já descompactado, então gzip sozinho não resolve.
+  - Bateria: build, lint (0 avisos), typecheck, unitários (API 321, web 374, contratos 43, db 11, carga 22), API
+    `test:e2e` 148, `test:security` 111, `test:attacks` 40 (executor real); runner `test` 62 e `test:attacks` 73 com Pyodide.
+  - Consertos da bateria: o e2e da importação esperava só o N1 publicado (agora lê os publicados do pacote); o contrato
+    passou a aceitar `recursion` em `not_uses`, que o domínio e o teste já tratavam (o `typecheck` estava quebrado).
+  - Ambiente local: no Windows não há Wasmtime nem Pyodide; os testes do runner rodam na imagem `levelusp-runner-test`
+    (estágio de build do `runner.Dockerfile`) com `PYODIDE_DIR=/opt/levelusp-pyodide`, `PYTHON_WASI_DIR=/opt/levelusp-python`
+    e `apps/runner/{src,test,python}` montados. Pare o `levelusp-dev-runner-1` antes, por causa da memória.
+  - Dívidas da Fase C (`__main__` em cada caso e piso de ~4 s por lote) registradas em `divida-tecnica.md`.
+- Próximos: merge do PR `feat/niveis-2-a-7` → `develop` (Filipe, merge commit) e Fase B.
+
 Um nível por sessão: escrever o `PLANO.md` do nível a partir dos roteiros, escrever as lições, provas com 40 questões, `content:verify` (níveis 4–6 usam `runtime: python-dados`; precisa do Pyodide no runner: `pnpm --filter @levelusp/runner setup:pyodide`), publicar.

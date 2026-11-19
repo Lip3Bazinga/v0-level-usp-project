@@ -5,7 +5,8 @@
  * REPROVA). Passos `Previsão`: a saída esperada é gerada e uma segunda execução precisa
  * reproduzi-la; blocos ```python visualizar precisam rodar sem erro.
  * Lições `python-dados` enviam `runtime` e `libraries` ao executor.
- * Até 4 lotes simultâneos; relatório por lição e passo com o motivo das falhas;
+ * Até 4 lotes simultâneos (um por vez nas lições do perfil `ml`) e tempo limite em cada pedido ao
+ * executor; relatório por lição e passo com o motivo das falhas;
  * código de saída 1 quando algum passo falha (ou o executor não responde).
  *
  * Uso: RUNNER_URL=http://127.0.0.1:8081 RUNNER_TOKEN=... pnpm content:verify [--curso slug] [--licao slug] [--content content]

@@ -235,6 +235,9 @@ Blocos de código:
 Caminhos são relativos, sem `..`, terminados em `.py`, `.txt`, `.csv`, `.json` ou `.md`.
 Uma solução errada com vários arquivos usa blocos seguidos com o mesmo `name=`
 (e `path=` nos arquivos extras). Dentro de uma seção, cada caminho aparece uma vez.
+Na verificação, a solução errada **herda os arquivos de `### Solução`** e só troca os que
+declara: escreva apenas o arquivo que tem o defeito (num projeto com `modelos.py`,
+`servico.py` e `dados.json`, a errada que erra em `servico.py` traz só esse bloco).
 
 ### 3.4 Passo `Quiz`
 
@@ -598,7 +601,7 @@ Aceita `type` e `tolerance` como `call`.
 | Regra              | Campos                                                                                                   |
 |--------------------|----------------------------------------------------------------------------------------------------------|
 | `uses`             | `construct` ∈ `lambda`, `for`, `while`, `if`, `def`, `class`, `list_comprehension`, `dict_comprehension`, `f_string`, `try`, `with`, `return`, `import`, `recursion`, `yield`; `function` (opcional) restringe ao corpo da função |
-| `not_uses`         | `construct` ∈ `for`, `while`, `import`, `list_comprehension`; `function` opcional. Falha também se o código usa `eval`/`exec`/`getattr` e afins |
+| `not_uses`         | `construct` ∈ `for`, `while`, `import`, `list_comprehension`, `recursion`; `function` opcional. Falha também se o código usa `eval`/`exec`/`getattr` e afins |
 | `calls`            | `name`: função chamada em qualquer lugar                                                                 |
 | `not_calls`        | `name`: nem chamada nem citada por outro nome (`s = sum` conta)                                           |
 | `defines_function` | `name` (vale para métodos e dunders: `__enter__`)                                                        |

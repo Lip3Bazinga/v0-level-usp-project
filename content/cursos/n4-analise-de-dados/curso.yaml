@@ -11,7 +11,7 @@ descricao_longa: |
   - Análises completas com numpy e pandas: de arquivos bagunçados a tabelas limpas e agregadas.
   - Gráficos que comunicam (e a lista do que não fazer) com matplotlib.
   - Simulações de probabilidade, intervalos de confiança, testes t e qui-quadrado, correlação e regressão linear — sempre com interpretação em português claro.
-  - O projeto final: um **relatório de análise sobre um conjunto de dados público brasileiro**, com pergunta, limpeza, gráficos, teste de hipótese e conclusões.
+  - O projeto final: um **relatório de análise sobre uma amostra dos microdados do ENEM (INEP)**, com pergunta, limpeza, gráficos, teste de hipótese e conclusões.
 
   ## Pré-requisitos
 
@@ -29,8 +29,8 @@ tags:
 - estatística
 - análise de dados
 - visualização
-horas: 50
+horas: 35
 ordem: 4
-publicado: false
+publicado: true
 prerequisito: n3-estruturas-de-dados-e-algoritmos
 sequencial: false

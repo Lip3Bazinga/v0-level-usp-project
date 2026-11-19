@@ -1,115 +1,712 @@
 titulo: Prova do Nível 2 — Python intermediário e engenharia de software
-descricao: 'Banco inicial de 12 questões (10 sorteadas por tentativa) sobre orientação a objetos, módulos, exceções, arquivos, iteradores, geradores, decoradores, tipagem, testes e git. Nota mínima: 70 %.'
+descricao: "Banco de 40 questões (10 sorteadas por tentativa) sobre orientação a objetos, módulos, exceções, arquivos, iteradores, geradores, decoradores, tipagem, testes e git, na proporção das lições de cada módulo. A maioria pede para ler código: prever a saída, achar o erro ou escolher a construção certa. Nota mínima: 70 %."
 nota_minima: 70
 tempo_min: 45
 intervalo_min: 60
 questoes_por_tentativa: 10
 questoes:
-- enunciado: Qual é o papel de `self` em um método de instância?
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    class Base:
+        def __init__(self):
+            print("base")
+
+    class Filha(Base):
+        def __init__(self):
+            print("filha")
+            super().__init__()
+
+    Filha()
+    ```
   opcoes:
-  - Referenciar a instância sobre a qual o método foi chamado
-  - Referenciar a classe
-  - Uma palavra reservada sem função
-  - O primeiro argumento informado por quem chama
+  - "`filha` e, na linha seguinte, `base`"
+  - "`base` e, na linha seguinte, `filha`"
+  - "Só `filha`: o `__init__` da filha substitui o da base"
+  - "Só `base`: o Python roda apenas o construtor da classe base"
   correta: 0
-  explicacao: '`self` é o próprio objeto; o Python o passa automaticamente quando você chama `objeto.metodo()`.'
+  explicacao: "O `__init__` de `Filha` roda primeiro e imprime `filha`; a chamada `super().__init__()` executa então o da base. Sem essa chamada, `base` não seria impresso."
   topico: programacao-orientada-a-objetos
-- enunciado: O que `super().__init__(nome)` faz dentro do `__init__` de uma subclasse?
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    class Retangulo:
+        def __init__(self, largura, altura):
+            self.largura = largura
+            self.altura = altura
+
+        @property
+        def area(self):
+            return self.largura * self.altura
+
+    r = Retangulo(2, 3)
+    r.largura = 5
+    print(r.area)
+    ```
   opcoes:
-  - Cria uma nova instância da classe base
-  - Chama o construtor da classe base para inicializar os atributos herdados
-  - Copia os métodos da classe base
-  - 'Nada: é opcional e sem efeito'
+  - "Algo como `<bound method Retangulo.area ...>`"
+  - "`15`"
+  - "`6`"
+  - "`AttributeError`, porque `area` não tem setter"
   correta: 1
-  explicacao: Sem essa chamada, os atributos definidos pela classe base não são criados no objeto.
+  explicacao: "A property é calculada a cada leitura, com os valores atuais: 5 × 3 = 15. Ler `r.area` não exige parênteses nem setter."
   topico: programacao-orientada-a-objetos
-- enunciado: O que acontece ao instanciar uma classe que herda de `ABC` e não implementa um método marcado com `@abstractmethod`?
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    class Pedido:
+        total = 0
+
+        def __init__(self):
+            Pedido.total += 1
+            self.numero = Pedido.total
+
+    a = Pedido()
+    b = Pedido()
+    print(a.numero, b.numero, Pedido.total)
+    ```
   opcoes:
-  - Funciona normalmente
-  - TypeError no momento da instanciação
-  - O método devolve None
-  - SyntaxError
-  correta: 1
-  explicacao: Classes abstratas com métodos pendentes não podem ser instanciadas; o erro aparece ao criar o objeto, não ao definir a classe.
-  topico: programacao-orientada-a-objetos
-- enunciado: 'Por que `@dataclass` com o campo `tags: list = []` falha?'
-  opcoes:
-  - Listas não podem ser campos
-  - 'Valor padrão mutável é proibido: use `field(default_factory=list)`'
-  - Falta a anotação de tipo
-  - Faltam parênteses no decorador
-  correta: 1
-  explicacao: Um padrão mutável seria compartilhado entre todas as instâncias; `default_factory` cria uma lista nova para cada objeto.
-  topico: programacao-orientada-a-objetos
-- enunciado: O que a construção `if __name__ == "__main__":` permite?
-  opcoes:
-  - Executar um trecho só quando o arquivo é rodado diretamente, e não quando é importado
-  - Definir o nome do módulo
-  - Importar o módulo duas vezes
-  - Nada no Python 3
-  correta: 0
-  explicacao: Ao importar, `__name__` é o nome do módulo; só ao executar o arquivo diretamente ele vale "__main__".
-  topico: modulos-e-organizacao
-- enunciado: Qual bloco de uma estrutura `try` executa somente quando nenhuma exceção ocorreu?
-  opcoes:
-  - except
-  - else
-  - finally
-  - raise
-  correta: 1
-  explicacao: '`else` roda após o `try` sem erro; `finally` roda sempre; `except` roda só com erro.'
-  topico: excecoes-e-robustez
-- enunciado: Qual é a forma correta de definir uma exceção própria?
-  opcoes:
-  - 'class MeuErro(Exception): pass'
-  - 'class MeuErro: pass'
-  - 'def MeuErro(): raise'
-  - MeuErro = Exception()
-  correta: 0
-  explicacao: Exceções são classes que herdam de `Exception` (ou de uma subclasse dela).
-  topico: excecoes-e-robustez
-- enunciado: Qual modo de `open()` apaga o conteúdo existente do arquivo antes de escrever?
-  opcoes:
-  - '"a"'
-  - '"r"'
-  - '"w"'
-  - '"x"'
+  - "`1 1 2`"
+  - "`1 2 0`"
+  - "`1 2 2`"
+  - "`2 2 2`"
   correta: 2
-  explicacao: '`w` trunca o arquivo; `a` anexa ao final; `x` cria e falha se já existir; `r` só lê.'
-  topico: arquivos-e-dados
-- enunciado: 'O que `json.dumps({"a": None})` devolve?'
+  explicacao: "`total` é atributo da classe, dividido por todos os pedidos; cada `__init__` o incrementa e guarda o valor daquele momento em `self.numero`, que é de cada objeto."
+  topico: programacao-orientada-a-objetos
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    class Nota:
+        def __init__(self, valor):
+            self.valor = valor
+
+        def __str__(self):
+            return f"nota {self.valor}"
+
+        def __repr__(self):
+            return f"Nota({self.valor})"
+
+    print(f"{Nota(7)} e {[Nota(8)]}")
+    ```
   opcoes:
-  - '{"a": null}'
-  - '{"a": None}'
-  - '{''a'': None}'
-  - Erro
+  - "`Nota(7) e [Nota(8)]`"
+  - "`nota 7 e [nota 8]`"
+  - "`nota 7 e ['nota 8']`"
+  - "`nota 7 e [Nota(8)]`"
+  correta: 3
+  explicacao: "A f-string usa o `__str__` do objeto; a lista, ao virar texto, mostra cada item com o `__repr__`."
+  topico: programacao-orientada-a-objetos
+- enunciado: "A classe `Forma` define `area()`, e toda subclasse precisa implementá-lo. Qual construção faz o erro aparecer já ao **criar** um objeto de uma subclasse que esqueceu `area`?"
+  opcoes:
+  - "`Forma` herdar de `ABC` e marcar `area` com `@abstractmethod`"
+  - "Escrever em `Forma.area` um `raise NotImplementedError`"
+  - "Testar `isinstance(forma, Forma)` antes de cada chamada a `area`"
+  - "Escrever na docstring de `Forma` que as subclasses devem implementar `area`"
   correta: 0
-  explicacao: JSON usa aspas duplas e representa None como null.
-  topico: arquivos-e-dados
-- enunciado: O que uma função que contém `yield` devolve ao ser chamada?
+  explicacao: "Com `ABC` e `@abstractmethod`, instanciar uma subclasse incompleta levanta `TypeError` na hora. O `raise NotImplementedError` só falha quando alguém chama `area()`, talvez muito depois."
+  topico: programacao-orientada-a-objetos
+- enunciado: |
+    O que acontece na última linha?
+
+    ```python
+    from dataclasses import dataclass
+
+    @dataclass(frozen=True)
+    class Ponto:
+        x: int
+        y: int
+
+    p = Ponto(1, 2)
+    p.x = 5
+    ```
   opcoes:
-  - O primeiro valor produzido
-  - Um objeto gerador
-  - Uma lista com todos os valores
-  - None
+  - "Nada: `frozen` só impede a criação de atributos novos"
+  - "Levanta `FrozenInstanceError` (uma subclasse de `AttributeError`): o objeto não pode ser alterado"
+  - "`p` passa a ser `Ponto(x=5, y=2)`"
+  - "O Python cria um `Ponto` novo e o atribui a `p`"
   correta: 1
-  explicacao: 'A chamada não executa o corpo: devolve um gerador que produz os valores sob demanda com `next()` ou em um `for`.'
-  topico: iteradores-geradores-e-decoradores
-- enunciado: 'Aplicar `@d` a `def f(): ...` equivale a:'
+  explicacao: "Com `frozen=True`, a dataclass gera um `__setattr__` que recusa qualquer atribuição depois da criação. Para \"mudar\" um ponto congelado, crie outro, por exemplo com `dataclasses.replace`."
+  topico: programacao-orientada-a-objetos
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    class Turma:
+        def __init__(self, alunos):
+            self.alunos = alunos
+
+        def __len__(self):
+            return len(self.alunos)
+
+    t = Turma(["Ana", "Bia"])
+    print(len(t), bool(t), bool(Turma([])))
+    ```
   opcoes:
-  - f = d(f)
-  - d = f(d)
-  - f = d()
-  - f(d)
+  - "`2 False False`"
+  - "`TypeError`, porque `bool` exige o método `__bool__`"
+  - "`2 True False`"
+  - "`2 True True`"
+  correta: 2
+  explicacao: "`len` chama `__len__`. Sem `__bool__`, o Python usa o `__len__` para decidir a verdade do objeto: tamanho zero é falso."
+  topico: programacao-orientada-a-objetos
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    class Conta:
+        def taxa(self):
+            return 2
+
+    class ContaPremium(Conta):
+        def taxa(self):
+            return super().taxa() / 2
+
+    contas = [Conta(), ContaPremium(), Conta()]
+    print(sum(c.taxa() for c in contas))
+    ```
+  opcoes:
+  - "`5`"
+  - "`6`"
+  - "`3.0`"
+  - "`5.0`"
+  correta: 3
+  explicacao: "Cada objeto responde com o próprio `taxa`: 2, 2 / 2 = 1.0 e 2. A divisão com `/` sempre dá `float`, e a soma de `int` com `float` também."
+  topico: programacao-orientada-a-objetos
+- enunciado: |
+    O que acontece ao executar a última linha?
+
+    ```python
+    class Produto:
+        def __init__(self, preco):
+            self.preco = preco
+
+        @property
+        def preco(self):
+            return self._preco
+
+        @preco.setter
+        def preco(self, valor):
+            if valor < 0:
+                raise ValueError("preço negativo")
+            self._preco = valor
+
+    p = Produto(-5)
+    ```
+  opcoes:
+  - "Levanta `ValueError`: a atribuição `self.preco = preco` do `__init__` passa pelo setter"
+  - "Cria o produto com preço -5, porque a validação só vale para atribuições depois da criação"
+  - "Levanta `AttributeError`, porque `_preco` ainda não existe"
+  - "Cria o produto com preço 0, porque o setter corrige o valor"
   correta: 0
-  explicacao: O decorador recebe a função e o nome `f` passa a apontar para o que ele devolve.
-  topico: iteradores-geradores-e-decoradores
-- enunciado: Em `unittest`, por que um método chamado `verifica_soma` dentro de um `TestCase` não é executado?
+  explicacao: "Dentro do `__init__`, `self.preco = ...` é uma atribuição à property como qualquer outra: o setter roda e recusa o valor. Assim a regra vale desde a criação."
+  topico: programacao-orientada-a-objetos
+- enunciado: |
+    O arquivo `utilidades.py` tem, na primeira linha, `print("carregando")` e define a função `limpar`. Quantas vezes `carregando` aparece ao rodar o `main.py` abaixo?
+
+    ```python
+    import utilidades
+    import utilidades
+    from utilidades import limpar
+    ```
   opcoes:
-  - Porque falta `self`
-  - Porque o nome precisa começar com `test`
-  - Porque não tem docstring
-  - Porque não usa `assertEqual`
+  - "Nenhuma: `print` dentro de módulo importado não aparece"
+  - "Uma vez"
+  - "Duas vezes"
+  - "Três vezes"
   correta: 1
-  explicacao: O descobridor de testes só executa métodos cujo nome começa com `test`.
+  explicacao: "Na primeira importação o Python executa o módulo e o guarda em `sys.modules`; as importações seguintes reaproveitam o módulo já carregado."
+  topico: modulos-e-organizacao
+- enunciado: "O arquivo `calc.py` contém só a linha `print(__name__)`. O que aparece ao rodar `python main.py`, sendo que o `main.py` contém só `import calc`?"
+  opcoes:
+  - "`main`"
+  - "`calc.py`"
+  - "`calc`"
+  - "`__main__`"
+  correta: 2
+  explicacao: "Um módulo importado recebe o próprio nome em `__name__`. Só o arquivo executado diretamente tem `__name__` igual a `\"__main__\"`."
+  topico: modulos-e-organizacao
+- enunciado: "Dentro de `loja/pedidos.py`, qual importação traz `aplicar_desconto` de `loja/precos.py` e continua funcionando se a pasta `loja` for renomeada?"
+  opcoes:
+  - "`from loja.precos import aplicar_desconto`"
+  - "`from precos import aplicar_desconto`"
+  - "`from ..precos import aplicar_desconto`"
+  - "`from .precos import aplicar_desconto`"
+  correta: 3
+  explicacao: "O ponto indica o pacote atual, seja qual for o nome dele. A importação absoluta funciona, mas cita `loja`; `from precos` procura um módulo solto fora do pacote; `..` sobe um nível além do pacote."
+  topico: modulos-e-organizacao
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("nome")
+    parser.add_argument("--vezes", type=int, default=1)
+    args = parser.parse_args(["Ana", "--vezes", "3"])
+    print(args.nome * args.vezes)
+    ```
+  opcoes:
+  - "`AnaAnaAna`"
+  - "`Ana3`"
+  - "`Ana Ana Ana`"
+  - "`TypeError`, porque argumentos de linha de comando são sempre texto"
+  correta: 0
+  explicacao: "`type=int` converte `\"3\"` para o inteiro 3, e texto vezes inteiro repete o texto, sem espaços."
+  topico: modulos-e-organizacao
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    from collections import Counter
+
+    votos = ["sim", "não", "sim", "sim", "não"]
+    print(Counter(votos).most_common(1))
+    ```
+  opcoes:
+  - "`[('sim', 3), ('não', 2)]`"
+  - "`[('sim', 3)]`"
+  - "`sim`"
+  - "`{'sim': 3}`"
+  correta: 1
+  explicacao: "`most_common(n)` devolve uma lista com os `n` pares (elemento, contagem) mais frequentes, mesmo quando `n` é 1."
+  topico: modulos-e-organizacao
+- enunciado: "Qual linha do `requirements.txt` garante que todos do grupo instalem **exatamente** a mesma versão do `pandas`?"
+  opcoes:
+  - "`pandas`"
+  - "`pandas~=2.2`"
+  - "`pandas==2.2.3`"
+  - "`pandas>=2.2`"
+  correta: 2
+  explicacao: "Só `==` fixa uma versão. `>=` e `~=` aceitam versões mais novas, e o nome sozinho instala a mais recente disponível no dia."
+  topico: modulos-e-organizacao
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    def dividir(a, b):
+        try:
+            return a / b
+        except ZeroDivisionError:
+            return "erro"
+        finally:
+            print("fim")
+
+    print(dividir(1, 0))
+    ```
+  opcoes:
+  - "`erro` e, na linha seguinte, `fim`"
+  - "Só `erro`: o `return` sai antes do `finally`"
+  - "Só `fim`"
+  - "`fim` e, na linha seguinte, `erro`"
+  correta: 3
+  explicacao: "O `return \"erro\"` prepara o valor, mas o `finally` roda antes de a função terminar e imprime `fim`. Só depois o `print` de fora mostra o valor devolvido."
+  topico: excecoes-e-robustez
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    def ler(config):
+        try:
+            valor = int(config["porta"])
+        except KeyError:
+            print("faltou")
+        except ValueError:
+            print("inválido")
+        else:
+            print("ok", valor)
+
+    ler({"porta": "80a"})
+    ler({})
+    ```
+  opcoes:
+  - "`inválido` e, na linha seguinte, `faltou`"
+  - "`faltou` e, na linha seguinte, `inválido`"
+  - "`inválido`, `ok 80` e `faltou`"
+  - "`ok 80a` e `faltou`"
+  correta: 0
+  explicacao: "`int(\"80a\")` levanta `ValueError`; no dicionário vazio, a chave falta e o erro é `KeyError`. O `else` só roda quando o `try` termina sem exceção."
+  topico: excecoes-e-robustez
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    class Sessao:
+        def __enter__(self):
+            print("abre")
+            return self
+
+        def __exit__(self, tipo, valor, tb):
+            print("fecha")
+            return False
+
+    try:
+        with Sessao():
+            print("usa")
+            raise ValueError("x")
+    except ValueError:
+        print("tratado")
+    ```
+  opcoes:
+  - "`abre`, `usa`, `tratado`"
+  - "`abre`, `usa`, `fecha`, `tratado`"
+  - "`abre`, `usa`, `tratado`, `fecha`"
+  - "`abre`, `usa`, `fecha`"
+  correta: 1
+  explicacao: "O `__exit__` roda assim que o bloco do `with` termina, mesmo por exceção. Como devolve `False`, a exceção continua subindo e é tratada pelo `except` de fora."
+  topico: excecoes-e-robustez
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    import logging
+    import sys
+
+    logging.basicConfig(level=logging.WARNING, stream=sys.stdout, format="%(levelname)s %(message)s")
+    logging.debug("a")
+    logging.info("b")
+    logging.warning("c")
+    logging.error("d")
+    ```
+  opcoes:
+  - "Só `ERROR d`"
+  - "Só `WARNING c`"
+  - "`WARNING c` e `ERROR d`"
+  - "As quatro mensagens, cada uma com o seu nível"
+  correta: 2
+  explicacao: "O nível configurado é o mínimo que passa: `WARNING` e tudo o que é mais grave. `DEBUG` e `INFO` ficam de fora."
+  topico: excecoes-e-robustez
+- enunciado: "Uma função `sacar(conta, valor)` precisa avisar quem chama que o saldo não cobre o saque, e o programa tem a exceção base `ErroBanco`. Qual é a melhor escolha?"
+  opcoes:
+  - "Imprimir `Saldo insuficiente` e seguir sem alterar a conta"
+  - "Devolver `-1` para indicar o problema"
+  - "Levantar `Exception(\"erro\")`"
+  - "Levantar `SaldoInsuficiente`, uma subclasse de `ErroBanco`, com uma mensagem que diga o saldo e o valor pedido"
+  correta: 3
+  explicacao: "Uma exceção própria não passa despercebida, pode ser tratada separadamente ou junto com os outros `ErroBanco`, e a mensagem explica o problema. Imprimir ou devolver um código mágico deixa quem chama seguir sem perceber."
+  topico: excecoes-e-robustez
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    with open("log.txt", "w", encoding="utf-8") as f:
+        f.write("início\n")
+    for i in range(2):
+        with open("log.txt", "a", encoding="utf-8") as f:
+            f.write(f"linha {i}\n")
+    with open("log.txt", encoding="utf-8") as f:
+        print(len(f.readlines()))
+    ```
+  opcoes:
+  - "`3`"
+  - "`1`"
+  - "`2`"
+  - "`4`"
+  correta: 0
+  explicacao: "O modo `w` cria o arquivo com uma linha; cada abertura com `a` acrescenta uma linha no fim, sem apagar o que havia."
+  topico: arquivos-e-dados
+- enunciado: |
+    O arquivo `notas.csv` contém as linhas `nome,nota`, `Ana,8` e `Bia,9`. O que acontece neste programa?
+
+    ```python
+    import csv
+
+    with open("notas.csv", encoding="utf-8", newline="") as f:
+        leitor = csv.DictReader(f)
+        print(sum(linha["nota"] for linha in leitor))
+    ```
+  opcoes:
+  - "Imprime `17.0`"
+  - "`TypeError`: o `csv` entrega os campos como texto, e `sum` não soma texto com número"
+  - "Imprime `17`"
+  - "Imprime `89`"
+  correta: 1
+  explicacao: "Todo campo lido pelo `csv` é `str`. Para somar, converta: `sum(int(linha[\"nota\"]) for linha in leitor)`."
+  topico: arquivos-e-dados
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    import json
+
+    dados = {"ponto": (1, 2), 3: "três"}
+    volta = json.loads(json.dumps(dados))
+    print(volta)
+    ```
+  opcoes:
+  - "`{'ponto': (1, 2), '3': 'três'}`"
+  - "`TypeError`, porque tupla não vira JSON"
+  - "`{'ponto': [1, 2], '3': 'três'}`"
+  - "`{'ponto': (1, 2), 3: 'três'}`"
+  correta: 2
+  explicacao: "O JSON não tem tupla nem chave numérica: a tupla vira lista e a chave 3 vira o texto `\"3\"`. Na volta, nada disso é desfeito."
+  topico: arquivos-e-dados
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    from pathlib import Path
+
+    p = Path("dados") / "2026" / "vendas.csv"
+    print(p.name, p.stem, p.suffix, p.parent.name)
+    ```
+  opcoes:
+  - "`vendas.csv vendas csv 2026`"
+  - "`vendas vendas.csv .csv dados`"
+  - "`vendas.csv vendas .csv dados`"
+  - "`vendas.csv vendas .csv 2026`"
+  correta: 3
+  explicacao: "`name` é o nome completo, `stem` o nome sem a extensão, `suffix` a extensão com o ponto e `parent` a pasta que contém o arquivo, aqui `dados/2026`."
+  topico: arquivos-e-dados
+- enunciado: "Na primeira execução de um programa, o arquivo `tarefas.json` ainda não existe. Qual versão de `carregar` devolve uma lista vazia nesse caso, sem estragar nada nas execuções seguintes?"
+  opcoes:
+  - "Abrir o arquivo dentro de `try` e, em `except FileNotFoundError`, devolver `[]`"
+  - "Abrir primeiro com `open(caminho, \"w\")`, para garantir que o arquivo exista, e depois ler com `json.load`"
+  - "Capturar `json.JSONDecodeError` e devolver `[]`"
+  - "Abrir com o modo `\"a\"`, que cria o arquivo se ele faltar, e ler com `json.load`"
+  correta: 0
+  explicacao: "Arquivo que não existe levanta `FileNotFoundError`; tratar esse erro resolve a primeira execução. Abrir com `w` apagaria as tarefas salvas toda vez; o modo `a` não permite leitura."
+  topico: arquivos-e-dados
+- enunciado: "Um programa grava `relatório.txt` com `open(caminho, \"w\")`, sem `encoding`, num Windows configurado em português, e outro programa lê o arquivo com `encoding=\"utf-8\"`. A leitura falha com `UnicodeDecodeError`. Qual é a correção?"
+  opcoes:
+  - "Remover o `encoding` da leitura, porque o Python sempre adivinha a codificação"
+  - "Informar `encoding=\"utf-8\"` também na gravação, e sempre nos dois lados"
+  - "Ler o arquivo em modo binário e ignorar os acentos"
+  - "Trocar `\"w\"` por `\"a\"` na gravação"
+  correta: 1
+  explicacao: "Sem `encoding`, o `open` usa a codificação padrão do sistema, que no Windows pode não ser UTF-8. Declarar a mesma codificação na gravação e na leitura deixa o arquivo igual em qualquer máquina."
+  topico: arquivos-e-dados
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    def contar():
+        print("começou")
+        yield 1
+        print("meio")
+        yield 2
+
+    g = contar()
+    print("criado")
+    print(next(g))
+    ```
+  opcoes:
+  - "`criado` e `1`"
+  - "`começou`, `1`, `meio` e `2`"
+  - "`criado`, `começou` e `1`"
+  - "`começou`, `criado` e `1`"
+  correta: 2
+  explicacao: "Chamar a função geradora só cria o gerador. O corpo começa no primeiro `next` e pausa no primeiro `yield`, antes de `meio`."
+  topico: iteradores-geradores-e-decoradores
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    quadrados = map(lambda x: x * x, [1, 2, 3])
+    print(sum(quadrados), sum(quadrados))
+    ```
+  opcoes:
+  - "`14 14`"
+  - "`6 6`"
+  - "`TypeError`, porque `sum` não aceita `map`"
+  - "`14 0`"
+  correta: 3
+  explicacao: "`map` devolve um iterador: o primeiro `sum` o esgota, e o segundo não recebe nenhum valor."
+  topico: iteradores-geradores-e-decoradores
+- enunciado: "As quatro expressões dão o mesmo resultado para uma lista `notas`. Qual delas **para de percorrer** a lista na primeira nota acima de 9?"
+  opcoes:
+  - "`any(n > 9 for n in notas)`"
+  - "`any([n > 9 for n in notas])`"
+  - "`len([n for n in notas if n > 9]) > 0`"
+  - "`sum(n > 9 for n in notas) > 0`"
+  correta: 0
+  explicacao: "Com uma expressão geradora, `any` pede um valor por vez e para no primeiro verdadeiro. A compreensão de lista calcula tudo antes, e `sum` e `len` precisam de todos os valores."
+  topico: iteradores-geradores-e-decoradores
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    def criar_contador():
+        total = 0
+        def contar():
+            nonlocal total
+            total += 1
+            return total
+        return contar
+
+    a = criar_contador()
+    b = criar_contador()
+    a()
+    a()
+    print(a(), b())
+    ```
+  opcoes:
+  - "`3 3`"
+  - "`3 1`"
+  - "`3 4`"
+  - "`1 1`"
+  correta: 1
+  explicacao: "Cada chamada de `criar_contador` cria um `total` novo, capturado pela função devolvida: `a` e `b` contam separadamente."
+  topico: iteradores-geradores-e-decoradores
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    def anunciar(f):
+        print("decorando", f.__name__)
+        def envolucro():
+            print("antes")
+            return f()
+        return envolucro
+
+    @anunciar
+    def ola():
+        print("olá")
+
+    print("pronto")
+    ola()
+    ```
+  opcoes:
+  - "`decorando ola`, `antes`, `olá`, `pronto`"
+  - "`pronto`, `antes`, `olá`"
+  - "`decorando ola`, `pronto`, `antes`, `olá`"
+  - "`pronto`, `decorando ola`, `antes`, `olá`"
+  correta: 2
+  explicacao: "O decorador roda uma vez, na definição de `ola`. A chamada `ola()` executa o envólucro, que imprime `antes` e então chama a função original."
+  topico: iteradores-geradores-e-decoradores
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    def f(a, *args, b=2, **kwargs):
+        return a, args, b, kwargs
+
+    print(f(1, 2, 3, c=4))
+    ```
+  opcoes:
+  - "`(1, (2,), 3, {'c': 4})`"
+  - "`(1, [2, 3], 2, {'c': 4})`"
+  - "`(1, (2, 3), 4, {})`"
+  - "`(1, (2, 3), 2, {'c': 4})`"
+  correta: 3
+  explicacao: "Os posicionais que sobram vão para a tupla `args`; `b` só pode ser passado pelo nome, então fica com o padrão 2; o nomeado desconhecido `c` vai para o dicionário `kwargs`."
+  topico: iteradores-geradores-e-decoradores
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    from itertools import count, islice
+
+    pares = (n for n in count() if n % 2 == 0)
+    print(list(islice(pares, 3)))
+    ```
+  opcoes:
+  - "`[0, 2, 4]`"
+  - "`[2, 4, 6]`"
+  - "`[0, 1, 2]`"
+  - "Nada: o programa entra em laço infinito, porque `count()` não acaba"
+  correta: 0
+  explicacao: "`count()` é infinito, mas a expressão geradora é preguiçosa e `islice` pede só os três primeiros pares, a começar do 0."
+  topico: iteradores-geradores-e-decoradores
+- enunciado: |
+    O que o programa abaixo imprime?
+
+    ```python
+    def dobro(x: int) -> int:
+        return x * 2
+
+    print(dobro("3"))
+    ```
+  opcoes:
+  - "`3`"
+  - "`33`"
+  - "`6`"
+  - "`TypeError`, porque `\"3\"` não é `int`"
+  correta: 1
+  explicacao: "Anotações não convertem nem conferem nada na execução: `\"3\" * 2` repete o texto. Quem acusaria o problema, antes de rodar, é um verificador como o mypy."
+  topico: tipagem-testes-e-estilo
+- enunciado: |
+    Um merge parou com o arquivo abaixo. O que fazer para concluir?
+
+    ```text
+    <<<<<<< HEAD
+    TAXA = 0.05
+    =======
+    TAXA = 0.07
+    >>>>>>> ajuste-taxa
+    ```
+  opcoes:
+  - "Rodar `git push --force` para que a versão local prevaleça"
+  - "Apagar as duas linhas de `TAXA` e manter as marcações"
+  - "Editar o arquivo para ficar só com a versão final, sem as marcações, e então `git add` e `git commit`"
+  - "Fazer `git commit` com o arquivo assim, porque o git escolhe a versão certa depois"
+  correta: 2
+  explicacao: "As marcações separam a versão da branch atual (`HEAD`) da que está chegando. Quem resolve é você: decida o conteúdo final, apague as marcações e registre a resolução com `add` e `commit`."
+  topico: tipagem-testes-e-estilo
+- enunciado: "Qual comparação a PEP 8 recomenda para testar se `resultado` é `None`?"
+  opcoes:
+  - "`resultado == None`"
+  - "`not resultado`"
+  - "`type(resultado) == None`"
+  - "`resultado is None`"
+  correta: 3
+  explicacao: "`None` é um objeto único, e `is` compara identidade. `== None` pode ser enganado por um `__eq__` próprio, e `not resultado` também é verdadeiro para 0, `\"\"` e listas vazias."
+  topico: tipagem-testes-e-estilo
+- enunciado: |
+    Quantas vezes `prepara` aparece ao rodar esta suíte?
+
+    ```python
+    import unittest
+
+    class TestX(unittest.TestCase):
+        def setUp(self):
+            print("prepara")
+
+        def test_a(self):
+            pass
+
+        def test_b(self):
+            pass
+
+        def ajuda(self):
+            pass
+    ```
+  opcoes:
+  - "Duas"
+  - "Uma"
+  - "Três"
+  - "Nenhuma: `setUp` só roda se for chamado por um teste"
+  correta: 0
+  explicacao: "O `setUp` roda antes de cada método de teste, e só os métodos que começam com `test` são testes. `ajuda` não conta."
+  topico: tipagem-testes-e-estilo
+- enunciado: "Qual teste confere corretamente que `conta.sacar(500)` levanta `SaldoInsuficiente`?"
+  opcoes:
+  - "`try:` com `conta.sacar(500)` e `except SaldoInsuficiente: pass`"
+  - "`with self.assertRaises(SaldoInsuficiente):` e, dentro do bloco, `conta.sacar(500)`"
+  - "`self.assertRaises(SaldoInsuficiente, conta.sacar(500))`"
+  - "`self.assertEqual(conta.sacar(500), SaldoInsuficiente)`"
+  correta: 1
+  explicacao: "Dentro do `with`, a exceção é capturada e conferida; se nada for levantado, o teste falha. No segundo caso `sacar` roda antes do `assertRaises`, e o `try` sem `fail` passaria mesmo sem exceção."
+  topico: tipagem-testes-e-estilo
+- enunciado: "No ciclo do TDD, o que vem logo depois de escrever um teste e vê-lo falhar?"
+  opcoes:
+  - "Escrever todos os outros testes da funcionalidade"
+  - "Apagar o teste, que já cumpriu o papel"
+  - "Escrever o código mais simples que faça esse teste passar"
+  - "Refatorar o código existente"
+  correta: 2
+  explicacao: "Vermelho, verde, refatora: primeiro o teste falha, depois o mínimo de código o faz passar e só então, com tudo verde, o código é melhorado."
+  topico: tipagem-testes-e-estilo
+- enunciado: "Você editou `frete.py` e rodou `git commit -m \"Corrige frete\"` sem `git add`. O que acontece?"
+  opcoes:
+  - "O commit grava todas as mudanças da pasta"
+  - "O commit grava só o `frete.py`, o último arquivo editado"
+  - "O git descarta as mudanças do `frete.py`"
+  - "Nada é gravado: o git avisa que não há mudanças preparadas para o commit"
+  correta: 3
+  explicacao: "O commit grava o que está na área de preparação (staging). Sem `git add`, ela está vazia e as edições continuam só no diretório de trabalho."
   topico: tipagem-testes-e-estilo

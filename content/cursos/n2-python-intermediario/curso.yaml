@@ -29,8 +29,8 @@ tags:
 - git
 - engenharia de software
 - intermediário
-horas: 45
+horas: 40
 ordem: 2
-publicado: false
+publicado: true
 prerequisito: n1-fundamentos
 sequencial: false
