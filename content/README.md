@@ -601,7 +601,7 @@ Aceita `type` e `tolerance` como `call`.
 | Regra              | Campos                                                                                                   |
 |--------------------|----------------------------------------------------------------------------------------------------------|
 | `uses`             | `construct` ∈ `lambda`, `for`, `while`, `if`, `def`, `class`, `list_comprehension`, `dict_comprehension`, `f_string`, `try`, `with`, `return`, `import`, `recursion`, `yield`; `function` (opcional) restringe ao corpo da função |
-| `not_uses`         | `construct` ∈ `for`, `while`, `import`, `list_comprehension`; `function` opcional. Falha também se o código usa `eval`/`exec`/`getattr` e afins |
+| `not_uses`         | `construct` ∈ `for`, `while`, `import`, `list_comprehension`, `recursion`; `function` opcional. Falha também se o código usa `eval`/`exec`/`getattr` e afins |
 | `calls`            | `name`: função chamada em qualquer lugar                                                                 |
 | `not_calls`        | `name`: nem chamada nem citada por outro nome (`s = sum` conta)                                           |
 | `defines_function` | `name` (vale para métodos e dunders: `__enter__`)                                                        |

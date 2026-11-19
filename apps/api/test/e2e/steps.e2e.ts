@@ -3,6 +3,7 @@ import path from "node:path"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { eq, sql } from "drizzle-orm"
 import { badges, courses, examQuestions, exams, lessonSteps, lessons, modules, profiles, trackCourses, tracks, type LessonStepRow } from "@levelusp/db"
+import { contentBundleSchema } from "@levelusp/contracts"
 import type {
   ApiErrorBody, CertificateIssue, CertificateVerification, ContentImportSummary, ExamStart, HintReveal, Lesson, LessonStepsProgress, LessonWithTests,
   SessionResponse, SolutionReveal, StepCompleteResult, StepQuizResult, StepSubmitResult, TestCase, TrackCertificateIssue, TrackWithCourses,
@@ -478,9 +479,10 @@ describe("Lição guiada em passos, trilha e certificados (e2e)", () => {
     const lesson = await agent(ctx.app).get(`/api/lessons/${guided.id}`)
     expect(bodyOf<Lesson>(lesson).steps.length).toBeGreaterThan(1)
     for (const field of ["solution_files", "test_cases", "correct_index", "wrong_solutions"]) expect(JSON.stringify(lesson.body)).not.toContain(field)
-    // Visitante só vê os níveis publicados (o Nível 1); o admin vê os 7 na ordem.
+    // Visitante só vê os níveis marcados como publicados no pacote; o admin vê os 7 na ordem.
+    const publishedSlugs = contentBundleSchema.parse(bundle).courses.filter((course) => course.published).map((course) => course.slug)
     const publicTrack = bodyOf<TrackWithCourses>(await agent(ctx.app).get("/api/tracks/python-do-zero-a-ia"))
-    expect(publicTrack.courses.map((course) => course.slug)).toEqual(["n1-fundamentos"])
+    expect(publicTrack.courses.map((course) => course.slug)).toEqual(publishedSlugs)
     const adminTrack = bodyOf<TrackWithCourses>(await admin.agent.get("/api/tracks/python-do-zero-a-ia"))
     expect(adminTrack.courses.map((course) => course.position)).toEqual([1, 2, 3, 4, 5, 6, 7])
   })

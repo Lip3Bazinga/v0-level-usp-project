@@ -181,7 +181,7 @@ export const sourceRuleSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("not_uses"),
-    construct: z.enum(["for", "while", "import", "list_comprehension"]),
+    construct: z.enum(["for", "while", "import", "list_comprehension", "recursion"]),
     function: ruleFunctionScope,
   }),
   z.object({ type: z.literal("calls"), name: z.string().min(1).max(64) }),
