@@ -24,6 +24,25 @@ function loadMermaid(): Promise<Mermaid> {
 }
 
 /**
+ * Confere só a sintaxe do diagrama (`mermaid.parse`), sem desenhar. Serve à prévia do professor,
+ * que avisa de diagrama inválido. Nunca lança: se a biblioteca não carrega não há como julgar e
+ * o resultado é `true` (sem falso alarme).
+ */
+export async function isValidMermaidDiagram(code: string): Promise<boolean> {
+  let mermaid: Mermaid
+  try {
+    mermaid = await loadMermaid()
+  } catch {
+    return true
+  }
+  try {
+    return (await mermaid.parse(code, { suppressErrors: true })) !== false
+  } catch {
+    return false
+  }
+}
+
+/**
  * Desenha o diagrama e devolve o SVG gerado pelo próprio Mermaid (modo `strict`). Devolve null
  * quando o texto não é um diagrama válido ou a biblioteca não carrega — quem chama mostra o
  * código como bloco comum. Nunca lança.
