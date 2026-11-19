@@ -3,6 +3,7 @@
 import { Eye, Lightbulb } from "lucide-react"
 import type { HintReveal, LessonStepProgress } from "@levelusp/contracts"
 import { canRevealSolution } from "@/lib/utils/step-player"
+import { useStepBackend } from "./step-backend"
 import { StepMarkdown } from "./step-markdown"
 
 interface RevealedHintsProps {
@@ -35,8 +36,12 @@ interface HelpButtonsProps {
   onSolution: () => void
 }
 
-/** Botões "Dica (n/total)" e "Ver solução" (este só depois das tentativas que a lição exige). */
+/**
+ * Botões "Dica (n/total)" e "Ver solução" (este só depois das tentativas que a lição exige; na
+ * prévia do professor fica sempre disponível).
+ */
 export function HelpButtons({ hintCount, progress, solutionAfterAttempts, isSolutionShown, isBusy, onHint, onSolution }: HelpButtonsProps): React.JSX.Element {
+  const { isPreview } = useStepBackend()
   const hintsRevealed = progress?.hints_revealed ?? 0
   return (
     <>
@@ -50,7 +55,7 @@ export function HelpButtons({ hintCount, progress, solutionAfterAttempts, isSolu
           <Lightbulb className="h-4 w-4" aria-hidden="true" /> Dica ({hintsRevealed}/{hintCount})
         </button>
       )}
-      {canRevealSolution(progress, solutionAfterAttempts) && !isSolutionShown && (
+      {(isPreview || canRevealSolution(progress, solutionAfterAttempts)) && !isSolutionShown && (
         <button
           type="button"
           onClick={onSolution}
@@ -71,8 +76,9 @@ interface SolutionCountdownProps {
 
 /** Aviso de quantas tentativas faltam para a solução ficar disponível (some quando ela libera). */
 export function SolutionCountdown({ progress, solutionAfterAttempts }: SolutionCountdownProps): React.JSX.Element | null {
+  const { isPreview } = useStepBackend()
   const attempts = progress?.attempts ?? 0
-  if (progress?.status === "completed" || solutionAfterAttempts <= 0 || attempts === 0 || canRevealSolution(progress, solutionAfterAttempts)) return null
+  if (isPreview || progress?.status === "completed" || solutionAfterAttempts <= 0 || attempts === 0 || canRevealSolution(progress, solutionAfterAttempts)) return null
   return (
     <p className="mt-2 text-xs text-muted-foreground">
       A solução fica disponível depois de {solutionAfterAttempts} tentativas ({attempts} até agora).

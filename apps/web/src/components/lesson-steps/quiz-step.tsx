@@ -18,6 +18,11 @@ interface QuizStepProps {
   /** Apaga a correção para o aluno responder de novo. */
   onRetry: () => void
   onContinue: () => void
+  /**
+   * Só na prévia do professor: índice da alternativa certa de cada questão. Depois do envio a
+   * certa é destacada, errando ou acertando. O aluno nunca recebe isso (a API não manda o gabarito).
+   */
+  correctIndexes?: readonly number[]
 }
 
 /**
@@ -25,7 +30,7 @@ interface QuizStepProps {
  * acerto/erro por questão e a explicação (a API só manda a das questões acertadas enquanto
  * o quiz não é aprovado).
  */
-export function QuizStep({ step, isCompleted, isBusy, result, onSubmit, onRetry, onContinue }: QuizStepProps): React.JSX.Element {
+export function QuizStep({ step, isCompleted, isBusy, result, onSubmit, onRetry, onContinue, correctIndexes }: QuizStepProps): React.JSX.Element {
   const [answers, setAnswers] = useState<Record<number, number>>({})
   const questions = step.quiz_questions
   const isAnswered = questions.every((_question, index) => answers[index] !== undefined)
@@ -56,6 +61,7 @@ export function QuizStep({ step, isCompleted, isBusy, result, onSubmit, onRetry,
                 <div className="space-y-2">
                   {question.options.map((option, optionIndex) => {
                     const isChosen = answers[questionIndex] === optionIndex
+                    const isRightOption = result !== null && correctIndexes?.[questionIndex] === optionIndex
                     return (
                       <label
                         key={optionIndex}
@@ -64,6 +70,7 @@ export function QuizStep({ step, isCompleted, isBusy, result, onSubmit, onRetry,
                           isChosen ? "border-level-purple bg-level-purple-light" : "border-gray-200 hover:border-level-purple/40",
                           isChosen && review?.correct === true && "border-green-500 bg-green-50",
                           isChosen && review?.correct === false && "border-red-400 bg-red-50",
+                          isRightOption && "border-green-500 bg-green-50",
                           isLocked && "cursor-default",
                         )}
                       >
@@ -76,6 +83,7 @@ export function QuizStep({ step, isCompleted, isBusy, result, onSubmit, onRetry,
                         />
                         <span className="font-bold text-level-purple">{OPTION_LETTERS.charAt(optionIndex)}</span>
                         <StepMarkdown content={option} className="flex-1" />
+                        {isRightOption && <span className="shrink-0 text-xs font-bold text-green-700">Alternativa correta</span>}
                       </label>
                     )
                   })}
