@@ -548,6 +548,19 @@ Campos comuns a todo caso:
 | `checkpoint` | id da instrução que o caso cobre (a UI marca ✓ por instrução)                            |
 | `reveal`     | `true` mostra entrada e valor esperado na mensagem de falha. Padrão `false` — mantenha   |
 
+**`__name__` em cada caso.** Só o caso `io` roda o `main.py` como programa
+(`__name__ == "__main__"`), igual ao botão Executar. Nos casos `call`, `variable`, `expr` e
+`unittest` o arquivo é carregado como biblioteca (o módulo `main`, como num `import main`):
+o bloco `if __name__ == "__main__":` **não roda**. Consequências para quem escreve a lição:
+
+- a demonstração, o treino ou a leitura de entrada que ficam no bloco `__main__` não custam
+  tempo nem atrapalham os casos `call`/`variable`/`expr` (não é preciso encurtá-los por isso);
+- o que só é criado dentro do bloco (variáveis, arquivos, o que é impresso) **não existe**
+  nesses casos: verifique-o com um caso `io`, ou crie-o no `setup` de um caso `expr`;
+- uma classe do aluno é observada como `main.Classe` (`type`/`raises` continuam recebendo só
+  o nome, `"Tarefa"`); texto que traz o módulo (`repr(type(x))`, `<main.Conta object at …>`)
+  só é `__main__` no caso `io` e no Executar.
+
 ### `io` — roda `main.py` com uma entrada e compara a saída
 
 ```json

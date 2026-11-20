@@ -126,15 +126,15 @@ describe("grade (expr)", () => {
   it("verifica só o tipo quando não há valor esperado (ex.: generator)", () => {
     const testCase = exprCase("e", "pares_ate(4)", { type: "generator" })
     expect(grade([testCase], [observed("expr:e", { value: { $repr: "<generator>" }, type: "generator" })]).allPassed).toBe(true)
-    const fake = grade([testCase], [observed("expr:e", { value: { $repr: "<x>" }, type: "__main__.generator" })])
+    const fake = grade([testCase], [observed("expr:e", { value: { $repr: "<x>" }, type: "main.generator" })])
     expect(fake.allPassed).toBe(false)
     expect(fake.failureDetails[0]).toContain("deveria ser do tipo generator")
   })
 
   it("aceita a exceção esperada ou subclasse, e confere a mensagem", () => {
     const testCase = exprCase("e", "c.sacar(999)", { raises: "ValueError", message_contains: "insuficiente" })
-    const mro = ["__main__.SaldoError", "ValueError", "Exception", "BaseException", "object"]
-    expect(grade([testCase], [observed("expr:e", { raised: raised("__main__.SaldoError", mro, "saldo insuficiente") })]).allPassed).toBe(true)
+    const mro = ["main.SaldoError", "ValueError", "Exception", "BaseException", "object"]
+    expect(grade([testCase], [observed("expr:e", { raised: raised("main.SaldoError", mro, "saldo insuficiente") })]).allPassed).toBe(true)
     const wrongMessage = grade([testCase], [observed("expr:e", { raised: raised("ValueError", mro.slice(1), "valor inválido") })])
     expect(wrongMessage.allPassed).toBe(false)
     expect(wrongMessage.failureDetails[0]).not.toContain("insuficiente")
@@ -143,14 +143,28 @@ describe("grade (expr)", () => {
 
   it("classe do aluno com nome de exceção embutida não conta como a embutida", () => {
     const testCase = exprCase("e", "f()", { raises: "ValueError" })
-    const fake = observed("expr:e", { raised: raised("__main__.ValueError", ["__main__.ValueError", "Exception", "BaseException", "object"]) })
+    const fake = observed("expr:e", { raised: raised("main.ValueError", ["main.ValueError", "Exception", "BaseException", "object"]) })
     expect(grade([testCase], [fake]).allPassed).toBe(false)
   })
 
   it("aceita exceção customizada do aluno pelo nome da classe", () => {
     const testCase = exprCase("e", "registrar('Al', 20)", { raises: "NomeCurtoError" })
-    const mro = ["__main__.NomeCurtoError", "Exception", "BaseException", "object"]
+    const mro = ["main.NomeCurtoError", "Exception", "BaseException", "object"]
     expect(grade([testCase], [observed("expr:e", { raised: raised(mro[0] ?? "", mro) })]).allPassed).toBe(true)
+  })
+
+  it("classe do aluno casa e é exibida sem o módulo, carregada como `main` (casos) ou `__main__` (programa)", () => {
+    const typed = exprCase("e", "Tarefa('a')", { type: "Tarefa" })
+    const failing = exprCase("e", "f()", { raises: "ValueError" })
+    for (const moduleName of ["main", "__main__"]) {
+      expect(grade([typed], [observed("expr:e", { value: { $repr: "<x>" }, type: `${moduleName}.Tarefa` })]).allPassed).toBe(true)
+      const wrongType = grade([typed], [observed("expr:e", { value: { $repr: "<x>" }, type: `${moduleName}.Outra` })])
+      expect(wrongType.failureDetails[0]).toContain("deveria ser do tipo Tarefa, mas é Outra")
+      const mro = [`${moduleName}.SaldoError`, "Exception", "BaseException", "object"]
+      const wrongException = grade([failing], [observed("expr:e", { raised: raised(mro[0] ?? "", mro, "sem saldo") })])
+      expect(wrongException.failureDetails[0]).toContain("mas levantou SaldoError: sem saldo")
+      expect(wrongException.failureDetails[0]).not.toContain(`${moduleName}.`)
+    }
   })
 
   it("exceção inesperada vira erro de execução", () => {
@@ -202,6 +216,9 @@ describe("typeMatches", () => {
     expect(typeMatches("int", "__main__.int")).toBe(false)
     expect(typeMatches("Tarefa", "__main__.Tarefa")).toBe(true)
     expect(typeMatches("Tarefa", "__main__.OutraTarefa")).toBe(false)
+    expect(typeMatches("int", "main.int")).toBe(false)
+    expect(typeMatches("Tarefa", "main.Tarefa")).toBe(true)
+    expect(typeMatches("Tarefa", "main.OutraTarefa")).toBe(false)
     expect(typeMatches("Tarefa", undefined)).toBe(false)
   })
 })

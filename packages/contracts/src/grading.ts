@@ -47,7 +47,8 @@ export type PyType = z.infer<typeof pyTypeSchema>
  * Tipos embutidos do CPython 3.14 (módulos `builtins` e `types`). O executor só
  * informa um destes nomes "puros" quando o tipo observado É o objeto embutido
  * (checagem por identidade); classes do aluno chegam qualificadas pelo módulo
- * (`__main__.Tarefa`). Assim uma classe do aluno chamada `ValueError` nunca se
+ * (`main.Tarefa`: nos casos que não são `io`/`legacy` o `main.py` é carregado como o
+ * módulo `main`, não como `__main__`). Assim uma classe do aluno chamada `ValueError` nunca se
  * passa pela exceção embutida.
  */
 export const PY_BUILTIN_TYPE_NAMES: ReadonlySet<string> = new Set([
