@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common"
 import { and, asc, desc, eq, sql } from "drizzle-orm"
+import type { LibraryManifestEntry } from "@levelusp/contracts"
 import { libraryCatalog, libraryRequests, profiles, type LibraryCatalogInsert, type LibraryRequestInsert } from "@levelusp/db"
 import { requireRow } from "@/common/database/rows"
 import { InjectDb, type Database } from "@/infra/database/database.module"
@@ -46,6 +47,26 @@ export class LibraryRepository {
       .onConflictDoUpdate({
         target: libraryCatalog.name,
         set: { displayName: library.displayName, description: library.description, category: library.category, pyodideNative: library.pyodideNative, active: true },
+      })
+  }
+
+  /**
+   * Espelha o manifesto no catálogo: insere o que falta e atualiza os dados de exibição pelo nome do pacote.
+   * Não toca em `active` (interruptor do admin) nem em `added_by`.
+   */
+  async upsertManifest(entries: readonly LibraryManifestEntry[]): Promise<void> {
+    if (entries.length === 0) return
+    await this.db
+      .insert(libraryCatalog)
+      .values(entries.map((entry) => ({ name: entry.name, displayName: entry.display_name, description: entry.description, category: entry.category, pyodideNative: entry.browser })))
+      .onConflictDoUpdate({
+        target: libraryCatalog.name,
+        set: {
+          displayName: sql`excluded.display_name`,
+          description: sql`excluded.description`,
+          category: sql`excluded.category`,
+          pyodideNative: sql`excluded.pyodide_native`,
+        },
       })
   }
 

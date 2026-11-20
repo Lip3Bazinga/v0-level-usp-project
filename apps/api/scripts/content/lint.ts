@@ -1,5 +1,5 @@
 import {
-  BLANK_PATTERN, BLANK_TOKEN, DEFAULT_ENTRY_FILE, isParsonsSolutionOrder, MAX_PARSONS_LINES, MAX_STEP_HINTS, PARSONS_INDENT_WIDTH, parsonsSolutionLines,
+  BLANK_PATTERN, BLANK_TOKEN, checkLibraries, DEFAULT_ENTRY_FILE, isParsonsSolutionOrder, MAX_PARSONS_LINES, MAX_STEP_HINTS, PARSONS_INDENT_WIDTH, parsonsSolutionLines,
   type BundleCourse, type BundleLesson, type BundleModule, type BundleStep, type BundleTrack, type ProjectFile,
 } from "@levelusp/contracts"
 import type { CompiledContent } from "./compiler"
@@ -208,12 +208,24 @@ function checkStep(ctx: LintContext, lesson: BundleLesson, step: BundleStep, has
   }
 }
 
+/** Toda biblioteca da lição precisa estar no manifesto (`library-manifest.ts`) para o runtime dela. */
+function checkLessonLibraries(ctx: LintContext, lesson: BundleLesson): void {
+  const { pending, unavailable } = checkLibraries(lesson.runtime, lesson.libraries)
+  if (pending.length > 0) {
+    flag(ctx, lesson, "libraries", `biblioteca fora do manifesto: ${pending.join(", ")} (confira o nome ou peça a liberação: docs/v2/motores-e-ide.md)`)
+  }
+  if (unavailable.length > 0) {
+    flag(ctx, lesson, "libraries", `biblioteca sem motor para o runtime ${lesson.runtime}: ${unavailable.join(", ")}`)
+  }
+}
+
 function checkLesson(ctx: LintContext, lesson: BundleLesson): void {
   checkTitle(ctx, lesson, "lição")
   checkPlaceholders(ctx, lesson, "title", [lesson.title, lesson.description, ...lesson.objectives], `lição ${lesson.slug}`)
   if (lesson.published && lesson.objectives.length === 0) flag(ctx, lesson, "objectives", `lição publicada sem objetivos (objetivos: liste ao menos um)`)
   if (lesson.runtime === "python-dados" && lesson.libraries.length === 0) flag(ctx, lesson, "runtime", "runtime python-dados exige bibliotecas (ex.: [numpy, pandas])")
   if (lesson.runtime === "python" && lesson.libraries.length > 0) flag(ctx, lesson, "libraries", "runtime python não aceita bibliotecas (use runtime: python-dados ou bibliotecas: [])")
+  else checkLessonLibraries(ctx, lesson)
   let hasPreviousExercise = false
   for (const step of lesson.steps) {
     checkStep(ctx, lesson, step, hasPreviousExercise)

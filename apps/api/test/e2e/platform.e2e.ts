@@ -1,9 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
-import { sql } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 import { courses, libraryCatalog, notifications } from "@levelusp/db"
-import type { ApiErrorBody, LibraryCatalog, LibraryRequest, Note, Notification, SessionResponse, TeacherApproval } from "@levelusp/contracts"
+import { LIBRARY_MANIFEST, type ApiErrorBody, type LibraryCatalog, type LibraryRequest, type Note, type Notification, type SessionResponse, type TeacherApproval } from "@levelusp/contracts"
 import { agent, bodyOf, countRows, createLesson, createTestApp, signUp, type TestContext } from "./harness"
 import { requireRow } from "@/common/database/rows"
+import { LibraryCatalogSync } from "@/modules/library/library-catalog.sync"
 
 describe("Notas, notificações, bibliotecas e solicitações de professor (e2e)", () => {
   let ctx: TestContext
@@ -81,6 +82,27 @@ describe("Notas, notificações, bibliotecas e solicitações de professor (e2e)
   })
 
   describe("bibliotecas", () => {
+    it("o catálogo deriva do manifesto: sincroniza sem tocar em active e esconde do professor o que não está nele", async () => {
+      const admin = await signUp(ctx.app, "admin", ctx.db)
+      const sync = ctx.app.get(LibraryCatalogSync)
+      await sync.sync()
+      const manifestNames = LIBRARY_MANIFEST.map((entry) => entry.name).sort()
+      expect(bodyOf<LibraryCatalog[]>(await agent(ctx.app).get("/api/library")).map((library) => library.name).sort()).toEqual(manifestNames)
+
+      const numpy = requireRow(await ctx.db.select().from(libraryCatalog).where(eq(libraryCatalog.name, "numpy")), "library_catalog")
+      expect((await admin.agent.patch(`/api/admin/library/${numpy.id}`, { active: false })).status).toBe(204)
+      await ctx.db.update(libraryCatalog).set({ displayName: "Alterado à mão" }).where(eq(libraryCatalog.name, "numpy"))
+      await ctx.db.insert(libraryCatalog).values({ name: "fora-do-manifesto", displayName: "Fora" })
+      await sync.sync()
+
+      const after = requireRow(await ctx.db.select().from(libraryCatalog).where(eq(libraryCatalog.name, "numpy")), "library_catalog")
+      expect(after).toMatchObject({ active: false, displayName: "NumPy", id: numpy.id })
+      const publicNames = bodyOf<LibraryCatalog[]>(await agent(ctx.app).get("/api/library")).map((library) => library.name)
+      expect(publicNames).not.toContain("numpy")
+      expect(publicNames).not.toContain("fora-do-manifesto")
+      expect(bodyOf<LibraryCatalog[]>(await admin.agent.get("/api/admin/library")).map((library) => library.name)).toContain("fora-do-manifesto")
+    })
+
     it("catálogo público mostra só as ativas; admin vê todas e alterna", async () => {
       const admin = await signUp(ctx.app, "admin", ctx.db)
       const numpy = requireRow(await ctx.db.insert(libraryCatalog).values({ name: "numpy", displayName: "NumPy", category: "data-science" }).returning(), "library_catalog")

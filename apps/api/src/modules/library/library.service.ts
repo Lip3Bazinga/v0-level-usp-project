@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common"
-import type { LibraryCatalog, LibraryRequest, LibraryRequestInput, ReviewLibraryRequestInput } from "@levelusp/contracts"
+import { findManifestLibrary, type LibraryCatalog, type LibraryRequest, type LibraryRequestInput, type ReviewLibraryRequestInput } from "@levelusp/contracts"
 import type { LibraryRequestRow, DbTransaction } from "@levelusp/db"
 import { Conflict, NotFound } from "@/common/errors/app-error"
 import type { AuthUser } from "@/common/http/request"
@@ -24,9 +24,13 @@ export class LibraryService {
     private readonly rateLimit: RateLimitService,
   ) {}
 
-  /** Catálogo; por padrão só as bibliotecas ativas. */
+  /**
+   * Catálogo. Por padrão (visão do professor) só as bibliotecas ativas E presentes no manifesto — o que não está
+   * nele não pode ser publicado; a visão do admin (`onlyActive = false`) mostra tudo o que o banco tem.
+   */
   async listCatalog(onlyActive = true): Promise<LibraryCatalog[]> {
-    return (await this.repo.listCatalog(onlyActive)).map(toLibraryCatalog)
+    const rows = await this.repo.listCatalog(onlyActive)
+    return (onlyActive ? rows.filter((row) => findManifestLibrary(row.name)) : rows).map(toLibraryCatalog)
   }
 
   /**
