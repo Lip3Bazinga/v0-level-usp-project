@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common"
 import { and, asc, desc, eq, sql } from "drizzle-orm"
 import type { LibraryManifestEntry } from "@levelusp/contracts"
-import { libraryCatalog, libraryRequests, profiles, type LibraryCatalogInsert, type LibraryRequestInsert } from "@levelusp/db"
+import { libraryCatalog, libraryRequests, profiles, type LibraryRequestInsert } from "@levelusp/db"
 import { requireRow } from "@/common/database/rows"
 import { InjectDb, type Database } from "@/infra/database/database.module"
 import type { DbTransaction, DbExecutor, LibraryCatalogRow, LibraryRequestRow } from "@levelusp/db"
@@ -37,17 +37,6 @@ export class LibraryRepository {
   async setCatalogActive(id: string, active: boolean): Promise<LibraryCatalogRow | undefined> {
     const [library] = await this.db.update(libraryCatalog).set({ active }).where(eq(libraryCatalog.id, id)).returning()
     return library
-  }
-
-  /** Insere (ou reativa/atualiza) a biblioteca no catálogo pelo nome do pacote. */
-  async upsertCatalog(library: LibraryCatalogInsert, executor: DbExecutor): Promise<void> {
-    await executor
-      .insert(libraryCatalog)
-      .values(library)
-      .onConflictDoUpdate({
-        target: libraryCatalog.name,
-        set: { displayName: library.displayName, description: library.description, category: library.category, pyodideNative: library.pyodideNative, active: true },
-      })
   }
 
   /**
@@ -99,6 +88,16 @@ export class LibraryRepository {
       .from(libraryRequests)
       .leftJoin(profiles, eq(profiles.id, libraryRequests.requestedBy))
       .orderBy(desc(libraryRequests.createdAt))
+  }
+
+  /** Pedidos aprovados com o nome de quem pediu, a aprovação mais recente primeiro. */
+  listApprovedRequests(): Promise<LibraryRequestWithRequesterRow[]> {
+    return this.db
+      .select({ request: libraryRequests, requesterName: profiles.fullName })
+      .from(libraryRequests)
+      .leftJoin(profiles, eq(profiles.id, libraryRequests.requestedBy))
+      .where(eq(libraryRequests.status, "approved"))
+      .orderBy(desc(libraryRequests.reviewedAt))
   }
 
   /** Lê o pedido com `FOR UPDATE`, travando-o até o fim da transação da revisão. */

@@ -111,3 +111,18 @@ O que é derivado dele (nada é copiado à mão):
   biblioteca ainda não está no manifesto, uma linha por biblioteca, com `manifest_snippet` (versão como `"?"`: o teste do
   CI recusa o `"?"` até alguém preencher a do lock).
 - Sem migração: o estado "aprovado e fora do manifesto" é calculado, não guardado.
+- `manifest_snippet` é um literal TypeScript gerado com `JSON.stringify` (o texto do pedido não consegue fechar aspas nem
+  injetar código); a categoria e `pyodide_native` (→ `browser`) vêm do `catalog` enviado na revisão, e a listagem de
+  pendências usa `general` e `browser: true`. O PR acrescenta o literal em `LIBRARY_MANIFEST` (ordem alfabética), troca
+  `"?"` pela versão do `pyodide-lock.json`, acrescenta o pacote ao `PACKAGES` de `fetch-pyodide.sh` e ao mapa e à
+  lista de pacotes do perfil em `pyodide-profiles.ts`; o teste de `apps/runner/test/library-manifest.test.ts` aponta o que faltar.
+- A tela do admin (`libraries-page.tsx`) só mudou o aviso ao aprovar; mostrar a lista de pendências fica na dívida técnica.
+
+## Testes
+
+- `packages/contracts/src/library-manifest.test.ts` (consistência do manifesto, normalização, apelidos, `checkLibraries`).
+- `apps/runner/test/library-manifest.test.ts` (manifesto × lock × `PACKAGES` × perfis do runner).
+- `apps/api/test/unit/content/lint.test.ts` (content:check recusa biblioteca fora do manifesto) e
+  `catalog.domain.spec.ts`/`library.domain.spec.ts` (bloqueios de publicação e rascunho do manifesto).
+- e2e (`test/e2e/platform.e2e.ts`, `catalog.e2e.ts`): sincronização do catálogo, pedido → aprovação → pendência,
+  publicação bloqueada e liberada; `test/security/route-matrix.e2e.ts` inclui a rota nova.

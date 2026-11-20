@@ -86,13 +86,14 @@ Tipos em `packages/contracts`. Respostas em snake_case.
 | GET | /me/notifications?limit | 👤 | → Notification[] |
 | POST | /me/notifications/:id/read | 👤 | → 204 |
 | POST | /me/notifications/read-all | 👤 | → 204 |
-| GET | /library | 🔓 | → LibraryCatalog[] ativos |
-| POST | /library/requests | 🎓 | LibraryRequestInput → LibraryRequest |
+| GET | /library | 🔓 | → LibraryCatalog[] ativos e presentes no manifesto (`library-manifest.ts`) |
+| POST | /library/requests | 🎓 | LibraryRequestInput → LibraryRequest (409 `ALREADY_AVAILABLE` se já está no manifesto) |
 | GET | /me/library/requests | 🎓 | → LibraryRequest[] |
 | GET | /admin/library | 🛡️ | → LibraryCatalog[] |
 | PATCH | /admin/library/:id | 🛡️ | {active} → 204 |
 | GET | /admin/library/requests | 🛡️ | → LibraryRequest[] (+requester_name) |
-| POST | /admin/library/requests/:id/review | 🛡️ | ReviewLibraryRequestInput → LibraryRequest |
+| GET | /admin/library/manifest-pending | 🛡️ | → LibraryManifestPending[] (aprovadas aguardando o PR no manifesto, com rascunho da entrada) |
+| POST | /admin/library/requests/:id/review | 🛡️ | ReviewLibraryRequestInput → LibraryRequest (aprovar não altera o catálogo; devolve `manifest_snippet`) |
 | POST | /me/teacher-request | 👤 | TeacherRequestInput → TeacherApproval |
 | GET | /me/teacher-request | 👤 | → TeacherApproval \| null |
 

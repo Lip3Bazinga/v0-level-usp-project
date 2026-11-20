@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common"
-import type { Lesson, LessonInput, LessonMetrics, LessonStepsInput, LessonSummary, LessonType, LessonUpdateInput, LessonWithTests, TestCase } from "@levelusp/contracts"
+import type { Lesson, LessonInput, LessonMetrics, LessonRuntime, LessonStepsInput, LessonSummary, LessonType, LessonUpdateInput, LessonWithTests, TestCase } from "@levelusp/contracts"
 import type { DbTransaction, LessonInsert, LessonRow } from "@levelusp/db"
 import { canManage, canViewContent, ownerScope } from "@/common/authorization/ownership"
 import { isUniqueViolation } from "@/common/database/pg-errors"
@@ -43,6 +43,16 @@ const LESSON_PATCH: PatchMapping<LessonUpdateInput, LessonInsert> = {
   solution_after_attempts: (solutionAfterAttempts) => ({ solutionAfterAttempts }),
   // Passos moram em `lesson_steps`, não em colunas da lição: `replaceSteps` grava na mesma transação.
   steps: () => ({}),
+}
+
+/** O estado da lição que decide se ela pode ficar publicada (já com o que o PATCH vai gravar). */
+interface PublishableLesson {
+  lessonType: LessonType
+  testCases: readonly TestCase[]
+  runtime: LessonRuntime
+  libraries: readonly string[]
+  /** Tamanho da lista de passos que este PATCH vai gravar (ausente = usa o banco). */
+  incomingStepCount?: number | undefined
 }
 
 interface CurrentPlacement {
@@ -120,7 +130,7 @@ export class LessonsService {
    * Atualiza os campos enviados; `steps`, quando vem, substitui todos os passos. Lição publicada
    * não pode ficar sem gabarito (código), sem questões (quiz) ou sem passos (guiada).
    *
-   * @throws AppError 404/403 como em {@link getForAuthoring}; 422 `NO_TESTS`/`NO_QUESTIONS`/`NO_STEPS`,
+   * @throws AppError 404/403 como em {@link getForAuthoring}; 422 `NO_TESTS`/`NO_QUESTIONS`/`NO_STEPS`/`LIBRARY_PENDING`/`LIBRARY_RUNTIME`,
    * `INVALID_MODULE`, `INVALID_COURSE`; 403 ao vincular a curso de outra pessoa.
    */
   async update(user: AuthUser, id: string, input: LessonUpdateInput): Promise<LessonWithTests> {
@@ -129,7 +139,13 @@ export class LessonsService {
     const patch = buildPatch(input, LESSON_PATCH)
     // Lição publicada não pode ficar num estado que o aluno não consegue concluir.
     if (current.published) {
-      await this.assertPublishable(id, patch.lessonType ?? current.lessonType, patch.testCases ?? current.testCases, input.steps?.length)
+      await this.assertPublishable(id, {
+        lessonType: patch.lessonType ?? current.lessonType,
+        testCases: patch.testCases ?? current.testCases,
+        runtime: patch.runtime ?? current.runtime,
+        libraries: patch.libraries ?? current.libraries,
+        incomingStepCount: input.steps?.length,
+      })
     }
     const lesson = await this.transactions.run(async (tx: DbTransaction) => {
       const updated = Object.keys(patch).length ? await this.repo.update(id, patch, tx) : current
@@ -156,21 +172,23 @@ export class LessonsService {
   /**
    * Publica ou despublica; só publica lição que o aluno consegue concluir.
    *
-   * @throws AppError 404/403 como em {@link getForAuthoring}; 422 `NO_TESTS`, `NO_QUESTIONS` ou `NO_STEPS`.
+   * @throws AppError 404/403 como em {@link getForAuthoring}; 422 `NO_TESTS`, `NO_QUESTIONS`, `NO_STEPS`, `LIBRARY_PENDING` (biblioteca fora do manifesto) ou `LIBRARY_RUNTIME`.
    */
   async setPublished(user: AuthUser, id: string, published: boolean): Promise<Lesson> {
     const current = await this.findManageable(user, id)
-    if (published) await this.assertPublishable(id, current.lessonType, current.testCases)
+    if (published) {
+      await this.assertPublishable(id, { lessonType: current.lessonType, testCases: current.testCases, runtime: current.runtime, libraries: current.libraries })
+    }
     const lesson = await this.repo.update(id, { published })
     if (!lesson) throw NotFound("Lição")
     return toLessonWithSteps(lesson, (await this.steps.listByLesson(id)).map(toLessonStep))
   }
 
-  /** `incomingStepCount`: tamanho da lista de passos que este PATCH vai gravar (ausente = usa o banco). */
-  private async assertPublishable(id: string, lessonType: LessonType, testCases: readonly TestCase[], incomingStepCount?: number): Promise<void> {
+  private async assertPublishable(id: string, lesson: PublishableLesson): Promise<void> {
+    const { lessonType, testCases, runtime, libraries, incomingStepCount } = lesson
     const quizQuestionCount = lessonType === "quiz" ? await this.repo.countQuizQuestions(id) : 0
     const stepCount = lessonType === "guided" ? (incomingStepCount ?? (await this.steps.countByLesson(id))) : 0
-    const blocker = publishBlocker({ lessonType, testCaseCount: testCases.length, quizQuestionCount, stepCount })
+    const blocker = publishBlocker({ lessonType, testCaseCount: testCases.length, quizQuestionCount, stepCount, runtime, libraries })
     if (blocker) throw Unprocessable(blocker.message, blocker.code)
   }
 
