@@ -187,6 +187,59 @@ describe.skipIf(!isPythonAvailable)("WasmtimeSandbox (integração)", () => {
     expect(observation?.values?.proprio).toBe(true)
   })
 
+  describe("__name__ do aluno por tipo de sonda", () => {
+    // O bloco `__main__` grava um arquivo, imprime e levantaria erro: nada disso pode acontecer quando o arquivo é usado como biblioteca.
+    const guarded = [
+      "import os",
+      "nome = __name__",
+      "principal = False",
+      "def dobro(n):",
+      "    return 2 * n",
+      "class Tarefa:",
+      "    pass",
+      "if __name__ == '__main__':",
+      "    principal = True",
+      "    open('rodou.txt', 'w').write('x')",
+      "    print('demonstração', dobro(21))",
+    ].join("\n")
+
+    it("call, globals e expr carregam o main.py como módulo `main`: o bloco __main__ não roda", async () => {
+      const [call, globals, expr] = await run(mainFile(guarded), [
+        { id: "c", kind: "call", function: "dobro", args: [4], kwargs: {} },
+        { id: "g", kind: "globals", names: ["nome", "principal"] },
+        { id: "e", kind: "expr", setup: "t = Tarefa()", expr: "[__name__, principal, os.path.exists('rodou.txt'), type(t).__module__]", stdin: "" },
+      ])
+      expect(call).toMatchObject({ ok: true, value: 8, stdout: "" })
+      expect(globals).toMatchObject({ ok: true, values: { nome: "main", principal: false }, stdout: "" })
+      expect(expr).toMatchObject({ ok: true, value: ["main", false, false, "main"], stdout: "" })
+    })
+
+    it("um treino longo (ou erro) dentro do bloco __main__ não custa nem derruba os casos de biblioteca", async () => {
+      const code = "def soma(a, b):\n    return a + b\nif __name__ == '__main__':\n    while True:\n        pass\n"
+      const [call, expr] = await run(mainFile(code), [
+        { id: "c", kind: "call", function: "soma", args: [2, 3], kwargs: {} },
+        { id: "e", kind: "expr", setup: "", expr: "soma(1, 1)", stdin: "" },
+      ])
+      expect(call).toMatchObject({ ok: true, value: 5 })
+      expect(expr).toMatchObject({ ok: true, value: 2 })
+    })
+
+    it("run (caso io) e legacy continuam como programa: __name__ == '__main__' e o bloco roda", async () => {
+      const [program, legacy] = await run(mainFile(guarded), [
+        { id: "r", kind: "run", stdin: "" },
+        { id: "l", kind: "legacy", code: "assert nome == '__main__', nome\nassert principal is True\nassert 'demonstração 42' in _stdout\n" },
+      ])
+      expect(program).toMatchObject({ ok: true, stdout: "demonstração 42\n" })
+      expect(legacy?.legacy).toMatchObject({ testsRun: 3, failures: 0, errors: 0 })
+    })
+
+    it("o módulo `main` é o do aluno: `import main` e `import __main__` devolvem o mesmo namespace, sem reexecutar", async () => {
+      const code = "import sys\nexecucoes = getattr(sys, '_execucoes', 0) + 1\nsys._execucoes = execucoes\nimport main, __main__\nmesmo = main.__dict__ is globals() and __main__ is main\n"
+      const [observation] = await run(mainFile(code), [{ id: "g", kind: "globals", names: ["mesmo", "execucoes"] }])
+      expect(observation?.values).toEqual({ mesmo: true, execucoes: 1 })
+    })
+  })
+
   it("expr: avalia a expressão após a preparação e devolve valor e tipo", async () => {
     const code = "class Conta:\n    def __init__(self, saldo):\n        self._saldo = saldo\n    @property\n    def saldo(self):\n        return self._saldo\n    def depositar(self, valor):\n        self._saldo += valor\n"
     const [observation] = await run(mainFile(code), [{ id: "e", kind: "expr", setup: "c = Conta(100)\nc.depositar(50)", expr: "c.saldo", stdin: "" }])
@@ -196,8 +249,8 @@ describe.skipIf(!isPythonAvailable)("WasmtimeSandbox (integração)", () => {
   it("expr: descreve a exceção levantada com tipo, hierarquia e mensagem", async () => {
     const code = "class SaldoError(ValueError):\n    pass\ndef sacar(v):\n    raise SaldoError('saldo insuficiente')\n"
     const [observation] = await run(mainFile(code), [{ id: "e", kind: "expr", setup: "", expr: "sacar(10)", stdin: "" }])
-    expect(observation?.raised).toMatchObject({ type: "__main__.SaldoError", message: "saldo insuficiente", stage: "expr" })
-    expect(observation?.raised?.mro).toEqual(["__main__.SaldoError", "ValueError", "Exception", "BaseException", "object"])
+    expect(observation?.raised).toMatchObject({ type: "main.SaldoError", message: "saldo insuficiente", stage: "expr" })
+    expect(observation?.raised?.mro).toEqual(["main.SaldoError", "ValueError", "Exception", "BaseException", "object"])
   })
 
   it("expr: classe do aluno com nome de embutido não se passa pelo embutido", async () => {
@@ -207,7 +260,7 @@ describe.skipIf(!isPythonAvailable)("WasmtimeSandbox (integração)", () => {
       { id: "b", kind: "expr", setup: "", expr: "generator()", stdin: "" },
     ])
     expect(raised?.raised?.mro).not.toContain("ValueError")
-    expect(typed?.type).toBe("__main__.generator")
+    expect(typed?.type).toBe("main.generator")
   })
 
   it("expr: serializa objetos hostis só pelos tipos embutidos, com limites", async () => {
@@ -233,8 +286,8 @@ describe.skipIf(!isPythonAvailable)("WasmtimeSandbox (integração)", () => {
       { id: "d", kind: "expr", setup: "", expr: "list(range(100000))", stdin: "" },
       { id: "e", kind: "expr", setup: "", expr: "Chato()", stdin: "" },
     ])
-    expect(hostile).toMatchObject({ value: [1, 2], type: "__main__.Lista" })
-    expect(text).toMatchObject({ value: "real", type: "__main__.Texto" })
+    expect(hostile).toMatchObject({ value: [1, 2], type: "main.Lista" })
+    expect(text).toMatchObject({ value: "real", type: "main.Texto" })
     expect(cyclic?.truncated).toBe(true)
     expect(huge?.truncated).toBe(true)
     expect(JSON.stringify(huge?.value).length).toBeLessThan(200_000)
