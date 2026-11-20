@@ -139,11 +139,14 @@ export class LessonsService {
     const patch = buildPatch(input, LESSON_PATCH)
     // Lição publicada não pode ficar num estado que o aluno não consegue concluir.
     if (current.published) {
+      // Biblioteca só é reavaliada se o PATCH mexe em `libraries` ou `runtime`: lição publicada antes do manifesto
+      // continua editável (título, texto…); com a lista vazia o bloqueio de biblioteca não se aplica.
+      const touchesLibraries = patch.libraries !== undefined || patch.runtime !== undefined
       await this.assertPublishable(id, {
         lessonType: patch.lessonType ?? current.lessonType,
         testCases: patch.testCases ?? current.testCases,
         runtime: patch.runtime ?? current.runtime,
-        libraries: patch.libraries ?? current.libraries,
+        libraries: touchesLibraries ? (patch.libraries ?? current.libraries) : [],
         incomingStepCount: input.steps?.length,
       })
     }

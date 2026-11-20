@@ -308,6 +308,17 @@ describe("Catálogo (e2e)", () => {
       expect((await teacher.agent.patch(`/api/lessons/${theoryLesson.id}/publish`, { published: true })).status).toBe(200)
     })
 
+    it("lição publicada antes do manifesto continua editável: a biblioteca só é reavaliada se o PATCH a toca", async () => {
+      const teacher = await signUp(ctx.app, "teacher", ctx.db)
+      const legacy = await createLesson(ctx.db, { createdBy: teacher.id, lessonType: "theory", runtime: "python-dados", libraries: ["xgboost"] })
+      const renamed = await teacher.agent.patch(`/api/lessons/${legacy.id}`, { title: "Título novo" })
+      expect(renamed.status).toBe(200)
+      expect(renamed.body).toMatchObject({ title: "Título novo", published: true, libraries: ["xgboost"] })
+      const touched = await teacher.agent.patch(`/api/lessons/${legacy.id}`, { runtime: "python-dados" })
+      expect(touched.status).toBe(422)
+      expect(bodyOf<ApiErrorBody>(touched).code).toBe("LIBRARY_PENDING")
+    })
+
     it("lição com biblioteca pendente (fora do manifesto) não publica; liberada, publica", async () => {
       const teacher = await signUp(ctx.app, "teacher", ctx.db)
       const lesson = bodyOf<LessonWithTests>(

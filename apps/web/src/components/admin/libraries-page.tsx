@@ -86,7 +86,7 @@ export function LibrariesPage({ onToast }: LibrariesPageProps): React.JSX.Elemen
       applyReview(reviewedRequest)
       onToast(
         reviewedRequest.manifest_snippet
-          ? `✓ ${request.library_name} aprovada. Falta o PR no manifesto de bibliotecas (rascunho da entrada em GET /admin/library/manifest-pending)`
+          ? `✓ ${request.library_name} aprovada. Ela só entra no catálogo depois que a equipe de desenvolvimento a acrescentar ao manifesto de bibliotecas`
           : `✓ ${request.library_name} aprovada`,
       )
       void libraries.reload()

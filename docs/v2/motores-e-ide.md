@@ -7,14 +7,14 @@ levantamento aponta `arquivo:linha` do estado em `develop` antes da mudança (co
 
 ### 0.1 Módulo `library` da API
 
-- Rotas (`apps/api/src/modules/library/library.controller.ts`): `GET /library` público, só ativas (l. 132-136);
-  `POST /library/requests` e `GET /me/library/requests` para `teacher`/`admin` (l. 138-148); `GET /admin/library`,
-  `PATCH /admin/library/:id`, `GET /admin/library/requests` e `POST /admin/library/requests/:id/review` só `admin` (l. 150-174).
+- Rotas (`apps/api/src/modules/library/library.controller.ts`): `GET /library` público, só ativas (l. 17-21);
+  `POST /library/requests` e `GET /me/library/requests` para `teacher`/`admin` (l. 23-33); `GET /admin/library`,
+  `PATCH /admin/library/:id`, `GET /admin/library/requests` e `POST /admin/library/requests/:id/review` só `admin` (l. 35-59).
   Entrada validada com Zod de `@levelusp/contracts` (`ZodPipe`, `UuidPipe`).
 - Catálogo = tabela `library_catalog` (`packages/db/src/schema/platform.ts:90-104`): `name` único, `display_name`,
   `category`, `pyodide_native`, `active`. Não há seed: ela só enchia pela importação do Supabase
   (`packages/db/src/scripts/import-supabase.ts:88`) ou pela aprovação de um pedido
-  (`library.service.ts:73-114`, `addToCatalog` com `upsertCatalog`, `library.repository.ts:216-225`).
+  (`library.service.ts:74-114`, `addToCatalog` com `upsertCatalog`, `library.repository.ts:41-50`).
   Num banco novo o catálogo nascia vazio.
 - Pedido do professor = tabela `library_requests` (`platform.ts:111-126`): `library_name`, `display_name`, `description`,
   `use_case`, `status` (`pending|approved|rejected`), revisor e notas. `createRequest` limita por usuário
@@ -36,7 +36,7 @@ levantamento aponta `arquivo:linha` do estado em `develop` antes da mudança (co
   `lesson-parser.ts:35`); a correção manda `runtime` e `libraries` ao executor só para `python-dados`
   (`grading.service.ts:53`, `learning.service.ts:77`, `steps.service.ts:75`); no navegador, `lesson.libraries` vira
   `usePython({ packages })` (`apps/web/src/contexts/ide-context.tsx:182-198`) e o worker usa `loadPackage` para o que está
-  no `pyodide-lock.json` e `micropip` (PyPI) para o resto (`apps/web/src/lib/python/python-worker.ts:117-123`) — uma
+  no `pyodide-lock.json` e `micropip` (PyPI) para o resto (`apps/web/src/lib/python/python-worker.ts:111-122`) — uma
   segunda via, fora de qualquer lista, que só a validação na publicação e no `content:check` fecha.
 - Conteúdo atual: 113 lições `python-dados` com `numpy`, 41 com `pandas`, 28 com `scikit-learn`, 5 com `scipy`, 5 com `matplotlib`;
   141 lições `python` com `bibliotecas: []`.
@@ -116,6 +116,10 @@ O que é derivado dele (nada é copiado à mão):
   pendências usa `general` e `browser: true`. O PR acrescenta o literal em `LIBRARY_MANIFEST` (ordem alfabética), troca
   `"?"` pela versão do `pyodide-lock.json`, acrescenta o pacote ao `PACKAGES` de `fetch-pyodide.sh` e ao mapa e à
   lista de pacotes do perfil em `pyodide-profiles.ts`; o teste de `apps/runner/test/library-manifest.test.ts` aponta o que faltar.
+- `GET /admin/library/manifest-pending` lista, para sempre, todo pedido aprovado cuja biblioteca não está no manifesto,
+  inclusive os antigos importados do Supabase: elas só saem da lista quando entram no manifesto (por PR). Para
+  esvaziá-la, leve ao manifesto as que valem a pena.
+- Lição publicada antes do manifesto não é reavaliada: o `update` só checa biblioteca quando o PATCH traz `libraries` ou `runtime`.
 - A tela do admin (`libraries-page.tsx`) só mudou o aviso ao aprovar; mostrar a lista de pendências fica na dívida técnica.
 
 ## Testes
