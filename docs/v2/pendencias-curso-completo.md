@@ -364,7 +364,7 @@ Estado em 2026-11-16:
   do verify (`DEFAULT_VERIFY_CONCURRENCY`) para lições `ml` ou corrigir o executor.
 - **Nível 6 concluído (2026-11-17):** 36 lições em 8 módulos e a prova de 40 questões escritas, verificadas e publicadas, tudo em numpy no perfil `dados` (sem PyTorch); `curso.yaml` com `publicado: true`.
   Divergências do `PLANO.md` medidas no executor: corpus com 62 879 caracteres e validação 0,56 no mini-GPT (m7-05); CNN e MLP empatam em robustez a deslocamento (m5-03); o projeto usa pesos próprios (`pesos_projeto.txt`).
-  A rever: (o custo do `if __name__ == "__main__":` em cada caso foi resolvido na Fase C); a lição do projeto tem 384 mil caracteres; com dois verifies ao mesmo tempo, um pedido pode estourar os 120 s.
+  A rever: a lição do projeto tem 384 mil caracteres; com dois verifies ao mesmo tempo, um pedido pode estourar os 120 s.
 - **Fase A concluída (2026-11-19), fechamento da branch:**
   - Os 7 níveis estão com `publicado: true`. `content:verify` do curso inteiro aprovado no N4 (95 passos, 35 previsões)
     e no N5 (110 passos, 40 previsões); N3 e N7 já tinham o registro. No verify do curso, 2 lições do N4 e 4 do N5
