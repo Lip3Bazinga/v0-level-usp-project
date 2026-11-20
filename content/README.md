@@ -824,8 +824,9 @@ RUNNER_URL=http://127.0.0.1:8081 RUNNER_TOKEN=... pnpm content:verify [--curso s
   única no curso; nenhum caso `legacy`. Relatório por arquivo (`arquivo:linha: causa`).
 - `content:build` roda as mesmas verificações, gera a saída esperada dos passos `Previsão` no
   executor (só precisa de `RUNNER_URL`/`RUNNER_TOKEN` quando o conteúdo tem `Previsão`), valida
-  o pacote com `contentBundleSchema` e só então grava o JSON (2 espaços, `generated_at`, imagens
-  em `assets`). Nada é gravado se houver problema.
+  o pacote com `contentBundleSchema` e só então grava o JSON **minificado** (uma linha, `generated_at`,
+  imagens em `assets`): os 7 níveis ocupam 14,0 MB, contra 19,5 MB indentado, e o limite do
+  `POST /admin/content/import` é 20 MB. Nada é gravado se houver problema.
 - `content:verify` usa o executor real e o motor de correção da API: em cada passo de
   exercício a solução APROVA, o código inicial REPROVA e cada solução errada REPROVA (no
   `modo: ordenar`: a solução montada APROVA e a ordem embaralhada REPROVA); cada `Previsão`

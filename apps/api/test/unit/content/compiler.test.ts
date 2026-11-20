@@ -21,6 +21,16 @@ describe("compileContent com content/exemplo", () => {
     expect(() => contentBundleSchema.parse(JSON.parse(serializeBundle(validation.bundle ?? { format: 2, tracks: [], courses: [], assets: {} })))).not.toThrow()
   })
 
+  it("grava o pacote minificado (uma linha), sem perder nada ao ler de volta", () => {
+    const bundle = validateBundle(compiled, "2026-11-05T00:00:00.000Z").bundle
+    if (!bundle) throw new Error("pacote inválido")
+    const text = serializeBundle(bundle)
+    expect(text.endsWith("\n")).toBe(true)
+    expect(text.trimEnd()).not.toContain("\n")
+    expect(JSON.parse(text)).toEqual(bundle)
+    expect(text.length).toBeLessThan(JSON.stringify(bundle, null, 2).length)
+  })
+
   it("tem a estrutura do §6.2: trilha → cursos → módulos → lições → passos", () => {
     const validation = validateBundle(compiled, "2026-11-05T00:00:00.000Z")
     const bundle = validation.bundle
