@@ -776,7 +776,7 @@ Medido nos nomes (RNN com $H = 32$, janelas de 16 caracteres, Adam com taxa 0,01
 
 ## Passo 7 · Exercício · Norma no tempo e geração
 
-O arquivo `rnn.py` traz um gerador de nomes completo, com a camada de saída: `iniciar_rnn(V, H, semente)`, `treinar_rnn(...)`, `nll_nomes(...)` e `passo_rnn(params, i, h)`, que recebe o índice do caractere atual e o estado e devolve `(h_novo, p)`, com `p` as probabilidades do próximo caractere. O bloco no fim do código treina nos nomes quando você clica em "Executar". Ele vem com 40 passos, porque esse bloco também roda em cada caso da correção: para ver o treino completo da leitura, troque 40 por 500, execute (leva alguns segundos) e volte a 40 antes de enviar.
+O arquivo `rnn.py` traz um gerador de nomes completo, com a camada de saída: `iniciar_rnn(V, H, semente)`, `treinar_rnn(...)`, `nll_nomes(...)` e `passo_rnn(params, i, h)`, que recebe o índice do caractere atual e o estado e devolve `(h_novo, p)`, com `p` as probabilidades do próximo caractere. O bloco no fim do código treina nos nomes quando você clica em "Executar".
 
 ### Instruções
 
@@ -804,7 +804,7 @@ if __name__ == "__main__":
     treino, validacao = nomes[:800], nomes[800:900]
     stoi, itos = construir_vocabulario(treino)
     params = iniciar_rnn(len(itos), 32, 0)
-    historico = treinar_rnn(params, treino, stoi, 40, 16, 16, 0.01, 0)  # 500 para o treino completo
+    historico = treinar_rnn(params, treino, stoi, 500, 16, 16, 0.01, 0)
     print("perda no primeiro lote:", round(historico[0], 4))
     print("NLL de validação:", round(nll_nomes(params, validacao, stoi), 4))
     print(amostrar_rnn(params, itos, np.random.default_rng(0), 8))
@@ -1962,7 +1962,7 @@ if __name__ == "__main__":
     treino, validacao = nomes[:800], nomes[800:900]
     stoi, itos = construir_vocabulario(treino)
     params = iniciar_rnn(len(itos), 32, 0)
-    historico = treinar_rnn(params, treino, stoi, 40, 16, 16, 0.01, 0)  # 500 para o treino completo
+    historico = treinar_rnn(params, treino, stoi, 500, 16, 16, 0.01, 0)
     print("perda no primeiro lote:", round(historico[0], 4))
     print("NLL de validação:", round(nll_nomes(params, validacao, stoi), 4))
     print(amostrar_rnn(params, itos, np.random.default_rng(0), 8))
@@ -3144,7 +3144,7 @@ if __name__ == "__main__":
     treino, validacao = nomes[:800], nomes[800:900]
     stoi, itos = construir_vocabulario(treino)
     params = iniciar_rnn(len(itos), 32, 0)
-    historico = treinar_rnn(params, treino, stoi, 40, 16, 16, 0.01, 0)  # 500 para o treino completo
+    historico = treinar_rnn(params, treino, stoi, 500, 16, 16, 0.01, 0)
     print("perda no primeiro lote:", round(historico[0], 4))
     print("NLL de validação:", round(nll_nomes(params, validacao, stoi), 4))
     print(amostrar_rnn(params, itos, np.random.default_rng(0), 8))
@@ -3186,7 +3186,7 @@ if __name__ == "__main__":
     treino, validacao = nomes[:800], nomes[800:900]
     stoi, itos = construir_vocabulario(treino)
     params = iniciar_rnn(len(itos), 32, 0)
-    historico = treinar_rnn(params, treino, stoi, 40, 16, 16, 0.01, 0)  # 500 para o treino completo
+    historico = treinar_rnn(params, treino, stoi, 500, 16, 16, 0.01, 0)
     print("perda no primeiro lote:", round(historico[0], 4))
     print("NLL de validação:", round(nll_nomes(params, validacao, stoi), 4))
     print(amostrar_rnn(params, itos, np.random.default_rng(0), 8))
@@ -3228,7 +3228,7 @@ if __name__ == "__main__":
     treino, validacao = nomes[:800], nomes[800:900]
     stoi, itos = construir_vocabulario(treino)
     params = iniciar_rnn(len(itos), 32, 0)
-    historico = treinar_rnn(params, treino, stoi, 40, 16, 16, 0.01, 0)  # 500 para o treino completo
+    historico = treinar_rnn(params, treino, stoi, 500, 16, 16, 0.01, 0)
     print("perda no primeiro lote:", round(historico[0], 4))
     print("NLL de validação:", round(nll_nomes(params, validacao, stoi), 4))
     print(amostrar_rnn(params, itos, np.random.default_rng(0), 8))
@@ -3270,7 +3270,7 @@ if __name__ == "__main__":
     treino, validacao = nomes[:800], nomes[800:900]
     stoi, itos = construir_vocabulario(treino)
     params = iniciar_rnn(len(itos), 32, 0)
-    historico = treinar_rnn(params, treino, stoi, 40, 16, 16, 0.01, 0)  # 500 para o treino completo
+    historico = treinar_rnn(params, treino, stoi, 500, 16, 16, 0.01, 0)
     print("perda no primeiro lote:", round(historico[0], 4))
     print("NLL de validação:", round(nll_nomes(params, validacao, stoi), 4))
     print(amostrar_rnn(params, itos, np.random.default_rng(0), 8))
@@ -3313,7 +3313,7 @@ if __name__ == "__main__":
     treino, validacao = nomes[:800], nomes[800:900]
     stoi, itos = construir_vocabulario(treino)
     params = iniciar_rnn(len(itos), 32, 0)
-    historico = treinar_rnn(params, treino, stoi, 40, 16, 16, 0.01, 0)  # 500 para o treino completo
+    historico = treinar_rnn(params, treino, stoi, 500, 16, 16, 0.01, 0)
     print("perda no primeiro lote:", round(historico[0], 4))
     print("NLL de validação:", round(nll_nomes(params, validacao, stoi), 4))
     print(amostrar_rnn(params, itos, np.random.default_rng(0), 8))
@@ -3355,7 +3355,7 @@ if __name__ == "__main__":
     treino, validacao = nomes[:800], nomes[800:900]
     stoi, itos = construir_vocabulario(treino)
     params = iniciar_rnn(len(itos), 32, 0)
-    historico = treinar_rnn(params, treino, stoi, 40, 16, 16, 0.01, 0)  # 500 para o treino completo
+    historico = treinar_rnn(params, treino, stoi, 500, 16, 16, 0.01, 0)
     print("perda no primeiro lote:", round(historico[0], 4))
     print("NLL de validação:", round(nll_nomes(params, validacao, stoi), 4))
     print(amostrar_rnn(params, itos, np.random.default_rng(0), 8))
@@ -3397,7 +3397,7 @@ if __name__ == "__main__":
     treino, validacao = nomes[:800], nomes[800:900]
     stoi, itos = construir_vocabulario(treino)
     params = iniciar_rnn(len(itos), 32, 0)
-    historico = treinar_rnn(params, treino, stoi, 40, 16, 16, 0.01, 0)  # 500 para o treino completo
+    historico = treinar_rnn(params, treino, stoi, 500, 16, 16, 0.01, 0)
     print("perda no primeiro lote:", round(historico[0], 4))
     print("NLL de validação:", round(nll_nomes(params, validacao, stoi), 4))
     print(amostrar_rnn(params, itos, np.random.default_rng(0), 8))
@@ -3439,7 +3439,7 @@ if __name__ == "__main__":
     treino, validacao = nomes[:800], nomes[800:900]
     stoi, itos = construir_vocabulario(treino)
     params = iniciar_rnn(len(itos), 32, 0)
-    historico = treinar_rnn(params, treino, stoi, 40, 16, 16, 0.01, 0)  # 500 para o treino completo
+    historico = treinar_rnn(params, treino, stoi, 500, 16, 16, 0.01, 0)
     print("perda no primeiro lote:", round(historico[0], 4))
     print("NLL de validação:", round(nll_nomes(params, validacao, stoi), 4))
     print(amostrar_rnn(params, itos, np.random.default_rng(0), 8))
