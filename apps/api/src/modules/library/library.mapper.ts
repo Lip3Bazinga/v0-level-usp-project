@@ -1,7 +1,8 @@
 import type { LibraryCatalog, LibraryRequest } from "@levelusp/contracts"
 import type { LibraryCatalogRow, LibraryRequestRow } from "@levelusp/db"
 
-const UNKNOWN_REQUESTER = "Desconhecido"
+/** Nome exibido quando o perfil de quem pediu foi apagado. */
+export const UNKNOWN_REQUESTER = "Desconhecido"
 
 /** Biblioteca do catálogo no formato do contrato. */
 export function toLibraryCatalog(library: LibraryCatalogRow): LibraryCatalog {

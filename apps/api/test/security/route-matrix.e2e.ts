@@ -125,6 +125,7 @@ const ADMIN_ROUTES = [
   "GET /api/admin/library",
   "PATCH /api/admin/library/:id",
   "GET /api/admin/library/requests",
+  "GET /api/admin/library/manifest-pending",
   "POST /api/admin/library/requests/:id/review",
   "GET /api/admin/teacher-approvals",
   "POST /api/admin/teacher-approvals/:id/approve",

@@ -72,7 +72,7 @@ export function LibrariesPage({ onToast }: LibrariesPageProps): React.JSX.Elemen
 
   const handleApprove = async (request: LibraryRequest, { category, isPyodideNative, notes }: ApprovalOptions): Promise<void> => {
     try {
-      // A API aprova e inclui no catálogo na mesma operação.
+      // A API só aprova: a biblioteca entra no catálogo quando um PR a acrescenta ao manifesto (docs/v2/motores-e-ide.md).
       const reviewedRequest = await reviewLibraryRequest(request.id, {
         status: "approved",
         review_notes: notes.trim() || undefined,
@@ -84,7 +84,11 @@ export function LibrariesPage({ onToast }: LibrariesPageProps): React.JSX.Elemen
         },
       })
       applyReview(reviewedRequest)
-      onToast(`✓ ${request.library_name} aprovada e adicionada ao catálogo`)
+      onToast(
+        reviewedRequest.manifest_snippet
+          ? `✓ ${request.library_name} aprovada. Ela só entra no catálogo depois que a equipe de desenvolvimento a acrescentar ao manifesto de bibliotecas`
+          : `✓ ${request.library_name} aprovada`,
+      )
       void libraries.reload()
     } catch (error) {
       onToast(getErrorMessage(error, "Erro ao aprovar requisição"), "error")

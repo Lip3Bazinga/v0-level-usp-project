@@ -91,6 +91,12 @@ describe("lintContent", () => {
     expect(lint({ [GUIDED]: withLibraries })).toEqual([`${GUIDED}:${lineOf(withLibraries, "bibliotecas:")}: runtime python não aceita bibliotecas (use runtime: python-dados ou bibliotecas: [])`])
   })
 
+  it("recusa biblioteca fora do manifesto; aceita nome e apelido do manifesto", () => {
+    const unknown = guidedLesson({ runtime: "python-dados", bibliotecas: "[numpy, xgboost]" })
+    expect(lint({ [GUIDED]: unknown })).toEqual([`${GUIDED}:${lineOf(unknown, "bibliotecas:")}: biblioteca fora do manifesto: xgboost (confira o nome ou peça a liberação: docs/v2/motores-e-ide.md)`])
+    expect(lint({ [GUIDED]: guidedLesson({ runtime: "python-dados", bibliotecas: "[Numpy, sklearn, scikit-learn]" }) })).toEqual([])
+  })
+
   it("nenhum texto TODO, Em breve ou lorem", () => {
     const todo = `${frontmatter()}\n${readingStep(1, `${"x".repeat(200)} TODO revisar`)}`
     expect(lint({ [GUIDED]: todo })).toEqual([`${GUIDED}:${lineOf(todo, "## Passo 1")}: passo 1 (Leitura · O que é um programa): narrativa contém texto provisório ("TODO")`])
