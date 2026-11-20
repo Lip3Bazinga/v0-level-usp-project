@@ -340,7 +340,14 @@ function isHarnessFunction(value: unknown): value is (filesJson: string, entryPa
 // Um harness por runtime: "Executar" e "Visualizar" compartilham o mesmo escopo Python.
 const harnessScopes = new WeakMap<PyodideAPI, PyProxy>()
 
-function harnessScope(pyodide: PyodideAPI): PyProxy {
+/**
+ * Escopo Python do harness (um por runtime, criado na primeira chamada). O terminal do navegador
+ * carrega o seu código neste mesmo escopo para reaproveitar `PROJECT`, `MAX_TEXT`,
+ * `_student_traceback` e `_collect_figures` em vez de copiá-los.
+ *
+ * @throws Error se o escopo não puder ser criado.
+ */
+export function harnessScope(pyodide: PyodideAPI): PyProxy {
   const existing = harnessScopes.get(pyodide)
   if (existing) return existing
   // `toPy` é tipado como `any` no pacote; aqui ele sempre devolve um dict Python vazio.

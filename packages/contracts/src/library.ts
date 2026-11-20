@@ -36,6 +36,24 @@ export interface LibraryRequest {
   created_at: string
   reviewed_at: string | null
   requester_name?: string
+  /**
+   * Só na resposta da revisão que aprova uma biblioteca ainda fora do manifesto: a entrada para colar em
+   * `library-manifest.ts` no PR que a libera (a versão vem como `"?"` até alguém preencher a do pyodide-lock).
+   */
+  manifest_snippet?: string
+}
+
+/** Pedido aprovado cuja biblioteca ainda não entrou no manifesto (aguarda o PR). Só para o admin. */
+export interface LibraryManifestPending {
+  request_id: string
+  library_name: string
+  display_name: string | null
+  description: string | null
+  use_case: string | null
+  requester_name: string
+  reviewed_at: string | null
+  /** Rascunho da entrada do manifesto (categoria `general` até o admin ajustar no PR). */
+  manifest_snippet: string
 }
 
 export const libraryRequestInputSchema = z.object({

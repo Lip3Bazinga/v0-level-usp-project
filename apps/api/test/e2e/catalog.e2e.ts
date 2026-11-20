@@ -308,6 +308,43 @@ describe("Catálogo (e2e)", () => {
       expect((await teacher.agent.patch(`/api/lessons/${theoryLesson.id}/publish`, { published: true })).status).toBe(200)
     })
 
+    it("lição publicada antes do manifesto continua editável: a biblioteca só é reavaliada se o PATCH a toca", async () => {
+      const teacher = await signUp(ctx.app, "teacher", ctx.db)
+      const legacy = await createLesson(ctx.db, { createdBy: teacher.id, lessonType: "theory", runtime: "python-dados", libraries: ["xgboost"] })
+      const renamed = await teacher.agent.patch(`/api/lessons/${legacy.id}`, { title: "Título novo" })
+      expect(renamed.status).toBe(200)
+      expect(renamed.body).toMatchObject({ title: "Título novo", published: true, libraries: ["xgboost"] })
+      const touched = await teacher.agent.patch(`/api/lessons/${legacy.id}`, { runtime: "python-dados" })
+      expect(touched.status).toBe(422)
+      expect(bodyOf<ApiErrorBody>(touched).code).toBe("LIBRARY_PENDING")
+    })
+
+    it("lição com biblioteca pendente (fora do manifesto) não publica; liberada, publica", async () => {
+      const teacher = await signUp(ctx.app, "teacher", ctx.db)
+      const lesson = bodyOf<LessonWithTests>(
+        await teacher.agent.post("/api/lessons", { title: "Boosting", lesson_type: "theory", runtime: "python-dados", libraries: ["numpy", "xgboost"] }),
+      )
+      const blocked = await teacher.agent.patch(`/api/lessons/${lesson.id}/publish`, { published: true })
+      expect(blocked.status).toBe(422)
+      expect(bodyOf<ApiErrorBody>(blocked).code).toBe("LIBRARY_PENDING")
+      expect(bodyOf<ApiErrorBody>(blocked).message).toContain("xgboost")
+
+      // Tirando a pendente, publica; apelido do manifesto (sklearn) vale.
+      expect((await teacher.agent.patch(`/api/lessons/${lesson.id}`, { libraries: ["numpy", "sklearn"] })).status).toBe(200)
+      expect((await teacher.agent.patch(`/api/lessons/${lesson.id}/publish`, { published: true })).status).toBe(200)
+
+      // Lição já publicada não aceita biblioteca pendente nem biblioteca sem motor para o runtime.
+      const pendingAgain = await teacher.agent.patch(`/api/lessons/${lesson.id}`, { libraries: ["numpy", "xgboost"] })
+      expect(pendingAgain.status).toBe(422)
+      expect(bodyOf<ApiErrorBody>(pendingAgain).code).toBe("LIBRARY_PENDING")
+      const wrongEngine = await teacher.agent.patch(`/api/lessons/${lesson.id}`, { runtime: "python" })
+      expect(wrongEngine.status).toBe(422)
+      expect(bodyOf<ApiErrorBody>(wrongEngine).code).toBe("LIBRARY_RUNTIME")
+      // Como rascunho, a edição é livre.
+      await teacher.agent.patch(`/api/lessons/${lesson.id}/publish`, { published: false })
+      expect((await teacher.agent.patch(`/api/lessons/${lesson.id}`, { libraries: ["xgboost"] })).status).toBe(200)
+    })
+
     it("publicar quiz exige ao menos uma questão (422 NO_QUESTIONS)", async () => {
       const teacher = await signUp(ctx.app, "teacher", ctx.db)
       const quiz = bodyOf<LessonWithTests>(await teacher.agent.post("/api/lessons", { title: "Quiz de listas", lesson_type: "quiz" }))

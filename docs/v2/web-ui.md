@@ -121,6 +121,14 @@ objetivos e tentativas antes da solução. Salvar envia `steps` inteiro.
   traziam números sem fonte (`/impacto` redireciona para `/sobre`).
 - HSTS em produção e redirects no `next.config.mjs`.
 
+## Terminal no navegador (Fase F)
+
+Aba "Terminal" ao lado do Console nos exercícios do player (`ConsoleTerminalTabs`): xterm.js sobre o
+Pyodide do worker compartilhado, carregado só quando a aba é aberta. **Decisão de cabeçalhos: o site
+não usa COOP/COEP e o terminal não usa SharedArrayBuffer** (`input()` por suspensão de pilha com
+fallback de reexecução; Ctrl+C reinicia o worker). Motivos, protocolo, limites e pendências em
+`terminal-no-navegador.md`.
+
 ## Testes
 
 `pnpm --filter @levelusp/web typecheck lint test build`. Testes novos: player (`guided-lesson-layout.test.tsx`),

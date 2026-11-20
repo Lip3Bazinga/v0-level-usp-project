@@ -1,7 +1,8 @@
 import { Module } from "@nestjs/common"
+import { LibraryCatalogSync } from "./library-catalog.sync"
 import { LibraryController } from "./library.controller"
 import { LibraryRepository } from "./library.repository"
 import { LibraryService } from "./library.service"
 
-@Module({ controllers: [LibraryController], providers: [LibraryRepository, LibraryService] })
+@Module({ controllers: [LibraryController], providers: [LibraryRepository, LibraryService, LibraryCatalogSync] })
 export class LibraryModule {}

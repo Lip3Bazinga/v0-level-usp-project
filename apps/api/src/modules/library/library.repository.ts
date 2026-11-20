@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common"
 import { and, asc, desc, eq, sql } from "drizzle-orm"
-import { libraryCatalog, libraryRequests, profiles, type LibraryCatalogInsert, type LibraryRequestInsert } from "@levelusp/db"
+import type { LibraryManifestEntry } from "@levelusp/contracts"
+import { libraryCatalog, libraryRequests, profiles, type LibraryRequestInsert } from "@levelusp/db"
 import { requireRow } from "@/common/database/rows"
 import { InjectDb, type Database } from "@/infra/database/database.module"
 import type { DbTransaction, DbExecutor, LibraryCatalogRow, LibraryRequestRow } from "@levelusp/db"
@@ -38,14 +39,23 @@ export class LibraryRepository {
     return library
   }
 
-  /** Insere (ou reativa/atualiza) a biblioteca no catálogo pelo nome do pacote. */
-  async upsertCatalog(library: LibraryCatalogInsert, executor: DbExecutor): Promise<void> {
-    await executor
+  /**
+   * Espelha o manifesto no catálogo: insere o que falta e atualiza os dados de exibição pelo nome do pacote.
+   * Não toca em `active` (interruptor do admin) nem em `added_by`.
+   */
+  async upsertManifest(entries: readonly LibraryManifestEntry[]): Promise<void> {
+    if (entries.length === 0) return
+    await this.db
       .insert(libraryCatalog)
-      .values(library)
+      .values(entries.map((entry) => ({ name: entry.name, displayName: entry.display_name, description: entry.description, category: entry.category, pyodideNative: entry.browser })))
       .onConflictDoUpdate({
         target: libraryCatalog.name,
-        set: { displayName: library.displayName, description: library.description, category: library.category, pyodideNative: library.pyodideNative, active: true },
+        set: {
+          displayName: sql`excluded.display_name`,
+          description: sql`excluded.description`,
+          category: sql`excluded.category`,
+          pyodideNative: sql`excluded.pyodide_native`,
+        },
       })
   }
 
@@ -78,6 +88,16 @@ export class LibraryRepository {
       .from(libraryRequests)
       .leftJoin(profiles, eq(profiles.id, libraryRequests.requestedBy))
       .orderBy(desc(libraryRequests.createdAt))
+  }
+
+  /** Pedidos aprovados com o nome de quem pediu, a aprovação mais recente primeiro. */
+  listApprovedRequests(): Promise<LibraryRequestWithRequesterRow[]> {
+    return this.db
+      .select({ request: libraryRequests, requesterName: profiles.fullName })
+      .from(libraryRequests)
+      .leftJoin(profiles, eq(profiles.id, libraryRequests.requestedBy))
+      .where(eq(libraryRequests.status, "approved"))
+      .orderBy(desc(libraryRequests.reviewedAt))
   }
 
   /** Lê o pedido com `FOR UPDATE`, travando-o até o fim da transação da revisão. */

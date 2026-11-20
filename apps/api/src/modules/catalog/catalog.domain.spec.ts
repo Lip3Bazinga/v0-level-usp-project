@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { checkReorder, generateSlug, nextOrder, passRate, pickUniqueSlug, publishBlocker, withRandomSuffix } from "./catalog.domain"
+import { checkReorder, generateSlug, nextOrder, passRate, pickUniqueSlug, publishBlocker, withRandomSuffix, type PublishCandidate } from "./catalog.domain"
 
 describe("generateSlug / pickUniqueSlug", () => {
   it("remove acentos e símbolos", () => {
@@ -38,21 +38,39 @@ describe("nextOrder", () => {
   })
 })
 
+/** Lição sem bibliotecas no motor padrão; cada teste troca só o que importa. */
+const candidate = (overrides: Partial<PublishCandidate>): PublishCandidate => ({
+  lessonType: "theory", testCaseCount: 0, quizQuestionCount: 0, stepCount: 0, runtime: "python", libraries: [], ...overrides,
+})
+
 describe("publishBlocker", () => {
   it("lição de código exige casos de teste", () => {
-    expect(publishBlocker({ lessonType: "coding", testCaseCount: 0, quizQuestionCount: 0, stepCount: 0 })?.code).toBe("NO_TESTS")
-    expect(publishBlocker({ lessonType: "coding", testCaseCount: 2, quizQuestionCount: 0, stepCount: 0 })).toBeNull()
+    expect(publishBlocker(candidate({ lessonType: "coding" }))?.code).toBe("NO_TESTS")
+    expect(publishBlocker(candidate({ lessonType: "coding", testCaseCount: 2 }))).toBeNull()
   })
   it("quiz exige ao menos uma questão", () => {
-    expect(publishBlocker({ lessonType: "quiz", testCaseCount: 0, quizQuestionCount: 0, stepCount: 0 })?.code).toBe("NO_QUESTIONS")
-    expect(publishBlocker({ lessonType: "quiz", testCaseCount: 0, quizQuestionCount: 1, stepCount: 0 })).toBeNull()
+    expect(publishBlocker(candidate({ lessonType: "quiz" }))?.code).toBe("NO_QUESTIONS")
+    expect(publishBlocker(candidate({ lessonType: "quiz", quizQuestionCount: 1 }))).toBeNull()
   })
   it("lição guiada exige ao menos um passo", () => {
-    expect(publishBlocker({ lessonType: "guided", testCaseCount: 0, quizQuestionCount: 0, stepCount: 0 })?.code).toBe("NO_STEPS")
-    expect(publishBlocker({ lessonType: "guided", testCaseCount: 0, quizQuestionCount: 0, stepCount: 3 })).toBeNull()
+    expect(publishBlocker(candidate({ lessonType: "guided" }))?.code).toBe("NO_STEPS")
+    expect(publishBlocker(candidate({ lessonType: "guided", stepCount: 3 }))).toBeNull()
   })
   it("teoria publica sem requisitos", () => {
-    expect(publishBlocker({ lessonType: "theory", testCaseCount: 0, quizQuestionCount: 0, stepCount: 0 })).toBeNull()
+    expect(publishBlocker(candidate({ lessonType: "theory" }))).toBeNull()
+  })
+  it("biblioteca fora do manifesto (pendente) impede a publicação, com os nomes na mensagem", () => {
+    const blocker = publishBlocker(candidate({ runtime: "python-dados", libraries: ["numpy", "xgboost", "lightgbm"] }))
+    expect(blocker?.code).toBe("LIBRARY_PENDING")
+    expect(blocker?.message).toContain("xgboost, lightgbm")
+    expect(blocker?.message).not.toContain("numpy")
+  })
+  it("biblioteca do manifesto publica no motor que a oferece; em outro motor é recusada", () => {
+    expect(publishBlocker(candidate({ runtime: "python-dados", libraries: ["numpy", "sklearn", "Pandas"] }))).toBeNull()
+    expect(publishBlocker(candidate({ runtime: "python", libraries: ["numpy"] }))?.code).toBe("LIBRARY_RUNTIME")
+  })
+  it("os bloqueios de conteúdo vêm antes dos de biblioteca", () => {
+    expect(publishBlocker(candidate({ lessonType: "coding", runtime: "python-dados", libraries: ["xgboost"] }))?.code).toBe("NO_TESTS")
   })
 })
 

@@ -1,5 +1,5 @@
 import {
-  assembleParsonsCode, DEFAULT_ENTRY_FILE, DEFAULT_RUNNER_LIMITS, parsonsSolutionPlacements,
+  assembleParsonsCode, DEFAULT_ENTRY_FILE, DEFAULT_RUNNER_LIMITS, findManifestLibrary, parsonsSolutionPlacements,
   type BundleCourse, type BundleLesson, type BundleModule, type BundleStep, type ContentBundle, type GradeResult, type ProjectFile, type RunnerJob, type RunnerResult, type TestCase,
 } from "@levelusp/contracts"
 import { buildProbes, grade } from "../../src/modules/grading/grading.domain"
@@ -99,8 +99,6 @@ export const DEFAULT_VERIFY_CONCURRENCY = 4
 export const HEAVY_VERIFY_CONCURRENCY = 1
 /** Tempo limite de cada pedido HTTP ao executor (fila + aquecimento do perfil + lote). */
 export const RUNNER_REQUEST_TIMEOUT_MS = 120_000
-/** Bibliotecas do perfil `dados` do executor; qualquer outra leva a lição ao perfil `ml` (espelha `pyodide-profiles.ts`). */
-const LIGHT_LIBRARIES: ReadonlySet<string> = new Set(["numpy", "pandas"])
 /** Tentativas contra o executor quando ele responde "ocupado" (503). */
 const MAX_BUSY_RETRIES = 3
 const DEFAULT_RETRY_AFTER_SECONDS = 5
@@ -142,10 +140,13 @@ export function createPool(limit: number): Scheduler {
 
 const runImmediately: Scheduler = (task) => task()
 
-/** Diz se a lição roda no perfil `ml` do executor (`python-dados` com biblioteca além de numpy e pandas). */
+/**
+ * Diz se a lição roda no perfil `ml` do executor: `python-dados` com biblioteca cujo `pyodide_profile` no
+ * manifesto não é `dados` (o que o manifesto não conhece também conta como pesado, por prudência).
+ */
 export function usesHeavyProfile(lesson: BundleLesson): boolean {
   if (lesson.runtime !== "python-dados") return false
-  return lesson.libraries.some((library) => !LIGHT_LIBRARIES.has(library.trim().toLowerCase().replace(/[-_.]+/g, "-")))
+  return lesson.libraries.some((library) => findManifestLibrary(library)?.pyodide_profile !== "dados")
 }
 
 /**
