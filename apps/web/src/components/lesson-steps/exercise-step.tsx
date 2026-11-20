@@ -6,6 +6,7 @@ import { ArrowRight, CheckCircle2, Circle, Loader2, ShieldCheck, XCircle } from 
 import type { ExerciseMode, Lesson, LessonStep, LessonStepProgress, ParsonsPlacement, ProjectFile, StepCaseResult, StepSubmitResult } from "@levelusp/contracts"
 import { ConsolePanel } from "@/components/ide/console-panel"
 import { Spinner } from "@/components/design-system/spinner"
+import { ConsoleTerminalTabs } from "@/components/terminal/console-terminal-tabs"
 import { usePython, type ExecutionResult } from "@/hooks/use-python"
 import { submitStep, submitStepArrangement } from "@/lib/api"
 import { MAIN_FILE_PATH } from "@/lib/constants"
@@ -323,7 +324,7 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
             {trace.state.status === "error" && <p role="alert" className="border-t border-border bg-red-50 px-3 py-1.5 text-xs text-red-700">{trace.state.message}</p>}
             <StdinField value={stdin} onChange={setStdin} isSuggested={usesInput} />
             <div className="min-h-0 flex-[2] border-t border-border">
-              <ConsolePanel outputs={outputs} onClear={() => setOutputs([])} isRunning={isExecuting} />
+              <ConsoleTerminalTabs files={runnableFiles() ?? files} console={<ConsolePanel outputs={outputs} onClear={() => setOutputs([])} isRunning={isExecuting} />} />
             </div>
           </>
         )}

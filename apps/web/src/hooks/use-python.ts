@@ -135,6 +135,12 @@ export function usePython({ packages, onStatusChange }: UsePythonOptions = {}): 
         case "trace-error":
           // Respostas do visualizador: quem pediu (`requestTrace`) é que as trata.
           return
+        case "term-output":
+        case "term-input-request":
+        case "term-done":
+        case "term-error":
+          // Mensagens do terminal: quem as trata é o cliente do terminal (`python-terminal-client`).
+          return
       }
     }
 

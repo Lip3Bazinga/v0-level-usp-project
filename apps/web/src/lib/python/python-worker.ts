@@ -1,5 +1,6 @@
 import type { loadPyodide, PyodideAPI } from "pyodide"
 import { createProjectRunner, createProjectTracer, readPythonVersion, type ProjectRunner, type ProjectTracer } from "./project-execution"
+import { createTerminalRuntime, type TerminalBridge, type TerminalCommandResult, type TerminalRuntime } from "./terminal-execution"
 import type { WorkerCommand, WorkerMessage } from "./worker-protocol"
 
 /*
@@ -141,8 +142,69 @@ async function handleInstall(packages: readonly string[]): Promise<void> {
   }
 }
 
+/*
+ * Terminal. A saída e os pedidos de `input()` saem pela ponte; a resposta do usuário (`term-input`)
+ * é tratada fora da fila (ver `self.onmessage`), porque o comando em andamento está esperando por ela.
+ */
+interface InputAnswer {
+  eof: boolean
+  line: string
+}
+
+let terminalRuntimePromise: Promise<TerminalRuntime> | null = null
+let activeRunId = 0
+let pendingInput: ((answer: InputAnswer) => void) | null = null
+
+const terminalBridge: TerminalBridge = {
+  write: (stream, text) => post({ type: "term-output", runId: activeRunId, stream, text }),
+  requestInput: () =>
+    new Promise<InputAnswer>((resolve) => {
+      pendingInput = resolve
+      post({ type: "term-input-request", runId: activeRunId })
+    }),
+}
+
+function terminalRuntime(runtime: PythonRuntime): Promise<TerminalRuntime> {
+  terminalRuntimePromise ??= createTerminalRuntime(runtime.pyodide, terminalBridge)
+  return terminalRuntimePromise
+}
+
+function answerInput(command: Extract<WorkerCommand, { type: "term-input" }>): void {
+  if (command.runId !== activeRunId || !pendingInput) return
+  const resolve = pendingInput
+  pendingInput = null
+  resolve(command.line === null ? { eof: true, line: "" } : { eof: false, line: command.line })
+}
+
+async function handleTerminal(runId: number, action: (terminal: TerminalRuntime) => Promise<TerminalCommandResult>): Promise<void> {
+  activeRunId = runId
+  const runtime = await readyRuntime()
+  if (!runtime) {
+    post({ type: "term-error", runId, error: "O Python não está disponível. Tente recarregar a página." })
+    return
+  }
+  try {
+    const result = await action(await terminalRuntime(runtime))
+    post({ type: "term-done", runId, status: result.status, figures: result.figures })
+  } catch (error) {
+    post({ type: "term-error", runId, error: errorMessage(error) })
+  }
+}
+
 function handleCommand(command: WorkerCommand): Promise<void> {
   switch (command.type) {
+    case "term-run":
+      return handleTerminal(command.runId, (terminal) => terminal.runScript(command.files, command.entryPath))
+    case "term-fs":
+      return handleTerminal(command.runId, (terminal) => terminal.runFs(command.op, command.args, command.files))
+    case "term-repl-start":
+      return handleTerminal(command.runId, (terminal) => terminal.startRepl(command.files))
+    case "term-repl-line":
+      return handleTerminal(command.runId, (terminal) => terminal.pushRepl(command.line))
+    case "term-input":
+      // Só chega aqui se alguém o enfileirar por engano; a resposta é imediata em `onmessage`.
+      answerInput(command)
+      return Promise.resolve()
     case "init":
       return startRuntime(command.indexURL, command.packageBaseUrl).then(
         () => undefined,
@@ -159,6 +221,10 @@ function handleCommand(command: WorkerCommand): Promise<void> {
 
 self.onmessage = (event: MessageEvent<WorkerCommand>): void => {
   const command = event.data
+  if (command.type === "term-input") {
+    answerInput(command)
+    return
+  }
   commandQueue = commandQueue
     .then(() => handleCommand(command))
     .catch((error: unknown) => post({ type: "execution-error", error: errorMessage(error) }))
