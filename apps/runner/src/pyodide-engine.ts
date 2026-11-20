@@ -180,6 +180,7 @@ export class PyodideEngine implements Engine {
    * nunca usa o pool: aquece um worker só para ele.
    */
   private async acquire(profile: PyodideProfileName, dedicated: boolean): Promise<Lease> {
+    if (this.isShuttingDown) throw new Error("O executor está encerrando.")
     if (dedicated) return { worker: await this.boot(profile, false), dedicated }
     const pooled = this.idle.get(profile)?.shift()
     if (pooled !== undefined) {
@@ -194,7 +195,7 @@ export class PyodideEngine implements Engine {
     return { worker, dedicated }
   }
 
-  /** Entrega um worker recém-aquecido a quem espera por ele ou o deixa ocioso no pool. */
+  /** Entrega um worker recém-aquecido (ou restaurado) a quem espera por ele ou o deixa ocioso no pool. */
   private offer(profile: PyodideProfileName, worker: PyodideWorker): void {
     const waiter = this.waiters.get(profile)?.shift()
     if (waiter) waiter.resolve(worker)

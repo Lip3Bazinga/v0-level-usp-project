@@ -139,6 +139,12 @@ Como ler:
 
 O piso da `fresh` em sequência continua sendo o aquecimento; a correção só o divide por dois
 na média.
+
+Limite conhecido na política `reuse` (só dev): cada lote na fila dispara um aquecimento; se um
+worker restaurado atender o lote antes, o aquecido fica ocioso e não é aparado, então o pool pode
+passar do `warm` até o pico de lotes simultâneos (com `ml:0`, 1 ou mais workers de ~1,3 GB).
+Um teto no `offer` resolveria.
+
 Tirar o resto é decisão de configuração ou trabalho maior:
 
 1. **`content:verify` com `RUNNER_PYODIDE_POLICY=reuse` no executor de desenvolvimento.** É o que
