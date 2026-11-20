@@ -84,6 +84,29 @@ describe.skipIf(!isPyodideAvailable)("PyodideEngine (integração, política fre
     expect(raised?.raised).toMatchObject({ type: "KeyError", stage: "expr" })
   })
 
+  it("o bloco __main__ só roda na sonda run: call, globals e expr carregam o main.py como módulo `main`", async () => {
+    const files = mainFile(
+      "import numpy as np",
+      "nome = __name__",
+      "treinou = False",
+      "def media(valores):",
+      "    return float(np.mean(valores))",
+      "if __name__ == '__main__':",
+      "    treinou = True",
+      "    print('treino', media([1, 3]))",
+    )
+    const [io, call, globals, expr] = await runProbes(engine, files, [
+      { id: "io", kind: "run", stdin: "" },
+      { id: "call", kind: "call", function: "media", args: [[1, 2, 3]], kwargs: {} },
+      { id: "globals", kind: "globals", names: ["nome", "treinou"] },
+      exprProbe("[__name__, treinou]", "", "expr"),
+    ])
+    expect(io).toMatchObject({ ok: true, stdout: "treino 2.0\n" })
+    expect(call).toMatchObject({ ok: true, value: 2, stdout: "" })
+    expect(globals).toMatchObject({ ok: true, values: { nome: "main", treinou: false }, stdout: "" })
+    expect(expr).toMatchObject({ ok: true, value: ["main", false], stdout: "" })
+  })
+
   it("valores do numpy chegam como $repr e arquivos do projeto ficam em /work", async () => {
     const files = [...mainFile("import os", "from dados import leitor", "linhas = leitor.contar('dados/tabela.csv')", "cwd = os.getcwd()"), { path: "dados/__init__.py", content: "" }, { path: "dados/leitor.py", content: "def contar(caminho):\n    return open(caminho).read().count('\\n')\n" }, { path: "dados/tabela.csv", content: "a,b\n1,2\n3,4\n" }]
     const observation = await runOne(engine, files, globalsProbe("linhas", "cwd"))
@@ -143,6 +166,35 @@ describe.skipIf(!isPyodideAvailable)("PyodideEngine (integração, política fre
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(engine.readiness.warm.dados).toBeLessThanOrEqual(1)
   })
+})
+
+describe.skipIf(!isPyodideAvailable)("PyodideEngine (integração, fila do pool)", () => {
+  const files = mainFile("import numpy as np", "valor = int(np.sum([1, 2]))")
+
+  it("lotes simultâneos sem worker ocioso recebem um worker cada (nenhum espera por um que já tem dono)", async () => {
+    // Sem pool aquecido (como o perfil ml no padrão): antes, o segundo lote esperava para sempre.
+    const engine = createPyodideEngine({ warm: { dados: 0, ml: 0 } })
+    try {
+      const observations = await Promise.all([1, 2, 3].map(() => runOne(engine, files, globalsProbe("valor"))))
+      expect(observations.map((observation) => observation.values?.valor)).toEqual([3, 3, 3])
+      expect(engine.stats()).toMatchObject({ batches: 3, booted: 3, bootFailures: 0 })
+    } finally {
+      await engine.shutdown()
+    }
+  }, 90_000)
+
+  it("reuse: o lote que chega durante a restauração espera por ela em vez de aquecer outro worker", async () => {
+    const engine = createPyodideEngine({ policy: "reuse", warm: { dados: 0, ml: 0 }, recycleAfter: 10 })
+    try {
+      for (let index = 0; index < 3; index++) {
+        // Um logo depois do outro: o worker do lote anterior ainda está sendo restaurado.
+        expect((await runOne(engine, files, globalsProbe("valor"))).values?.valor).toBe(3)
+      }
+      expect(engine.stats()).toMatchObject({ batches: 3, booted: 1, recycled: 0, resetFailures: 0 })
+    } finally {
+      await engine.shutdown()
+    }
+  }, 90_000)
 })
 
 describe.skipIf(!isPyodideAvailable)("PyodideEngine (integração, política reuse)", () => {

@@ -44,7 +44,7 @@ export interface PyodideReadiness extends EngineReadiness {
   warm: Record<PyodideProfileName, number>
 }
 
-/** Lote à espera de um worker do pool que ainda está aquecendo. */
+/** Lote à espera de um worker do pool que ainda está aquecendo ou sendo restaurado. */
 interface Waiter {
   resolve: (worker: PyodideWorker) => void
   reject: (error: Error) => void
@@ -69,8 +69,11 @@ export class PyodideEngine implements Engine {
   readonly readiness: PyodideReadiness
   private readonly harnessSource: string
   private readonly idle = new Map<PyodideProfileName, PyodideWorker[]>()
+  /** Workers aquecendo PARA O POOL (os de lote dedicado não entram: nunca são oferecidos a quem espera). */
   private readonly booting = new Map<PyodideProfileName, number>()
-  /** Lotes esperando um worker que já está aquecendo (em vez de aquecer outro). */
+  /** Política `reuse`: workers em restauração depois de um lote, que voltam ao pool em dezenas de ms. */
+  private readonly restoring = new Map<PyodideProfileName, number>()
+  /** Lotes esperando o próximo worker do pool (aquecido ou restaurado), por ordem de chegada. */
   private readonly waiters = new Map<PyodideProfileName, Waiter[]>()
   private readonly bootEstimateMs = new Map<PyodideProfileName, number>()
   private readonly counters = { batches: 0, timedOut: 0, overflowed: 0, fatal: 0, booted: 0, bootFailures: 0, recycled: 0, resetFailures: 0 }
@@ -82,6 +85,7 @@ export class PyodideEngine implements Engine {
     for (const profile of PYODIDE_PROFILE_NAMES) {
       this.idle.set(profile, [])
       this.booting.set(profile, 0)
+      this.restoring.set(profile, 0)
       this.waiters.set(profile, [])
       this.bootEstimateMs.set(profile, PYODIDE_PROFILES[profile].initialBootMs)
     }
@@ -140,6 +144,9 @@ export class PyodideEngine implements Engine {
   /** Encerra todos os workers (parada do executor e fim dos testes). */
   async shutdown(): Promise<void> {
     this.isShuttingDown = true
+    for (const waiters of this.waiters.values()) {
+      for (const waiter of waiters.splice(0)) waiter.reject(new Error("Motor python-dados: executor encerrando"))
+    }
     const workers = [...this.idle.values()].flat()
     for (const list of this.idle.values()) list.length = 0
     await Promise.all(workers.map((worker) => worker.terminate()))
@@ -167,25 +174,23 @@ export class PyodideEngine implements Engine {
   }
 
   /**
-   * Pega um worker do pool; sem nenhum ocioso, espera um que já esteja aquecendo para o
-   * pool (se houver) ou aquece um só para este lote. Lote dedicado nunca usa o pool.
+   * Pega um worker do pool; sem nenhum ocioso, entra na fila do perfil e recebe o próximo
+   * que ficar pronto — aquecido ou, na política `reuse`, restaurado depois de outro lote.
+   * `refill` garante que há um worker a caminho para cada lote na fila. Lote dedicado
+   * nunca usa o pool: aquece um worker só para ele.
    */
   private async acquire(profile: PyodideProfileName, dedicated: boolean): Promise<Lease> {
-    if (!dedicated) {
-      const pooled = this.idle.get(profile)?.shift()
-      if (pooled !== undefined) {
-        this.updateWarmGauge()
-        this.refill(profile)
-        return { worker: pooled, dedicated: false }
-      }
-      const waiters = this.waiters.get(profile) ?? []
-      if ((this.booting.get(profile) ?? 0) > waiters.length) {
-        const worker = await new Promise<PyodideWorker>((resolve, reject) => waiters.push({ resolve, reject }))
-        this.refill(profile)
-        return { worker, dedicated: false }
-      }
+    if (dedicated) return { worker: await this.boot(profile, false), dedicated }
+    const pooled = this.idle.get(profile)?.shift()
+    if (pooled !== undefined) {
+      this.updateWarmGauge()
+      this.refill(profile)
+      return { worker: pooled, dedicated }
     }
-    const worker = await this.boot(profile, !dedicated && this.options.policy === "reuse")
+    const worker = await new Promise<PyodideWorker>((resolve, reject) => {
+      this.waiters.get(profile)?.push({ resolve, reject })
+      this.refill(profile)
+    })
     return { worker, dedicated }
   }
 
@@ -216,7 +221,10 @@ export class PyodideEngine implements Engine {
     if (this.options.policy === "fresh" || lease.dedicated || isTainted || worker.isDead) return discard(isTainted ? "lote falhou ou estourou limite" : "política fresh")
     if (worker.uses >= this.options.recycleAfter) return discard(`${worker.uses} lotes atendidos`)
     if (heapBytes > this.options.recycleHeapMb * BYTES_PER_MIB) return discard(`heap de ${Math.round(heapBytes / BYTES_PER_MIB)} MB`)
-    const reset = await worker.reset()
+    // Conta como worker a caminho: um lote que chega durante a restauração espera por ela
+    // (dezenas de ms) em vez de aquecer outro worker (segundos).
+    this.restoring.set(profile, (this.restoring.get(profile) ?? 0) + 1)
+    const reset = await worker.reset().finally(() => this.restoring.set(profile, (this.restoring.get(profile) ?? 1) - 1))
     if (!reset.ok) {
       this.counters.resetFailures++
       this.options.log?.("warn", "restauração do worker python-dados falhou: reciclando", { profile, reason: reset.reason })
@@ -227,14 +235,20 @@ export class PyodideEngine implements Engine {
     this.offer(profile, worker)
   }
 
-  /** Mantém `warm[profile]` workers ociosos ou aquecendo. */
+  /**
+   * Mantém `warm[profile]` workers ociosos ou a caminho (aquecendo ou em restauração) ALÉM
+   * dos que os lotes na fila do perfil vão consumir. Sem contar a fila, um lote ficava à
+   * espera de um worker que já tinha dono — para sempre, com `warm` igual a 0.
+   */
   private refill(profile: PyodideProfileName): void {
     if (this.isShuttingDown) return
-    const target = this.options.warm[profile]
+    const wanted = this.options.warm[profile] + (this.waiters.get(profile)?.length ?? 0)
     const idle = this.idle.get(profile)?.length ?? 0
-    const booting = this.booting.get(profile) ?? 0
-    for (let missing = target - idle - booting; missing > 0; missing--) {
+    const incoming = (this.booting.get(profile) ?? 0) + (this.restoring.get(profile) ?? 0)
+    for (let missing = wanted - idle - incoming; missing > 0; missing--) {
+      this.countBooting(profile, 1)
       void this.boot(profile, this.options.policy === "reuse")
+        .finally(() => this.countBooting(profile, -1))
         .then((worker) => {
           if (this.isShuttingDown) return worker.terminate()
           this.offer(profile, worker)
@@ -249,9 +263,12 @@ export class PyodideEngine implements Engine {
     }
   }
 
+  private countBooting(profile: PyodideProfileName, delta: number): void {
+    this.booting.set(profile, (this.booting.get(profile) ?? 0) + delta)
+  }
+
   /** Cria e aquece um worker; registra o tempo na média do perfil. */
   private async boot(profile: PyodideProfileName, reusable: boolean): Promise<PyodideWorker> {
-    this.booting.set(profile, (this.booting.get(profile) ?? 0) + 1)
     const startedAt = performance.now()
     const worker = new PyodideWorker({
       workerPath: this.options.workerPath,
@@ -282,8 +299,6 @@ export class PyodideEngine implements Engine {
       this.options.log?.("error", "aquecimento do worker python-dados falhou", { profile, error: message.slice(0, LOGGED_ERROR_CHARS) })
       await worker.terminate()
       throw new Error(`Motor python-dados: aquecimento do perfil ${profile} falhou: ${message}`)
-    } finally {
-      this.booting.set(profile, (this.booting.get(profile) ?? 1) - 1)
     }
   }
 
