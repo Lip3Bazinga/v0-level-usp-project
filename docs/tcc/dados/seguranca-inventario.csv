@@ -1,0 +1,39 @@
+arquivo,categoria,motor,casos,suite,forja_veredito,limites_documentados
+apps/runner/test/attacks/escape.attack.ts,fuga do sandbox: sistema de arquivos,python/WASI,6,test:attacks,nao,0
+apps/runner/test/attacks/escape.attack.ts,"fuga do sandbox: rede, processos, threads, nativo",python/WASI,2,test:attacks,nao,0
+apps/runner/test/attacks/forgery.attack.ts,forja: valores hostis viram o valor REAL da classe base,python/WASI,2,test:attacks,sim,0
+apps/runner/test/attacks/forgery.attack.ts,forja: exceções e tipos fingidos,python/WASI,2,test:attacks,sim,0
+apps/runner/test/attacks/forgery.attack.ts,forja: saída padrão e processo,python/WASI,3,test:attacks,sim,1
+apps/runner/test/attacks/forgery.attack.ts,forja: estado entre sondas da mesma instância,python/WASI,1,test:attacks,sim,0
+apps/runner/test/attacks/forgery.attack.ts,forja: regras de estrutura (AST),python/WASI,3,test:attacks,sim,0
+apps/runner/test/attacks/forgery.attack.ts,forja: builtins trocados afetam só o próprio caso,python/WASI,2,test:attacks,sim,0
+apps/runner/test/attacks/resources.attack.ts,abuso de recursos: memória e CPU,python/WASI,11,test:attacks,nao,0
+apps/runner/test/attacks/resources.attack.ts,abuso de recursos: saída e canal de observações,python/WASI,7,test:attacks,nao,0
+apps/runner/test/attacks/resources.attack.ts,abuso de recursos: disco e limpeza,python/WASI,5,test:attacks,nao,0
+apps/runner/test/attacks/resources.attack.ts,abuso de recursos: limites do Wasmtime aplicados,python/WASI,1,test:attacks,nao,0
+apps/runner/test/attacks/resources.attack.ts,abuso de recursos: concorrência,python/WASI,2,test:attacks,nao,0
+apps/runner/test/attacks/strict-mode.attack.ts,modo estrito: rotas até o nonce,python/WASI,5,test:attacks,sim,0
+apps/runner/test/attacks/unittest.attack.ts,unittest: referência × mutante só pelo comportamento,python/WASI,5,test:attacks,sim,0
+apps/runner/test/attacks/pyodide.attack.ts,Pyodide: fuga para o JavaScript e o host,python-dados/Pyodide,5,test:attacks,nao,0
+apps/runner/test/attacks/pyodide.attack.ts,Pyodide: sistema de arquivos e nonce,python-dados/Pyodide,4,test:attacks,sim,0
+apps/runner/test/attacks/pyodide.attack.ts,Pyodide: recursos,python-dados/Pyodide,4,test:attacks,nao,0
+apps/runner/test/attacks/pyodide.attack.ts,Pyodide: contaminação entre lotes (política reuse),python-dados/Pyodide,3,test:attacks,nao,0
+apps/api/test/security/grading-forgery.e2e.ts,forja de veredito (API + executor real),python/WASI,40,test:attacks,sim,1
+apps/api/test/security/auth-session.e2e.ts,"autenticação, sessão e CSRF",API,19,test:security,nao,0
+apps/api/test/security/bola-idor.e2e.ts,autorização de objeto (BOLA/IDOR),API,14,test:security,nao,0
+apps/api/test/security/business-logic.e2e.ts,"lógica de negócio (XP, quiz, prova)",API,15,test:security,nao,0
+apps/api/test/security/injection.e2e.ts,injeção e entradas hostis,API,15,test:security,nao,0
+apps/api/test/security/insecure-defaults.e2e.ts,configuração insegura,API,10,test:security,nao,0
+apps/api/test/security/mass-assignment.e2e.ts,mass assignment,API,10,test:security,nao,0
+apps/api/test/security/route-matrix.e2e.ts,matriz de autorização das rotas,API,8,test:security,nao,0
+apps/api/test/security/steps-forgery.e2e.ts,forja de progresso e vazamento de gabarito (passos),API,12,test:security,sim,0
+apps/api/test/security/uploads.e2e.ts,uploads,API,8,test:security,nao,0
+apps/web/e2e/security/web-attacks.spec.ts,cabeçalhos e enquadramento,web,3,test:security,nao,0
+apps/web/e2e/security/web-attacks.spec.ts,vulnerabilidades conhecidas do Next/React,web,4,test:security,nao,0
+apps/web/e2e/security/web-attacks.spec.ts,"sessão, redirecionamento e CSRF",web,3,test:security,nao,0
+apps/web/e2e/security/web-attacks.spec.ts,XSS armazenado no que a web renderiza,web,2,test:security,nao,0
+packages/security/src/bundle-scan.test.ts,varredura do bundle,cadeia-de-suprimentos,4,test:security,nao,0
+packages/security/src/supply-chain.test.ts,lockfile,cadeia-de-suprimentos,2,test:security,nao,0
+packages/security/src/supply-chain.test.ts,regras do registry,cadeia-de-suprimentos,5,test:security,nao,0
+packages/security/src/supply-chain.test.ts,typosquatting,cadeia-de-suprimentos,3,test:security,nao,0
+packages/security/src/supply-chain.test.ts,pnpm audit,cadeia-de-suprimentos,1,test:security,nao,0
