@@ -1,0 +1,65 @@
+%% Sequência da submissão: do clique em Verificar ao veredito (passo de exercício).
+%% Rastreabilidade de cada participante e mensagem: docs/tcc/diagramas/rastreabilidade.md, seção 03.
+%% Invariante: o gabarito (test_cases) nunca sai de modules/grading e do banco. O executor só recebe
+%% sondas (o que executar), nunca o valor esperado. A comparação e o veredito são da API.
+sequenceDiagram
+  autonumber
+  actor Aluno
+  participant UI as Interface (exercise-step.tsx)
+  participant Web as web (rewrite /api/*)
+  participant API as API (guards, StepsController, StepsService)
+  participant SG as SubmissionGrader
+  participant GR as modules/grading (GradingService, grading.domain)
+  participant RC as RunnerClient
+  participant RN as runner (server, Executor)
+  participant EN as Motor (WASI ou Pyodide) + harness.py
+  participant DB as PostgreSQL
+  participant GM as GamificationService
+
+  Aluno->>UI: clica em Verificar
+  UI->>Web: POST /api/me/lessons/:id/steps/:stepId/submit com os arquivos, cookie e x-levelusp-csrf
+  Web->>API: rewrite para http://api:4000
+  API->>API: CsrfMiddleware, SessionGuard (deny-by-default), UuidPipe e ZodPipe(stepSubmitSchema)
+  API->>DB: StepsService.loadContext lê lição e passo COM gabarito, progresso e ordem dos passos
+  Note over API,DB: o gabarito é lido aqui, dentro da API. A resposta ao aluno nunca o carrega
+  API->>SG: grade(userId, lessonId, stepId, files, testCases, motor da lição)
+  SG->>SG: RateLimitService.consume codeSubmission e codeSubmissionPerLessonDay
+  SG->>GR: GradingService.grade(files, testCases, runtime, libraries)
+  GR->>GR: testCasesSchema.safeParse e buildProbes(cases)
+  Note over GR: cada sonda tem só id, tipo e entradas (função, args, stdin, nomes de variáveis). Nenhuma leva o valor esperado
+  GR->>RC: runner.run(job: files, entry, probes, limits, runtime?, libraries?)
+  RC->>RN: POST /v1/run com Authorization Bearer RUNNER_TOKEN (rede runner, sem internet)
+  RN->>RN: isAuthorized (timingSafeEqual), runnerJobSchema, planBatches e admit na fila
+
+  alt fila cheia ou espera estimada acima do teto
+    RN-->>RC: 503 busy com Retry-After
+    RC-->>SG: AppError 503 RUNNER_BUSY (propaga por GradingService)
+    SG->>SG: devolve as cotas (refund)
+    SG->>DB: createSubmission status=error (não conta como tentativa)
+    API-->>UI: 503 corretor ocupado, tente de novo em N s
+  else job admitido
+    RN->>EN: lote de sondas (prepareGuestJob)
+    Note over RN,EN: nonce = 16 bytes aleatórios por lote. Ids posicionais p0, p1... (o id do caso não chega ao sandbox)
+    EN->>EN: wasmtime sem env, sem rede, só /lib, /harness e /work. Ou worker do Pyodide com lockdown
+    EN->>EN: harness.py lê o lote no stdin ANTES de importar o código do aluno e roda cada sonda
+    EN-->>RN: stdout: linhas "nonce JSON" uma por sonda, mais os prints do aluno
+    RN->>RN: parseObservations aceita só linhas com o nonce. Id duplicado invalida a sonda
+    RN->>RN: collectObservations: p0 volta ao id original. Sonda sem observação vira falha explicada (tempo, saída, disco, memória)
+    RN-->>RC: observations, engine (versões) e durationMs
+    RC-->>GR: RunnerResult validado no formato mínimo
+    GR->>GR: grade(cases, observations): compara COM o gabarito, fora do sandbox
+    GR-->>SG: GradedSubmission (casos, allPassed, engine)
+    SG->>DB: createSubmission status=graded, result e engine
+    SG-->>API: result
+    alt allPassed
+      API->>GM: completeStep(userId, stepId)
+      GM->>DB: transação: XP, nível, sequência, conclusão da lição, badges
+      Note over GM,DB: única porta de escrita de progresso e só depois de um veredito do servidor
+    else reprovado
+      API->>DB: incrementAttempts
+    end
+    API->>DB: events.record step_submitted
+    API-->>UI: StepSubmitResult com passed, cases (toStepCases), attempts, solution_available e XP
+    Note over API,UI: o caso só traz esperado e obtido se o professor marcou reveal. A solução só sai pela rota própria, depois das tentativas
+  end
+  UI-->>Aluno: mostra as verificações que passaram e as que faltam

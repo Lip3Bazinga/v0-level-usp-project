@@ -1,0 +1,70 @@
+%% Implantação: desenvolvimento, homologação (notebook + Cloudflare Tunnel) e produção na VM.
+%% Rastreabilidade de cada caixa e seta: docs/tcc/diagramas/rastreabilidade.md, seção 06.
+%% Legenda: caixa tracejada = PLANEJADO (ainda não existe em operação) ou OPÇÃO FUTURA (não implementada).
+flowchart TB
+  subgraph GH["GitHub (.github/workflows/ci.yml)"]
+    CI["CI: qualidade, seguranca, api-e2e,<br/>sandbox (executor WASI + Pyodide), e2e Playwright, docker"]
+    CD["CD: job publicar<br/>só em push para develop ou main"]
+    GHCR[("GHCR: imagens api, runner, web<br/>tags homolog, prod e sha-commit")]
+    CI --> CD --> GHCR
+  end
+
+  subgraph DEV["Desenvolvimento (máquina do dev) - compose.dev.yml"]
+    DEVPG[("postgres:17-alpine<br/>127.0.0.1:5432")]
+    DEVAPP["pnpm dev<br/>web :3000, api :4000, runner :8081<br/>(processos locais, sem contêiner)"]
+    DEVRUN["runner em contêiner (perfil runner, opcional)<br/>127.0.0.1:8081, read_only, tmpfs, mem 2g"]
+    DEVAPP --> DEVPG
+    DEVAPP -.-> DEVRUN
+  end
+
+  subgraph HML["Homologação - notebook Windows, Docker Desktop, projeto levelusp-homolog (compose.yml, perfil tunnel)"]
+    PS["infra/scripts/levelusp.ps1<br/>setup, up, seed, update, backup,<br/>install-autoupdate (tarefa a cada 5 min)"]
+    subgraph HNETAPP["rede app"]
+      HWEB["web<br/>127.0.0.1:WEB_PORT:3000"]
+      HTUN["tunnel: cloudflared Quick Tunnel<br/>URL trycloudflare.com muda a cada reinício"]
+    end
+    subgraph HNETDATA["rede data (internal, sem internet)"]
+      HAPI["api (também nas redes app e runner)"]
+      HPG[("postgres 17<br/>volume pgdata")]
+      HMIG["migrate (roda e sai)"]
+    end
+    subgraph HNETRUN["rede runner (internal, sem internet)"]
+      HRUN["runner<br/>read_only, cap_drop ALL, no-new-privileges,<br/>pids 128, mem 1g, 2 CPUs"]
+    end
+    PS --> HWEB
+    HTUN --> HWEB
+    HWEB --> HAPI
+    HAPI --> HPG
+    HAPI --> HRUN
+    HMIG --> HPG
+  end
+
+  INTERNET["Aluno (navegador)"]
+  CFQ["Cloudflare (Quick Tunnel)"]
+  INTERNET -- HTTPS --> CFQ
+  CFQ -. "conexão de saída do cloudflared" .- HTUN
+  GHCR -- "docker compose pull, notebook puxa. Nenhuma porta aberta para o GitHub" --> PS
+
+  subgraph VMP["PLANEJADO - Produção em VM Linux (compose.yml + compose.vm.yml, projeto levelusp-prod). Guia: docs/v2/producao-vm.md"]
+    direction TB
+    VINGRESS["Entrada pública, uma das duas:<br/>cloudflared com túnel NOMEADO (nenhuma porta aberta)<br/>ou Caddy 80/443 com HTTPS automático"]
+    VWEB["web"]
+    VAPI["api<br/>1 CPU, 768 MB (tetos)"]
+    VRUN["runner WASI + Pyodide<br/>1,5 CPU, 1,5 GB (tetos)<br/>rede runner internal"]
+    VPG[("postgres 17<br/>1 CPU, 1 GB")]
+    VCRON["cron do host: health-check, backup cifrado,<br/>teste de restauração (levelusp-vm.sh, backup.sh)"]
+    VINGRESS --> VWEB --> VAPI
+    VAPI --> VRUN
+    VAPI --> VPG
+    VCRON -.-> VPG
+  end
+  GHCR -- "deploy e rollback pela tag IMAGE_TAG" --> VMP
+
+  subgraph FUTURO["OPÇÃO FUTURA, NÃO IMPLEMENTADA - só se torch for exigido (docs/v2/decisoes-curso-2026-11-04.md, D2 opções B e D)"]
+    VGV["runner-dados: CPython real + numpy/pandas/sklearn/torch<br/>em contêiner com gVisor, atrás da interface Engine"]
+  end
+  VRUN -. "acrescentaria um terceiro Engine" .-> VGV
+
+  style VMP stroke-dasharray: 6 4
+  style FUTURO stroke-dasharray: 6 4
+  style VGV stroke-dasharray: 6 4

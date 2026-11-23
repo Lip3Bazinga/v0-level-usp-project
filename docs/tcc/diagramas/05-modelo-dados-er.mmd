@@ -1,0 +1,220 @@
+%% Modelo de dados (PostgreSQL 17) das tabelas principais, a partir de packages/db/src/schema (Drizzle).
+%% Rastreabilidade de cada entidade e relacionamento: docs/tcc/diagramas/rastreabilidade.md, seção 05.
+%% Convenções: "|o" no lado do pai = a chave estrangeira do filho aceita NULL. Colunas com "gabarito" nunca
+%% saem da API para o aluno. Ficam de fora (existem no schema): password_reset_tokens, oauth_accounts, notes,
+%% notifications, audit_log, platform_settings, teacher_approvals, library_*, uploads e content_assets.
+erDiagram
+  users ||--|| profiles : "mesmo id (profiles.id referencia users.id)"
+  users ||--o{ sessions : "user_id"
+
+  courses |o--o{ courses : "prerequisite_course_id"
+  courses |o--o{ modules : "course_id (nulável nos módulos antigos)"
+  courses |o--o{ lessons : "course_id"
+  modules |o--o{ lessons : "module_id"
+  lessons ||--o{ lesson_steps : "lesson_id"
+  lessons ||--o{ lesson_quiz_questions : "lesson_id"
+
+  profiles ||--o{ enrollments : "user_id"
+  courses ||--o{ enrollments : "course_id"
+  profiles ||--o{ lesson_progress : "user_id"
+  lessons ||--o{ lesson_progress : "lesson_id"
+  profiles ||--o{ lesson_step_progress : "user_id"
+  lesson_steps ||--o{ lesson_step_progress : "step_id"
+  profiles ||--o{ submissions : "user_id"
+  lessons ||--o{ submissions : "lesson_id"
+  lesson_steps |o--o{ submissions : "step_id (SET NULL ao apagar o passo)"
+  profiles ||--o{ course_completions : "user_id"
+  courses ||--o{ course_completions : "course_id"
+
+  tracks ||--o{ track_courses : "track_id"
+  courses ||--o{ track_courses : "course_id"
+  profiles ||--o{ track_certificates : "user_id"
+  tracks ||--o{ track_certificates : "track_id"
+
+  courses ||--o| exams : "course_id (único)"
+  exams ||--o{ exam_questions : "exam_id"
+  exams ||--o{ exam_attempts : "exam_id"
+  profiles ||--o{ exam_attempts : "user_id"
+  profiles ||--o{ certificates : "user_id"
+  courses ||--o{ certificates : "course_id"
+
+  profiles |o--o{ events : "user_id (NULL quando a conta é apagada)"
+  profiles ||--o{ user_badges : "user_id"
+  badges ||--o{ user_badges : "badge_id"
+
+  users {
+    uuid id PK
+    text email UK "único sem diferenciar maiúsculas"
+    text password_hash "argon2id, nunca vai ao cliente"
+    timestamptz email_verified_at
+    int failed_login_count
+    timestamptz locked_until
+  }
+  sessions {
+    text id PK "SHA-256 do token do cookie"
+    uuid user_id FK
+    timestamptz expires_at
+    timestamptz revoked_at
+  }
+  profiles {
+    uuid id PK, FK
+    text email
+    text role "student, teacher ou admin"
+    int level
+    int total_xp
+    int current_streak
+    boolean suspended
+    text experiment_condition
+  }
+  courses {
+    uuid id PK
+    text slug UK
+    text title
+    text level
+    boolean published
+    boolean sequential
+    uuid prerequisite_course_id FK
+  }
+  modules {
+    uuid id PK
+    uuid course_id FK
+    text slug "único dentro do curso"
+    int sort_order
+  }
+  lessons {
+    uuid id PK
+    text slug UK
+    uuid course_id FK
+    uuid module_id FK
+    int order
+    text runtime "python ou python-dados"
+    boolean is_project
+    boolean published
+    jsonb test_cases "gabarito"
+    jsonb solution_files "solução de referência"
+  }
+  lesson_steps {
+    uuid id PK
+    uuid lesson_id FK
+    int order "único por lição"
+    text kind "leitura, exercicio, quiz ou previsao"
+    text exercise_mode "codigo, lacunas ou ordenar"
+    int xp
+    jsonb test_cases "gabarito"
+    jsonb solution_files "gabarito"
+    jsonb quiz_questions "com correct_index (gabarito)"
+    text expected_output "gabarito da previsão"
+  }
+  lesson_quiz_questions {
+    uuid id PK
+    uuid lesson_id FK
+    int correct_index "gabarito"
+    int sort_order
+  }
+  enrollments {
+    uuid id PK
+    uuid user_id FK
+    uuid course_id FK
+    timestamptz enrolled_at
+  }
+  lesson_progress {
+    uuid id PK
+    uuid user_id FK
+    uuid lesson_id FK
+    text status
+    int xp_earned
+    timestamptz completed_at
+  }
+  lesson_step_progress {
+    uuid id PK
+    uuid user_id FK
+    uuid step_id FK
+    text status
+    int attempts "só reprovações do servidor"
+    int hints_revealed
+    boolean solution_viewed "vale metade do XP"
+    int xp_awarded
+  }
+  submissions {
+    uuid id PK
+    uuid user_id FK
+    uuid lesson_id FK
+    uuid step_id FK "nulável"
+    jsonb files
+    text status "graded ou error"
+    boolean passed
+    jsonb result "veredito por caso"
+    text engine "versão do motor"
+    int duration_ms
+  }
+  course_completions {
+    uuid id PK
+    uuid user_id FK
+    uuid course_id FK
+    timestamptz completed_at
+  }
+  tracks {
+    uuid id PK
+    text slug UK
+    text title
+    boolean published
+    text certificate_title
+  }
+  track_courses {
+    uuid track_id PK, FK
+    uuid course_id PK, FK
+    int position "único por trilha"
+  }
+  track_certificates {
+    uuid id PK
+    uuid user_id FK
+    uuid track_id FK
+    text verification_code UK
+    timestamptz issued_at
+  }
+  exams {
+    uuid id PK
+    uuid course_id FK "único"
+    int passing_score
+    int cooldown_minutes
+  }
+  exam_questions {
+    uuid id PK
+    uuid exam_id FK
+    int correct_index "gabarito"
+  }
+  exam_attempts {
+    uuid id PK
+    uuid exam_id FK
+    uuid user_id FK
+    jsonb answers
+    numeric score
+    boolean passed
+  }
+  certificates {
+    uuid id PK
+    uuid user_id FK
+    uuid course_id FK
+    text verification_code UK
+    numeric exam_score
+    text project_status "passed ou waived"
+    timestamptz issued_at
+  }
+  events {
+    bigserial id PK
+    uuid user_id FK "nulável"
+    text type
+    jsonb payload
+    timestamptz created_at
+  }
+  badges {
+    text id PK
+    text name
+    text criteria_type
+    int criteria_value
+  }
+  user_badges {
+    uuid user_id PK, FK
+    text badge_id PK, FK
+    timestamptz earned_at
+  }
