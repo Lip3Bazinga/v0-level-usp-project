@@ -45,7 +45,7 @@ Convenções:
 |---|---|
 | **Interface** (Next.js no navegador), envia `x-levelusp-csrf` | `apps/web/src/lib/api/client.ts:28` (`CSRF_HEADER`); `apps/web/src/lib/api/client.ts:94-98` (`buildHeaders`) |
 | **Python do navegador** (Pyodide em Web Worker) | `apps/web/src/lib/python/pyodide-worker.ts:35` (`new Worker(... "./python-worker.ts" ...)`); `apps/web/src/lib/python/python-worker.ts:45-47` (`loadPyodide`); `apps/web/src/lib/python/python-worker.ts:86` (`runProject`); `apps/web/src/hooks/use-python.ts:159-162` (`execute` -> `postToWorker`) |
-| "Nunca vale XP" no Executar | `apps/web/src/components/lesson-steps/exercise-step.tsx:157` ("Use Verificar para conferir"); progresso só pela API: `apps/api/src/modules/gamification/gamification.service.ts:82-85` ("SOMENTE depois de um veredito do servidor") |
+| "Nunca vale XP" no Executar | `apps/web/src/components/lesson-steps/exercise-step.tsx:157` ("Use Verificar para conferir"); progresso só pela API: `apps/api/src/modules/gamification/gamification.service.ts:67 e :77` ("SOMENTE depois de um veredito do servidor") |
 | Custo "CPU do aluno" | `docs/v2/arquitetura.md:95` (Pyodide no navegador: "CPU do aluno, resposta imediata") |
 | **web** (Next.js standalone, SSR, rewrite) | `infra/compose/compose.yml:127-149`; `apps/web/next.config.mjs:86-89` (`rewrites`, `/api/:path*`); `infra/compose/compose.yml:133` (`API_INTERNAL_URL`) |
 | **api** (NestJS) | `infra/compose/compose.yml:101-125`; `apps/api/src/bootstrap.ts:39` (prefixo `api`) |
@@ -195,7 +195,7 @@ Todas as entidades vêm do schema Drizzle em `packages/db/src/schema/`. A linha 
 | VM: `compose.yml` + `compose.vm.yml`, projeto `levelusp-prod`, perfil `cloudflare` | `infra/compose/compose.vm.yml:1-6`; `infra/scripts/levelusp-vm.sh:69-77` (`INGRESS`: `cloudflare`, `caddy` ou `none`) |
 | VM: entrada pública (túnel nomeado ou Caddy 80/443) | `infra/compose/compose.vm.yml:8-12` e `:124-147` (`cloudflared`, perfil `cloudflare`) e `:149-181` (`caddy`, portas em `:160-163`); `infra/caddy/Caddyfile` |
 | VM: tetos `api` 1 CPU/768 MB, `runner` 1,5 CPU/1,5 GB, `postgres` 1 CPU/1 GB | `infra/compose/compose.vm.yml:99-100`, `:75` e `:79`, `:54-55` |
-| VM: cron do host (health-check, backup cifrado, teste de restauração) | `docs/v2/producao-vm.md:35` (diagrama) e `:299-391` (seção 7, backups); `infra/scripts/backup.sh:1`; `infra/scripts/levelusp-vm.sh:296` (comandos) |
+| VM: cron do host (health-check, backup cifrado, teste de restauração) | `docs/v2/producao-vm.md:35` (diagrama) e `:299-391` (seção 7, backups); `infra/scripts/backup.sh:1`; `infra/scripts/levelusp-vm.sh:21` (lista de comandos) |
 | VM: deploy e rollback pela tag `IMAGE_TAG` | `docs/v2/producao-vm.md:54-55` (imagens e `IMAGE_TAG`); `docs/v2/producao-vm.md:265` (seção "Atualizar e voltar versão") |
 | **OPÇÃO FUTURA, NÃO IMPLEMENTADA** - runner-dados com CPython real e **gVisor** | `docs/v2/decisoes-curso-2026-11-04.md:74-76` (D2, opção B, "gVisor na VM") e `:79-80` (opção D, "A agora e B depois, só na VM"). **Não existe no código**: busca por `gvisor` e `runsc` fora de `legacy/` só encontra esse documento |
 | "Acrescentaria um terceiro Engine" | `apps/runner/src/engine.ts:46` (interface `Engine`); `apps/runner/src/executor.ts:10-14` (`EngineRegistry`); `docs/v2/decisoes-curso-2026-11-04.md:79-80` ("a interface `Engine` deixa isso pronto") |

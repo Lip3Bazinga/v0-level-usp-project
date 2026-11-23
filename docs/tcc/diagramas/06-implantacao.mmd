@@ -52,7 +52,7 @@ flowchart TB
     VAPI["api<br/>1 CPU, 768 MB (tetos)"]
     VRUN["runner WASI + Pyodide<br/>1,5 CPU, 1,5 GB (tetos)<br/>rede runner internal"]
     VPG[("postgres 17<br/>1 CPU, 1 GB")]
-    VCRON["cron do host: health-check, backup cifrado,<br/>teste de restauração (levelusp-vm.sh, backup.sh)"]
+    VCRON["cron do host: health-check, backup (cópia externa cifrada, opcional),<br/>teste de restauração (levelusp-vm.sh, backup.sh)"]
     VINGRESS --> VWEB --> VAPI
     VAPI --> VRUN
     VAPI --> VPG
