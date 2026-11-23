@@ -1,0 +1,45 @@
+%% C4 nível 2 — Contêineres do LevelUSP (Mermaid C4).
+%% Rastreabilidade de cada caixa e seta: docs/tcc/diagramas/rastreabilidade.md, seção 02.
+%% Cada Boundary é, ao mesmo tempo, uma fronteira de CONFIANÇA (quem pode ler segredos e gabaritos)
+%% e uma fronteira de CUSTO (de quem é a CPU/memória que a execução consome).
+C4Container
+  title Contêineres - LevelUSP (3 fronteiras de confiança e custo)
+
+  Person(aluno, "Aluno", "Navegador")
+
+  Container_Boundary(fronteiraNavegador, "Fronteira 1 - navegador do aluno. Confiança: NENHUMA (sem segredo, sem gabarito). Custo: CPU do aluno, banda do aluno") {
+    Container(ui, "Interface", "Next.js (React) no navegador", "Telas, IDE, estado de UI. Só chama /api/*. Envia o cabeçalho x-levelusp-csrf nas mutações")
+    Container(pyBrowser, "Python do navegador", "Pyodide 314 (CPython 3.14 em WebAssembly), Web Worker", "Botão Executar. Resposta imediata, gráficos. Nunca vale XP nem progresso")
+  }
+
+  Container_Boundary(fronteiraServidor, "Fronteira 2 - servidor (redes data e app do compose). Confiança: ALTA (sessão, gabaritos, regras). Custo: CPU e memória do servidor, limites no compose") {
+    Container(web, "web", "Next.js standalone (SSR)", "Serve as páginas e faz rewrite de /api/* para a API. Sem regra de negócio")
+    Container(api, "api", "NestJS 12 (Express)", "Auth própria, guard global de sessão, CSRF, limites por usuário, correção (modules/grading), gamificação, certificados")
+    ContainerDb(db, "PostgreSQL 17", "Drizzle ORM, migrações SQL", "Usuários, cursos, lições e passos COM gabarito, progresso, submissões, eventos")
+  }
+
+  Container_Boundary(fronteiraExecutor, "Fronteira 3 - executor isolado (rede runner, internal, sem internet). Confiança: ZERO (roda código do aluno, sem segredos, sem banco). Custo: 1 vaga por CPU (CONCURRENCY), fila com 503") {
+    Container(runner, "runner", "Node (HTTP mínimo)", "Autentica a API por token, valida o job, planeja lotes, controla fila e semáforo. Devolve só observações")
+    Container(wasi, "Motor python (WASI)", "Wasmtime 49 + CPython 3.14 WASI", "Um processo novo por lote, sem rede, sem ambiente, só /lib, /harness e /work. Nível 1 e demais lições python")
+    Container(pyServer, "Motor python-dados (Pyodide)", "Pyodide em worker_threads, perfis dados e ml", "numpy, pandas, scikit-learn. Pool aquecido. Mesmo harness e mesmo protocolo do WASI")
+  }
+
+  System_Ext(cf, "Cloudflare Tunnel", "cloudflared, só conexões de saída")
+  System_Ext(cdn, "CDN do Pyodide (jsDelivr)", "Wheels de pacotes extras")
+
+  Rel(aluno, cf, "Usa o LevelUSP", "HTTPS")
+  Rel(cf, web, "Encaminha", "HTTP, rede app")
+  Rel(ui, web, "Páginas e chamadas /api/*", "HTTPS, cookie de sessão httpOnly, mesma origem")
+  Rel(web, api, "rewrite /api/*", "HTTP http://api:4000")
+  Rel(ui, pyBrowser, "Executar", "postMessage ao Web Worker")
+  Rel(pyBrowser, cdn, "Baixa wheels extras", "HTTPS, só via fetch")
+
+  Rel(api, db, "Lê e grava", "SQL (Drizzle, pg)")
+  Rel(api, runner, "Sondas SEM gabarito, arquivos do aluno e limites", "HTTP POST /v1/run, Bearer RUNNER_TOKEN")
+  Rel(runner, api, "Observações com versão do motor", "JSON na resposta")
+  Rel(runner, wasi, "Lote de sondas pelo stdin, com nonce", "spawn do wasmtime")
+  Rel(runner, pyServer, "Lote de sondas, com nonce", "worker_threads")
+  Rel(wasi, runner, "Observações prefixadas pelo nonce", "stdout")
+  Rel(pyServer, runner, "Observações prefixadas pelo nonce", "stdout do worker")
+
+  UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
