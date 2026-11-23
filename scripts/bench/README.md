@@ -33,11 +33,15 @@ alunos virtuais são `bench.*@bench.invalid` com senha aleatória que só existe
 - `RUNNER_TOKEN` no ambiente, igual ao do executor em execução (em dev: ver
   `infra/compose/compose.dev.yml`). Nunca vai para o código nem para o CSV.
   `RUNNER_URL` (padrão `http://localhost:8081`) idem.
-- Para `latencia.mts`: a API de desenvolvimento no ar (`pnpm dev`, porta 4000) apontando para esse
-  executor, com o pacote atual importado no banco (`pnpm db:seed`; confira que uma lição do N6 tem os
-  passos reais e que os cursos estão publicados). O script confere que lição e casos do banco são os
-  do pacote e aborta com a instrução se divergirem.
-- Para `carga.mts`: o banco **não** precisa estar pronto; o script cria o próprio (abaixo).
+- `latencia.mts` e `carga.mts` sobem por conta própria uma **pilha descartável**: PostgreSQL 17 em
+  volume Docker `levelusp-bench-*`, migrações, importação do pacote atual e a API compilada numa
+  porta livre. Nada toca o banco de desenvolvimento nem a API de dev. Antes de medir, o script cria
+  um aluno de prova e confere por `psql` dentro do contêiner descartável que a conta foi gravada lá;
+  se a API que respondeu não grava nesse banco, aborta. Se `--api-porta` for dada e estiver ocupada,
+  aborta (nunca reaproveita uma API alheia). O script confere também que lição e casos do banco são
+  os do pacote.
+- Só para `latencia.mts --api URL` (API já em execução, ex.: dev): deixa contas
+  `bench.*@bench.invalid` e progresso no banco dessa API. Não é o padrão; evite.
 
 ## Comandos
 
@@ -105,7 +109,7 @@ rodízio respeitam o limite de 12 verificações/min.
    volume de dev (`pgdata-dev`) nunca é tocado.
 2. `pnpm --filter @levelusp/db migrate` e `seed` nesse banco (importa o pacote atual).
 3. Sobe `apps/api/dist/main.js` (`NODE_ENV=production`, `APP_ENV=dev`, log `warn`) na porta
-   `--api-porta` (4100), com `AUTH_THROTTLE_LIMIT` alto (todos os alunos saem do mesmo IP).
+   `--api-porta` (padrão: porta livre sorteada), com `AUTH_THROTTLE_LIMIT` alto (todos os alunos saem do mesmo IP).
 4. Para cada motor (`python`, `dados` = pandas/Pyodide dados, `ml` = scikit-learn/Pyodide ml) e cada
    N: N alunos virtuais enviam um exercício a cada 30–60 s (sorteado; 40% dos envios errados com
    soluções erradas do pacote) por `--duracao-s`. Exercício por motor: o primeiro exercício da lição
@@ -113,15 +117,23 @@ rodízio respeitam o limite de 12 verificações/min.
 5. Entre níveis espera o executor esvaziar. Ao final (ou Ctrl+C) para a API e apaga contêiner e volume.
 
 Colunas de `carga.csv`: `envios`, `ok_200`, `aprovados`, `rejeitados_503` (fila cheia),
-`limitados_429`, `outros_erros`, `taxa_erro`, `p50/p95/p99/max_ms` (só respostas 200, do envio à
-resposta), `runner_exec_p95_ms`, `runner_fila_p95_ms`, `fila_max_runner` (maior `pending` lido a
+`limitados_429`, `outros_erros`, `taxa_erro` (erros ÷ envios sem os 429), `p50/p95/p99/max_ms` (**só
+respostas 200**, do envio à resposta: 503, timeout e falha de rede não entram nos percentis, só na
+taxa de erro), `runner_exec_p95_ms`, `runner_fila_p95_ms`, `fila_max_runner` (maior `pending` lido a
 cada 1 s em `/v1/stats`), `ativos_max_runner`, `pico_fila_runner`, `capacidade_runner`,
 `emvoo_max_cliente` (maior número de envios simultâneos no cliente: aproximação da fila quando o
-executor não expõe `/v1/stats`), `vazao_envios_s`, `saturou`, `motivo_saturacao`.
+executor não expõe `/v1/stats`), `vazao_envios_s` (envios ÷ `duracao_real_s`, do início ao último envio concluído), `saturou`,
+`motivo_saturacao` e `regra_saturacao` (o texto da regra aplicada, gravado em toda linha).
 
-**Saturação**: o nível satura quando o p95 passa de `--limite-p95-ms` (10 000) ou a taxa de erro
-passa de `--limite-erro` (1%). `carga-saturacao.csv` traz o menor N saturado por motor. Os limites
-são parâmetros: registre-os na metodologia. A capacidade do executor (`CONCURRENCY`, `MAX_QUEUE`) é a
+**Saturação**: o nível satura quando (a) o p95 das respostas 200 passa de `--limite-p95-ms` (10 000),
+**com ao menos `--min-amostras-p95` respostas 200 (20)**; ou (b) a taxa de erro passa de
+`--limite-erro` (1%) **e há ao menos `--min-erros` erros (3)**. O mínimo absoluto existe porque com
+N=10 e 300 s há ~65 envios: um único erro já daria 1,5% e declararia saturação por acaso.
+**Respostas 429** (limite por usuário: 12 envios/min e 150 por aluno/lição/dia) são contadas à parte
+(`limitados_429`), ficam fora da taxa de erro e **não** significam saturação do executor; o script
+avisa se o plano pode bater no teto diário (cada aluno reaparece em vários níveis).
+`carga-saturacao.csv` traz o menor N saturado por motor. Os limites são parâmetros: registre-os na
+metodologia. A capacidade do executor (`CONCURRENCY`, `MAX_QUEUE`) é a
 do executor que estiver rodando e vai para `ambiente.json`.
 
 ### recursos.mts

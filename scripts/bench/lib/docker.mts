@@ -12,8 +12,8 @@ import { runProgram, sleep } from "./sistema.mts"
 /** Prefixo obrigatório de tudo o que as medições criam no Docker. */
 export const BENCH_PREFIX = "levelusp-bench-"
 const POSTGRES_IMAGE = "postgres:17-alpine"
-const DB_NAME = "levelusp_bench"
-const DB_USER = "levelusp_bench"
+export const DB_NAME = "levelusp_bench"
+export const DB_USER = "levelusp_bench"
 
 /** @throws Error se `name` não começa com o prefixo das medições (trava contra apagar o que não é nosso). */
 export function assertBenchName(name: string): void {
@@ -42,9 +42,10 @@ export interface BenchDatabase {
  * Sobe um PostgreSQL 17 num volume próprio, publicado só em 127.0.0.1 numa porta livre sorteada
  * pelo Docker. Espera o banco aceitar conexões TCP.
  *
+ * @param register recebe a função de limpeza assim que os nomes existem (antes de criar o volume).
  * @throws Error (já com a limpeza feita) se o contêiner não subir.
  */
-export async function createBenchDatabase(): Promise<BenchDatabase> {
+export async function createBenchDatabase(register?: (destroy: () => Promise<void>) => void): Promise<BenchDatabase> {
   const id = `${Date.now().toString(36)}-${randomBytes(3).toString("hex")}`
   const container = `${BENCH_PREFIX}${id}-db`
   const volume = `${BENCH_PREFIX}${id}-pgdata`
@@ -57,6 +58,8 @@ export async function createBenchDatabase(): Promise<BenchDatabase> {
     await runProgram("docker", ["volume", "rm", "-f", volume], { timeoutMs: 60_000 })
   }
 
+  // Registra a limpeza ANTES de criar qualquer coisa: um Ctrl+C no meio da criação também apaga.
+  register?.(destroy)
   const volumeCreated = await runProgram("docker", ["volume", "create", volume])
   if (!volumeCreated.ok) throw new Error(`não consegui criar o volume ${volume}: ${volumeCreated.stderr.trim()}`)
   const started = await runProgram("docker", [

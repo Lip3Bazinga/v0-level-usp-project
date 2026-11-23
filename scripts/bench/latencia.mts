@@ -21,10 +21,12 @@ import { ApiClient, newCredentials } from "./lib/api.mts"
 import { flagOption, listOption, numberOption, optionalStringOption, parseArgs, rejectUnknown, stringOption } from "./lib/args.mts"
 import { ALVOS_LATENCIA, type AlvoResolvido, loadBundle, prepararAluno, resolverAlvo, submitRoute, type SubmitResponse } from "./lib/conteudo.mts"
 import { appendCsv, formatTable, groupBy, round, startCsv, summarize } from "./lib/estatistica.mts"
+import { dockerAvailable } from "./lib/docker.mts"
+import { iniciarPilha, Limpeza } from "./lib/pilha.mts"
 import { type DirectJob, jobsAfter, lastJobAt, RunnerClient, requireRunnerToken, warmWorkers } from "./lib/runner.mts"
 import { collectEnvironment, DATA_DIR, DEFAULT_BUNDLE, nowIso, runShell, sleep, updateEnvironmentFile } from "./lib/sistema.mts"
 
-const KNOWN_OPTIONS = ["api", "runner-url", "repeticoes", "repeticoes-frio", "usuarios", "pacote", "saida", "cmd-reinicio", "espera-pool-s", "cenarios", "descarte", "anexar", "ajuda"]
+const KNOWN_OPTIONS = ["api", "api-porta", "runner-url", "repeticoes", "repeticoes-frio", "usuarios", "pacote", "saida", "cmd-reinicio", "espera-pool-s", "cenarios", "descarte", "anexar", "ajuda"]
 /** Limite do aluno: 12 verificações por minuto → pelo menos 5 s entre dois envios do mesmo aluno. */
 const MIN_GAP_PER_USER_MS = 5_500
 const CSV_HEADER = ["cenario", "via", "descricao", "motor", "condicao", "repeticao", "total_ms", "runner_exec_ms", "runner_fila_ms", "lotes", "sobrecarga_ms", "pool_quente_antes", "passou", "status", "ruido", "inicio"] as const
@@ -61,8 +63,14 @@ interface Cenario {
   executar: (condicao: Condicao, repeticao: number) => Promise<Medida>
 }
 
+/** Limpeza da pilha descartável (roda também quando o script falha ou recebe Ctrl+C). */
+const limpeza = new Limpeza()
+
 const HELP = `Uso: node scripts/bench/latencia.mts [opções]
-  --api URL               API local (padrão http://localhost:4000)
+  (padrão)                sobe um banco DESCARTÁVEL (levelusp-bench-*) + API de teste, como carga.mts, e apaga tudo no fim
+  --api-porta N           porta da API de teste (padrão: uma livre; se pedida e ocupada, aborta)
+  --api URL               usa uma API JÁ EM EXECUÇÃO em vez da descartável (ex.: dev). Deixa contas bench.*@bench.invalid
+                          e progresso nesse banco: use só se souber o que está fazendo
   --runner-url URL        executor (padrão $RUNNER_URL ou http://localhost:8081); token em $RUNNER_TOKEN
   --repeticoes N          execuções quentes por cenário (padrão 30)
   --repeticoes-frio N     execuções a frio por cenário (padrão = --repeticoes)
@@ -80,7 +88,7 @@ async function main(): Promise<void> {
   if (flagOption(args, "ajuda")) return void console.log(HELP)
   rejectUnknown(args, KNOWN_OPTIONS)
 
-  const apiUrl = stringOption(args, "api", "http://localhost:4000")
+  const externalApi = optionalStringOption(args, "api")
   const runnerUrl = stringOption(args, "runner-url", process.env.RUNNER_URL ?? "http://localhost:8081")
   const repeticoes = Math.max(1, Math.trunc(numberOption(args, "repeticoes", 30)))
   const repeticoesFrio = Math.max(1, Math.trunc(numberOption(args, "repeticoes-frio", repeticoes)))
@@ -92,14 +100,26 @@ async function main(): Promise<void> {
   const bundleFile = path.resolve(stringOption(args, "pacote", DEFAULT_BUNDLE))
   const wanted = listOption(args, "cenarios", [...ALVOS_LATENCIA.map((alvo) => alvo.chave), "piso-python", "piso-dados", "piso-ml"])
 
-  const runner = new RunnerClient(runnerUrl, requireRunnerToken())
+  const token = requireRunnerToken()
+  const runner = new RunnerClient(runnerUrl, token)
   const health = await runner.health()
   if (!health.ok) throw new Error(`executor sem resposta em ${runnerUrl}/healthz`)
   const initialStats = await runner.stats()
   if (initialStats === null) console.warn("AVISO: /v1/stats indisponível: o tempo do executor ficará em branco (use um executor com a rota e o RUNNER_TOKEN certo).")
   if (initialStats !== null && (initialStats.active > 0 || initialStats.pending > 0)) console.warn("AVISO: o executor não está ocioso (há jobs ativos); as medições terão ruído.")
-  const ready = await new ApiClient(apiUrl).request("GET", "/api/health/ready")
-  if (ready.status !== 200) throw new Error(`API fora do ar ou sem executor em ${apiUrl}/api/health/ready (${ready.status})`)
+
+  let apiUrl: string
+  if (externalApi !== undefined) {
+    console.warn(`AVISO: usando a API em ${externalApi}: as contas bench.*@bench.invalid e o progresso criados ficam no banco dela.`)
+    apiUrl = externalApi
+    const ready = await new ApiClient(apiUrl).request("GET", "/api/health/ready")
+    if (ready.status !== 200) throw new Error(`API fora do ar ou sem executor em ${apiUrl}/api/health/ready (${ready.status})`)
+  } else {
+    if (!(await dockerAvailable())) throw new Error("o Docker não responde (necessário para o banco descartável; ou use --api URL)")
+    limpeza.installSignals()
+    console.log("\nPilha descartável (banco levelusp-bench-* + API de teste)…")
+    apiUrl = (await iniciarPilha({ runnerUrl, token, port: args.options.has("api-porta") ? numberOption(args, "api-porta", 0) : undefined, limpeza })).apiUrl
+  }
 
   if (!flagOption(args, "anexar")) startCsv(csvFile, CSV_HEADER)
   const medidas: Medida[] = []
@@ -133,7 +153,7 @@ async function main(): Promise<void> {
   const finalStats = await runner.stats()
   updateEnvironmentFile("latencia", {
     ...(await collectEnvironment()),
-    api: apiUrl,
+    api: externalApi === undefined ? "API de teste local com PostgreSQL 17 descartável (levelusp-bench-*)" : `API externa (${externalApi}): contas bench.* ficaram no banco dela`,
     executor: { url: runnerUrl, capacidade: finalStats?.capacity ?? null, fila_maxima: finalStats?.maxQueue ?? null, healthz: finalHealth.body, motores: engineVersions },
     pacote: path.relative(process.cwd(), bundleFile),
     parametros: { repeticoes, repeticoes_frio: repeticoesFrio, usuarios, descarte, cmd_reinicio: restartCommand !== undefined, cenarios: wanted, percentil: "posto mais próximo (nearest-rank)" },
@@ -288,6 +308,16 @@ function pisoScenario(chave: string, runner: RunnerClient, engineVersions: Recor
   }
 }
 
+/**
+ * A condição vale pelo que foi OBSERVADO no pool antes do envio, não pelo que se pretendia:
+ * um "frio de pool" que encontrou worker aquecido (reposição rápida) é quente, e um "quente" que
+ * encontrou o pool vazio é frio. `frio_processo` (executor reiniciado) não muda.
+ */
+function condicaoObservada(pretendida: Condicao, poolAntes: number | null): Condicao {
+  if (poolAntes === null || pretendida === "frio_processo") return pretendida
+  return poolAntes >= 1 ? "quente" : "frio_pool"
+}
+
 function montarMedida(input: { cenario: string; via: Medida["via"]; descricao: string; motor: string; condicao: Condicao; repeticao: number; totalMs: number; status: number; passou: boolean | null; poolAntes: number | null; inicio: string; jobs: ReturnType<typeof jobsAfter> }): Medida {
   const job = input.jobs.at(-1)
   return {
@@ -295,7 +325,7 @@ function montarMedida(input: { cenario: string; via: Medida["via"]; descricao: s
     via: input.via,
     descricao: input.descricao,
     motor: input.motor,
-    condicao: input.poolAntes !== null && input.poolAntes < 1 && input.condicao === "quente" ? "frio_pool" : input.condicao,
+    condicao: condicaoObservada(input.condicao, input.poolAntes),
     repeticao: input.repeticao,
     totalMs: input.totalMs,
     execMs: job?.execMs ?? null,
@@ -340,7 +370,9 @@ function summarizeAndSave(medidas: readonly Medida[], csvFile: string): void {
   if (failed > 0) console.warn(`\nAVISO: ${failed} execução(ões) sem status 200 ou sem aprovação (ficam no CSV; as sem status 200 não entram no resumo).`)
 }
 
-main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : String(error))
-  process.exitCode = 1
-})
+main()
+  .catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exitCode = 1
+  })
+  .finally(() => limpeza.run())

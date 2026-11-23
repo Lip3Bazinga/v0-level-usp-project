@@ -19,28 +19,43 @@
  * Saída: docs/tcc/dados/carga.csv (uma linha por motor × N), carga-saturacao.csv, amostras de
  * CPU/memória em recursos.csv (tipo `carga`) e a seção "carga" de ambiente.json.
  */
-import { spawn, type ChildProcess } from "node:child_process"
-import { existsSync, mkdirSync } from "node:fs"
-import os from "node:os"
 import path from "node:path"
 import { ApiClient, newCredentials } from "./lib/api.mts"
 import { flagOption, listOption, numberOption, parseArgs, rangeOption, rejectUnknown, stringOption } from "./lib/args.mts"
 import { type AlvoResolvido, ALVOS_CARGA, loadBundle, type Motor, prepararAluno, resolverAlvo, submitRoute, type SubmitResponse } from "./lib/conteudo.mts"
-import { type BenchDatabase, cleanBenchResidue, createBenchDatabase, dockerAvailable } from "./lib/docker.mts"
+import { cleanBenchResidue, dockerAvailable } from "./lib/docker.mts"
 import { appendCsv, formatTable, percentile, round, startCsv } from "./lib/estatistica.mts"
+import { iniciarPilha, Limpeza } from "./lib/pilha.mts"
 import { RECURSOS_CSV, startSampler } from "./lib/recursos.mts"
 import { RunnerClient, requireRunnerToken, type RunnerStats } from "./lib/runner.mts"
-import { collectEnvironment, DATA_DIR, DEFAULT_BUNDLE, nowIso, randomBetween, REPO_ROOT, runProgram, runShell, seededRandom, sleep, updateEnvironmentFile } from "./lib/sistema.mts"
+import { collectEnvironment, DATA_DIR, DEFAULT_BUNDLE, nowIso, randomBetween, seededRandom, sleep, updateEnvironmentFile } from "./lib/sistema.mts"
 
-const KNOWN_OPTIONS = ["motores", "niveis", "duracao-s", "pensar-s", "runner-url", "api-porta", "p-errado", "limite-p95-ms", "limite-erro", "semente", "saida", "conteiner", "sem-recursos", "pacote", "parar-na-saturacao", "limpar", "ajuda"]
+const KNOWN_OPTIONS = ["motores", "niveis", "duracao-s", "pensar-s", "runner-url", "api-porta", "p-errado", "limite-p95-ms", "limite-erro", "min-erros", "min-amostras-p95", "semente", "saida", "conteiner", "sem-recursos", "pacote", "parar-na-saturacao", "limpar", "ajuda"]
 const CSV_HEADER = [
   "motor", "perfil", "usuarios", "duracao_s", "pensar_min_s", "pensar_max_s", "envios", "ok_200", "aprovados", "rejeitados_503", "limitados_429", "outros_erros", "taxa_erro",
   "p50_ms", "p95_ms", "p99_ms", "max_ms", "runner_exec_p95_ms", "runner_fila_p95_ms", "fila_max_runner", "ativos_max_runner", "pico_fila_runner", "capacidade_runner",
-  "emvoo_max_cliente", "vazao_envios_s", "saturou", "motivo_saturacao", "inicio",
+  "emvoo_max_cliente", "vazao_envios_s", "duracao_real_s", "saturou", "motivo_saturacao", "regra_saturacao", "inicio",
 ] as const
-const SATURATION_HEADER = ["motor", "n_saturacao", "criterio", "limite_p95_ms", "limite_erro", "maior_n_sem_saturar"] as const
+const SATURATION_HEADER = ["motor", "n_saturacao", "criterio", "limite_p95_ms", "limite_erro", "maior_n_sem_saturar", "regra_saturacao"] as const
 const REQUEST_TIMEOUT_MS = 60_000
 const SETUP_CONCURRENCY = 4
+/** Teto da API: 150 verificações por aluno e lição por dia (`codeSubmissionPerLessonDay`). */
+const DAILY_SUBMISSIONS_PER_LESSON = 150
+
+/** Regras que decidem a saturação de um nível. */
+interface Rule {
+  limitP95: number
+  limitError: number
+  /** Erros mínimos (além da taxa) para declarar saturação por erro: 1 erro em 67 envios não é saturação. */
+  minErrors: number
+  /** Respostas 200 mínimas para o p95 valer. */
+  minSamplesP95: number
+}
+
+/** Texto da regra, gravado em cada linha do CSV. */
+function describeRule(rule: Rule): string {
+  return `p95 das respostas 200 > ${rule.limitP95} ms (com ao menos ${rule.minSamplesP95} respostas 200); OU taxa de erro > ${rule.limitError * 100}% E ao menos ${rule.minErrors} erros. Erro = 503, timeout, rede e 5xx; 429 (limite por usuário) é contado à parte e não satura`
+}
 
 const HELP = `Uso: node scripts/bench/carga.mts [opções]
   --motores python,dados,ml   motores medidos (padrão: os três)
@@ -49,10 +64,12 @@ const HELP = `Uso: node scripts/bench/carga.mts [opções]
   --pensar-s 30-60            tempo de pensar entre envios, sorteado (padrão 30-60)
   --p-errado 0.4              fração de envios com solução errada do pacote (padrão 0.4)
   --limite-p95-ms 10000       p95 acima disto = saturado (padrão 10000)
-  --limite-erro 0.01          taxa de erro acima disto = saturado (padrão 0.01)
+  --limite-erro 0.01          taxa de erro acima disto = saturado (padrão 0.01) ...
+  --min-erros 3               ... desde que haja ao menos N erros (padrão 3)
+  --min-amostras-p95 20       respostas 200 mínimas para o p95 valer (padrão 20)
   --parar-na-saturacao        não roda os níveis maiores do motor depois de saturar
   --runner-url URL            executor (padrão $RUNNER_URL ou http://localhost:8081); token em $RUNNER_TOKEN
-  --api-porta N               porta da API de teste (padrão 4100)
+  --api-porta N               porta da API de teste (padrão: uma livre sorteada; se pedida e ocupada, aborta)
   --conteiner REGEX           contêineres amostrados (padrão "runner|levelusp-bench-"); --sem-recursos desliga
   --semente N                 semente dos sorteios (repetível)
   --saida ARQUIVO             CSV (padrão docs/tcc/dados/carga.csv)
@@ -88,7 +105,8 @@ async function main(): Promise<void> {
   const pWrong = numberOption(args, "p-errado", 0.4)
   const limitP95 = numberOption(args, "limite-p95-ms", 10_000)
   const limitError = numberOption(args, "limite-erro", 0.01)
-  const apiPort = numberOption(args, "api-porta", 4100)
+  const rule: Rule = { limitP95, limitError, minErrors: numberOption(args, "min-erros", 3), minSamplesP95: numberOption(args, "min-amostras-p95", 20) }
+  const apiPort = args.options.has("api-porta") ? numberOption(args, "api-porta", 0) : undefined
   const random = seededRandom(numberOption(args, "semente", Date.now() % 1_000_000))
   const csvFile = path.resolve(stringOption(args, "saida", path.join(DATA_DIR, "carga.csv")))
   const containerPattern = new RegExp(stringOption(args, "conteiner", "runner|levelusp-bench-"))
@@ -97,8 +115,6 @@ async function main(): Promise<void> {
   const runnerUrl = stringOption(args, "runner-url", process.env.RUNNER_URL ?? "http://localhost:8081")
   const token = requireRunnerToken()
   const bundleFile = path.resolve(stringOption(args, "pacote", DEFAULT_BUNDLE))
-  const apiEntry = path.join(REPO_ROOT, "apps", "api", "dist", "main.js")
-  if (!existsSync(apiEntry)) throw new Error("apps/api/dist/main.js não existe: rode `pnpm build` antes.")
   if (niveis.some((level) => !Number.isInteger(level) || level < 1)) throw new Error("--niveis precisa de inteiros positivos")
 
   const runner = new RunnerClient(runnerUrl, token)
@@ -108,45 +124,22 @@ async function main(): Promise<void> {
   const estimateMin = Math.round((motores.length * niveis.length * (duration + 40)) / 60)
   console.log(`Plano: motores ${motores.join(",")}; níveis ${niveis.join(",")}; ${duration} s cada (≈ ${estimateMin} min + preparação).`)
 
-  const cleanups: (() => Promise<void>)[] = []
-  let cleaning: Promise<void> | null = null
-  const cleanup = (): Promise<void> => {
-    cleaning ??= (async () => {
-      for (const step of cleanups.reverse()) await step().catch(() => undefined)
-    })()
-    return cleaning
+  // Um aluno participa de vários níveis: o teto diário (150 por aluno e lição) não pode virar "saturação".
+  const perStudent = niveis.length * (Math.ceil(duration / thinkMin) + 1)
+  if (perStudent > DAILY_SUBMISSIONS_PER_LESSON * 0.8) {
+    console.warn(`AVISO: cada aluno pode enviar até ~${perStudent} vezes à mesma lição (teto da API: ${DAILY_SUBMISSIONS_PER_LESSON}/dia): reduza --duracao-s ou --niveis; respostas 429 não contam como saturação, mas distorcem o nível.`)
   }
-  const abort = new AbortController()
-  for (const signal of ["SIGINT", "SIGTERM"] as const) {
-    process.once(signal, () => {
-      console.error(`\n${signal}: encerrando e apagando o banco descartável…`)
-      abort.abort()
-      void cleanup().finally(() => process.exit(130))
-    })
-  }
+  if (path.resolve(bundleFile) !== path.resolve(DEFAULT_BUNDLE)) console.warn("AVISO: --pacote diferente do padrão: o seed importa os pacotes de packages/db/seed/*.json; esse arquivo só define os exercícios e soluções usados.")
+
+  const limpeza = new Limpeza()
+  limpeza.installSignals()
+  const abort = limpeza.abort
 
   try {
-    console.log("\n[1/4] banco descartável (volume Docker próprio)…")
-    const db = await createBenchDatabase()
-    cleanups.push(async () => {
-      await db.destroy()
-      const exists = (await runProgram("docker", ["volume", "inspect", db.volume])).ok
-      console.log(exists ? `AVISO: o volume ${db.volume} ainda existe: rode --limpar` : `Banco descartável apagado (${db.container}, ${db.volume}).`)
-    })
-    console.log(`  contêiner ${db.container}, volume ${db.volume}, 127.0.0.1:${db.hostPort}`)
+    console.log("\n[1/2] pilha descartável…")
+    const { apiUrl } = await iniciarPilha({ runnerUrl, token, port: apiPort, limpeza })
 
-    console.log("[2/4] migrações e importação do pacote de conteúdo…")
-    await prepareDatabase(db, bundleFile)
-
-    console.log("[3/4] API de teste…")
-    const api = startApi({ entry: apiEntry, port: apiPort, databaseUrl: db.url, runnerUrl, token })
-    cleanups.push(async () => {
-      api.child.kill()
-    })
-    const apiUrl = `http://127.0.0.1:${apiPort}`
-    await waitApiReady(apiUrl, api, 120_000)
-
-    console.log("[4/4] resolvendo exercícios e rodando os níveis…")
+    console.log("[2/2] resolvendo exercícios e rodando os níveis…")
     const bundle = loadBundle(bundleFile)
     const admin = new ApiClient(apiUrl, { forwardedFor: "10.250.0.1" })
     const alvos = new Map<Motor, AlvoResolvido>()
@@ -181,15 +174,16 @@ async function main(): Promise<void> {
           noContainerWarned = true
           console.warn("AVISO: nenhum contêiner 'runner' foi amostrado (executor fora do Docker?): CPU/memória do executor não foram registradas.")
         }
-        const saturation = judge(level, limitP95, limitError)
+        const saturation = judge(level, rule)
         if (saturation !== null && saturatedAt === null) saturatedAt = { n, reason: saturation }
         if (saturation === null) lastOk = n
-        appendCsv(csvFile, [rowOf(motor, alvo, n, duration, thinkMin, thinkMax, level, saturation)])
+        if (level.limited429 > 0) console.warn(`  AVISO: ${level.limited429} resposta(s) 429 (limite por usuário/dia ou por minuto): não contam como saturação do executor.`)
+        appendCsv(csvFile, [rowOf(motor, alvo, n, duration, thinkMin, thinkMax, level, saturation, describeRule(rule))])
         summary.push([motor, n, level.envios.length, round(level.p95), `${round(level.errorRate * 100)}%`, level.maxPending, level.maxInFlight, saturation ?? "ok"])
         console.log(`  envios ${level.envios.length}, p95 ${round(level.p95, 0) ?? "-"} ms, erro ${round(level.errorRate * 100)}%, fila máx ${level.maxPending ?? "?"}, ${saturation ?? "sem saturação"}`)
         await cooldown(runner, abort.signal)
       }
-      saturationRows.push([motor, saturatedAt?.n ?? null, saturatedAt?.reason ?? `não saturou até N=${Math.max(...niveis)}`, limitP95, limitError, lastOk])
+      saturationRows.push([motor, saturatedAt?.n ?? null, saturatedAt?.reason ?? `não saturou até N=${Math.max(...niveis)}`, limitP95, limitError, lastOk, describeRule(rule)])
     }
     appendCsv(saturationFile, saturationRows)
     console.log("\nResumo:")
@@ -203,73 +197,17 @@ async function main(): Promise<void> {
       executor: { url: runnerUrl, capacidade: finalStats?.capacity ?? null, fila_maxima: finalStats?.maxQueue ?? null, healthz: (await runner.health()).body },
       banco: "PostgreSQL 17 (postgres:17-alpine) em volume Docker descartável, configuração padrão da imagem",
       api: { node: process.version, pool_conexoes: "padrão (10)", log: "warn" },
-      parametros: { motores, niveis, duracao_s: duration, pensar_s: [thinkMin, thinkMax], p_errado: pWrong, limite_p95_ms: limitP95, limite_erro: limitError, alvos: Object.fromEntries([...alvos].map(([motor, alvo]) => [motor, `${alvo.alvo.licao}#${alvo.alvo.passo}`])) },
+      parametros: { motores, niveis, duracao_s: duration, pensar_s: [thinkMin, thinkMax], p_errado: pWrong, regra_saturacao: describeRule(rule), alvos: Object.fromEntries([...alvos].map(([motor, alvo]) => [motor, `${alvo.alvo.licao}#${alvo.alvo.passo}`])) },
       gerador: "mesma máquina da API e do banco: divide a CPU com o sistema medido",
     })
   } finally {
-    await cleanup()
+    await limpeza.run()
   }
 }
 
 function asMotor(value: string): Motor {
   if (value === "python" || value === "dados" || value === "ml") return value
   throw new Error(`motor desconhecido: ${value} (use python, dados ou ml)`)
-}
-
-/** Migra e importa o pacote no banco descartável (as variáveis do banco só existem neste subprocesso). */
-async function prepareDatabase(db: BenchDatabase, bundleFile: string): Promise<void> {
-  const env: NodeJS.ProcessEnv = { ...process.env, DATABASE_URL: db.url, SEED_CONTENT: "true" }
-  if (path.resolve(bundleFile) !== path.resolve(DEFAULT_BUNDLE)) console.warn("AVISO: --pacote diferente do padrão: o seed importa os pacotes de packages/db/seed/*.json, não esse arquivo.")
-  if ((await runShell("pnpm --filter @levelusp/db migrate", { env })) !== 0) throw new Error("falha nas migrações do banco descartável")
-  if ((await runShell("pnpm --filter @levelusp/db seed", { env })) !== 0) throw new Error("falha ao importar o conteúdo no banco descartável")
-}
-
-interface ApiProcess {
-  child: ChildProcess
-  tail: () => string
-}
-
-function startApi(options: { entry: string; port: number; databaseUrl: string; runnerUrl: string; token: string }): ApiProcess {
-  const uploads = path.join(os.tmpdir(), "levelusp-bench-uploads")
-  mkdirSync(uploads, { recursive: true })
-  const child = spawn(process.execPath, [options.entry], {
-    cwd: path.dirname(path.dirname(options.entry)),
-    env: {
-      ...process.env,
-      NODE_ENV: "production",
-      APP_ENV: "dev",
-      PORT: String(options.port),
-      DATABASE_URL: options.databaseUrl,
-      RUNNER_URL: options.runnerUrl,
-      RUNNER_TOKEN: options.token,
-      LOG_LEVEL: "warn",
-      SWAGGER_ENABLED: "false",
-      TRUST_PROXY: "true",
-      // Todos os alunos saem do mesmo IP: sem isto o limite de credenciais por IP (60/min) barraria o cadastro em massa.
-      AUTH_THROTTLE_LIMIT: "1000000",
-      UPLOAD_DIR: uploads,
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-    windowsHide: true,
-  })
-  let tail = ""
-  const keep = (chunk: Buffer): void => {
-    tail = (tail + chunk.toString("utf8")).slice(-4_000)
-  }
-  child.stdout?.on("data", keep)
-  child.stderr?.on("data", keep)
-  return { child, tail: () => tail }
-}
-
-async function waitApiReady(apiUrl: string, api: ApiProcess, timeoutMs: number): Promise<void> {
-  const client = new ApiClient(apiUrl, { timeoutMs: 5_000 })
-  const deadline = Date.now() + timeoutMs
-  while (Date.now() < deadline) {
-    if (api.child.exitCode !== null) throw new Error(`a API de teste encerrou (código ${api.child.exitCode}). Últimas linhas:\n${api.tail()}`)
-    if ((await client.request("GET", "/api/health/ready")).status === 200) return
-    await sleep(1_000)
-  }
-  throw new Error(`a API de teste não ficou pronta em ${timeoutMs / 1000} s. Últimas linhas:\n${api.tail()}`)
 }
 
 /** Garante `n` alunos criados e com os passos anteriores do exercício do motor concluídos. */
@@ -313,19 +251,25 @@ interface Level {
   runnerQueueP95: number | null
   throughput: number
   startedAt: string
+  /** Erros que contam para a saturação (503, timeout, rede, 5xx); sem os 429. */
+  errorCount: number
+  /** Do início do nível até o último envio terminar (pode passar de `duracao-s` quando há envios lentos). */
+  actualSeconds: number
 }
 
 async function runLevel(options: { students: Aluno[]; alvo: AlvoResolvido; runner: RunnerClient; duration: number; thinkMin: number; thinkMax: number; pWrong: number; random: () => number; signal: AbortSignal }): Promise<Level> {
   const { students, alvo, runner, duration, thinkMin, thinkMax, pWrong, random, signal } = options
   const startedAt = nowIso()
   const before = await runner.stats()
-  const endAt = Date.now() + duration * 1000
+  const levelStartedMs = Date.now()
+  const endAt = levelStartedMs + duration * 1000
   const envios: Envio[] = []
   let inFlight = 0
   let maxInFlight = 0
   let maxPending: number | null = null
   let maxActive: number | null = null
   let lastStats: RunnerStats | null = before
+  let lastDoneMs = levelStartedMs
 
   const poller = (async (): Promise<void> => {
     while (Date.now() < endAt + 1_000 && !signal.aborted) {
@@ -349,7 +293,10 @@ async function runLevel(options: { students: Aluno[]; alvo: AlvoResolvido; runne
       const response = await student.client.request<SubmitResponse>("POST", submitRoute(alvo), { files })
       inFlight--
       envios.push({ ms: response.ms, status: response.status, passou: response.body?.passed ?? null })
-      await sleep(randomBetween(thinkMin, thinkMax, random) * 1000, signal)
+      lastDoneMs = Date.now()
+      const think = randomBetween(thinkMin, thinkMax, random) * 1000
+      if (Date.now() + think >= endAt) break
+      await sleep(think, signal)
     }
   }
   await Promise.all(students.map(virtualUser))
@@ -360,8 +307,16 @@ async function runLevel(options: { students: Aluno[]; alvo: AlvoResolvido; runne
   const after = lastStats as RunnerStats | null
   const since = before?.now ?? 0
   const jobs = after ? after.recent.filter((job) => job.at >= since) : []
-  const errors = envios.length - ok.length
+  const limited429 = envios.filter((envio) => envio.status === 429).length
+  const rejected503 = envios.filter((envio) => envio.status === 503).length
+  // 429 (limite por usuário) não é falha do executor: fica fora do erro e do denominador.
+  const errors = envios.length - ok.length - limited429
+  const considered = envios.length - limited429
+  // Duração real: do início ao último envio concluído (a espera final de pensar não conta).
+  const actualSeconds = Math.max(1, (lastDoneMs - levelStartedMs) / 1000)
   return {
+    errorCount: errors,
+    actualSeconds,
     envios,
     p50: percentile(latencies, 50),
     p95: percentile(latencies, 95),
@@ -369,10 +324,10 @@ async function runLevel(options: { students: Aluno[]; alvo: AlvoResolvido; runne
     max: latencies.length === 0 ? null : Math.max(...latencies),
     okCount: ok.length,
     passed: ok.filter((envio) => envio.passou === true).length,
-    rejected503: envios.filter((envio) => envio.status === 503).length,
-    limited429: envios.filter((envio) => envio.status === 429).length,
-    otherErrors: errors - envios.filter((envio) => envio.status === 503 || envio.status === 429).length,
-    errorRate: envios.length === 0 ? 1 : errors / envios.length,
+    rejected503,
+    limited429,
+    otherErrors: errors - rejected503,
+    errorRate: considered === 0 ? 0 : errors / considered,
     maxInFlight,
     maxPending,
     maxActive,
@@ -380,26 +335,29 @@ async function runLevel(options: { students: Aluno[]; alvo: AlvoResolvido; runne
     capacity: after?.capacity ?? null,
     runnerExecP95: jobs.length === 0 ? null : percentile(jobs.map((job) => job.execMs), 95),
     runnerQueueP95: jobs.length === 0 ? null : percentile(jobs.map((job) => job.queueMs), 95),
-    throughput: envios.length / duration,
+    throughput: envios.length / actualSeconds,
     startedAt,
   }
 }
 
-/** Motivo da saturação (p95, erro ou nenhum envio concluído), ou `null` se o nível aguentou. */
-function judge(level: Level, limitP95: number, limitError: number): string | null {
+/**
+ * Motivo da saturação, ou `null` se o nível aguentou. O p95 só vale com amostras suficientes e a
+ * taxa de erro só satura com um mínimo de erros absolutos (um erro isolado em N=10 passa de 1%).
+ */
+function judge(level: Level, rule: Rule): string | null {
   if (level.envios.length === 0) return "nenhum envio concluído"
   const reasons: string[] = []
-  if (level.p95 === null) reasons.push("nenhuma resposta 200")
-  else if (level.p95 > limitP95) reasons.push(`p95 ${Math.round(level.p95)} ms > ${limitP95} ms`)
-  if (level.errorRate > limitError) reasons.push(`erro ${(level.errorRate * 100).toFixed(1)}% > ${limitError * 100}%`)
+  if (level.okCount === 0) reasons.push("nenhuma resposta 200")
+  else if (level.okCount >= rule.minSamplesP95 && level.p95 !== null && level.p95 > rule.limitP95) reasons.push(`p95 ${Math.round(level.p95)} ms > ${rule.limitP95} ms`)
+  if (level.errorRate > rule.limitError && level.errorCount >= rule.minErrors) reasons.push(`erro ${(level.errorRate * 100).toFixed(1)}% (${level.errorCount} erros) > ${rule.limitError * 100}%`)
   return reasons.length === 0 ? null : reasons.join("; ")
 }
 
-function rowOf(motor: Motor, alvo: AlvoResolvido, n: number, duration: number, thinkMin: number, thinkMax: number, level: Level, saturation: string | null): (string | number | boolean | null)[] {
+function rowOf(motor: Motor, alvo: AlvoResolvido, n: number, duration: number, thinkMin: number, thinkMax: number, level: Level, saturation: string | null, rule: string): (string | number | boolean | null)[] {
   return [
     motor, alvo.perfil, n, duration, thinkMin, thinkMax, level.envios.length, level.okCount, level.passed, level.rejected503, level.limited429, level.otherErrors, round(level.errorRate, 4),
     round(level.p50), round(level.p95), round(level.p99), round(level.max), level.runnerExecP95, level.runnerQueueP95, level.maxPending, level.maxActive, level.peakPending, level.capacity,
-    level.maxInFlight, round(level.throughput, 3), saturation !== null, saturation, level.startedAt,
+    level.maxInFlight, round(level.throughput, 3), round(level.actualSeconds), saturation !== null, saturation, rule, level.startedAt,
   ]
 }
 

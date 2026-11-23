@@ -158,7 +158,9 @@ function tempoDeServico(latencia: Record<string, string>[], percent: number, con
   const usable = latencia.filter((row) => row.via === "api" && row.status === "200" && row.ruido !== "1" && cellNumber(row.runner_exec_ms) !== null)
   for (const [motor, byMotor] of groupBy(usable, (row) => row.motor ?? "")) {
     let best: Servico | null = null
-    for (const [key, group] of groupBy(byMotor, (row) => `${row.cenario}|${row.condicao}`)) {
+    // Condição efetiva: um "frio_pool" que achou worker aquecido (pool_quente_antes >= 1) é quente.
+    const efetiva = (row: Record<string, string>): string => ((cellNumber(row.pool_quente_antes) ?? 0) >= 1 && row.condicao === "frio_pool" ? "quente" : (row.condicao ?? ""))
+    for (const [key, group] of groupBy(byMotor, (row) => `${row.cenario}|${efetiva(row)}`)) {
       const cond = key.split("|")[1] ?? ""
       const isCold = cond.startsWith("frio")
       if (condicao === "quente" && isCold) continue
