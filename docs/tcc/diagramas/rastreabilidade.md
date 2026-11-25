@@ -45,7 +45,7 @@ Convenções:
 |---|---|
 | **Interface** (Next.js no navegador), envia `x-levelusp-csrf` | `apps/web/src/lib/api/client.ts:28` (`CSRF_HEADER`); `apps/web/src/lib/api/client.ts:94-98` (`buildHeaders`) |
 | **Python do navegador** (Pyodide em Web Worker) | `apps/web/src/lib/python/pyodide-worker.ts:35` (`new Worker(... "./python-worker.ts" ...)`); `apps/web/src/lib/python/python-worker.ts:45-47` (`loadPyodide`); `apps/web/src/lib/python/python-worker.ts:86` (`runProject`); `apps/web/src/hooks/use-python.ts:159-162` (`execute` -> `postToWorker`) |
-| "Nunca vale XP" no Executar | `apps/web/src/components/lesson-steps/exercise-step.tsx:157` ("Use Verificar para conferir"); progresso só pela API: `apps/api/src/modules/gamification/gamification.service.ts:67 e :77` ("SOMENTE depois de um veredito do servidor") |
+| "Nunca vale XP" no Executar | `apps/web/src/components/lesson-steps/exercise-step.tsx:164` ("Use Verificar para conferir"); progresso só pela API: `apps/api/src/modules/gamification/gamification.service.ts:67 e :77` ("SOMENTE depois de um veredito do servidor") |
 | Custo "CPU do aluno" | `docs/v2/arquitetura.md:95` (Pyodide no navegador: "CPU do aluno, resposta imediata") |
 | **web** (Next.js standalone, SSR, rewrite) | `infra/compose/compose.yml:127-149`; `apps/web/next.config.mjs:86-89` (`rewrites`, `/api/:path*`); `infra/compose/compose.yml:133` (`API_INTERNAL_URL`) |
 | **api** (NestJS) | `infra/compose/compose.yml:101-125`; `apps/api/src/bootstrap.ts:39` (prefixo `api`) |
@@ -68,16 +68,16 @@ Convenções:
 | Seta api -> runner "sondas sem gabarito, Bearer" | `apps/api/src/infra/runner/runner.client.ts:59-64`; `infra/compose/compose.yml:110-111` (`RUNNER_URL`, `RUNNER_TOKEN`); `packages/contracts/src/runner.ts:56` (nenhuma sonda leva o valor esperado) |
 | Seta runner -> api "observações com versão do motor" | `apps/runner/src/executor.ts:140-144` (`observations`, `engine`, `durationMs`); `apps/api/src/infra/runner/runner.client.ts:39-46` (`isRunnerResult`) |
 | Seta runner -> wasi "lote pelo stdin, com nonce" | `apps/runner/src/sandbox.ts:157-158` e `:211` (`prepareGuestJob`, `child.stdin.end`) |
-| Seta runner -> pyServer "lote, com nonce" | `apps/runner/src/pyodide-engine.ts:151-154` |
-| Setas wasi/pyServer -> runner "observações com nonce" | `apps/runner/src/sandbox.ts:160`; `apps/runner/src/pyodide-engine.ts:159` (`parseObservations(run.stdout, guestJob.nonce)`) |
+| Seta runner -> pyServer "lote, com nonce" | `apps/runner/src/pyodide-engine.ts:158-161` |
+| Setas wasi/pyServer -> runner "observações com nonce" | `apps/runner/src/sandbox.ts:160`; `apps/runner/src/pyodide-engine.ts:166` (`parseObservations(run.stdout, guestJob.nonce)`) |
 | Cloudflare -> web, aluno -> cloudflare | `infra/compose/compose.yml:156-157`; `infra/compose/compose.vm.yml:135-137` (`cloudflared` depende de `web` saudável) |
 
 ## 03 - Sequência da submissão (`03-sequencia-submissao.mmd`)
 
 | Passo | Evidência |
 |---|---|
-| 1. Clique em **Verificar** | `apps/web/src/components/lesson-steps/exercise-step.tsx:173` (`handleVerify`) |
-| 2. `submitStep` envia os arquivos | `apps/web/src/components/lesson-steps/exercise-step.tsx:181-182`; `apps/web/src/lib/api/steps.ts:18-19` (`submitStep`) |
+| 1. Clique em **Verificar** | `apps/web/src/components/lesson-steps/exercise-step.tsx:180` (`handleVerify`) |
+| 2. `submitStep` envia os arquivos | `apps/web/src/components/lesson-steps/exercise-step.tsx:188-189`; `apps/web/src/lib/api/steps.ts:18-19` (`submitStep`) |
 | `POST /api/me/lessons/:id/steps/:stepId/submit` com `x-levelusp-csrf` | `apps/api/src/modules/learning/steps.controller.ts:15` (`me/lessons/:id`) e `:24-33` (`@Post("steps/:stepId/submit")`); `apps/web/src/lib/api/client.ts:94-98` e `:142` |
 | 3. Rewrite para `http://api:4000` | `apps/web/next.config.mjs:86-89`; `infra/compose/compose.yml:133` |
 | 4. `CsrfMiddleware`, `SessionGuard`, `UuidPipe`, `ZodPipe(stepSubmitSchema)` | `apps/api/src/common/http/csrf.middleware.ts:13-17`; `apps/api/src/modules/auth/session.guard.ts:15-37`; `apps/api/src/common/pipes/uuid.pipe.ts:7`; `apps/api/src/common/pipes/zod.pipe.ts:9`; `apps/api/src/modules/learning/steps.controller.ts:30`; `packages/contracts/src/steps.ts:382` |
@@ -94,8 +94,8 @@ Convenções:
 | API devolve a cota, grava submissão `error`, 503 ao aluno | `apps/api/src/infra/runner/runner.client.ts:85-89` (`RUNNER_BUSY_CODE`); `apps/api/src/modules/learning/submission-grader.ts:64-71` (`refund` em `:66-69`, `recordInfrastructureError` em `:70`); `apps/api/src/modules/learning/submission-grader.ts:76-82` (`status: "error"`); `apps/api/src/modules/learning/steps.service.ts:79` (a exceção sai antes de `incrementAttempts`: "não conta como tentativa") |
 | 11. `prepareGuestJob`: nonce de 16 bytes, ids posicionais `p0`, `p1`... | `apps/runner/src/observations.ts:11` (`NONCE_BYTES`); `apps/runner/src/observations.ts:28-40` (`prepareGuestJob`); `apps/runner/src/observations.ts:65-67` (`positionalId`) |
 | 12. Wasmtime sem env, sem rede; ou worker do Pyodide com lockdown | `apps/runner/src/sandbox.ts:203-211` e `:277-297`; `apps/runner/src/pyodide-guard.ts:25`; escolha do motor: `apps/runner/src/executor.ts:125` (`batchEngine`) |
-| 13. `harness.py` lê o lote pelo stdin antes do código do aluno | `apps/runner/python/harness.py:114-122` (leitura do stdin e `nonce = job["nonce"]`); `apps/runner/src/sandbox.ts:89-98` (comentário) |
-| 14. Observações no stdout como `nonce JSON` | `apps/runner/python/harness.py:201-207` (`emit`) |
+| 13. `harness.py` lê o lote pelo stdin antes do código do aluno | `apps/runner/python/harness.py:124-132` (leitura do stdin e `nonce = job["nonce"]`); `apps/runner/src/sandbox.ts:89-98` (comentário) |
+| 14. Observações no stdout como `nonce JSON` | `apps/runner/python/harness.py:211-217` (`emit`) |
 | 15. `parseObservations` só aceita linhas com o nonce; id duplicado invalida | `apps/runner/src/observations.ts:73-91` |
 | 16. `collectObservations`: `p0` volta ao id original; falha explicada | `apps/runner/src/observations.ts:53-63` e `:120-125` (`missingObservation`) |
 | 17. Resposta `observations`, `engine`, `durationMs` | `apps/runner/src/executor.ts:139-144`; `apps/api/src/infra/runner/runner.client.ts:94-99` |
@@ -110,7 +110,7 @@ Convenções:
 | Participante **modules/grading** (domínio puro) | `apps/api/src/modules/grading/grading.domain.ts:9-14`; testes de robustez em `apps/api/src/modules/grading/grading.security.spec.ts:1-5` |
 
 Observação: o ramo Pyodide (`runtime: python-dados`) usa o mesmo protocolo (nonce, ids posicionais, stdout):
-`apps/runner/src/pyodide-engine.ts:149-166`. Lotes só de análise estrutural (`ast`) sempre vão ao WASI:
+`apps/runner/src/pyodide-engine.ts:156-174`. Lotes só de análise estrutural (`ast`) sempre vão ao WASI:
 `apps/runner/src/executor.ts:148-151`.
 
 ## 04 - Pipeline de conteúdo (`04-pipeline-conteudo.mmd`)
@@ -123,7 +123,7 @@ Observação: o ramo Pyodide (`runtime: python-dados`) usa o mesmo protocolo (no
 | **2. content:build** compila e roda o mesmo lint | `apps/api/scripts/content-build.mts:28-35`; `package.json:20` e `apps/api/package.json:17` |
 | Build gera a saída dos passos Previsão no runner real (sem runner, falha) | `apps/api/scripts/content-build.mts:8-10` e `:37-60`; `apps/api/scripts/content/predictions.ts:103` (`generatePredictions`) |
 | Build valida o pacote com `contentBundleSchema` | `apps/api/scripts/content-build.mts:62-67`; `apps/api/scripts/content/bundle.ts:48-57` (`validateBundle`); `packages/contracts/src/content-bundle.ts:190` |
-| Build grava o pacote | `apps/api/scripts/content-build.mts:69-70`; `apps/api/scripts/content/bundle.ts:60-62` (`serializeBundle`) |
+| Build grava o pacote | `apps/api/scripts/content-build.mts:69-70`; `apps/api/scripts/content/bundle.ts:64-66` (`serializeBundle`) |
 | **4. Pacote formato 2** `packages/db/seed/trilha-python-ia.json` | `apps/api/scripts/content/cli.ts:15` (`DEFAULT_BUNDLE_PATH`); `apps/api/scripts/content-build.mts:2-4` |
 | `wrong_solutions` só no pacote, nunca gravado | `packages/contracts/src/content-bundle.ts:13` e `:29`; `docs/v2/curso-e-passos.md:252` |
 | **3. content:verify** (compila de novo em memória) | `apps/api/scripts/content-verify.mts:34-39`; `package.json:22` e `apps/api/package.json:19` |
@@ -178,7 +178,7 @@ Todas as entidades vêm do schema Drizzle em `packages/db/src/schema/`. A linha 
 |---|---|
 | **Desenvolvimento**: `compose.dev.yml` só com o PostgreSQL | `infra/compose/compose.dev.yml:1-4` (descrição); `infra/compose/compose.dev.yml:7-18` (`postgres:17-alpine`, porta `127.0.0.1:5432` em `:13`) |
 | `pnpm dev`: web :3000, api :4000, runner :8081 (processos locais) | `docs/v2/ambientes-e-deploy.md:97-106` (seção "Desenvolvimento local"); `docs/v2/ambientes-e-deploy.md:7` |
-| Runner em contêiner opcional (perfil `runner`) | `infra/compose/compose.dev.yml:20-34` (perfil em `:21`, porta em `:30`, `read_only` em `:31`, `tmpfs` em `:32`, `mem_limit` em `:34`) |
+| Runner em contêiner opcional (perfil `runner`) | `infra/compose/compose.dev.yml:20-38` (perfil em `:21`, porta em `:30`, `read_only` em `:31`, `tmpfs` em `:32`, `mem_limit` em `:34`) |
 | **Homologação**: notebook, Docker Desktop, projeto `levelusp-homolog`, branch `develop` | `docs/v2/ambientes-e-deploy.md:5-9`; `infra/scripts/levelusp.ps1:1-4`; `infra/scripts/levelusp.ps1:30` (`$Project = "levelusp-$Env"`); `infra/scripts/levelusp.ps1:33` (`--profile tunnel`) |
 | `levelusp.ps1` `up`, `update`, `seed`, `backup`, `install-autoupdate` | `infra/scripts/levelusp.ps1:80-93` (`up`: `pull`, sobe `tunnel`, lê a URL, sobe tudo); `:102-109` (`update`); `:110` (`seed`); `:116` (`backup`); `:137` (`install-autoupdate`); `:20` (comandos válidos) |
 | Serviços `postgres`, `migrate`, `runner`, `api`, `web`, `tunnel` | `infra/compose/compose.yml:14`, `:31`, `:71`, `:101`, `:127`, `:151` |
