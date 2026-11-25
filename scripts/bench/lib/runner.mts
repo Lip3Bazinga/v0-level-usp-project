@@ -22,6 +22,8 @@ export interface RunnerStats {
   jobs: { completed: number; rejected: number; cancelled: number; failed: number }
   recent: JobTiming[]
   engines: Record<string, Record<string, unknown>>
+  /** Memória reservada pelo executor (campo novo; ausente em executores antigos). */
+  memory?: Record<string, unknown>
 }
 
 /** Resposta de `POST /v1/run` (só o que as medições leem). */

@@ -13,24 +13,31 @@
  * executor (campos `queueMs` e `execMs` do job que acabou de terminar). Só vale com o executor
  * ocioso (o script lê o job mais novo depois de cada envio e marca `ruido=1` se houver mais de um).
  *
- * Saída: docs/tcc/dados/latencia.csv (uma linha por execução), latencia-resumo.csv (p50/p95/p99)
- * e a seção "latencia" de ambiente.json. Leia scripts/bench/README.md antes de rodar.
+ * Saída (em --dir-dados, padrão docs/tcc/dados): latencia.csv (uma linha por execução),
+ * latencia-resumo.csv (p50/p95/p99, recalculado do CSV completo) e uma rodada nova na seção
+ * "latencia" de ambiente.json. Rodada parcial (--motores, --cenarios) troca só as linhas dos cenários
+ * medidos agora e preserva as demais. Leia scripts/bench/README.md antes de rodar.
  */
+import { existsSync } from "node:fs"
 import path from "node:path"
 import { ApiClient, newCredentials } from "./lib/api.mts"
 import { flagOption, listOption, numberOption, optionalStringOption, parseArgs, rejectUnknown, stringOption } from "./lib/args.mts"
 import { ALVOS_LATENCIA, type AlvoResolvido, loadBundle, prepararAluno, resolverAlvo, submitRoute, type SubmitResponse } from "./lib/conteudo.mts"
-import { appendCsv, formatTable, groupBy, round, startCsv, summarize } from "./lib/estatistica.mts"
+import { dirDados, mergeCsv, registerRound, writeDerivedCsv } from "./lib/dados.mts"
+import { formatTable, readCsv, round } from "./lib/estatistica.mts"
+import { type ConfigExecutor, type PerfilPyodide, politicaDoPerfil, readExecutorConfig } from "./lib/executor.mts"
+import { LATENCIA_RESUMO_HEADER, resumoLatencia } from "./lib/resumos.mts"
 import { dockerAvailable } from "./lib/docker.mts"
 import { iniciarPilha, Limpeza } from "./lib/pilha.mts"
 import { type DirectJob, jobsAfter, lastJobAt, RunnerClient, requireRunnerToken, warmWorkers } from "./lib/runner.mts"
-import { collectEnvironment, DATA_DIR, DEFAULT_BUNDLE, nowIso, runShell, sleep, updateEnvironmentFile } from "./lib/sistema.mts"
+import { collectEnvironment, DEFAULT_BUNDLE, nowIso, runShell, sleep } from "./lib/sistema.mts"
 
-const KNOWN_OPTIONS = ["api", "api-porta", "runner-url", "repeticoes", "repeticoes-frio", "usuarios", "pacote", "saida", "cmd-reinicio", "espera-pool-s", "cenarios", "descarte", "anexar", "ajuda"]
+const KNOWN_OPTIONS = ["api", "api-porta", "runner-url", "repeticoes", "repeticoes-frio", "usuarios", "pacote", "dir-dados", "cmd-reinicio", "espera-pool-s", "cenarios", "motores", "descarte", "ajuda"]
 /** Limite do aluno: 12 verificações por minuto → pelo menos 5 s entre dois envios do mesmo aluno. */
 const MIN_GAP_PER_USER_MS = 5_500
-const CSV_HEADER = ["cenario", "via", "descricao", "motor", "condicao", "repeticao", "total_ms", "runner_exec_ms", "runner_fila_ms", "lotes", "sobrecarga_ms", "pool_quente_antes", "passou", "status", "ruido", "inicio"] as const
-const SUMMARY_HEADER = ["cenario", "via", "motor", "condicao", "n", "total_p50_ms", "total_p95_ms", "total_p99_ms", "exec_p50_ms", "exec_p95_ms", "exec_p99_ms", "sobrecarga_p50_ms", "sobrecarga_p95_ms", "sobrecarga_p99_ms"] as const
+const CSV_HEADER = ["cenario", "via", "descricao", "motor", "condicao", "repeticao", "total_ms", "runner_exec_ms", "runner_fila_ms", "lotes", "sobrecarga_ms", "pool_quente_antes", "passou", "status", "ruido", "inicio", "politica_pyodide"] as const
+/** Chave de substituição no CSV: uma rodada regrava só os cenários medidos agora. */
+const chaveLatencia = (linha: Record<string, string>): string => linha.cenario ?? ""
 
 type Condicao = "quente" | "frio_pool" | "frio_processo"
 
@@ -51,6 +58,8 @@ interface Medida {
   status: number
   ruido: boolean
   inicio: string
+  /** Política do Pyodide que o executor informava ao medir (`null` no motor WASI ou sem informação). */
+  politica: string | null
 }
 
 /** Um cenário medível: `executar` faz UMA execução e devolve a medida (sem a condição, que é decidida depois). */
@@ -76,12 +85,15 @@ const HELP = `Uso: node scripts/bench/latencia.mts [opções]
   --repeticoes-frio N     execuções a frio por cenário (padrão = --repeticoes)
   --usuarios N            alunos virtuais em rodízio, por causa do limite de 12 envios/min (padrão 4)
   --cenarios a,b,c,d,e,piso-python,piso-dados,piso-ml   subconjunto (padrão: todos)
+  --motores python,dados,ml   só os cenários desses motores (padrão: todos); combina com --cenarios (interseção).
+                          A condição quente/frio do ml sai do que o executor informa (pool aquecido e política: com reuse
+                          há cenário quente do ml); a política que valia fica na coluna politica_pyodide
   --cmd-reinicio "CMD"    reinicia o executor antes de cada execução a frio de processo
   --espera-pool-s N       quanto esperar um worker Pyodide aquecido (padrão 120)
   --descarte N            execuções de aquecimento descartadas por cenário (padrão 1)
   --pacote ARQUIVO        pacote de conteúdo (padrão packages/db/seed/trilha-python-ia.json)
-  --saida ARQUIVO         CSV (padrão docs/tcc/dados/latencia.csv)
-  --anexar                não zera o CSV (acrescenta as linhas)`
+  --dir-dados PASTA       pasta de saída (padrão docs/tcc/dados): latencia.csv, latencia-resumo.csv e ambiente.json.
+                          Rodada parcial troca só as linhas dos cenários medidos e preserva as demais`
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2))
@@ -96,9 +108,14 @@ async function main(): Promise<void> {
   const descarte = Math.max(0, Math.trunc(numberOption(args, "descarte", 1)))
   const esperaPoolMs = numberOption(args, "espera-pool-s", 120) * 1000
   const restartCommand = optionalStringOption(args, "cmd-reinicio")
-  const csvFile = path.resolve(stringOption(args, "saida", path.join(DATA_DIR, "latencia.csv")))
+  const dir = dirDados(args)
+  const csvFile = path.join(dir, "latencia.csv")
   const bundleFile = path.resolve(stringOption(args, "pacote", DEFAULT_BUNDLE))
-  const wanted = listOption(args, "cenarios", [...ALVOS_LATENCIA.map((alvo) => alvo.chave), "piso-python", "piso-dados", "piso-ml"])
+  const motoresPedidos = listOption(args, "motores", ["python", "dados", "ml"])
+  const motoresInvalidos = motoresPedidos.filter((motor) => !["python", "dados", "ml"].includes(motor))
+  if (motoresInvalidos.length > 0) throw new Error(`--motores inválido: ${motoresInvalidos.join(", ")} (use python, dados, ml)`)
+  const wanted = listOption(args, "cenarios", [...ALVOS_LATENCIA.map((alvo) => alvo.chave), "piso-python", "piso-dados", "piso-ml"]).filter((chave) => motoresPedidos.includes(motorDoCenario(chave)))
+  if (wanted.length === 0) throw new Error("nenhum cenário restou depois de combinar --cenarios e --motores")
 
   const token = requireRunnerToken()
   const runner = new RunnerClient(runnerUrl, token)
@@ -121,18 +138,20 @@ async function main(): Promise<void> {
     apiUrl = (await iniciarPilha({ runnerUrl, token, port: args.options.has("api-porta") ? numberOption(args, "api-porta", 0) : undefined, limpeza })).apiUrl
   }
 
-  if (!flagOption(args, "anexar")) startCsv(csvFile, CSV_HEADER)
-  const medidas: Medida[] = []
-  const record = (medida: Medida): void => {
+  const configInicial = await readExecutorConfig(runner)
+  console.log(`Executor: política Pyodide ${JSON.stringify(configInicial.politica_pyodide)}, capacidade ${configInicial.capacity ?? "?"}, workers ociosos agora ${JSON.stringify(configInicial.pool_ocioso_no_instante)}.`)
+  let medidas: Medida[] = []
+  const record = (bruta: Medida): void => {
+    const medida: Medida = { ...bruta, politica: politicaDoPerfil(configInicial, perfilDoMotor(bruta.motor)) }
     medidas.push(medida)
-    appendCsv(csvFile, [rowOf(medida)])
     process.stdout.write(`  ${medida.cenario} ${medida.condicao} #${medida.repeticao}: total ${round(medida.totalMs, 0)} ms, executor ${medida.execMs ?? "-"} ms${medida.passou === false ? " (NÃO PASSOU)" : ""}\n`)
   }
 
   const bundle = loadBundle(bundleFile)
   const failures: string[] = []
+  const measuredScenarios: string[] = []
   const engineVersions: Record<string, unknown> = {}
-  const context: Context = { runner, esperaPoolMs, restartCommand, repeticoes, repeticoesFrio, descarte, record, poolOff: new Set() }
+  const context: Context = { config: configInicial, runner, esperaPoolMs, restartCommand, repeticoes, repeticoesFrio, descarte, record, poolOff: new Set() }
 
   for (const chave of wanted) {
     try {
@@ -140,7 +159,11 @@ async function main(): Promise<void> {
       const cenario = chave.startsWith("piso-")
         ? pisoScenario(chave, runner, engineVersions)
         : await apiScenario(chave, { apiUrl, runner, bundle, usuarios })
+      medidas = []
       await medirCenario(cenario, context)
+      const merged = mergeCsv(csvFile, CSV_HEADER, chaveLatencia, medidas.map(rowOf))
+      console.log(`  latencia.csv: ${merged.substituidas} linha(s) antiga(s) deste cenário substituída(s); ${merged.preservadas} de outros cenários preservada(s)`)
+      measuredScenarios.push(chave)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       console.error(`FALHA no cenário ${chave}: ${message}`)
@@ -148,17 +171,20 @@ async function main(): Promise<void> {
     }
   }
 
-  summarizeAndSave(medidas, csvFile)
+  if (existsSync(csvFile)) summarizeAndSave(csvFile)
+  else console.error("Nenhum cenário gravou dados e latencia.csv não existe: sem resumo.")
   const finalHealth = await runner.health()
-  const finalStats = await runner.stats()
-  updateEnvironmentFile("latencia", {
+  registerRound(dir, "latencia", {
     ...(await collectEnvironment()),
-    api: externalApi === undefined ? "API de teste local com PostgreSQL 17 descartável (levelusp-bench-*)" : `API externa (${externalApi}): contas bench.* ficaram no banco dela`,
-    executor: { url: runnerUrl, capacidade: finalStats?.capacity ?? null, fila_maxima: finalStats?.maxQueue ?? null, healthz: finalHealth.body, motores: engineVersions },
+    motores: motoresPedidos,
+    cenarios_medidos: measuredScenarios,
+    api: { externa: externalApi !== undefined, descricao: externalApi === undefined ? "API de teste local com PostgreSQL 17 descartável (levelusp-bench-*)" : "API já em execução: contas bench.* ficaram no banco dela" },
+    executor: { url: runnerUrl, inicio: configInicial, fim: await readExecutorConfig(runner), healthz: finalHealth.body, motores: engineVersions },
     pacote: path.relative(process.cwd(), bundleFile),
     parametros: { repeticoes, repeticoes_frio: repeticoesFrio, usuarios, descarte, cmd_reinicio: restartCommand !== undefined, cenarios: wanted, percentil: "posto mais próximo (nearest-rank)" },
     falhas: failures,
   })
+  if (measuredScenarios.length === 0 && failures.length === 0) failures.push("nenhum cenário medido")
   if (failures.length > 0) {
     console.error(`\n${failures.length} cenário(s) com falha:\n- ${failures.join("\n- ")}`)
     process.exitCode = 1
@@ -166,6 +192,7 @@ async function main(): Promise<void> {
 }
 
 interface Context {
+  config: ConfigExecutor
   runner: RunnerClient
   esperaPoolMs: number
   restartCommand: string | undefined
@@ -180,7 +207,11 @@ interface Context {
 /** Executa as fases de um cenário conforme o motor e a existência de `--cmd-reinicio`. */
 async function medirCenario(cenario: Cenario, context: Context): Promise<void> {
   const { descarte, repeticoes, repeticoesFrio, restartCommand, record } = context
-  for (let index = 0; index < descarte; index++) {
+  // Perfil com política reuse: o primeiro envio depois de subir/reiniciar o executor é o FRIO; não se descarta.
+  // Cada linha é classificada pelo pool observado, então esse primeiro envio sai como frio e os seguintes como quentes.
+  const preservarPrimeiro = cenario.perfil !== null && politicaDoPerfil(context.config, cenario.perfil) === "reuse"
+  if (preservarPrimeiro && descarte > 0) console.log("  política reuse: o aquecimento (--descarte) é ignorado para não perder o primeiro envio (frio)")
+  for (let index = 0; index < (preservarPrimeiro ? 0 : descarte); index++) {
     if (cenario.perfil !== null) await waitPool(context, cenario.perfil)
     await cenario.executar("quente", 0)
   }
@@ -204,6 +235,14 @@ async function medirCenario(cenario: Cenario, context: Context): Promise<void> {
   }
   if (cenario.perfil === null) {
     console.log(`  fase quente (${repeticoes}x). O frio do motor WASI só é medido com --cmd-reinicio.`)
+    for (let index = 1; index <= repeticoes; index++) await warm(index)
+    return
+  }
+  // Política `reuse`: o worker volta ao pool depois do lote, então há medida quente do perfil e o par quente + frio
+  // não faz sentido. A condição de cada linha continua sendo a observada no pool (`pool_quente_antes`).
+  if (politicaDoPerfil(context.config, cenario.perfil) === "reuse") {
+    console.log(`  política reuse no perfil ${cenario.perfil}: execuções em sequência, condição pelo pool observado (${repeticoes}x)`)
+    console.warn(`  AVISO: sem --cmd-reinicio o frio do ${cenario.perfil} com reuse não foi medido (só aparece como frio se o executor acabou de subir).`)
     for (let index = 1; index <= repeticoes; index++) await warm(index)
     return
   }
@@ -337,37 +376,39 @@ function montarMedida(input: { cenario: string; via: Medida["via"]; descricao: s
     status: input.status,
     ruido: input.jobs.length > 1,
     inicio: input.inicio,
+    politica: null,
   }
+}
+
+/** Perfil Pyodide de um motor (`python` é o motor WASI, sem perfil). */
+function perfilDoMotor(motor: string): PerfilPyodide | null {
+  return motor === "dados" || motor === "ml" ? motor : null
+}
+
+/** Motor de um cenário pela chave (`a`…`e` vêm do pacote; `piso-<motor>` é direto no executor). */
+function motorDoCenario(chave: string): string {
+  if (chave.startsWith("piso-")) return chave.slice("piso-".length)
+  return ALVOS_LATENCIA.find((alvo) => alvo.chave === chave)?.motor ?? ""
 }
 
 function rowOf(medida: Medida): (string | number | boolean | null)[] {
   return [
     medida.cenario, medida.via, medida.descricao, medida.motor, medida.condicao, medida.repeticao,
     round(medida.totalMs), medida.execMs, medida.filaMs, medida.lotes, round(medida.sobrecargaMs), medida.poolAntes,
-    medida.passou, medida.status, medida.ruido ? 1 : 0, medida.inicio,
+    medida.passou, medida.status, medida.ruido ? 1 : 0, medida.inicio, medida.politica,
   ]
 }
 
-/** Imprime e grava o resumo p50/p95/p99 por cenário e condição. */
-function summarizeAndSave(medidas: readonly Medida[], csvFile: string): void {
-  const groups = groupBy(medidas.filter((medida) => medida.status === 200), (medida) => `${medida.cenario}|${medida.condicao}`)
-  const rows: (string | number | null)[][] = []
-  for (const [key, group] of groups) {
-    const [cenario = "", condicao = ""] = key.split("|")
-    const first = group[0]
-    if (!first) continue
-    const total = summarize(group.map((medida) => medida.totalMs))
-    const exec = summarize(group.flatMap((medida) => (medida.execMs === null ? [] : [medida.execMs])))
-    const over = summarize(group.flatMap((medida) => (medida.sobrecargaMs === null ? [] : [medida.sobrecargaMs])))
-    rows.push([cenario, first.via, first.motor, condicao, total.n, round(total.p50), round(total.p95), round(total.p99), round(exec.p50), round(exec.p95), round(exec.p99), round(over.p50), round(over.p95), round(over.p99)])
-  }
+/** Recalcula `latencia-resumo.csv` do CSV COMPLETO (inclui cenários de rodadas anteriores) e o imprime. */
+function summarizeAndSave(csvFile: string): void {
+  const todas = readCsv(csvFile)
+  const rows = resumoLatencia(todas)
   const summaryFile = path.join(path.dirname(csvFile), "latencia-resumo.csv")
-  startCsv(summaryFile, SUMMARY_HEADER)
-  appendCsv(summaryFile, rows)
-  console.log(`\nResumo (ms; ${csvFile.replace(/\\/g, "/")}):`)
-  console.log(formatTable(SUMMARY_HEADER, rows))
-  const failed = medidas.filter((medida) => medida.status !== 200 || medida.passou === false).length
-  if (failed > 0) console.warn(`\nAVISO: ${failed} execução(ões) sem status 200 ou sem aprovação (ficam no CSV; as sem status 200 não entram no resumo).`)
+  writeDerivedCsv(summaryFile, LATENCIA_RESUMO_HEADER, rows)
+  console.log(`\nResumo (ms; ${summaryFile.replace(/\\/g, "/")}):`)
+  console.log(formatTable(LATENCIA_RESUMO_HEADER, rows))
+  const failed = todas.filter((linha) => linha.status !== "200" || linha.passou === "false").length
+  if (failed > 0) console.warn(`\nAVISO: ${failed} execução(ões) no CSV sem status 200 ou sem aprovação (ficam no CSV; as sem status 200 não entram no resumo).`)
 }
 
 main()
