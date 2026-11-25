@@ -1,0 +1,70 @@
+{
+  "latencia": {
+    "coletado_em": "2026-11-25T04:00:35.040Z",
+    "so": "Windows_NT 10.0.26200 (x64)",
+    "cpu_modelo": "Intel(R) Core(TM) i9-14900KF",
+    "cpu_logicas": 32,
+    "memoria_total_gib": 31.8,
+    "node": "v26.13.0",
+    "docker_servidor": "28.5.1",
+    "docker_cpus": 32,
+    "docker_memoria_gib": 15.6,
+    "commit": "7bfe523",
+    "api": "API de teste local com PostgreSQL 17 descartável (levelusp-bench-*)",
+    "executor": {
+      "url": "http://localhost:8081",
+      "capacidade": 32,
+      "fila_maxima": 200,
+      "healthz": {
+        "status": "ok",
+        "pyodide": {
+          "ready": true,
+          "reason": "",
+          "policy": "fresh",
+          "profiles": [
+            "dados",
+            "ml"
+          ],
+          "warm": {
+            "dados": 1,
+            "ml": 0
+          }
+        }
+      },
+      "motores": {
+        "python": {
+          "python": "3.14.0 (WASI)",
+          "runtime": "wasmtime 49"
+        },
+        "dados": {
+          "python": "3.14.2 (Pyodide)",
+          "runtime": "pyodide 314.0.7"
+        },
+        "ml": {
+          "python": "3.14.2 (Pyodide)",
+          "runtime": "pyodide 314.0.7"
+        }
+      }
+    },
+    "pacote": "packages\\db\\seed\\trilha-python-ia.json",
+    "parametros": {
+      "repeticoes": 30,
+      "repeticoes_frio": 30,
+      "usuarios": 4,
+      "descarte": 1,
+      "cmd_reinicio": true,
+      "cenarios": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "piso-python",
+        "piso-dados",
+        "piso-ml"
+      ],
+      "percentil": "posto mais próximo (nearest-rank)"
+    },
+    "falhas": []
+  }
+}

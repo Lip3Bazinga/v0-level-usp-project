@@ -1,0 +1,481 @@
+cenario,via,descricao,motor,condicao,repeticao,total_ms,runner_exec_ms,runner_fila_ms,lotes,sobrecarga_ms,pool_quente_antes,passou,status,ruido,inicio
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,1,224,182,0,1,42,,true,200,0,2026-11-25T03:20:51.853Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,2,251.8,188,0,1,63.8,,true,200,0,2026-11-25T03:20:52.080Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,3,264.5,187,0,1,77.5,,true,200,0,2026-11-25T03:20:52.336Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,4,214.3,191,0,1,23.3,,true,200,0,2026-11-25T03:20:57.120Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,5,211.4,184,0,1,27.4,,true,200,0,2026-11-25T03:20:57.368Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,6,211.9,186,0,1,25.9,,true,200,0,2026-11-25T03:20:57.588Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,7,226.2,184,0,1,42.2,,true,200,0,2026-11-25T03:20:57.851Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,8,237.9,188,0,1,49.9,,true,200,0,2026-11-25T03:21:02.632Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,9,218.8,182,0,1,36.8,,true,200,0,2026-11-25T03:21:02.874Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,10,374.6,184,0,1,190.6,,true,200,0,2026-11-25T03:21:03.100Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,11,213.1,183,0,1,30.1,,true,200,0,2026-11-25T03:21:03.477Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,12,300.7,274,0,1,26.7,,true,200,0,2026-11-25T03:21:08.145Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,13,209.5,189,0,1,20.5,,true,200,0,2026-11-25T03:21:08.449Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,14,212.2,191,0,1,21.2,,true,200,0,2026-11-25T03:21:08.662Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,15,248.4,227,0,1,21.4,,true,200,0,2026-11-25T03:21:08.986Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,16,227.3,204,0,1,23.3,,true,200,0,2026-11-25T03:21:13.655Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,17,232.2,188,0,1,44.2,,true,200,0,2026-11-25T03:21:13.953Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,18,231.3,188,0,1,43.3,,true,200,0,2026-11-25T03:21:14.193Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,19,224.3,188,0,1,36.3,,true,200,0,2026-11-25T03:21:14.496Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,20,234.5,211,0,1,23.5,,true,200,0,2026-11-25T03:21:19.169Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,21,225,191,0,1,34,,true,200,0,2026-11-25T03:21:19.461Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,22,224.4,191,0,1,33.4,,true,200,0,2026-11-25T03:21:19.696Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,23,239.6,187,0,1,52.6,,true,200,0,2026-11-25T03:21:20.010Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,24,232.5,190,0,1,42.5,,true,200,0,2026-11-25T03:21:24.677Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,25,286.1,186,0,1,100.1,,true,200,0,2026-11-25T03:21:24.976Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,26,244.2,197,0,1,47.2,,true,200,0,2026-11-25T03:21:25.267Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,27,329.2,185,0,1,144.2,,true,200,0,2026-11-25T03:21:25.522Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,28,217.1,193,0,1,24.1,,true,200,0,2026-11-25T03:21:30.183Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,29,210.4,190,0,1,20.4,,true,200,0,2026-11-25T03:21:30.491Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,quente,30,230.9,186,0,1,44.9,,true,200,0,2026-11-25T03:21:30.770Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,1,224.3,195,0,1,29.3,,true,200,0,2026-11-25T03:21:32.636Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,2,223.1,197,0,1,26.1,,true,200,0,2026-11-25T03:21:35.696Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,3,223,188,0,1,35,,true,200,0,2026-11-25T03:21:37.565Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,4,219.7,193,0,1,26.7,,true,200,0,2026-11-25T03:21:39.480Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,5,213.6,187,0,1,26.6,,true,200,0,2026-11-25T03:21:41.386Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,6,214.8,189,0,1,25.8,,true,200,0,2026-11-25T03:21:43.236Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,7,220.2,194,0,1,26.2,,true,200,0,2026-11-25T03:21:45.090Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,8,216.4,191,0,1,25.4,,true,200,0,2026-11-25T03:21:46.927Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,9,237.6,207,0,1,30.6,,true,200,0,2026-11-25T03:21:48.821Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,10,223,196,0,1,27,,true,200,0,2026-11-25T03:21:50.795Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,11,217.4,192,0,1,25.4,,true,200,0,2026-11-25T03:21:52.633Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,12,237.6,190,0,1,47.6,,true,200,0,2026-11-25T03:21:54.484Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,13,219.7,192,0,1,27.7,,true,200,0,2026-11-25T03:21:56.345Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,14,252.4,189,0,1,63.4,,true,200,0,2026-11-25T03:21:58.193Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,15,213,188,0,1,25,,true,200,0,2026-11-25T03:22:00.119Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,16,255.5,217,0,1,38.5,,true,200,0,2026-11-25T03:22:01.991Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,17,227,200,0,1,27,,true,200,0,2026-11-25T03:22:03.941Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,18,234.1,203,0,1,31.1,,true,200,0,2026-11-25T03:22:05.817Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,19,252.3,198,0,1,54.3,,true,200,0,2026-11-25T03:22:07.761Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,20,233.3,190,0,1,43.3,,true,200,0,2026-11-25T03:22:09.671Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,21,223.5,191,0,1,32.5,,true,200,0,2026-11-25T03:22:11.577Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,22,242.3,191,0,1,51.3,,true,200,0,2026-11-25T03:22:13.473Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,23,216.3,192,0,1,24.3,,true,200,0,2026-11-25T03:22:15.389Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,24,217,189,0,1,28,,true,200,0,2026-11-25T03:22:17.228Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,25,230.4,200,0,1,30.4,,true,200,0,2026-11-25T03:22:19.069Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,26,234.7,195,0,1,39.7,,true,200,0,2026-11-25T03:22:20.978Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,27,225.2,197,0,1,28.2,,true,200,0,2026-11-25T03:22:22.830Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,28,231.5,197,0,1,34.5,,true,200,0,2026-11-25T03:22:24.697Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,29,238.5,192,0,1,46.5,,true,200,0,2026-11-25T03:22:26.601Z
+a,api,"lote trivial: N1, hardware/bits (lacunas, 3 casos)",python,frio_processo,30,247.8,212,0,1,35.8,,true,200,0,2026-11-25T03:22:28.488Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,1,245.1,215,0,2,30.1,,true,200,0,2026-11-25T03:22:30.272Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,2,231.3,199,0,2,32.3,,true,200,0,2026-11-25T03:22:30.522Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,3,251.7,201,0,2,50.7,,true,200,0,2026-11-25T03:22:30.759Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,4,238.3,196,0,2,42.3,,true,200,0,2026-11-25T03:22:35.551Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,5,213.6,191,0,2,22.6,,true,200,0,2026-11-25T03:22:35.792Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,6,251.2,193,0,2,58.2,,true,200,0,2026-11-25T03:22:36.031Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,7,215.9,194,0,2,21.9,,true,200,0,2026-11-25T03:22:36.285Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,8,222.9,198,0,2,24.9,,true,200,0,2026-11-25T03:22:41.061Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,9,226.3,198,0,2,28.3,,true,200,0,2026-11-25T03:22:41.309Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,10,228.1,208,0,2,20.1,,true,200,0,2026-11-25T03:22:41.539Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,11,244.3,193,0,2,51.3,,true,200,0,2026-11-25T03:22:41.798Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,12,227.5,191,0,2,36.5,,true,200,0,2026-11-25T03:22:46.577Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,13,209.9,189,0,2,20.9,,true,200,0,2026-11-25T03:22:46.827Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,14,210.6,189,0,2,21.6,,true,200,0,2026-11-25T03:22:47.041Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,15,217.4,194,0,2,23.4,,true,200,0,2026-11-25T03:22:47.311Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,16,225.3,196,0,2,29.3,,true,200,0,2026-11-25T03:22:52.082Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,17,232.8,199,0,2,33.8,,true,200,0,2026-11-25T03:22:52.345Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,18,214.2,191,0,2,23.2,,true,200,0,2026-11-25T03:22:52.581Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,19,219.4,196,0,2,23.4,,true,200,0,2026-11-25T03:22:52.827Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,20,227.5,204,0,2,23.5,,true,200,0,2026-11-25T03:22:57.586Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,21,252.2,206,0,2,46.2,,true,200,0,2026-11-25T03:22:57.847Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,22,235.9,201,0,2,34.9,,true,200,0,2026-11-25T03:22:58.109Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,23,220.4,194,0,2,26.4,,true,200,0,2026-11-25T03:22:58.347Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,24,235.6,208,0,2,27.6,,true,200,0,2026-11-25T03:23:03.101Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,25,234.2,207,0,2,27.2,,true,200,0,2026-11-25T03:23:03.350Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,26,239,214,0,2,25,,true,200,0,2026-11-25T03:23:03.614Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,27,234.4,208,0,2,26.4,,true,200,0,2026-11-25T03:23:03.856Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,28,318.5,223,0,2,95.5,,true,200,0,2026-11-25T03:23:08.609Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,29,279.8,226,0,2,53.8,,true,200,0,2026-11-25T03:23:08.934Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,quente,30,261.3,228,0,2,33.3,,true,200,0,2026-11-25T03:23:09.216Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,1,241.9,213,0,2,28.9,,true,200,0,2026-11-25T03:23:11.319Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,2,259.1,219,0,2,40.1,,true,200,0,2026-11-25T03:23:14.115Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,3,277.1,216,0,2,61.1,,true,200,0,2026-11-25T03:23:16.233Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,4,249.6,219,0,2,30.6,,true,200,0,2026-11-25T03:23:18.242Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,5,273.1,241,0,2,32.1,,true,200,0,2026-11-25T03:23:20.212Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,6,248.3,220,0,2,28.3,,true,200,0,2026-11-25T03:23:22.137Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,7,247.8,218,0,2,29.8,,true,200,0,2026-11-25T03:23:24.081Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,8,262.2,230,0,2,32.2,,true,200,0,2026-11-25T03:23:25.942Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,9,252.5,220,0,2,32.5,,true,200,0,2026-11-25T03:23:27.960Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,10,248.3,220,0,2,28.3,,true,200,0,2026-11-25T03:23:29.930Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,11,252.8,225,0,2,27.8,,true,200,0,2026-11-25T03:23:31.857Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,12,278.3,248,0,2,30.3,,true,200,0,2026-11-25T03:23:33.829Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,13,242.6,215,0,2,27.6,,true,200,0,2026-11-25T03:23:35.808Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,14,251.9,222,0,2,29.9,,true,200,0,2026-11-25T03:23:37.769Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,15,253.9,222,0,2,31.9,,true,200,0,2026-11-25T03:23:39.701Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,16,250.2,212,0,2,38.2,,true,200,0,2026-11-25T03:23:41.627Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,17,239.3,212,0,2,27.3,,true,200,0,2026-11-25T03:23:43.553Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,18,240,211,0,2,29,,true,200,0,2026-11-25T03:23:45.460Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,19,255.4,225,0,2,30.4,,true,200,0,2026-11-25T03:23:47.363Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,20,267.9,238,0,2,29.9,,true,200,0,2026-11-25T03:23:49.258Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,21,237.2,209,0,2,28.2,,true,200,0,2026-11-25T03:23:51.190Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,22,250.2,220,0,2,30.2,,true,200,0,2026-11-25T03:23:53.041Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,23,258.2,229,0,2,29.2,,true,200,0,2026-11-25T03:23:54.960Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,24,237.9,211,0,2,26.9,,true,200,0,2026-11-25T03:23:56.883Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,25,233.9,206,0,2,27.9,,true,200,0,2026-11-25T03:23:58.799Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,26,241.1,209,0,2,32.1,,true,200,0,2026-11-25T03:24:00.770Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,27,246.1,216,0,2,30.1,,true,200,0,2026-11-25T03:24:02.656Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,28,232.9,204,0,2,28.9,,true,200,0,2026-11-25T03:24:04.525Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,29,247,219,0,2,28,,true,200,0,2026-11-25T03:24:06.458Z
+b,api,"exercício típico do N1: for/range (código, 6 casos)",python,frio_processo,30,233.7,205,0,2,28.7,,true,200,0,2026-11-25T03:24:08.428Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,1,89.3,58,0,1,31.3,1,true,200,0,2026-11-25T03:24:21.352Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,2,174,60,0,1,114,1,true,200,0,2026-11-25T03:24:25.022Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,3,92.1,59,0,1,33.1,1,true,200,0,2026-11-25T03:24:28.280Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,4,84.4,61,0,1,23.4,1,true,200,0,2026-11-25T03:24:31.448Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,5,84.9,58,0,1,26.9,1,true,200,0,2026-11-25T03:24:34.606Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,6,122.2,91,0,1,31.2,1,true,200,0,2026-11-25T03:24:38.256Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,7,160.2,60,0,1,100.2,1,true,200,0,2026-11-25T03:24:41.971Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,8,89.2,62,0,1,27.2,1,true,200,0,2026-11-25T03:24:45.740Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,9,95.2,68,0,1,27.2,1,true,200,0,2026-11-25T03:24:49.421Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,10,77.8,57,0,1,20.8,1,true,200,0,2026-11-25T03:24:52.594Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,11,102.9,62,0,1,40.9,1,true,200,0,2026-11-25T03:24:56.242Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,12,118.3,65,0,1,53.3,1,true,200,0,2026-11-25T03:24:59.435Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,13,130.3,63,0,1,67.3,1,true,200,0,2026-11-25T03:25:03.116Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,14,114.7,58,0,1,56.7,1,true,200,0,2026-11-25T03:25:06.337Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,15,83.1,60,0,1,23.1,1,true,200,0,2026-11-25T03:25:09.519Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,16,106.4,62,0,1,44.4,1,true,200,0,2026-11-25T03:25:12.677Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,17,89.2,61,0,1,28.2,1,true,200,0,2026-11-25T03:25:16.348Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,18,86.5,62,0,1,24.5,1,true,200,0,2026-11-25T03:25:19.529Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,19,82.9,58,0,1,24.9,1,true,200,0,2026-11-25T03:25:22.689Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,20,83.8,57,0,1,26.8,1,true,200,0,2026-11-25T03:25:25.832Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,21,89.5,58,0,1,31.5,1,true,200,0,2026-11-25T03:25:28.975Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,22,108.9,58,0,1,50.9,1,true,200,0,2026-11-25T03:25:32.144Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,23,81.2,58,0,1,23.2,1,true,200,0,2026-11-25T03:25:35.320Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,24,97.3,60,0,1,37.3,1,true,200,0,2026-11-25T03:25:38.989Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,25,164,59,0,1,105,1,true,200,0,2026-11-25T03:25:42.671Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,26,82.5,57,0,1,25.5,1,true,200,0,2026-11-25T03:25:45.919Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,27,80.7,57,0,1,23.7,1,true,200,0,2026-11-25T03:25:49.057Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,28,84.2,62,0,1,22.2,1,true,200,0,2026-11-25T03:25:52.721Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,29,121.5,60,0,1,61.5,1,true,200,0,2026-11-25T03:25:55.889Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,quente,30,91,66,0,1,25,1,true,200,0,2026-11-25T03:25:59.599Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,1,2519.3,2493,0,1,26.3,0,true,200,0,2026-11-25T03:26:01.362Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,2,2446.6,2406,0,1,40.6,0,true,200,0,2026-11-25T03:26:05.505Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,3,2485,2457,0,1,28,0,true,200,0,2026-11-25T03:26:09.621Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,4,2423.3,2392,0,1,31.3,0,true,200,0,2026-11-25T03:26:13.763Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,5,2457.4,2419,0,1,38.4,0,true,200,0,2026-11-25T03:26:17.812Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,6,2434.6,2409,0,1,25.6,0,true,200,0,2026-11-25T03:26:21.948Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,7,2405.6,2362,0,1,43.6,0,true,200,0,2026-11-25T03:26:25.996Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,8,2474.8,2448,0,1,26.8,0,true,200,0,2026-11-25T03:26:30.015Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,9,2415.6,2384,0,1,31.6,0,true,200,0,2026-11-25T03:26:34.094Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,10,2469.1,2431,0,1,38.1,0,true,200,0,2026-11-25T03:26:38.145Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,11,2437.7,2412,0,1,25.7,0,true,200,0,2026-11-25T03:26:42.300Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,12,2437.1,2411,0,1,26.1,0,true,200,0,2026-11-25T03:26:46.423Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,13,2411.6,2370,0,1,41.6,0,true,200,0,2026-11-25T03:26:50.558Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,14,2433.3,2382,0,1,51.3,0,true,200,0,2026-11-25T03:26:54.635Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,15,2794,2758,0,1,36,0,true,200,0,2026-11-25T03:26:58.688Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,16,2665,2618,0,1,47,0,true,200,0,2026-11-25T03:27:03.153Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,17,2744.6,2710,0,1,34.6,0,true,200,0,2026-11-25T03:27:07.480Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,18,2706.4,2675,0,1,31.4,0,true,200,0,2026-11-25T03:27:11.847Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,19,2446,2422,0,1,24,0,true,200,0,2026-11-25T03:27:16.238Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,20,2427.7,2385,0,1,42.7,0,true,200,0,2026-11-25T03:27:20.318Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,21,2388.9,2344,0,1,44.9,0,true,200,0,2026-11-25T03:27:24.431Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,22,2425.9,2400,0,1,25.9,0,true,200,0,2026-11-25T03:27:28.511Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,23,2390.4,2345,0,1,45.4,0,true,200,0,2026-11-25T03:27:32.588Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,24,2420.6,2382,0,1,38.6,0,true,200,0,2026-11-25T03:27:36.633Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,25,2405,2379,0,1,26,0,true,200,0,2026-11-25T03:27:40.844Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,26,2395.3,2352,0,1,43.3,0,true,200,0,2026-11-25T03:27:44.871Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,27,2428.9,2404,0,1,24.9,0,true,200,0,2026-11-25T03:27:48.941Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,28,2396.7,2372,0,1,24.7,0,true,200,0,2026-11-25T03:27:53.005Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,29,2631.8,2606,0,1,25.8,0,true,200,0,2026-11-25T03:27:57.092Z
+c,api,"pandas do N4: Series e DataFrame (código, 9 casos)",dados,frio_processo,30,2748.8,2718,0,1,30.8,0,true,200,0,2026-11-25T03:28:01.336Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,1,9382.2,9338,0,1,44.2,0,true,200,0,2026-11-25T03:30:55.426Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,2,9650.1,9477,0,1,173.1,0,true,200,0,2026-11-25T03:31:04.813Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,3,9336.2,9283,0,1,53.2,0,true,200,0,2026-11-25T03:31:14.476Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,4,9377.2,9335,0,1,42.2,0,true,200,0,2026-11-25T03:31:23.817Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,5,9406.7,9299,0,1,107.7,0,true,200,0,2026-11-25T03:31:33.203Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,6,9339.4,9316,0,1,23.4,0,true,200,0,2026-11-25T03:31:42.614Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,7,9408.1,9384,0,1,24.1,0,true,200,0,2026-11-25T03:31:51.958Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,8,9567.1,9449,0,1,118.1,0,true,200,0,2026-11-25T03:32:01.371Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,9,9518.1,9493,0,1,25.1,0,true,200,0,2026-11-25T03:32:10.945Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,10,9383.1,9361,0,1,22.1,0,true,200,0,2026-11-25T03:32:20.468Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,11,9419.9,9356,0,1,63.9,0,true,200,0,2026-11-25T03:32:29.856Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,12,9509.4,9475,0,1,34.4,0,true,200,0,2026-11-25T03:32:39.284Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,13,9727.2,9679,0,1,48.2,0,true,200,0,2026-11-25T03:32:48.798Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,14,9508.9,9427,0,1,81.9,0,true,200,0,2026-11-25T03:32:58.529Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,15,9384.1,9359,0,1,25.1,0,true,200,0,2026-11-25T03:33:08.043Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,16,9540.4,9510,0,1,30.4,0,true,200,0,2026-11-25T03:33:17.432Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,17,9467.3,9436,0,1,31.3,0,true,200,0,2026-11-25T03:33:26.977Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,18,9460,9436,0,1,24,0,true,200,0,2026-11-25T03:33:36.449Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,19,9423.5,9372,0,1,51.5,0,true,200,0,2026-11-25T03:33:45.913Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,20,9444,9411,0,1,33,0,true,200,0,2026-11-25T03:33:55.345Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,21,9373.6,9352,0,1,21.6,0,true,200,0,2026-11-25T03:34:04.795Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,22,9550.6,9529,0,1,21.6,0,true,200,0,2026-11-25T03:34:14.173Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,23,9462.1,9430,0,1,32.1,0,true,200,0,2026-11-25T03:34:23.729Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,24,9364.2,9342,0,1,22.2,0,true,200,0,2026-11-25T03:34:33.197Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,25,9485.4,9442,0,1,43.4,0,true,200,0,2026-11-25T03:34:42.566Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,26,9475.5,9441,0,1,34.5,0,true,200,0,2026-11-25T03:34:52.060Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,27,9457.2,9404,0,1,53.2,0,true,200,0,2026-11-25T03:35:01.541Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,28,9366.4,9346,0,1,20.4,0,true,200,0,2026-11-25T03:35:11.003Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,29,9595.2,9503,0,1,92.2,0,true,200,0,2026-11-25T03:35:20.375Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_pool,30,9611,9551,0,1,60,0,true,200,0,2026-11-25T03:35:29.974Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,1,9737.6,9695,0,1,42.6,0,true,200,0,2026-11-25T03:35:41.340Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,2,9497.4,9472,0,1,25.4,0,true,200,0,2026-11-25T03:35:52.744Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,3,9725.5,9595,0,1,130.5,0,true,200,0,2026-11-25T03:36:03.946Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,4,9482.3,9436,0,1,46.3,0,true,200,0,2026-11-25T03:36:15.520Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,5,9673.7,9644,0,1,29.7,0,true,200,0,2026-11-25T03:36:26.632Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,6,9669.9,9616,0,1,53.9,0,true,200,0,2026-11-25T03:36:37.906Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,7,9497.1,9472,0,1,25.1,0,true,200,0,2026-11-25T03:36:49.250Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,8,9495.9,9471,0,1,24.9,0,true,200,0,2026-11-25T03:37:00.422Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,9,9498.4,9473,0,1,25.4,0,true,200,0,2026-11-25T03:37:11.580Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,10,9740.5,9681,0,1,59.5,0,true,200,0,2026-11-25T03:37:22.685Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,11,9513.1,9487,0,1,26.1,0,true,200,0,2026-11-25T03:37:34.161Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,12,9504.4,9460,0,1,44.4,0,true,200,0,2026-11-25T03:37:45.326Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,13,9813.5,9752,0,1,61.5,0,true,200,0,2026-11-25T03:37:56.491Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,14,9570.9,9510,0,1,60.9,0,true,200,0,2026-11-25T03:38:07.924Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,15,9682.7,9571,0,1,111.7,0,true,200,0,2026-11-25T03:38:19.121Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,16,9667.6,9633,0,1,34.6,0,true,200,0,2026-11-25T03:38:30.523Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,17,9484.3,9461,0,1,23.3,0,true,200,0,2026-11-25T03:38:41.806Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,18,9618.4,9591,0,1,27.4,0,true,200,0,2026-11-25T03:38:52.947Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,19,9603.3,9518,0,1,85.3,0,true,200,0,2026-11-25T03:39:04.494Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,20,9595.5,9568,0,1,27.5,0,true,200,0,2026-11-25T03:39:15.817Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,21,9612.3,9547,0,1,65.3,0,true,200,0,2026-11-25T03:39:27.126Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,22,9533.3,9485,0,1,48.3,0,true,200,0,2026-11-25T03:39:38.391Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,23,9490.4,9466,0,1,24.4,0,true,200,0,2026-11-25T03:39:49.626Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,24,9532.7,9509,0,1,23.7,0,true,200,0,2026-11-25T03:40:00.742Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,25,9473.2,9428,0,1,45.2,0,true,200,0,2026-11-25T03:40:11.936Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,26,9610.4,9561,0,1,49.4,0,true,200,0,2026-11-25T03:40:23.033Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,27,9652.9,9610,0,1,42.9,0,true,200,0,2026-11-25T03:40:34.337Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,28,9510.9,9467,0,1,43.9,0,true,200,0,2026-11-25T03:40:45.610Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,29,9729.7,9668,0,1,61.7,0,true,200,0,2026-11-25T03:40:56.784Z
+d,api,"scikit-learn do N5: fit/predict/transform (código, 8 casos)",ml,frio_processo,30,9530.5,9504,0,1,26.5,0,true,200,0,2026-11-25T03:41:08.130Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,1,162.6,118,0,1,44.6,1,true,200,0,2026-11-25T03:41:27.635Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,2,187.4,112,0,1,75.4,1,true,200,0,2026-11-25T03:41:30.887Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,3,182.6,109,0,1,73.6,1,true,200,0,2026-11-25T03:41:34.135Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,4,162.6,118,0,1,44.6,1,true,200,0,2026-11-25T03:41:37.387Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,5,182.7,118,0,1,64.7,1,true,200,0,2026-11-25T03:41:40.628Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,6,159,111,0,1,48,1,true,200,0,2026-11-25T03:41:43.878Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,7,154.3,114,0,1,40.3,1,true,200,0,2026-11-25T03:41:47.109Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,8,160.3,116,0,1,44.3,1,true,200,0,2026-11-25T03:41:50.326Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,9,161.8,111,0,1,50.8,1,true,200,0,2026-11-25T03:41:53.568Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,10,202.2,112,0,1,90.2,1,true,200,0,2026-11-25T03:41:56.824Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,11,218.2,124,0,1,94.2,1,true,200,0,2026-11-25T03:42:00.122Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,12,140.2,113,0,1,27.2,1,true,200,0,2026-11-25T03:42:03.412Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,13,160.3,111,0,1,49.3,1,true,200,0,2026-11-25T03:42:06.636Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,14,139.4,115,0,1,24.4,1,true,200,0,2026-11-25T03:42:09.867Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,15,132.6,109,0,1,23.6,1,true,200,0,2026-11-25T03:42:13.065Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,16,196.1,108,0,1,88.1,1,true,200,0,2026-11-25T03:42:16.281Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,17,134.1,111,0,1,23.1,1,true,200,0,2026-11-25T03:42:19.559Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,18,153,114,0,1,39,1,true,200,0,2026-11-25T03:42:22.761Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,19,167.2,110,0,1,57.2,1,true,200,0,2026-11-25T03:42:25.988Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,20,139.2,111,0,1,28.2,1,true,200,0,2026-11-25T03:42:29.230Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,21,142.9,112,0,1,30.9,1,true,200,0,2026-11-25T03:42:32.443Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,22,143.4,111,0,1,32.4,1,true,200,0,2026-11-25T03:42:35.669Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,23,171.5,112,0,1,59.5,1,true,200,0,2026-11-25T03:42:38.875Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,24,155.3,109,0,1,46.3,1,true,200,0,2026-11-25T03:42:42.119Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,25,139.1,116,0,1,23.1,1,true,200,0,2026-11-25T03:42:45.872Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,26,158.2,113,0,1,45.2,1,true,200,0,2026-11-25T03:42:49.068Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,27,137.1,112,0,1,25.1,1,true,200,0,2026-11-25T03:42:52.299Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,28,153,112,0,1,41,1,true,200,0,2026-11-25T03:42:55.504Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,29,162.8,113,0,1,49.8,1,true,200,0,2026-11-25T03:42:58.705Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,quente,30,145,113,0,1,32,1,true,200,0,2026-11-25T03:43:01.972Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,1,2500.5,2475,0,1,25.5,0,true,200,0,2026-11-25T03:43:03.759Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,2,2498.3,2463,0,1,35.3,0,true,200,0,2026-11-25T03:43:07.934Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,3,2501.5,2476,0,1,25.5,0,true,200,0,2026-11-25T03:43:12.218Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,4,2485.6,2460,0,1,25.6,0,true,200,0,2026-11-25T03:43:16.373Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,5,2503.8,2453,0,1,50.8,0,true,200,0,2026-11-25T03:43:20.527Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,6,2513.1,2424,0,1,89.1,0,true,200,0,2026-11-25T03:43:24.696Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,7,2484.4,2439,0,1,45.4,0,true,200,0,2026-11-25T03:43:29.023Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,8,2505,2478,0,1,27,0,true,200,0,2026-11-25T03:43:33.100Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,9,2505.3,2468,0,1,37.3,0,true,200,0,2026-11-25T03:43:37.178Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,10,2492.9,2467,0,1,25.9,0,true,200,0,2026-11-25T03:43:41.530Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,11,2612.5,2529,0,1,83.5,0,true,200,0,2026-11-25T03:43:45.691Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,12,2523.3,2496,0,1,27.3,0,true,200,0,2026-11-25T03:43:50.083Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,13,2488.3,2463,0,1,25.3,0,true,200,0,2026-11-25T03:43:54.256Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,14,2512.1,2487,0,1,25.1,0,true,200,0,2026-11-25T03:43:58.393Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,15,2463,2437,0,1,26,0,true,200,0,2026-11-25T03:44:02.522Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,16,2488.9,2462,0,1,26.9,0,true,200,0,2026-11-25T03:44:06.579Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,17,2495.5,2452,0,1,43.5,0,true,200,0,2026-11-25T03:44:10.704Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,18,2452.5,2410,0,1,42.5,0,true,200,0,2026-11-25T03:44:14.862Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,19,2494.3,2468,0,1,26.3,0,true,200,0,2026-11-25T03:44:18.914Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,20,2456.6,2432,0,1,24.6,0,true,200,0,2026-11-25T03:44:23.084Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,21,2482,2405,0,1,77,0,true,200,0,2026-11-25T03:44:27.220Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,22,2497.1,2471,0,1,26.1,0,true,200,0,2026-11-25T03:44:31.558Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,23,2483,2441,0,1,42,0,true,200,0,2026-11-25T03:44:35.706Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,24,2504.3,2477,0,1,27.3,0,true,200,0,2026-11-25T03:44:40.025Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,25,2537.6,2467,0,1,70.6,0,true,200,0,2026-11-25T03:44:44.144Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,26,2571.1,2545,0,1,26.1,0,true,200,0,2026-11-25T03:44:48.503Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,27,2485.8,2451,0,1,34.8,0,true,200,0,2026-11-25T03:44:52.741Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,28,2469.5,2444,0,1,25.5,0,true,200,0,2026-11-25T03:44:56.838Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,29,2546.9,2512,0,1,34.9,0,true,200,0,2026-11-25T03:45:00.882Z
+e,api,"treino numpy do N6: laço de treino (código, 10 casos)",dados,frio_processo,30,2488.4,2461,0,1,27.4,0,true,200,0,2026-11-25T03:45:05.295Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,1,186.8,185,0,1,1.8,,true,200,0,2026-11-25T03:45:07.983Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,2,196.4,195,0,1,1.4,,true,200,0,2026-11-25T03:45:08.173Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,3,186.7,185,0,1,1.7,,true,200,0,2026-11-25T03:45:08.372Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,4,191.8,190,0,1,1.8,,true,200,0,2026-11-25T03:45:08.561Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,5,191,189,0,1,2,,true,200,0,2026-11-25T03:45:08.755Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,6,185.3,184,0,1,1.3,,true,200,0,2026-11-25T03:45:08.949Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,7,196.8,195,0,1,1.8,,true,200,0,2026-11-25T03:45:09.136Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,8,194.1,192,0,1,2.1,,true,200,0,2026-11-25T03:45:09.336Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,9,196.2,191,0,1,5.2,,true,200,0,2026-11-25T03:45:09.532Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,10,193.2,191,0,1,2.2,,true,200,0,2026-11-25T03:45:09.736Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,11,190.7,189,0,1,1.7,,true,200,0,2026-11-25T03:45:09.932Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,12,187,185,0,1,2,,true,200,0,2026-11-25T03:45:10.126Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,13,202.7,201,0,1,1.7,,true,200,0,2026-11-25T03:45:10.316Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,14,190.6,188,0,1,2.6,,true,200,0,2026-11-25T03:45:10.523Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,15,193.8,192,0,1,1.8,,true,200,0,2026-11-25T03:45:10.716Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,16,187.6,186,0,1,1.6,,true,200,0,2026-11-25T03:45:10.912Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,17,187.1,186,0,1,1.1,,true,200,0,2026-11-25T03:45:11.102Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,18,190.5,188,0,1,2.5,,true,200,0,2026-11-25T03:45:11.292Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,19,188.7,186,0,1,2.7,,true,200,0,2026-11-25T03:45:11.490Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,20,186.7,185,0,1,1.7,,true,200,0,2026-11-25T03:45:11.681Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,21,194.4,193,0,1,1.4,,true,200,0,2026-11-25T03:45:11.871Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,22,192.1,191,0,1,1.1,,true,200,0,2026-11-25T03:45:12.067Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,23,192.9,191,0,1,1.9,,true,200,0,2026-11-25T03:45:12.262Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,24,195.7,194,0,1,1.7,,true,200,0,2026-11-25T03:45:12.459Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,25,190.4,189,0,1,1.4,,true,200,0,2026-11-25T03:45:12.658Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,26,184.2,183,0,1,1.2,,true,200,0,2026-11-25T03:45:12.851Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,27,189.9,189,0,1,0.9,,true,200,0,2026-11-25T03:45:13.038Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,28,187.8,186,0,1,1.8,,true,200,0,2026-11-25T03:45:13.231Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,29,191,189,0,1,2,,true,200,0,2026-11-25T03:45:13.421Z
+piso-python,runner_direto,piso WASI: print('ok'),python,quente,30,188.6,187,0,1,1.6,,true,200,0,2026-11-25T03:45:13.614Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,1,193.2,188,0,1,5.2,,true,200,0,2026-11-25T03:45:15.463Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,2,197.9,193,0,1,4.9,,true,200,0,2026-11-25T03:45:17.312Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,3,195,190,0,1,5,,true,200,0,2026-11-25T03:45:19.131Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,4,199.3,194,0,1,5.3,,true,200,0,2026-11-25T03:45:20.980Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,5,188.3,183,0,1,5.3,,true,200,0,2026-11-25T03:45:22.859Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,6,198.6,193,0,1,5.6,,true,200,0,2026-11-25T03:45:24.639Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,7,200.3,195,0,1,5.3,,true,200,0,2026-11-25T03:45:26.492Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,8,202,197,0,1,5,,true,200,0,2026-11-25T03:45:28.331Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,9,205.7,201,0,1,4.7,,true,200,0,2026-11-25T03:45:30.190Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,10,195.2,190,0,1,5.2,,true,200,0,2026-11-25T03:45:32.023Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,11,203.7,198,0,1,5.7,,true,200,0,2026-11-25T03:45:33.892Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,12,202,196,0,1,6,,true,200,0,2026-11-25T03:45:35.738Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,13,206.4,200,0,1,6.4,,true,200,0,2026-11-25T03:45:37.579Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,14,200.1,195,0,1,5.1,,true,200,0,2026-11-25T03:45:39.429Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,15,197.4,191,0,1,6.4,,true,200,0,2026-11-25T03:45:41.322Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,16,197.8,191,0,1,6.8,,true,200,0,2026-11-25T03:45:43.174Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,17,198.4,193,0,1,5.4,,true,200,0,2026-11-25T03:45:45.032Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,18,197.6,192,0,1,5.6,,true,200,0,2026-11-25T03:45:46.873Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,19,197.4,191,0,1,6.4,,true,200,0,2026-11-25T03:45:48.708Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,20,195.2,189,0,1,6.2,,true,200,0,2026-11-25T03:45:50.523Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,21,201.4,196,0,1,5.4,,true,200,0,2026-11-25T03:45:52.384Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,22,200.5,195,0,1,5.5,,true,200,0,2026-11-25T03:45:54.272Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,23,195.9,190,0,1,5.9,,true,200,0,2026-11-25T03:45:56.133Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,24,198,192,0,1,6,,true,200,0,2026-11-25T03:45:57.990Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,25,196.6,191,0,1,5.6,,true,200,0,2026-11-25T03:45:59.859Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,26,201.2,196,0,1,5.2,,true,200,0,2026-11-25T03:46:01.783Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,27,197.4,193,0,1,4.4,,true,200,0,2026-11-25T03:46:03.634Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,28,194.6,189,0,1,5.6,,true,200,0,2026-11-25T03:46:05.471Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,29,198.8,193,0,1,5.8,,true,200,0,2026-11-25T03:46:07.338Z
+piso-python,runner_direto,piso WASI: print('ok'),python,frio_processo,30,198.4,193,0,1,5.4,,true,200,0,2026-11-25T03:46:09.137Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,1,45.6,43,0,1,2.6,1,true,200,0,2026-11-25T03:46:15.539Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,2,46.3,44,0,1,2.3,1,true,200,0,2026-11-25T03:46:19.193Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,3,45,43,0,1,2,1,true,200,0,2026-11-25T03:46:22.788Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,4,43.7,42,0,1,1.7,1,true,200,0,2026-11-25T03:46:26.424Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,5,45.5,44,0,1,1.5,1,true,200,0,2026-11-25T03:46:30.035Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,6,44,41,0,1,3,1,true,200,0,2026-11-25T03:46:33.680Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,7,45.5,42,0,1,3.5,1,true,200,0,2026-11-25T03:46:37.327Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,8,49.3,45,0,1,4.3,1,true,200,0,2026-11-25T03:46:40.972Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,9,44.3,43,0,1,1.3,1,true,200,0,2026-11-25T03:46:44.600Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,10,43.1,41,0,1,2.1,1,true,200,0,2026-11-25T03:46:48.223Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,11,43.1,41,0,1,2.1,1,true,200,0,2026-11-25T03:46:51.866Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,12,46.5,45,0,1,1.5,1,true,200,0,2026-11-25T03:46:55.493Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,13,43.4,42,0,1,1.4,1,true,200,0,2026-11-25T03:46:59.123Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,14,47.6,46,0,1,1.6,1,true,200,0,2026-11-25T03:47:02.732Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,15,43.4,41,0,1,2.4,1,true,200,0,2026-11-25T03:47:06.361Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,16,43.4,42,0,1,1.4,1,true,200,0,2026-11-25T03:47:09.999Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,17,42.7,41,0,1,1.7,1,true,200,0,2026-11-25T03:47:13.642Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,18,42.6,41,0,1,1.6,1,true,200,0,2026-11-25T03:47:17.251Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,19,43.4,42,0,1,1.4,1,true,200,0,2026-11-25T03:47:20.876Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,20,45.2,42,0,1,3.2,1,true,200,0,2026-11-25T03:47:24.499Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,21,43.3,42,0,1,1.3,1,true,200,0,2026-11-25T03:47:28.108Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,22,42.8,41,0,1,1.8,1,true,200,0,2026-11-25T03:47:31.757Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,23,43.2,41,0,1,2.2,1,true,200,0,2026-11-25T03:47:35.404Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,24,45,43,0,1,2,1,true,200,0,2026-11-25T03:47:39.055Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,25,46.2,45,0,1,1.2,1,true,200,0,2026-11-25T03:47:42.693Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,26,43.9,42,0,1,1.9,1,true,200,0,2026-11-25T03:47:46.319Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,27,42.8,41,0,1,1.8,1,true,200,0,2026-11-25T03:47:49.932Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,28,46.8,45,0,1,1.8,1,true,200,0,2026-11-25T03:47:53.574Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,29,46.5,44,0,1,2.5,1,true,200,0,2026-11-25T03:47:57.195Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,quente,30,50,44,0,1,6,1,true,200,0,2026-11-25T03:48:00.835Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,1,2395.5,2386,0,1,9.5,0,true,200,0,2026-11-25T03:48:02.651Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,2,2401.2,2396,0,1,5.2,0,true,200,0,2026-11-25T03:48:06.710Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,3,2388.7,2384,0,1,4.7,0,true,200,0,2026-11-25T03:48:10.941Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,4,2363,2358,0,1,5,0,true,200,0,2026-11-25T03:48:14.975Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,5,2492,2486,0,1,6,0,true,200,0,2026-11-25T03:48:19.014Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,6,2402.8,2398,0,1,4.8,0,true,200,0,2026-11-25T03:48:23.090Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,7,2405.6,2401,0,1,4.6,0,true,200,0,2026-11-25T03:48:27.139Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,8,2450,2444,0,1,6,0,true,200,0,2026-11-25T03:48:31.239Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,9,2378.6,2372,0,1,6.6,0,true,200,0,2026-11-25T03:48:35.328Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,10,2371.4,2366,0,1,5.4,0,true,200,0,2026-11-25T03:48:39.389Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,11,2372.9,2367,0,1,5.9,0,true,200,0,2026-11-25T03:48:43.327Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,12,2353.3,2345,0,1,8.3,0,true,200,0,2026-11-25T03:48:47.334Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,13,2392.4,2386,0,1,6.4,0,true,200,0,2026-11-25T03:48:51.300Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,14,2364.2,2359,0,1,5.2,0,true,200,0,2026-11-25T03:48:55.326Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,15,2477.5,2472,0,1,5.5,0,true,200,0,2026-11-25T03:48:59.360Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,16,2412.9,2407,0,1,5.9,0,true,200,0,2026-11-25T03:49:03.798Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,17,2462.3,2457,0,1,5.3,0,true,200,0,2026-11-25T03:49:07.838Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,18,2367.1,2358,0,1,9.1,0,true,200,0,2026-11-25T03:49:11.968Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,19,2355.3,2348,0,1,7.3,0,true,200,0,2026-11-25T03:49:15.953Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,20,2455,2447,0,1,8,0,true,200,0,2026-11-25T03:49:20.124Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,21,2371.8,2367,0,1,4.8,0,true,200,0,2026-11-25T03:49:24.215Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,22,2366.8,2362,0,1,4.8,0,true,200,0,2026-11-25T03:49:28.383Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,23,2345.3,2340,0,1,5.3,0,true,200,0,2026-11-25T03:49:32.378Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,24,2373.2,2368,0,1,5.2,0,true,200,0,2026-11-25T03:49:36.354Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,25,2372.1,2367,0,1,5.1,0,true,200,0,2026-11-25T03:49:40.338Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,26,2439.3,2434,0,1,5.3,0,true,200,0,2026-11-25T03:49:44.406Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,27,2397.7,2392,0,1,5.7,0,true,200,0,2026-11-25T03:49:48.490Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,28,2432.8,2427,0,1,5.8,0,true,200,0,2026-11-25T03:49:52.453Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,29,2391,2386,0,1,5,0,true,200,0,2026-11-25T03:49:56.539Z
+piso-dados,runner_direto,"piso Pyodide (perfil dados): import numpy, pandas",dados,frio_processo,30,2398.7,2393,0,1,5.7,0,true,200,0,2026-11-25T03:50:00.562Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,1,9460.2,9459,0,1,1.2,0,true,200,0,2026-11-25T03:50:12.703Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,2,9470.3,9469,0,1,1.3,0,true,200,0,2026-11-25T03:50:22.166Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,3,9361.1,9359,0,1,2.1,0,true,200,0,2026-11-25T03:50:31.640Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,4,9436.8,9436,0,1,0.8,0,true,200,0,2026-11-25T03:50:41.005Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,5,9403.3,9401,0,1,2.3,0,true,200,0,2026-11-25T03:50:50.444Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,6,9513.3,9511,0,1,2.3,0,true,200,0,2026-11-25T03:50:59.853Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,7,9406.5,9404,0,1,2.5,0,true,200,0,2026-11-25T03:51:09.373Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,8,9444.5,9441,0,1,3.5,0,true,200,0,2026-11-25T03:51:18.789Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,9,9333.3,9332,0,1,1.3,0,true,200,0,2026-11-25T03:51:28.239Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,10,9290.6,9289,0,1,1.6,0,true,200,0,2026-11-25T03:51:37.576Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,11,9343,9342,0,1,1,0,true,200,0,2026-11-25T03:51:46.871Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,12,9358.9,9358,0,1,0.9,0,true,200,0,2026-11-25T03:51:56.218Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,13,9525.1,9523,0,1,2.1,0,true,200,0,2026-11-25T03:52:05.582Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,14,9353,9351,0,1,2,0,true,200,0,2026-11-25T03:52:15.113Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,15,9262.9,9261,0,1,1.9,0,true,200,0,2026-11-25T03:52:24.473Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,16,9329.2,9328,0,1,1.2,0,true,200,0,2026-11-25T03:52:33.740Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,17,9363.2,9362,0,1,1.2,0,true,200,0,2026-11-25T03:52:43.073Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,18,9273.5,9272,0,1,1.5,0,true,200,0,2026-11-25T03:52:52.439Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,19,9313,9309,0,1,4,0,true,200,0,2026-11-25T03:53:01.718Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,20,9461.2,9459,0,1,2.2,0,true,200,0,2026-11-25T03:53:11.035Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,21,9466.4,9465,0,1,1.4,0,true,200,0,2026-11-25T03:53:20.500Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,22,9500.6,9499,0,1,1.6,0,true,200,0,2026-11-25T03:53:29.972Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,23,9568.2,9565,0,1,3.2,0,true,200,0,2026-11-25T03:53:39.482Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,24,9525.2,9522,0,1,3.2,0,true,200,0,2026-11-25T03:53:49.059Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,25,9556.2,9556,0,1,0.2,0,true,200,0,2026-11-25T03:53:58.589Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,26,9570.9,9570,0,1,0.9,0,true,200,0,2026-11-25T03:54:08.151Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,27,9401,9400,0,1,1,0,true,200,0,2026-11-25T03:54:17.725Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,28,9427.3,9424,0,1,3.3,0,true,200,0,2026-11-25T03:54:27.135Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,29,9459.2,9456,0,1,3.2,0,true,200,0,2026-11-25T03:54:36.568Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_pool,30,9400.6,9399,0,1,1.6,0,true,200,0,2026-11-25T03:54:46.031Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,1,9712.8,9708,0,1,4.8,0,true,200,0,2026-11-25T03:54:57.156Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,2,9712.6,9708,0,1,4.6,0,true,200,0,2026-11-25T03:55:08.500Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,3,9588.8,9584,0,1,4.8,0,true,200,0,2026-11-25T03:55:19.860Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,4,9560,9555,0,1,5,0,true,200,0,2026-11-25T03:55:31.093Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,5,9569.9,9565,0,1,4.9,0,true,200,0,2026-11-25T03:55:42.396Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,6,9532.8,9524,0,1,8.8,0,true,200,0,2026-11-25T03:55:53.604Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,7,9690.7,9686,0,1,4.7,0,true,200,0,2026-11-25T03:56:04.909Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,8,9680.3,9676,0,1,4.3,0,true,200,0,2026-11-25T03:56:16.221Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,9,9525.1,9519,0,1,6.1,0,true,200,0,2026-11-25T03:56:27.683Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,10,9489.6,9485,0,1,4.6,0,true,200,0,2026-11-25T03:56:38.877Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,11,9528.9,9524,0,1,4.9,0,true,200,0,2026-11-25T03:56:50.181Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,12,9718.6,9714,0,1,4.6,0,true,200,0,2026-11-25T03:57:01.612Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,13,9641.2,9636,0,1,5.2,0,true,200,0,2026-11-25T03:57:13.196Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,14,9405.7,9401,0,1,4.7,0,true,200,0,2026-11-25T03:57:24.483Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,15,9441,9437,0,1,4,0,true,200,0,2026-11-25T03:57:35.658Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,16,9644.1,9640,0,1,4.1,0,true,200,0,2026-11-25T03:57:46.704Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,17,9563.2,9558,0,1,5.2,0,true,200,0,2026-11-25T03:57:58.291Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,18,9582.2,9577,0,1,5.2,0,true,200,0,2026-11-25T03:58:09.502Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,19,9749.5,9745,0,1,4.5,0,true,200,0,2026-11-25T03:58:20.983Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,20,9655.6,9651,0,1,4.6,0,true,200,0,2026-11-25T03:58:32.596Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,21,9511.1,9507,0,1,4.1,0,true,200,0,2026-11-25T03:58:44.003Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,22,9437.4,9432,0,1,5.4,0,true,200,0,2026-11-25T03:58:55.185Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,23,9603.5,9598,0,1,5.5,0,true,200,0,2026-11-25T03:59:06.261Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,24,9620,9616,0,1,4,0,true,200,0,2026-11-25T03:59:17.508Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,25,9627.3,9622,0,1,5.3,0,true,200,0,2026-11-25T03:59:28.888Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,26,9549.4,9544,0,1,5.4,0,true,200,0,2026-11-25T03:59:40.157Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,27,9500.7,9496,0,1,4.7,0,true,200,0,2026-11-25T03:59:51.327Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,28,9586.2,9582,0,1,4.2,0,true,200,0,2026-11-25T04:00:02.472Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,29,9585.3,9579,0,1,6.3,0,true,200,0,2026-11-25T04:00:13.919Z
+piso-ml,runner_direto,piso Pyodide (perfil ml): import sklearn,ml,frio_processo,30,9670.4,9665,0,1,5.4,0,true,200,0,2026-11-25T04:00:25.183Z
