@@ -11,8 +11,9 @@ dependências novas**: não há k6 nem autocannon; os usuários virtuais com tem
 | `recursos.mts` | memória e CPU por worker (`docker stats`) e tamanho das imagens Docker | `recursos.csv` |
 | `custo.mts` | vCPUs e memória para 100 alunos com folga de 30%, a partir dos CSVs | terminal |
 
-Todos gravam também a seção correspondente (hardware, versões, parâmetros) em
-`docs/tcc/dados/ambiente.json`. Nenhum guarda nome de máquina, usuário, e-mail real ou segredo: os
+Todos gravam os arquivos na pasta de `--dir-dados` (padrão `docs/tcc/dados`; veja "Pasta de dados,
+mesclagem e antes/depois") e registram uma **rodada** (hardware, versões, parâmetros, configuração do
+executor) na seção correspondente de `ambiente.json`. Nenhum guarda nome de máquina, usuário, e-mail real ou segredo: os
 alunos virtuais são `bench.*@bench.invalid` com senha aleatória que só existe na memória.
 
 ## Pré-requisitos
@@ -43,22 +44,50 @@ alunos virtuais são `bench.*@bench.invalid` com senha aleatória que só existe
 - Só para `latencia.mts --api URL` (API já em execução, ex.: dev): deixa contas
   `bench.*@bench.invalid` e progresso no banco dessa API. Não é o padrão; evite.
 
+## Pasta de dados, mesclagem e antes/depois
+
+Todos os scripts aceitam `--dir-dados <pasta>` (padrão `docs/tcc/dados`): CSVs e `ambiente.json` da
+medição vão para essa pasta e `custo.mts` lê tudo dela. Fluxo "antes/depois": os dados da Fase D ficam em
+`docs/tcc/dados` ("antes", intocados) e a remedição com o executor novo vai para `docs/tcc/dados/d2`
+("depois"), com os mesmos comandos mais `--dir-dados docs/tcc/dados/d2`.
+
+- **Rodada parcial não destrói a anterior.** Ao regravar um CSV existente, só as linhas das chaves
+  medidas agora são trocadas; as demais são preservadas. Chaves: `latencia.csv` = cenário;
+  `carga.csv` = motor × N; `recursos.csv` = tipo + rótulo + motor + k (ou imagem). Rodar
+  `carga.mts --motores ml` troca só as linhas do ml.
+- **Resumos recalculados do CSV completo**: `latencia-resumo.csv` e `carga-saturacao.csv` nunca saem só
+  da última rodada.
+- **Cabeçalho diferente do esperado = erro** (formatos não se misturam); o arquivo não é alterado. Use
+  outra pasta ou mova o arquivo. `ambiente.json` ilegível também aborta, sem sobrescrever.
+- **`ambiente.json`**: cada seção (`latencia`, `carga`, `recursos`) guarda `rodadas`, uma lista com data ISO,
+  parâmetros, motores/níveis medidos e a configuração do executor (`inicio` e `fim`). Rodadas antigas
+  nunca são apagadas; seção no formato anterior vira a primeira rodada (`formato_anterior: true`).
+- **Configuração do executor** (de `GET /healthz` e `GET /v1/stats`): `politica_pyodide` (texto único ou
+  objeto `{dados, ml}`), `pool_aquecido`, `capacity`, `fila_maxima` e `memory: { limitMb, usedMb,
+  peakUsedMb, blocked }` (campo opcional do `/v1/stats`; executor sem ele = `null`).
+- Para refazer um arquivo do zero use `recursos.mts --zerar` ou apague-o; dos outros, use outra pasta.
+
+Teste da mesclagem (sem Docker nem executor): `node --test scripts/bench/lib/dados.test.mts`.
+
 ## Comandos
 
 ```bash
 # 1. Latência (≈ 10–30 min; com --cmd-reinicio, mais: cada frio reinicia o executor)
 node scripts/bench/latencia.mts --repeticoes 30 \
   --cmd-reinicio "docker compose -f infra/compose/compose.dev.yml --profile runner restart runner"
+# só alguns motores, na pasta da remedição (troca só os cenários desses motores):
+node scripts/bench/latencia.mts --motores ml --dir-dados docs/tcc/dados/d2
 
 # 2. Recursos por worker e imagens (executor em contêiner)
-node scripts/bench/recursos.mts imagens
-node scripts/bench/recursos.mts workers --motores python,dados,ml --k 1,2,4
+node scripts/bench/recursos.mts imagens --dir-dados docs/tcc/dados/d2
+node scripts/bench/recursos.mts workers --motores python,dados,ml --k 1,2,4 --dir-dados docs/tcc/dados/d2
 
 # 3. Carga (≈ 1 h para 3 motores × 4 níveis × 300 s); apaga o banco ao final
-node scripts/bench/carga.mts --niveis 10,25,50,100 --duracao-s 300
+node scripts/bench/carga.mts --niveis 10,25,50,100 --duracao-s 300 --dir-dados docs/tcc/dados/d2
+node scripts/bench/carga.mts --motores ml --dir-dados docs/tcc/dados/d2   # rodada parcial: preserva python e dados
 
 # 4. Conta de custo (preço opcional, em qualquer moeda)
-node scripts/bench/custo.mts --alunos 100 --mix python=0.4,dados=0.4,ml=0.2
+node scripts/bench/custo.mts --alunos 100 --mix python=0.4,dados=0.4,ml=0.2 --dir-dados docs/tcc/dados/d2
 node scripts/bench/custo.mts --preco-vcpu-hora <P1> --preco-gib-hora <P2>
 
 # Sobras de uma carga interrompida (só nomes levelusp-bench-*)
@@ -96,9 +125,13 @@ rodízio respeitam o limite de 12 verificações/min.
 - **Condição**: `quente` (worker Pyodide aquecido no pool; WASI não tem pool), `frio_pool` (o pool do
   perfil estava vazio: o worker é criado no envio) e `frio_processo` (executor reiniciado por
   `--cmd-reinicio` antes de cada execução). A condição é classificada pelo estado observado do pool
-  (`pool_quente_antes`). Sem `--cmd-reinicio` o frio do WASI não é medido. O perfil `ml` só tem quente
-  se o executor subir com `RUNNER_PYODIDE_WARM=dados:1,ml:1`; com o padrão (`ml:0`) todas as
-  execuções dele são `frio_pool`. Anote o valor usado.
+  (`pool_quente_antes`). Sem `--cmd-reinicio` o frio do WASI não é medido. Não se assume `ml:0`: a
+  condição vem do que o executor informa (pool aquecido observado antes de cada envio). Com a política
+  `reuse` o worker volta ao pool depois do lote, então o ml tem cenário quente e o script mede as
+  execuções em sequência (sem o par quente + frio). A política que valia (lida de `/healthz`) fica na
+  coluna `politica_pyodide` de cada linha (vazia no WASI).
+- `--motores python,dados,ml` (padrão: todos) mede só os cenários desses motores; combina com
+  `--cenarios` (interseção). Os cenários não medidos mantêm as linhas anteriores do CSV.
 - Percentis pelo posto mais próximo; com 30 amostras, p99 é o máximo.
 - Uma execução de aquecimento (`--descarte`) por cenário é descartada.
 
@@ -123,7 +156,11 @@ taxa de erro), `runner_exec_p95_ms`, `runner_fila_p95_ms`, `fila_max_runner` (ma
 cada 1 s em `/v1/stats`), `ativos_max_runner`, `pico_fila_runner`, `capacidade_runner`,
 `emvoo_max_cliente` (maior número de envios simultâneos no cliente: aproximação da fila quando o
 executor não expõe `/v1/stats`), `vazao_envios_s` (envios ÷ `duracao_real_s`, do início ao último envio concluído), `saturou`,
-`motivo_saturacao` e `regra_saturacao` (o texto da regra aplicada, gravado em toda linha).
+`motivo_saturacao` e `regra_saturacao` (o texto da regra aplicada, gravado em toda linha). No fim, colunas
+da Fase D2: `memoria_reservada_pico_mib` (maior `memory.usedMb` visto em `/v1/stats`, lido a cada 1 s
+durante o nível: pode perder um pico mais curto; vazio se o executor não informa), `politica_pyodide`
+(vazia no WASI) e `limite_p95_ms`/`limite_erro` (para recalcular a saturação do CSV completo). O número de 503
+por nível é `rejeitados_503`.
 
 **Saturação**: o nível satura quando (a) o p95 das respostas 200 passa de `--limite-p95-ms` (10 000),
 **com ao menos `--min-amostras-p95` respostas 200 (20)**; ou (b) a taxa de erro passa de
@@ -132,7 +169,7 @@ N=10 e 300 s há ~65 envios: um único erro já daria 1,5% e declararia saturaç
 **Respostas 429** (limite por usuário: 12 envios/min e 150 por aluno/lição/dia) são contadas à parte
 (`limitados_429`), ficam fora da taxa de erro e **não** significam saturação do executor; o script
 avisa se o plano pode bater no teto diário (cada aluno reaparece em vários níveis).
-`carga-saturacao.csv` traz o menor N saturado por motor. Os limites são parâmetros: registre-os na
+`carga-saturacao.csv` traz o menor N saturado por motor, recalculado de todo o `carga.csv`. Os limites são parâmetros: registre-os na
 metodologia. A capacidade do executor (`CONCURRENCY`, `MAX_QUEUE`) é a
 do executor que estiver rodando e vai para `ambiente.json`.
 
@@ -147,7 +184,9 @@ do executor que estiver rodando e vai para `ambiente.json`.
 
 ### custo.mts
 
-Ver `docs/tcc/custo-100-alunos.md` (fórmula). Premissas não medidas (`--mix`, `--vcpu-api-bd`,
+Ver `docs/tcc/custo-100-alunos.md` (fórmula). Lê `latencia.csv`, `recursos.csv` e `carga.csv` de `--dir-dados`.
+O ml pode ter linha quente: `--condicao quente` usa a quente, `--condicao pior` (padrão) mantém o pior caso
+(frio). A saída lista, por motor, a latência usada (estatística, condição, cenário, n e política do Pyodide). Premissas não medidas (`--mix`, `--vcpu-api-bd`,
 `--mem-api-bd-mib`) são parâmetros declarados na saída; preço é sempre parâmetro.
 
 ## Limitações
