@@ -23,19 +23,20 @@ import path from "node:path"
 import { ApiClient, newCredentials } from "./lib/api.mts"
 import { flagOption, listOption, numberOption, optionalStringOption, parseArgs, rejectUnknown, stringOption } from "./lib/args.mts"
 import { ALVOS_LATENCIA, type AlvoResolvido, loadBundle, prepararAluno, resolverAlvo, submitRoute, type SubmitResponse } from "./lib/conteudo.mts"
+import { aguardarPoolEstavel, condicaoPorBoot } from "./lib/classificacao.mts"
 import { dirDados, mergeCsv, registerRound, writeDerivedCsv } from "./lib/dados.mts"
 import { formatTable, readCsv, round } from "./lib/estatistica.mts"
 import { type ConfigExecutor, type PerfilPyodide, politicaDoPerfil, readExecutorConfig } from "./lib/executor.mts"
 import { LATENCIA_RESUMO_HEADER, resumoLatencia } from "./lib/resumos.mts"
 import { dockerAvailable } from "./lib/docker.mts"
 import { iniciarPilha, Limpeza } from "./lib/pilha.mts"
-import { type DirectJob, jobsAfter, lastJobAt, RunnerClient, requireRunnerToken, warmWorkers } from "./lib/runner.mts"
+import { type DirectJob, jobsAfter, lastJobAt, RunnerClient, type RunnerStats, requireRunnerToken, warmWorkers } from "./lib/runner.mts"
 import { collectEnvironment, DEFAULT_BUNDLE, nowIso, runShell, sleep } from "./lib/sistema.mts"
 
 const KNOWN_OPTIONS = ["api", "api-porta", "runner-url", "repeticoes", "repeticoes-frio", "usuarios", "pacote", "dir-dados", "cmd-reinicio", "espera-pool-s", "cenarios", "motores", "descarte", "ajuda"]
 /** Limite do aluno: 12 verificações por minuto → pelo menos 5 s entre dois envios do mesmo aluno. */
 const MIN_GAP_PER_USER_MS = 5_500
-const CSV_HEADER = ["cenario", "via", "descricao", "motor", "condicao", "repeticao", "total_ms", "runner_exec_ms", "runner_fila_ms", "lotes", "sobrecarga_ms", "pool_quente_antes", "passou", "status", "ruido", "inicio", "politica_pyodide"] as const
+const CSV_HEADER = ["cenario", "via", "descricao", "motor", "condicao", "repeticao", "total_ms", "runner_exec_ms", "runner_fila_ms", "lotes", "sobrecarga_ms", "pool_quente_antes", "passou", "status", "ruido", "inicio", "politica_pyodide", "booted_delta"] as const
 /** Chave de substituição no CSV: uma rodada regrava só os cenários medidos agora. */
 const chaveLatencia = (linha: Record<string, string>): string => linha.cenario ?? ""
 
@@ -60,6 +61,20 @@ interface Medida {
   inicio: string
   /** Política do Pyodide que o executor informava ao medir (`null` no motor WASI ou sem informação). */
   politica: string | null
+  /** Política `reuse`: workers criados durante o envio (delta de `engines.pyodide.booted`), base da classificação; `null` fora dela. */
+  bootedDelta: number | null
+}
+
+/** Como o envio é classificado: `reuse` classifica DEPOIS pelo delta de `booted`; senão, pelo pool ocioso antes. */
+interface ModoEnvio {
+  reuse: boolean
+  esperaPoolMs: number
+}
+
+/** Leitura de `/v1/stats` antes do envio; em `reuse` espera o pool estabilizar (exceto no primeiro envio após o reinício, que é o frio de processo). */
+async function statsAntes(runner: RunnerClient, modo: ModoEnvio, condicao: Condicao): Promise<RunnerStats | null> {
+  if (modo.reuse && condicao !== "frio_processo") return aguardarPoolEstavel(runner, modo.esperaPoolMs)
+  return runner.stats()
 }
 
 /** Um cenário medível: `executar` faz UMA execução e devolve a medida (sem a condição, que é decidida depois). */
@@ -85,6 +100,7 @@ const HELP = `Uso: node scripts/bench/latencia.mts [opções]
   --repeticoes-frio N     execuções a frio por cenário (padrão = --repeticoes)
   --usuarios N            alunos virtuais em rodízio, por causa do limite de 12 envios/min (padrão 4)
   --cenarios a,b,c,d,e,piso-python,piso-dados,piso-ml   subconjunto (padrão: todos)
+  (política reuse: a condição vem do delta de engines.pyodide.booted depois do envio, com o pool estável antes; coluna booted_delta)
   --motores python,dados,ml   só os cenários desses motores (padrão: todos); combina com --cenarios (interseção).
                           A condição quente/frio do ml sai do que o executor informa (pool aquecido e política: com reuse
                           há cenário quente do ml); a política que valia fica na coluna politica_pyodide
@@ -140,6 +156,10 @@ async function main(): Promise<void> {
 
   const configInicial = await readExecutorConfig(runner)
   console.log(`Executor: política Pyodide ${JSON.stringify(configInicial.politica_pyodide)}, capacidade ${configInicial.capacity ?? "?"}, workers ociosos agora ${JSON.stringify(configInicial.pool_ocioso_no_instante)}.`)
+  const usaReuse = (perfil: PerfilPyodide | null): boolean => politicaDoPerfil(configInicial, perfil) === "reuse"
+  if (initialStats === null && wanted.some((chave) => usaReuse(perfilDoMotor(motorDoCenario(chave))))) {
+    throw new Error("a política reuse exige GET /v1/stats (delta de engines.pyodide.booted) para classificar quente/frio: /v1/stats indisponível, confira RUNNER_TOKEN e a versão do executor")
+  }
   let medidas: Medida[] = []
   const record = (bruta: Medida): void => {
     const medida: Medida = { ...bruta, politica: politicaDoPerfil(configInicial, perfilDoMotor(bruta.motor)) }
@@ -157,8 +177,8 @@ async function main(): Promise<void> {
     try {
       console.log(`\n== cenário ${chave} ==`)
       const cenario = chave.startsWith("piso-")
-        ? pisoScenario(chave, runner, engineVersions)
-        : await apiScenario(chave, { apiUrl, runner, bundle, usuarios })
+        ? pisoScenario(chave, runner, engineVersions, usaReuse, esperaPoolMs)
+        : await apiScenario(chave, { apiUrl, runner, bundle, usuarios, reuse: usaReuse, esperaPoolMs })
       medidas = []
       await medirCenario(cenario, context)
       const merged = mergeCsv(csvFile, CSV_HEADER, chaveLatencia, medidas.map(rowOf))
@@ -216,7 +236,7 @@ async function medirCenario(cenario: Cenario, context: Context): Promise<void> {
     await cenario.executar("quente", 0)
   }
   const warm = async (repeticao: number): Promise<void> => {
-    if (cenario.perfil !== null) await waitPool(context, cenario.perfil)
+    if (cenario.perfil !== null && !preservarPrimeiro) await waitPool(context, cenario.perfil)
     record(await cenario.executar("quente", repeticao))
   }
 
@@ -276,7 +296,7 @@ async function waitPool(context: Context, profile: "dados" | "ml"): Promise<"ok"
 }
 
 /** Cenário via API: cria alunos, conclui os passos anteriores e envia a solução correta do exercício. */
-async function apiScenario(chave: string, options: { apiUrl: string; runner: RunnerClient; bundle: ReturnType<typeof loadBundle>; usuarios: number }): Promise<Cenario> {
+async function apiScenario(chave: string, options: { apiUrl: string; runner: RunnerClient; bundle: ReturnType<typeof loadBundle>; usuarios: number; reuse: (perfil: PerfilPyodide | null) => boolean; esperaPoolMs: number }): Promise<Cenario> {
   const alvo = ALVOS_LATENCIA.find((candidate) => candidate.chave === chave)
   if (!alvo) throw new Error(`cenário desconhecido: ${chave}`)
   const probe = new ApiClient(options.apiUrl)
@@ -302,24 +322,25 @@ async function apiScenario(chave: string, options: { apiUrl: string; runner: Run
       if (!aluno) throw new Error("sem alunos virtuais")
       const wait = aluno.lastAt + MIN_GAP_PER_USER_MS - Date.now()
       if (wait > 0) await sleep(wait)
-      return enviar(chave, resolvido, aluno, options.runner, condicao, repeticao)
+      return enviar(chave, resolvido, aluno, options.runner, condicao, repeticao, { reuse: options.reuse(resolvido.perfil), esperaPoolMs: options.esperaPoolMs })
     },
   }
 }
 
-async function enviar(chave: string, alvo: AlvoResolvido, aluno: { client: ApiClient; lastAt: number }, runner: RunnerClient, condicao: Condicao, repeticao: number): Promise<Medida> {
-  const before = await runner.stats()
+async function enviar(chave: string, alvo: AlvoResolvido, aluno: { client: ApiClient; lastAt: number }, runner: RunnerClient, condicao: Condicao, repeticao: number, modo: ModoEnvio): Promise<Medida> {
+  const before = await statsAntes(runner, modo, condicao)
   const beforeAt = lastJobAt(before)
   const poolAntes = alvo.perfil !== null ? warmWorkers(before, alvo.perfil) : null
   const inicio = nowIso()
   aluno.lastAt = Date.now()
   const response = await aluno.client.request<SubmitResponse>("POST", submitRoute(alvo), { files: alvo.correta })
-  const jobs = jobsAfter(await runner.stats(), beforeAt)
-  return montarMedida({ cenario: chave, via: "api", descricao: alvo.alvo.descricao, motor: alvo.alvo.motor, condicao, repeticao, totalMs: response.ms, status: response.status, passou: response.body?.passed ?? null, poolAntes, inicio, jobs })
+  const after = await runner.stats()
+  const jobs = jobsAfter(after, beforeAt)
+  return montarMedida({ cenario: chave, via: "api", descricao: alvo.alvo.descricao, motor: alvo.alvo.motor, condicao, repeticao, totalMs: response.ms, status: response.status, passou: response.body?.passed ?? null, poolAntes, inicio, jobs, porBoot: modo.reuse ? condicaoPorBoot(condicao, before, after) : null })
 }
 
 /** Cenários "piso": um lote trivial direto no executor (sem API, banco nem sessão). */
-function pisoScenario(chave: string, runner: RunnerClient, engineVersions: Record<string, unknown>): Cenario {
+function pisoScenario(chave: string, runner: RunnerClient, engineVersions: Record<string, unknown>, reuse: (perfil: PerfilPyodide | null) => boolean, esperaPoolMs: number): Cenario {
   const jobs: Record<string, { motor: "python" | "dados" | "ml"; descricao: string; job: DirectJob }> = {
     "piso-python": { motor: "python", descricao: "piso WASI: print('ok')", job: { runtime: "python", code: 'print("ok")\n' } },
     "piso-dados": { motor: "dados", descricao: "piso Pyodide (perfil dados): import numpy, pandas", job: { runtime: "python-dados", libraries: ["numpy", "pandas"], code: "import numpy, pandas\nprint('ok')\n" } },
@@ -335,14 +356,15 @@ function pisoScenario(chave: string, runner: RunnerClient, engineVersions: Recor
     motor: spec.motor,
     perfil,
     executar: async (condicao, repeticao) => {
-      const before = await runner.stats()
+      const modo: ModoEnvio = { reuse: reuse(perfil), esperaPoolMs }
+      const before = await statsAntes(runner, modo, condicao)
       const beforeAt = lastJobAt(before)
       const poolAntes = perfil !== null ? warmWorkers(before, perfil) : null
       const inicio = nowIso()
       const result = await runner.run(spec.job)
       if (result.engine) engineVersions[spec.motor] = result.engine
       const after = await runner.stats()
-      return montarMedida({ cenario: chave, via: "runner_direto", descricao: spec.descricao, motor: spec.motor, condicao, repeticao, totalMs: result.ms, status: result.status, passou: result.ok, poolAntes, inicio, jobs: jobsAfter(after, beforeAt) })
+      return montarMedida({ cenario: chave, via: "runner_direto", descricao: spec.descricao, motor: spec.motor, condicao, repeticao, totalMs: result.ms, status: result.status, passou: result.ok, poolAntes, inicio, jobs: jobsAfter(after, beforeAt), porBoot: modo.reuse ? condicaoPorBoot(condicao, before, after) : null })
     },
   }
 }
@@ -357,14 +379,14 @@ function condicaoObservada(pretendida: Condicao, poolAntes: number | null): Cond
   return poolAntes >= 1 ? "quente" : "frio_pool"
 }
 
-function montarMedida(input: { cenario: string; via: Medida["via"]; descricao: string; motor: string; condicao: Condicao; repeticao: number; totalMs: number; status: number; passou: boolean | null; poolAntes: number | null; inicio: string; jobs: ReturnType<typeof jobsAfter> }): Medida {
+function montarMedida(input: { cenario: string; via: Medida["via"]; descricao: string; motor: string; condicao: Condicao; repeticao: number; totalMs: number; status: number; passou: boolean | null; poolAntes: number | null; inicio: string; jobs: ReturnType<typeof jobsAfter>; porBoot?: ReturnType<typeof condicaoPorBoot> | null }): Medida {
   const job = input.jobs.at(-1)
   return {
     cenario: input.cenario,
     via: input.via,
     descricao: input.descricao,
     motor: input.motor,
-    condicao: condicaoObservada(input.condicao, input.poolAntes),
+    condicao: input.porBoot ? input.porBoot.condicao : condicaoObservada(input.condicao, input.poolAntes),
     repeticao: input.repeticao,
     totalMs: input.totalMs,
     execMs: job?.execMs ?? null,
@@ -377,6 +399,7 @@ function montarMedida(input: { cenario: string; via: Medida["via"]; descricao: s
     ruido: input.jobs.length > 1,
     inicio: input.inicio,
     politica: null,
+    bootedDelta: input.porBoot?.delta ?? null,
   }
 }
 
@@ -395,7 +418,7 @@ function rowOf(medida: Medida): (string | number | boolean | null)[] {
   return [
     medida.cenario, medida.via, medida.descricao, medida.motor, medida.condicao, medida.repeticao,
     round(medida.totalMs), medida.execMs, medida.filaMs, medida.lotes, round(medida.sobrecargaMs), medida.poolAntes,
-    medida.passou, medida.status, medida.ruido ? 1 : 0, medida.inicio, medida.politica,
+    medida.passou, medida.status, medida.ruido ? 1 : 0, medida.inicio, medida.politica, medida.bootedDelta,
   ]
 }
 

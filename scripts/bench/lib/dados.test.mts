@@ -9,7 +9,9 @@ import path from "node:path"
 import { after, test } from "node:test"
 import { mergeCsv, registerRound } from "./dados.mts"
 import { parseExecutorConfig, politicaDoPerfil } from "./executor.mts"
+import { condicaoPorBoot, poolEstavel } from "./classificacao.mts"
 import { readCsv } from "./estatistica.mts"
+import type { RunnerStats } from "./runner.mts"
 import { resumoLatencia, resumoSaturacao } from "./resumos.mts"
 
 const tmp = mkdtempSync(path.join(os.tmpdir(), "bench-dados-"))
@@ -90,4 +92,22 @@ test("parseExecutorConfig aceita política em texto ou objeto e memória ausente
   assert.deepEqual(objeto.memory, { limitMb: 4096, usedMb: 512, peakUsedMb: 900, blocked: 0 })
   assert.equal(parseExecutorConfig(null, null).capacity, null)
   assert.deepEqual(texto.pool_ocioso_no_instante, { dados: 1, ml: 0 })
+})
+
+const statsPool = (booted: number, warm: Record<string, number> = { dados: 1, ml: 0 }, live: Record<string, number> = { dados: 1, ml: 0 }): RunnerStats => ({
+  now: 0, capacity: 4, maxQueue: 10, active: 0, pending: 0, peakPending: 0, jobs: { completed: 0, rejected: 0, cancelled: 0, failed: 0 }, recent: [], engines: { pyodide: { booted, warm, live } },
+})
+
+test("condicaoPorBoot: delta de booted decide quente/frio na reuse; frio_processo não muda", () => {
+  assert.deepEqual(condicaoPorBoot("quente", statsPool(5), statsPool(5)), { condicao: "quente", delta: 0 })
+  assert.deepEqual(condicaoPorBoot("quente", statsPool(5), statsPool(6)), { condicao: "frio_pool", delta: 1 })
+  assert.deepEqual(condicaoPorBoot("frio_processo", statsPool(0), statsPool(2)), { condicao: "frio_processo", delta: 2 })
+  assert.throws(() => condicaoPorBoot("quente", null, statsPool(1)), /booted/)
+})
+
+test("poolEstavel exige booted, warm e live iguais", () => {
+  assert.equal(poolEstavel(statsPool(5), statsPool(5)), true)
+  assert.equal(poolEstavel(statsPool(5), statsPool(6)), false)
+  assert.equal(poolEstavel(statsPool(5), statsPool(5, { dados: 0, ml: 0 })), false)
+  assert.equal(poolEstavel(statsPool(5), statsPool(5, { dados: 1, ml: 0 }, { dados: 2, ml: 0 })), false)
 })
