@@ -4,8 +4,8 @@
  *   node scripts/bench/custo.mts [--alunos 100] [--folga 0.3] [--mix python=0.4,dados=0.4,ml=0.2]
  *        [--preco-vcpu-hora P] [--preco-gib-hora P]
  *
- * Lê docs/tcc/dados/latencia.csv, recursos.csv e carga.csv (gerados por latencia.mts, recursos.mts e
- * carga.mts) e imprime a conta passo a passo; a fórmula está em docs/tcc/custo-100-alunos.md.
+ * Lê latencia.csv, recursos.csv e carga.csv da pasta --dir-dados (padrão docs/tcc/dados; gerados por
+ * latencia.mts, recursos.mts e carga.mts) e imprime a conta passo a passo; a fórmula está em docs/tcc/custo-100-alunos.md.
  * O preço por hora é PARÂMETRO: sem ele o script imprime a fórmula com as incógnitas, nunca um valor.
  */
 import { existsSync } from "node:fs"
@@ -14,18 +14,21 @@ import { flagOption, numberOption, optionalNumberOption, optionalStringOption, p
 import { cellNumber, formatTable, groupBy, percentile, readCsv, round } from "./lib/estatistica.mts"
 import { DATA_DIR } from "./lib/sistema.mts"
 
-const KNOWN_OPTIONS = ["dados", "alunos", "pensar-medio-s", "folga", "mix", "estatistica", "condicao", "fator-pico", "vcpu-api-bd", "mem-api-bd-mib", "preco-vcpu-hora", "preco-gib-hora", "horas-mes", "ajuda"]
+const KNOWN_OPTIONS = ["dir-dados", "dados", "alunos", "pensar-medio-s", "folga", "mix", "estatistica", "condicao", "fator-pico", "vcpu-api-bd", "mem-api-bd-mib", "preco-vcpu-hora", "preco-gib-hora", "horas-mes", "ajuda"]
 const MOTORES = ["python", "dados", "ml"] as const
 type Motor = (typeof MOTORES)[number]
 
 const HELP = `Uso: node scripts/bench/custo.mts [opções]
-  --dados PASTA            pasta dos CSVs (padrão docs/tcc/dados)
+  --dir-dados PASTA        pasta dos CSVs de latência, recursos e carga (padrão docs/tcc/dados; ex.: docs/tcc/dados/d2).
+                           --dados é aceito como sinônimo antigo
   --alunos N               alunos simultâneos (padrão 100)
   --pensar-medio-s S       intervalo médio entre envios de um aluno (padrão 45 = média de 30–60 s)
   --folga F                folga sobre a demanda (padrão 0.3 = 30%)
   --mix python=0.4,dados=0.4,ml=0.2   fração dos envios por motor (padrão: partes iguais) — PREMISSA
   --estatistica p50|p95|p99   tempo de executor usado como tempo de serviço (padrão p95)
-  --condicao quente|frio|pior   condição do tempo de serviço (padrão pior = a mais lenta medida)
+  --condicao quente|frio|pior   condição do tempo de serviço (padrão pior = a mais lenta medida, ou seja, o frio quando existe).
+                           O ml pode ter linha quente (política reuse): --condicao quente usa a quente; pior mantém o pior caso (frio).
+                           A saída informa, por motor, qual latência (estatística, condição, cenário, n) foi usada
   --fator-pico X           multiplica a concorrência média para cobrir rajadas (padrão 1)
   --vcpu-api-bd V          vCPUs da API + PostgreSQL (não medidos em contêiner; padrão 1) — PREMISSA
   --mem-api-bd-mib M       memória da API + PostgreSQL em MiB (padrão 1024) — PREMISSA
@@ -35,13 +38,19 @@ interface Servico {
   /** Tempo de serviço do executor (ms) na estatística e condição escolhidas. */
   ms: number
   condicao: string
+  /** Cenário que deu o tempo. */
+  cenario: string
+  /** Execuções que entraram na estatística. */
+  n: number
+  /** Política do Pyodide registrada nas linhas (vazia no motor WASI ou em CSV sem a coluna). */
+  politica: string
 }
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2))
   if (flagOption(args, "ajuda")) return void console.log(HELP)
   rejectUnknown(args, KNOWN_OPTIONS)
-  const dir = path.resolve(stringOption(args, "dados", DATA_DIR))
+  const dir = path.resolve(stringOption(args, "dir-dados", stringOption(args, "dados", DATA_DIR)))
   const alunos = numberOption(args, "alunos", 100)
   const pensar = numberOption(args, "pensar-medio-s", 45)
   const folga = numberOption(args, "folga", 0.3)
@@ -76,7 +85,7 @@ async function main(): Promise<void> {
     const s = servico.get(motor)
     const w = porWorker.get(motor)
     if (mix[motor] > 0 && (!s || !w)) {
-      missing.push(`${motor}: ${!s ? "tempo de serviço (latencia.csv) " : ""}${!w ? "CPU/memória por worker (recursos.csv, tipo workers)" : ""}`.trim())
+      missing.push(`${motor}: ${!s ? `tempo de serviço (latencia.csv, condição ${condicao}; o motor pode não ter linha nessa condição) ` : ""}${!w ? "CPU/memória por worker (recursos.csv, tipo workers)" : ""}`.trim())
       continue
     }
     if (!s || !w) continue
@@ -88,9 +97,15 @@ async function main(): Promise<void> {
     vcpuDemanda += mix[motor] > 0 ? vcpu : 0
     memRunner += mix[motor] > 0 ? mem : 0
     memIdle = Math.max(memIdle, w.idleMiB)
-    rows.push([motor, round(lambda, 3), round(s.ms, 0), s.condicao, round(concorrencia, 2), workers, round(w.cpuPct, 0), round(vcpu, 2), round(w.memMiB, 0), round(mem, 0)])
+    rows.push([motor, round(lambda, 3), round(s.ms, 0), `${s.condicao} (${s.cenario})`, round(concorrencia, 2), workers, round(w.cpuPct, 0), round(vcpu, 2), round(w.memMiB, 0), round(mem, 0)])
   }
-  console.log("Por motor (c = λ × S: workers ocupados ao mesmo tempo, Lei de Little):")
+  console.log(`Latência do executor usada por motor (${estatistica}):`)
+  for (const motor of MOTORES) {
+    const s = servico.get(motor)
+    if (s) console.log(`  ${motor}: ${estatistica} = ${round(s.ms, 0)} ms, condição ${s.condicao}, cenário ${s.cenario}, n = ${s.n}${s.politica === "" ? "" : `, política Pyodide ${s.politica}`}`)
+    else console.log(`  ${motor}: sem medida na condição ${condicao}`)
+  }
+  console.log("\nPor motor (c = λ × S: workers ocupados ao mesmo tempo, Lei de Little):")
   console.log(formatTable(["motor", "λ_env/s", "S_exec_ms", "condição", "c", "workers", "cpu_por_worker_%", "vCPU", "mem_por_worker_MiB", "mem_MiB"], rows))
   if (missing.length > 0) console.warn(`\nFALTAM DADOS (a soma abaixo é parcial): \n- ${missing.join("\n- ")}`)
 
@@ -123,10 +138,11 @@ function validarComCarga(carga: Record<string, string>[], alunos: number): void 
     const maiorLivre = livres.length === 0 ? null : Math.max(...livres)
     const primeiroSaturado = saturados.length === 0 ? null : Math.min(...saturados)
     const capacidade = cellNumber(group[0]?.capacidade_runner)
-    rows.push([motor, maiorLivre, primeiroSaturado, capacidade, maiorLivre !== null && maiorLivre >= alunos ? "sim" : "não"])
+    const memorias = group.map((row) => cellNumber(row.memoria_reservada_pico_mib)).filter((value): value is number => value !== null)
+    rows.push([motor, maiorLivre, primeiroSaturado, capacidade, memorias.length === 0 ? null : Math.max(...memorias), maiorLivre !== null && maiorLivre >= alunos ? "sim" : "não"])
   }
   console.log(`\nValidação com carga.csv (máquina e executor desse teste; ${alunos} alunos aguentados?):`)
-  console.log(formatTable(["motor", "maior_N_sem_saturar", "primeiro_N_saturado", "capacidade_executor", `aguenta_${alunos}`], rows))
+  console.log(formatTable(["motor", "maior_N_sem_saturar", "primeiro_N_saturado", "capacidade_executor", "mem_reservada_pico_mib", `aguenta_${alunos}`], rows))
 }
 
 function readRequired(dir: string, name: string, producer: string): Record<string, string>[] {
@@ -166,7 +182,7 @@ function tempoDeServico(latencia: Record<string, string>[], percent: number, con
       if (condicao === "quente" && isCold) continue
       if (condicao === "frio" && !isCold) continue
       const value = percentile(group.map((row) => cellNumber(row.runner_exec_ms) ?? 0), percent)
-      if (value !== null && (best === null || value > best.ms)) best = { ms: value, condicao: `${cond} (${key.split("|")[0]})` }
+      if (value !== null && (best === null || value > best.ms)) best = { ms: value, condicao: cond, cenario: key.split("|")[0] ?? "", n: group.length, politica: group[0]?.politica_pyodide ?? "" }
     }
     if (best && (MOTORES as readonly string[]).includes(motor)) result.set(motor as Motor, best)
   }

@@ -1,7 +1,8 @@
-import { findWritableRuntimePaths, isPyodideEnabled, loadConfig, resolvePyodideWorkerPath } from "./config.js"
+import { findWritableRuntimePaths, isPyodideEnabled, loadConfig, resolveMemoryBudgetMb, resolvePyodideWorkerPath } from "./config.js"
 import type { Engine } from "./engine.js"
 import { Executor, hostInfo, type EngineRegistry } from "./executor.js"
 import { createLogger } from "./logger.js"
+import { BATCH_MEMORY_KEYS, MemoryBudget } from "./memory-budget.js"
 import { PyodideEngine } from "./pyodide-engine.js"
 import { WasmtimeSandbox } from "./sandbox.js"
 import { Semaphore } from "./semaphore.js"
@@ -30,12 +31,27 @@ if (writableRuntime.length > 0) {
   log("warn", "stdlib do Python gravável pelo executor (aceitável só em desenvolvimento: rode como usuário sem permissão de escrita)", details)
 }
 
+/**
+ * Orçamento de memória das instâncias: o limite do contêiner menos a reserva. O semáforo é
+ * criado antes dos motores para ser o primeiro ouvinte do orçamento (um lote à espera de
+ * memória tem prioridade sobre o reabastecimento do pool aquecido).
+ */
+const budget = new MemoryBudget(resolveMemoryBudgetMb(config))
+const batchMemoryMb = config.RUNNER_BATCH_MEMORY_MB
+const semaphore = new Semaphore(config.CONCURRENCY, config.MAX_QUEUE, budget)
+for (const key of BATCH_MEMORY_KEYS) {
+  if (batchMemoryMb[key] > budget.limitMb) {
+    log("error", "perfil não cabe no orçamento de memória: todo job dele será recusado (501); aumente a memória do contêiner ou reveja RUNNER_BATCH_MEMORY_MB", { profile: key, neededMb: batchMemoryMb[key], budgetMb: budget.limitMb })
+  }
+}
+
 const sandbox = new WasmtimeSandbox({
   wasmtimeBin: config.WASMTIME_BIN,
   pythonDir: config.PYTHON_WASI_DIR,
   harnessPath: config.HARNESS_PATH,
   workDir: config.WORK_DIR,
   maxJobDiskBytes: config.MAX_JOB_DISK_MB * BYTES_PER_MIB,
+  memoryMb: batchMemoryMb.python,
   onGuestFailure: (details) => log("error", "convidado terminou sem nenhuma observação (falha do Wasmtime ou do módulo Python)", { ...details }),
 })
 const pyodide = isPyodideEnabled(config)
@@ -52,14 +68,15 @@ const pyodide = isPyodideEnabled(config)
       maxJobDiskBytes: config.MAX_JOB_DISK_MB * BYTES_PER_MIB,
       maxJobEntries: MAX_JOB_ENTRIES,
       bootTimeoutMs: config.RUNNER_PYODIDE_BOOT_TIMEOUT_MS,
+      budget,
+      memoryMb: { dados: batchMemoryMb.dados, ml: batchMemoryMb.ml },
       log,
     })
   : undefined
 const engines: EngineRegistry = { python: sandbox, ...(pyodide ? { "python-dados": pyodide } : {}) }
 const engineList: Engine[] = pyodide ? [sandbox, pyodide] : [sandbox]
-const semaphore = new Semaphore(config.CONCURRENCY, config.MAX_QUEUE)
-const stats = new RunnerStats(semaphore, engineList)
-const executor = new Executor(engines, semaphore, { stats, maxQueueWaitMs: config.MAX_QUEUE_WAIT_MS })
+const stats = new RunnerStats(semaphore, engineList, budget)
+const executor = new Executor(engines, semaphore, { stats, maxQueueWaitMs: config.MAX_QUEUE_WAIT_MS, budget })
 const server = buildServer({
   executor,
   token: config.RUNNER_TOKEN,
@@ -88,7 +105,17 @@ if (pyodide) {
 }
 
 server.listen(config.PORT, config.HOST, () => {
-  log("info", "executor ouvindo", { port: config.PORT, concurrency: config.CONCURRENCY, maxQueue: config.MAX_QUEUE, maxQueueWaitMs: config.MAX_QUEUE_WAIT_MS, pyodide: pyodide !== undefined, ...hostInfo() })
+  log("info", "executor ouvindo", {
+    port: config.PORT,
+    concurrency: config.CONCURRENCY,
+    maxQueue: config.MAX_QUEUE,
+    maxQueueWaitMs: config.MAX_QUEUE_WAIT_MS,
+    pyodide: pyodide !== undefined,
+    ...hostInfo(),
+    memoryBudgetMb: budget.isLimited ? budget.limitMb : "ilimitado",
+    memoryReserveMb: config.RUNNER_MEMORY_RESERVE_MB,
+    batchMemoryMb,
+  })
 })
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

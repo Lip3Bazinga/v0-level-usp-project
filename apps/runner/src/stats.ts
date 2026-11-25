@@ -1,4 +1,5 @@
 import type { Engine, EngineStats } from "./engine.js"
+import { MemoryBudget, type MemoryBudgetSnapshot } from "./memory-budget.js"
 
 /** Quantos jobs recentes ficam guardados para os percentis de `/v1/stats`. */
 export const RECENT_JOBS_CAPACITY = 2_000
@@ -32,6 +33,8 @@ export interface RunnerStatsSnapshot {
   recent: JobTiming[]
   /** Contadores de cada motor (`wasi`, `pyodide`): lotes, falhas, workers aquecidos... */
   engines: Record<string, EngineStats>
+  /** Orçamento de memória: limite (`null` = ilimitado), reservado agora, pico e lotes esperando memória. */
+  memory: MemoryBudgetSnapshot
 }
 
 /** O que a fotografia precisa saber da fila (o semáforo). */
@@ -54,6 +57,7 @@ export class RunnerStats {
   constructor(
     private readonly gauge: QueueGauge,
     private readonly engines: readonly Engine[] = [],
+    private readonly budget: MemoryBudget = new MemoryBudget(),
   ) {}
 
   /** Registra um job concluído e os seus tempos. */
@@ -95,6 +99,7 @@ export class RunnerStats {
       jobs: { ...this.jobs },
       recent: [...this.recent],
       engines: Object.fromEntries(this.engines.map((engine) => [engine.name, engine.stats()])),
+      memory: this.budget.snapshot(),
     }
   }
 }

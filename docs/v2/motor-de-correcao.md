@@ -261,6 +261,7 @@ comparação, que acontece na API. Em cada tipo de caso:
 | Memória | 128 MB de memória linear | `-W max-memory-size` (→ `MemoryError`) |
 | Rede, ambiente, processos | inexistentes | WASI só recebe `/lib`, `/harness`, `/work`; `inherit-env=n`; sem sockets nem DNS (`allow-ip-name-lookup=n`) |
 | Concorrência | `CONCURRENCY` (padrão: 1 por CPU); fila limitada pela espera estimada (`MAX_QUEUE_WAIT_MS`, padrão 20 s) e por 200 lotes (`MAX_QUEUE`) | semáforo no executor; admissão atômica por job (todos os lotes ou nenhum); 503 com `Retry-After` quando a espera estimada passa do teto; job abandonado pela API é cancelado. Medições em [desempenho-e-carga.md](./desempenho-e-carga.md) |
+| Memória do executor | `RUNNER_MEMORY` − `RUNNER_MEMORY_RESERVE_MB`, peso por perfil em `RUNNER_BATCH_MEMORY_MB` | o lote só começa quando o worker cabe; sem memória espera na fila ou recebe 503 com `Retry-After` (ver "Admissão por memória") |
 | Saída | 8 MB por execução; linha de observação até 4 MB e profundidade 256 | o host mata o processo ao exceder; linhas maiores são descartadas |
 | Disco | 32 MB e 2 000 arquivos/pastas no projeto por lote (`MAX_JOB_DISK_MB`) | o host mede `/work` a cada 100 ms e mata o processo ("Disco excedido") |
 | Arquivos | harness somente leitura; projeto em `/work`, restaurado entre sondas; stdlib em `/lib` | permissões do sistema de arquivos: o executor **recusa partir** em produção se puder gravar na stdlib (o convidado herdaria a permissão) |
@@ -372,7 +373,12 @@ código. O perfil vem do `libraries` do lote:
 Uma biblioteca fora do catálogo é **erro 400** claro (`unknown_library`), antes
 de admitir o job.
 
-- **Política `fresh`** (padrão, `RUNNER_PYODIDE_POLICY=fresh`): **um lote por
+A política é **por perfil**: `RUNNER_PYODIDE_POLICY` aceita `fresh` ou `reuse` (vale para
+os dois perfis) ou `dados:fresh,ml:reuse`. O padrão do código é `fresh` nos dois; o padrão
+de **produção e homologação** (compose e `.env.example`) é `dados:fresh,ml:reuse`. O motor
+`python` (WASI) é sempre um processo novo por lote.
+
+- **Política `fresh`** (padrão do código, `RUNNER_PYODIDE_POLICY=fresh`): **um lote por
   worker**. O worker é descartado depois do lote; um pool aquecido por perfil
   (`RUNNER_PYODIDE_WARM`, padrão `dados:1,ml:0`) mantém instâncias prontas. É o
   isolamento mais forte: nenhum estado atravessa lotes.
@@ -398,6 +404,70 @@ na fila, então nenhum lote espera por um worker que já tem dono (com `ml:0` is
 segundo lote simultâneo até os 120 s do pedido). Lotes estritos na `reuse` não passam pela
 fila: aquecem um worker próprio. Medições e o que sobra do piso em
 [desempenho-executor.md](./desempenho-executor.md).
+
+### Por que o `ml` usa `reuse` em produção (compromisso de isolamento)
+
+Aquecer um worker `ml` custa ≈ 9,5 s de CPU (scipy, scikit-learn, matplotlib). Na `fresh`
+com `ml:0` todo envio `ml` paga esse tempo e o perfil satura com 10 alunos (p95 > 10 s);
+manter workers `ml` aquecidos na `fresh` custa ≈ 1,2 GiB por worker e o mesmo aquecimento a
+cada lote consumido. Na `reuse` o worker é restaurado em dezenas de ms e só o primeiro lote
+depois de uma partida, despejo ou reciclagem paga o aquecimento (medições em
+[../tcc/medicoes.md](../tcc/medicoes.md)).
+
+O que se troca por isso, só no perfil `ml`:
+
+- **Garantia que continua:** o gabarito nunca entra no worker (a comparação é na API), as
+  observações levam o nonce do lote, o `/work` é recriado, e a restauração devolve módulos,
+  classes, funções, `sys.modules`, builtins e opções das bibliotecas à fotografia do
+  aquecimento. Lotes **estritos** (`unittest`/`legacy`) nunca usam worker reaproveitado.
+- **O que deixa de ser garantido:** estado guardado em **instâncias** e em memória nativa das
+  bibliotecas (caches internos do numpy/scipy/scikit-learn, objetos alcançáveis só por
+  referências que a fotografia não cobre) pode sobreviver de um lote para o seguinte. Um
+  aluno poderia, em tese, deixar algo que altere o resultado do **próximo** lote atendido
+  pelo mesmo worker (outro aluno), sem nunca ler o gabarito.
+- **Mitigações:** canário com resultado conhecido depois de cada lote (reprovou → worker
+  descartado), reciclagem a cada `RUNNER_PYODIDE_RECYCLE_AFTER` lotes (25) e quando o heap
+  wasm passa de `RUNNER_PYODIDE_RECYCLE_HEAP_MB`, descarte após tempo excedido, saída
+  excedida ou falha, e a suíte `test:attacks` (`pyodide.attack.ts`, "contaminação entre lotes
+  (política reuse)"), que tenta contaminar o lote seguinte adulterando numpy/pandas/builtins,
+  instalando audit hook ou trace e deixando arquivos em `/work`.
+- **Por que só o `ml`:** `python` e `dados` cabem no limite de 10 s com isolamento total
+  (≈ 0,2 s e ≈ 0,1–2,5 s); só o `ml` não cabe. As provas e lições do N1–N4 continuam sem
+  nenhum estado entre lotes. Para voltar ao isolamento total no `ml`, use
+  `RUNNER_PYODIDE_POLICY=fresh` e aceite ≈ 9,5 s por envio (ou aqueça `ml:K`).
+
+### Admissão por memória
+
+Além da vaga de CPU (`CONCURRENCY`), um lote só começa quando o **worker dele cabe na
+memória**. O orçamento é `RUNNER_MEMORY` (o mesmo valor do `mem_limit` do contêiner; ausente,
+o limite do cgroup ou a memória da máquina) menos `RUNNER_MEMORY_RESERVE_MB` (padrão 512: o
+processo do executor, os processos do Wasmtime e a folga). Cada worker Pyodide **vivo**
+(aquecendo, ocioso, ocupado, em restauração ou dedicado) segura o peso do seu perfil, de
+`RUNNER_BATCH_MEMORY_MB` (padrão `python:0,dados:256,ml:1229`, em MiB, medidos em
+[../tcc/medicoes.md](../tcc/medicoes.md)); a reserva é feita antes de criar o worker e só
+volta depois que a thread termina.
+
+- **Sem memória livre**, o lote fica na fila (`memory.blocked` em `/v1/stats`). Workers
+  ociosos são cache: o executor despeja os que forem necessários para o lote caber. O pool
+  aquecido (`RUNNER_PYODIDE_WARM`) só é reabastecido quando ninguém espera memória.
+- **Ordem:** FIFO entre lotes que ocupam memória (um `dados` não passa à frente de um `ml`
+  bloqueado, para o `ml` não ficar sem vez); lotes de custo zero (WASI e regras de estrutura)
+  passam.
+- **Recusa:** a admissão estima a espera por classe (`wasi`, `pyodide:dados`, `pyodide:ml`) e
+  responde **503 com `Retry-After`** quando ela passa de `MAX_QUEUE_WAIT_MS`; um lote que,
+  mesmo admitido, continua na fila depois desse prazo recebe o mesmo 503. Perfil cujo peso
+  não cabe no orçamento (ex.: `ml` com `RUNNER_MEMORY` abaixo de 2g) é recusado com **501
+  `insufficient_memory`** e erro no log da partida; os outros perfis seguem funcionando.
+- **Limite da garantia:** o peso é a memória medida de um worker em lote típico. Um lote
+  pode fazer o heap wasm crescer até `RUNNER_PYODIDE_MAX_HEAP_MB`; esse crescimento é
+  absorvido pela reserva. Para garantia rígida mesmo com vários lotes crescendo ao teto ao
+  mesmo tempo, use pesos de pior caso (≈ `dados:700,ml:1560`) ao custo de menos lotes
+  simultâneos.
+- `RUNNER_MEMORY=unlimited` desliga o orçamento (comportamento anterior: só `CONCURRENCY`).
+
+Antes desta admissão, `CONCURRENCY` por CPU com lotes `ml` simultâneos matava o contêiner
+por OOM (`OOMKilled`, exit 137) em vez de responder 503 — a rodada inválida registrada em
+[../tcc/medicoes.md](../tcc/medicoes.md).
 
 ### Isolamento (antes do código do aluno)
 
@@ -434,8 +504,10 @@ O motor Pyodide é **opcional**: ligado por `RUNNER_PYODIDE_ENABLED` ou, por
 padrão, quando `PYODIDE_DIR` tem a distribuição. Seu autoteste da partida (um lote
 trivial com numpy) **não derruba** `/healthz` — as lições `python` seguem
 funcionando sem ele. O `/healthz` informa `pyodide: { ready, reason, policy,
-profiles, warm }`; o WASI continua decidindo o 503. O `GET /v1/stats` traz os
-contadores por motor (lotes, falhas, workers aquecidos/reciclados).
+profiles, warm }` (`policy` é um objeto `{ dados, ml }`); o WASI continua decidindo o 503.
+O `GET /v1/stats` traz os contadores por motor (lotes, falhas, workers aquecidos/reciclados) e
+`memory: { limitMb, usedMb, peakUsedMb, blocked }` (orçamento, reservado agora, pico e lotes
+à espera de memória).
 
 ### Medições de referência (nuvem, 1 vCPU)
 

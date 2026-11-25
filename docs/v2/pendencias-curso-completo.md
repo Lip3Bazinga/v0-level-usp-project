@@ -412,3 +412,16 @@ Um nível por sessão: escrever o `PLANO.md` do nível a partir dos roteiros, es
   - Achado: com `CONCURRENCY` padrão (uma por CPU) o executor foi morto por OOM no ml (≈ 1,2 GiB por lote); limitar `CONCURRENCY` pela
     memória em produção. A rodada inválida fica em `carga.csv` (ml N ≥ 25), a válida em `carga-ml-concorrencia4.csv`.
   - Decisão do Filipe: aquecer workers ml (`RUNNER_PYODIDE_WARM=...,ml:K`) ou usar `reuse` para o ml caber no limite de 10 s.
+- **Fase D2 concluída (2026-11-25), branch `fix/executor-memoria`:** o executor admite lotes também por orçamento de memória
+  (`RUNNER_MEMORY` − `RUNNER_MEMORY_RESERVE_MB`, peso por worker em `RUNNER_BATCH_MEMORY_MB`, padrão `python:0,dados:256,ml:1229`);
+  sem memória o lote espera na fila ou recebe 503 com `Retry-After`; perfil que não cabe no orçamento recebe 501. Política por perfil:
+  `RUNNER_PYODIDE_POLICY=dados:fresh,ml:reuse` é o padrão de produção e homologação (resolve a decisão acima). Detalhes em
+  `docs/v2/motor-de-correcao.md`; medições em `docs/tcc/medicoes.md` seção 7 e `docs/tcc/dados/d2/`.
+  - Resultados: ml quente 0,11 s (antes ≈ 9,5 s em todo envio); ml sustenta 50 alunos (p95 8,2 s) e satura em 100 (p95 10,7 s, 2,4 % de 503),
+    sem OOM com `CONCURRENCY` padrão; python e dados não saturam até 100. Custo para 100 alunos: de 16 vCPU / 10,2 GiB para ≈ 11 vCPU / 4,5 GiB
+    (piso 3 vCPU / 3,6 GiB tudo quente; teto 19 vCPU / 11,9 GiB tudo frio).
+  - Decisões pendentes do Filipe: (a) pesos medidos (256/1229) × pesos de pior caso (≈ `dados:700,ml:1560`): a reserva de 512 MiB só cobre o
+    crescimento de um worker até `MAX_HEAP_MB`; (b) `mem_limit` padrão do runner em `compose.yml` subiu de 1g para 2g (abaixo disso o ml
+    recebe 501; a VM fica em 1536m, sem ml); (c) reciclagem por heap em 256 MB com folga de só 69 MB no ml; (d) fila FIFO: `dados` espera
+    atrás de `ml` bloqueado por memória; (e) o `dados` em `fresh` virou o item caro (p50 4,8 s com 100 alunos): avaliar `reuse` ou pool maior;
+    (f) typecheck de `scripts/bench` acusa 3 erros antigos em `apps/api/scripts/content` (fora do escopo da fase).

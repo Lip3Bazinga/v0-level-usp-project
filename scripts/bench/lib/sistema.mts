@@ -1,6 +1,5 @@
 /** Caminhos do repositório, execução de comandos e descrição do ambiente de medição. */
 import { execFile, spawn } from "node:child_process"
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { setTimeout as sleepTimer } from "node:timers/promises"
@@ -11,7 +10,6 @@ export const REPO_ROOT = path.resolve(import.meta.dirname, "../../..")
 export const DATA_DIR = path.join(REPO_ROOT, "docs", "tcc", "dados")
 /** Pacote de conteúdo compilado (`pnpm content:build`), versionado no repositório. */
 export const DEFAULT_BUNDLE = path.join(REPO_ROOT, "packages", "db", "seed", "trilha-python-ia.json")
-const ENVIRONMENT_FILE = path.join(DATA_DIR, "ambiente.json")
 
 /** Espera `ms` milissegundos; com `signal`, a espera acaba (sem erro) quando ele é abortado. */
 export async function sleep(ms: number, signal?: AbortSignal): Promise<void> {
@@ -92,34 +90,6 @@ export async function collectEnvironment(): Promise<EnvironmentInfo> {
     docker_cpus: ncpu ? Number(ncpu) : null,
     docker_memoria_gib: memory ? Math.round((Number(memory) / 1024 ** 3) * 10) / 10 : null,
     commit: git.ok ? git.stdout.trim() : null,
-  }
-}
-
-/**
- * Grava (mescla) uma seção em `docs/tcc/dados/ambiente.json`: cada medição registra o seu
- * ambiente, parâmetros e versões ali, para a tabela de metodologia do TCC.
- */
-export function updateEnvironmentFile(section: string, data: Record<string, unknown>): void {
-  mkdirSync(DATA_DIR, { recursive: true })
-  let current: Record<string, unknown> = {}
-  if (existsSync(ENVIRONMENT_FILE)) {
-    try {
-      current = JSON.parse(readFileSync(ENVIRONMENT_FILE, "utf8")) as Record<string, unknown>
-    } catch {
-      current = {}
-    }
-  }
-  current[section] = data
-  writeFileSync(ENVIRONMENT_FILE, `${JSON.stringify(current, null, 2)}\n`, "utf8")
-}
-
-/** Lê `docs/tcc/dados/ambiente.json` (vazio se não existe). */
-export function readEnvironmentFile(): Record<string, unknown> {
-  if (!existsSync(ENVIRONMENT_FILE)) return {}
-  try {
-    return JSON.parse(readFileSync(ENVIRONMENT_FILE, "utf8")) as Record<string, unknown>
-  } catch {
-    return {}
   }
 }
 

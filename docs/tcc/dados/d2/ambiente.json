@@ -1,0 +1,496 @@
+{
+  "recursos": {
+    "rodadas": [
+      {
+        "data": "2026-11-25T20:36:15.598Z",
+        "subcomando": "imagens",
+        "coletado_em": "2026-11-25T20:36:15.598Z",
+        "so": "Windows_NT 10.0.26200 (x64)",
+        "cpu_modelo": "Intel(R) Core(TM) i9-14900KF",
+        "cpu_logicas": 32,
+        "memoria_total_gib": 31.8,
+        "node": "v26.13.0",
+        "docker_servidor": "28.5.1",
+        "docker_cpus": 32,
+        "docker_memoria_gib": 15.6,
+        "commit": "9bf6407",
+        "imagens": [
+          {
+            "imagem": "levelusp-dev-runner:latest",
+            "id": "3c0d338e1836"
+          },
+          {
+            "imagem": "levelusp-fase-c-runner:latest",
+            "id": "5e572125ede9"
+          },
+          {
+            "imagem": "levelusp-runner-test:latest",
+            "id": "49119b3d32d2"
+          },
+          {
+            "imagem": "postgres:17-alpine",
+            "id": "d3244e8ce3f1"
+          },
+          {
+            "imagem": "postgres:16-alpine",
+            "id": "721873c34ceb"
+          },
+          {
+            "imagem": "postgres:15.7-alpine",
+            "id": "468d34fefd63"
+          }
+        ]
+      },
+      {
+        "data": "2026-11-25T20:37:35.714Z",
+        "subcomando": "workers",
+        "coletado_em": "2026-11-25T20:37:35.713Z",
+        "so": "Windows_NT 10.0.26200 (x64)",
+        "cpu_modelo": "Intel(R) Core(TM) i9-14900KF",
+        "cpu_logicas": 32,
+        "memoria_total_gib": 31.8,
+        "node": "v26.13.0",
+        "docker_servidor": "28.5.1",
+        "docker_cpus": 32,
+        "docker_memoria_gib": 15.6,
+        "commit": "9bf6407",
+        "motores": [
+          "python"
+        ],
+        "executor": {
+          "inicio": {
+            "politica_pyodide": {
+              "dados": "fresh",
+              "ml": "reuse"
+            },
+            "pool_ocioso_no_instante": {
+              "dados": 1,
+              "ml": 0
+            },
+            "capacity": 32,
+            "fila_maxima": 200,
+            "memory": {
+              "limitMb": 5632,
+              "usedMb": 256,
+              "peakUsedMb": 512,
+              "blocked": 0
+            }
+          },
+          "fim": {
+            "politica_pyodide": {
+              "dados": "fresh",
+              "ml": "reuse"
+            },
+            "pool_ocioso_no_instante": {
+              "dados": 1,
+              "ml": 0
+            },
+            "capacity": 32,
+            "fila_maxima": 200,
+            "memory": {
+              "limitMb": 5632,
+              "usedMb": 256,
+              "peakUsedMb": 512,
+              "blocked": 0
+            }
+          }
+        },
+        "parametros": {
+          "motores": [
+            "python"
+          ],
+          "k": [
+            1,
+            2,
+            4
+          ],
+          "duracao_job_s": 6,
+          "ocioso_s": 10,
+          "conteiner": "runner"
+        }
+      },
+      {
+        "data": "2026-11-25T20:39:02.066Z",
+        "subcomando": "workers",
+        "coletado_em": "2026-11-25T20:39:02.065Z",
+        "so": "Windows_NT 10.0.26200 (x64)",
+        "cpu_modelo": "Intel(R) Core(TM) i9-14900KF",
+        "cpu_logicas": 32,
+        "memoria_total_gib": 31.8,
+        "node": "v26.13.0",
+        "docker_servidor": "28.5.1",
+        "docker_cpus": 32,
+        "docker_memoria_gib": 15.6,
+        "commit": "9bf6407",
+        "motores": [
+          "dados"
+        ],
+        "executor": {
+          "inicio": {
+            "politica_pyodide": {
+              "dados": "fresh",
+              "ml": "reuse"
+            },
+            "pool_ocioso_no_instante": {
+              "dados": 1,
+              "ml": 0
+            },
+            "capacity": 32,
+            "fila_maxima": 200,
+            "memory": {
+              "limitMb": 5632,
+              "usedMb": 256,
+              "peakUsedMb": 512,
+              "blocked": 0
+            }
+          },
+          "fim": {
+            "politica_pyodide": {
+              "dados": "fresh",
+              "ml": "reuse"
+            },
+            "pool_ocioso_no_instante": {
+              "dados": 1,
+              "ml": 0
+            },
+            "capacity": 32,
+            "fila_maxima": 200,
+            "memory": {
+              "limitMb": 5632,
+              "usedMb": 256,
+              "peakUsedMb": 1280,
+              "blocked": 0
+            }
+          }
+        },
+        "parametros": {
+          "motores": [
+            "dados"
+          ],
+          "k": [
+            1,
+            2,
+            4
+          ],
+          "duracao_job_s": 6,
+          "ocioso_s": 10,
+          "conteiner": "runner"
+        }
+      },
+      {
+        "data": "2026-11-25T20:40:44.309Z",
+        "subcomando": "workers",
+        "coletado_em": "2026-11-25T20:40:44.308Z",
+        "so": "Windows_NT 10.0.26200 (x64)",
+        "cpu_modelo": "Intel(R) Core(TM) i9-14900KF",
+        "cpu_logicas": 32,
+        "memoria_total_gib": 31.8,
+        "node": "v26.13.0",
+        "docker_servidor": "28.5.1",
+        "docker_cpus": 32,
+        "docker_memoria_gib": 15.6,
+        "commit": "9bf6407",
+        "motores": [
+          "ml"
+        ],
+        "executor": {
+          "inicio": {
+            "politica_pyodide": {
+              "dados": "fresh",
+              "ml": "reuse"
+            },
+            "pool_ocioso_no_instante": {
+              "dados": 1,
+              "ml": 0
+            },
+            "capacity": 32,
+            "fila_maxima": 200,
+            "memory": {
+              "limitMb": 5632,
+              "usedMb": 256,
+              "peakUsedMb": 512,
+              "blocked": 0
+            }
+          },
+          "fim": {
+            "politica_pyodide": {
+              "dados": "fresh",
+              "ml": "reuse"
+            },
+            "pool_ocioso_no_instante": {
+              "dados": 1,
+              "ml": 4
+            },
+            "capacity": 32,
+            "fila_maxima": 200,
+            "memory": {
+              "limitMb": 5632,
+              "usedMb": 5172,
+              "peakUsedMb": 5172,
+              "blocked": 0
+            }
+          }
+        },
+        "parametros": {
+          "motores": [
+            "ml"
+          ],
+          "k": [
+            1,
+            2,
+            4
+          ],
+          "duracao_job_s": 6,
+          "ocioso_s": 10,
+          "conteiner": "runner"
+        }
+      }
+    ]
+  },
+  "latencia": {
+    "rodadas": [
+      {
+        "data": "2026-11-25T21:16:24.441Z",
+        "coletado_em": "2026-11-25T21:16:24.436Z",
+        "so": "Windows_NT 10.0.26200 (x64)",
+        "cpu_modelo": "Intel(R) Core(TM) i9-14900KF",
+        "cpu_logicas": 32,
+        "memoria_total_gib": 31.8,
+        "node": "v26.13.0",
+        "docker_servidor": "28.5.1",
+        "docker_cpus": 32,
+        "docker_memoria_gib": 15.6,
+        "commit": "9bf6407",
+        "motores": [
+          "python",
+          "dados",
+          "ml"
+        ],
+        "cenarios_medidos": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "piso-python",
+          "piso-dados",
+          "piso-ml"
+        ],
+        "api": {
+          "externa": false,
+          "descricao": "API de teste local com PostgreSQL 17 descartável (levelusp-bench-*)"
+        },
+        "executor": {
+          "url": "http://localhost:8081",
+          "inicio": {
+            "politica_pyodide": {
+              "dados": "fresh",
+              "ml": "reuse"
+            },
+            "pool_ocioso_no_instante": {
+              "dados": 1,
+              "ml": 0
+            },
+            "capacity": 32,
+            "fila_maxima": 200,
+            "memory": {
+              "limitMb": 5632,
+              "usedMb": 256,
+              "peakUsedMb": 512,
+              "blocked": 0
+            }
+          },
+          "fim": {
+            "politica_pyodide": {
+              "dados": "fresh",
+              "ml": "reuse"
+            },
+            "pool_ocioso_no_instante": {
+              "dados": 1,
+              "ml": 0
+            },
+            "capacity": 32,
+            "fila_maxima": 200,
+            "memory": {
+              "limitMb": 5632,
+              "usedMb": 1485,
+              "peakUsedMb": 1741,
+              "blocked": 0
+            }
+          },
+          "healthz": {
+            "status": "ok",
+            "pyodide": {
+              "ready": true,
+              "reason": "",
+              "policy": {
+                "dados": "fresh",
+                "ml": "reuse"
+              },
+              "profiles": [
+                "dados",
+                "ml"
+              ],
+              "warm": {
+                "dados": 1,
+                "ml": 0
+              }
+            }
+          },
+          "motores": {
+            "python": {
+              "python": "3.14.0 (WASI)",
+              "runtime": "wasmtime 49"
+            },
+            "dados": {
+              "python": "3.14.2 (Pyodide)",
+              "runtime": "pyodide 314.0.7"
+            },
+            "ml": {
+              "python": "3.14.2 (Pyodide)",
+              "runtime": "pyodide 314.0.7"
+            }
+          }
+        },
+        "pacote": "packages\\db\\seed\\trilha-python-ia.json",
+        "parametros": {
+          "repeticoes": 30,
+          "repeticoes_frio": 30,
+          "usuarios": 4,
+          "descarte": 1,
+          "cmd_reinicio": true,
+          "cenarios": [
+            "a",
+            "b",
+            "c",
+            "d",
+            "e",
+            "piso-python",
+            "piso-dados",
+            "piso-ml"
+          ],
+          "percentil": "posto mais próximo (nearest-rank)"
+        },
+        "falhas": []
+      }
+    ]
+  },
+  "carga": {
+    "rodadas": [
+      {
+        "data": "2026-11-25T22:25:58.838Z",
+        "coletado_em": "2026-11-25T22:25:58.835Z",
+        "so": "Windows_NT 10.0.26200 (x64)",
+        "cpu_modelo": "Intel(R) Core(TM) i9-14900KF",
+        "cpu_logicas": 32,
+        "memoria_total_gib": 31.8,
+        "node": "v26.13.0",
+        "docker_servidor": "28.5.1",
+        "docker_cpus": 32,
+        "docker_memoria_gib": 15.6,
+        "commit": "9bf6407",
+        "motores": [
+          "python",
+          "dados",
+          "ml"
+        ],
+        "niveis": [
+          10,
+          25,
+          50,
+          100
+        ],
+        "executor": {
+          "url": "http://localhost:8081",
+          "inicio": {
+            "politica_pyodide": {
+              "dados": "fresh",
+              "ml": "reuse"
+            },
+            "pool_ocioso_no_instante": {
+              "dados": 1,
+              "ml": 0
+            },
+            "capacity": 32,
+            "fila_maxima": 200,
+            "memory": {
+              "limitMb": 5632,
+              "usedMb": 256,
+              "peakUsedMb": 512,
+              "blocked": 0
+            }
+          },
+          "fim": {
+            "politica_pyodide": {
+              "dados": "fresh",
+              "ml": "reuse"
+            },
+            "pool_ocioso_no_instante": {
+              "dados": 1,
+              "ml": 4
+            },
+            "capacity": 32,
+            "fila_maxima": 200,
+            "memory": {
+              "limitMb": 5632,
+              "usedMb": 5172,
+              "peakUsedMb": 5632,
+              "blocked": 0
+            }
+          },
+          "healthz": {
+            "status": "ok",
+            "pyodide": {
+              "ready": true,
+              "reason": "",
+              "policy": {
+                "dados": "fresh",
+                "ml": "reuse"
+              },
+              "profiles": [
+                "dados",
+                "ml"
+              ],
+              "warm": {
+                "dados": 1,
+                "ml": 4
+              }
+            }
+          }
+        },
+        "banco": "PostgreSQL 17 (postgres:17-alpine) em volume Docker descartável, configuração padrão da imagem",
+        "api": {
+          "node": "v26.13.0",
+          "pool_conexoes": "padrão (10)",
+          "log": "warn"
+        },
+        "parametros": {
+          "motores": [
+            "python",
+            "dados",
+            "ml"
+          ],
+          "niveis": [
+            10,
+            25,
+            50,
+            100
+          ],
+          "duracao_s": 300,
+          "pensar_s": [
+            30,
+            60
+          ],
+          "p_errado": 0.4,
+          "regra_saturacao": "p95 das respostas 200 > 10000 ms (com ao menos 20 respostas 200); OU taxa de erro > 1% E ao menos 3 erros. Erro = 503, timeout, rede e 5xx; 429 (limite por usuário) é contado à parte e não satura",
+          "alvos": {
+            "python": "n1-m3-04-and-or-not-e-aninhamento#3",
+            "dados": "n4-m2-01-series-e-dataframe#3",
+            "ml": "n5-m4-01-api-fit-predict-transform#3"
+          }
+        },
+        "gerador": "mesma máquina da API e do banco: divide a CPU com o sistema medido"
+      }
+    ]
+  }
+}

@@ -179,6 +179,7 @@ describe.skipIf(!isPythonAvailable)("abuso de recursos: concorrência", () => {
     versions: sandbox.versions,
     readiness: sandbox.readiness,
     accept: () => undefined,
+    cost: () => sandbox.cost(),
     warmupMs: () => 0,
     stats: () => sandbox.stats(),
     run: (batch) => {
