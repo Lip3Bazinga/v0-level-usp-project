@@ -58,17 +58,22 @@ node scripts/bench/custo.mts --alunos 100 --mix ... --preco-vcpu-hora <P_cpu> --
 
 ## 5. Resultados
 
-> A preencher com a saída do script depois das medições (a sessão principal roda os scripts com a
-> máquina ociosa). Não preencher com estimativas.
+Saída do script em 2026-11-25, mix `python=0.4,dados=0.4,ml=0.2`, 100 alunos (≈ 2,2 envios/s),
+folga de 30 %, API + banco como premissa (1 vCPU, 1024 MiB), preços não informados. Antes = Fase D
+(`docs/tcc/dados/`, `fresh` e `ml:0`); depois = Fase D2 (`docs/tcc/dados/d2/`, `ml` em `reuse`).
 
-| Motor | λ_e (env/s) | S_e (ms) | c_e | workers | vCPU | memória (MiB) |
-|---|---|---|---|---|---|---|
-| python | | | | | | |
-| dados | | | | | | |
-| ml | | | | | | |
-| **Total (com folga de 30%)** | | | | | | |
+| Rodada | Workers (python / dados / ml) | vCPU | Memória | Custo/hora |
+|---|---|---:|---:|---|
+| Fase D, pior condição (frio) | 1 / 3 / 5 | 16 | 10,2 GiB | 16 × P_vcpu + 10,16 × P_gib |
+| D2, `--condicao quente` | 1 / 1 / 1 | 3 | 3,6 GiB | 3 × P_vcpu + 3,6 × P_gib |
+| D2, `--condicao pior` | 1 / 4 / 6 | 19 | 11,9 GiB | 19 × P_vcpu + 11,88 × P_gib |
 
-Mix usado: `…`. Premissas de API + banco: `…`. Preços informados: `…` (ou "não informado").
+Detalhe da rodada D2 quente (por motor: λ, S, c, vCPU, MiB): python 0,889 / 270 ms / 0,24 / 0,24 / 13;
+dados 0,889 / 135 ms / 0,12 / 0,26 / 229; ml 0,444 / 91 ms / 0,04 / 0,05 / 1166.
+
+Como ler: com o `ml` em `reuse` a condição `pior` só vale para o primeiro lote de cada worker, e a
+`quente` é otimista para o `dados`, que segue em `fresh`. A leitura intermediária (dados no frio,
+python e ml no quente: ≈ 11 vCPU e 4,5 GiB) e a validação contra a carga estão em `medicoes.md`, seção 7.4.
 
 ## 6. Limites da estimativa
 
