@@ -1,0 +1,9 @@
+curso,modulos,licoes,passos_total,passos_leitura,passos_exercicio,passos_quiz,passos_previsao,exercicios,casos_total,casos_io,casos_call,casos_variable,casos_source,casos_expr,casos_unittest,casos_legacy,solucoes_erradas_declaradas,verificadas_em_execucao,quiz_perguntas,prova_perguntas
+n1-fundamentos,9,47,281,64,133,47,37,133,818,162,402,45,89,120,0,0,540,nao,136,40
+n2-python-intermediario,7,35,263,85,113,36,29,113,930,9,170,2,29,704,16,0,537,nao,108,40
+n3-estruturas-de-dados-e-algoritmos,8,39,305,110,124,39,32,124,1173,0,334,0,61,778,0,0,657,nao,117,40
+n4-analise-de-dados,7,31,239,82,95,31,31,95,962,0,116,0,36,810,0,0,635,nao,93,40
+n5-machine-learning,8,36,284,102,110,36,36,110,986,0,171,0,19,796,0,0,710,nao,108,40
+n6-deep-learning,8,36,287,106,109,36,36,109,1247,0,143,0,3,1101,0,0,812,nao,108,40
+n7-engenharia-de-ia,7,29,219,61,104,29,25,104,940,0,219,0,0,715,6,0,644,nao,87,40
+total,54,253,1878,610,788,254,226,788,7056,171,1555,47,237,5024,22,0,4535,nao,757,280
