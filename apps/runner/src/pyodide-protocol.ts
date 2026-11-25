@@ -12,6 +12,9 @@ export const PYODIDE_POLICIES = ["fresh", "reuse"] as const
 /** `fresh`: um lote por worker (padrão). `reuse`: o worker atende vários lotes, com restauração entre eles. */
 export type PyodidePolicy = (typeof PYODIDE_POLICIES)[number]
 
+/** Política de cada perfil de worker (`RUNNER_PYODIDE_POLICY=dados:fresh,ml:reuse`). */
+export type PyodidePolicies = Record<PyodideProfileName, PyodidePolicy>
+
 /** Dados fixos de um worker, entregues na criação (`workerData`). */
 export interface PyodideWorkerBootData {
   /** Pasta com o núcleo do Pyodide e os wheels (`PYODIDE_DIR`). */

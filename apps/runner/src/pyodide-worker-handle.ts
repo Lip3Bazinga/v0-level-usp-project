@@ -69,6 +69,9 @@ export class PyodideWorker {
   readonly reusable: boolean
   /** Lotes já atendidos (a política `reuse` recicla depois de N). */
   uses = 0
+  /** Heap wasm logo depois do aquecimento (0 até aquecer): no log, mostra quanto os lotes fizeram o worker crescer. */
+  bootHeapBytes = 0
+  private termination: Promise<void> | null = null
   private readonly worker: Worker
   private readonly interrupt: Int32Array
   private ready: Promise<PyodideReadyEvent>
@@ -102,8 +105,10 @@ export class PyodideWorker {
       const timer = setTimeout(() => reject(new Error(`aquecimento do worker ${this.profile} passou de ${options.bootTimeoutMs} ms`)), options.bootTimeoutMs)
       const settle = (outcome: { ready: PyodideReadyEvent } | { error: Error }): void => {
         clearTimeout(timer)
-        if ("ready" in outcome) resolve(outcome.ready)
-        else reject(outcome.error)
+        if ("ready" in outcome) {
+          this.bootHeapBytes = outcome.ready.heapBytes
+          resolve(outcome.ready)
+        } else reject(outcome.error)
       }
       this.worker.on("message", (event: PyodideWorkerEvent) => {
         if (event.type === "ready") settle({ ready: event })
@@ -187,9 +192,18 @@ export class PyodideWorker {
     return { ok: result.ok, reason: result.reason, heapBytes: result.heapBytes, durationMs: result.durationMs }
   }
 
-  /** Mata a thread (sem esperar o Python): lotes em andamento recebem falha. */
-  async terminate(): Promise<void> {
-    if (this.exited) return
+  /**
+   * Mata a thread (sem esperar o Python): lotes em andamento recebem falha. Toda chamada
+   * devolve a mesma promessa, que só resolve com a thread encerrada de fato — é quando a
+   * memória do worker pode ser devolvida ao orçamento (mesmo se o worker já tinha morrido
+   * sozinho ou sido morto pelo prazo do lote).
+   */
+  terminate(): Promise<void> {
+    this.termination ??= this.stopThread()
+    return this.termination
+  }
+
+  private async stopThread(): Promise<void> {
     this.markExited("worker encerrado pelo executor")
     await this.worker.terminate()
   }

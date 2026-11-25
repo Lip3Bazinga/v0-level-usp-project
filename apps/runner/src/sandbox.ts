@@ -2,7 +2,7 @@ import { spawn } from "node:child_process"
 import { chmod, copyFile, lstat, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { DEFAULT_RUNNER_LIMITS, type Probe, type ProbeObservation, type ProjectFile, type RunnerLimits } from "@levelusp/contracts"
-import type { Engine, EngineBatch, EngineReadiness, EngineStats, EngineVersions } from "./engine.js"
+import type { Engine, EngineBatch, EngineCost, EngineReadiness, EngineStats, EngineVersions } from "./engine.js"
 import { collectObservations, parseObservations, prepareGuestJob, type GuestJob } from "./observations.js"
 
 export { jsonNestingDepth, parseObservations } from "./observations.js"
@@ -18,6 +18,8 @@ export interface SandboxOptions {
   workDir: string
   /** Teto de bytes gravados no projeto por um lote (padrão: `DEFAULT_JOB_DISK_BYTES`). */
   maxJobDiskBytes?: number
+  /** Peso de um lote no orçamento de memória, em MB (padrão 0: o processo é curto e cabe na reserva). */
+  memoryMb?: number
   /**
    * Chamado quando o convidado termina sem produzir NENHUMA observação (falha do próprio
    * Wasmtime, módulo incompatível, caminho errado…): o aluno vê só a mensagem genérica,
@@ -81,6 +83,11 @@ const HARNESS_FILE = "harness.py"
 const TIMEOUT_STDERR_PATTERN = /wasm trap: interrupt|all fuel consumed|epoch deadline/i
 /** Cota padrão de disco por lote: com 2 lotes simultâneos cabe folgado no tmpfs de 256 MB do container. */
 export const DEFAULT_JOB_DISK_BYTES = 32 * BYTES_PER_MIB
+/**
+ * Duração assumida de um lote antes da primeira medição, um pouco acima do medido numa máquina
+ * de 2 vCPU (~120–130 ms por instância nas lições do seed).
+ */
+const INITIAL_BATCH_MS = 150
 /** Arquivos + pastas no projeto: acima disso o lote é morto (criação em massa de arquivos). */
 const MAX_JOB_ENTRIES = 2_000
 /** Intervalo da medição do disco do lote (o convidado grava ~250 MB/s: estouro máximo ≈ 25 MB). */
@@ -111,6 +118,11 @@ export class WasmtimeSandbox implements Engine {
   /** O motor WASI atende qualquer pedido: as bibliotecas só importam ao Pyodide. */
   accept(): void {
     return undefined
+  }
+
+  /** Classe única (`wasi`), com o peso configurado para o perfil `python` (padrão 0: fora do orçamento). */
+  cost(): EngineCost {
+    return { key: "wasi", memoryMb: this.options.memoryMb ?? 0, initialBatchMs: INITIAL_BATCH_MS }
   }
 
   /** Cada lote sobe um processo novo (~130 ms); não há pool para aquecer. */
