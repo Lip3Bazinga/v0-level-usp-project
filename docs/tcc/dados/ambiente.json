@@ -92,5 +92,66 @@
       "ocioso_s": 10,
       "conteiner": "runner"
     }
+  },
+  "carga": {
+    "coletado_em": "2026-11-25T05:31:22.417Z",
+    "so": "Windows_NT 10.0.26200 (x64)",
+    "cpu_modelo": "Intel(R) Core(TM) i9-14900KF",
+    "cpu_logicas": 32,
+    "memoria_total_gib": 31.8,
+    "node": "v26.13.0",
+    "docker_servidor": "28.5.1",
+    "docker_cpus": 32,
+    "docker_memoria_gib": 15.6,
+    "commit": "d4aa103",
+    "executor": {
+      "url": "http://localhost:8081",
+      "capacidade": 4,
+      "fila_maxima": 200,
+      "healthz": {
+        "status": "ok",
+        "pyodide": {
+          "ready": true,
+          "reason": "",
+          "policy": "fresh",
+          "profiles": [
+            "dados",
+            "ml"
+          ],
+          "warm": {
+            "dados": 1,
+            "ml": 0
+          }
+        }
+      }
+    },
+    "banco": "PostgreSQL 17 (postgres:17-alpine) em volume Docker descartável, configuração padrão da imagem",
+    "api": {
+      "node": "v26.13.0",
+      "pool_conexoes": "padrão (10)",
+      "log": "warn"
+    },
+    "parametros": {
+      "motores": [
+        "ml"
+      ],
+      "niveis": [
+        10,
+        25,
+        50,
+        100
+      ],
+      "duracao_s": 300,
+      "pensar_s": [
+        30,
+        60
+      ],
+      "p_errado": 0.4,
+      "regra_saturacao": "p95 das respostas 200 > 10000 ms (com ao menos 20 respostas 200); OU taxa de erro > 1% E ao menos 3 erros. Erro = 503, timeout, rede e 5xx; 429 (limite por usuário) é contado à parte e não satura",
+      "alvos": {
+        "ml": "n5-m4-01-api-fit-predict-transform#3"
+      }
+    },
+    "gerador": "mesma máquina da API e do banco: divide a CPU com o sistema medido"
   }
 }
