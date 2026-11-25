@@ -2,7 +2,7 @@ import { spawn } from "node:child_process"
 import { chmod, copyFile, lstat, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { DEFAULT_RUNNER_LIMITS, type Probe, type ProbeObservation, type ProjectFile, type RunnerLimits } from "@levelusp/contracts"
-import type { Engine, EngineBatch, EngineReadiness, EngineStats, EngineVersions } from "./engine.js"
+import type { Engine, EngineBatch, EngineCost, EngineReadiness, EngineStats, EngineVersions } from "./engine.js"
 import { collectObservations, parseObservations, prepareGuestJob, type GuestJob } from "./observations.js"
 
 export { jsonNestingDepth, parseObservations } from "./observations.js"
@@ -18,6 +18,8 @@ export interface SandboxOptions {
   workDir: string
   /** Teto de bytes gravados no projeto por um lote (padrão: `DEFAULT_JOB_DISK_BYTES`). */
   maxJobDiskBytes?: number
+  /** Peso de um lote no orçamento de memória, em MB (padrão 0: o processo é curto e cabe na reserva). */
+  memoryMb?: number
   /**
    * Chamado quando o convidado termina sem produzir NENHUMA observação (falha do próprio
    * Wasmtime, módulo incompatível, caminho errado…): o aluno vê só a mensagem genérica,
@@ -111,6 +113,11 @@ export class WasmtimeSandbox implements Engine {
   /** O motor WASI atende qualquer pedido: as bibliotecas só importam ao Pyodide. */
   accept(): void {
     return undefined
+  }
+
+  /** Classe única (`wasi`), com o peso configurado para o perfil `python` (padrão 0: fora do orçamento). */
+  cost(): EngineCost {
+    return { key: "wasi", memoryMb: this.options.memoryMb ?? 0 }
   }
 
   /** Cada lote sobe um processo novo (~130 ms); não há pool para aquecer. */

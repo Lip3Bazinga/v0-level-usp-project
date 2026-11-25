@@ -7,8 +7,9 @@ import type { Server } from "node:http"
 import type { AddressInfo } from "node:net"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import type { ProbeObservation, RunnerJob } from "@levelusp/contracts"
-import { EngineRequestError, type Engine } from "../src/engine"
+import { EngineRequestError, InsufficientMemoryError, type Engine } from "../src/engine"
 import { Executor } from "../src/executor"
+import { MemoryBudget } from "../src/memory-budget"
 import { normalizeLibraryName, PYODIDE_PROFILES, resolveProfile } from "../src/pyodide-profiles"
 import { Semaphore } from "../src/semaphore"
 import { buildServer } from "../src/server"
@@ -55,7 +56,7 @@ describe.skipIf(!isPyodideAvailable)("PyodideEngine (integração, política fre
   afterAll(() => engine.shutdown())
 
   it("o autoteste da partida deixa o motor pronto e informa os perfis e o pool", () => {
-    expect(engine.readiness).toMatchObject({ ready: true, reason: "", policy: "fresh", profiles: ["dados", "ml"] })
+    expect(engine.readiness).toMatchObject({ ready: true, reason: "", policy: { dados: "fresh", ml: "fresh" }, profiles: ["dados", "ml"] })
     expect(engine.versions.python).toMatch(/^3\.14\.\d+ \(Pyodide\)$/)
     expect(engine.versions.runtime).toMatch(/^pyodide 314/)
   })
@@ -160,7 +161,7 @@ describe.skipIf(!isPyodideAvailable)("PyodideEngine (integração, política fre
 
   it("stats e readiness contam lotes e workers", async () => {
     const stats = engine.stats()
-    expect(stats).toMatchObject({ policy: "fresh", warm: { ml: 0 } })
+    expect(stats).toMatchObject({ policy: { dados: "fresh", ml: "fresh" }, warm: { ml: 0 } })
     expect(typeof stats.batches).toBe("number")
     expect(engine.warmupMs({ runtime: "python-dados", libraries: ["scikit-learn"] })).toBeGreaterThan(0)
     await new Promise((resolve) => setTimeout(resolve, 50))
@@ -227,6 +228,106 @@ describe.skipIf(!isPyodideAvailable)("PyodideEngine (integração, política reu
   })
 })
 
+describe.skipIf(!isPyodideAvailable)("PyodideEngine (integração, orçamento de memória)", () => {
+  const files = mainFile("import numpy as np", "valor = int(np.sum([1, 2]))")
+  /** Pesos dos testes: o orçamento é dado em "workers dados" de 256 MB. */
+  const memoryMb = { dados: 256, ml: 1229 }
+  const idleSettled = async (engine: PyodideEngine, budget: MemoryBudget, expectedUsedMb: number): Promise<void> => {
+    const deadline = Date.now() + 30_000
+    while (budget.usedMb !== expectedUsedMb || engine.readiness.warm.dados * memoryMb.dados !== expectedUsedMb) {
+      if (Date.now() > deadline) throw new Error(`orçamento não assentou em ${expectedUsedMb} MB (usado: ${budget.usedMb})`)
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+  }
+
+  it("6 jobs simultâneos com orçamento de 2 workers: nunca mais de 2 workers vivos e todos terminam", async () => {
+    const budget = new MemoryBudget(2 * memoryMb.dados)
+    const semaphore = new Semaphore(6, 50, budget)
+    const engine = createPyodideEngine({ warm: { dados: 0, ml: 0 }, budget, memoryMb })
+    const executor = new Executor({ python: fakeWasi(), "python-dados": engine }, semaphore, { budget, maxQueueWaitMs: 110_000 })
+    try {
+      const job: RunnerJob = { files, entry: "main.py", runtime: "python-dados", libraries: ["numpy"], probes: [globalsProbe("valor")], limits: SHORT_LIMITS }
+      const pending = Array.from({ length: 6 }, () => executor.execute(job))
+      // Os dois primeiros reservaram um worker cada; os outros quatro esperam memória na fila.
+      expect(semaphore.active).toBe(2)
+      expect(budget.snapshot()).toEqual({ limitMb: 512, usedMb: 512, peakUsedMb: 512, blocked: 4 })
+      const results = await Promise.all(pending)
+      expect(results.map((result) => result.observations[0]?.values?.valor)).toEqual([3, 3, 3, 3, 3, 3])
+      expect(engine.stats()).toMatchObject({ batches: 6, booted: 6, bootFailures: 0, peakLive: 2 })
+      expect(budget.peakUsedMb).toBe(512)
+      expect(budget.blocked).toBe(0)
+      await idleSettled(engine, budget, 0)
+    } finally {
+      await engine.shutdown()
+    }
+    expect(budget.usedMb).toBe(0)
+  }, 120_000)
+
+  it("sem reserva do executor (run direto), o motor espera memória por conta própria: pico ≤ 2 workers", async () => {
+    const budget = new MemoryBudget(2 * memoryMb.dados)
+    const engine = createPyodideEngine({ warm: { dados: 1, ml: 0 }, budget, memoryMb })
+    try {
+      const observations = await Promise.all(Array.from({ length: 6 }, () => runOne(engine, files, globalsProbe("valor"))))
+      expect(observations.map((observation) => observation.values?.valor)).toEqual([3, 3, 3, 3, 3, 3])
+      expect(Number(engine.stats().peakLive)).toBeLessThanOrEqual(2)
+      expect(budget.peakUsedMb).toBeLessThanOrEqual(512)
+      expect(budget.blocked).toBe(0)
+      // Sem lote à espera, o pool aquecido (especulativo) volta: 1 worker ocioso segurando 256 MB.
+      await idleSettled(engine, budget, memoryMb.dados)
+    } finally {
+      await engine.shutdown()
+    }
+    expect(budget.usedMb).toBe(0)
+  }, 120_000)
+
+  it("worker ocioso é cache: sem memória para um lote, o ocioso é despejado e o pool volta depois", async () => {
+    // Orçamento de 1 worker, todo ocupado pelo aquecido. O lote estrito (unittest) na política
+    // reuse exige um worker dedicado: só cabe se o ocioso sair.
+    const budget = new MemoryBudget(memoryMb.dados)
+    const engine = createPyodideEngine({ policy: "reuse", warm: { dados: 1, ml: 0 }, budget, memoryMb })
+    try {
+      await engine.start()
+      expect(engine.readiness.ready).toBe(true)
+      await idleSettled(engine, budget, memoryMb.dados)
+      const unittestFiles = mainFile("import unittest", "def soma(a, b):", "    return a + b", "class T(unittest.TestCase):", "    def test_soma(self):", "        self.assertEqual(soma(2, 3), 5)")
+      const observation = await runOne(engine, unittestFiles, { id: "u", kind: "unittest", target: "soma", implementation: "def soma(a, b):\n    return a + b" })
+      expect(observation).toMatchObject({ ok: true, tests: { run: 1, failures: 0, errors: 0 } })
+      expect(engine.stats()).toMatchObject({ evicted: 1, peakLive: 1 })
+      expect(budget.peakUsedMb).toBe(memoryMb.dados)
+      await idleSettled(engine, budget, memoryMb.dados)
+    } finally {
+      await engine.shutdown()
+    }
+    expect(budget.usedMb).toBe(0)
+  }, 120_000)
+
+  it("política por perfil: dados em reuse reaproveita o mesmo worker (que segue vivo e contado), ml fica em fresh", async () => {
+    const budget = new MemoryBudget(2 * memoryMb.dados)
+    const engine = createPyodideEngine({ policy: { dados: "reuse", ml: "fresh" }, warm: { dados: 0, ml: 0 }, recycleAfter: 10, budget, memoryMb })
+    try {
+      expect(engine.readiness.policy).toEqual({ dados: "reuse", ml: "fresh" })
+      for (let index = 0; index < 3; index++) expect((await runOne(engine, files, globalsProbe("valor"))).values?.valor).toBe(3)
+      await idleSettled(engine, budget, memoryMb.dados)
+      expect(engine.stats()).toMatchObject({ batches: 3, booted: 1, recycled: 0, evicted: 0, peakLive: 1, policy: { dados: "reuse", ml: "fresh" }, live: { dados: 1, ml: 0 } })
+      // Emprestar o worker não aquece um substituto: o pool continua com 1 vivo.
+      expect(budget.peakUsedMb).toBe(memoryMb.dados)
+    } finally {
+      await engine.shutdown()
+    }
+    expect(budget.usedMb).toBe(0)
+  }, 120_000)
+
+  it("perfil que pesa mais que o orçamento é recusado no accept (501), sem aquecer nada", () => {
+    const budget = new MemoryBudget(1000)
+    const engine = createPyodideEngine({ warm: { dados: 0, ml: 0 }, budget, memoryMb })
+    expect(() => engine.accept({ runtime: "python-dados", libraries: ["scikit-learn"] })).toThrow(InsufficientMemoryError)
+    expect(() => engine.accept({ runtime: "python-dados", libraries: ["numpy"] })).not.toThrow()
+    expect(engine.cost({ runtime: "python-dados", libraries: ["scikit-learn"] })).toEqual({ key: "pyodide:ml", memoryMb: 1229 })
+    expect(engine.cost({ runtime: "python-dados", libraries: [] })).toEqual({ key: "pyodide:dados", memoryMb: 256 })
+    expect(budget.usedMb).toBe(0)
+  })
+})
+
 describe.skipIf(!isPyodideAvailable)("servidor: job python-dados por POST /v1/run", () => {
   let engine: PyodideEngine
   let server: Server
@@ -286,11 +387,13 @@ describe.skipIf(!isPyodideAvailable)("servidor: job python-dados por POST /v1/ru
   })
 
   it("/healthz informa o motor Pyodide e /v1/stats traz os contadores por motor", async () => {
-    const health = (await (await fetch(`${base}/healthz`)).json()) as { status: string; pyodide: { ready: boolean; profiles: string[]; warm: Record<string, number> } }
+    const health = (await (await fetch(`${base}/healthz`)).json()) as { status: string; pyodide: { ready: boolean; policy: Record<string, string>; profiles: string[]; warm: Record<string, number> } }
     expect(health.status).toBe("ok")
     expect(health.pyodide).toMatchObject({ ready: true, profiles: ["dados", "ml"], warm: { ml: 0 } })
-    const stats = (await (await fetch(`${base}/v1/stats`, { headers: { authorization: `Bearer ${token}` } })).json()) as { engines: Record<string, Record<string, unknown>> }
-    expect(stats.engines.pyodide).toMatchObject({ policy: "fresh" })
+    const stats = (await (await fetch(`${base}/v1/stats`, { headers: { authorization: `Bearer ${token}` } })).json()) as { engines: Record<string, Record<string, unknown>>; memory: Record<string, unknown> }
+    expect(health.pyodide.policy).toEqual({ dados: "fresh", ml: "fresh" })
+    expect(stats.engines.pyodide).toMatchObject({ policy: { dados: "fresh", ml: "fresh" } })
+    expect(stats.memory).toMatchObject({ limitMb: null, blocked: 0 })
     expect(stats.engines.wasi).toBeDefined()
   })
 })
@@ -302,6 +405,7 @@ function fakeWasi(): Engine {
     versions: { python: "3.14 (falso)", runtime: "falso" },
     readiness: { ready: true, reason: "" },
     accept: () => undefined,
+    cost: () => ({ key: "wasi", memoryMb: 0 }),
     warmupMs: () => 0,
     stats: () => ({ batches: 0 }),
     run: (batch) => Promise.resolve(batch.probes.map((probe) => ({ id: probe.id, ok: true, error: "wasi-falso" }))),

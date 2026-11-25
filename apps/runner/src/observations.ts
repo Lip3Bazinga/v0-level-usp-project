@@ -34,9 +34,14 @@ export function prepareGuestJob(probes: Probe[], entry: string): GuestJob {
   return {
     nonce: randomBytes(NONCE_BYTES).toString("hex"),
     entry,
-    strict: probes.some((probe) => STRICT_PROBE_KINDS.has(probe.kind)),
+    strict: isStrictBatch(probes),
     probes: probes.map((probe, index) => ({ ...probe, id: positionalId(index) })),
   }
+}
+
+/** O lote tem alguma sonda que exige o modo estrito do harness (audit hook que barra o que o aluno importa). */
+export function isStrictBatch(probes: readonly Probe[]): boolean {
+  return probes.some((probe) => STRICT_PROBE_KINDS.has(probe.kind))
 }
 
 /** Como a instância terminou; decide a mensagem das sondas que ficaram sem observação. */
