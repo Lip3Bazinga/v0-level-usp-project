@@ -128,7 +128,14 @@ rodízio respeitam o limite de 12 verificações/min.
   (`pool_quente_antes`). Sem `--cmd-reinicio` o frio do WASI não é medido. Não se assume `ml:0`: a
   condição vem do que o executor informa (pool aquecido observado antes de cada envio). Com a política
   `reuse` o worker volta ao pool depois do lote, então o ml tem cenário quente e o script mede as
-  execuções em sequência (sem o par quente + frio). A política que valia (lida de `/healthz`) fica na
+  execuções em sequência (sem o par quente + frio). **Na `reuse` a condição é classificada DEPOIS do
+  envio**, porque o worker pode estar em restauração (ocioso = 0) e atender em dezenas de ms: lê-se
+  `/v1/stats` antes e depois, e o delta de `engines.pyodide.booted` decide (houve worker criado durante
+  o envio = `frio_pool`; senão `quente`). Antes de cada envio o script espera o pool estabilizar (duas
+  leituras seguidas com `booted`, `warm` e `live` iguais), para o aquecimento especulativo do outro
+  perfil não contaminar o delta; `frio_processo` (primeiro envio após `--cmd-reinicio`) não espera nada
+  e não é reclassificado. O delta usado fica na coluna `booted_delta` (auditoria; vazia fora da `reuse`).
+  Sem `/v1/stats` o script aborta com erro claro. Em `fresh` vale a regra do pool observado. A política que valia (lida de `/healthz`) fica na
   coluna `politica_pyodide` de cada linha (vazia no WASI).
 - `--motores python,dados,ml` (padrão: todos) mede só os cenários desses motores; combina com
   `--cenarios` (interseção). Os cenários não medidos mantêm as linhas anteriores do CSV.
