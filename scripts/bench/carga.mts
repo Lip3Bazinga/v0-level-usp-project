@@ -16,27 +16,34 @@
  * Fila do executor: lida de `GET /v1/stats` (pending/active/peakPending). Sem a rota, a coluna fica
  * vazia e `emvoo_max_cliente` (maior nº de envios simultâneos no cliente) é a aproximação.
  *
- * Saída: docs/tcc/dados/carga.csv (uma linha por motor × N), carga-saturacao.csv, amostras de
- * CPU/memória em recursos.csv (tipo `carga`) e a seção "carga" de ambiente.json.
+ * Saída (em --dir-dados, padrão docs/tcc/dados): carga.csv (uma linha por motor × N), carga-saturacao.csv, amostras de
+ * CPU/memória em recursos.csv (tipo `carga`) e uma rodada nova na seção "carga" de ambiente.json. Rodada
+ * parcial (ex.: --motores ml) troca só as linhas do motor × N medido; o resumo de saturação sai do CSV completo.
  */
 import path from "node:path"
 import { ApiClient, newCredentials } from "./lib/api.mts"
 import { flagOption, listOption, numberOption, parseArgs, rangeOption, rejectUnknown, stringOption } from "./lib/args.mts"
 import { type AlvoResolvido, ALVOS_CARGA, loadBundle, type Motor, prepararAluno, resolverAlvo, submitRoute, type SubmitResponse } from "./lib/conteudo.mts"
 import { cleanBenchResidue, dockerAvailable } from "./lib/docker.mts"
-import { appendCsv, formatTable, percentile, round, startCsv } from "./lib/estatistica.mts"
+import { dirDados, mergeCsv, registerRound, writeDerivedCsv } from "./lib/dados.mts"
+import { formatTable, percentile, readCsv, round } from "./lib/estatistica.mts"
+import { memoriaUsadaMb, politicaDoPerfil, readExecutorConfig } from "./lib/executor.mts"
 import { iniciarPilha, Limpeza } from "./lib/pilha.mts"
-import { RECURSOS_CSV, startSampler } from "./lib/recursos.mts"
+import { mergeRecursos, recursosFile, startSampler } from "./lib/recursos.mts"
+import { resumoSaturacao, SATURACAO_HEADER } from "./lib/resumos.mts"
 import { RunnerClient, requireRunnerToken, type RunnerStats } from "./lib/runner.mts"
-import { collectEnvironment, DATA_DIR, DEFAULT_BUNDLE, nowIso, randomBetween, seededRandom, sleep, updateEnvironmentFile } from "./lib/sistema.mts"
+import { collectEnvironment, DEFAULT_BUNDLE, nowIso, randomBetween, seededRandom, sleep } from "./lib/sistema.mts"
 
-const KNOWN_OPTIONS = ["motores", "niveis", "duracao-s", "pensar-s", "runner-url", "api-porta", "p-errado", "limite-p95-ms", "limite-erro", "min-erros", "min-amostras-p95", "semente", "saida", "conteiner", "sem-recursos", "pacote", "parar-na-saturacao", "limpar", "ajuda"]
+const KNOWN_OPTIONS = ["motores", "niveis", "duracao-s", "pensar-s", "runner-url", "api-porta", "p-errado", "limite-p95-ms", "limite-erro", "min-erros", "min-amostras-p95", "semente", "dir-dados", "conteiner", "sem-recursos", "pacote", "parar-na-saturacao", "limpar", "ajuda"]
 const CSV_HEADER = [
   "motor", "perfil", "usuarios", "duracao_s", "pensar_min_s", "pensar_max_s", "envios", "ok_200", "aprovados", "rejeitados_503", "limitados_429", "outros_erros", "taxa_erro",
   "p50_ms", "p95_ms", "p99_ms", "max_ms", "runner_exec_p95_ms", "runner_fila_p95_ms", "fila_max_runner", "ativos_max_runner", "pico_fila_runner", "capacidade_runner",
   "emvoo_max_cliente", "vazao_envios_s", "duracao_real_s", "saturou", "motivo_saturacao", "regra_saturacao", "inicio",
+  // Colunas acrescentadas na Fase D2 (sempre no fim): memória reservada no executor e dados para recalcular a saturação.
+  "memoria_reservada_pico_mib", "politica_pyodide", "limite_p95_ms", "limite_erro",
 ] as const
-const SATURATION_HEADER = ["motor", "n_saturacao", "criterio", "limite_p95_ms", "limite_erro", "maior_n_sem_saturar", "regra_saturacao"] as const
+/** Chave de substituição no CSV: uma rodada regrava só o motor × N medido agora. */
+const chaveCarga = (linha: Record<string, string>): string => `${linha.motor}|${linha.usuarios}`
 const REQUEST_TIMEOUT_MS = 60_000
 const SETUP_CONCURRENCY = 4
 /** Teto da API: 150 verificações por aluno e lição por dia (`codeSubmissionPerLessonDay`). */
@@ -72,7 +79,8 @@ const HELP = `Uso: node scripts/bench/carga.mts [opções]
   --api-porta N               porta da API de teste (padrão: uma livre sorteada; se pedida e ocupada, aborta)
   --conteiner REGEX           contêineres amostrados (padrão "runner|levelusp-bench-"); --sem-recursos desliga
   --semente N                 semente dos sorteios (repetível)
-  --saida ARQUIVO             CSV (padrão docs/tcc/dados/carga.csv)
+  --dir-dados PASTA           pasta de saída (padrão docs/tcc/dados): carga.csv, carga-saturacao.csv, recursos.csv e ambiente.json.
+                              Rodada parcial troca só as linhas do motor × N medido; carga-saturacao.csv é recalculado do carga.csv completo
   --limpar                    apaga sobras levelusp-bench-* e sai`
 
 interface Aluno {
@@ -108,7 +116,10 @@ async function main(): Promise<void> {
   const rule: Rule = { limitP95, limitError, minErrors: numberOption(args, "min-erros", 3), minSamplesP95: numberOption(args, "min-amostras-p95", 20) }
   const apiPort = args.options.has("api-porta") ? numberOption(args, "api-porta", 0) : undefined
   const random = seededRandom(numberOption(args, "semente", Date.now() % 1_000_000))
-  const csvFile = path.resolve(stringOption(args, "saida", path.join(DATA_DIR, "carga.csv")))
+  const dir = dirDados(args)
+  const csvFile = path.join(dir, "carga.csv")
+  const saturationFile = path.join(dir, "carga-saturacao.csv")
+  const recursosCsv = recursosFile(dir)
   const containerPattern = new RegExp(stringOption(args, "conteiner", "runner|levelusp-bench-"))
   const sampleResources = !flagOption(args, "sem-recursos")
   const stopAtSaturation = flagOption(args, "parar-na-saturacao")
@@ -121,6 +132,9 @@ async function main(): Promise<void> {
   if (!(await runner.health()).ok) throw new Error(`executor sem resposta em ${runnerUrl}/healthz`)
   const initial = await runner.stats()
   if (initial === null) console.warn("AVISO: /v1/stats indisponível: fila do executor será derivada no cliente.")
+  const configInicial = await readExecutorConfig(runner)
+  if (configInicial.memory === null) console.warn("AVISO: o executor não informa `memory` em /v1/stats: as colunas de memória reservada ficam vazias.")
+  console.log(`Executor: política Pyodide ${JSON.stringify(configInicial.politica_pyodide)}, capacidade ${configInicial.capacity ?? "?"}, pool aquecido ${JSON.stringify(configInicial.pool_aquecido)}.`)
   const estimateMin = Math.round((motores.length * niveis.length * (duration + 40)) / 60)
   console.log(`Plano: motores ${motores.join(",")}; níveis ${niveis.join(",")}; ${duration} s cada (≈ ${estimateMin} min + preparação).`)
 
@@ -149,11 +163,7 @@ async function main(): Promise<void> {
       console.log(`  ${motor}: ${alvo.descricao} (${alvo.licao}, passo ${alvo.passo})`)
     }
 
-    startCsv(csvFile, CSV_HEADER)
-    const saturationFile = path.join(path.dirname(csvFile), "carga-saturacao.csv")
-    startCsv(saturationFile, SATURATION_HEADER)
     const pool: Aluno[] = []
-    const saturationRows: (string | number | null)[][] = []
     const summary: (string | number | null)[][] = []
     let noContainerWarned = false
 
@@ -161,40 +171,41 @@ async function main(): Promise<void> {
       const alvo = alvos.get(motor)
       if (!alvo) continue
       let saturatedAt: { n: number; reason: string } | null = null
-      let lastOk: number | null = null
       for (const n of niveis) {
         if (abort.signal.aborted) break
         if (saturatedAt !== null && stopAtSaturation) break
         console.log(`\n== ${motor}, ${n} alunos, ${duration} s ==`)
         await ensureStudents(pool, n, alvo, apiUrl, motor)
-        const sampler = sampleResources ? startSampler(RECURSOS_CSV, { tipo: "carga", rotulo: `carga-${motor}-n${n}`, motor, k: n }, containerPattern, 4_000) : null
+        const sampler = sampleResources ? startSampler({ tipo: "carga", rotulo: `carga-${motor}-n${n}`, motor, k: n }, containerPattern, 4_000) : null
         const level = await runLevel({ students: pool.slice(0, n), alvo, runner, duration, thinkMin, thinkMax, pWrong, random, signal: abort.signal })
-        const samples = sampler ? await sampler.stop() : []
+        const amostragem = sampler ? await sampler.stop() : null
+        const samples = amostragem?.samples ?? []
+        if (amostragem) mergeRecursos(recursosCsv, amostragem.rows)
         if (sampler && !noContainerWarned && !samples.some((sample) => /runner/.test(sample.container))) {
           noContainerWarned = true
           console.warn("AVISO: nenhum contêiner 'runner' foi amostrado (executor fora do Docker?): CPU/memória do executor não foram registradas.")
         }
         const saturation = judge(level, rule)
         if (saturation !== null && saturatedAt === null) saturatedAt = { n, reason: saturation }
-        if (saturation === null) lastOk = n
         if (level.limited429 > 0) console.warn(`  AVISO: ${level.limited429} resposta(s) 429 (limite por usuário/dia ou por minuto): não contam como saturação do executor.`)
-        appendCsv(csvFile, [rowOf(motor, alvo, n, duration, thinkMin, thinkMax, level, saturation, describeRule(rule))])
+        mergeCsv(csvFile, CSV_HEADER, chaveCarga, [rowOf(motor, alvo, n, duration, thinkMin, thinkMax, level, saturation, describeRule(rule), politicaDoPerfil(configInicial, alvo.perfil), rule)])
+        writeDerivedCsv(saturationFile, SATURACAO_HEADER, resumoSaturacao(readCsv(csvFile)))
         summary.push([motor, n, level.envios.length, round(level.p95), `${round(level.errorRate * 100)}%`, level.maxPending, level.maxInFlight, saturation ?? "ok"])
         console.log(`  envios ${level.envios.length}, p95 ${round(level.p95, 0) ?? "-"} ms, erro ${round(level.errorRate * 100)}%, fila máx ${level.maxPending ?? "?"}, ${saturation ?? "sem saturação"}`)
         await cooldown(runner, abort.signal)
       }
-      saturationRows.push([motor, saturatedAt?.n ?? null, saturatedAt?.reason ?? `não saturou até N=${Math.max(...niveis)}`, limitP95, limitError, lastOk, describeRule(rule)])
     }
-    appendCsv(saturationFile, saturationRows)
     console.log("\nResumo:")
     console.log(formatTable(["motor", "N", "envios", "p95_ms", "erro", "fila_max", "emvoo_max", "veredito"], summary))
     console.log("\nSaturação:")
-    console.log(formatTable(SATURATION_HEADER, saturationRows))
+    console.log(formatTable(SATURACAO_HEADER, resumoSaturacao(readCsv(csvFile))))
 
-    const finalStats = await runner.stats()
-    updateEnvironmentFile("carga", {
+    const configFinal = await readExecutorConfig(runner)
+    registerRound(dir, "carga", {
       ...(await collectEnvironment()),
-      executor: { url: runnerUrl, capacidade: finalStats?.capacity ?? null, fila_maxima: finalStats?.maxQueue ?? null, healthz: (await runner.health()).body },
+      motores,
+      niveis,
+      executor: { url: runnerUrl, inicio: configInicial, fim: configFinal, healthz: (await runner.health()).body },
       banco: "PostgreSQL 17 (postgres:17-alpine) em volume Docker descartável, configuração padrão da imagem",
       api: { node: process.version, pool_conexoes: "padrão (10)", log: "warn" },
       parametros: { motores, niveis, duracao_s: duration, pensar_s: [thinkMin, thinkMax], p_errado: pWrong, regra_saturacao: describeRule(rule), alvos: Object.fromEntries([...alvos].map(([motor, alvo]) => [motor, `${alvo.alvo.licao}#${alvo.alvo.passo}`])) },
@@ -245,6 +256,8 @@ interface Level {
   maxInFlight: number
   maxPending: number | null
   maxActive: number | null
+  /** Maior memória reservada (`memory.usedMb`) vista no executor durante o nível; `null` se o executor não informa. */
+  maxMemoryMb: number | null
   peakPending: number | null
   capacity: number | null
   runnerExecP95: number | null
@@ -268,6 +281,7 @@ async function runLevel(options: { students: Aluno[]; alvo: AlvoResolvido; runne
   let maxInFlight = 0
   let maxPending: number | null = null
   let maxActive: number | null = null
+  let maxMemoryMb: number | null = null
   let lastStats: RunnerStats | null = before
   let lastDoneMs = levelStartedMs
 
@@ -278,6 +292,8 @@ async function runLevel(options: { students: Aluno[]; alvo: AlvoResolvido; runne
         lastStats = stats
         maxPending = Math.max(maxPending ?? 0, stats.pending)
         maxActive = Math.max(maxActive ?? 0, stats.active)
+        const used = memoriaUsadaMb(stats)
+        if (used !== null) maxMemoryMb = Math.max(maxMemoryMb ?? 0, used)
       }
       await sleep(1_000, signal)
     }
@@ -331,6 +347,7 @@ async function runLevel(options: { students: Aluno[]; alvo: AlvoResolvido; runne
     maxInFlight,
     maxPending,
     maxActive,
+    maxMemoryMb,
     peakPending: after?.peakPending ?? null,
     capacity: after?.capacity ?? null,
     runnerExecP95: jobs.length === 0 ? null : percentile(jobs.map((job) => job.execMs), 95),
@@ -353,11 +370,12 @@ function judge(level: Level, rule: Rule): string | null {
   return reasons.length === 0 ? null : reasons.join("; ")
 }
 
-function rowOf(motor: Motor, alvo: AlvoResolvido, n: number, duration: number, thinkMin: number, thinkMax: number, level: Level, saturation: string | null, rule: string): (string | number | boolean | null)[] {
+function rowOf(motor: Motor, alvo: AlvoResolvido, n: number, duration: number, thinkMin: number, thinkMax: number, level: Level, saturation: string | null, ruleText: string, politica: string | null, rule: Rule): (string | number | boolean | null)[] {
   return [
     motor, alvo.perfil, n, duration, thinkMin, thinkMax, level.envios.length, level.okCount, level.passed, level.rejected503, level.limited429, level.otherErrors, round(level.errorRate, 4),
     round(level.p50), round(level.p95), round(level.p99), round(level.max), level.runnerExecP95, level.runnerQueueP95, level.maxPending, level.maxActive, level.peakPending, level.capacity,
-    level.maxInFlight, round(level.throughput, 3), round(level.actualSeconds), saturation !== null, saturation, rule, level.startedAt,
+    level.maxInFlight, round(level.throughput, 3), round(level.actualSeconds), saturation !== null, saturation, ruleText, level.startedAt,
+    round(level.maxMemoryMb), politica, rule.limitP95, rule.limitError,
   ]
 }
 
