@@ -12,6 +12,9 @@ export const SNAPSHOT_SAVE_DEBOUNCE_MS = 1_500
 /** Espera após a última tecla antes de salvar uma anotação. */
 export const NOTE_AUTOSAVE_DEBOUNCE_MS = 800
 
+/** Espera após a última edição antes de atualizar a prévia da aula no editor do professor. */
+export const PREVIEW_DEBOUNCE_MS = 300
+
 /** Toasts do SweetAlert (`swalToast`). */
 export const TOAST_DURATION_MS = 3_000
 

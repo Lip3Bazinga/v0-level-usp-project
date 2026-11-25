@@ -8,7 +8,7 @@ comentários em **pt-BR**. Monorepo pnpm + Turborepo.
 ```
 apps/web       Next.js 16 (App Router) — só interface. Fala com a API via /api/* (rewrite).
 apps/api       NestJS 12 (Express) — TODA regra de negócio, auth própria, correção, gamificação.
-apps/runner    Executor isolado: CPython 3.14 WASI no Wasmtime. Sem segredos, sem banco, sem rede.
+apps/runner    Executor isolado: CPython 3.14 WASI no Wasmtime (python) e Pyodide (python-dados). Sem segredos, sem banco, sem rede.
 packages/contracts  Tipos de domínio + schemas Zod (fonte única do contrato web⇄api⇄runner).
 packages/db    Schema Drizzle (PostgreSQL 17), migrações SQL versionadas, seed, importação do Supabase.
 infra/         Docker, compose (dev/homolog/prod), Cloudflare Tunnel, scripts de deploy e backup.
@@ -84,8 +84,36 @@ pnpm --filter @levelusp/runner setup:python   # baixa Wasmtime + CPython WASI
 docker compose -f infra/compose/compose.dev.yml up   # Postgres local
 ```
 
-## Regras para subagentes
+## Orquestração, modelos e merge
 
-- Não fazem `git commit`/push; editam arquivos e reportam a lista de mudanças.
-- Escopos de arquivos disjuntos entre agentes paralelos.
-- Antes de reportar: `tsc --noEmit` do pacote tocado e os testes do pacote passando.
+A sessão principal coordena; o trabalho pesado vai para agentes em worktrees (`.claude/agents/`).
+
+Modelo por tarefa (passe `model` ao lançar o agente quando fugir do padrão dele):
+
+| Tarefa | Modelo |
+|---|---|
+| Rodar testes, lint, verify, e2e, ataques; tarefas mecânicas (renomear, mover, ajustar texto) | haiku (`verificador-levelusp`) |
+| Implementar com especificação fechada; revisar diff comum | sonnet (padrão de `dev-levelusp` e `revisor-levelusp`) |
+| Runner, correção (`modules/grading`, harness), autenticação, migrações, segurança, desenho de arquitetura e a revisão desses diffs | fable |
+
+Fluxo de cada fase:
+1. Divida a fase em partes com arquivos disjuntos. No máximo 2 agentes `dev-levelusp` ao mesmo tempo;
+   partes que tocam os mesmos arquivos ou migrações vão em sequência.
+2. Cada agente trabalha e commita na própria branch do worktree.
+3. `verificador-levelusp` roda os testes da branch; `revisor-levelusp` lê o diff (fable se for área sensível).
+4. REPROVADO: devolva ao mesmo agente com a lista de problemas (no máximo 2 voltas; depois, pare e avise o Filipe).
+5. APROVADO: a sessão principal faz `git merge --no-ff` das branches dos agentes na branch da fase,
+   roda a verificação da fase uma vez, faz push e abre o PR para `develop`.
+6. Merge do PR: ative `gh pr merge <n> --merge --auto` para `develop` só com o revisor APROVADO; o GitHub
+   faz o merge quando o CI passar (se o repositório não permitir auto-merge, deixe o PR para o Filipe).
+   Nunca faça merge em `main`, nunca use squash, nunca force push.
+7. Apague os worktrees e branches locais dos agentes depois do merge.
+
+Regras gerais: commits como "Filipe <fpiomagalhaes@gmail.com>", sem trailers; agentes não fazem push;
+relatórios curtos; saídas longas sempre filtradas.
+
+## Compact instructions
+
+Ao compactar, preserve: a fase em andamento (`.claude-transfer/fases/`), a branch atual e as dos agentes,
+o que já foi commitado e o que falta, falhas abertas e decisões pendentes do Filipe. Descarte saídas de
+comandos, conteúdo de arquivos já lidos e relatórios de agentes já resolvidos.

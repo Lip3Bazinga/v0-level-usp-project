@@ -20,6 +20,10 @@ const JSON_INDENT = 2
 interface StepsTabProps {
   steps: LessonStepInput[]
   onChange: (steps: LessonStepInput[]) => void
+  /** Índice do passo aberto. Quando informado, o componente é controlado pela tela (ex.: a prévia segue o passo em edição). */
+  openIndex?: number
+  /** Avisa que o professor abriu outro passo (clique, novo passo, remover ou mover). */
+  onOpenIndexChange?: (index: number) => void
 }
 
 /**
@@ -27,9 +31,17 @@ interface StepsTabProps {
  * ordenar —, código inicial, solução, instruções, dicas e casos de teste), previsão (código, saída
  * esperada e dicas) e quiz. Ao salvar, a lista inteira é enviada em `steps` e substitui
  * os passos da lição (o id de cada posição é preservado pela API).
+ *
+ * O passo aberto é interno por padrão; com `openIndex` (e `onOpenIndexChange`) a tela controla
+ * qual passo está aberto e fica sabendo qual o professor está editando.
  */
-export function StepsTab({ steps, onChange }: StepsTabProps): React.JSX.Element {
-  const [openIndex, setOpenIndex] = useState(0)
+export function StepsTab({ steps, onChange, openIndex: controlledOpenIndex, onOpenIndexChange }: StepsTabProps): React.JSX.Element {
+  const [internalOpenIndex, setInternalOpenIndex] = useState(0)
+  const openIndex = controlledOpenIndex ?? internalOpenIndex
+  const setOpenIndex = (index: number): void => {
+    setInternalOpenIndex(index)
+    onOpenIndexChange?.(index)
+  }
 
   const patchStep = (index: number, changes: Partial<LessonStepInput>): void => {
     onChange(steps.map((step, position) => (position === index ? { ...step, ...changes } : step)))
