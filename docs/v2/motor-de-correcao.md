@@ -429,8 +429,8 @@ O que se troca por isso, só no perfil `ml`:
   descartado), reciclagem a cada `RUNNER_PYODIDE_RECYCLE_AFTER` lotes (25) e quando o heap
   wasm passa de `RUNNER_PYODIDE_RECYCLE_HEAP_MB`, descarte após tempo excedido, saída
   excedida ou falha, e a suíte `test:attacks` (`pyodide.attack.ts`, "contaminação entre lotes
-  (política reuse)"), que tenta contaminar o lote seguinte por módulos, builtins, classes e
-  opções das bibliotecas.
+  (política reuse)"), que tenta contaminar o lote seguinte adulterando numpy/pandas/builtins,
+  instalando audit hook ou trace e deixando arquivos em `/work`.
 - **Por que só o `ml`:** `python` e `dados` cabem no limite de 10 s com isolamento total
   (≈ 0,2 s e ≈ 0,1–2,5 s); só o `ml` não cabe. As provas e lições do N1–N4 continuam sem
   nenhum estado entre lotes. Para voltar ao isolamento total no `ml`, use
