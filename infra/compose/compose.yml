@@ -78,12 +78,22 @@ services:
       CONCURRENCY: ${RUNNER_CONCURRENCY:-2}
       MAX_QUEUE_WAIT_MS: ${RUNNER_MAX_QUEUE_WAIT_MS:-20000}
       # Motor python-dados (Pyodide): ligado por padrão (a imagem traz /opt/levelusp-pyodide).
-      # Pool aquecido por perfil (dados = numpy+pandas; ml = + scipy/scikit-learn/matplotlib);
-      # ml ocioso custa ~1,5 GB, então por padrão só o perfil dados fica quente.
+      # Pool aquecido por perfil (dados = numpy+pandas; ml = + scipy/scikit-learn/matplotlib).
+      # Política por perfil: dados em `fresh` (um worker novo por lote, isolamento mais forte) e
+      # ml em `reuse` (worker restaurado entre lotes: tira ~9,5 s de aquecimento de cada envio).
+      # O compromisso de isolamento da `reuse` está em docs/v2/motor-de-correcao.md.
       RUNNER_PYODIDE_ENABLED: ${RUNNER_PYODIDE_ENABLED:-true}
-      RUNNER_PYODIDE_POLICY: ${RUNNER_PYODIDE_POLICY:-fresh}
+      RUNNER_PYODIDE_POLICY: ${RUNNER_PYODIDE_POLICY:-dados:fresh,ml:reuse}
       RUNNER_PYODIDE_WARM: ${RUNNER_PYODIDE_WARM:-dados:1,ml:0}
       RUNNER_PYODIDE_MAX_HEAP_MB: ${RUNNER_PYODIDE_MAX_HEAP_MB:-512}
+      # Admissão por memória: o executor só inicia um lote quando o worker dele cabe em
+      # RUNNER_MEMORY − RUNNER_MEMORY_RESERVE_MB (peso por perfil em RUNNER_BATCH_MEMORY_MB, MiB).
+      # Sem memória o lote espera na fila ou recebe 503 com Retry-After; o contêiner não morre por
+      # OOM. O perfil ml (≈ 1,2 GiB por worker) precisa de RUNNER_MEMORY ≥ 2g; abaixo disso as
+      # lições ml são recusadas (as demais seguem funcionando).
+      RUNNER_MEMORY: ${RUNNER_MEMORY:-2g}
+      RUNNER_MEMORY_RESERVE_MB: ${RUNNER_MEMORY_RESERVE_MB:-512}
+      RUNNER_BATCH_MEMORY_MB: ${RUNNER_BATCH_MEMORY_MB:-python:0,dados:256,ml:1229}
     # Defesa em profundidade (além do sandbox WASI/Pyodide): sem rede externa, sistema de
     # arquivos somente leitura, sem privilégios, limites de CPU/memória/processos.
     networks: [runner]
@@ -95,7 +105,7 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     pids_limit: 128
-    mem_limit: ${RUNNER_MEMORY:-1g}
+    mem_limit: ${RUNNER_MEMORY:-2g}
     cpus: ${RUNNER_CPUS:-2}
 
   api:
