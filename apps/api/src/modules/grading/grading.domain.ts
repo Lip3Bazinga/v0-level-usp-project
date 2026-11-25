@@ -242,7 +242,7 @@ function gradeSource(testCase: CaseOf<"source">, { observations }: GradingContex
 
 /**
  * O executor só escreve um nome puro (`int`, `ValueError`) quando o tipo É o
- * embutido; classes do aluno chegam como `modulo.Classe`. Nome embutido exige
+ * embutido; classes do aluno chegam como `modulo.Classe` (`main.Tarefa`). Nome embutido exige
  * igualdade exata; nome de classe do aluno casa pelo sufixo `.Classe`.
  */
 export function typeMatches(expected: string, observed: string | undefined): boolean {
@@ -251,10 +251,17 @@ export function typeMatches(expected: string, observed: string | undefined): boo
   return !PY_BUILTIN_TYPE_NAMES.has(expected) && observed.endsWith(`.${expected}`)
 }
 
-/** Nome legível para o aluno: `__main__.Tarefa` → `Tarefa`. */
+/**
+ * Prefixos do módulo do aluno no tipo observado: `main.` nos casos que carregam o `main.py`
+ * como biblioteca (call, variable, expr, unittest) e `__main__.` quando ele roda como programa.
+ */
+const STUDENT_MODULE_PREFIXES = ["main.", "__main__."] as const
+
+/** Nome legível para o aluno: `main.Tarefa` (ou `__main__.Tarefa`) → `Tarefa`. */
 function displayType(observed: string | undefined): string {
   if (observed === undefined) return "?"
-  return observed.startsWith("__main__.") ? observed.slice("__main__.".length) : observed
+  const prefix = STUDENT_MODULE_PREFIXES.find((candidate) => observed.startsWith(candidate))
+  return prefix === undefined ? observed : observed.slice(prefix.length)
 }
 
 function describeExpression(testCase: CaseOf<"expr">): string {

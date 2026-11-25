@@ -10,6 +10,7 @@
 | [migracao-dados.md](./migracao-dados.md) | Importação do Supabase e conversão de gabaritos |
 | [testes.md](./testes.md) | Pirâmide de testes e como rodar cada camada |
 | [desempenho-e-carga.md](./desempenho-e-carga.md) | Teste de carga de turma (`pnpm load:turma`), capacidade da VM, fila do executor, Lighthouse e custo por aluno |
+| [desempenho-executor.md](./desempenho-executor.md) | Piso de tempo por lote em cada motor (WASI, Pyodide `dados` e `ml`): decomposição, causa, antes e depois |
 | [paridade-python.md](./paridade-python.md) | Python do "Executar" (Pyodide) × "Verificar" (WASI): versões, origem do runtime, teste diferencial |
 | [api-rotas.md](./api-rotas.md) | Mapa de rotas da API (contrato) |
 | [divida-tecnica.md](./divida-tecnica.md) | Pendências conhecidas e próximos passos |
