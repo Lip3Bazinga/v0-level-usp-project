@@ -66,5 +66,31 @@
       "percentil": "posto mais próximo (nearest-rank)"
     },
     "falhas": []
+  },
+  "recursos": {
+    "coletado_em": "2026-11-25T04:05:28.406Z",
+    "so": "Windows_NT 10.0.26200 (x64)",
+    "cpu_modelo": "Intel(R) Core(TM) i9-14900KF",
+    "cpu_logicas": 32,
+    "memoria_total_gib": 31.8,
+    "node": "v26.13.0",
+    "docker_servidor": "28.5.1",
+    "docker_cpus": 32,
+    "docker_memoria_gib": 15.6,
+    "commit": "e2d9fa8",
+    "executor_capacidade": 32,
+    "parametros": {
+      "motores": [
+        "ml"
+      ],
+      "k": [
+        1,
+        2,
+        4
+      ],
+      "duracao_job_s": 6,
+      "ocioso_s": 10,
+      "conteiner": "runner"
+    }
   }
 }
