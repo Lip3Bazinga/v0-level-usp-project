@@ -364,7 +364,7 @@ Estado em 2026-11-16:
   do verify (`DEFAULT_VERIFY_CONCURRENCY`) para lições `ml` ou corrigir o executor.
 - **Nível 6 concluído (2026-11-17):** 36 lições em 8 módulos e a prova de 40 questões escritas, verificadas e publicadas, tudo em numpy no perfil `dados` (sem PyTorch); `curso.yaml` com `publicado: true`.
   Divergências do `PLANO.md` medidas no executor: corpus com 62 879 caracteres e validação 0,56 no mini-GPT (m7-05); CNN e MLP empatam em robustez a deslocamento (m5-03); o projeto usa pesos próprios (`pesos_projeto.txt`).
-  A rever: o corretor executa o `if __name__ == "__main__":` em cada caso (m2-02, m5-03, m6-02, m6-03 pagam esse custo); a lição do projeto tem 384 mil caracteres; com dois verifies ao mesmo tempo, um pedido pode estourar os 120 s.
+  A rever: a lição do projeto tem 384 mil caracteres; com dois verifies ao mesmo tempo, um pedido pode estourar os 120 s.
 - **Fase A concluída (2026-11-19), fechamento da branch:**
   - Os 7 níveis estão com `publicado: true`. `content:verify` do curso inteiro aprovado no N4 (95 passos, 35 previsões)
     e no N5 (110 passos, 40 previsões); N3 e N7 já tinham o registro. No verify do curso, 2 lições do N4 e 4 do N5
@@ -382,6 +382,26 @@ Estado em 2026-11-16:
     (estágio de build do `runner.Dockerfile`) com `PYODIDE_DIR=/opt/levelusp-pyodide`, `PYTHON_WASI_DIR=/opt/levelusp-python`
     e `apps/runner/{src,test,python}` montados. Pare o `levelusp-dev-runner-1` antes, por causa da memória.
   - Dívidas da Fase C (`__main__` em cada caso e piso de ~4 s por lote) registradas em `divida-tecnica.md`.
-- Próximos: merge do PR `feat/niveis-2-a-7` → `develop` (Filipe, merge commit) e Fase B.
+- **Fase C concluída (2026-11-20), branch `fix/correcao-desempenho`:**
+  - `__main__`: os casos `call`, `variable`, `expr`, `source` e `unittest` carregam o `main.py` como o módulo `main` (o bloco
+    `if __name__ == "__main__":` só roda em `io` e `legacy`); detalhes em `motor-de-correcao.md` e `content/README.md`.
+  - Reverificação dos 7 cursos no executor com a mudança: só 2 passos falharam. n2-m4-05 passo 6 (agenda): os casos `expr`
+    `exportar-arquivo` e `duas-sessoes` dependiam de `executar()` rodar pelo guarda; agora o `setup` chama `executar()`
+    (`duas-sessoes` chama três vezes e o `expected_stdout` inclui a 1ª sessão). n5-m6-05 passo 5: a errada "floresta sem
+    semente" passou, mas não era regressão: sem `random_state` o `IsolationForest` é sorteado a cada execução e o caso
+    `if-reprodutivel` (200 linhas, 5 % marcadas) só diferia em ~metade das vezes. Passou a usar 300 linhas e contaminação
+    0,2 (60 marcadas: o resto depende do sorteio; 24 de 24 execuções da errada reprovaram). O passo 7 tinha a mesma fraqueza
+    (precisão em 8 de 200 variava só em 25 % das execuções): `comparar-reprodutivel` usa 400 linhas com 40 anomalias que se
+    misturam aos dados, precisão em 40 e 5 sementes. Os dois ficam verdes duas vezes seguidas.
+  - N6: m6-03 e m6-04 voltaram a treinar 3000 e 500 passos no `__main__`, com o texto antigo; as duas verificadas.
+  - Piso por lote: medido e corrigido em parte (fila do pool entrega o próximo worker); `desempenho-executor.md` traz a
+    tabela antes/depois, a causa e as propostas. Com `RUNNER_PYODIDE_POLICY=reuse` o piso some; a decisão de usar `reuse`
+    no verify e na produção é do Filipe.
+  - Pacote `packages/db/seed/trilha-python-ia.json` agora minificado: 14 028 422 bytes (era 19 500 829; limite de
+    20 971 520). Só mudaram as 4 lições acima. O e2e `importa o pacote real` (duas importações, ids estáveis) passa com ele.
+- Próximos: PR da Fase C para `develop` (se a Fase B entrar antes, `git merge develop` antes do PR), merge do PR
+  `feat/niveis-2-a-7` → `develop` (Filipe, merge commit) e Fase B.
 
 Um nível por sessão: escrever o `PLANO.md` do nível a partir dos roteiros, escrever as lições, provas com 40 questões, `content:verify` (níveis 4–6 usam `runtime: python-dados`; precisa do Pyodide no runner: `pnpm --filter @levelusp/runner setup:pyodide`), publicar.
+- **Fase B concluída (2026-11-19), branch `feat/previa-aula`:** prévia da aula no editor do professor (layout dividido ≥ 1280 px, tela cheia abaixo disso, debounce de 300 ms, passo em edição selecionado na prévia). Player do aluno reutilizado por um backend de passo injetável (`step-backend.tsx`); a prévia não chama API de progresso, submissão, XP nem eventos. Verificar mostra "A correção roda no servidor"; `createPreviewBackend({ verify })` é o ponto de extensão do "Testar gabarito" (Fase F). Detalhes em `web-ui.md` ("Prévia da aula no editor do professor"). Screenshots em `.claude-transfer/screenshots-previa/`.
+  - Pontos para a Fase F/depois: a prévia de previsão não avisa quando a saída do Pyodide difere da `expected_output` digitada; dicas/tentativas da prévia são indexadas por `previa-<order>` (reordenar passos pode trocá-las); no N6 as 36 lições do banco só têm um passo de leitura (a prévia do N6 só exerce leitura); o botão de copiar do editor cobre parte da aba `main.py` em painéis estreitos.

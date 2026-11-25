@@ -12,6 +12,12 @@ capturados. Se o tempo estourar no meio, as sondas já concluídas não se perde
 Modelo de confiança (este arquivo divide o interpretador com o aluno):
   * Todo o estado do harness vive no fecho de `_run_harness` — nada no módulo
     __main__ (que o aluno recebe como o PRÓPRIO módulo), nada em sys.modules.
+  * `__name__` do aluno: "__main__" só quando o PROGRAMA é o que se corrige
+    (sondas `run` e `legacy`). Nas sondas que usam o arquivo como biblioteca
+    (`call`, `globals`, `expr`, `unittest`) ele é carregado como o módulo
+    `main`, como num `import main`: o bloco `if __name__ == "__main__":` não
+    roda (demonstração, treino longo, `unittest.main()`), e as classes do
+    aluno saem como `main.Classe`.
     Builtins, os.write, StringIO e o codificador JSON são capturados antes do
     código do aluno: trocar `builtins.len`, `json.dumps` ou `sys.stdout` não
     altera o que o harness emite.
@@ -75,6 +81,10 @@ def _run_harness():
     globals().pop("_run_harness", None)
 
     project_dir = "/work"
+    # Nome do módulo do aluno: programa executado (`run`, `legacy`) ou
+    # biblioteca importada (`call`, `globals`, `expr`, `unittest`).
+    program_module = "__main__"
+    library_module = "main"
     max_text_chars = 64_000
     max_canon_depth = 20
     max_canon_nodes = 10_000
@@ -405,14 +415,18 @@ def _run_harness():
     # ── Execução do projeto ──────────────────────────────────────────────────
 
     def load_project(stdin_text, module_name):
-        """Executa o arquivo de entrada como módulo e devolve (namespace, stdout, stderr, erro)."""
+        """
+        Executa o arquivo de entrada como o módulo `module_name` (`program_module`
+        ou `library_module`) e devolve (namespace, stdout, stderr, erro).
+        """
         source = read_text(project_dir + "/" + entry)
         module = ModuleType(module_name)
         namespace = module.__dict__
         namespace["__file__"] = project_dir + "/" + entry
         namespace["__builtins__"] = builtins
-        # O aluno recebe o próprio módulo como __main__: o módulo do harness
-        # não fica alcançável por `import __main__`.
+        # O aluno recebe o próprio módulo como __main__ (mesmo quando o
+        # `__name__` dele é `main`): o módulo do harness não fica alcançável
+        # por `import __main__`.
         modules["__main__"] = module
         modules[module_name] = module
         sys.path.insert(0, project_dir)
@@ -444,7 +458,7 @@ def _run_harness():
         return {"ok": False, "error": "Caso de teste inválido (código do professor): %s" % reason}
 
     def probe_run(probe):
-        _, stdout, stderr, error = load_project(probe.get("stdin", ""), "__main__")
+        _, stdout, stderr, error = load_project(probe.get("stdin", ""), program_module)
         stdout, stdout_truncated = clip(stdout)
         stderr, stderr_truncated = clip(stderr)
         return {"ok": error is None, "stdout": stdout, "stderr": stderr, "error": error,
@@ -458,7 +472,7 @@ def _run_harness():
         return target
 
     def probe_call(probe):
-        namespace, stdout, _, error = load_project("", "__main__")
+        namespace, stdout, _, error = load_project("", library_module)
         if error is not None:
             return {"ok": False, "error": error, "stdout": clip(stdout)[0]}
         try:
@@ -480,7 +494,7 @@ def _run_harness():
                 "stdout": clip(captured_text(call_stdout))[0]}
 
     def probe_globals(probe):
-        namespace, stdout, _, error = load_project("", "__main__")
+        namespace, stdout, _, error = load_project("", library_module)
         if error is not None:
             return {"ok": False, "error": error, "stdout": clip(stdout)[0]}
         values, value_types, missing = {}, {}, []
@@ -502,7 +516,7 @@ def _run_harness():
             expr_code = compile(probe["expr"], "<expressão>", "eval")
         except SyntaxError as exc:
             return invalid_case("SyntaxError: %s" % safe_message(exc))
-        namespace, stdout, _, error = load_project(probe.get("stdin", ""), "__main__")
+        namespace, stdout, _, error = load_project(probe.get("stdin", ""), library_module)
         if error is not None:
             return {"ok": False, "error": error, "stdout": clip(stdout)[0]}
         expr_stdout = StringIO()
@@ -644,7 +658,7 @@ def _run_harness():
 
         wrapper = lru_cache_wrapper(call, 0, False, cache_info_type)
         wrapper.__name__ = wrapper.__qualname__ = name
-        wrapper.__module__ = "main"
+        wrapper.__module__ = library_module
         wrapper.__doc__ = None
         return wrapper
 
@@ -699,14 +713,14 @@ def _run_harness():
             padding = scramble_allocator()
         # Carregado como módulo `main` (como `python -m unittest main`): um
         # `if __name__ == "__main__": unittest.main()` do aluno não dispara.
-        namespace, _, _, error = load_project("", "main")
+        namespace, _, _, error = load_project("", library_module)
         if error is not None:
             return {"ok": False, "error": error}
         sys.stdout, sys.stderr = StringIO(), StringIO()
         try:
             if implementation is not None:
                 namespace[target] = injected
-            test_classes = select_test_classes(namespace, probe.get("test_class"), "main")
+            test_classes = select_test_classes(namespace, probe.get("test_class"), library_module)
             if test_classes is None:
                 return {"ok": False, "error": "NameError: a classe de testes '%s' não foi definida" % probe.get("test_class")}
             recorder = run_suite(test_classes)
@@ -757,7 +771,7 @@ def _run_harness():
             total = sum(1 for node in ast.walk(ast.parse(code)) if isinstance(node, ast.Assert)) or 1
         except SyntaxError as exc:
             return invalid_case("SyntaxError: %s" % safe_message(exc))
-        namespace, stdout, _, error = load_project("", "__main__")
+        namespace, stdout, _, error = load_project("", program_module)
         if error is not None:
             return {"ok": False, "error": error}
         # Nomes que os gabaritos antigos esperam encontrar: não renomear.

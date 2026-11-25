@@ -3,8 +3,8 @@
 import { useId, useState } from "react"
 import { ArrowRight, CheckCircle2, Loader2, Send } from "lucide-react"
 import { MAX_PREDICTION_LENGTH, type Lesson, type LessonStep, type LessonStepProgress, type StepPredictResult } from "@levelusp/contracts"
-import { submitStepPrediction } from "@/lib/api"
 import { MAIN_FILE_PATH } from "@/lib/constants"
+import { useStepBackend } from "./step-backend"
 import { HelpButtons, RevealedHints, SolutionCountdown } from "./step-help"
 import { StepMarkdown } from "./step-markdown"
 import { useStepHelp } from "./use-step-help"
@@ -29,6 +29,7 @@ interface PredictionStepProps {
  * tentativas que a lição exige — e, mesmo então, o aluno ainda precisa enviá-la.
  */
 export function PredictionStep({ lesson, step, progress, onProgress, onPredicted, onContinue, onUnauthorized }: PredictionStepProps): React.JSX.Element {
+  const backend = useStepBackend()
   const answerId = useId()
   const [answer, setAnswer] = useState("")
   const [lastResult, setLastResult] = useState<StepPredictResult | null>(null)
@@ -40,7 +41,7 @@ export function PredictionStep({ lesson, step, progress, onProgress, onPredicted
 
   const handleSubmit = (): Promise<void> =>
     help.run("submit", async () => {
-      const result = await submitStepPrediction(lesson.id, step.id, answer)
+      const result = await backend.submitStepPrediction(lesson.id, step.id, answer)
       setLastResult(result)
       onPredicted(result)
     }, "Não foi possível enviar a resposta. Tente novamente.")

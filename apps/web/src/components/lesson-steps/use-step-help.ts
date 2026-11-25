@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import type { HintReveal, LessonStepProgress, SolutionReveal } from "@levelusp/contracts"
-import { fetchRevealedStepHints, getErrorMessage, HTTP_STATUS, isApiError, revealStepHint, revealStepSolution } from "@/lib/api"
+import { getErrorMessage, HTTP_STATUS, isApiError } from "@/lib/api"
+import { StepBackendError, useStepBackend } from "./step-backend"
 
 /** Ação em andamento num passo com resposta (exercício ou previsão). */
 export type StepAction = "submit" | "hint" | "solution"
@@ -33,10 +34,12 @@ export interface UseStepHelpResult {
 }
 
 /**
- * Dicas (uma a uma) e solução de um passo, comuns ao exercício e à previsão. Tudo vem da API:
- * a tela só guarda o que já foi revelado. Reabrir a lição traz de volta as dicas já vistas.
+ * Dicas (uma a uma) e solução de um passo, comuns ao exercício e à previsão. Tudo vem do
+ * {@link StepBackend} (a API para o aluno; dados locais na prévia do professor): a tela só guarda
+ * o que já foi revelado. Reabrir a lição traz de volta as dicas já vistas.
  */
 export function useStepHelp({ lessonId, stepId, progress, onProgress, onUnauthorized }: UseStepHelpOptions): UseStepHelpResult {
+  const backend = useStepBackend()
   const [hints, setHints] = useState<HintReveal[]>([])
   const [solution, setSolution] = useState<SolutionReveal | null>(null)
   const [busy, setBusy] = useState<StepAction | null>(null)
@@ -47,7 +50,7 @@ export function useStepHelp({ lessonId, stepId, progress, onProgress, onUnauthor
   useEffect(() => {
     if (hintsRevealed === 0) return
     let isCurrent = true
-    fetchRevealedStepHints(lessonId, stepId)
+    backend.fetchRevealedStepHints(lessonId, stepId)
       .then((revealed) => {
         if (isCurrent) setHints((current) => (current.length >= revealed.length ? current : revealed))
       })
@@ -57,7 +60,7 @@ export function useStepHelp({ lessonId, stepId, progress, onProgress, onUnauthor
     return () => {
       isCurrent = false
     }
-  }, [lessonId, stepId, hintsRevealed])
+  }, [backend, lessonId, stepId, hintsRevealed])
 
   const run = async (action: StepAction, task: () => Promise<void>, fallback: string): Promise<void> => {
     setBusy(action)
@@ -66,7 +69,7 @@ export function useStepHelp({ lessonId, stepId, progress, onProgress, onUnauthor
       await task()
     } catch (error) {
       if (isApiError(error, HTTP_STATUS.UNAUTHORIZED)) onUnauthorized()
-      else setMessage(getErrorMessage(error, fallback))
+      else setMessage(error instanceof StepBackendError ? error.message : getErrorMessage(error, fallback))
     } finally {
       setBusy(null)
     }
@@ -74,14 +77,14 @@ export function useStepHelp({ lessonId, stepId, progress, onProgress, onUnauthor
 
   const revealHint = (): Promise<void> =>
     run("hint", async () => {
-      const hint = await revealStepHint(lessonId, stepId)
+      const hint = await backend.revealStepHint(lessonId, stepId)
       setHints((current) => [...current.filter((item) => item.index !== hint.index), hint].sort((first, second) => first.index - second.index))
       onProgress({ hints_revealed: Math.max(hintsRevealed, hint.index + 1) })
     }, "Não foi possível revelar a dica.")
 
   const revealSolution = (): Promise<void> =>
     run("solution", async () => {
-      setSolution(await revealStepSolution(lessonId, stepId))
+      setSolution(await backend.revealStepSolution(lessonId, stepId))
       if (!isCompleted) onProgress({ solution_viewed: true })
     }, "A solução ainda não está liberada.")
 

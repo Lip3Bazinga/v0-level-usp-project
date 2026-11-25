@@ -30,9 +30,24 @@ sequenceDiagram
 | `unittest` | `expect` (`pass`/`fail`), `target` + `implementation` (opcionais), `test_class`, `min_tests` | `target`, `implementation`, `test_class` | contagens: rodados, falhas, erros |
 | `legacy` | código assert/unittest antigo | o código inteiro (com os valores esperados) | resultado pronto do sandbox — correção **fraca** |
 
+### `__name__` do código do aluno
+
+| Sonda (caso) | `__name__` | Bloco `if __name__ == "__main__":` |
+|---|---|---|
+| `run` (`io`), `legacy` | `"__main__"` (programa, como o Executar do navegador) | roda |
+| `call`, `globals` (`variable`), `expr`, `unittest` | `"main"` (biblioteca, como `import main`) | não roda |
+| `ast` (`source`) | — (o código não é executado) | — |
+
+Nos casos de biblioteca a demonstração ou o treino do bloco `__main__` não é pago a cada
+caso, e o que só existe dentro dele não é visível (verifique com `io`). Nos dois modos
+`sys.modules["__main__"]` é o módulo do aluno (nunca o do harness); no modo biblioteca
+`sys.modules["main"]` também, então `import main` não reexecuta o arquivo. Vale para os dois
+motores (o harness é o mesmo). Testes: `sandbox.test.ts` ("__name__ do aluno por tipo de
+sonda") e `pyodide-engine.test.ts`.
+
 ### `expr` — classes, exceções, arquivos, generators, decorators, pacotes
 
-O harness executa o `main.py` (como `__main__`), depois a preparação e, por fim,
+O harness executa o `main.py` (como o módulo `main`), depois a preparação e, por fim,
 avalia a expressão no mesmo namespace. A observação é o valor serializado e o
 tipo, **ou** a exceção levantada pela preparação/expressão (`type`, `mro`,
 `message`, `stage`), mais o que foi impresso nessa etapa. Exemplos do seed:
@@ -48,7 +63,7 @@ tipo, **ou** a exceção levantada pela preparação/expressão (`type`, `mro`,
 
 Tipos: o executor só escreve um nome puro (`int`, `generator`, `ValueError`)
 quando o tipo **é** o objeto embutido (checagem por identidade); classes do
-aluno chegam como `modulo.Classe` (`__main__.Tarefa`). `type`/`raises` com nome
+aluno chegam como `modulo.Classe` (`main.Tarefa`). `type`/`raises` com nome
 embutido exigem o embutido; com outro nome, casam pela classe do aluno
 (`raises: "NomeCurtoError"`). `raises` aceita subclasses (como `except`).
 
@@ -198,7 +213,7 @@ comparação, que acontece na API. Em cada tipo de caso:
   sandbox; o valor é serializado só a partir de tipos embutidos (`type()` e
   métodos C da classe base, nunca `__eq__`/`__iter__`/`__repr__` do aluno, salvo
   em `{"$repr"}`), e tipos embutidos são identificados por identidade
-  (`ValueError` do aluno é `__main__.ValueError`). Portanto: forjar = conhecer a
+  (`ValueError` do aluno é `main.ValueError`). Portanto: forjar = conhecer a
   resposta. Consequências que o professor precisa conhecer:
   - comparações feitas **dentro** da expressão (`f(5) == 120`, `isinstance(x, C)`,
     `issubclass(E, Exception)`, `bool(a == b)` com `expected: true`) são
@@ -375,6 +390,14 @@ de admitir o job.
   aquecimento por lote por ~50–80 ms de restauração, mas o estado de **instâncias**
   (não coberto pela fotografia) pode sobreviver — é por isso que ela é opcional e
   tem canário + reciclagem (riscos em [seguranca.md](./seguranca.md)).
+
+**Fila do pool.** Um lote sem worker ocioso entra na fila do perfil e recebe o próximo
+worker que ficar pronto: um que termina de aquecer ou, na `reuse`, um que acabou de ser
+restaurado. O pool mantém a caminho `RUNNER_PYODIDE_WARM` workers **além** de um por lote
+na fila, então nenhum lote espera por um worker que já tem dono (com `ml:0` isso prendia o
+segundo lote simultâneo até os 120 s do pedido). Lotes estritos na `reuse` não passam pela
+fila: aquecem um worker próprio. Medições e o que sobra do piso em
+[desempenho-executor.md](./desempenho-executor.md).
 
 ### Isolamento (antes do código do aluno)
 
