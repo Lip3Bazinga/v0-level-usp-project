@@ -75,8 +75,8 @@ test("resumoLatencia agrupa por cenário, condição e política e ignora status
   ]
   const resumo = resumoLatencia(rows)
   assert.equal(resumo.length, 2)
-  assert.equal(resumo[0]?.[5], 2)
-  assert.equal(resumo[0]?.[4], "reuse")
+  assert.equal(resumo[0]?.[4], 2)
+  assert.equal(resumo[0]?.at(-1), "reuse")
 })
 
 test("parseExecutorConfig aceita política em texto ou objeto e memória ausente", () => {
@@ -89,4 +89,5 @@ test("parseExecutorConfig aceita política em texto ou objeto e memória ausente
   assert.equal(politicaDoPerfil(objeto, "ml"), "reuse")
   assert.deepEqual(objeto.memory, { limitMb: 4096, usedMb: 512, peakUsedMb: 900, blocked: 0 })
   assert.equal(parseExecutorConfig(null, null).capacity, null)
+  assert.deepEqual(texto.pool_ocioso_no_instante, { dados: 1, ml: 0 })
 })

@@ -134,7 +134,7 @@ async function main(): Promise<void> {
   if (initial === null) console.warn("AVISO: /v1/stats indisponível: fila do executor será derivada no cliente.")
   const configInicial = await readExecutorConfig(runner)
   if (configInicial.memory === null) console.warn("AVISO: o executor não informa `memory` em /v1/stats: as colunas de memória reservada ficam vazias.")
-  console.log(`Executor: política Pyodide ${JSON.stringify(configInicial.politica_pyodide)}, capacidade ${configInicial.capacity ?? "?"}, pool aquecido ${JSON.stringify(configInicial.pool_aquecido)}.`)
+  console.log(`Executor: política Pyodide ${JSON.stringify(configInicial.politica_pyodide)}, capacidade ${configInicial.capacity ?? "?"}, workers ociosos agora ${JSON.stringify(configInicial.pool_ocioso_no_instante)}.`)
   const estimateMin = Math.round((motores.length * niveis.length * (duration + 40)) / 60)
   console.log(`Plano: motores ${motores.join(",")}; níveis ${niveis.join(",")}; ${duration} s cada (≈ ${estimateMin} min + preparação).`)
 

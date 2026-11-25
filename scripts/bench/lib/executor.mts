@@ -19,13 +19,18 @@ export interface MemoriaExecutor {
 export interface ConfigExecutor {
   /** Política do Pyodide como o executor informa: texto único ou objeto por perfil; `null` se não informa. */
   politica_pyodide: string | Record<string, unknown> | null
-  /** Workers Pyodide aquecidos e ociosos no instante da leitura, por perfil. */
-  pool_aquecido: Record<PerfilPyodide, number | null>
+  /**
+   * Workers Pyodide OCIOSOS (prontos) no instante da leitura, por perfil, como `/healthz` →
+   * `pyodide.warm` informa (a contagem de `this.idle`). Não é o alvo configurado
+   * (`RUNNER_PYODIDE_WARM`), que o executor não expõe.
+   */
+  pool_ocioso_no_instante: Record<PerfilPyodide, number | null>
   capacity: number | null
   fila_maxima: number | null
   memory: MemoriaExecutor | null
 }
 
+/** Número finito de um valor desconhecido; qualquer outra coisa (texto, ausente, NaN) vira `null`. */
 function asNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null
 }
@@ -42,7 +47,7 @@ export function parseExecutorConfig(health: Record<string, unknown> | null, stat
   const blocked = memory?.blocked
   return {
     politica_pyodide: typeof policy === "string" ? policy : typeof policy === "object" && policy !== null ? (policy as Record<string, unknown>) : null,
-    pool_aquecido: { dados: asNumber(warm?.dados), ml: asNumber(warm?.ml) },
+    pool_ocioso_no_instante: { dados: asNumber(warm?.dados), ml: asNumber(warm?.ml) },
     capacity: stats?.capacity ?? null,
     fila_maxima: stats?.maxQueue ?? null,
     memory: memory

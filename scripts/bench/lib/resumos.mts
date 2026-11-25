@@ -5,11 +5,12 @@
 import { cellNumber, groupBy, round, summarize } from "./estatistica.mts"
 
 /** Cabeçalho de `latencia-resumo.csv`. */
-export const LATENCIA_RESUMO_HEADER = ["cenario", "via", "motor", "condicao", "politica_pyodide", "n", "total_p50_ms", "total_p95_ms", "total_p99_ms", "exec_p50_ms", "exec_p95_ms", "exec_p99_ms", "sobrecarga_p50_ms", "sobrecarga_p95_ms", "sobrecarga_p99_ms"] as const
+export const LATENCIA_RESUMO_HEADER = ["cenario", "via", "motor", "condicao", "n", "total_p50_ms", "total_p95_ms", "total_p99_ms", "exec_p50_ms", "exec_p95_ms", "exec_p99_ms", "sobrecarga_p50_ms", "sobrecarga_p95_ms", "sobrecarga_p99_ms", "politica_pyodide"] as const
 
 /** Cabeçalho de `carga-saturacao.csv`. */
 export const SATURACAO_HEADER = ["motor", "n_saturacao", "criterio", "limite_p95_ms", "limite_erro", "maior_n_sem_saturar", "regra_saturacao"] as const
 
+/** Uma linha de resumo, alinhada ao cabeçalho do CSV correspondente (`null` vira célula vazia). */
 type Linha = (string | number | null)[]
 
 /** Coluna numérica de várias linhas, descartando as vazias. */
@@ -33,7 +34,7 @@ export function resumoLatencia(rows: readonly Record<string, string>[]): Linha[]
     const total = summarize(numbers(group, "total_ms"))
     const exec = summarize(numbers(group, "runner_exec_ms"))
     const over = summarize(numbers(group, "sobrecarga_ms"))
-    result.push([first.cenario ?? "", first.via ?? "", first.motor ?? "", first.condicao ?? "", first.politica_pyodide ?? "", total.n, round(total.p50), round(total.p95), round(total.p99), round(exec.p50), round(exec.p95), round(exec.p99), round(over.p50), round(over.p95), round(over.p99)])
+    result.push([first.cenario ?? "", first.via ?? "", first.motor ?? "", first.condicao ?? "", total.n, round(total.p50), round(total.p95), round(total.p99), round(exec.p50), round(exec.p95), round(exec.p99), round(over.p50), round(over.p95), round(over.p99), first.politica_pyodide ?? ""])
   }
   return result
 }

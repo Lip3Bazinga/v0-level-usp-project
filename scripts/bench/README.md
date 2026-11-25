@@ -63,7 +63,7 @@ medição vão para essa pasta e `custo.mts` lê tudo dela. Fluxo "antes/depois"
   parâmetros, motores/níveis medidos e a configuração do executor (`inicio` e `fim`). Rodadas antigas
   nunca são apagadas; seção no formato anterior vira a primeira rodada (`formato_anterior: true`).
 - **Configuração do executor** (de `GET /healthz` e `GET /v1/stats`): `politica_pyodide` (texto único ou
-  objeto `{dados, ml}`), `pool_aquecido`, `capacity`, `fila_maxima` e `memory: { limitMb, usedMb,
+  objeto `{dados, ml}`), `pool_ocioso_no_instante` (workers Pyodide OCIOSOS na hora da leitura; o alvo configurado não é exposto), `capacity`, `fila_maxima` e `memory: { limitMb, usedMb,
   peakUsedMb, blocked }` (campo opcional do `/v1/stats`; executor sem ele = `null`).
 - Para refazer um arquivo do zero use `recursos.mts --zerar` ou apague-o; dos outros, use outra pasta.
 

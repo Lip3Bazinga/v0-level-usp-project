@@ -18,6 +18,7 @@
  * "latencia" de ambiente.json. Rodada parcial (--motores, --cenarios) troca só as linhas dos cenários
  * medidos agora e preserva as demais. Leia scripts/bench/README.md antes de rodar.
  */
+import { existsSync } from "node:fs"
 import path from "node:path"
 import { ApiClient, newCredentials } from "./lib/api.mts"
 import { flagOption, listOption, numberOption, optionalStringOption, parseArgs, rejectUnknown, stringOption } from "./lib/args.mts"
@@ -138,7 +139,7 @@ async function main(): Promise<void> {
   }
 
   const configInicial = await readExecutorConfig(runner)
-  console.log(`Executor: política Pyodide ${JSON.stringify(configInicial.politica_pyodide)}, capacidade ${configInicial.capacity ?? "?"}, pool aquecido ${JSON.stringify(configInicial.pool_aquecido)}.`)
+  console.log(`Executor: política Pyodide ${JSON.stringify(configInicial.politica_pyodide)}, capacidade ${configInicial.capacity ?? "?"}, workers ociosos agora ${JSON.stringify(configInicial.pool_ocioso_no_instante)}.`)
   let medidas: Medida[] = []
   const record = (bruta: Medida): void => {
     const medida: Medida = { ...bruta, politica: politicaDoPerfil(configInicial, perfilDoMotor(bruta.motor)) }
@@ -170,18 +171,20 @@ async function main(): Promise<void> {
     }
   }
 
-  summarizeAndSave(csvFile)
+  if (existsSync(csvFile)) summarizeAndSave(csvFile)
+  else console.error("Nenhum cenário gravou dados e latencia.csv não existe: sem resumo.")
   const finalHealth = await runner.health()
   registerRound(dir, "latencia", {
     ...(await collectEnvironment()),
     motores: motoresPedidos,
     cenarios_medidos: measuredScenarios,
-    api: externalApi === undefined ? "API de teste local com PostgreSQL 17 descartável (levelusp-bench-*)" : `API externa (${externalApi}): contas bench.* ficaram no banco dela`,
+    api: { externa: externalApi !== undefined, descricao: externalApi === undefined ? "API de teste local com PostgreSQL 17 descartável (levelusp-bench-*)" : "API já em execução: contas bench.* ficaram no banco dela" },
     executor: { url: runnerUrl, inicio: configInicial, fim: await readExecutorConfig(runner), healthz: finalHealth.body, motores: engineVersions },
     pacote: path.relative(process.cwd(), bundleFile),
     parametros: { repeticoes, repeticoes_frio: repeticoesFrio, usuarios, descarte, cmd_reinicio: restartCommand !== undefined, cenarios: wanted, percentil: "posto mais próximo (nearest-rank)" },
     falhas: failures,
   })
+  if (measuredScenarios.length === 0 && failures.length === 0) failures.push("nenhum cenário medido")
   if (failures.length > 0) {
     console.error(`\n${failures.length} cenário(s) com falha:\n- ${failures.join("\n- ")}`)
     process.exitCode = 1
@@ -204,7 +207,11 @@ interface Context {
 /** Executa as fases de um cenário conforme o motor e a existência de `--cmd-reinicio`. */
 async function medirCenario(cenario: Cenario, context: Context): Promise<void> {
   const { descarte, repeticoes, repeticoesFrio, restartCommand, record } = context
-  for (let index = 0; index < descarte; index++) {
+  // Perfil com política reuse: o primeiro envio depois de subir/reiniciar o executor é o FRIO; não se descarta.
+  // Cada linha é classificada pelo pool observado, então esse primeiro envio sai como frio e os seguintes como quentes.
+  const preservarPrimeiro = cenario.perfil !== null && politicaDoPerfil(context.config, cenario.perfil) === "reuse"
+  if (preservarPrimeiro && descarte > 0) console.log("  política reuse: o aquecimento (--descarte) é ignorado para não perder o primeiro envio (frio)")
+  for (let index = 0; index < (preservarPrimeiro ? 0 : descarte); index++) {
     if (cenario.perfil !== null) await waitPool(context, cenario.perfil)
     await cenario.executar("quente", 0)
   }
@@ -235,6 +242,7 @@ async function medirCenario(cenario: Cenario, context: Context): Promise<void> {
   // não faz sentido. A condição de cada linha continua sendo a observada no pool (`pool_quente_antes`).
   if (politicaDoPerfil(context.config, cenario.perfil) === "reuse") {
     console.log(`  política reuse no perfil ${cenario.perfil}: execuções em sequência, condição pelo pool observado (${repeticoes}x)`)
+    console.warn(`  AVISO: sem --cmd-reinicio o frio do ${cenario.perfil} com reuse não foi medido (só aparece como frio se o executor acabou de subir).`)
     for (let index = 1; index <= repeticoes; index++) await warm(index)
     return
   }
