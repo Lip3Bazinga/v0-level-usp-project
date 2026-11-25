@@ -89,6 +89,12 @@ export interface EngineCost {
   key: string
   /** Peso de uma instância no orçamento de memória (MB). */
   memoryMb: number
+  /**
+   * Duração esperada de um lote da classe enquanto o executor não mediu nenhum (ms), JÁ com o
+   * aquecimento que o lote vai pagar (ex.: um worker `ml` criado para ele). É o ponto de
+   * partida da média móvel da admissão; ausente = o padrão do executor, somado a `warmupMs`.
+   */
+  initialBatchMs?: number
 }
 
 /**

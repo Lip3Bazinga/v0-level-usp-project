@@ -22,8 +22,8 @@ export interface JobExecutor {
 /** Espera estimada padrão acima da qual um job novo é recusado (503 "ocupado"). */
 export const DEFAULT_MAX_QUEUE_WAIT_MS = 20_000
 /**
- * Duração assumida de um lote antes da primeira medição, um pouco acima do medido numa máquina
- * de 2 vCPU (~120–130 ms por instância nas lições do seed). A média se ajusta nos primeiros jobs.
+ * Duração assumida de um lote antes da primeira medição quando o motor não informa a sua
+ * (`EngineCost.initialBatchMs`). A média se ajusta nos primeiros jobs.
  */
 const INITIAL_BATCH_ESTIMATE_MS = 150
 /** Peso da medição mais recente na média móvel exponencial da duração dos lotes. */
@@ -52,8 +52,12 @@ export interface ExecutorOptions {
 
 /** O que o executor acompanha de cada classe de custo (`EngineCost.key`). */
 interface CostClass {
-  /** Média móvel exponencial da duração de um lote da classe (ms). */
+  /** Média móvel exponencial da duração de um lote da classe (ms); antes da primeira medição, o valor inicial do motor. */
   estimateMs: number
+  /** Lotes da classe já medidos. */
+  samples: number
+  /** O motor informou a duração inicial (que já inclui o aquecimento). */
+  hasEngineEstimate: boolean
   memoryMb: number
   /** Lotes da classe esperando na fila agora. */
   queued: number
@@ -126,7 +130,9 @@ export class Executor implements JobExecutor {
    * - memória (só com orçamento limitado): para cada classe com custo, os lotes na fila ou
    *   rodando mais os do job, divididos pelas vagas de memória da classe (orçamento ÷ peso),
    *   vezes a duração média da classe;
-   * mais o aquecimento de um worker quando o motor não tem instância pronta.
+   * mais `warmupMs` (o aquecimento de um worker quando o motor não tem instância pronta) só
+   * enquanto a duração da classe não o inclui: a duração medida de um lote já conta o
+   * aquecimento que ele pagou, e a inicial informada pelo motor também.
    */
   estimateWaitMs(costs: readonly EngineCost[], warmupMs = 0): number {
     const own = new Map<string, number>()
@@ -142,7 +148,11 @@ export class Executor implements JobExecutor {
       const slots = this.budget.slotsFor(costClass.memoryMb)
       if (Number.isFinite(slots) && slots > 0) memoryWaitMs += ((costClass.queued + costClass.running + ownCount) / slots) * costClass.estimateMs
     }
-    return Math.max(cpuWorkMs / this.semaphore.capacity, memoryWaitMs) + warmupMs
+    const includesWarmup = costs.every((cost) => {
+      const costClass = this.classOf(cost)
+      return costClass.samples > 0 || costClass.hasEngineEstimate
+    })
+    return Math.max(cpuWorkMs / this.semaphore.capacity, memoryWaitMs) + (includesWarmup ? 0 : warmupMs)
   }
 
   /**
@@ -159,10 +169,15 @@ export class Executor implements JobExecutor {
   private classOf(cost: EngineCost): CostClass {
     let costClass = this.classes.get(cost.key)
     if (!costClass) {
-      costClass = { estimateMs: INITIAL_BATCH_ESTIMATE_MS, memoryMb: cost.memoryMb, queued: 0, running: 0 }
+      costClass = { estimateMs: INITIAL_BATCH_ESTIMATE_MS, samples: 0, hasEngineEstimate: false, memoryMb: cost.memoryMb, queued: 0, running: 0 }
       this.classes.set(cost.key, costClass)
     }
     costClass.memoryMb = cost.memoryMb
+    // Sem medição, vale a estimativa atual do motor (muda com o pool: worker pronto ou a aquecer).
+    if (costClass.samples === 0 && cost.initialBatchMs !== undefined) {
+      costClass.estimateMs = cost.initialBatchMs
+      costClass.hasEngineEstimate = true
+    }
     return costClass
   }
 
@@ -199,7 +214,9 @@ export class Executor implements JobExecutor {
   }
 
   private recordBatch(costClass: CostClass, durationMs: number): void {
-    costClass.estimateMs += BATCH_ESTIMATE_WEIGHT * (durationMs - costClass.estimateMs)
+    // A primeira medição substitui o palpite inicial; as seguintes entram na média móvel.
+    costClass.estimateMs = costClass.samples === 0 ? durationMs : costClass.estimateMs + BATCH_ESTIMATE_WEIGHT * (durationMs - costClass.estimateMs)
+    costClass.samples++
   }
 
   async execute(job: RunnerJob, signal?: AbortSignal): Promise<RunnerResult> {

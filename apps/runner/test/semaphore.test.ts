@@ -119,7 +119,7 @@ describe("Semaphore: recurso além da vaga (claim)", () => {
       // Sem custo: passa.
       semaphore.run(mark(started, "wasi")),
     ]
-    await sleep(5)
+    // Tudo síncrono: quem pode começar já começou ao entrar na fila.
     expect(started).toEqual(["ml-1", "wasi"])
     expect(budget.usedMb).toBe(800)
     expect(budget.blocked).toBe(2)
@@ -153,7 +153,33 @@ describe("Semaphore: recurso além da vaga (claim)", () => {
   it("o prazo não vale para quem já começou", async () => {
     const budget = new MemoryBudget(1000)
     const semaphore = new Semaphore(1, 10, budget)
-    await expect(semaphore.run(() => sleep(60).then(() => "ok"), { claim: reserving(budget, 100), deadline: { ms: 10, retryAfterSeconds: () => 2 } })).resolves.toBe("ok")
+    const started: string[] = []
+    const long = gate(started, "longa")
+    const running = semaphore.run(long.task, { claim: reserving(budget, 100), deadline: { ms: 5, retryAfterSeconds: () => 2 } })
+    expect(started).toEqual(["longa"])
+    // Dez vezes o prazo depois, a tarefa continua rodando e termina normalmente.
+    await sleep(50)
+    long.finish()
+    await expect(running).resolves.toBeUndefined()
+  })
+
+  it("lote com custo que espera só a vaga de CPU também conta como bloqueado (o pool não aquece por especulação)", async () => {
+    const budget = new MemoryBudget(1000)
+    const semaphore = new Semaphore(1, 10, budget)
+    const started: string[] = []
+    const holder = gate(started, "wasi")
+    const running = semaphore.run(holder.task)
+    const waiting = semaphore.run(mark(started, "dados"), { claim: reserving(budget, 100) })
+    const free = semaphore.run(mark(started, "wasi-2"))
+    // Há memória de sobra; o que falta é a vaga. Só a tarefa com custo conta.
+    expect(budget.usedMb).toBe(0)
+    expect(semaphore.pending).toBe(2)
+    expect(semaphore.blocked).toBe(1)
+    expect(budget.blocked).toBe(1)
+    holder.finish()
+    await Promise.all([running, waiting, free])
+    expect(started).toEqual(["wasi", "dados", "wasi-2"])
+    expect(budget.blocked).toBe(0)
   })
 
   it("cancelamento tira a tarefa da fila na hora, sem chamar o claim de novo", async () => {

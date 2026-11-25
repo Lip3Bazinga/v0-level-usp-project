@@ -178,9 +178,20 @@ const envSchema = z.object({
    * ele, a memória da máquina (ver `detectMemoryLimitMb`).
    */
   RUNNER_MEMORY: z.string().optional().transform((value, ctx) => (value === undefined || value.trim() === "" ? undefined : parsedString(parseMemorySize)(value, ctx))),
-  /** Parte do limite que fica fora do orçamento (MB): o processo do Node, o WASI e a folga do sistema. */
+  /**
+   * Parte do limite que fica fora do orçamento (MB): o processo do Node, o WASI, a folga do
+   * sistema e o crescimento dos workers durante os lotes (os pesos padrão são o RSS medido, não
+   * o pior caso). Com vários workers `ml` crescendo ao mesmo tempo até o teto do heap, 512 MB
+   * podem não bastar: aumente a reserva ou use pesos de pior caso em `RUNNER_BATCH_MEMORY_MB`.
+   */
   RUNNER_MEMORY_RESERVE_MB: z.coerce.number().int().min(0).max(1_048_576).default(512),
-  /** Peso de uma instância por perfil, em MB (`python:0,dados:256,ml:1229`): quanto cada worker vivo ocupa do orçamento. */
+  /**
+   * Peso de uma instância por perfil, em MB (`python:0,dados:256,ml:1229`): quanto cada worker
+   * vivo ocupa do orçamento. O padrão é o RSS medido de um worker; o heap wasm ainda pode
+   * crescer durante o lote até `RUNNER_PYODIDE_MAX_HEAP_MB`. Pesos de pior caso (RSS + teto do
+   * heap − heap pós-aquecimento) seriam cerca de `dados:700,ml:1560`: garantia rígida, menos
+   * lotes simultâneos.
+   */
   RUNNER_BATCH_MEMORY_MB: z.string().default("").transform(parsedString(parseBatchMemory)),
 
   // ── Motor python-dados (Pyodide) ──────────────────────────────────────────

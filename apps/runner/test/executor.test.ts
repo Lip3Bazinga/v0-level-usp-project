@@ -102,6 +102,10 @@ const mlJob = (probes: Probe[]): RunnerJob => ({ ...job(probes), runtime: "pytho
 interface FakeMlOptions {
   delayMs: number
   memoryMb?: number
+  /** Duração inicial informada pelo motor (ex.: o aquecimento de um worker `ml` a frio). */
+  initialBatchMs?: number
+  /** Aquecimento informado em `warmupMs` (motor que não informa a duração inicial). */
+  warmupMs?: number
   /** Com orçamento: o motor reserva por conta própria (`reserve`), como o Pyodide. */
   budget?: MemoryBudget
   events?: string[]
@@ -112,7 +116,7 @@ interface FakeMlOptions {
  * `budget`, não tem `reserve` (o executor reserva o peso direto no orçamento); com `budget`,
  * reserva e libera sozinho e exige que `run` receba a reserva.
  */
-function fakeMlEngine(host: FakeMachine, { delayMs, memoryMb = ML_MEMORY_MB, budget, events }: FakeMlOptions): Engine & { ran: string[]; leases: number } {
+function fakeMlEngine(host: FakeMachine, { delayMs, memoryMb = ML_MEMORY_MB, initialBatchMs, warmupMs = 0, budget, events }: FakeMlOptions): Engine & { ran: string[]; leases: number } {
   const key = "pyodide:ml"
   const engine: Engine & { ran: string[]; leases: number } = {
     ran: [],
@@ -121,8 +125,8 @@ function fakeMlEngine(host: FakeMachine, { delayMs, memoryMb = ML_MEMORY_MB, bud
     versions: { python: "falso", runtime: "falso" },
     readiness: { ready: true, reason: "" },
     accept: () => undefined,
-    cost: () => ({ key, memoryMb }),
-    warmupMs: () => 0,
+    cost: () => (initialBatchMs === undefined ? { key, memoryMb } : { key, memoryMb, initialBatchMs }),
+    warmupMs: () => warmupMs,
     stats: () => ({ batches: engine.ran.length }),
     async run(batch: EngineBatch, lease?: EngineLease): Promise<ProbeObservation[]> {
       if (budget && lease === undefined) throw new Error("lote sem reserva")
@@ -204,6 +208,54 @@ describe("Executor: orçamento de memória", () => {
     expect(budget.blocked).toBe(0)
   })
 
+  it("rajada ml a frio: a duração inicial vem do motor (aquecimento de 18 s) e o excedente recebe 503 já na admissão", async () => {
+    const host = machine()
+    const budget = new MemoryBudget(host.limitMb - 512)
+    const semaphore = new Semaphore(8, 200, budget)
+    const engine = fakeMlEngine(host, { delayMs: 300, initialBatchMs: 19_000 })
+    const executor = new Executor({ python: fakeSandbox(1), "python-dados": engine }, semaphore, { budget })
+    expect(executor.estimatedBatchMsOf("pyodide:ml")).toBe(150)
+    const settled: (string | number)[] = []
+    const pending = Array.from({ length: 40 }, (_unused, index) =>
+      executor.execute(mlJob([callProbe(`m${index}`)])).then(
+        () => settled.push("ok"),
+        (reason: unknown) => settled.push(reason instanceof QueueFullError ? (reason.retryAfterSeconds ?? 0) : "outro erro"),
+      ),
+    )
+    // Só os 2 que cabem na memória entraram: ninguém ficou na fila segurando a conexão.
+    expect(semaphore.active).toBe(2)
+    expect(semaphore.pending).toBe(0)
+    expect(executor.estimatedBatchMsOf("pyodide:ml")).toBe(19_000)
+    // As 38 recusas saem na hora (um turno do laço de eventos), antes de qualquer lote terminar.
+    await new Promise((resolve) => setImmediate(resolve))
+    expect(engine.ran).toEqual([])
+    expect(settled).toHaveLength(38)
+    // 3 lotes para 2 vagas de memória × 19 s = 28,5 s de espera estimada.
+    expect(settled.every((retryAfterSeconds) => typeof retryAfterSeconds === "number" && retryAfterSeconds >= 20)).toBe(true)
+    await Promise.all(pending)
+    expect(settled.filter((outcome) => outcome === "ok")).toHaveLength(2)
+    expect(host.oom).toBe(false)
+    // A primeira medição substitui o palpite inicial.
+    expect(executor.estimatedBatchMsOf("pyodide:ml")).toBeLessThan(2_000)
+  })
+
+  it("o aquecimento só é somado enquanto a duração da classe não o inclui (sem medição e sem duração inicial do motor)", async () => {
+    const host = machine()
+    const budget = new MemoryBudget(host.limitMb - 512)
+    const cost = { key: "pyodide:ml", memoryMb: ML_MEMORY_MB }
+    const executor = new Executor({ python: fakeSandbox(1), "python-dados": fakeMlEngine(host, { delayMs: 20, warmupMs: 5_000 }) }, new Semaphore(8, 200, budget), { budget })
+    // Sem medição: palpite padrão (150 ms) + aquecimento.
+    expect(executor.estimateWaitMs([cost], 5_000)).toBe(150 / 2 + 5_000)
+    await executor.execute(mlJob([callProbe("m")]))
+    // Com medição, a duração do lote já contou o aquecimento que ele pagou.
+    const measured = executor.estimatedBatchMsOf("pyodide:ml")
+    expect(measured).toBeLessThan(1_000)
+    expect(executor.estimateWaitMs([cost], 5_000)).toBe(measured / 2)
+    // Motor que informa a duração inicial (já com o aquecimento): nunca soma de novo.
+    const informed = new Executor({ python: fakeSandbox(1), "python-dados": fakeMlEngine(host, { delayMs: 20, initialBatchMs: 19_000, warmupMs: 18_000 }) }, new Semaphore(8, 200, budget), { budget })
+    expect(informed.estimateWaitMs([{ ...cost, initialBatchMs: 19_000 }], 18_000)).toBe(19_000 / 2)
+  })
+
   it("a média de duração é por classe de custo: o WASI rápido não esconde o ml lento", async () => {
     const host = machine()
     const budget = new MemoryBudget(host.limitMb - 512)
@@ -230,8 +282,8 @@ describe("Executor: orçamento de memória", () => {
     const executor = new Executor({ python: wasi, "python-dados": fakeMlEngine(host, { delayMs: 60, events }) }, new Semaphore(4, 200, budget), { budget })
     const first = executor.execute(mlJob([callProbe("primeiro")]))
     const second = executor.execute(mlJob([callProbe("segundo"), astProbe("estrutura")]))
-    await sleep(25)
-    // O ast do segundo job já rodou no WASI; o lote ml dele ainda espera a memória do primeiro.
+    // Sem esperar nada (os lotes entram na fila de forma síncrona): o ast do segundo job já
+    // começou no WASI; o lote ml dele ainda espera a memória do primeiro.
     expect(wasi.ran).toEqual([["estrutura"]])
     expect(events).toEqual(["inicio:primeiro"])
     await Promise.all([first, second])
@@ -276,10 +328,10 @@ describe("Executor: falha de um lote cancela os irmãos na fila", () => {
     const host = machine()
     const budget = new MemoryBudget(ML_MEMORY_MB)
     const semaphore = new Semaphore(4, 200, budget)
-    const engine = fakeMlEngine(host, { delayMs: 300 })
-    const executor = new Executor({ python: fakeSandbox(1), "python-dados": engine }, semaphore, { budget, maxQueueWaitMs: 1_000 })
+    const engine = fakeMlEngine(host, { delayMs: 600 })
+    const executor = new Executor({ python: fakeSandbox(1), "python-dados": engine }, semaphore, { budget, maxQueueWaitMs: 5_000 })
     const holder = executor.execute(mlJob([callProbe("dono")]))
-    // Dois lotes ml (execução + unittest): nenhum começa antes de 300 ms... com prazo de 100 ms.
+    // Dois lotes ml (execução + unittest): nenhum começa antes de 600 ms... com prazo de 100 ms.
     const shortExecutor = new Executor({ python: fakeSandbox(1), "python-dados": engine }, semaphore, { budget, maxQueueWaitMs: 100 })
     const error: unknown = await shortExecutor.execute(mlJob([callProbe("x"), unittestProbe("y")])).catch((reason: unknown) => reason)
     expect(error).toBeInstanceOf(QueueFullError)

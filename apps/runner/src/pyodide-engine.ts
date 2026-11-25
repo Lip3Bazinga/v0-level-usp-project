@@ -12,6 +12,13 @@ import { PyodideWorker } from "./pyodide-worker-handle.js"
 const BYTES_PER_MIB = 1024 * 1024
 /** Peso da medição mais recente na média móvel do tempo de aquecimento por perfil. */
 const BOOT_ESTIMATE_WEIGHT = 0.3
+/**
+ * Duração assumida de um lote, antes da primeira medição, quando ele NÃO vai pagar um
+ * aquecimento (worker ocioso do perfil, ou política `reuse`, em que só os primeiros pagam).
+ */
+const INITIAL_WARM_BATCH_MS = 1_000
+/** Pedido do autoteste da partida (perfil `dados`). */
+const SELF_TEST_REQUEST: EngineRequest = { runtime: "python-dados", libraries: ["numpy"] }
 /** Quanto do diagnóstico do worker vai para o log. */
 const LOGGED_ERROR_CHARS = 2_000
 
@@ -92,6 +99,10 @@ const costKey = (profile: PyodideProfileName): string => `pyodide:${profile}`
  * o peso do seu perfil no `MemoryBudget`, da criação até o `terminate()` resolver. Worker
  * ocioso é cache: quando falta memória para um lote, os ociosos são despejados. O pool
  * aquecido é especulativo: só é reabastecido com memória sobrando e sem lote à espera.
+ *
+ * O peso é o RSS medido de um worker, não o pior caso: o heap wasm pode crescer durante o
+ * lote até `maxHeapMb`, e esse excedente não entra no orçamento (fica por conta da reserva
+ * de memória do executor; ver `DEFAULT_BATCH_MEMORY_MB` para os pesos de pior caso).
  */
 export class PyodideEngine implements Engine {
   readonly name = "pyodide"
@@ -157,13 +168,18 @@ export class PyodideEngine implements Engine {
   }
 
   /**
-   * Classe de custo do pedido: `pyodide:<perfil>` e o peso de um worker do perfil.
+   * Classe de custo do pedido: `pyodide:<perfil>`, o peso de um worker do perfil e a duração
+   * inicial de um lote — o aquecimento estimado do perfil quando o lote vai criar o próprio
+   * worker (política `fresh` sem ocioso no pool), ou cerca de 1 s quando há worker pronto ou
+   * a política é `reuse`.
    *
    * @throws EngineRequestError para uma biblioteca fora do catálogo.
    */
   cost(request: EngineRequest): EngineCost {
     const profile = resolveProfile(request.libraries)
-    return { key: costKey(profile), memoryMb: this.memoryMb[profile] }
+    const paysBoot = this.policy[profile] === "fresh" && this.idleOf(profile).length === 0
+    const bootMs = this.bootEstimateMs.get(profile) ?? PYODIDE_PROFILES[profile].initialBootMs
+    return { key: costKey(profile), memoryMb: this.memoryMb[profile], initialBatchMs: INITIAL_WARM_BATCH_MS + (paysBoot ? bootMs : 0) }
   }
 
   /** Tempo estimado de aquecimento quando não há worker ocioso do perfil (0 se houver). */
@@ -188,16 +204,19 @@ export class PyodideEngine implements Engine {
   /**
    * Aquece os pools (`warm` por perfil) e roda um lote trivial com numpy: se falhar,
    * `readiness.ready` fica falso com o motivo (o motor é opcional: `/healthz` continua 200).
+   * Passa por `accept` antes: com orçamento menor que o peso do perfil o autoteste falha na
+   * hora com o motivo, em vez de esperar para sempre por uma memória que nunca vai existir.
    */
   async start(): Promise<void> {
     for (const profile of PYODIDE_PROFILE_NAMES) this.refill(profile)
     try {
+      this.accept(SELF_TEST_REQUEST)
       const observations = await this.run({
         files: [{ path: "main.py", content: "import numpy\nresultado = float(numpy.mean([1, 2, 3]))\n" }],
         entry: "main.py",
         probes: [{ id: "autoteste", kind: "globals", names: ["resultado"] }],
         limits: { ...DEFAULT_RUNNER_LIMITS },
-        libraries: ["numpy"],
+        libraries: SELF_TEST_REQUEST.libraries,
       })
       const observation = observations[0]
       const isHealthy = observation?.ok === true && observation.values?.resultado === 2
@@ -252,25 +271,30 @@ export class PyodideEngine implements Engine {
 
   async run(batch: EngineBatch, lease?: EngineLease): Promise<ProbeObservation[]> {
     const held = lease === undefined ? await this.reserveWhenPossible(batch) : this.ownLease(lease)
-    const profile = resolveProfile(batch.libraries)
-    const guestJob = prepareGuestJob(batch.probes, batch.entry)
+    // Se o aquecimento falhou, não há worker a devolver: `boot` já devolveu a memória.
     const worker = await held.worker
-    const run = await worker.run({ files: batch.files, job: guestJob, limits: batch.limits }).catch((error: unknown) => {
-      void this.release(held, worker, true, 0)
-      throw error
-    })
-    this.counters.batches++
-    if (run.timedOut) this.counters.timedOut++
-    if (run.overflowed) this.counters.overflowed++
-    if (run.fatal) this.counters.fatal++
-    const observed = parseObservations(run.stdout, guestJob.nonce)
-    if (observed.size === 0 && batch.probes.length > 0) {
-      this.options.log?.("error", "lote python-dados terminou sem nenhuma observação", {
-        profile, timedOut: run.timedOut, overflowed: run.overflowed, fatal: run.fatal, error: run.error.slice(0, LOGGED_ERROR_CHARS), stderr: run.stderr.slice(0, LOGGED_ERROR_CHARS),
-      })
+    // Qualquer exceção daqui em diante devolve o worker (como suspeito) e a reserva dele.
+    const outcome = { isTainted: true, heapBytes: 0 }
+    try {
+      const guestJob = prepareGuestJob(batch.probes, batch.entry)
+      const run = await worker.run({ files: batch.files, job: guestJob, limits: batch.limits })
+      this.counters.batches++
+      if (run.timedOut) this.counters.timedOut++
+      if (run.overflowed) this.counters.overflowed++
+      if (run.fatal) this.counters.fatal++
+      const observed = parseObservations(run.stdout, guestJob.nonce)
+      if (observed.size === 0 && batch.probes.length > 0) {
+        this.options.log?.("error", "lote python-dados terminou sem nenhuma observação", {
+          profile: worker.profile, timedOut: run.timedOut, overflowed: run.overflowed, fatal: run.fatal, error: run.error.slice(0, LOGGED_ERROR_CHARS), stderr: run.stderr.slice(0, LOGGED_ERROR_CHARS),
+        })
+      }
+      const observations = collectObservations(batch.probes, observed, { timedOut: run.timedOut, overflowed: run.overflowed, diskExceeded: false, stderr: `${run.error}\n${run.stderr}` })
+      outcome.isTainted = run.fatal || run.timedOut || run.overflowed
+      outcome.heapBytes = run.heapBytes
+      return observations
+    } finally {
+      void this.release(held, worker, outcome.isTainted, outcome.heapBytes)
     }
-    void this.release(held, worker, run.fatal || run.timedOut || run.overflowed, run.heapBytes)
-    return collectObservations(batch.probes, observed, { timedOut: run.timedOut, overflowed: run.overflowed, diskExceeded: false, stderr: `${run.error}\n${run.stderr}` })
   }
 
   private ownLease(lease: EngineLease): PyodideLease {
@@ -350,6 +374,16 @@ export class PyodideEngine implements Engine {
    * falha, tempo excedido, saída excedida, lote dedicado ou canário reprovado.
    */
   private async release(lease: PyodideLease, worker: PyodideWorker, isTainted: boolean, heapBytes: number): Promise<void> {
+    try {
+      await this.settle(lease, worker, isTainted, heapBytes)
+    } catch (error) {
+      // Nunca deixa um worker vivo sem dono: na dúvida, encerra e devolve a memória.
+      this.options.log?.("warn", "devolução do worker python-dados falhou: descartando", { profile: worker.profile, error: String(error) })
+      await this.dispose(worker)
+    }
+  }
+
+  private async settle(lease: PyodideLease, worker: PyodideWorker, isTainted: boolean, heapBytes: number): Promise<void> {
     const profile = worker.profile
     if (!lease.dedicated) this.count(this.busy, profile, -1)
     const discard = async (reason: string): Promise<void> => {
@@ -401,7 +435,8 @@ export class PyodideEngine implements Engine {
     let covered = available
     for (let missing = this.options.warm[profile] + waiting - available - returning; missing > 0; missing--) {
       const isSpeculative = covered >= waiting
-      if (isSpeculative && this.budget.blocked > 0) return
+      // Sem limite de memória não há o que disputar: o pool aquece mesmo com lotes na fila de CPU.
+      if (isSpeculative && this.budget.isLimited && this.budget.blocked > 0) return
       if (!this.budget.tryReserve(weight)) {
         if (!isSpeculative) this.evictIdle(weight)
         return

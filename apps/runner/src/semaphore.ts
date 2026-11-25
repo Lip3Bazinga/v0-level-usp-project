@@ -36,7 +36,7 @@ interface QueuedTask {
   signal: AbortSignal | undefined
   onAbort: (() => void) | undefined
   timer: NodeJS.Timeout | undefined
-  /** Já foi contada no orçamento como bloqueada por memória. */
+  /** Já foi contada no orçamento como lote com custo à espera (de memória ou de vaga). */
   isBlocked: boolean
 }
 
@@ -81,7 +81,11 @@ export class Semaphore {
     return this.running
   }
 
-  /** Tarefas na fila que já poderiam rodar (há vaga de CPU) mas esperam o recurso do `claim`. */
+  /**
+   * Tarefas com `claim` na fila, esperando o recurso ou só a vaga de CPU. As duas contam no
+   * orçamento (`MemoryBudget.blocked`): um worker aquecido por especulação enquanto elas
+   * esperam teria de ser despejado quando chegasse a vez delas.
+   */
   get blocked(): number {
     return this.queue.filter((task) => task.isBlocked).length
   }
@@ -136,6 +140,7 @@ export class Semaphore {
         reject(new QueueFullError())
         return
       }
+      if (claim) this.markBlocked(queued)
       if (signal) {
         queued.onAbort = (): void => this.fail(queued, new CancelledError())
         signal.addEventListener("abort", queued.onAbort, { once: true })

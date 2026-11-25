@@ -47,6 +47,28 @@ describe("perfis do motor Pyodide", () => {
   })
 })
 
+describe("PyodideEngine: orçamento menor que o peso do perfil", () => {
+  it("o autoteste da partida falha na hora com o motivo, sem esperar memória para sempre nem deixar lote bloqueado", async () => {
+    const budget = new MemoryBudget(100)
+    const engine = createPyodideEngine({ warm: { dados: 1, ml: 0 }, budget, memoryMb: { dados: 256, ml: 1229 } })
+    try {
+      await engine.start()
+      expect(engine.readiness.ready).toBe(false)
+      expect(engine.readiness.reason).toMatch(/Memória insuficiente.*pyodide:dados.*256 MB.*100 MB/)
+      expect(budget.snapshot()).toEqual({ limitMb: 100, usedMb: 0, peakUsedMb: 0, blocked: 0 })
+      expect(engine.stats()).toMatchObject({ booted: 0, peakLive: 0 })
+    } finally {
+      await engine.shutdown()
+    }
+  })
+
+  it("a duração inicial de um lote inclui o aquecimento só na política fresh sem worker pronto", () => {
+    const fresh = createPyodideEngine({ policy: { dados: "fresh", ml: "reuse" } })
+    expect(fresh.cost({ runtime: "python-dados", libraries: ["numpy"] })).toEqual({ key: "pyodide:dados", memoryMb: 256, initialBatchMs: 1_000 + PYODIDE_PROFILES.dados.initialBootMs })
+    expect(fresh.cost({ runtime: "python-dados", libraries: ["scikit-learn"] })).toEqual({ key: "pyodide:ml", memoryMb: 1229, initialBatchMs: 1_000 })
+  })
+})
+
 describe.skipIf(!isPyodideAvailable)("PyodideEngine (integração, política fresh)", () => {
   let engine: PyodideEngine
   beforeAll(async () => {
@@ -317,13 +339,30 @@ describe.skipIf(!isPyodideAvailable)("PyodideEngine (integração, orçamento de
     expect(budget.usedMb).toBe(0)
   }, 120_000)
 
+  it("exceção depois de obter o worker (lote que não pode ser enviado a ele) devolve o worker e a reserva", async () => {
+    const budget = new MemoryBudget(memoryMb.dados)
+    const engine = createPyodideEngine({ warm: { dados: 0, ml: 0 }, budget, memoryMb })
+    try {
+      // Uma função não atravessa o postMessage: `worker.run` lança depois de o worker estar pronto.
+      const unsendable = [{ path: "main.py", content: (() => 1) as unknown as string }]
+      await expect(runOne(engine, unsendable, globalsProbe("valor"))).rejects.toThrow()
+      await idleSettled(engine, budget, 0)
+      expect(engine.stats()).toMatchObject({ booted: 1, live: { dados: 0 } })
+      // O orçamento de 1 worker voltou inteiro: o lote seguinte roda.
+      expect((await runOne(engine, files, globalsProbe("valor"))).values?.valor).toBe(3)
+    } finally {
+      await engine.shutdown()
+    }
+    expect(budget.usedMb).toBe(0)
+  }, 120_000)
+
   it("perfil que pesa mais que o orçamento é recusado no accept (501), sem aquecer nada", () => {
     const budget = new MemoryBudget(1000)
     const engine = createPyodideEngine({ warm: { dados: 0, ml: 0 }, budget, memoryMb })
     expect(() => engine.accept({ runtime: "python-dados", libraries: ["scikit-learn"] })).toThrow(InsufficientMemoryError)
     expect(() => engine.accept({ runtime: "python-dados", libraries: ["numpy"] })).not.toThrow()
-    expect(engine.cost({ runtime: "python-dados", libraries: ["scikit-learn"] })).toEqual({ key: "pyodide:ml", memoryMb: 1229 })
-    expect(engine.cost({ runtime: "python-dados", libraries: [] })).toEqual({ key: "pyodide:dados", memoryMb: 256 })
+    expect(engine.cost({ runtime: "python-dados", libraries: ["scikit-learn"] })).toMatchObject({ key: "pyodide:ml", memoryMb: 1229 })
+    expect(engine.cost({ runtime: "python-dados", libraries: [] })).toMatchObject({ key: "pyodide:dados", memoryMb: 256 })
     expect(budget.usedMb).toBe(0)
   })
 })

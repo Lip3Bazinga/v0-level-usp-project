@@ -8,6 +8,12 @@ export type BatchMemoryMb = Record<BatchMemoryKey, number>
 /**
  * Pesos padrão: o WASI é um processo curto de poucas dezenas de MB (coberto pela reserva);
  * um worker `dados` mede ~250 MB e um `ml` ~1,2 GiB de RSS (docs/tcc/medicoes.md).
+ *
+ * O peso é o RSS MEDIDO do worker, não o pior caso: durante um lote o heap wasm pode crescer
+ * até `RUNNER_PYODIDE_MAX_HEAP_MB` (512) a partir do heap pós-aquecimento (75 MB no `dados`,
+ * 187 MB no `ml`), e esse crescimento é absorvido pela reserva (`RUNNER_MEMORY_RESERVE_MB`).
+ * Para uma garantia rígida, use pesos de pior caso (RSS + teto do heap − heap pós-aquecimento):
+ * cerca de `dados:700,ml:1560`.
  */
 export const DEFAULT_BATCH_MEMORY_MB: Readonly<BatchMemoryMb> = { python: 0, dados: 256, ml: 1229 }
 
@@ -18,15 +24,20 @@ export interface MemoryBudgetSnapshot {
   usedMb: number
   /** Maior `usedMb` desde a partida. */
   peakUsedMb: number
-  /** Lotes esperando memória agora. */
+  /** Lotes com custo de memória esperando na fila agora (por memória ou por vaga de CPU). */
   blocked: number
 }
 
 /**
  * Orçamento de memória do executor, em MB: quem vai criar uma instância cara (um worker do
  * Pyodide) reserva o peso dela antes e libera depois que ela morreu de fato. A soma das
- * reservas nunca passa de `limitMb`, então o contêiner não é morto por falta de memória:
- * sem orçamento, o lote espera na fila (ou recebe 503).
+ * reservas nunca passa de `limitMb`: sem orçamento, o lote espera na fila (ou recebe 503) em
+ * vez de criar mais uma instância.
+ *
+ * A proteção contra a morte do contêiner por falta de memória é tão boa quanto os pesos: o
+ * orçamento limita a soma dos PESOS, não a memória real. Com os pesos padrão (RSS medido), o
+ * crescimento de cada instância durante o lote fica por conta da reserva fora do orçamento
+ * (ver `DEFAULT_BATCH_MEMORY_MB`).
  *
  * `Infinity` desliga o limite (toda reserva é aceita): é o comportamento anterior.
  */
@@ -69,8 +80,9 @@ export class MemoryBudget {
   }
 
   /**
-   * Lotes esperando memória agora (na fila do semáforo ou dentro de um motor). Enquanto for
-   * maior que zero, ninguém deve reservar para trabalho especulativo (pool aquecido).
+   * Lotes com custo de memória esperando agora: na fila do semáforo (por memória ou só por
+   * vaga de CPU) ou dentro de um motor. Enquanto for maior que zero, ninguém deve reservar
+   * para trabalho especulativo (pool aquecido): a instância teria de ser despejada em seguida.
    */
   get blocked(): number {
     return this.blockedCount
@@ -103,7 +115,7 @@ export class MemoryBudget {
   }
 
   /**
-   * Registra (`+1`) ou retira (`-1`) um lote que espera memória. Não avisa os ouvintes:
+   * Registra (`+1`) ou retira (`-1`) um lote com custo que espera. Não avisa os ouvintes:
    * a contagem só muda o que os próximos `notify()` vão decidir.
    */
   addBlocked(delta: number): void {
