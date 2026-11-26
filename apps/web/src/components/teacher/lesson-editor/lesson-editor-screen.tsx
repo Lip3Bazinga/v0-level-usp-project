@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation"
 import { AlertCircle } from "lucide-react"
 import { TeacherSuccessModal } from "@/components/gamification/teacher-success-modal"
 import { useAsyncResource } from "@/hooks/use-async-resource"
+import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { useTransientFlag } from "@/hooks/use-transient-value"
 import { fetchModules, fetchTeacherCourses } from "@/lib/api"
-import { ROUTES, SAVED_FEEDBACK_DURATION_MS } from "@/lib/constants"
+import { PREVIEW_DEBOUNCE_MS, ROUTES, SAVED_FEEDBACK_DURATION_MS } from "@/lib/constants"
 import { swalConfirm, swalError, swalToast, swalWarning } from "@/lib/swal"
 import { CheckpointsTab } from "./checkpoints-tab"
 import { ConfigTab } from "./config-tab"
@@ -15,6 +16,8 @@ import { ContentTab } from "./content-tab"
 import { EditorHeader } from "./editor-header"
 import { EditorTabsNav, isTabVisible, type EditorTabId } from "./editor-tabs"
 import { LibrariesTab } from "./libraries-tab"
+import { LessonPreviewPane } from "./preview/lesson-preview-pane"
+import { PreviewSplitLayout } from "./preview/preview-split-layout"
 import { QuizTab } from "./quiz-tab"
 import { StarterFilesTab } from "./starter-files-tab"
 import { StepsTab } from "./steps-tab"
@@ -56,6 +59,10 @@ export function LessonEditorScreen({ initial, onCreated }: LessonEditorScreenPro
   const [selectedTab, setSelectedTab] = useState<EditorTabId>("config")
   const [inlineError, setInlineError] = useState<string | null>(null)
   const [isSuccessOpen, setIsSuccessOpen] = useState(false)
+  // O passo aberto na aba Passos fica aqui (e não na prévia): a prévia o seleciona e desmonta ao esconder.
+  const [activeStepIndex, setActiveStepIndex] = useState(0)
+  // A prévia mostra o estado NÃO salvo do formulário, atualizado com atraso para não refazer a tela a cada tecla.
+  const previewForm = useDebouncedValue(form, PREVIEW_DEBOUNCE_MS)
   const savedFeedback = useTransientFlag(SAVED_FEEDBACK_DURATION_MS)
   const courses = useAsyncResource(() => orEmpty(fetchTeacherCourses()), [])
   const modules = useAsyncResource(() => orEmpty(fetchModules()), [])
@@ -124,71 +131,78 @@ export function LessonEditorScreen({ initial, onCreated }: LessonEditorScreenPro
         onUnpublish={() => void handleSave(false)}
       />
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        {alertMessage && (
-          <div role="alert" className="mb-6 flex items-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-red-700">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            {alertMessage}
-          </div>
-        )}
+      <main className="mx-auto max-w-[110rem] px-4 py-8 sm:px-6">
+        <PreviewSplitLayout
+          editor={
+            <div className="space-y-0">
+              {alertMessage && (
+                <div role="alert" className="mb-6 flex items-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-red-700">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  {alertMessage}
+                </div>
+              )}
 
-        <EditorTabsNav
-          current={tab}
-          lessonType={form.lesson_type}
-          onChange={setSelectedTab}
-          badges={{
-            testes: testErrorCount
-              ? { text: `${testErrorCount} erro(s)`, isDanger: true }
-              : { text: String(editor.drafts.length), isDanger: editor.drafts.length === 0 },
-            ...(form.lesson_type === "quiz" && { questoes: { text: String(editor.quiz.length) } }),
-            ...(form.lesson_type === "guided" && { passos: { text: String(form.steps.length), isDanger: form.steps.length === 0 } }),
-          }}
+              <EditorTabsNav
+                current={tab}
+                lessonType={form.lesson_type}
+                onChange={setSelectedTab}
+                badges={{
+                  testes: testErrorCount
+                    ? { text: `${testErrorCount} erro(s)`, isDanger: true }
+                    : { text: String(editor.drafts.length), isDanger: editor.drafts.length === 0 },
+                  ...(form.lesson_type === "quiz" && { questoes: { text: String(editor.quiz.length) } }),
+                  ...(form.lesson_type === "guided" && { passos: { text: String(form.steps.length), isDanger: form.steps.length === 0 } }),
+                }}
+              />
+
+              {tab === "config" && (
+                <ConfigTab
+                  form={form}
+                  onChange={patchForm}
+                  courses={courses.status === "success" ? courses.data : []}
+                  modules={modules.status === "success" ? modules.data : []}
+                />
+              )}
+
+              {tab === "conteudo" && (
+                <ContentTab
+                  content={form.content_markdown}
+                  onChange={(content_markdown) => patchForm({ content_markdown })}
+                  onError={showError}
+                />
+              )}
+
+              {tab === "passos" && form.lesson_type === "guided" && (
+                <StepsTab steps={form.steps} onChange={(steps) => patchForm({ steps })} openIndex={activeStepIndex} onOpenIndexChange={setActiveStepIndex} />
+              )}
+
+              {tab === "questoes" && form.lesson_type === "quiz" && (
+                <QuizTab questions={editor.quiz} onChange={editor.setQuiz} passingScore={form.quiz_passing_score} />
+              )}
+
+              {tab === "exercicio" && form.lesson_type === "coding" && (
+                <StarterFilesTab files={form.starter_files} onChange={(starter_files) => patchForm({ starter_files })} onError={showError} />
+              )}
+
+              {tab === "testes" && form.lesson_type === "coding" && (
+                <TestsTab drafts={editor.drafts} onChange={editor.setDrafts} isPublished={editor.published} />
+              )}
+
+              {tab === "checkpoints" && form.lesson_type === "coding" && (
+                <CheckpointsTab checkpoints={form.checkpoints} onChange={(checkpoints) => patchForm({ checkpoints })} />
+              )}
+
+              {tab === "libs" && (form.lesson_type === "coding" || form.lesson_type === "guided") && (
+                <LibrariesTab
+                  selected={form.libraries}
+                  onChange={(libraries) => patchForm({ libraries })}
+                  onToast={(title) => swalToast({ title, icon: "success" })}
+                />
+              )}
+            </div>
+          }
+          preview={<LessonPreviewPane form={previewForm} activeStepIndex={activeStepIndex} lessonId={lessonId} />}
         />
-
-        {tab === "config" && (
-          <ConfigTab
-            form={form}
-            onChange={patchForm}
-            courses={courses.status === "success" ? courses.data : []}
-            modules={modules.status === "success" ? modules.data : []}
-          />
-        )}
-
-        {tab === "conteudo" && (
-          <ContentTab
-            title={form.title}
-            moduleTitle={form.module}
-            content={form.content_markdown}
-            onChange={(content_markdown) => patchForm({ content_markdown })}
-            onError={showError}
-          />
-        )}
-
-        {tab === "passos" && form.lesson_type === "guided" && <StepsTab steps={form.steps} onChange={(steps) => patchForm({ steps })} />}
-
-        {tab === "questoes" && form.lesson_type === "quiz" && (
-          <QuizTab questions={editor.quiz} onChange={editor.setQuiz} passingScore={form.quiz_passing_score} />
-        )}
-
-        {tab === "exercicio" && form.lesson_type === "coding" && (
-          <StarterFilesTab files={form.starter_files} onChange={(starter_files) => patchForm({ starter_files })} onError={showError} />
-        )}
-
-        {tab === "testes" && form.lesson_type === "coding" && (
-          <TestsTab drafts={editor.drafts} onChange={editor.setDrafts} isPublished={editor.published} />
-        )}
-
-        {tab === "checkpoints" && form.lesson_type === "coding" && (
-          <CheckpointsTab checkpoints={form.checkpoints} onChange={(checkpoints) => patchForm({ checkpoints })} />
-        )}
-
-        {tab === "libs" && (form.lesson_type === "coding" || form.lesson_type === "guided") && (
-          <LibrariesTab
-            selected={form.libraries}
-            onChange={(libraries) => patchForm({ libraries })}
-            onToast={(title) => swalToast({ title, icon: "success" })}
-          />
-        )}
       </main>
     </div>
   )

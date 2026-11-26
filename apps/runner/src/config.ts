@@ -4,8 +4,9 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { isPublishedSecret } from "@levelusp/contracts"
 import { z } from "zod"
+import { BATCH_MEMORY_KEYS, DEFAULT_BATCH_MEMORY_MB, type BatchMemoryKey, type BatchMemoryMb } from "./memory-budget.js"
 import { PYODIDE_PROFILE_NAMES, type PyodideProfileName } from "./pyodide-profiles.js"
-import { PYODIDE_POLICIES } from "./pyodide-protocol.js"
+import { PYODIDE_POLICIES, type PyodidePolicies, type PyodidePolicy } from "./pyodide-protocol.js"
 
 const sourceDir = path.dirname(fileURLToPath(import.meta.url))
 
@@ -55,6 +56,89 @@ const warmPoolSchema = z.string().default("dados:1,ml:0").transform((value, ctx)
   }
 })
 
+function isPolicy(value: string): value is PyodidePolicy {
+  return (PYODIDE_POLICIES as readonly string[]).includes(value)
+}
+
+/**
+ * Política por perfil: `fresh` ou `reuse` (vale para todos) ou `perfil:política,...`
+ * (ex.: `dados:fresh,ml:reuse`); perfil não citado fica em `fresh`.
+ *
+ * @throws Error para um perfil ou uma política desconhecidos.
+ */
+export function parsePyodidePolicy(value: string): PyodidePolicies {
+  const policies: PyodidePolicies = { dados: "fresh", ml: "fresh" }
+  const trimmed = value.trim().toLowerCase()
+  if (isPolicy(trimmed)) {
+    for (const profile of PYODIDE_PROFILE_NAMES) policies[profile] = trimmed
+    return policies
+  }
+  const entries = trimmed.split(",").filter((part) => part.trim() !== "")
+  if (entries.length === 0) throw new Error(`RUNNER_PYODIDE_POLICY inválido: "${value}" (use fresh, reuse ou dados:fresh,ml:reuse)`)
+  for (const entry of entries) {
+    const [name, policy] = entry.split(":").map((part) => part.trim())
+    if (name === undefined || policy === undefined || !isProfileName(name) || !isPolicy(policy)) {
+      throw new Error(`RUNNER_PYODIDE_POLICY inválido: "${value}" (use fresh, reuse ou dados:fresh,ml:reuse)`)
+    }
+    policies[name] = policy
+  }
+  return policies
+}
+
+const BYTES_PER_MIB = 1024 * 1024
+/** Multiplicador de cada sufixo do formato de memória do Docker (`b`, `k`, `m`, `g`). */
+const MEMORY_UNIT_BYTES: Readonly<Record<string, number>> = { "": 1, b: 1, k: 1024, m: BYTES_PER_MIB, g: 1024 * BYTES_PER_MIB }
+
+/**
+ * Tamanho de memória no formato do Docker (`6g`, `1536m`, `2097152k`, bytes sem sufixo),
+ * convertido para MB. `unlimited` desliga o orçamento (devolve `Infinity`).
+ *
+ * @throws Error para um valor fora do formato ou não positivo.
+ */
+export function parseMemorySize(value: string): number {
+  const trimmed = value.trim().toLowerCase()
+  if (trimmed === "unlimited") return Number.POSITIVE_INFINITY
+  const match = /^(\d+(?:\.\d+)?)\s*([bkmg]?)(?:i?b)?$/.exec(trimmed)
+  const amount = Number(match?.[1])
+  const unit = MEMORY_UNIT_BYTES[match?.[2] ?? ""]
+  if (match === null || unit === undefined || !(amount > 0)) throw new Error(`RUNNER_MEMORY inválido: "${value}" (use o formato do Docker: 6g, 1536m; ou unlimited)`)
+  return Math.floor((amount * unit) / BYTES_PER_MIB)
+}
+
+function isBatchMemoryKey(name: string): name is BatchMemoryKey {
+  return (BATCH_MEMORY_KEYS as readonly string[]).includes(name)
+}
+
+/**
+ * Peso em MB de uma instância de cada perfil: `python:0,dados:256,ml:1229`. Perfil não
+ * citado fica com o padrão (`DEFAULT_BATCH_MEMORY_MB`).
+ *
+ * @throws Error para um perfil desconhecido ou um peso que não é inteiro ≥ 0.
+ */
+export function parseBatchMemory(value: string): BatchMemoryMb {
+  const weights: BatchMemoryMb = { ...DEFAULT_BATCH_MEMORY_MB }
+  for (const entry of value.split(",").filter((part) => part.trim() !== "")) {
+    const [name, megabytes] = entry.split(":").map((part) => part.trim().toLowerCase())
+    if (name === undefined || megabytes === undefined || !/^\d+$/.test(megabytes) || !isBatchMemoryKey(name)) {
+      throw new Error(`RUNNER_BATCH_MEMORY_MB inválido: "${value}" (use python:0,dados:256,ml:1229)`)
+    }
+    weights[name] = Number(megabytes)
+  }
+  return weights
+}
+
+/** Adapta um analisador que lança a um `transform` do Zod (a mensagem do erro vira a do campo). */
+function parsedString<T>(parse: (value: string) => T): (value: string, ctx: z.RefinementCtx) => T {
+  return (value, ctx) => {
+    try {
+      return parse(value)
+    } catch (error) {
+      ctx.addIssue({ code: "custom", message: error instanceof Error ? error.message : String(error) })
+      return z.NEVER
+    }
+  }
+}
+
 const envSchema = z.object({
   PORT: z.coerce.number().int().default(8081),
   HOST: z.string().default("0.0.0.0"),
@@ -87,20 +171,49 @@ const envSchema = z.object({
   NODE_ENV: z.string().default("development"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
 
+  // ── Orçamento de memória ──────────────────────────────────────────────────
+  /**
+   * Memória do contêiner no formato do Docker (`6g`, `1536m`), em MB depois de lida; `unlimited`
+   * desliga o orçamento. Ausente = limite do cgroup (`process.constrainedMemory()`) ou, sem
+   * ele, a memória da máquina (ver `detectMemoryLimitMb`).
+   */
+  RUNNER_MEMORY: z.string().optional().transform((value, ctx) => (value === undefined || value.trim() === "" ? undefined : parsedString(parseMemorySize)(value, ctx))),
+  /**
+   * Parte do limite que fica fora do orçamento (MB): o processo do Node, o WASI, a folga do
+   * sistema e o crescimento dos workers durante os lotes (os pesos padrão são o RSS medido, não
+   * o pior caso). Com vários workers `ml` crescendo ao mesmo tempo até o teto do heap, 512 MB
+   * podem não bastar: aumente a reserva ou use pesos de pior caso em `RUNNER_BATCH_MEMORY_MB`.
+   */
+  RUNNER_MEMORY_RESERVE_MB: z.coerce.number().int().min(0).max(1_048_576).default(512),
+  /**
+   * Peso de uma instância por perfil, em MB (`python:0,dados:256,ml:1229`): quanto cada worker
+   * vivo ocupa do orçamento. O padrão é o RSS medido de um worker; o heap wasm ainda pode
+   * crescer durante o lote até `RUNNER_PYODIDE_MAX_HEAP_MB`. Pesos de pior caso (RSS + teto do
+   * heap − heap pós-aquecimento) seriam cerca de `dados:700,ml:1560`: garantia rígida, menos
+   * lotes simultâneos.
+   */
+  RUNNER_BATCH_MEMORY_MB: z.string().default("").transform(parsedString(parseBatchMemory)),
+
   // ── Motor python-dados (Pyodide) ──────────────────────────────────────────
   /** Pasta com o núcleo do Pyodide e os wheels (`scripts/fetch-pyodide.sh`). */
   PYODIDE_DIR: z.string().default("/opt/levelusp-pyodide"),
   /** Liga o motor; ausente = ligado quando `PYODIDE_DIR` tem o `pyodide.asm.wasm`. */
   RUNNER_PYODIDE_ENABLED: booleanFlag.optional(),
-  /** `fresh` (um lote por worker, padrão) ou `reuse` (worker atende vários lotes, com restauração). */
-  RUNNER_PYODIDE_POLICY: z.enum(PYODIDE_POLICIES).default("fresh"),
+  /**
+   * `fresh` (um lote por worker, padrão) ou `reuse` (worker atende vários lotes, com restauração);
+   * um valor vale para todos os perfis, ou por perfil: `dados:fresh,ml:reuse`.
+   */
+  RUNNER_PYODIDE_POLICY: z.string().default("fresh").transform(parsedString(parsePyodidePolicy)),
   /** Workers aquecidos por perfil: número ou `dados:n,ml:n` (padrão `dados:1,ml:0`: ml ocioso custa ~1,3 GB). */
   RUNNER_PYODIDE_WARM: warmPoolSchema,
   /** Política `reuse`: lotes por worker antes de reciclá-lo. */
   RUNNER_PYODIDE_RECYCLE_AFTER: z.coerce.number().int().min(1).max(10_000).default(25),
   /** Teto da memória linear do wasm por worker (MB): crescer além disto dá `MemoryError`. */
   RUNNER_PYODIDE_MAX_HEAP_MB: z.coerce.number().int().min(128).max(4_096).default(512),
-  /** Política `reuse`: worker cujo heap wasm fica acima disto depois do lote é reciclado (MB). */
+  /**
+   * Política `reuse`: worker cujo heap wasm fica acima disto depois do lote é reciclado (MB).
+   * Teto absoluto; o `ml` aquece com 187 MB (ver as medições em `PyodideEngineOptions.recycleHeapMb`).
+   */
   RUNNER_PYODIDE_RECYCLE_HEAP_MB: z.coerce.number().int().min(64).max(4_096).default(256),
   /** Teto do heap de JS do worker (`resourceLimits.maxOldGenerationSizeMb`); o perfil `ml` usa ~750 MB. */
   RUNNER_PYODIDE_JS_HEAP_MB: z.coerce.number().int().min(256).max(8_192).default(1_536),
@@ -130,6 +243,24 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): RunnerConfig {
     throw new Error(`Configuração inválida do executor: ${details}`)
   }
   return { ...parsed.data, WASMTIME_BIN: resolveBinary(parsed.data.WASMTIME_BIN, env.PATH) }
+}
+
+/**
+ * Limite de memória visto pelo processo, em MB: o do cgroup do contêiner quando existe
+ * (`process.constrainedMemory()` > 0 e menor que a máquina), senão a memória total da máquina.
+ */
+export function detectMemoryLimitMb(): number {
+  const total = os.totalmem()
+  const constrained = process.constrainedMemory()
+  return Math.floor((constrained > 0 && constrained < total ? constrained : total) / BYTES_PER_MIB)
+}
+
+/**
+ * Orçamento de memória para instâncias (MB): o limite (`RUNNER_MEMORY` ou o detectado) menos
+ * a reserva (`RUNNER_MEMORY_RESERVE_MB`), nunca negativo; `Infinity` com `RUNNER_MEMORY=unlimited`.
+ */
+export function resolveMemoryBudgetMb(config: Pick<RunnerConfig, "RUNNER_MEMORY" | "RUNNER_MEMORY_RESERVE_MB">, detectedLimitMb: number = detectMemoryLimitMb()): number {
+  return Math.max(0, (config.RUNNER_MEMORY ?? detectedLimitMb) - config.RUNNER_MEMORY_RESERVE_MB)
 }
 
 /** O motor Pyodide fica ligado por configuração explícita ou, por padrão, quando a distribuição existe. */

@@ -113,6 +113,42 @@ No exercício, "Como o aluno responde" escolhe o modo: `lacunas` conta os `___` 
 (`buildParsonsLines` em `steps-form.ts`: embaralhamento estável, ids dados depois de embaralhar). A aba Configurações ganhou motor da correção, "Projeto do nível",
 objetivos e tentativas antes da solução. Salvar envia `steps` inteiro.
 
+## Prévia da aula no editor do professor (Fase B)
+
+Enquanto edita, o professor vê a aula como o aluno verá, ao lado do editor (`/teacher/edit/[id]`).
+
+- **Layout** (`lesson-editor/preview/preview-split-layout.tsx`): a partir de 1280 px, editor à esquerda e
+  prévia à direita, com divisor arrastável (`role="separator"`; setas, Home e End; largura de 30 % a 70 %)
+  e botão "Esconder prévia". A largura e a escolha de esconder ficam em `localStorage`
+  (`STORAGE_KEYS.lessonPreviewWidth`/`lessonPreviewHidden`, sempre com `try/catch`). Abaixo de 1280 px o
+  botão "Pré-visualizar" abre a prévia em tela cheia (diálogo modal, "Voltar ao editor", Esc). A prévia é
+  renderizada uma vez só e desmonta ao esconder ou fechar; por isso o passo aberto fica no estado da tela
+  (`activeStepIndex`), não na prévia.
+- **Dados:** a prévia lê o estado NÃO salvo do formulário, com atraso de 300 ms (`useDebouncedValue`,
+  `PREVIEW_DEBOUNCE_MS`). Lição guiada com passos usa o player; sem passos (ou de outro tipo) mostra o
+  conteúdo da lição (`LessonContentPreview`). A aba Conteúdo não tem mais prévia própria. O passo aberto
+  na aba Passos fica selecionado na prévia (`StepsTab` aceita `openIndex`/`onOpenIndexChange`).
+- **Reuso do player, sem cópia:** `ReadingStep`, `ExerciseStep`, `PredictionStep`, `QuizStep` e `StepSidebar`
+  são os mesmos. O que fala com a API passou a vir de um **backend de passo** injetado por contexto
+  (`lesson-steps/step-backend.tsx`): o padrão é a API real (o aluno não muda) e a prévia troca por
+  `preview/preview-backend.ts`. `isPreview` libera dicas e solução sem limite e desliga os rascunhos em
+  `localStorage`. A prévia não usa `useAuth`, `useProgress`, `trackEvent` nem rota de progresso,
+  submissão, XP ou eventos (os testes afirmam `not.toHaveBeenCalled`).
+- **Comportamento:** navegação livre entre passos; quiz corrige no navegador mostrando a correta e a
+  explicação (`correctIndexes` só é passada pela prévia; o DTO `LessonStep` continua sem `correct_index`);
+  "Executar" roda no Pyodide do navegador; a previsão roda o código do passo no Pyodide e compara com o que
+  o professor digitar; lacunas e ordenar funcionam. "Verificar" mostra "A correção roda no servidor"
+  (`PreviewVerifyUnavailable`); `createPreviewBackend(..., { verify })` é o ponto de extensão do
+  "Testar gabarito" (Fase F).
+- **Avisos de conteúdo** (`preview-model.ts`, `contentWarnings`, mais Mermaid assíncrono): fórmula KaTeX
+  inválida, diagrama Mermaid inválido, imagem sem texto alternativo e passo sem campos obrigatórios aparecem
+  num bloco `role="status"` no topo da prévia; erro de renderização cai no `PreviewErrorBoundary`.
+- **Larguras por container query:** o player passou a usar `@container` e `@5xl:` no lugar de `lg:`
+  (`step-sidebar`, `exercise-step`, `guided-lesson-layout`, prévia). Para o aluno é o mesmo ponto de corte
+  (64rem = 1024 px, a largura da janela); na prévia em meia largura o exercício empilha em vez de espremer
+  as três colunas.
+- Screenshots (Playwright, fora do git): `.claude-transfer/screenshots-previa/`.
+
 ## Limpeza da auditoria
 
 - "Configurações" virou `/perfil/me/conta` (dados da conta e senha); `/settings` redireciona.
@@ -136,4 +172,4 @@ regras do player, fila de eventos, trilhas (utilitários e página), condição 
 esboço do curso e formulário/abas de passos do professor. Do P2b: Markdown rico (`step-markdown.test.tsx`),
 visualizador (`execution-visualizer.test.tsx`, `execution-trace.test.ts`), lacunas e ordenar
 (`exercise-modes.test.ts`), o player nos modos novos e na previsão (`guided-lesson-modes.test.tsx`) e a
-aba Passos (`steps-tab.test.tsx`). Pyodide, Mermaid e CodeMirror são simulados nesses testes.
+aba Passos (`steps-tab.test.tsx`). Da Fase B: backend de passo e prévia (`step-backend.test.tsx`, `preview-*.test.ts(x)`), layout dividido (`preview-split-layout.test.tsx`), `use-debounced-value`, `use-media-query` e `preview-layout`. Pyodide, Mermaid e CodeMirror são simulados nesses testes.

@@ -29,11 +29,16 @@
 | Gabaritos do seed/importação gravados sem passar pelo `testCasesSchema` | A web trata campos com default ausentes (`args`, `kwargs`, `stdin`, `match`) com `eslint-disable` justificado | Normalizar os casos na importação/seed (ou devolver o gabarito já parseado em `/authoring`) e remover os fallbacks |
 | Imagens no Storage do Supabase | Dependência residual após a importação | Script de cópia para o volume `uploads` |
 | Prova final de demonstração (5 questões) | Seed de homologação | Importar o banco de questões real |
-| O corretor executa o bloco `if __name__ == "__main__":` do aluno em cada caso da correção | Lições com treino ou demonstração no `__main__` pagam esse custo uma vez por caso (N6: m2-02, m5-03, m6-02, m6-03; os treinos de m6-03 e m6-04 foram encurtados por isso) e podem estourar o tempo | Fase C: rodar o código com `__name__` diferente de `"__main__"` nos casos `call`, `variable`, `expr`, `source` e `unittest` (`apps/runner/python/harness.py`) |
 | Perfis do motor Pyodide (`pyodide-profiles.ts`) e `PACKAGES` de `fetch-pyodide.sh` são conferidos contra o manifesto de bibliotecas só por teste de CI, não derivados dele | Biblioteca nova exige editar o manifesto E esses dois lugares (o teste do runner diz o que falta) | Fase F, item 6: o runner passa a derivar `LIBRARY_PROFILES`/perfis do manifesto e o script lê a lista dele |
 | Aprovação de biblioteca gera só o rascunho da entrada do manifesto (`manifest_snippet`); o PR é manual e a tela do admin ainda não mostra o rascunho | O admin precisa chamar `GET /admin/library/manifest-pending` (ou copiar da resposta da revisão) e abrir o PR | Mostrar a lista de pendências na tela de bibliotecas, com botão de copiar; avaliar abrir o PR por GitHub App (exigiria segredo no servidor: só com revisão de segurança) |
 | Correção por métrica com conjunto de teste oculto, fila com vários executores e renderizador web/dashboards | Fora da Fase F (registrado por ela) | Fases futuras |
-| Piso de ~4 s por lote no executor `python-dados` | Um passo com 6 soluções erradas leva ~28 s no `content:verify` (8 lotes; N4, 2026-11-18), mesmo com código trivial; no arranque a fila estoura os 120 s do pedido | Fase C: medir 20 lotes triviais por motor, decompor o tempo (fila, worker, carga de pacotes, harness, HTTP) em `desempenho-executor.md` e corrigir a causa se for local |
+| Piso de ~4 s por lote no executor `python-dados` na política `fresh` (padrão) | Medido na Fase C (`desempenho-executor.md`): o piso é o aquecimento do worker, que só é reposto depois do uso. A fila do pool agora entrega o próximo worker pronto e pedidos em sequência caem de 2,9 s para 1,6 s de média no `dados` (9,1 s para 4,9 s no `ml`); a mediana segue ~3 s. Com `RUNNER_PYODIDE_POLICY=reuse` some (46 ms no `dados`, 223 ms no `ml`), ao custo de reaproveitar o worker | Decidir se o ambiente de verificação e de produção usa `reuse`; propostas de pool maior e reciclagem adiantada em `desempenho-executor.md` ("O que sobra") |
+
+Resolvido na Fase C: o corretor deixou de executar o bloco `if __name__ == "__main__":` do aluno nos casos `call`, `variable`,
+`expr`, `source` e `unittest` (o arquivo carrega como o módulo `main`; só `io` e `legacy` seguem como `__main__`). As lições
+m6-03 e m6-04 do N6 voltaram a treinar 3000 e 500 passos no `__main__`; a verificação da agenda do N2 (`n2-m4-05`) e dois
+casos de semente do N5 (`n5-m6-05`, passos 5 e 7) foram refeitos; o pacote de conteúdo passou a sair minificado
+(14,0 MB contra 19,5 MB; limite de 20 MB na importação).
 
 Resolvido na auditoria de clean code: os 32 avisos de ESLint da web (lint com 0 erros e 0 avisos em todos
 os pacotes; `react-hooks/*` agora é erro), duplicações entre telas (marca, spinner, downloads, validação de

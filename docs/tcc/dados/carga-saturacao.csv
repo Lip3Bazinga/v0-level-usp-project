@@ -1,0 +1,4 @@
+motor,n_saturacao,criterio,limite_p95_ms,limite_erro,maior_n_sem_saturar,regra_saturacao,origem
+python,,não saturou até N=100,10000,0.01,100,"p95 das respostas 200 > 10000 ms (com ao menos 20 respostas 200); OU taxa de erro > 1% E ao menos 3 erros. Erro = 503, timeout, rede e 5xx; 429 (limite por usuário) é contado à parte e não satura",carga.csv
+dados,,não saturou até N=100,10000,0.01,100,"p95 das respostas 200 > 10000 ms (com ao menos 20 respostas 200); OU taxa de erro > 1% E ao menos 3 erros. Erro = 503, timeout, rede e 5xx; 429 (limite por usuário) é contado à parte e não satura",carga.csv
+ml,10,p95 12682 ms > 10000 ms,10000,0.01,,"p95 das respostas 200 > 10000 ms (com ao menos 20 respostas 200); OU taxa de erro > 1% E ao menos 3 erros. Erro = 503, timeout, rede e 5xx; 429 (limite por usuário) é contado à parte e não satura",carga-ml-concorrencia4.csv (CONCURRENCY=4; a rodada de carga.csv derrubou o executor por OOM)

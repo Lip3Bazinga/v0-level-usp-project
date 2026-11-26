@@ -49,14 +49,14 @@ class Fantasma(metaclass=Meta):
       exprProbe("Mentiroso()", "", "e"),
       exprProbe("Fantasma()", "", "f"),
     ])
-    expect(integer).toMatchObject({ value: 7, type: "__main__.Int" })
-    expect(text).toMatchObject({ value: "real", type: "__main__.Str" })
-    expect(list).toMatchObject({ value: [1, 2], type: "__main__.Lista" })
-    expect(dict).toMatchObject({ value: { k: 2 }, type: "__main__.Dic" })
+    expect(integer).toMatchObject({ value: 7, type: "main.Int" })
+    expect(text).toMatchObject({ value: "real", type: "main.Str" })
+    expect(list).toMatchObject({ value: [1, 2], type: "main.Lista" })
+    expect(dict).toMatchObject({ value: { k: 2 }, type: "main.Dic" })
     // __class__ mentiroso engana isinstance(), não type(): o tipo é a classe real e o valor vira $repr.
-    expect(liar?.type).toBe("__main__.Mentiroso")
+    expect(liar?.type).toBe("main.Mentiroso")
     expect(liar?.value).toEqual({ $repr: "42" })
-    expect(ghost?.type).toBe("__main__.Fantasma")
+    expect(ghost?.type).toBe("main.Fantasma")
   })
 
   it("bool × int, NaN, ±inf, -0.0, inteiros enormes, recursivos e geradores sem fim", async () => {
@@ -98,7 +98,7 @@ def b(): raise Disfarce('y')
 def c(): raise Hostil()
 `
     const [shadow, disguised, hostile] = await runProbes(sandbox, mainFile(code), [exprProbe("a()", "", "a"), exprProbe("b()", "", "b"), exprProbe("c()", "", "c")])
-    expect(shadow?.raised?.type).toBe("__main__.ValueError")
+    expect(shadow?.raised?.type).toBe("main.ValueError")
     expect(shadow?.raised?.mro).not.toContain("ValueError")
     expect(disguised?.raised?.type).toBe("builtins.ValueError")
     expect(disguised?.raised?.mro).not.toContain("ValueError")

@@ -548,6 +548,19 @@ Campos comuns a todo caso:
 | `checkpoint` | id da instrução que o caso cobre (a UI marca ✓ por instrução)                            |
 | `reveal`     | `true` mostra entrada e valor esperado na mensagem de falha. Padrão `false` — mantenha   |
 
+**`__name__` em cada caso.** Só o caso `io` roda o `main.py` como programa
+(`__name__ == "__main__"`), igual ao botão Executar. Nos casos `call`, `variable`, `expr` e
+`unittest` o arquivo é carregado como biblioteca (o módulo `main`, como num `import main`):
+o bloco `if __name__ == "__main__":` **não roda**. Consequências para quem escreve a lição:
+
+- a demonstração, o treino ou a leitura de entrada que ficam no bloco `__main__` não custam
+  tempo nem atrapalham os casos `call`/`variable`/`expr` (não é preciso encurtá-los por isso);
+- o que só é criado dentro do bloco (variáveis, arquivos, o que é impresso) **não existe**
+  nesses casos: verifique-o com um caso `io`, ou crie-o no `setup` de um caso `expr`;
+- uma classe do aluno é observada como `main.Classe` (`type`/`raises` continuam recebendo só
+  o nome, `"Tarefa"`); texto que traz o módulo (`repr(type(x))`, `<main.Conta object at …>`)
+  só é `__main__` no caso `io` e no Executar.
+
 ### `io` — roda `main.py` com uma entrada e compara a saída
 
 ```json
@@ -811,8 +824,9 @@ RUNNER_URL=http://127.0.0.1:8081 RUNNER_TOKEN=... pnpm content:verify [--curso s
   única no curso; nenhum caso `legacy`. Relatório por arquivo (`arquivo:linha: causa`).
 - `content:build` roda as mesmas verificações, gera a saída esperada dos passos `Previsão` no
   executor (só precisa de `RUNNER_URL`/`RUNNER_TOKEN` quando o conteúdo tem `Previsão`), valida
-  o pacote com `contentBundleSchema` e só então grava o JSON (2 espaços, `generated_at`, imagens
-  em `assets`). Nada é gravado se houver problema.
+  o pacote com `contentBundleSchema` e só então grava o JSON **minificado** (uma linha, `generated_at`,
+  imagens em `assets`): os 7 níveis ocupam 14,0 MB, contra 19,5 MB indentado, e o limite do
+  `POST /admin/content/import` é 20 MB. Nada é gravado se houver problema.
 - `content:verify` usa o executor real e o motor de correção da API: em cada passo de
   exercício a solução APROVA, o código inicial REPROVA e cada solução errada REPROVA (no
   `modo: ordenar`: a solução montada APROVA e a ordem embaralhada REPROVA); cada `Previsão`

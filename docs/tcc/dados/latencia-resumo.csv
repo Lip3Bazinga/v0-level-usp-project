@@ -1,0 +1,17 @@
+cenario,via,motor,condicao,n,total_p50_ms,total_p95_ms,total_p99_ms,exec_p50_ms,exec_p95_ms,exec_p99_ms,sobrecarga_p50_ms,sobrecarga_p95_ms,sobrecarga_p99_ms
+a,api,python,quente,30,227.3,329.2,374.6,188,227,274,36.3,144.2,190.6
+a,api,python,frio_processo,30,224.3,252.4,255.5,192,212,217,29.3,54.3,63.4
+b,api,python,quente,30,231.3,279.8,318.5,198,226,228,27.6,58.2,95.5
+b,api,python,frio_processo,30,248.3,277.1,278.3,219,241,248,29.8,40.1,61.1
+c,api,dados,quente,30,89.5,164,174,60,68,91,28.2,105,114
+c,api,dados,frio_processo,30,2434.6,2748.8,2794,2406,2718,2758,31.4,47,51.3
+d,api,ml,frio_pool,30,9457.2,9650.1,9727.2,9411,9551,9679,34.4,118.1,173.1
+d,api,ml,frio_processo,30,9570.9,9740.5,9813.5,9510,9695,9752,42.9,111.7,130.5
+e,api,dados,quente,30,158.2,202.2,218.2,112,118,124,44.6,90.2,94.2
+e,api,dados,frio_processo,30,2495.5,2571.1,2612.5,2463,2529,2545,27.3,83.5,89.1
+piso-python,runner_direto,python,quente,30,190.6,196.8,202.7,189,195,201,1.7,2.7,5.2
+piso-python,runner_direto,python,frio_processo,30,198,205.7,206.4,193,200,201,5.4,6.4,6.8
+piso-dados,runner_direto,dados,quente,30,44,49.3,50,42,45,46,1.8,4.3,6
+piso-dados,runner_direto,dados,frio_processo,30,2391,2477.5,2492,2386,2472,2486,5.4,9.1,9.5
+piso-ml,runner_direto,ml,frio_pool,30,9406.5,9568.2,9570.9,9404,9565,9570,1.6,3.5,4
+piso-ml,runner_direto,ml,frio_processo,30,9585.3,9718.6,9749.5,9579,9714,9745,4.8,6.3,8.8

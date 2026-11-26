@@ -1,0 +1,24 @@
+%% C4 nível 1 — Contexto do LevelUSP (Mermaid C4).
+%% Rastreabilidade de cada caixa e seta: docs/tcc/diagramas/rastreabilidade.md, seção 01.
+%% Fronteiras: "Confiança" = onde o código do aluno (não confiável) pode rodar, "Custo" = de quem é a CPU.
+C4Context
+  title Contexto do sistema - LevelUSP (plataforma gamificada de ensino de Python)
+
+  Person(aluno, "Aluno", "Escreve Python na IDE, usa Executar e Verificar, acumula XP, badges e certificados")
+  Person(docente, "Professor ou administrador", "Autoria e importação de conteúdo, relatórios, aprovação de professores")
+
+  Enterprise_Boundary(fronteiraServidor, "Fronteira de confiança: infraestrutura do LevelUSP (Docker Compose). Custo: CPU, memória e banco do servidor") {
+    System(levelusp, "LevelUSP", "web (Next.js) + api (NestJS) + runner (executor isolado) + PostgreSQL 17. Toda regra de negócio, correção e gamificação ficam no servidor")
+  }
+
+  System_Ext(cloudflare, "Cloudflare Tunnel", "Entrada pública. O cloudflared só faz conexões de saída, sem porta aberta")
+  System_Ext(cdnPyodide, "CDN do Pyodide (jsDelivr)", "Wheels de numpy, matplotlib etc. baixados pelo navegador. Custo de banda fora do servidor")
+  System_Ext(smtp, "Servidor SMTP", "Entrega e-mails de redefinição de senha e convites")
+
+  Rel(aluno, cloudflare, "Acessa o site", "HTTPS, mesma origem /api/*")
+  Rel(docente, cloudflare, "Administra e consulta relatórios", "HTTPS")
+  Rel(cloudflare, levelusp, "Encaminha as requisições ao front", "HTTP interno")
+  Rel(aluno, cdnPyodide, "Baixa pacotes extras do Python do navegador", "HTTPS, connect-src da CSP")
+  Rel(levelusp, smtp, "Envia e-mails", "SMTP com TLS")
+
+  UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")

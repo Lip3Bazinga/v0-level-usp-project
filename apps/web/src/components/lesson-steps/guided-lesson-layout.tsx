@@ -172,7 +172,7 @@ export function GuidedLessonLayout({ lesson, allLessons, currentIndex }: GuidedL
   const stepProgress = progressByStep.get(step.id)
 
   return (
-    <div className="flex h-screen flex-col bg-white">
+    <div className="@container flex h-screen flex-col bg-white">
       <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
         <button
           type="button"
@@ -191,7 +191,7 @@ export function GuidedLessonLayout({ lesson, allLessons, currentIndex }: GuidedL
 
       {isProjectLocked && <ProjectLockedNotice pendingLessons={pendingBeforeProject} />}
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col @5xl:flex-row">
         <StepSidebar steps={steps} states={states} onSelect={selectStep} />
         <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           <LessonLibrariesProvider libraries={lesson.libraries}>

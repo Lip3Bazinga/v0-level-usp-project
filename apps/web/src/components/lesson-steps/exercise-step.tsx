@@ -8,7 +8,6 @@ import { ConsolePanel } from "@/components/ide/console-panel"
 import { Spinner } from "@/components/design-system/spinner"
 import { ConsoleTerminalTabs } from "@/components/terminal/console-terminal-tabs"
 import { usePython, type ExecutionResult } from "@/hooks/use-python"
-import { submitStep, submitStepArrangement } from "@/lib/api"
 import { MAIN_FILE_PATH } from "@/lib/constants"
 import type { ConsoleOutput } from "@/lib/types"
 import { cn, hasFile, updateFileContent } from "@/lib/utils"
@@ -23,6 +22,7 @@ import { ExecutionVisualizer } from "./execution-visualizer"
 import { ParsonsBoard } from "./parsons-board"
 import { RunToolbar } from "./run-toolbar"
 import { StdinField } from "./stdin-field"
+import { useStepBackend } from "./step-backend"
 import { HelpButtons, RevealedHints, SolutionCountdown } from "./step-help"
 import { StepMarkdown } from "./step-markdown"
 import { useExecutionTrace } from "./use-execution-trace"
@@ -69,14 +69,20 @@ const EMPTY_ARRANGEMENT_MESSAGE = "Leve pelo menos uma linha para a sua resposta
  * editor (`codigo`), o código com lacunas (`lacunas`) ou as linhas para ordenar (`ordenar`).
  * "Executar" e "Visualizar" rodam no navegador; "Verificar" manda a resposta para a API, que
  * corrige com os casos ocultos. Dicas saem uma a uma e a solução só aparece depois das
- * tentativas que a lição exige.
+ * tentativas que a lição exige. Na prévia do professor (`useStepBackend().isPreview`) os
+ * rascunhos do navegador ficam desligados e o "Verificar" é o do backend da prévia.
  */
 export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress, onVerified, onContinue, onUnauthorized }: ExerciseStepProps): React.JSX.Element {
+  const backend = useStepBackend()
+  const { isPreview } = backend
   const mode = step.exercise_mode
   const blanksSource = step.starter_files.find((file) => file.path === MAIN_FILE_PATH)?.content ?? ""
   const [files, setFiles] = useState<ProjectFile[]>(initialFiles)
-  const [blankAnswers, setBlankAnswers] = useState<string[]>(() => (mode === "lacunas" ? readBlanksDraft(step.id, countBlanks(blanksSource)) : []))
-  const [placements, setPlacements] = useState<ParsonsPlacement[]>(() => (mode === "ordenar" ? readArrangementDraft(step.id, step.parsons_lines) : []))
+  const [blankAnswers, setBlankAnswers] = useState<string[]>(() => {
+    if (mode !== "lacunas") return []
+    return isPreview ? Array.from({ length: countBlanks(blanksSource) }, () => "") : readBlanksDraft(step.id, countBlanks(blanksSource))
+  })
+  const [placements, setPlacements] = useState<ParsonsPlacement[]>(() => (mode === "ordenar" && !isPreview ? readArrangementDraft(step.id, step.parsons_lines) : []))
   const [activePath, setActivePath] = useState(() => (hasFile(initialFiles, MAIN_FILE_PATH) ? MAIN_FILE_PATH : (initialFiles[0]?.path ?? MAIN_FILE_PATH)))
   const [outputs, setOutputs] = useState<ConsoleOutput[]>([])
   const [cases, setCases] = useState<StepCaseResult[] | null>(null)
@@ -106,11 +112,12 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
   const handleContentChange = (path: string, content: string): void => {
     const next = updateFileContent(files, path, content)
     setFiles(next)
-    writeStepDraft(step.id, next)
+    if (!isPreview) writeStepDraft(step.id, next)
   }
 
   const handleBlanksChange = (answers: string[]): void => {
     setBlankAnswers(answers)
+    if (isPreview) return
     writeBlanksDraft(step.id, answers)
     // O próximo exercício sem código inicial continua do que foi montado aqui.
     writeStepDraft(step.id, fillBlanksInFiles(step.starter_files, answers))
@@ -118,20 +125,20 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
 
   const handlePlacementsChange = (next: ParsonsPlacement[]): void => {
     setPlacements(next)
-    writeArrangementDraft(step.id, next)
+    if (!isPreview) writeArrangementDraft(step.id, next)
   }
 
   const handleReset = (): void => {
     if (mode === "lacunas") {
       setBlankAnswers(Array.from({ length: countBlanks(blanksSource) }, () => ""))
-      clearBlanksDraft(step.id)
+      if (!isPreview) clearBlanksDraft(step.id)
     } else if (mode === "ordenar") {
       setPlacements([])
-      clearArrangementDraft(step.id)
+      if (!isPreview) clearArrangementDraft(step.id)
     } else {
       setFiles(step.starter_files.length > 0 ? step.starter_files : initialFiles)
     }
-    clearStepDraft(step.id)
+    if (!isPreview) clearStepDraft(step.id)
     setCases(null)
     trace.close()
     setOutputs([toConsoleOutput({ type: "info", message: mode === "codigo" ? "Código restaurado para o início do passo." : "Resposta apagada: o passo voltou ao início." })])
@@ -179,8 +186,8 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
     // 400 (arranjo inválido ou formato errado) e 503 (corretor fora do ar: a tentativa não conta) trazem a mensagem da API.
     await help.run("submit", async () => {
       const result = mode === "ordenar"
-        ? await submitStepArrangement(lesson.id, step.id, placements)
-        : await submitStep(lesson.id, step.id, mode === "lacunas" ? fillBlanksInFiles(step.starter_files, blankAnswers) : files)
+        ? await backend.submitStepArrangement(lesson.id, step.id, placements)
+        : await backend.submitStep(lesson.id, step.id, mode === "lacunas" ? fillBlanksInFiles(step.starter_files, blankAnswers) : files)
       setCases(result.cases)
       appendLines([
         result.passed
@@ -194,13 +201,13 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
   const useSolution = (): void => {
     if (!solutionFiles) return
     setFiles(solutionFiles)
-    writeStepDraft(step.id, solutionFiles)
+    if (!isPreview) writeStepDraft(step.id, solutionFiles)
     setActivePath(hasFile(solutionFiles, MAIN_FILE_PATH) ? MAIN_FILE_PATH : (solutionFiles[0]?.path ?? MAIN_FILE_PATH))
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-      <section aria-label="Enunciado do passo" className="overflow-y-auto border-b border-border p-6 lg:w-2/5 lg:border-b-0 lg:border-r">
+    <div className="flex min-h-0 flex-1 flex-col @5xl:flex-row">
+      <section aria-label="Enunciado do passo" className="overflow-y-auto border-b border-border p-6 @5xl:w-2/5 @5xl:border-b-0 @5xl:border-r">
         <h2 className="mb-4 text-xl font-bold text-level-purple-dark">{step.title}</h2>
         <StepMarkdown content={step.narrative_markdown} />
 
@@ -278,7 +285,7 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
         <SolutionCountdown progress={progress} solutionAfterAttempts={lesson.solution_after_attempts} />
       </section>
 
-      <section aria-label={WORKSPACE_LABELS[mode]} className="flex min-h-[28rem] flex-1 flex-col lg:min-h-0">
+      <section aria-label={WORKSPACE_LABELS[mode]} className="flex min-h-[28rem] flex-1 flex-col @5xl:min-h-0">
         {trace.state.status === "ready" ? (
           <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50 p-3">
             <ExecutionVisualizer code={trace.state.code} trace={trace.state.trace} onClose={trace.close} />

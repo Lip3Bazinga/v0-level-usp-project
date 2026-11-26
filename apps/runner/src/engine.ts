@@ -37,7 +37,7 @@ export interface EngineBatch {
 }
 
 /** Contadores de um motor, servidos em `GET /v1/stats` (só números: nada do aluno). */
-export type EngineStats = Record<string, number | string | Record<string, number>>
+export type EngineStats = Record<string, number | string | Record<string, number | string>>
 
 /**
  * Um motor de execução: recebe um lote (arquivos, sondas, limites) e devolve uma
@@ -59,9 +59,52 @@ export interface Engine {
    * instância pronta. Entra na estimativa de espera da fila.
    */
   warmupMs(request: EngineRequest): number
-  /** Roda o lote numa instância isolada; nunca rejeita por erro do aluno (vira observação). */
-  run(batch: EngineBatch): Promise<ProbeObservation[]>
+  /**
+   * Classe de custo do pedido: `key` separa as médias de duração na admissão (um lote WASI
+   * de 0,15 s não se mistura com um `ml` de 10 s) e `memoryMb` é o peso que uma instância
+   * segura no orçamento de memória (0 = não entra na conta).
+   *
+   * @throws EngineRequestError quando o pedido não é atendido (o mesmo de `accept`).
+   */
+  cost(request: EngineRequest): EngineCost
+  /**
+   * Reserva, de forma SÍNCRONA, a instância (e a memória) que vai rodar o lote. Motores sem
+   * pool não implementam: o executor reserva o peso de `cost` direto no orçamento.
+   *
+   * @returns a reserva, entregue depois a `run`; `undefined` quando não há memória agora (o
+   *          motor já começou a liberar o que pode e avisa o orçamento quando houver).
+   */
+  reserve?(batch: EngineBatch): EngineLease | undefined
+  /**
+   * Roda o lote numa instância isolada; nunca rejeita por erro do aluno (vira observação).
+   * Sem `lease`, o motor reserva por conta própria, esperando memória se preciso.
+   */
+  run(batch: EngineBatch, lease?: EngineLease): Promise<ProbeObservation[]>
   stats(): EngineStats
+}
+
+/** Classe de custo de um lote (ver `Engine.cost`). */
+export interface EngineCost {
+  /** Identifica a classe: `wasi`, `pyodide:dados`, `pyodide:ml`. */
+  key: string
+  /** Peso de uma instância no orçamento de memória (MB). */
+  memoryMb: number
+  /**
+   * Duração esperada de um lote da classe enquanto o executor não mediu nenhum (ms), JÁ com o
+   * aquecimento que o lote vai pagar (ex.: um worker `ml` criado para ele). É o ponto de
+   * partida da média móvel da admissão; ausente = o padrão do executor, somado a `warmupMs`.
+   */
+  initialBatchMs?: number
+}
+
+/**
+ * Reserva feita por `Engine.reserve`: garante ao lote uma instância (pronta ou a caminho) com
+ * a memória já contada. Só o motor que a criou sabe usá-la; quem recebe uma DEVE entregá-la a
+ * `run` do mesmo motor, que cuida de devolver a instância e a memória.
+ */
+export interface EngineLease {
+  readonly key: string
+  readonly memoryMb: number
 }
 
 /** O pedido não pode ser atendido por este motor (resposta 400 com a mensagem). */
@@ -79,5 +122,21 @@ export class EngineRequestError extends Error {
 export class RuntimeUnavailableError extends Error {
   constructor(readonly runtime: PythonRuntime) {
     super(`Motor "${runtime}" não está habilitado neste executor`)
+  }
+}
+
+/**
+ * O perfil pedido pesa mais que o orçamento de memória inteiro: nunca vai rodar neste
+ * executor, por mais que espere. Resposta 501 (para a API é "indisponível", não "ocupado":
+ * tentar de novo não adianta).
+ */
+export class InsufficientMemoryError extends Error {
+  constructor(
+    /** Classe de custo recusada (`pyodide:ml`...). */
+    readonly key: string,
+    readonly neededMb: number,
+    readonly budgetMb: number,
+  ) {
+    super(`Memória insuficiente neste executor para "${key}": precisa de ${neededMb} MB e o orçamento é de ${Math.floor(budgetMb)} MB`)
   }
 }
