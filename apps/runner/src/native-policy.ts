@@ -22,7 +22,7 @@ export interface NativeRuntimeInput {
   availableRuntimes: readonly string[]
   /** `RUNNER_ALLOW_INSECURE_NATIVE`. */
   allowInsecure: boolean
-  /** `NODE_ENV` do executor. */
+  /** `NODE_ENV` cru do processo (`""` quando ausente: ausente não é desenvolvimento). */
   nodeEnv: string
 }
 
@@ -41,7 +41,7 @@ export function decideNativeRuntime({ availableRuntimes, allowInsecure, nodeEnv 
   if (availableRuntimes.includes(SECURE_RUNTIME)) return { ok: true, runtime: SECURE_RUNTIME, insecure: false }
   if (!allowInsecure) return { ok: false, reason: `o Docker não tem o runtime ${SECURE_RUNTIME} (gVisor) instalado` }
   if (nodeEnv !== "development") {
-    return { ok: false, reason: `sem ${SECURE_RUNTIME}, RUNNER_ALLOW_INSECURE_NATIVE só vale com NODE_ENV=development (atual: ${nodeEnv})` }
+    return { ok: false, reason: `sem ${SECURE_RUNTIME}, RUNNER_ALLOW_INSECURE_NATIVE só vale com NODE_ENV=development (atual: ${nodeEnv === "" ? "ausente" : nodeEnv})` }
   }
   if (!availableRuntimes.includes(INSECURE_RUNTIME)) return { ok: false, reason: `o Docker não tem ${SECURE_RUNTIME} nem ${INSECURE_RUNTIME}` }
   return { ok: true, runtime: INSECURE_RUNTIME, insecure: true }

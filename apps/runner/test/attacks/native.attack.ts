@@ -11,11 +11,13 @@
  *                              numa máquina de desenvolvimento; não prova o isolamento do gVisor
  */
 import { execFileSync } from "node:child_process"
+import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import type { ProbeObservation, ProjectFile } from "@levelusp/contracts"
 import { createDockerClient } from "../../src/docker-cli"
+import { EngineRequestError } from "../../src/engine"
 import { NATIVE_CONTAINER_LABEL, NativeEngine } from "../../src/native-engine"
 import { DOCKER_RUNTIMES_FORMAT, INSECURE_RUNTIME, parseDockerRuntimes, SECURE_RUNTIME, type NativeRuntime } from "../../src/native-policy"
 
@@ -124,8 +126,75 @@ describe.skipIf(!canRun)("python-completo: ataques ao contêiner", () => {
     expect(found.numpy).toBe("ok 10")
     expect(found.uid).toBe("ok (65534, 65534)")
     expect(engine.versions.python).toMatch(/^3\.14\.\d+ \(nativo\)$/)
-    // O gVisor apresenta o próprio kernel (4.4.0), não o da máquina: prova de que o runsc está em uso.
-    if (runtime === SECURE_RUNTIME) expect(found.kernel).toMatch(/^ok '4\.4\.0/)
+    // O gVisor apresenta o próprio kernel, não o da máquina; e o Docker confirma o runtime do contêiner vivo.
+    if (runtime === SECURE_RUNTIME) {
+      expect(found.kernel).toMatch(/^ok '/)
+      expect(found.kernel).not.toBe(`ok '${os.release()}'`)
+    }
+    // O pool é reposto depois do lote: espera o contêiner novo aparecer no Docker.
+    let pooled: string | undefined
+    for (let attempt = 0; attempt < 40 && pooled === undefined; attempt++) {
+      pooled = liveContainers()[0]
+      if (pooled === undefined) await new Promise<void>((resolve) => setTimeout(resolve, 250))
+    }
+    expect(pooled, "contêiner do pool").toBeDefined()
+    expect((docker(["inspect", "--format", "{{.HostConfig.Runtime}}", pooled ?? ""]) ?? "").trim()).toBe(runtime)
+  })
+
+  it("modo estrito: sondas unittest e legacy são recusadas sem que nada entre num contêiner", async () => {
+    const reference = "def soma(a, b):\n    return a + b  # REFERENCIA-DO-PROFESSOR\n"
+    const launchedBefore = engine.stats().launched
+    const strictBatches = [
+      [{ kind: "unittest" as const, id: "u", target: "soma", implementation: reference }],
+      [{ kind: "legacy" as const, id: "l", code: "assert soma(2, 3) == 5" }],
+      [{ kind: "run" as const, id: "r", stdin: "" }, { kind: "unittest" as const, id: "u" }],
+    ]
+    for (const probes of strictBatches) {
+      const attempt = engine.run({ files: program("def soma(a, b):", "    return a + b"), entry: "main.py", probes, limits: { timeoutMs: TIMEOUT_MS, memoryMb: 128 }, libraries: [] })
+      await expect(attempt).rejects.toBeInstanceOf(EngineRequestError)
+      expect(() => engine.accept({ runtime: "python-completo", libraries: [], probeKinds: probes.map((probe) => probe.kind) })).toThrow(EngineRequestError)
+    }
+    expect(engine.stats().launched).toBe(launchedBefore)
+  })
+
+  it("ctypes: andando pelos frames do harness o aluno acha as entradas do lote, nunca o id do caso nem segredo do executor", async () => {
+    // Por que o motor recusa o modo estrito: com código nativo o aluno chega aos frames do harness
+    // (aqui também por `sys._getframe`, que só o modo estrito bloquearia) e lê o nonce e as sondas.
+    // Nas sondas aceitas isso não vaza gabarito: elas só levam entradas, o id é posicional e o
+    // valor esperado fica na API. Este teste fixa o que é alcançável.
+    const [observation] = await engine.run({
+      files: program(
+        "import ctypes, sys",
+        "def espia(x):",
+        "    ctypes.pythonapi.PyEval_GetFrame.restype = ctypes.c_void_p",
+        "    frame = ctypes.cast(ctypes.pythonapi.PyEval_GetFrame(), ctypes.py_object).value",
+        "    textos = []",
+        "    while frame is not None:",
+        "        try:",
+        "            textos.append(repr(dict(frame.f_locals)))",
+        "        except BaseException as erro:",
+        "            textos.append('ERRO ' + type(erro).__name__)",
+        "        frame = frame.f_back",
+        "    achado = ' '.join(textos)",
+        "    try:",
+        "        ambiente = open('/proc/self/environ', 'rb').read().decode('latin1')",
+        "    except OSError:",
+        "        ambiente = ''",
+        `    return [len(textos) > 1, "'probes'" in achado or "'nonce'" in achado, ('caso-' + 'secreto-42') in achado, ('${PLANTED_SECRET.slice(0, 12)}' + '${PLANTED_SECRET.slice(12)}') in achado + ambiente]`,
+      ),
+      entry: "main.py",
+      probes: [{ kind: "call", id: "caso-secreto-42", function: "espia", args: [7], kwargs: {} }],
+      limits: { timeoutMs: TIMEOUT_MS, memoryMb: 128 },
+      libraries: [],
+    })
+    expect(observation?.ok, JSON.stringify(observation)).toBe(true)
+    const [walkedFrames, sawHarnessState, sawCaseId, sawSecret] = observation?.value as boolean[]
+    // Alcança os frames e o estado do harness (risco conhecido das sondas não estritas)...
+    expect(walkedFrames).toBe(true)
+    expect(typeof sawHarnessState).toBe("boolean")
+    // ...mas lá não há id do caso (que identificaria o gabarito) nem segredo do executor.
+    expect(sawCaseId).toBe(false)
+    expect(sawSecret).toBe(false)
   })
 
   it("rede: nenhuma saída (TCP, UDP, DNS, HTTP) e nenhuma interface além do loopback", async () => {

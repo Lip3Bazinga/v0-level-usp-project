@@ -142,6 +142,16 @@ describe("lintContent", () => {
     expect(lint({ [PRACTICE]: text })).toEqual([`${PRACTICE}:${lineOf(text, '"id": "antigo"')}: passo 1 (Exercício · Seu primeiro print): o caso "antigo" é legacy (roda dentro do sandbox); use io, call, variable, source, expr ou unittest`])
   })
 
+  it("lição python-completo não aceita caso unittest (o motor não tem modo estrito)", () => {
+    const verification = '```json\n[ { "id": "suite", "kind": "unittest", "expect": "pass", "min_tests": 1 } ]\n```'
+    const completo = `${frontmatter({ slug: "pratica-teste", tipo: "pratica", runtime: "python-completo", bibliotecas: "[torch]" })}\n${exerciseStep({ number: 1, verification })}`
+    expect(lint({ [PRACTICE]: completo })).toEqual([
+      `${PRACTICE}:${lineOf(completo, '"id": "suite"')}: passo 1 (Exercício · Seu primeiro print): o caso "suite" é unittest, que o runtime python-completo não aceita (sem modo estrito, a referência do professor ficaria ao alcance do aluno); use io, call, variable, source ou expr`,
+    ])
+    const dados = `${frontmatter({ slug: "pratica-teste", tipo: "pratica", runtime: "python-dados", bibliotecas: "[numpy]" })}\n${exerciseStep({ number: 1, verification })}`
+    expect(lint({ [PRACTICE]: dados })).toEqual([])
+  })
+
   it("títulos com ≥ 3 caracteres", () => {
     const shortStep = `${frontmatter()}\n${readingStep(1).replace("O que é um programa", "Oi")}`
     expect(lint({ [GUIDED]: shortStep })).toEqual([`${GUIDED}:${lineOf(shortStep, "## Passo 1")}: passo 1 com título curto demais: "Oi" (mínimo 3 caracteres)`])

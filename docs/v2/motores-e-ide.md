@@ -184,6 +184,10 @@ Terceiro motor do executor, para o que o WebAssembly não roda: **PyTorch**. Run
   arquivos do aluno e o código do harness, que o bootstrap grava em `/work`) e depois o JSON das sondas (nonce + ids
   posicionais), que o harness lê até o fim antes de rodar o aluno. As observações voltam pela saída padrão com o nonce.
   A comparação com o gabarito continua na API: nenhum valor esperado entra no contêiner.
+- **Sem modo estrito.** O motor recusa sondas `unittest` e `legacy` (com `ctypes` o aluno lê os frames do harness, onde
+  estariam a referência do professor e os asserts): `content:check` reprova a lição, a API responde 422
+  `UNSUPPORTED_CASES` sem chamar o executor e o executor responde 400 `strict_unsupported`. Casos aceitos: `io`, `call`,
+  `variable`, `source` e `expr`. Detalhes e o que o aluno alcança nas sondas aceitas: `seguranca.md`.
 - **Pool aquecido.** `RUNNER_NATIVE_WARM` contêineres ficam prontos (interpretador no ar e `RUNNER_NATIVE_PRELOAD`
   importado) esperando um lote; cada um atende um lote e morre, e o pool é reposto depois. Sem contêiner pronto o lote
   sobe o próprio. Contêiner ocioso que morre não é reposto em laço (5 s de espera; depois de 3 mortes seguidas só volta
@@ -194,6 +198,9 @@ Terceiro motor do executor, para o que o WebAssembly não roda: **PyTorch**. Run
   contêiner. Contêiner morto pelo teto de memória (código 137) vira "Memória insuficiente". Os contêineres são irmãos
   do executor (fora do cgroup dele): não entram no orçamento `RUNNER_MEMORY`; o teto real é
   (`CONCURRENCY` + pool) × `RUNNER_NATIVE_MEMORY_MB`.
+- **Runtime conferido duas vezes.** Além do `docker info`, o autoteste da partida lê com `docker inspect` o runtime
+  efetivo do contêiner criado; se divergir do exigido o motor se bloqueia (501 para todo job). O `NODE_ENV` que libera
+  o `runc` é o cru do ambiente: ausente não é `development`.
 - **Política runsc/runc** (`native-policy.ts`, conferida na partida com `docker info`). Há `runsc` → usa `runsc`. Não
   há → só sobe com `runc` se `RUNNER_ALLOW_INSECURE_NATIVE=1` **e** `NODE_ENV=development` (aviso no log, `INSEGURO` nas
   versões da resposta). Qualquer outro caso: o motor não sobe, o resto do executor segue e o runtime responde 501.

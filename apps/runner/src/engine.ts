@@ -1,4 +1,4 @@
-import type { Probe, ProbeObservation, ProjectFile, PythonRuntime, RunnerLimits } from "@levelusp/contracts"
+import type { Probe, ProbeKind, ProbeObservation, ProjectFile, PythonRuntime, RunnerLimits } from "@levelusp/contracts"
 
 /** Motores do executor: CPython WASI no Wasmtime, Pyodide em workers do Node ou CPython nativo em contêiner gVisor. */
 export type EngineName = "wasi" | "pyodide" | "nativo"
@@ -18,10 +18,15 @@ export interface EngineReadiness {
   reason: string
 }
 
-/** O que um job pede do motor além das sondas: o motor e as bibliotecas. */
+/** O que um job pede do motor: o runtime, as bibliotecas e os tipos das sondas. */
 export interface EngineRequest {
   runtime: PythonRuntime
   libraries: string[]
+  /**
+   * Tipos das sondas do job (o executor sempre informa). Um motor sem modo estrito recusa o
+   * job que traz sonda estrita (`unittest`, `legacy`) já em `accept`, antes da fila.
+   */
+  probeKinds?: readonly ProbeKind[]
 }
 
 /**

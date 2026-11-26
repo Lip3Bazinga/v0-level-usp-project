@@ -174,8 +174,18 @@ jobs:
           grep -qw runsc /tmp/runtimes.txt
       - name: Imagem enxuta do motor (sem PyTorch; rodas com SHA-256 verificado)
         run: docker build -f infra/docker/python-completo.Dockerfile --build-arg WITH_TORCH=0 -t "$NATIVE_ATTACKS_IMAGE" .
-      - name: O contêiner sobe no gVisor (kernel 4.4.0 do gVisor, não o da máquina)
-        run: docker run --rm --runtime=runsc --network=none "$NATIVE_ATTACKS_IMAGE" -I -c "import os, numpy; print(os.uname().release, numpy.__version__)"
+      - name: O contêiner sobe no gVisor (falha se o runtime ou o kernel não forem os do gVisor)
+        run: |
+          set -euo pipefail
+          trap 'docker rm --force lvl-gvisor-check >/dev/null 2>&1 || true' EXIT
+          guest_kernel="$(docker run --name lvl-gvisor-check --runtime=runsc --network=none "$NATIVE_ATTACKS_IMAGE" -I -c "import os, numpy; print(os.uname().release)")"
+          effective_runtime="$(docker inspect --format '{{.HostConfig.Runtime}}' lvl-gvisor-check)"
+          echo "runtime efetivo: ${effective_runtime} | kernel no contêiner: ${guest_kernel} | kernel da máquina: $(uname -r)"
+          # O Docker precisa ter criado o contêiner com o runsc de fato...
+          test "${effective_runtime}" = "runsc"
+          # ...e dentro dele o kernel é o do gVisor, nunca o da máquina (com runc seriam iguais).
+          test -n "${guest_kernel}"
+          test "${guest_kernel}" != "$(uname -r)"
       - run: pnpm --filter @levelusp/contracts build
       - name: Ataques ao motor python-completo (rede, disco, fork bomb, memória, tempo, segredos)
         run: pnpm --filter @levelusp/runner exec vitest run --config test/attacks/vitest.config.ts native
@@ -252,6 +262,9 @@ jobs:
   publicar:
     name: Publicar imagens (CD)
     runs-on: ubuntu-latest
+    # O job `gvisor` fica de fora enquanto o motor python-completo está desligado em todo ambiente.
+    # ANTES de ligar o motor em homolog/prod (RUNNER_NATIVE_ENGINE=gvisor), acrescente `gvisor` aqui:
+    # a partir daí nenhuma imagem pode ser publicada com os ataques ao contêiner falhando.
     needs: [qualidade, seguranca, api-e2e, sandbox, e2e]
     if: github.event_name == 'push' && (github.ref_name == 'develop' || github.ref_name == 'main')
     environment: ${{ github.ref_name == 'main' && 'production' || 'homolog' }}

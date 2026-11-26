@@ -476,7 +476,7 @@ processo dele:
 | Recursos | `--cpus`, `--memory` = `--memory-swap`, `--pids-limit`, `--ulimit` (CPU, arquivos, core), tempo de parede com remoção forçada, saída de 8 MB | `native.attack.ts`: laço infinito, alocação além do teto, fork bomb, inundação de saída |
 | Sem segredos | o contêiner não herda ambiente, volume nem socket; o `docker` é chamado com ambiente recortado (`dockerEnvironment`), sem `RUNNER_TOKEN` | `native.attack.ts` (segredo plantado no ambiente do executor), `native-engine.test.ts` |
 | Sem estado entre alunos | um contêiner por lote, destruído depois (`--rm`); nada montado da máquina | `native.attack.ts` (arquivos e módulos alterados não chegam ao lote seguinte) |
-| Gabarito fora | só entram arquivos do aluno, o harness e sondas com ids posicionais; a comparação é na API | `native-engine.test.ts` (o que chega pela entrada padrão e pelo argv) |
+| Gabarito fora | só entram arquivos do aluno, o harness e sondas com ids posicionais; a comparação é na API; sondas `unittest`/`legacy` (que carregam referência do professor) são recusadas | `native-engine.test.ts` (o que chega pela entrada padrão e pelo argv; recusas), `grading.service.spec.ts` |
 | Imagem íntegra | base fixada por digest; rodas com `--require-hashes`, só binárias; `--pull=never` | `library-manifest.test.ts` do runner |
 
 **O que só o CI prova.** Os ataques rodam contra o Docker real apenas quando há `runsc` (job
@@ -518,12 +518,42 @@ precisa ser aceito por escrito aqui, com o nome de quem aceitou.
   `variable`/`expr` de um mesmo lote dividem o interpretador (sem modo estrito), e aqui o aluno
   tem `ctypes`: ler o nonce da memória do processo é mais fácil que no WASI. A garantia continua
   a mesma: forjar uma observação exige conhecer o valor esperado, que não está no contêiner.
-- **Modo estrito com código nativo (não auditado)**: as proteções do harness para
-  `unittest`/`legacy` foram atacadas no WASI e no Pyodide (`strict-mode.attack.ts`,
-  `pyodide.attack.ts`), onde não existe `ctypes` utilizável. No CPython nativo o aluno tem
-  `ctypes` e extensões em C, e a suíte de modo estrito ainda não roda contra este motor. Até
-  rodar, evite casos `unittest` com mutantes e `legacy` em lições `python-completo` (o
-  `content:check` não impede).
+- **Sem modo estrito: `unittest` e `legacy` são RECUSADOS neste motor.** No CPython nativo o
+  aluno tem `ctypes`: com `pythonapi.PyEval_GetFrame` e `f_back` ele chega aos locais de
+  `_run_harness` (nonce e sondas), e nenhum bloqueio escrito em Python (o modo estrito do
+  harness) segura código nativo. Numa sonda `unittest` isso entregaria a implementação de
+  referência do professor e os mutantes; numa `legacy`, os asserts com os valores esperados
+  (invariante 1), além de permitir forjar o veredito. Por isso há quatro recusas, da mais
+  externa à mais interna, todas com teste:
+  1. `content:check` reprova lição `python-completo` com caso `unittest` (o `legacy` já é
+     reprovado em qualquer conteúdo novo) — `lint.test.ts`;
+  2. a API recusa a correção com 422 `UNSUPPORTED_CASES` **antes** de montar o pedido ao
+     executor (`GradingService.grade`, por onde passam o aluno, os passos e o rascunho do
+     professor em `modules/authoring`) — `grading.service.spec.ts`;
+  3. o executor recusa o job em `accept` (400 `strict_unsupported`), antes da fila —
+     `native-engine.test.ts`;
+  4. o motor recusa o lote em `run`, sem criar contêiner — `native-engine.test.ts` e
+     `native.attack.ts` (Docker real).
+  A regra é uma só: `runtimeSupportsProbe` / `RUNTIMES_WITHOUT_STRICT_MODE` em
+  `packages/contracts/src/runner.ts`.
+- **Sondas aceitas (`run`, `call`, `globals`, `expr`) e o mesmo ataque.** O aluno também lê o
+  nonce e as sondas desses lotes (como já lia nos outros motores, por `sys._getframe`: são as
+  "instâncias compartilhadas" dos riscos residuais abaixo). O que ele encontra são **entradas**:
+  stdin, nome da função e argumentos, nomes de variáveis, e a preparação/expressão do professor
+  nos casos `expr`. O valor esperado, o modo de comparação e o id do caso não entram no
+  contêiner (os ids viajam como `p0`, `p1`...). Forjar uma observação continua exigindo
+  conhecer a resposta. O `ctypes` não foi removido da imagem: o PyTorch o importa na partida,
+  e tirá-lo não fecharia o caminho (qualquer extensão em C da imagem chega aos frames). O ataque `native.attack.ts` ("ctypes: andando pelos frames...") fixa o que é alcançável.
+  Atenção ao escrever casos `expr` para este motor: a expressão é entrada, não gabarito, mas
+  uma expressão que embute a resposta (`f(x) == 42`) a entrega ao aluno — como em qualquer motor.
+- **Runtime efetivo.** Na partida o motor confere com `docker inspect` (`.HostConfig.Runtime`)
+  o contêiner do autoteste; se não for o runtime exigido, mata o contêiner e passa a recusar
+  todo job (501) até reiniciar. `NODE_ENV` ausente não vale como `development`: o modo
+  inseguro exige a variável escrita no ambiente (`native-setup.ts` lê o valor cru).
+- **Contêiner que não morre.** O `docker rm --force` de um lote morto (tempo, saída) é
+  conferido e repetido (3 tentativas); se falhar, entra no contador `removeFailures` e no log,
+  e uma varredura a cada 60 s remove todo contêiner com o rótulo do motor que não pertença a
+  um lote vivo. O teto de CPU (`--ulimit cpu`) limita o estrago no intervalo.
 - **Memória fora do orçamento**: os contêineres não entram em `RUNNER_MEMORY`; o teto é
   (`CONCURRENCY` + pool) × `RUNNER_NATIVE_MEMORY_MB`. Dimensione a máquina por essa conta.
 - **`--pids-limit` sob gVisor**: o limite vale para as threads do sandbox na máquina; o teste

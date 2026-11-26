@@ -116,9 +116,13 @@ export class FakeDocker implements DockerClient {
   behaviors: ContainerBehavior[] = [obedient]
   /** Saída do `docker info` (runtimes, um por linha). */
   runtimes = ["runc", "runsc"]
-  /** Ids devolvidos por `docker ps` (contêineres órfãos). */
+  /** Nomes devolvidos por `docker ps` além dos contêineres vivos (contêineres órfãos). */
   orphans: string[] = []
   infoCode: number | null = 0
+  /** Runtime que o `docker inspect` informa; ausente = o pedido em `--runtime=` (Docker honesto). */
+  reportedRuntime: string | undefined
+  /** Quantos `docker rm` de UM contêiner ainda vão falhar (daemon ocupado) antes de funcionar. */
+  failingRemovals = 0
 
   spawn(args: readonly string[]): DockerProcess {
     const container = new FakeContainer(args)
@@ -131,8 +135,21 @@ export class FakeDocker implements DockerClient {
   exec(args: readonly string[]): Promise<DockerResult> {
     this.commands.push([...args])
     if (args[0] === "info") return Promise.resolve({ code: this.infoCode, stdout: this.runtimes.join("\n") + "\n", stderr: this.infoCode === 0 ? "" : "Cannot connect to the Docker daemon" })
-    if (args[0] === "ps") return Promise.resolve({ code: 0, stdout: this.orphans.join("\n"), stderr: "" })
+    if (args[0] === "ps") {
+      const alive = this.containers.filter((container) => !container.hasExited).map((container) => container.name)
+      return Promise.resolve({ code: 0, stdout: [...alive, ...this.orphans].join("\n"), stderr: "" })
+    }
+    if (args[0] === "inspect") {
+      const container = this.containers.find((candidate) => candidate.name === args[args.length - 1])
+      const requested = container?.args.find((arg) => arg.startsWith("--runtime="))?.slice("--runtime=".length) ?? ""
+      return Promise.resolve({ code: container ? 0 : 1, stdout: `${this.reportedRuntime ?? requested}\n`, stderr: "" })
+    }
     if (args[0] === "rm") {
+      if (args.length === 3 && this.failingRemovals > 0) {
+        this.failingRemovals--
+        return Promise.resolve({ code: 1, stdout: "", stderr: "Error response from daemon: removal of container is already in progress" })
+      }
+      this.orphans = this.orphans.filter((name) => !args.includes(name))
       // `docker rm -f` mata o contêiner: o `docker run` dele termina.
       for (const container of this.containers) if (args.includes(container.name)) container.exit(137)
     }

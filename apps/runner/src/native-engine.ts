@@ -1,8 +1,8 @@
 import { randomBytes } from "node:crypto"
 import { readFile } from "node:fs/promises"
-import { DEFAULT_RUNNER_LIMITS, findManifestLibrary, listManifestLibrariesFor, type ProbeObservation } from "@levelusp/contracts"
+import { DEFAULT_RUNNER_LIMITS, findManifestLibrary, listManifestLibrariesFor, runtimeSupportsProbe, type ProbeKind, type ProbeObservation } from "@levelusp/contracts"
 import type { DockerClient, DockerProcess } from "./docker-cli.js"
-import { EngineRequestError, type Engine, type EngineBatch, type EngineCost, type EngineReadiness, type EngineRequest, type EngineStats, type EngineVersions } from "./engine.js"
+import { EngineRequestError, RuntimeUnavailableError, type Engine, type EngineBatch, type EngineCost, type EngineReadiness, type EngineRequest, type EngineStats, type EngineVersions } from "./engine.js"
 import type { Logger } from "./logger.js"
 import type { NativeRuntime } from "./native-policy.js"
 import { collectObservations, parseObservations, prepareGuestJob } from "./observations.js"
@@ -38,6 +38,14 @@ const BOOT_ESTIMATE_WEIGHT = 0.3
 const REFILL_RETRY_MS = 5_000
 /** Mortes seguidas de contêineres ociosos depois das quais o pool para de se repor sozinho. */
 const MAX_IDLE_DEATHS = 3
+/** Tentativas de `docker rm --force` de um contêiner antes de deixá-lo para a varredura de órfãos. */
+const REMOVE_ATTEMPTS = 3
+/** Espera entre as tentativas de remoção. */
+const DEFAULT_REMOVE_RETRY_MS = 1_000
+/** Intervalo da varredura de contêineres do motor que não pertencem a nenhum lote vivo. */
+const DEFAULT_ORPHAN_SWEEP_MS = 60_000
+/** O Docker responde assim quando o contêiner já não existe (o `--rm` chegou antes): conta como removido. */
+const ALREADY_REMOVED = /no such container/i
 /** Nome de módulo Python aceito em `preload` (vai para o argv do contêiner). */
 const MODULE_NAME = /^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/
 
@@ -129,7 +137,19 @@ export interface NativeEngineOptions {
   preload: readonly string[]
   /** Peso de um lote no orçamento de memória do executor (MB). Padrão 0: os contêineres são irmãos, fora do cgroup do executor. */
   budgetMemoryMb?: number
+  /** Espera entre as tentativas de `docker rm --force` (padrão 1 s). */
+  removeRetryMs?: number
+  /** Intervalo da varredura de órfãos (padrão 60 s). */
+  orphanSweepMs?: number
   log?: Logger
+}
+
+/** O que um contêiner precisa do motor que o criou. */
+interface ContainerHooks {
+  bootTimeoutMs: number
+  removeRetryMs: number
+  /** Todas as tentativas de remoção falharam: o contêiner pode ter ficado vivo (a varredura tenta de novo). */
+  onRemoveFailure: (name: string, stderr: string) => void
 }
 
 /** Como um contêiner terminou um lote. */
@@ -156,14 +176,16 @@ class NativeContainer {
   private stdoutBytes = 0
   private stderr = ""
   private isOverflowed = false
+  private isDestroyed = false
   private head = ""
 
   constructor(
     readonly name: string,
     private readonly process: DockerProcess,
     private readonly docker: DockerClient,
-    bootTimeoutMs: number,
+    private readonly hooks: ContainerHooks,
   ) {
+    const { bootTimeoutMs } = hooks
     this.ready = new Promise<void>((resolve, reject) => {
       const bootTimer = setTimeout(() => {
         reject(new Error("o contêiner não ficou pronto no prazo"))
@@ -232,11 +254,31 @@ class NativeContainer {
     return { stdout: Buffer.concat(this.stdoutChunks).toString("utf8"), stderr: this.stderr, timedOut, overflowed: this.isOverflowed, exitCode }
   }
 
-  /** Mata o contêiner e o `docker run` local; o `--rm` do Docker apaga o que restar. Pode ser chamado mais de uma vez. */
+  /**
+   * Mata o contêiner (`docker rm --force`, conferido e repetido se falhar) e o `docker run`
+   * local. Pode ser chamado mais de uma vez; depois de um fim normal não faz nada (o `--rm` do
+   * Docker já apagou o contêiner).
+   */
   destroy(): void {
-    if (this.hasExited) return
-    void this.docker.exec(["rm", "--force", this.name])
+    if (this.hasExited || this.isDestroyed) return
+    this.isDestroyed = true
+    void this.remove(1)
     this.process.kill()
+  }
+
+  /**
+   * Matar o `docker run` local NÃO garante a morte do contêiner: só o `rm --force` aceito pelo
+   * daemon garante. Falhou (daemon ocupado, remoção em andamento...) → tenta de novo; esgotadas
+   * as tentativas, avisa o motor, e a varredura periódica de órfãos continua tentando.
+   */
+  private async remove(attempt: number): Promise<void> {
+    const result = await this.docker.exec(["rm", "--force", this.name])
+    if (result.code === 0 || ALREADY_REMOVED.test(result.stderr)) return
+    if (attempt >= REMOVE_ATTEMPTS) {
+      this.hooks.onRemoveFailure(this.name, result.stderr)
+      return
+    }
+    setTimeout(() => void this.remove(attempt + 1), this.hooks.removeRetryMs).unref()
   }
 }
 
@@ -257,12 +299,18 @@ class NativeContainer {
  * Limites: tempo de parede do lote (`limits.timeoutMs`, com `docker rm -f` ao vencer), saída
  * (8 MB), e os do contêiner (CPU, memória, processos, disco do tmpfs). `limits.memoryMb` do
  * job não se aplica: o teto é o do contêiner (`memoryMb`), fixado na criação.
+ *
+ * Sem modo estrito: aqui o aluno roda código nativo (`ctypes`) e alcança os frames do harness,
+ * então o motor RECUSA sondas `unittest` e `legacy` (`accept` e, de novo, `run`). As demais
+ * sondas só levam entradas (argumentos, stdin, a expressão a avaliar): o aluno que as lê não
+ * aprende o valor esperado, que fica na API — a mesma garantia das instâncias compartilhadas
+ * dos outros motores.
  */
 export class NativeEngine implements Engine {
   readonly name = "nativo"
   readonly versions: EngineVersions
   readonly readiness: EngineReadiness = { ready: false, reason: "autoteste pendente" }
-  private readonly counters = { batches: 0, timedOut: 0, overflowed: 0, outOfMemory: 0, withoutObservations: 0, launched: 0, bootFailures: 0, idleDeaths: 0 }
+  private readonly counters = { batches: 0, timedOut: 0, overflowed: 0, outOfMemory: 0, withoutObservations: 0, launched: 0, bootFailures: 0, idleDeaths: 0, removeFailures: 0, orphansRemoved: 0 }
   private readonly idle: NativeContainer[] = []
   private readonly live = new Set<NativeContainer>()
   private harnessSource = ""
@@ -270,6 +318,9 @@ export class NativeEngine implements Engine {
   private bootEstimateMs = INITIAL_BOOT_MS
   private consecutiveIdleDeaths = 0
   private refillTimer: NodeJS.Timeout | undefined
+  private sweepTimer: NodeJS.Timeout | undefined
+  /** Motivo pelo qual o motor se recusa a rodar qualquer lote (runtime efetivo diferente do exigido). */
+  private blockedReason: string | undefined
   private isClosed = false
   /** O pool só é mantido depois do autoteste aprovado. */
   private isPoolEnabled = false
@@ -286,11 +337,16 @@ export class NativeEngine implements Engine {
   }
 
   /**
-   * Só aceita bibliotecas que o manifesto libera para o `python-completo` (as mesmas que a imagem instala).
+   * Só aceita bibliotecas que o manifesto libera para o `python-completo` (as mesmas que a
+   * imagem instala) e só sondas não estritas.
    *
-   * @throws EngineRequestError (`unknown_library`) para qualquer outra.
+   * @throws RuntimeUnavailableError (501) quando o autoteste viu um contêiner fora do runtime exigido.
+   * @throws EngineRequestError (`strict_unsupported`) para job com sonda `unittest` ou `legacy`;
+   *         (`unknown_library`) para biblioteca fora do manifesto do motor.
    */
   accept(request: EngineRequest): void {
+    if (this.blockedReason !== undefined) throw new RuntimeUnavailableError(NATIVE_RUNTIME)
+    assertNoStrictProbes(request.probeKinds ?? [])
     const unknown = request.libraries.filter((library) => findManifestLibrary(library)?.engines.includes(NATIVE_RUNTIME) !== true)
     if (unknown.length === 0) return
     const available = listManifestLibrariesFor(NATIVE_RUNTIME).map((entry) => entry.name).join(", ")
@@ -312,17 +368,23 @@ export class NativeEngine implements Engine {
   }
 
   /**
-   * Partida: remove contêineres órfãos de uma execução anterior, roda o autoteste (um lote
-   * trivial pelo caminho real, que também lê a versão do Python da imagem) e enche o pool.
+   * Partida: remove contêineres órfãos de uma execução anterior, confere o runtime EFETIVO de
+   * um contêiner criado (`docker inspect`), roda nele o autoteste (um lote trivial pelo caminho
+   * real, que também lê a versão do Python da imagem) e enche o pool.
+   *
    * Em falha, `readiness.ready` fica falso com o motivo e o pool não é criado; o motor é
-   * opcional, então `/healthz` continua 200.
+   * opcional, então `/healthz` continua 200. Se o runtime efetivo não for o exigido (o Docker
+   * aceitou `--runtime=runsc` mas criou o contêiner com outro), o motor falha fechado: passa a
+   * recusar todo job (501) até reiniciar.
    */
   async start(): Promise<void> {
     try {
       this.harnessSource = await readFile(this.options.harnessPath, "utf8")
       this.bootstrapSource = await readFile(this.options.bootstrapPath, "utf8")
-      await this.removeOrphans()
-      const [observation] = await this.run({
+      await this.sweepOrphans()
+      const container = await this.acquire()
+      await this.assertEffectiveRuntime(container)
+      const [observation] = await this.runIn(container, {
         files: [{ path: "main.py", content: 'import platform\nprint("levelusp-autoteste", platform.python_version())\n' }],
         entry: "main.py",
         probes: [{ kind: "run", id: "autoteste", stdin: "" }],
@@ -339,20 +401,52 @@ export class NativeEngine implements Engine {
     }
     this.isPoolEnabled = this.readiness.ready
     this.refill()
+    if (this.readiness.ready && !this.isClosed) {
+      this.sweepTimer = setInterval(() => void this.sweepOrphans(), this.options.orphanSweepMs ?? DEFAULT_ORPHAN_SWEEP_MS)
+      this.sweepTimer.unref()
+    }
+  }
+
+  /**
+   * Confere no Docker com que runtime o contêiner foi criado de fato.
+   *
+   * @throws Error (e bloqueia o motor) quando não é o runtime decidido na partida.
+   */
+  private async assertEffectiveRuntime(container: NativeContainer): Promise<void> {
+    const inspected = await this.options.docker.exec(["inspect", "--format", "{{.HostConfig.Runtime}}", container.name])
+    const effective = inspected.code === 0 ? inspected.stdout.trim() : ""
+    if (effective === this.options.runtime) return
+    container.destroy()
+    this.blockedReason = `o contêiner do autoteste subiu com o runtime "${effective || "desconhecido"}" e não com "${this.options.runtime}"`
+    this.options.log?.("error", "motor python-completo BLOQUEADO: runtime efetivo do contêiner diferente do exigido", { expected: this.options.runtime, effective, stderr: inspected.stderr.slice(0, LOGGED_STDERR_CHARS) })
+    throw new Error(this.blockedReason)
   }
 
   /** Encerra o motor: mata os contêineres vivos (ociosos e em uso) e para de repor o pool. */
   async shutdown(): Promise<void> {
     this.isClosed = true
     clearTimeout(this.refillTimer)
+    clearInterval(this.sweepTimer)
     const containers = [...this.live]
     this.idle.length = 0
     for (const container of containers) container.destroy()
     await Promise.all(containers.map((container) => container.exited))
   }
 
+  /**
+   * Roda o lote num contêiner novo (ou do pool).
+   *
+   * @throws EngineRequestError (`strict_unsupported`) para lote com sonda `unittest` ou `legacy`:
+   *         segunda barreira, para quem chama o motor sem passar por `accept`.
+   * @throws Error quando o motor está bloqueado ou nenhum contêiner fica pronto.
+   */
   async run(batch: EngineBatch): Promise<ProbeObservation[]> {
-    const container = await this.acquire()
+    assertNoStrictProbes(batch.probes.map((probe) => probe.kind))
+    if (this.blockedReason !== undefined) throw new Error(`Motor python-completo bloqueado: ${this.blockedReason}`)
+    return this.runIn(await this.acquire(), batch)
+  }
+
+  private async runIn(container: NativeContainer, batch: EngineBatch): Promise<ProbeObservation[]> {
     try {
       const guestJob = prepareGuestJob(batch.probes, batch.entry)
       const header = JSON.stringify({ files: batch.files, harness: this.harnessSource })
@@ -417,7 +511,14 @@ export class NativeEngine implements Engine {
       bootstrap: this.bootstrapSource,
       preload: options.preload,
     })
-    const container = new NativeContainer(name, options.docker.spawn(args), options.docker, options.bootTimeoutMs)
+    const container = new NativeContainer(name, options.docker.spawn(args), options.docker, {
+      bootTimeoutMs: options.bootTimeoutMs,
+      removeRetryMs: options.removeRetryMs ?? DEFAULT_REMOVE_RETRY_MS,
+      onRemoveFailure: (failed, stderr) => {
+        this.counters.removeFailures++
+        options.log?.("error", "não foi possível remover um contêiner do motor python-completo; a varredura de órfãos vai tentar de novo", { name: failed, stderr: stderr.slice(0, LOGGED_STDERR_CHARS) })
+      },
+    })
     this.counters.launched++
     this.live.add(container)
     void container.ready.then(
@@ -457,13 +558,35 @@ export class NativeEngine implements Engine {
     this.refillTimer.unref()
   }
 
-  private async removeOrphans(): Promise<void> {
-    const listed = await this.options.docker.exec(["ps", "--all", "--quiet", "--filter", `label=${NATIVE_CONTAINER_LABEL}`])
-    const ids = listed.stdout.split(/\s+/).filter((id) => id !== "")
-    if (listed.code !== 0 || ids.length === 0) return
-    await this.options.docker.exec(["rm", "--force", ...ids])
-    this.options.log?.("warn", "contêineres órfãos do motor python-completo removidos", { count: ids.length })
+  /**
+   * Remove os contêineres com o rótulo do motor que não pertencem a nenhum lote nem ao pool
+   * deste processo: sobras de uma execução anterior (na partida) ou de um `docker rm` que falhou
+   * (a cada `orphanSweepMs`). Pressupõe UM executor por daemon do Docker.
+   *
+   * @returns quantos contêineres mandou remover.
+   */
+  async sweepOrphans(): Promise<number> {
+    const listed = await this.options.docker.exec(["ps", "--all", "--filter", `label=${NATIVE_CONTAINER_LABEL}`, "--format", "{{.Names}}"])
+    if (listed.code !== 0) return 0
+    const owned = new Set([...this.live].map((container) => container.name))
+    const orphans = listed.stdout.split(/\s+/).filter((name) => name !== "" && !owned.has(name))
+    if (orphans.length === 0) return 0
+    const removed = await this.options.docker.exec(["rm", "--force", ...orphans])
+    if (removed.code === 0) this.counters.orphansRemoved += orphans.length
+    this.options.log?.("warn", "contêineres órfãos do motor python-completo", { count: orphans.length, removed: removed.code === 0 })
+    return orphans.length
   }
+}
+
+/**
+ * Recusa sondas estritas: o motor não tem modo estrito (ver `RUNTIMES_WITHOUT_STRICT_MODE`).
+ *
+ * @throws EngineRequestError (`strict_unsupported`) se algum tipo for `unittest` ou `legacy`.
+ */
+function assertNoStrictProbes(kinds: readonly ProbeKind[]): void {
+  const refused = [...new Set(kinds.filter((kind) => !runtimeSupportsProbe(NATIVE_RUNTIME, kind)))]
+  if (refused.length === 0) return
+  throw new EngineRequestError(`O motor python-completo não aceita sondas ${refused.join(" e ")}: ele não tem modo estrito`, "strict_unsupported")
 }
 
 /** Maior tempo de parede de um lote aceito pelo contrato (`runnerJobSchema`), em segundos. */

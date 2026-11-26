@@ -1,5 +1,5 @@
 import {
-  BLANK_PATTERN, BLANK_TOKEN, checkLibraries, DEFAULT_ENTRY_FILE, isParsonsSolutionOrder, MAX_PARSONS_LINES, MAX_STEP_HINTS, PARSONS_INDENT_WIDTH, parsonsSolutionLines,
+  BLANK_PATTERN, BLANK_TOKEN, checkLibraries, DEFAULT_ENTRY_FILE, isParsonsSolutionOrder, MAX_PARSONS_LINES, MAX_STEP_HINTS, PARSONS_INDENT_WIDTH, parsonsSolutionLines, runtimeSupportsProbe,
   type BundleCourse, type BundleLesson, type BundleModule, type BundleStep, type BundleTrack, type ProjectFile,
 } from "@levelusp/contracts"
 import type { CompiledContent } from "./compiler"
@@ -156,6 +156,9 @@ function checkExerciseStep(ctx: LintContext, lesson: BundleLesson, step: BundleS
     }
     if (testCase.kind === "io" && testCase.expected_stdout.trim() === "") {
       flag(ctx, testCase, null, `${label}: o caso "${testCase.id}" (io) está com expected_stdout vazio`)
+    }
+    if (testCase.kind === "unittest" && !runtimeSupportsProbe(lesson.runtime, testCase.kind)) {
+      flag(ctx, testCase, null, `${label}: o caso "${testCase.id}" é unittest, que o runtime ${lesson.runtime} não aceita (sem modo estrito, a referência do professor ficaria ao alcance do aluno); use io, call, variable, source ou expr`)
     }
     if (testCase.kind === "legacy") {
       flag(ctx, testCase, null, `${label}: o caso "${testCase.id}" é legacy (roda dentro do sandbox); use io, call, variable, source, expr ou unittest`)

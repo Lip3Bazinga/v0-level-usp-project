@@ -114,12 +114,14 @@ describe("python-completo: liga só por configuração e só com isolamento acei
   const logs: { level: LogLevel; message: string }[] = []
   const log = (level: LogLevel, message: string): void => void logs.push({ level, message })
   const config = (env: Record<string, string>): ReturnType<typeof loadConfig> => loadConfig({ ...BASE_ENV, ...env })
+  /** Como o `main.ts` chama: o `NODE_ENV` que decide é o cru do ambiente, não o da configuração. */
+  const create = (env: Record<string, string>, docker: FakeDocker): ReturnType<typeof createNativeEngine> => createNativeEngine(config(env), log, docker, env.NODE_ENV)
 
   it("desligado por padrão: nem consulta o Docker, e o runtime responde 501", async () => {
     const docker = new FakeDocker()
     expect(config({}).RUNNER_NATIVE_ENGINE).toBe("off")
-    expect(await createNativeEngine(config({}), log, docker)).toBeUndefined()
-    expect(await createNativeEngine(config({ RUNNER_NATIVE_ENGINE: "" }), log, docker)).toBeUndefined()
+    expect(await create({}, docker)).toBeUndefined()
+    expect(await create({ RUNNER_NATIVE_ENGINE: "" }, docker)).toBeUndefined()
     expect(docker.commands).toEqual([])
     const executor = new Executor({ python: new NativeEngine(engineOptions(docker)) }, new Semaphore(1, 4))
     expect(() => executor.engineFor("python-completo")).toThrow(RuntimeUnavailableError)
@@ -130,7 +132,7 @@ describe("python-completo: liga só por configuração e só com isolamento acei
   })
 
   it("com runsc sobe no gVisor", async () => {
-    const engine = await createNativeEngine(config({ RUNNER_NATIVE_ENGINE: "gvisor", NODE_ENV: "production", RUNNER_TOKEN: "9f2c4e7a1b3d5f60718293a4b5c6d7e8f9a0b1c2d3e4f5a6" }), log, new FakeDocker())
+    const engine = await create({ RUNNER_NATIVE_ENGINE: "gvisor", NODE_ENV: "production", RUNNER_TOKEN: "9f2c4e7a1b3d5f60718293a4b5c6d7e8f9a0b1c2d3e4f5a6" }, new FakeDocker())
     expect(engine?.versions.runtime).toBe("gVisor (runsc)")
     expect(engine?.stats()).toMatchObject({ runtime: "runsc", insecure: 0 })
   })
@@ -139,7 +141,7 @@ describe("python-completo: liga só por configuração e só com isolamento acei
     const docker = new FakeDocker()
     docker.runtimes = ["runc", "nvidia"]
     logs.length = 0
-    expect(await createNativeEngine(config({ RUNNER_NATIVE_ENGINE: "gvisor", NODE_ENV: "development" }), log, docker)).toBeUndefined()
+    expect(await create({ RUNNER_NATIVE_ENGINE: "gvisor", NODE_ENV: "development" }, docker)).toBeUndefined()
     expect(logs).toEqual([{ level: "error", message: expect.stringContaining("NÃO subiu") as string }])
   })
 
@@ -148,18 +150,32 @@ describe("python-completo: liga só por configuração e só com isolamento acei
     docker.runtimes = ["runc"]
     const insecure = { RUNNER_NATIVE_ENGINE: "gvisor", RUNNER_ALLOW_INSECURE_NATIVE: "1" }
     logs.length = 0
-    const engine = await createNativeEngine(config({ ...insecure, NODE_ENV: "development" }), log, docker)
+    const engine = await create({ ...insecure, NODE_ENV: "development" }, docker)
     expect(engine?.stats()).toMatchObject({ runtime: "runc", insecure: 1 })
     expect(engine?.versions.runtime).toContain("INSEGURO")
     expect(logs).toEqual([{ level: "warn", message: expect.stringContaining("INSEGURO") as string }])
-    expect(await createNativeEngine(config({ ...insecure, NODE_ENV: "production", RUNNER_TOKEN: "9f2c4e7a1b3d5f60718293a4b5c6d7e8f9a0b1c2d3e4f5a6" }), log, docker)).toBeUndefined()
-    expect(await createNativeEngine(config({ ...insecure, NODE_ENV: "test" }), log, docker)).toBeUndefined()
+    expect(await create({ ...insecure, NODE_ENV: "production", RUNNER_TOKEN: "9f2c4e7a1b3d5f60718293a4b5c6d7e8f9a0b1c2d3e4f5a6" }, docker)).toBeUndefined()
+    expect(await create({ ...insecure, NODE_ENV: "test" }, docker)).toBeUndefined()
+  })
+
+  it("NODE_ENV ausente NÃO é desenvolvimento: o modo inseguro não sobe, embora a configuração assuma development", async () => {
+    const docker = new FakeDocker()
+    docker.runtimes = ["runc"]
+    const env = { RUNNER_NATIVE_ENGINE: "gvisor", RUNNER_ALLOW_INSECURE_NATIVE: "1" }
+    expect(config(env).NODE_ENV).toBe("development")
+    logs.length = 0
+    expect(await createNativeEngine(config(env), log, docker, undefined)).toBeUndefined()
+    expect(await createNativeEngine(config(env), log, docker, "")).toBeUndefined()
+    expect(logs.every((entry) => entry.level === "error")).toBe(true)
+    // Sem o quarto argumento vale o process.env real (no vitest, NODE_ENV=test): também não sobe.
+    expect(process.env.NODE_ENV).not.toBe("development")
+    expect(await createNativeEngine(config(env), log, docker)).toBeUndefined()
   })
 
   it("Docker fora do ar: não sobe", async () => {
     const docker = new FakeDocker()
     docker.infoCode = 1
-    expect(await createNativeEngine(config({ RUNNER_NATIVE_ENGINE: "gvisor" }), log, docker)).toBeUndefined()
+    expect(await create({ RUNNER_NATIVE_ENGINE: "gvisor" }, docker)).toBeUndefined()
   })
 
   it("recusa módulo de aquecimento que não é um nome de módulo", () => {
@@ -174,7 +190,7 @@ describe("python-completo: pool aquecido de uso único", () => {
     const engine = await startedEngine(docker, { warm: 2 })
     expect(engine.readiness).toEqual({ ready: true, reason: "" })
     expect(engine.versions.python).toBe("3.14.10 (nativo)")
-    expect(docker.commands).toContainEqual(["ps", "--all", "--quiet", "--filter", `label=${NATIVE_CONTAINER_LABEL}`])
+    expect(docker.commands).toContainEqual(["ps", "--all", "--filter", `label=${NATIVE_CONTAINER_LABEL}`, "--format", "{{.Names}}"])
     expect(docker.commands).toContainEqual(["rm", "--force", "abc123", "def456"])
     // 1 do autoteste + 2 do pool, todos com os argumentos de isolamento.
     expect(docker.containers).toHaveLength(3)
@@ -265,6 +281,140 @@ describe("python-completo: pool aquecido de uso único", () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject({ status: "ok", completo: { ready: false } })
     await new Promise<void>((resolve) => server.close(() => resolve()))
+  })
+})
+
+describe("python-completo: runtime efetivo conferido na partida", () => {
+  it("confere com docker inspect o contêiner do autoteste antes de rodar qualquer coisa nele", async () => {
+    const docker = new FakeDocker()
+    const engine = await startedEngine(docker)
+    const selfTest = docker.containers[0]
+    expect(docker.commands).toContainEqual(["inspect", "--format", "{{.HostConfig.Runtime}}", selfTest?.name])
+    expect(engine.readiness.ready).toBe(true)
+    await engine.shutdown()
+  })
+
+  it("runtime efetivo diferente do exigido: falha fechado (sem autoteste, sem pool, 501 para todo job)", async () => {
+    const docker = new FakeDocker()
+    docker.reportedRuntime = "runc"
+    const engine = await startedEngine(docker)
+    expect(engine.readiness.ready).toBe(false)
+    expect(engine.readiness.reason).toContain('runtime "runc" e não com "runsc"')
+    // O contêiner divergente foi morto sem receber lote, e nenhum outro foi criado.
+    expect(docker.containers).toHaveLength(1)
+    expect(docker.containers[0]?.stdin).toBe("")
+    expect(docker.removed()).toContain(docker.containers[0]?.name)
+    expect(engine.stats()).toMatchObject({ idle: 0, batches: 0 })
+    expect(() => engine.accept({ runtime: "python-completo", libraries: [], probeKinds: ["run"] })).toThrow(RuntimeUnavailableError)
+    await expect(engine.run(batch([runProbe("a")]))).rejects.toThrow(/bloqueado/)
+    expect(docker.containers).toHaveLength(1)
+    await engine.shutdown()
+  })
+
+  it("docker inspect que falha também bloqueia (não dá para afirmar o runtime)", async () => {
+    const docker = new FakeDocker()
+    docker.reportedRuntime = ""
+    const engine = await startedEngine(docker)
+    expect(engine.readiness.ready).toBe(false)
+    expect(() => engine.accept({ runtime: "python-completo", libraries: [] })).toThrow(RuntimeUnavailableError)
+    await engine.shutdown()
+  })
+})
+
+describe("python-completo: sem modo estrito, recusa sondas unittest e legacy", () => {
+  const unittestProbe: Probe = { id: "u", kind: "unittest", target: "soma", implementation: "def soma(a, b):\n    return a + b  # REFERENCIA-DO-PROFESSOR\n" }
+  const legacyProbe: Probe = { id: "l", kind: "legacy", code: "assert soma(2, 3) == 5" }
+
+  it("accept recusa o job (400 strict_unsupported) antes da fila", () => {
+    const engine = new NativeEngine(engineOptions(new FakeDocker()))
+    for (const kinds of [["unittest"], ["legacy"], ["run", "call", "unittest"]] as const) {
+      let caught: unknown
+      try {
+        engine.accept({ runtime: "python-completo", libraries: [], probeKinds: kinds })
+      } catch (error) {
+        caught = error
+      }
+      expect(caught, kinds.join()).toBeInstanceOf(EngineRequestError)
+      expect((caught as EngineRequestError).code).toBe("strict_unsupported")
+    }
+    expect(() => engine.accept({ runtime: "python-completo", libraries: [], probeKinds: ["run", "call", "globals", "expr", "ast"] })).not.toThrow()
+  })
+
+  it("pelo executor: o job estrito é recusado e nenhum contêiner recebe a referência do professor", async () => {
+    const docker = new FakeDocker()
+    const engine = await startedEngine(docker)
+    const wasi = new NativeEngine(engineOptions(new FakeDocker()))
+    const executor = new Executor({ python: wasi, "python-completo": engine }, new Semaphore(1, 4))
+    const job = { files: [{ path: "main.py", content: "x = 1\n" }], entry: "main.py", limits: { timeoutMs: 2_000, memoryMb: 128 }, runtime: "python-completo" as const, libraries: [] }
+    const spawned = docker.containers.length
+    await expect(executor.execute({ ...job, probes: [runProbe("a"), unittestProbe] })).rejects.toMatchObject({ code: "strict_unsupported" })
+    await expect(executor.execute({ ...job, probes: [legacyProbe] })).rejects.toBeInstanceOf(EngineRequestError)
+    await settle()
+    expect(docker.containers).toHaveLength(spawned)
+    expect(docker.containers.map((container) => container.stdin).join("")).not.toContain("REFERENCIA-DO-PROFESSOR")
+    // O mesmo job sem a sonda estrita roda normalmente.
+    const result = await executor.execute({ ...job, probes: [runProbe("a")] })
+    expect(result.observations).toEqual([expect.objectContaining({ id: "a", ok: true })])
+    await engine.shutdown()
+  })
+
+  it("run recusa o lote estrito mesmo sem passar por accept (segunda barreira)", async () => {
+    const docker = new FakeDocker()
+    const engine = await startedEngine(docker, { warm: 0 })
+    await expect(engine.run(batch([unittestProbe]))).rejects.toMatchObject({ code: "strict_unsupported" })
+    await expect(engine.run(batch([runProbe("a"), legacyProbe]))).rejects.toBeInstanceOf(EngineRequestError)
+    expect(docker.containers).toHaveLength(1)
+    await engine.shutdown()
+  })
+})
+
+describe("python-completo: remoção conferida e varredura de órfãos", () => {
+  it("docker rm que falha é tentado de novo até o daemon aceitar", async () => {
+    const docker = new FakeDocker()
+    const engine = await startedEngine(docker, { warm: 0, removeRetryMs: 5 })
+    docker.behaviors = [stuck]
+    docker.failingRemovals = 2
+    await engine.run(batch([runProbe("a")], 30))
+    const used = docker.containers[1]?.name
+    await new Promise<void>((resolve) => setTimeout(resolve, 60))
+    expect(docker.removed().filter((name) => name === used)).toHaveLength(3)
+    expect(engine.stats()).toMatchObject({ removeFailures: 0 })
+    await engine.shutdown()
+  })
+
+  it("esgotadas as tentativas, conta a falha e avisa no log (a varredura assume)", async () => {
+    const docker = new FakeDocker()
+    const errors: string[] = []
+    const engine = await startedEngine(docker, { warm: 0, removeRetryMs: 5, log: (level, message) => void (level === "error" && errors.push(message)) })
+    docker.behaviors = [stuck]
+    docker.failingRemovals = 3
+    await engine.run(batch([runProbe("a")], 30))
+    await new Promise<void>((resolve) => setTimeout(resolve, 60))
+    expect(engine.stats()).toMatchObject({ removeFailures: 1 })
+    expect(errors.join("\n")).toContain("não foi possível remover")
+    await engine.shutdown()
+  })
+
+  it("a varredura remove o que tem o rótulo do motor e não é deste processo; poupa o pool", async () => {
+    const docker = new FakeDocker()
+    const engine = await startedEngine(docker)
+    const pooled = docker.containers[1]?.name
+    docker.orphans = ["lvl-completo-esquecido"]
+    expect(await engine.sweepOrphans()).toBe(1)
+    expect(docker.commands).toContainEqual(["rm", "--force", "lvl-completo-esquecido"])
+    expect(docker.removed()).not.toContain(pooled)
+    expect(engine.stats()).toMatchObject({ orphansRemoved: 1, idle: 1 })
+    expect(await engine.sweepOrphans()).toBe(0)
+    await engine.shutdown()
+  })
+
+  it("a varredura roda sozinha, de tempos em tempos", async () => {
+    const docker = new FakeDocker()
+    const engine = await startedEngine(docker, { orphanSweepMs: 10 })
+    docker.orphans = ["lvl-completo-perdido"]
+    await new Promise<void>((resolve) => setTimeout(resolve, 60))
+    expect(docker.removed()).toContain("lvl-completo-perdido")
+    await engine.shutdown()
   })
 })
 

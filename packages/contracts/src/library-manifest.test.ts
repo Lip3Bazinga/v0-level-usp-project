@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  runtimeSupportsProbe,
   checkLibraries, findManifestLibrary, LIBRARY_MANIFEST, listManifestLibrariesFor, normalizeLibraryName, splitBrowserLibraries, validateLibraryManifest, type LibraryManifestEntry,
 } from "./index"
 
@@ -40,6 +41,16 @@ describe("manifesto de bibliotecas", () => {
     expect(findManifestLibrary("pytorch")).toMatchObject({ name: "torch", browser: false, pyodide_profile: null })
     expect(checkLibraries("python-completo", ["torch", "sklearn", "matplotlib"])).toEqual({ pending: [], unavailable: ["matplotlib"] })
     expect(checkLibraries("python-dados", ["torch"])).toEqual({ pending: [], unavailable: ["torch"] })
+  })
+
+  it("o motor python-completo não aceita sondas estritas (unittest, legacy); os outros aceitam todas", () => {
+    expect(runtimeSupportsProbe("python-completo", "unittest")).toBe(false)
+    expect(runtimeSupportsProbe("python-completo", "legacy")).toBe(false)
+    for (const kind of ["run", "call", "globals", "expr", "ast"] as const) expect(runtimeSupportsProbe("python-completo", kind), kind).toBe(true)
+    for (const runtime of ["python", "python-dados"] as const) {
+      expect(runtimeSupportsProbe(runtime, "unittest")).toBe(true)
+      expect(runtimeSupportsProbe(runtime, "legacy")).toBe(true)
+    }
   })
 
   it("separa o que o navegador carrega do que só o servidor tem", () => {

@@ -67,6 +67,24 @@ export type ProbeKind = Probe["kind"]
  */
 export const STRICT_PROBE_KINDS: ReadonlySet<ProbeKind> = new Set<ProbeKind>(["legacy", "unittest"])
 
+/**
+ * Motores sem modo estrito. No `python-completo` o aluno roda CPython nativo com `ctypes`: ele
+ * alcança os frames do harness (`pythonapi.PyEval_GetFrame`, `f_back`) e, com eles, o nonce e as
+ * sondas do lote, por mais que o harness bloqueie a introspecção em Python. As sondas estritas
+ * dependem justamente de o aluno não ver isso (a `unittest` carrega a implementação de referência
+ * do professor; a `legacy`, os asserts com os valores esperados), então esse motor as recusa.
+ */
+export const RUNTIMES_WITHOUT_STRICT_MODE: ReadonlySet<PythonRuntime> = new Set<PythonRuntime>(["python-completo"])
+
+/**
+ * Diz se o motor `runtime` aceita uma sonda do tipo `kind` (os tipos de caso `unittest` e
+ * `legacy` do gabarito têm o mesmo nome das sondas que geram). Falso só para sonda estrita
+ * ({@link STRICT_PROBE_KINDS}) em motor sem modo estrito ({@link RUNTIMES_WITHOUT_STRICT_MODE}).
+ */
+export function runtimeSupportsProbe(runtime: PythonRuntime, kind: ProbeKind): boolean {
+  return !(RUNTIMES_WITHOUT_STRICT_MODE.has(runtime) && STRICT_PROBE_KINDS.has(kind))
+}
+
 export const runnerJobSchema = z.object({
   files: z.array(projectFileSchema).min(1).max(30),
   entry: z.string().default(DEFAULT_ENTRY_FILE),

@@ -224,7 +224,7 @@ export class Executor implements JobExecutor {
   async execute(job: RunnerJob, signal?: AbortSignal): Promise<RunnerResult> {
     const startedAt = performance.now()
     const batchStartTimes: number[] = []
-    const request: EngineRequest = { runtime: job.runtime ?? DEFAULT_PYTHON_RUNTIME, libraries: job.libraries ?? [] }
+    const request: EngineRequest = { runtime: job.runtime ?? DEFAULT_PYTHON_RUNTIME, libraries: job.libraries ?? [], probeKinds: job.probes.map((probe) => probe.kind) }
     const engine = this.engineFor(request.runtime)
     engine.accept(request)
     const batches: PlannedBatch[] = planBatches(job.probes).map((probes) =>
