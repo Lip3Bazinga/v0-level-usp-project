@@ -412,8 +412,9 @@ describe("Lição guiada em passos, trilha e certificados (e2e)", () => {
     const admin = await signUp(ctx.app, "admin", ctx.db)
     const sent = await student.agent.post("/api/me/events", { events: [{ type: "lesson_viewed", payload: { lesson_id: "abc", note: '=cmd,"x"' } }] })
     expect(sent.status).toBe(204)
-    // Tipo fora da lista fechada e tentativa de escolher o usuário são recusados/ignorados.
+    // Tipo fora da lista fechada, tipo que só o servidor grava e tentativa de escolher o usuário são recusados/ignorados.
     expect((await student.agent.post("/api/me/events", { events: [{ type: "xp_granted", payload: {} }] })).status).toBe(400)
+    expect((await student.agent.post("/api/me/events", { events: [{ type: "step_completed", payload: {} }] })).status).toBe(400)
     await student.agent.post("/api/me/events", { events: [{ type: "lesson_viewed", user_id: admin.id, created_at: "2000-01-01T00:00:00Z" }] })
     expect(await countRows(ctx.db, sql`select count(*)::int as n from events where user_id = ${admin.id} and type = 'lesson_viewed'`)).toBe(0)
 

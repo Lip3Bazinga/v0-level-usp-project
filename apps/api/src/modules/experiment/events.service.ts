@@ -18,7 +18,8 @@ const MAX_EXPORTED_EVENTS = 500_000
 /**
  * Log de eventos do experimento de gamificação. O servidor registra os eventos que ele
  * mesmo decide (submissão, conclusão, dica…) com {@link record}; o cliente só envia os
- * de uso (`POST /me/events`). Nada aqui altera ou apaga um evento.
+ * de uso (`POST /me/events`, tipos de `CLIENT_EVENT_TYPES`). Nada aqui altera ou apaga um
+ * evento, e o banco recusa UPDATE e DELETE em `events`.
  */
 @Injectable()
 export class EventsService {
@@ -44,6 +45,8 @@ export class EventsService {
 
   /**
    * Grava o lote enviado pelo cliente com o usuário da sessão (o corpo não escolhe o usuário nem a hora).
+   * O tipo já chega restrito aos de uso pelo `eventsBatchSchema`: tipo que o servidor decide é recusado
+   * com 400 no controller, antes de chegar aqui, e o lote inteiro não é gravado.
    *
    * @throws AppError 429 quando o usuário passa de 600 eventos por hora.
    */

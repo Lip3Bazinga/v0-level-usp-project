@@ -1,4 +1,4 @@
-import { MAX_EVENTS_PER_BATCH, type EventInput, type EventType, type Json } from "@levelusp/contracts"
+import { MAX_EVENTS_PER_BATCH, type ClientEventType, type EventInput, type Json } from "@levelusp/contracts"
 import { api, isApiError } from "@/lib/api"
 
 /**
@@ -88,9 +88,10 @@ function bindPageHide(): void {
 /**
  * Enfileira um evento de uso. Não lança nem espera: telemetria nunca atrapalha a tela.
  *
+ * @param type só os tipos que o cliente pode enviar; os demais são gravados pela API e seriam recusados com 400.
  * @param payload identificadores e números (lição, passo, nota). Chaves de código são descartadas.
  */
-export function trackEvent(type: EventType, payload: Record<string, Json> = {}): void {
+export function trackEvent(type: ClientEventType, payload: Record<string, Json> = {}): void {
   queue.push({ type, payload: sanitizeEventPayload(payload) })
   if (queue.length > MAX_QUEUED_EVENTS) queue = queue.slice(-MAX_QUEUED_EVENTS)
   bindPageHide()

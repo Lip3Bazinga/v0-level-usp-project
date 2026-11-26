@@ -425,3 +425,18 @@ Um nível por sessão: escrever o `PLANO.md` do nível a partir dos roteiros, es
     recebe 501; a VM fica em 1536m, sem ml); (c) reciclagem por heap em 256 MB com folga de só 69 MB no ml; (d) fila FIFO: `dados` espera
     atrás de `ml` bloqueado por memória; (e) o `dados` em `fresh` virou o item caro (p50 4,8 s com 100 alunos): avaliar `reuse` ou pool maior;
     (f) typecheck de `scripts/bench` acusa 3 erros antigos em `apps/api/scripts/content` (fora do escopo da fase).
+- **Fase H, Parte 1 concluída (2026-11-26), branch `fix/achados-questionario`:** achados do questionário do TCC (itens 1 a 3).
+  - Eventos do experimento: `POST /me/events` aceita só `CLIENT_EVENT_TYPES` (`lesson_viewed`, o único tipo que a web emite); os outros dez
+    tipos de `EVENT_TYPES` só a API grava (`EventsService.record`) e dão 400 se vierem do cliente (lote inteiro recusado). Migração
+    `0006_eventos_so_acrescimo`: gatilho `events_append_only` recusa DELETE e UPDATE em `events`; só passa a anonimização de `user_id` feita
+    pela FK na exclusão da conta (`pg_trigger_depth() > 1`). Limites conhecidos: TRUNCATE não é bloqueado (o harness e2e usa) e quem tem DDL
+    pode desligar o gatilho. Testes em `apps/api/test/security/steps-forgery.e2e.ts`.
+  - VM: `RUNNER_MEMORY` padrão 2g em `compose.vm.yml` e `vm.env.example`; `producao-vm.md` com a regra de memória da D2 e o aviso de que
+    2 vCPU / 4 GB não roda lições `ml`; `desempenho-e-carga.md` corrigido (teste de 03/11 com processos do `pnpm build` e PostgreSQL 16.15).
+  - Diagramas 02 (admissão por memória), 04 (sem CI; `content:verify` como portão por convenção) e 06 (runner 2g na VM e na homologação);
+    `rastreabilidade.md` reconferida no commit `5add24f`.
+  - Pendente do Filipe: (a) ratificar `RUNNER_MEMORY` 3g na coluna 4 vCPU / 8 GB de `producao-vm.md` (era 2g; não estava no pedido);
+    (b) os três `.mmd` alterados não foram renderizados (sem `mmdc` no ambiente): conferir a linha 21 do diagrama 02 (rótulo longo com `;`);
+    (c) em produção, o papel do banco não deveria ter TRUNCATE em `events` (hoje a aplicação usa o dono das tabelas).
+  - **Falta a Parte 2 (itens 4 a 8), só depois do merge da Fase F em `develop`:** forja universal no pacote atual, `content:verify` dos 7
+    cursos, rajada nas lições `unittest`, carga mista e `docs/tcc/medicoes.md` §8. Roteiro em `.claude-transfer/fases/H-achados-questionario.md`.

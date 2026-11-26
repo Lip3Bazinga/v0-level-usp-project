@@ -42,7 +42,9 @@ Trilha (track)  ──1:N──▶ Curso (course, = nível certificável) ──
   100 %). **Certificado de trilha** (`track_certificates`): todos os cursos certificados.
 - **Experimento** (pedido da auditoria): `profiles.experiment_condition` (`gamificada` |
   `controle` | null) e `events` (append-only: `user_id`, `type`, `payload`, `created_at`;
-  sem rota de update/delete; exportação CSV para admin).
+  sem rota de update/delete; exportação CSV para admin). O gatilho `events_append_only`
+  (migração 0006) recusa DELETE e UPDATE no banco; só passa a anonimização de `user_id`
+  feita pela FK quando a conta é apagada (TRUNCATE não é bloqueado).
 - **Submissões**: `submissions.status` ganha `error` (falha de infraestrutura: runner
   indisponível, timeout do host). Não conta como tentativa nem como reprovação.
 
@@ -112,7 +114,7 @@ Módulos novos: `tracks` (`GET /tracks`, `GET /tracks/:slug` com situação do a
   `status: "error"` e resposta 503 com mensagem pt-BR (sem contar tentativa).
 - Certificados: `POST /me/courses/:id/certificate` aplica a regra da §1; `GET /certificates/:code`
   (público) continua; `POST /me/tracks/:id/certificate`.
-- Experimento: `POST /me/events` (lote, só tipos da lista; limite por usuário);
+- Experimento: `POST /me/events` (lote, só `lesson_viewed`: os outros tipos são do servidor e dão 400; a tabela recusa UPDATE/DELETE por gatilho; limite por usuário);
   `GET /admin/experiment/export.csv`; `PATCH /admin/users/:id/experiment-condition`.
 - `GET /lessons/:id` público remove `created_by`; `GET /users/:id/activity` só dono/professor/admin.
 - `GET /health/ready` (público): banco + runner (`/healthz` do runner) → 503 quando algum falha.
