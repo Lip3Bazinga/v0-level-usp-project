@@ -137,9 +137,10 @@ Enquanto edita, o professor vê a aula como o aluno verá, ao lado do editor (`/
 - **Comportamento:** navegação livre entre passos; quiz corrige no navegador mostrando a correta e a
   explicação (`correctIndexes` só é passada pela prévia; o DTO `LessonStep` continua sem `correct_index`);
   "Executar" roda no Pyodide do navegador; a previsão roda o código do passo no Pyodide e compara com o que
-  o professor digitar; lacunas e ordenar funcionam. "Verificar" mostra "A correção roda no servidor"
-  (`PreviewVerifyUnavailable`); `createPreviewBackend(..., { verify })` é o ponto de extensão do
-  "Testar gabarito" (Fase F).
+  o professor digitar; lacunas e ordenar funcionam. "Verificar" corrige a submissão contra o passo do rascunho na API
+  (`preview-verify.ts`, pelo ponto de extensão `createPreviewBackend(..., { verify })`), sem gravar progresso.
+  O botão "Testar gabarito" da aba Passos roda referência, código inicial e soluções erradas de cada passo
+  (`gabarito-test-panel.tsx`; regra e limites em `motores-e-ide.md` §3).
 - **Avisos de conteúdo** (`preview-model.ts`, `contentWarnings`, mais Mermaid assíncrono): fórmula KaTeX
   inválida, diagrama Mermaid inválido, imagem sem texto alternativo e passo sem campos obrigatórios aparecem
   num bloco `role="status"` no topo da prévia; erro de renderização cai no `PreviewErrorBoundary`.

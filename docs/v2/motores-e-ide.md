@@ -124,6 +124,28 @@ O que é derivado dele (nada é copiado à mão):
 - Lição publicada antes do manifesto não é reavaliada: o `update` só checa biblioteca quando o PATCH traz `libraries` ou `runtime`.
 - A tela do admin (`libraries-page.tsx`) só mudou o aviso ao aprovar; mostrar a lista de pendências fica na dívida técnica.
 
+## 3. "Testar gabarito" no editor do professor
+
+- **O que faz.** Na aba Passos de uma lição guiada, o botão "Testar gabarito" envia cada passo de exercício do rascunho
+  (ainda não salvo) e mostra o resultado por passo: a solução de referência tem que aprovar, o código inicial tem que
+  reprovar e cada solução errada tem que reprovar. É a mesma regra do `content:verify`: os dois usam
+  `apps/api/src/modules/authoring/step-verification.domain.ts` (`planStepVerification`/`concludeStepVerification`).
+  No editor, passo sem solução errada não é falha (no `content:verify` é).
+- **Rotas** (`modules/authoring`, só `@Roles("teacher", "admin")`, nada é lido nem gravado no banco):
+  `POST /api/teacher/draft-steps/verify` (um passo por pedido; a web chama em sequência) e
+  `POST /api/teacher/draft-steps/submit` (corrige uma submissão contra o passo do rascunho e devolve `StepSubmitResult`
+  com a gamificação zerada). A segunda é o "Verificar" da prévia: `preview-verify.ts` liga o ponto de extensão `verify`
+  de `createPreviewBackend`.
+- **Limite.** `RATE_LIMITS.draftStepGrading`: 60 execuções por minuto por usuário, somando as duas rotas (o `verify`
+  reserva 1 + inicial + número de erradas antes de rodar; sem saldo, 429 sem executar nada) e um pedido por vez por
+  usuário (o segundo recebe 409 `DRAFT_GRADING_IN_PROGRESS`; a trava é por instância da API). Executor ocupado devolve
+  à cota só o que não rodou.
+- **Soluções erradas.** Não existem no banco (`wrong_solutions` só vive no pacote de conteúdo): o painel aceita até 5
+  por passo, guardadas em memória enquanto o editor está aberto; elas acompanham o passo ao mover ou remover.
+- **Limitações.** Só lição guiada; lição com mais de ~30 exercícios bate o limite no meio do teste e o reteste recomeça
+  do primeiro passo; "Verificar" na prévia durante um teste recebe 409; lição `python-completo` com caso `unittest` é
+  recusada na correção (422), não na publicação.
+
 ## 4. Executar por nível
 
 - **Regra (só de interface).** Na lição do aluno o botão "Executar" fica bloqueado até o jogador chegar ao nível

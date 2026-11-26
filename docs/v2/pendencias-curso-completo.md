@@ -440,3 +440,15 @@ Um nível por sessão: escrever o `PLANO.md` do nível a partir dos roteiros, es
     (c) em produção, o papel do banco não deveria ter TRUNCATE em `events` (hoje a aplicação usa o dono das tabelas).
   - **Falta a Parte 2 (itens 4 a 8), só depois do merge da Fase F em `develop`:** forja universal no pacote atual, `content:verify` dos 7
     cursos, rajada nas lições `unittest`, carga mista e `docs/tcc/medicoes.md` §8. Roteiro em `.claude-transfer/fases/H-achados-questionario.md`.
+- **Fase F (2026-11-26), branch `feat/motores-e-ide`, PR #15:** itens 0 a 6 implementados; detalhes em `motores-e-ide.md`.
+  - Feito nesta sessão: dois merges de `develop` (Fases C e H; as migrações da fase viraram uma só,
+    `0007_executar_por_nivel_e_python_completo`, depois da `0006_eventos_so_acrescimo`); testes do terminal sem JSPI (Node 22 do CI);
+    item 3 ("Testar gabarito", rotas `/teacher/draft-steps/verify` e `/submit`); item 4 (Executar por nível, coluna
+    `courses.run_button_min_level`); item 6 (motor `python-completo` em gVisor, `RUNNER_NATIVE_ENGINE=off` por padrão).
+  - Banco local de dev que recebeu as antigas 0006/0007 desta branch precisa ser recriado (homolog/prod nunca receberam).
+  - Pendente do Filipe: (a) limite do Executar: a constante 10 só é alcançada no N4 (proposta 4 ou 3 para o N1; ver
+    `divida-tecnica.md`); (b) grupo `controle` bloqueado como os demais; (c) ligar o motor `python-completo` só depois do job
+    `gvisor` verde no CI e de decidir onde o executor roda (hoje a imagem do executor não tem `docker` e os compose não montam
+    o socket; alternativa em `seguranca.md`); corte de 04/12 em `.claude-transfer/fases/F-motores-e-ide.md`.
+  - Só o CI prova: ataques do executor (sem `wasmtime` no Windows) e os ataques do motor sob `runsc`; a imagem completa com
+    PyTorch não foi construída localmente.
