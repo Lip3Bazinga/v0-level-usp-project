@@ -77,7 +77,8 @@ export class CoursesService {
   }
 
   /**
-   * Cria o curso como rascunho, com o usuário como dono.
+   * Cria o curso como rascunho, com o usuário como dono. Curso que já nasce com
+   * `run_button_min_level` (só admin) fica na auditoria, como a mudança em {@link update}.
    *
    * @throws AppError 400 `INVALID_IMAGE_URL`, 403 quando a capa é uma imagem enviada por outra pessoa
    * ou quando quem não é admin define `run_button_min_level`.
@@ -86,6 +87,9 @@ export class CoursesService {
     assertCanSetRunButtonLevel(user, input.run_button_min_level, null)
     await this.storage.assertUsableUrl(input.cover_image_url, user.id)
     const course = await this.repo.create({ ...buildPatch(input, COURSE_PATCH), title: input.title, createdBy: user.id, published: false })
+    if (course.runButtonMinLevel !== null) {
+      await this.audit.log(user, "course.run_button_min_level", `course:${course.id}`, { title: course.title, from: null, to: course.runButtonMinLevel })
+    }
     return toCourse(course, { lessonCount: 0 })
   }
 
