@@ -15,7 +15,6 @@ import { ConfigTab } from "./config-tab"
 import { ContentTab } from "./content-tab"
 import { EditorHeader } from "./editor-header"
 import { EditorTabsNav, isTabVisible, type EditorTabId } from "./editor-tabs"
-import type { WrongSolutionsByStep } from "./gabarito-test"
 import { GabaritoTestPanel } from "./gabarito-test-panel"
 import { LibrariesTab } from "./libraries-tab"
 import { LessonPreviewPane } from "./preview/lesson-preview-pane"
@@ -24,6 +23,7 @@ import { QuizTab } from "./quiz-tab"
 import { StarterFilesTab } from "./starter-files-tab"
 import { StepsTab } from "./steps-tab"
 import { TestsTab } from "./tests-tab"
+import { useWrongSolutions } from "./use-gabarito-test"
 import { useLessonEditor, type EditableLesson } from "./use-lesson-editor"
 
 /** Cursos e módulos só preenchem os seletores; sem eles o editor continua funcionando. */
@@ -64,7 +64,7 @@ export function LessonEditorScreen({ initial, onCreated }: LessonEditorScreenPro
   // O passo aberto na aba Passos fica aqui (e não na prévia): a prévia o seleciona e desmonta ao esconder.
   const [activeStepIndex, setActiveStepIndex] = useState(0)
   // Soluções erradas do "Testar gabarito": só em memória (nunca vão no salvar), aqui para sobreviver à troca de aba.
-  const [wrongSolutions, setWrongSolutions] = useState<WrongSolutionsByStep>({})
+  const gabarito = useWrongSolutions()
   // A prévia mostra o estado NÃO salvo do formulário, atualizado com atraso para não refazer a tela a cada tecla.
   const previewForm = useDebouncedValue(form, PREVIEW_DEBOUNCE_MS)
   const savedFeedback = useTransientFlag(SAVED_FEEDBACK_DURATION_MS)
@@ -178,8 +178,14 @@ export function LessonEditorScreen({ initial, onCreated }: LessonEditorScreenPro
 
               {tab === "passos" && form.lesson_type === "guided" && (
                 <div className="space-y-6">
-                  <StepsTab steps={form.steps} onChange={(steps) => patchForm({ steps })} openIndex={activeStepIndex} onOpenIndexChange={setActiveStepIndex} />
-                  <GabaritoTestPanel lesson={form} wrongSolutions={wrongSolutions} onWrongSolutionsChange={setWrongSolutions} />
+                  <StepsTab
+                    steps={form.steps}
+                    onChange={(steps) => patchForm({ steps })}
+                    openIndex={activeStepIndex}
+                    onOpenIndexChange={setActiveStepIndex}
+                    onStepsReordered={gabarito.handleStepsReordered}
+                  />
+                  <GabaritoTestPanel key={gabarito.resultsKey} lesson={form} wrongSolutions={gabarito.wrongSolutions} onWrongSolutionsChange={gabarito.setWrongSolutions} />
                 </div>
               )}
 

@@ -7,6 +7,8 @@ import { ApiError } from "@/lib/api"
 import type { GabaritoLesson, WrongSolutionsByStep } from "./gabarito-test"
 import { GabaritoTestPanel } from "./gabarito-test-panel"
 import { createStep } from "./steps-form"
+import { StepsTab } from "./steps-tab"
+import { useWrongSolutions } from "./use-gabarito-test"
 
 const first: LessonStepInput = { ...createStep("exercicio", 1), title: "Diga olá" }
 const second: LessonStepInput = { ...createStep("exercicio", 3), title: "Some dois números" }
@@ -150,5 +152,76 @@ describe("painel Testar gabarito", () => {
     render(<Harness current={{ ...lesson, steps: [createStep("leitura", 1)] }} />)
     expect(screen.getByText("Nenhum passo de exercício para testar.")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Testar gabarito" })).toBeDisabled()
+  })
+})
+
+/** A aba Passos e o painel ligados como na tela do editor. */
+function EditorHarness(): React.JSX.Element {
+  const [steps, setSteps] = useState<LessonStepInput[]>([first, { ...createStep("leitura", 2), title: "Leia isto" }, second])
+  const gabarito = useWrongSolutions()
+  return (
+    <>
+      <StepsTab steps={steps} onChange={setSteps} onStepsReordered={gabarito.handleStepsReordered} />
+      <GabaritoTestPanel
+        key={gabarito.resultsKey}
+        lesson={{ runtime: "python", libraries: [], steps }}
+        wrongSolutions={gabarito.wrongSolutions}
+        onWrongSolutionsChange={gabarito.setWrongSolutions}
+        verify={verify}
+      />
+    </>
+  )
+}
+
+describe("soluções erradas acompanham o passo quando a lista é renumerada", () => {
+  beforeEach(() => {
+    verify.mockReset()
+    verify.mockImplementation((input) => Promise.resolve(coherent(input.step.order)))
+  })
+
+  const wrongOf = (title: string): { summary: string | null; names: string[] } => {
+    const item = within(stepItem(title))
+    return {
+      summary: item.getByText(/usadas só neste teste/).textContent,
+      names: item.queryAllByLabelText("Nome (qual é o erro)").map((field) => (field instanceof HTMLInputElement ? field.value : "")),
+    }
+  }
+
+  it("remover e mover um passo mantêm as soluções erradas no passo certo e descartam os resultados antigos", async () => {
+    render(<EditorHarness />)
+    await userEvent.click(screen.getByRole("button", { name: "Adicionar solução errada ao passo 3" }))
+    fireEvent.change(within(stepItem("Some dois números")).getByLabelText("Nome (qual é o erro)"), { target: { value: "subtrai" } })
+    fireEvent.change(within(stepItem("Some dois números")).getByLabelText("Código (main.py)"), { target: { value: "print(1 - 1)\n" } })
+    await userEvent.click(screen.getByRole("button", { name: "Testar gabarito" }))
+    expect(await within(stepItem("Some dois números")).findByText("Gabarito coerente")).toBeInTheDocument()
+
+    // Remover a leitura (passo 2) renumera "Some dois números" de 3 para 2.
+    await userEvent.click(screen.getByRole("button", { name: "Remover o passo 2" }))
+    expect(screen.getByRole("heading", { name: "2. Some dois números" })).toBeInTheDocument()
+    expect(wrongOf("Some dois números")).toEqual({ summary: expect.stringContaining("(1)") as unknown, names: ["subtrai"] })
+    expect(wrongOf("Diga olá").names).toEqual([])
+    // O resultado era do passo 3, que não existe mais com esse número.
+    expect(screen.queryByText("Gabarito coerente")).not.toBeInTheDocument()
+
+    // Mover para cima troca os dois exercícios de número.
+    await userEvent.click(screen.getByRole("button", { name: "Mover o passo 2 para cima" }))
+    expect(screen.getByRole("heading", { name: "1. Some dois números" })).toBeInTheDocument()
+    expect(wrongOf("Some dois números").names).toEqual(["subtrai"])
+    expect(wrongOf("Diga olá").names).toEqual([])
+
+    verify.mockClear()
+    await userEvent.click(screen.getByRole("button", { name: "Testar gabarito" }))
+    await waitFor(() => expect(verify).toHaveBeenCalledTimes(2))
+    const sent = verify.mock.calls.map(([input]) => ({ title: input.step.title, wrong: input.step.wrong_solutions.map((wrong) => wrong.name) }))
+    expect(sent).toEqual([{ title: "Some dois números", wrong: ["subtrai"] }, { title: "Diga olá", wrong: [] }])
+  })
+
+  it("remover o próprio passo descarta as soluções erradas dele, sem passá-las ao vizinho", async () => {
+    render(<EditorHarness />)
+    await userEvent.click(screen.getByRole("button", { name: "Adicionar solução errada ao passo 1" }))
+    expect(wrongOf("Diga olá").names).toHaveLength(1)
+    await userEvent.click(screen.getByRole("button", { name: "Remover o passo 1" }))
+    expect(screen.queryByRole("heading", { name: /Diga olá/ })).not.toBeInTheDocument()
+    expect(wrongOf("Some dois números").names).toEqual([])
   })
 })

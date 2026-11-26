@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { LessonStepInput } from "@levelusp/contracts"
-import { buildVerifyRequest, exerciseSteps, inheritedStarterOf, requestSignature, toWrongSolutions, type GabaritoLesson } from "./gabarito-test"
+import { buildVerifyRequest, exerciseSteps, inheritedStarterOf, remapWrongSolutions, requestSignature, toWrongSolutions, type GabaritoLesson } from "./gabarito-test"
 import { createStep } from "./steps-form"
 
 const reading = createStep("leitura", 1)
@@ -43,6 +43,16 @@ describe("modelo do teste de gabarito", () => {
   it("passo incompleto não vira pedido: devolve a mensagem de validação", () => {
     const request = buildVerifyRequest(lesson, { ...first, test_cases: [] }, [])
     expect(request).toEqual({ ok: false, error: "test_cases: um passo de exercício precisa de pelo menos um caso de teste" })
+  })
+
+  it("renumeração: cada lista de soluções erradas segue o seu passo e a do passo removido some", () => {
+    const a = [{ name: "a", code: "pass\n" }]
+    const c = [{ name: "c", code: "x = 1\n" }]
+    // Remover o passo 2 de [1, 2, 3]: o antigo 3 vira 2.
+    expect(remapWrongSolutions({ 1: a, 2: [{ name: "b", code: "" }], 3: c }, [1, 3])).toEqual({ 1: a, 2: c })
+    // Mover o passo 3 para cima em [1, 2, 3]: a lista nova é [1, 3, 2].
+    expect(remapWrongSolutions({ 1: a, 3: c }, [1, 3, 2])).toEqual({ 1: a, 2: c })
+    expect(remapWrongSolutions({ 2: [] }, [2, 1])).toEqual({})
   })
 
   it("a assinatura muda com o gabarito e com as soluções erradas, não com o texto do passo", () => {

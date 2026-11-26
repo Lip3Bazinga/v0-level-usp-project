@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest"
-import { draftStepSubmitSchema, draftStepVerifySchema, type DraftStepVerifyInput, type RunnerJob, type RunnerResult } from "@levelusp/contracts"
-import { AppError, ServiceUnavailable } from "@/common/errors/app-error"
+import { draftStepSubmitSchema, draftStepVerifySchema, type DraftStepSubmitInput, type DraftStepVerifyInput, type RunnerJob, type RunnerResult } from "@levelusp/contracts"
+import { ServiceUnavailable, type AppError } from "@/common/errors/app-error"
 import type { AuthUser } from "@/common/http/request"
 import { RATE_LIMITS } from "@/common/rate-limit/rate-limit.policies"
 import { RateLimitService } from "@/common/rate-limit/rate-limit.service"
@@ -26,9 +26,13 @@ const exercise = {
 /** Executor falso: só "acerta" quando o `main.py` recebido soma de verdade; guarda os pedidos na ordem. */
 class ScriptedRunner implements CodeRunner {
   jobs: RunnerJob[] = []
-  failures: Error[] = []
+  /** Uma entrada por execução, na ordem: um erro faz aquela falhar; null deixa rodar. */
+  failures: (Error | null)[] = []
+  /** Quando definida, toda execução espera por ela (para manter um pedido em andamento). */
+  gate: Promise<void> | null = null
 
-  run(job: RunnerJob): Promise<RunnerResult> {
+  async run(job: RunnerJob): Promise<RunnerResult> {
+    if (this.gate) await this.gate
     const failure = this.failures.shift()
     if (failure) return Promise.reject(failure)
     this.jobs.push(job)
@@ -102,26 +106,71 @@ describe("DraftStepsService", () => {
     expect(runner.jobs).toHaveLength(0)
   })
 
-  it("o limite por usuário soma as duas operações e responde 429 sem rodar", async () => {
-    const { limit } = RATE_LIMITS.draftStepGrading
-    for (let index = 0; index < limit; index++) {
-      if (index % 2 === 0) await service.verify(teacher, verifyInput())
-      else await service.submit(teacher, draftStepSubmitSchema.parse({ step: exercise, files: [main(RIGHT_CODE)] }))
-    }
-    const jobsBefore = runner.jobs.length
+  const submitInput = (code = RIGHT_CODE): DraftStepSubmitInput => draftStepSubmitSchema.parse({ step: exercise, files: [main(code)] })
+  const busy = (): AppError => ServiceUnavailable("O corretor está ocupado.", "RUNNER_BUSY", 5)
+  const { limit } = RATE_LIMITS.draftStepGrading
+
+  it("o limite conta execuções: cada verify consome uma por projeto e o submit, uma", async () => {
+    const wrong = ["a", "b", "c"].map((name) => ({ name, files: [main(WRONG_CODE)] }))
+    const executionsPerVerify = 5
+    for (let used = 0; used < limit; used += executionsPerVerify) await service.verify(teacher, verifyInput({ ...exercise, wrong_solutions: wrong }))
+    expect(runner.jobs).toHaveLength(limit)
+    await expect(service.submit(teacher, submitInput())).rejects.toMatchObject({ statusCode: 429 })
     await expect(service.verify(teacher, verifyInput())).rejects.toMatchObject({ statusCode: 429 })
-    await expect(service.submit(teacher, draftStepSubmitSchema.parse({ step: exercise, files: [main(RIGHT_CODE)] }))).rejects.toMatchObject({ statusCode: 429 })
-    expect(runner.jobs).toHaveLength(jobsBefore)
+    expect(runner.jobs).toHaveLength(limit)
+    // O limite é por usuário.
     await expect(service.verify({ ...teacher, id: "prof-2" }, verifyInput())).resolves.toMatchObject({ status: "ok" })
   })
 
-  it("executor ocupado: repassa o 503 e devolve a cota; outra falha do executor consome a cota", async () => {
-    const { limit } = RATE_LIMITS.draftStepGrading
-    runner.failures = Array.from({ length: limit + 1 }, () => ServiceUnavailable("O corretor está ocupado.", "RUNNER_BUSY", 5))
-    for (let index = 0; index <= limit; index++) await expect(service.verify(teacher, verifyInput())).rejects.toBeInstanceOf(AppError)
-    await expect(service.verify(teacher, verifyInput())).resolves.toMatchObject({ status: "ok" })
+  it("sem cota para o passo inteiro nada roda nem é consumido", async () => {
+    for (let used = 0; used < limit - 1; used++) await service.submit(teacher, submitInput())
+    await expect(service.verify(teacher, verifyInput())).rejects.toMatchObject({ statusCode: 429 })
+    expect(runner.jobs).toHaveLength(limit - 1)
+    // A execução que sobrava continua disponível: a reserva parcial foi devolvida.
+    await expect(service.submit(teacher, submitInput())).resolves.toMatchObject({ passed: true })
+    await expect(service.submit(teacher, submitInput())).rejects.toMatchObject({ statusCode: 429 })
+  })
+
+  it("recusa com 409 um segundo pedido do mesmo usuário enquanto o primeiro roda, e libera a trava no fim (mesmo com erro)", async () => {
+    let release: () => void = () => undefined
+    runner.gate = new Promise((resolve) => {
+      release = resolve
+    })
+    const running = service.verify(teacher, verifyInput())
+    await expect(service.submit(teacher, submitInput())).rejects.toMatchObject({ statusCode: 409, code: "DRAFT_GRADING_IN_PROGRESS" })
+    await expect(service.verify(teacher, verifyInput())).rejects.toMatchObject({ statusCode: 409 })
+    // Outro usuário não é afetado pela trava (fica esperando o executor, como o primeiro).
+    const other = service.submit({ ...teacher, id: "prof-2" }, submitInput())
+    release()
+    await expect(running).resolves.toMatchObject({ status: "ok" })
+    await expect(other).resolves.toMatchObject({ passed: true })
+    runner.gate = null
 
     runner.failures = [ServiceUnavailable("O corretor está fora do ar.", "RUNNER_UNAVAILABLE")]
+    await expect(service.submit(teacher, submitInput())).rejects.toMatchObject({ statusCode: 503 })
+    await expect(service.submit(teacher, submitInput())).resolves.toMatchObject({ passed: true })
+  })
+
+  it("executor ocupado na primeira execução: repassa o 503 e devolve a cota inteira", async () => {
+    runner.failures = Array.from({ length: limit + 1 }, busy)
+    for (let index = 0; index <= limit; index++) await expect(service.verify(teacher, verifyInput())).rejects.toMatchObject({ statusCode: 503, code: "RUNNER_BUSY" })
+    for (let used = 0; used < limit; used++) await service.submit(teacher, submitInput())
+    await expect(service.submit(teacher, submitInput())).rejects.toMatchObject({ statusCode: 429 })
+  })
+
+  it("executor ocupado no meio do passo: só as execuções que não rodaram são devolvidas", async () => {
+    // Três execuções reservadas (solução, inicial, errada); a solução roda e o inicial encontra a fila cheia.
+    runner.failures = [null, busy()]
+    await expect(service.verify(teacher, verifyInput({ ...exercise, wrong_solutions: [{ name: "subtrai", files: [main(WRONG_CODE)] }] }))).rejects.toMatchObject({ code: "RUNNER_BUSY" })
+    expect(runner.jobs).toHaveLength(1)
+    for (let used = 1; used < limit; used++) await service.submit(teacher, submitInput())
+    await expect(service.submit(teacher, submitInput())).rejects.toMatchObject({ statusCode: 429 })
+  })
+
+  it("falha do executor que não é fila cheia consome as execuções reservadas", async () => {
+    runner.failures = [ServiceUnavailable("O corretor está fora do ar.", "RUNNER_UNAVAILABLE")]
     await expect(service.verify(teacher, verifyInput())).rejects.toMatchObject({ statusCode: 503, code: "RUNNER_UNAVAILABLE" })
+    for (let used = 2; used < limit; used++) await service.submit(teacher, submitInput())
+    await expect(service.submit(teacher, submitInput())).rejects.toMatchObject({ statusCode: 429 })
   })
 })

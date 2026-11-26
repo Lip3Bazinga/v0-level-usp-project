@@ -1,10 +1,13 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type { DraftStepVerifyInput, DraftStepVerifyResult } from "@levelusp/contracts"
 import { useSubmitLock } from "@/hooks/use-submit-lock"
 import { getErrorMessage, isApiError, verifyDraftStep } from "@/lib/api"
-import { buildVerifyRequest, exerciseSteps, requestSignature, type GabaritoLesson, type StepTestState, type WrongSolutionsByStep } from "./gabarito-test"
+import {
+  buildVerifyRequest, exerciseSteps, remapWrongSolutions, requestSignature,
+  type GabaritoLesson, type StepTestState, type WrongSolutionsByStep,
+} from "./gabarito-test"
 
 /** Passo em teste e total de passos do teste em andamento. */
 export interface GabaritoProgress {
@@ -21,6 +24,31 @@ export interface UseGabaritoTestResult {
   progress: GabaritoProgress | null
   /** Testa todos os passos de exercício do rascunho, um por vez. Ignora a chamada se já há um teste rodando. */
   run: (lesson: GabaritoLesson, wrongSolutions: WrongSolutionsByStep) => Promise<void>
+}
+
+/** Soluções erradas do editor e o que as mantém no passo certo. */
+export interface UseWrongSolutionsResult {
+  wrongSolutions: WrongSolutionsByStep
+  setWrongSolutions: (wrongSolutions: WrongSolutionsByStep) => void
+  /** Para o `onStepsReordered` da aba Passos: leva cada lista para a `order` nova do seu passo. */
+  handleStepsReordered: (previousOrders: readonly number[]) => void
+  /** Muda quando os passos são renumerados; use como `key` do painel para descartar resultados que ficaram em outro passo. */
+  resultsKey: number
+}
+
+/**
+ * Soluções erradas do "Testar gabarito", só em memória (nunca vão no salvar). Elas são guardadas
+ * pela `order` do passo; quando um passo é removido ou movido, a lista acompanha o passo e os
+ * resultados de teste (também por `order`) são descartados.
+ */
+export function useWrongSolutions(): UseWrongSolutionsResult {
+  const [wrongSolutions, setWrongSolutions] = useState<WrongSolutionsByStep>({})
+  const [resultsKey, setResultsKey] = useState(0)
+  const handleStepsReordered = useCallback((previousOrders: readonly number[]): void => {
+    setWrongSolutions((current) => remapWrongSolutions(current, previousOrders))
+    setResultsKey((current) => current + 1)
+  }, [])
+  return { wrongSolutions, setWrongSolutions, handleStepsReordered, resultsKey }
 }
 
 /** Chamada à API que testa um passo (trocada nos testes). */

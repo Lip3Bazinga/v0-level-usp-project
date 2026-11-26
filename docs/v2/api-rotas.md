@@ -54,8 +54,8 @@ Tipos em `packages/contracts`. Respostas em snake_case.
 | PATCH | /lessons/:id | 🎓 dono | LessonUpdateInput → LessonWithTests |
 | DELETE | /lessons/:id | 🎓 dono | → 204 |
 | PATCH | /lessons/:id/publish | 🎓 dono | {published} → Lesson |
-| POST | /teacher/draft-steps/verify | 🎓 | "Testar gabarito" do editor: {runtime, libraries, step (passo de exercício do rascunho + wrong_solutions, até 5), inherited_starter} → DraftStepVerifyResult (referência precisa aprovar; código inicial e cada solução errada precisam reprovar; a regra do `content:verify`). Um passo por pedido; nada é gravado. 60/min por usuário (somado com `submit`); 503 se o executor falhar |
-| POST | /teacher/draft-steps/submit | 🎓 | "Verificar" da prévia do editor: {runtime, libraries, step, files \| arrangement} → StepSubmitResult com a gamificação zerada (sem submissão, tentativa, progresso nem XP) |
+| POST | /teacher/draft-steps/verify | 🎓 | "Testar gabarito" do editor: {runtime, libraries, step (passo de exercício do rascunho + wrong_solutions, até 5), inherited_starter} → DraftStepVerifyResult (referência precisa aprovar; código inicial e cada solução errada precisam reprovar; a regra do `content:verify`). Um passo por pedido; nada é gravado. Limite por usuário de 60 EXECUÇÕES/min, somado com `submit`: o verify consome uma por projeto (solução + código inicial + cada errada) e responde 429 sem rodar nada se não couber inteiro; 409 `DRAFT_GRADING_IN_PROGRESS` se já há um pedido do usuário em andamento; 503 se o executor falhar (`RUNNER_BUSY` devolve as execuções que não rodaram) |
+| POST | /teacher/draft-steps/submit | 🎓 | "Verificar" da prévia do editor: {runtime, libraries, step, files \| arrangement} → StepSubmitResult com a gamificação zerada (sem submissão, tentativa, progresso nem XP). Consome 1 execução do mesmo limite; 409 e 503 como no verify |
 
 ## Aprendizado e correção
 | GET | /me/progress | 👤 | → LessonProgress[] |

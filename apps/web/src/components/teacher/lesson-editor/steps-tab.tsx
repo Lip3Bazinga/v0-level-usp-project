@@ -24,6 +24,11 @@ interface StepsTabProps {
   openIndex?: number
   /** Avisa que o professor abriu outro passo (clique, novo passo, remover ou mover). */
   onOpenIndexChange?: (index: number) => void
+  /**
+   * Avisa que um passo foi removido ou movido, ANTES de renumerar: para cada posição da lista nova,
+   * a `order` que o passo dali tinha (passo removido não aparece).
+   */
+  onStepsReordered?: (previousOrders: readonly number[]) => void
 }
 
 /**
@@ -35,7 +40,7 @@ interface StepsTabProps {
  * O passo aberto é interno por padrão; com `openIndex` (e `onOpenIndexChange`) a tela controla
  * qual passo está aberto e fica sabendo qual o professor está editando.
  */
-export function StepsTab({ steps, onChange, openIndex: controlledOpenIndex, onOpenIndexChange }: StepsTabProps): React.JSX.Element {
+export function StepsTab({ steps, onChange, openIndex: controlledOpenIndex, onOpenIndexChange, onStepsReordered }: StepsTabProps): React.JSX.Element {
   const [internalOpenIndex, setInternalOpenIndex] = useState(0)
   const openIndex = controlledOpenIndex ?? internalOpenIndex
   const setOpenIndex = (index: number): void => {
@@ -50,12 +55,17 @@ export function StepsTab({ steps, onChange, openIndex: controlledOpenIndex, onOp
     onChange([...steps, createStep(kind, steps.length + 1)])
     setOpenIndex(steps.length)
   }
+  // Remover e mover renumeram os passos: quem guarda algo pela `order` (ex.: soluções erradas do teste) é avisado.
+  const reorderSteps = (reordered: LessonStepInput[]): void => {
+    onStepsReordered?.(reordered.map((step) => step.order))
+    onChange(renumberSteps(reordered))
+  }
   const removeStep = (index: number): void => {
-    onChange(renumberSteps(steps.filter((_step, position) => position !== index)))
+    reorderSteps(steps.filter((_step, position) => position !== index))
     setOpenIndex(Math.max(0, index - 1))
   }
   const moveStep = (index: number, direction: MoveDirection): void => {
-    onChange(renumberSteps(moveItem(steps, index, direction)))
+    reorderSteps(moveItem(steps, index, direction))
     setOpenIndex(index + direction)
   }
 

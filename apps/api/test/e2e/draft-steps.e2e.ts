@@ -165,34 +165,54 @@ describe("Teste de gabarito do rascunho (e2e)", () => {
     expect(await countRows(ctx.db, sql`select count(*)::int as n from profiles where id = ${teacher.id} and total_xp = 0`)).toBe(1)
   })
 
-  it("o limite por usuário vale para as duas operações somadas e devolve 429", async () => {
+  it("o limite por usuário conta execuções (verify: uma por projeto; submit: uma) e devolve 429 sem rodar", async () => {
     const teacher = await signUp(ctx.app, "teacher", ctx.db)
     const { limit } = RATE_LIMITS.draftStepGrading
+    // Cada verify deste passo são 2 execuções (solução e código inicial); sobram algumas para o fim.
     const statuses: number[] = []
-    for (let index = 0; index < limit; index++) {
-      const isVerify = index % 2 === 0
-      statuses.push((await teacher.agent.post(isVerify ? VERIFY_URL : SUBMIT_URL, { step: exerciseStep, files: [main(RIGHT_CODE)] })).status)
-    }
+    for (let used = 0; used + 2 < limit; used += 2) statuses.push((await teacher.agent.post(VERIFY_URL, { step: exerciseStep })).status)
     expect(statuses.every((status) => status === 200)).toBe(true)
-    const jobsBefore = ctx.runner.jobs.length
-    expect((await teacher.agent.post(VERIFY_URL, { step: exerciseStep })).status).toBe(429)
+    const remaining = limit - statuses.length * 2
+    expect(ctx.runner.jobs).toHaveLength(limit - remaining)
+
+    // Sem cota para o passo inteiro (com as erradas) nada roda; o que sobrava continua valendo.
+    const wrong = Array.from({ length: remaining }, (_item, index) => ({ name: `errada ${index + 1}`, files: [main(WRONG_CODE)] }))
+    const refused = await teacher.agent.post(VERIFY_URL, { step: { ...exerciseStep, wrong_solutions: wrong } })
+    expect(refused.status).toBe(429)
+    expect(ctx.runner.jobs).toHaveLength(limit - remaining)
+    for (let used = 0; used < remaining; used++) expect((await teacher.agent.post(SUBMIT_URL, { step: exerciseStep, files: [main(RIGHT_CODE)] })).status).toBe(200)
     expect((await teacher.agent.post(SUBMIT_URL, { step: exerciseStep, files: [main(RIGHT_CODE)] })).status).toBe(429)
-    expect(ctx.runner.jobs).toHaveLength(jobsBefore)
+    expect((await teacher.agent.post(VERIFY_URL, { step: exerciseStep })).status).toBe(429)
+    expect(ctx.runner.jobs).toHaveLength(limit)
 
     // O limite é por usuário: outro professor continua testando.
     const other = await signUp(ctx.app, "teacher", ctx.db)
     expect((await other.agent.post(VERIFY_URL, { step: exerciseStep })).status).toBe(200)
   })
 
-  it("executor ocupado: 503 sem detalhe interno, e o pedido não conta no limite", async () => {
+  it("executor ocupado: 503 sem detalhe interno, e as execuções que não rodaram não contam no limite", async () => {
     const teacher = await signUp(ctx.app, "teacher", ctx.db)
     const { limit } = RATE_LIMITS.draftStepGrading
     ctx.runner.failNext(ServiceUnavailable("O corretor está ocupado. Tente de novo em 5 s.", "RUNNER_BUSY", 5), limit)
     for (let index = 0; index < limit; index++) {
       const busy = await teacher.agent.post(VERIFY_URL, { step: exerciseStep })
       expect(busy.status).toBe(503)
+      expect(bodyOf<ApiErrorBody>(busy).code).toBe("RUNNER_BUSY")
       expect(Object.keys(bodyOf<ApiErrorBody>(busy))).not.toContain("stack")
     }
+    // A cota segue inteira: cabem todas as execuções do limite, e só então vem o 429.
+    for (let used = 0; used < limit; used++) expect((await teacher.agent.post(SUBMIT_URL, { step: exerciseStep, files: [main(RIGHT_CODE)] })).status).toBe(200)
+    expect((await teacher.agent.post(SUBMIT_URL, { step: exerciseStep, files: [main(RIGHT_CODE)] })).status).toBe(429)
+  })
+
+  it("um pedido por vez por usuário: o simultâneo recebe 409 e a trava é liberada no fim", async () => {
+    const teacher = await signUp(ctx.app, "teacher", ctx.db)
+    const responses = await Promise.all([1, 2, 3, 4].map(() => teacher.agent.post(VERIFY_URL, { step: exerciseStep })))
+    const statuses = responses.map((response) => response.status)
+    // O executor falso responde na hora, então a sobreposição não é garantida: cada pedido roda (200) ou encontra a trava (409).
+    expect(statuses.every((status) => status === 200 || status === 409)).toBe(true)
+    expect(statuses).toContain(200)
+    for (const response of responses) if (response.status === 409) expect(bodyOf<ApiErrorBody>(response).code).toBe("DRAFT_GRADING_IN_PROGRESS")
     expect((await teacher.agent.post(VERIFY_URL, { step: exerciseStep })).status).toBe(200)
   })
 })

@@ -14,6 +14,21 @@ export interface WrongSolutionDraft {
 /** Soluções erradas de cada passo, pela `order` do passo. */
 export type WrongSolutionsByStep = Readonly<Record<number, readonly WrongSolutionDraft[]>>
 
+/**
+ * Acompanha a renumeração dos passos (remover ou mover): cada lista de soluções erradas vai para a
+ * `order` nova do seu passo e as do passo removido são descartadas.
+ *
+ * @param previousOrders para cada posição da lista nova de passos, a `order` que o passo dali tinha.
+ */
+export function remapWrongSolutions(wrongSolutions: WrongSolutionsByStep, previousOrders: readonly number[]): WrongSolutionsByStep {
+  const remapped: Record<number, readonly WrongSolutionDraft[]> = {}
+  previousOrders.forEach((previousOrder, index) => {
+    const drafts = wrongSolutions[previousOrder]
+    if (drafts && drafts.length > 0) remapped[index + 1] = drafts
+  })
+  return remapped
+}
+
 /** O que o teste do gabarito lê do formulário da lição (o estado ainda não salvo). */
 export interface GabaritoLesson {
   runtime: LessonRuntime
