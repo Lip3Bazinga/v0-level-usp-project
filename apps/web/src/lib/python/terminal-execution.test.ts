@@ -9,6 +9,13 @@ import { createTerminalRuntime, type TerminalBridge, type TerminalCommandResult,
  */
 const PYODIDE_LOAD_TIMEOUT_MS = 60_000
 
+/*
+ * A suspensão de pilha depende do JSPI do motor JavaScript (`WebAssembly.Suspending`): existe no
+ * Node 24+ e falta no Node 22 do CI. Sem ele, os testes da suspensão são pulados e o runtime padrão
+ * tem que cair na reexecução (teste próprio abaixo).
+ */
+const HAS_JSPI = "Suspending" in WebAssembly
+
 const main = (content: string): { path: string; content: string } => ({ path: "main.py", content })
 
 interface Recorder {
@@ -115,8 +122,17 @@ describe("terminal Python: python arquivo.py", () => {
 describe("terminal Python: input()", () => {
   const program = "nome = input('Nome: ')\nidade = int(input('Idade: '))\nprint(f'{nome} tem {idade}')"
 
-  it("suspensão de pilha: espera cada linha sem refazer o programa", async () => {
+  it.skipIf(!HAS_JSPI)("suspensão de pilha: espera cada linha sem refazer o programa", async () => {
     expect(suspending.canSuspendForInput).toBe(true)
+    recorder.answers.push("Ana", "20")
+    const result = await suspending.runScript([main(program)], "main.py")
+    expect(result.status).toBe("ok")
+    expect(recorder.stdout()).toBe("Nome: Idade: Ana tem 20\n")
+    expect(recorder.requests()).toBe(2)
+  })
+
+  it.skipIf(HAS_JSPI)("sem JSPI, o runtime padrão cai na reexecução", async () => {
+    expect(suspending.canSuspendForInput).toBe(false)
     recorder.answers.push("Ana", "20")
     const result = await suspending.runScript([main(program)], "main.py")
     expect(result.status).toBe("ok")
@@ -227,7 +243,7 @@ describe("terminal Python: REPL", () => {
     expect(recorder.stdout()).toBe("'util'\n")
   })
 
-  it("input() espera a linha quando há suspensão de pilha", async () => {
+  it.skipIf(!HAS_JSPI)("input() espera a linha quando há suspensão de pilha", async () => {
     await suspending.startRepl([main("")])
     recorder.answers.push("Bia")
     await suspending.pushRepl("nome = input('? ')")
