@@ -24,6 +24,7 @@ import { ProjectLockedNotice } from "./project-locked-notice"
 import { PredictionStep } from "./prediction-step"
 import { QuizStep } from "./quiz-step"
 import { ReadingStep } from "./reading-step"
+import { RunButtonGateProvider, useRunButtonGate } from "./run-button-gate"
 import { StepSidebar } from "./step-sidebar"
 
 interface GuidedLessonLayoutProps {
@@ -45,13 +46,15 @@ const PROJECT_LOCKED_CODE = "PROJECT_LOCKED"
 /**
  * Lição guiada em passos (formato Codecademy): lista de passos com a situação de cada um e
  * o passo atual (leitura, exercício, previsão ou quiz). Todo veredito, XP e conclusão vêm da API; a
- * tela só reflete o que ela devolveu. Lições sem passos usam as telas clássicas.
+ * tela só reflete o que ela devolveu. Lições sem passos usam as telas clássicas. O bloqueio do
+ * "Executar" por nível (`useRunButtonGate`) é calculado aqui e entregue aos passos de exercício.
  */
 export function GuidedLessonLayout({ lesson, allLessons, currentIndex }: GuidedLessonLayoutProps): React.JSX.Element {
   const router = useRouter()
   const { profile } = useAuth()
   const { applyCompletion, isCompleted, isLoading: isProgressLoading } = useProgress()
   const isGamified = useGamificationVisible()
+  const runGate = useRunButtonGate(lesson.run_button_min_level)
   const navigation = useLessonNavigation(allLessons, currentIndex, lesson)
   const steps = lesson.steps
   // `null`: visitante sem sessão — vê a lição, e a primeira ação o leva ao login.
@@ -199,17 +202,19 @@ export function GuidedLessonLayout({ lesson, allLessons, currentIndex }: GuidedL
               <ReadingStep step={step} isCompleted={stepProgress?.status === "completed"} isBusy={isBusy} onContinue={() => void handleReadingContinue()} />
             )}
             {step.kind === "exercicio" && (
-              <ExerciseStep
-                key={step.id}
-                lesson={lesson}
-                step={step}
-                initialFiles={readStepDraft(step.id) ?? initialStepFiles(steps, stepIndex)}
-                progress={stepProgress}
-                onProgress={(patch) => patchProgress(step.id, patch)}
-                onVerified={handleVerified}
-                onContinue={goToNextStep}
-                onUnauthorized={goToLogin}
-              />
+              <RunButtonGateProvider gate={runGate}>
+                <ExerciseStep
+                  key={step.id}
+                  lesson={lesson}
+                  step={step}
+                  initialFiles={readStepDraft(step.id) ?? initialStepFiles(steps, stepIndex)}
+                  progress={stepProgress}
+                  onProgress={(patch) => patchProgress(step.id, patch)}
+                  onVerified={handleVerified}
+                  onContinue={goToNextStep}
+                  onUnauthorized={goToLogin}
+                />
+              </RunButtonGateProvider>
             )}
             {step.kind === "previsao" && (
               <PredictionStep

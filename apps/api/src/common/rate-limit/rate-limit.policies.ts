@@ -52,6 +52,18 @@ export const RATE_LIMITS = {
   },
   /** Dicas e soluções reveladas por minuto (cada uma é uma escrita no progresso). */
   stepReveal: { scope: "step.reveal", limit: 30, windowMs: MS_PER_MINUTE },
+  /**
+   * "Testar gabarito" e "Verificar" da prévia do professor (passo do rascunho, nada é gravado). Conta
+   * EXECUÇÕES no executor que os alunos também usam, não pedidos: testar um passo consome uma pela
+   * solução, uma pelo código inicial e uma por solução errada (até 7); o Verificar da prévia, uma.
+   * 60/min são cinco vezes o limite de um aluno e cobrem uns 30 passos testados em seguida.
+   */
+  draftStepGrading: {
+    scope: "teacher.draft_step",
+    limit: 60,
+    windowMs: MS_PER_MINUTE,
+    message: "Limite de execuções de teste de gabarito atingido. Aguarde um minuto e teste de novo.",
+  },
   contentImport: { scope: "admin.content_import", limit: 20, windowMs: MS_PER_HOUR, message: TRY_LATER },
   adminInvite: { scope: "admin.invite", limit: 50, windowMs: MS_PER_HOUR, message: "Muitos convites seguidos. Aguarde um pouco." },
 } as const satisfies Record<string, RateLimitPolicy>

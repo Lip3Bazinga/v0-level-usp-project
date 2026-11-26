@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common"
-import { DEFAULT_ENTRY_FILE, DEFAULT_RUNNER_LIMITS, testCasesSchema, type GradeResult, type LessonRuntime, type ProjectFile, type TestCase } from "@levelusp/contracts"
+import { DEFAULT_ENTRY_FILE, DEFAULT_PYTHON_RUNTIME, DEFAULT_RUNNER_LIMITS, runtimeSupportsProbe, testCasesSchema, type GradeResult, type LessonRuntime, type ProjectFile, type TestCase } from "@levelusp/contracts"
 import { Unprocessable } from "@/common/errors/app-error"
 import { MS_PER_SECOND } from "@/common/time/time"
 import { CODE_RUNNER, type CodeRunner } from "@/infra/runner/code-runner"
@@ -19,7 +19,7 @@ export interface GradedSubmission extends GradeResult {
 /** Motor e pacotes da lição; ausentes = CPython WASI sem bibliotecas. */
 export interface GradingEngineOptions {
   runtime?: LessonRuntime
-  /** Pacotes do Pyodide (`numpy`, `pandas`…); só valem para `python-dados`. */
+  /** Bibliotecas da lição (`numpy`, `pandas`, `torch`…); só valem para `python-dados` e `python-completo`. */
   libraries?: readonly string[]
   /** Orçamento de execução da correção (2–25 s). Não confundir com `lessons.time_limit` (minutos de estudo). */
   timeoutSeconds?: number
@@ -35,6 +35,8 @@ export class GradingService {
    * compara aqui (o executor nunca vê os valores esperados).
    *
    * @throws AppError 422 `INVALID_TESTS` quando o gabarito gravado não passa no schema;
+   *         422 `UNSUPPORTED_CASES` quando a lição `python-completo` tem caso `unittest` ou `legacy`
+   *         (recusado aqui, antes de qualquer coisa ir ao executor: ver `RUNTIMES_WITHOUT_STRICT_MODE`);
    *         503 quando o executor está fora do ar, ocupado ou respondeu fora do formato.
    */
   async grade(files: ProjectFile[], rawCases: TestCase[], options: GradingEngineOptions = {}): Promise<GradedSubmission> {
@@ -44,13 +46,20 @@ export class GradingService {
     if (!parsed.success) throw Unprocessable("O gabarito desta lição está inválido. Avise o professor.", "INVALID_TESTS")
     const cases = parsed.data
     const timeoutMs = Math.min(Math.max(timeoutSeconds, MIN_TIMEOUT_SECONDS), MAX_TIMEOUT_SECONDS) * MS_PER_SECOND
+    const probes = buildProbes(cases)
+    // O motor python-completo não tem modo estrito: a referência do professor (unittest) e os
+    // asserts legados ficariam ao alcance do aluno dentro do contêiner. Nada disso sai da API.
+    const runtime = options.runtime ?? DEFAULT_PYTHON_RUNTIME
+    if (probes.some((probe) => !runtimeSupportsProbe(runtime, probe.kind))) {
+      throw Unprocessable("Esta lição usa um tipo de verificação (unittest ou legado) que o motor python-completo não aceita. Avise o professor.", "UNSUPPORTED_CASES")
+    }
     const result = await this.runner.run({
       files,
       entry: DEFAULT_ENTRY_FILE,
-      probes: buildProbes(cases),
+      probes,
       limits: { timeoutMs, memoryMb: DEFAULT_RUNNER_LIMITS.memoryMb },
-      // Só as lições de dados mandam motor e pacotes: o job das lições de Python puro fica como sempre foi.
-      ...(options.runtime === "python-dados" ? { runtime: options.runtime, libraries: [...(options.libraries ?? [])] } : {}),
+      // Só as lições com bibliotecas (python-dados, python-completo) mandam motor e pacotes: o job das lições de Python puro fica como sempre foi.
+      ...(options.runtime !== undefined && options.runtime !== "python" ? { runtime: options.runtime, libraries: [...(options.libraries ?? [])] } : {}),
     })
     return { ...grade(cases, result.observations, result.durationMs), engine: `${result.engine.python} / ${result.engine.runtime}` }
   }

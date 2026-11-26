@@ -63,6 +63,7 @@ export function toCourse(course: CourseRow, aggregates: CourseAggregates = {}): 
     slug: course.slug,
     prerequisite_course_id: course.prerequisiteCourseId,
     sequential: course.sequential,
+    run_button_min_level: course.runButtonMinLevel,
     ...(aggregates.lessonCount !== undefined ? { lesson_count: aggregates.lessonCount } : {}),
     ...(aggregates.enrolled !== undefined ? { enrolled: aggregates.enrolled } : {}),
   }
@@ -82,9 +83,10 @@ export function toLesson(lesson: PublicLessonRow): Lesson {
  * Lição como o ALUNO vê. Lista os campos um a um (sem spread) para que o
  * gabarito (`testCases`, `solutionFiles`) nunca seja serializado por acidente,
  * mesmo recebendo a linha cheia. `steps` são os passos públicos da lição guiada
- * (já sem gabarito), carregados por quem monta a resposta.
+ * (já sem gabarito), carregados por quem monta a resposta. `runButtonMinLevel` é o limite do
+ * curso da lição para o "Executar"; só entra na resposta quando informado.
  */
-export function toLessonWithSteps(lesson: PublicLessonRow, steps: LessonStep[]): Lesson {
+export function toLessonWithSteps(lesson: PublicLessonRow, steps: LessonStep[], runButtonMinLevel?: number | null): Lesson {
   return {
     id: lesson.id,
     title: lesson.title,
@@ -112,6 +114,7 @@ export function toLessonWithSteps(lesson: PublicLessonRow, steps: LessonStep[]):
     objectives: lesson.objectives,
     solution_after_attempts: lesson.solutionAfterAttempts,
     steps,
+    ...(runButtonMinLevel !== undefined ? { run_button_min_level: runButtonMinLevel } : {}),
   }
 }
 

@@ -8,7 +8,7 @@ import { buildPatch, type PatchMapping } from "@/common/mapping/patch"
 import { sanitizeRichContent } from "@/common/sanitize/rich-content"
 import { StorageService } from "@/infra/storage/storage.service"
 import { AuditService } from "../audit/audit.service"
-import { checkReorder, nextOrder } from "./catalog.domain"
+import { canSetRunButtonLevel, checkReorder, nextOrder } from "./catalog.domain"
 import { toCourse, toCourseWithAggregates, toLesson } from "./catalog.mapper"
 import { CoursesRepository } from "./courses.repository"
 
@@ -27,6 +27,16 @@ const COURSE_PATCH: PatchMapping<CourseUpdateInput, CourseInsert> = {
   slug: (slug) => ({ slug }),
   prerequisite_course_id: (prerequisiteCourseId) => ({ prerequisiteCourseId }),
   sequential: (sequential) => ({ sequential }),
+  run_button_min_level: (runButtonMinLevel) => ({ runButtonMinLevel }),
+}
+
+/**
+ * Barra a mudança do nível que libera o "Executar" por quem não é admin (ver `canSetRunButtonLevel`).
+ *
+ * @throws AppError 403 quando quem não é admin tenta mudar o valor.
+ */
+function assertCanSetRunButtonLevel(user: AuthUser, requested: number | null | undefined, current: number | null): void {
+  if (!canSetRunButtonLevel(user.role, requested, current)) throw Forbidden("Só um admin pode mudar o nível que libera o Executar.")
 }
 
 /** Cursos: catálogo público, autoria (dono ou admin) e matrículas. */
@@ -67,23 +77,32 @@ export class CoursesService {
   }
 
   /**
-   * Cria o curso como rascunho, com o usuário como dono.
+   * Cria o curso como rascunho, com o usuário como dono. Curso que já nasce com
+   * `run_button_min_level` (só admin) fica na auditoria, como a mudança em {@link update}.
    *
-   * @throws AppError 400 `INVALID_IMAGE_URL`, 403 quando a capa é uma imagem enviada por outra pessoa.
+   * @throws AppError 400 `INVALID_IMAGE_URL`, 403 quando a capa é uma imagem enviada por outra pessoa
+   * ou quando quem não é admin define `run_button_min_level`.
    */
   async create(user: AuthUser, input: CourseInput): Promise<Course> {
+    assertCanSetRunButtonLevel(user, input.run_button_min_level, null)
     await this.storage.assertUsableUrl(input.cover_image_url, user.id)
     const course = await this.repo.create({ ...buildPatch(input, COURSE_PATCH), title: input.title, createdBy: user.id, published: false })
+    if (course.runButtonMinLevel !== null) {
+      await this.audit.log(user, "course.run_button_min_level", `course:${course.id}`, { title: course.title, from: null, to: course.runButtonMinLevel })
+    }
     return toCourse(course, { lessonCount: 0 })
   }
 
   /**
-   * Atualiza os campos enviados; trocar ou remover a capa apaga a imagem antiga do disco.
+   * Atualiza os campos enviados; trocar ou remover a capa apaga a imagem antiga do disco. Mudar o
+   * nível que libera o "Executar" (`run_button_min_level`) é só do admin e fica na auditoria.
    *
-   * @throws AppError 404 curso inexistente/invisível, 403 quem não é dono nem admin ou capa alheia.
+   * @throws AppError 404 curso inexistente/invisível, 403 quem não é dono nem admin, capa alheia
+   * ou `run_button_min_level` alterado por quem não é admin.
    */
   async update(user: AuthUser, id: string, input: CourseUpdateInput): Promise<Course> {
     const course = await this.findManageable(user, id)
+    assertCanSetRunButtonLevel(user, input.run_button_min_level, course.runButtonMinLevel)
     const isChangingCover = input.cover_image_url !== undefined
     if (isChangingCover) await this.storage.assertUsableUrl(input.cover_image_url, user.id)
     const patch = buildPatch(input, COURSE_PATCH)
@@ -91,6 +110,9 @@ export class CoursesService {
     // Capa trocada ou removida: apaga a imagem antiga do disco.
     if (isChangingCover && course.coverImageUrl && course.coverImageUrl !== input.cover_image_url) {
       await this.storage.delete(course.coverImageUrl, course.createdBy)
+    }
+    if (input.run_button_min_level !== undefined && input.run_button_min_level !== course.runButtonMinLevel) {
+      await this.audit.log(user, "course.run_button_min_level", `course:${id}`, { title: course.title, from: course.runButtonMinLevel, to: input.run_button_min_level })
     }
     return this.get(user, id)
   }

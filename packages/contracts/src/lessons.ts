@@ -17,9 +17,12 @@ export const lessonTypeSchema = z.enum(LESSON_TYPES)
  */
 export type LessonType = z.infer<typeof lessonTypeSchema>
 
-export const LESSON_RUNTIMES = ["python", "python-dados"] as const
+export const LESSON_RUNTIMES = ["python", "python-dados", "python-completo"] as const
 export const lessonRuntimeSchema = z.enum(LESSON_RUNTIMES)
-/** Motor que corrige a lição: CPython WASI (`python`) ou Pyodide com numpy/pandas/scikit-learn (`python-dados`). */
+/**
+ * Motor que corrige a lição: CPython WASI (`python`), Pyodide com numpy/pandas/scikit-learn
+ * (`python-dados`) ou CPython nativo em contêiner gVisor, com PyTorch (`python-completo`).
+ */
 export type LessonRuntime = z.infer<typeof lessonRuntimeSchema>
 
 /** Objetivos de aprendizagem por lição. */
@@ -60,6 +63,11 @@ export interface Lesson {
   solution_after_attempts: number
   /** Passos da lição guiada, na ordem; vazio nas lições clássicas (`coding`/`theory`/`quiz`). */
   steps: LessonStep[]
+  /**
+   * Limite do curso para liberar o "Executar" (`courses.run_button_min_level`). Só vem em
+   * `GET /lessons/:id`; ausente ou null = `RUN_BUTTON_MIN_LEVEL` (ver `isRunButtonUnlocked`).
+   */
+  run_button_min_level?: number | null
 }
 
 /** Lição como o professor dono (ou admin) vê: inclui os casos de teste e a solução de referência. */

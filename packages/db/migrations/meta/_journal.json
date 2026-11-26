@@ -50,6 +50,13 @@
       "when": 1795723501427,
       "tag": "0006_eventos_so_acrescimo",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795726803384,
+      "tag": "0007_executar_por_nivel_e_python_completo",
+      "breakpoints": true
     }
   ]
 }

@@ -2,6 +2,7 @@ import { AccountModule } from "./account/account.module"
 import { AdminModule } from "./admin/admin.module"
 import { AuditModule } from "./audit/audit.module"
 import { AuthModule } from "./auth/auth.module"
+import { AuthoringModule } from "./authoring/authoring.module"
 import { CatalogModule } from "./catalog/catalog.module"
 import { CertificatesModule } from "./certificates/certificates.module"
 import { ContentModule } from "./content/content.module"
@@ -42,4 +43,5 @@ export const FEATURE_MODULES = [
   TeacherRequestsModule,
   AdminModule,
   ContentModule,
+  AuthoringModule,
 ]

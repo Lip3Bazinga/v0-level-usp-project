@@ -1,9 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
-import { sql } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 import { courses, libraryCatalog, notifications } from "@levelusp/db"
-import type { ApiErrorBody, LibraryCatalog, LibraryRequest, Note, Notification, SessionResponse, TeacherApproval } from "@levelusp/contracts"
+import { LIBRARY_MANIFEST, type ApiErrorBody, type LibraryCatalog, type LibraryManifestPending, type LibraryRequest, type Note, type Notification, type SessionResponse, type TeacherApproval } from "@levelusp/contracts"
 import { agent, bodyOf, countRows, createLesson, createTestApp, signUp, type TestContext } from "./harness"
 import { requireRow } from "@/common/database/rows"
+import { LibraryCatalogSync } from "@/modules/library/library-catalog.sync"
 
 describe("Notas, notificações, bibliotecas e solicitações de professor (e2e)", () => {
   let ctx: TestContext
@@ -81,6 +82,27 @@ describe("Notas, notificações, bibliotecas e solicitações de professor (e2e)
   })
 
   describe("bibliotecas", () => {
+    it("o catálogo deriva do manifesto: sincroniza sem tocar em active e esconde do professor o que não está nele", async () => {
+      const admin = await signUp(ctx.app, "admin", ctx.db)
+      const sync = ctx.app.get(LibraryCatalogSync)
+      await sync.sync()
+      const manifestNames = LIBRARY_MANIFEST.map((entry) => entry.name).sort()
+      expect(bodyOf<LibraryCatalog[]>(await agent(ctx.app).get("/api/library")).map((library) => library.name).sort()).toEqual(manifestNames)
+
+      const numpy = requireRow(await ctx.db.select().from(libraryCatalog).where(eq(libraryCatalog.name, "numpy")), "library_catalog")
+      expect((await admin.agent.patch(`/api/admin/library/${numpy.id}`, { active: false })).status).toBe(204)
+      await ctx.db.update(libraryCatalog).set({ displayName: "Alterado à mão" }).where(eq(libraryCatalog.name, "numpy"))
+      await ctx.db.insert(libraryCatalog).values({ name: "fora-do-manifesto", displayName: "Fora" })
+      await sync.sync()
+
+      const after = requireRow(await ctx.db.select().from(libraryCatalog).where(eq(libraryCatalog.name, "numpy")), "library_catalog")
+      expect(after).toMatchObject({ active: false, displayName: "NumPy", id: numpy.id })
+      const publicNames = bodyOf<LibraryCatalog[]>(await agent(ctx.app).get("/api/library")).map((library) => library.name)
+      expect(publicNames).not.toContain("numpy")
+      expect(publicNames).not.toContain("fora-do-manifesto")
+      expect(bodyOf<LibraryCatalog[]>(await admin.agent.get("/api/admin/library")).map((library) => library.name)).toContain("fora-do-manifesto")
+    })
+
     it("catálogo público mostra só as ativas; admin vê todas e alterna", async () => {
       const admin = await signUp(ctx.app, "admin", ctx.db)
       const numpy = requireRow(await ctx.db.insert(libraryCatalog).values({ name: "numpy", displayName: "NumPy", category: "data-science" }).returning(), "library_catalog")
@@ -95,16 +117,21 @@ describe("Notas, notificações, bibliotecas e solicitações de professor (e2e)
       expect(await countRows(ctx.db, sql`select count(*)::int as n from audit_log where action = 'library.deactivate'`)).toBe(1)
     })
 
-    it("professor solicita; admin aprova e a biblioteca entra no catálogo", async () => {
+    it("professor solicita; admin aprova; a biblioteca só entra no catálogo por PR no manifesto", async () => {
       const student = await signUp(ctx.app)
       const teacher = await signUp(ctx.app, "teacher", ctx.db)
       const admin = await signUp(ctx.app, "admin", ctx.db)
-      const input = { library_name: "pandas", display_name: "Pandas", use_case: "Aula de dados" }
+      const input = { library_name: "xgboost", display_name: "XGBoost", use_case: "Aula de boosting" }
       expect((await student.agent.post("/api/library/requests", input)).status).toBe(403)
+
+      // Biblioteca que já está no manifesto não precisa de pedido.
+      const available = await teacher.agent.post("/api/library/requests", { library_name: "Pandas" })
+      expect(available.status).toBe(409)
+      expect(bodyOf<ApiErrorBody>(available).code).toBe("ALREADY_AVAILABLE")
 
       const libraryRequest = await teacher.agent.post("/api/library/requests", input)
       expect(libraryRequest.status).toBe(201)
-      expect(libraryRequest.body).toMatchObject({ requested_by: teacher.id, status: "pending", library_name: "pandas" })
+      expect(libraryRequest.body).toMatchObject({ requested_by: teacher.id, status: "pending", library_name: "xgboost" })
       expect((await teacher.agent.post("/api/library/requests", input)).status).toBe(409)
       expect((await teacher.agent.get("/api/me/library/requests")).body).toHaveLength(1)
 
@@ -113,20 +140,48 @@ describe("Notas, notificações, bibliotecas e solicitações de professor (e2e)
       const [listed] = bodyOf<LibraryRequest[]>(all)
       expect(listed?.id).toBe(requested.id)
       expect(listed?.requester_name).toEqual(expect.any(String))
+      // Ainda pendente: nada aguarda PR; e a lista é só do admin.
+      expect(bodyOf<LibraryManifestPending[]>(await admin.agent.get("/api/admin/library/manifest-pending"))).toEqual([])
+      expect((await teacher.agent.get("/api/admin/library/manifest-pending")).status).toBe(403)
+      expect((await student.agent.get("/api/admin/library/manifest-pending")).status).toBe(403)
 
       const review = await admin.agent.post(`/api/admin/library/requests/${requested.id}/review`, {
         status: "approved",
         review_notes: "ok",
-        catalog: { display_name: "Pandas", category: "data-science" },
+        catalog: { display_name: "XGBoost", category: "ml" },
       })
       expect(review.status).toBe(200)
       expect(review.body).toMatchObject({ status: "approved", reviewed_by: admin.id, review_notes: "ok" })
-      expect((await agent(ctx.app).get("/api/library")).body).toEqual([expect.objectContaining({ name: "pandas", display_name: "Pandas", added_by: admin.id })])
+      const snippet = bodyOf<LibraryRequest>(review).manifest_snippet ?? ""
+      expect(snippet).toContain('name: "xgboost"')
+      expect(snippet).toContain('category: "ml"')
+      expect(snippet).toContain('version: "?"')
+      // Produção não foi alterada: nem o catálogo público nem a tabela ganharam a biblioteca.
+      expect(bodyOf<LibraryCatalog[]>(await agent(ctx.app).get("/api/library")).map((library) => library.name)).not.toContain("xgboost")
+      expect(await countRows(ctx.db, sql`select count(*)::int as n from library_catalog where name = 'xgboost'`)).toBe(0)
       expect(await countRows(ctx.db, sql`select count(*)::int as n from notifications where user_id = ${teacher.id}`)).toBe(1)
       expect(await countRows(ctx.db, sql`select count(*)::int as n from audit_log where action = 'library.approve'`)).toBe(1)
 
+      // Aprovada e fora do manifesto: aparece para o admin/desenvolvedor com o rascunho da entrada.
+      const awaiting = bodyOf<LibraryManifestPending[]>(await admin.agent.get("/api/admin/library/manifest-pending"))
+      expect(awaiting).toHaveLength(1)
+      expect(awaiting[0]).toMatchObject({ request_id: requested.id, library_name: "xgboost", use_case: "Aula de boosting" })
+      expect(awaiting[0]?.requester_name).toEqual(expect.any(String))
+      expect(awaiting[0]?.manifest_snippet).toContain('name: "xgboost"')
+
       const again = await admin.agent.post(`/api/admin/library/requests/${requested.id}/review`, { status: "rejected" })
       expect(again.status).toBe(409)
+    })
+
+    it("pedido recusado não gera pendência de manifesto nem rascunho", async () => {
+      const teacher = await signUp(ctx.app, "teacher", ctx.db)
+      const admin = await signUp(ctx.app, "admin", ctx.db)
+      const requested = bodyOf<LibraryRequest>(await teacher.agent.post("/api/library/requests", { library_name: "lightgbm" }))
+      const review = await admin.agent.post(`/api/admin/library/requests/${requested.id}/review`, { status: "rejected", review_notes: "pesada demais" })
+      expect(review.status).toBe(200)
+      expect(review.body).toMatchObject({ status: "rejected" })
+      expect(review.body).not.toHaveProperty("manifest_snippet")
+      expect(await admin.agent.get("/api/admin/library/manifest-pending")).toMatchObject({ body: [] })
     })
   })
 

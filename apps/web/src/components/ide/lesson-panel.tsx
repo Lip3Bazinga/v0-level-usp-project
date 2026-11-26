@@ -41,6 +41,8 @@ interface LessonPanelProps {
   canVerify?: boolean
   /** A correção do servidor aprovou a resposta nesta sessão. */
   isVerified?: boolean
+  /** Motivo do bloqueio do "Executar"; quando presente, substitui a orientação de clicar no botão. */
+  runLockedMessage?: string | null
 }
 
 function HintAccordion({ hint }: { hint: string }): React.JSX.Element {
@@ -109,6 +111,7 @@ export function LessonPanel({
   isVerifying,
   canVerify = true,
   isVerified,
+  runLockedMessage,
 }: LessonPanelProps): React.JSX.Element {
   // Sem checkpoints, `[].every` seria true e a lição apareceria como verificada de cara.
   const areCheckpointsDone = isVerified ?? (checkpoints.length > 0 && checkpoints.every((checkpoint) => checkpoint.isCompleted))
@@ -169,7 +172,7 @@ export function LessonPanel({
               <StepItem
                 isDone={hasRun}
                 label="Executar o código"
-                sublabel='Clique em "Executar" ou pressione Ctrl+Enter'
+                sublabel={runLockedMessage ?? 'Clique em "Executar" ou pressione Ctrl+Enter'}
               />
               <StepItem
                 isDone={hasOutput}

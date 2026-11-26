@@ -1,6 +1,6 @@
 "use client"
 
-import type { ProjectFile } from "@levelusp/contracts"
+import { splitBrowserLibraries, type ProjectFile } from "@levelusp/contracts"
 import { MS_PER_SECOND, PYTHON_EXECUTION_TIMEOUT_MS } from "@/lib/constants"
 import { getWorkerStatus, postToWorker, restartWorker, subscribeToWorker } from "./pyodide-worker"
 import type { ProjectTrace } from "./project-execution"
@@ -41,7 +41,8 @@ export function requestTrace({ files, entryPath, stdin = "", packages = [] }: Tr
     let hasRequestedInstall = false
     let hasPosted = false
     // Bibliotecas pedidas e ainda sem confirmação do worker.
-    const pendingPackages = new Set(packages)
+    // Só o que o Pyodide do navegador tem (o resto só existe na correção do servidor).
+    const pendingPackages = new Set(splitBrowserLibraries(packages).browser)
     let unsubscribe = (): void => undefined
 
     const finish = (settle: () => void): void => {

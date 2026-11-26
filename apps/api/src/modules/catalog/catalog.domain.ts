@@ -1,4 +1,4 @@
-import type { LessonType } from "@levelusp/contracts"
+import { checkLibraries, type LessonRuntime, type LessonType, type UserRole } from "@levelusp/contracts"
 
 /** Slug usado quando o título não tem nenhum caractere aproveitável. */
 export const DEFAULT_SLUG = "licao"
@@ -56,7 +56,7 @@ export function nextOrder(orders: readonly number[]): number {
 
 /** Por que uma lição ainda não pode ser publicada (o `code` vai na resposta 422). */
 export interface PublishBlocker {
-  code: "NO_TESTS" | "NO_QUESTIONS" | "NO_STEPS"
+  code: "NO_TESTS" | "NO_QUESTIONS" | "NO_STEPS" | "LIBRARY_PENDING" | "LIBRARY_RUNTIME"
   message: string
 }
 
@@ -66,11 +66,15 @@ export interface PublishCandidate {
   testCaseCount: number
   quizQuestionCount: number
   stepCount: number
+  runtime: LessonRuntime
+  libraries: readonly string[]
 }
 
 /**
  * Uma lição só pode ficar publicada se o aluno conseguir concluí-la:
- * exercício de código precisa de gabarito; quiz precisa de questões; lição guiada precisa de passos.
+ * exercício de código precisa de gabarito; quiz precisa de questões; lição guiada precisa de passos;
+ * e toda biblioteca dela precisa estar no manifesto (`library-manifest.ts`) com motor para o runtime
+ * da lição — biblioteca pedida e ainda não liberada deixa a lição como rascunho.
  */
 export function publishBlocker(lesson: PublishCandidate): PublishBlocker | null {
   if (lesson.lessonType === "coding" && lesson.testCaseCount === 0) {
@@ -82,10 +86,28 @@ export function publishBlocker(lesson: PublishCandidate): PublishBlocker | null 
   if (lesson.lessonType === "guided" && lesson.stepCount === 0) {
     return { code: "NO_STEPS", message: "Cadastre ao menos um passo antes de publicar a lição guiada." }
   }
+  const { pending, unavailable } = checkLibraries(lesson.runtime, lesson.libraries)
+  if (pending.length > 0) {
+    return {
+      code: "LIBRARY_PENDING",
+      message: `Biblioteca ainda não liberada: ${pending.join(", ")}. Solicite a liberação e publique a lição depois que ela for aprovada, ou remova a biblioteca.`,
+    }
+  }
+  if (unavailable.length > 0) {
+    return { code: "LIBRARY_RUNTIME", message: `Biblioteca sem suporte no motor desta lição: ${unavailable.join(", ")}.` }
+  }
   return null
 }
 
 /** Taxa de aprovação (0–1) das submissões; null quando não há submissões. */
 export function passRate(passed: number, total: number): number | null {
   return total > 0 ? passed / total : null
+}
+
+/**
+ * Se o usuário pode gravar `requested` como nível que libera o "Executar" do curso. O ajuste é do
+ * admin; o professor dono pode omitir o campo ou reenviar o valor atual, mas não mudá-lo.
+ */
+export function canSetRunButtonLevel(role: UserRole, requested: number | null | undefined, current: number | null): boolean {
+  return requested === undefined || requested === current || role === "admin"
 }

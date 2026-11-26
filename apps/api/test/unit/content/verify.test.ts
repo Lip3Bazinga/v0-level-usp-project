@@ -345,6 +345,7 @@ describe("usesHeavyProfile", () => {
     expect(usesHeavyProfile({ ...lesson, runtime: "python-dados", libraries: ["numpy", "pandas"] })).toBe(false)
     expect(usesHeavyProfile({ ...lesson, runtime: "python-dados", libraries: ["numpy", "scikit-learn"] })).toBe(true)
     expect(usesHeavyProfile({ ...lesson, runtime: "python-dados", libraries: ["Matplotlib"] })).toBe(true)
+    expect(usesHeavyProfile({ ...lesson, runtime: "python-completo", libraries: ["numpy"] })).toBe(true)
   })
 
   it("verifyBundle roda um lote por vez numa lição do perfil ml", async () => {

@@ -17,6 +17,7 @@ import type { LessonFormState } from "../lesson-form"
 import { createPreviewBackend, PreviewRunError, type PreviewPythonRunner } from "./preview-backend"
 import { PreviewErrorBoundary } from "./preview-error-boundary"
 import { buildPreviewSteps, contentWarnings, gradeQuizLocally, mermaidBlocks, stepSeedKey } from "./preview-model"
+import { createPreviewVerify, type PreviewEngine } from "./preview-verify"
 
 /** Id da lição na prévia quando ela ainda não foi salva. */
 const UNSAVED_LESSON_ID = "previa"
@@ -79,13 +80,19 @@ interface QuizState {
   result: StepQuizResult
 }
 
-/** O que o backend (criado uma vez) precisa enxergar de mais novo: os passos do editor e o Python do navegador. */
+/** O que o backend (criado uma vez) precisa enxergar de mais novo: os passos do editor, o motor da lição e o Python do navegador. */
 class PreviewBridge {
   byId: ReadonlyMap<string, LessonStepInput>
+  engine: PreviewEngine
   runner: PreviewPythonRunner | null = null
 
-  constructor(byId: ReadonlyMap<string, LessonStepInput>) {
+  constructor(byId: ReadonlyMap<string, LessonStepInput>, engine: PreviewEngine) {
     this.byId = byId
+    this.engine = engine
+  }
+
+  setEngine(engine: PreviewEngine): void {
+    this.engine = engine
   }
 
   setSteps(byId: ReadonlyMap<string, LessonStepInput>): void {
@@ -102,16 +109,21 @@ function GuidedPreview({ form, activeStepIndex, lessonId }: LessonPreviewPanePro
   const id = lessonId ?? UNSAVED_LESSON_ID
   const { steps, byId } = useMemo(() => buildPreviewSteps(form.steps, id), [form.steps, id])
   // O backend vive o tempo todo da prévia (guarda dicas reveladas e tentativas) e lê os passos e o Python mais novos por esta ponte.
-  const [bridge] = useState(() => new PreviewBridge(byId))
+  const [bridge] = useState(() => new PreviewBridge(byId, { runtime: form.runtime, libraries: form.libraries }))
   const [backend] = useState(() =>
     createPreviewBackend(
       () => bridge.byId,
       (files, entryPath) => (bridge.runner ? bridge.runner(files, entryPath) : Promise.reject(new PreviewRunError(PYTHON_LOADING_MESSAGE))),
+      // "Verificar": a API corrige o passo do rascunho (casos e motor do formulário), sem gravar nada.
+      { verify: createPreviewVerify(() => bridge.engine) },
     ),
   )
   useEffect(() => {
     bridge.setSteps(byId)
   }, [bridge, byId])
+  useEffect(() => {
+    bridge.setEngine({ runtime: form.runtime, libraries: form.libraries })
+  }, [bridge, form.runtime, form.libraries])
   const setRunner = useCallback((runner: PreviewPythonRunner | null): void => {
     bridge.setRunner(runner)
   }, [bridge])
@@ -228,7 +240,8 @@ function GuidedPreview({ form, activeStepIndex, lessonId }: LessonPreviewPanePro
 
 /**
  * Prévia da lição no editor do professor: mostra o estado NÃO salvo do formulário com os mesmos
- * componentes do player do aluno, trocando só o backend (sem API, progresso, XP nem eventos).
+ * componentes do player do aluno, trocando só o backend (sem progresso, XP nem eventos; a única
+ * chamada à API é o "Verificar" de um exercício, que corrige o rascunho sem gravar nada).
  * Lição guiada com passos usa o player de passos; sem passos (ou de outro tipo) mostra o conteúdo
  * da tela de lição atual. Avisos de conteúdo (KaTeX, Mermaid, imagem sem alt, campos que faltam)
  * aparecem num bloco `role="status"` no topo.

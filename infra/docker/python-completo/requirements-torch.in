@@ -1,0 +1,5 @@
+# PyTorch só CPU: a roda vem do índice oficial do PyTorch (a do PyPI para Linux traz as bibliotecas CUDA).
+# As dependências em comum ficam nas versões de requirements.txt.
+--extra-index-url https://download.pytorch.org/whl/cpu
+-c requirements.txt
+torch==2.15.0+cpu

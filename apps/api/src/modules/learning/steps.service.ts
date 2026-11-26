@@ -1,8 +1,7 @@
 import { Injectable } from "@nestjs/common"
-import {
-  assembleParsonsCode, DEFAULT_ENTRY_FILE,
-  type HintReveal, type LessonStepsProgress, type ProjectFile, type SolutionReveal, type StepCompleteResult, type StepKind, type StepPredictResult,
-  type StepQuizResult, type StepSubmitInput, type StepSubmitResult,
+import type {
+  HintReveal, LessonStepsProgress, SolutionReveal, StepCompleteResult, StepKind, StepPredictResult,
+  StepQuizResult, StepSubmitInput, StepSubmitResult,
 } from "@levelusp/contracts"
 import type { LessonStepProgressRow, LessonStepRow } from "@levelusp/db"
 import { canViewContent } from "@/common/authorization/ownership"
@@ -15,6 +14,7 @@ import { EventsService } from "../experiment/events.service"
 import { GamificationService, type StepCompletionOutcome } from "../gamification/gamification.service"
 import { hasEntryFile } from "./learning.domain"
 import { findBlockingStep, gradeStepQuiz, isSolutionAvailable, matchesPrediction, toStepCases } from "./steps.domain"
+import { resolveSubmittedFiles } from "./step-submission"
 import { toLessonStepProgress, toStepOutcome } from "./steps.mapper"
 import { StepsRepository, type GuidedLessonRow } from "./steps.repository"
 import { SubmissionGrader } from "./submission-grader"
@@ -69,7 +69,7 @@ export class StepsService {
    */
   async submit(user: AuthUser, lessonId: string, stepId: string, input: StepSubmitInput): Promise<StepSubmitResult> {
     const { lesson, step, progress } = await this.loadContext(user, lessonId, stepId, ["exercicio"])
-    const files = submittedFiles(step, input)
+    const files = resolveSubmittedFiles(step, input)
     if (!hasEntryFile(files)) throw BadRequest("O projeto precisa de um arquivo main.py.")
     const { result } = await this.grader.grade({
       userId: user.id, lessonId, stepId, files, testCases: step.testCases, engine: { runtime: lesson.runtime, libraries: lesson.libraries },
@@ -243,21 +243,6 @@ export class StepsService {
     if (!lesson || !canViewContent(user, lesson)) throw NotFound("Lição")
     return lesson
   }
-}
-
-/**
- * Projeto a corrigir conforme o modo do exercício: `ordenar` aceita só `arrangement` (o código
- * é montado com as linhas do passo, então o aluno não envia texto livre); os demais, só `files`.
- */
-function submittedFiles(step: LessonStepRow, input: StepSubmitInput): ProjectFile[] {
-  if (step.exerciseMode !== "ordenar") {
-    if (!input.files) throw BadRequest("Este exercício é corrigido pelo código: envie os arquivos do projeto.", "WRONG_SUBMISSION_FORMAT")
-    return input.files
-  }
-  if (!input.arrangement) throw BadRequest("Este exercício é de ordenar: envie as linhas na ordem escolhida.", "WRONG_SUBMISSION_FORMAT")
-  const content = assembleParsonsCode(step.parsonsLines, input.arrangement)
-  if (content === null) throw BadRequest("A ordem enviada cita uma linha que não é deste passo ou repete uma linha.", "INVALID_ARRANGEMENT")
-  return [{ path: DEFAULT_ENTRY_FILE, content }]
 }
 
 function solutionLockedMessage(attempts: number, solutionAfterAttempts: number): string {

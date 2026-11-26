@@ -43,6 +43,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   fetchRevealedStepHints: vi.fn(),
   revealStepSolution: vi.fn(),
   submitStepQuiz: vi.fn(),
+  submitDraftStep: vi.fn(),
 }))
 
 const FORBIDDEN_CALLS = [
@@ -114,12 +115,29 @@ describe("prévia da lição no editor do professor", () => {
     expect(screen.getByText("Texto novo")).toBeInTheDocument()
   })
 
-  it("exercício (código): Verificar explica que a correção roda no servidor; dicas e solução sem limite", async () => {
+  it("exercício (código): Verificar corrige o rascunho pela API, sem as rotas do aluno; dicas e solução sem limite", async () => {
+    vi.mocked(api.submitDraftStep)
+      .mockRejectedValueOnce(new api.ApiError(503, "RUNNER_UNAVAILABLE", "O corretor está fora do ar."))
+      .mockResolvedValueOnce({
+        step_completed: false, xp_awarded: 0, lesson_completed: false, granted_badges: [], level_up: false, new_level: 0,
+        step_id: "rascunho-2", passed: true, attempts: 0, solution_available: true,
+        cases: [{ id: "saida", name: "Saída", passed: true, message: null, hint: null, checkpoint: 1 }],
+      })
     renderPane([exercise])
     expect(screen.getByLabelText("Editor de código")).toHaveValue("# Escreva seu código abaixo\n")
 
     await userEvent.click(screen.getByRole("button", { name: "Verificar" }))
-    expect(await screen.findByRole("alert")).toHaveTextContent("A correção roda no servidor")
+    expect(await screen.findByRole("alert")).toHaveTextContent("O corretor está fora do ar.")
+
+    await userEvent.click(screen.getByRole("button", { name: "Verificar" }))
+    await waitFor(() => expect(api.submitDraftStep).toHaveBeenCalledTimes(2))
+    expect(api.submitDraftStep).toHaveBeenLastCalledWith({
+      runtime: DEFAULT_FORM.runtime,
+      libraries: DEFAULT_FORM.libraries,
+      step: { ...exercise, wrong_solutions: [] },
+      files: [{ path: "main.py", content: "# Escreva seu código abaixo\n" }],
+    })
+    expect(api.submitStep).not.toHaveBeenCalled()
 
     await userEvent.click(screen.getByRole("button", { name: "Dica (0/2)" }))
     expect(await screen.findByText("Dica um")).toBeInTheDocument()

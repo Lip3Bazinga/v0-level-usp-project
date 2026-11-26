@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react"
-import { nonEmpty, type ProjectFile } from "@levelusp/contracts"
+import { nonEmpty, splitBrowserLibraries, type ProjectFile } from "@levelusp/contracts"
 import { MS_PER_SECOND, PYTHON_EXECUTION_TIMEOUT_MS } from "@/lib/constants"
 import {
   getWorkerStatus,
@@ -89,9 +89,11 @@ export function usePython({ packages, onStatusChange }: UsePythonOptions = {}): 
   )
 
   const handleStatus = useEffectEvent((nextStatus: PyodideStatus) => {
-    if (nextStatus === "ready" && packages?.length) {
-      setPendingPackages(new Set(packages))
-      postToWorker({ type: "install", packages })
+    // Só o que o Pyodide do navegador tem: o resto (ex.: torch, do runtime python-completo) só roda no Verificar.
+    const browserPackages = splitBrowserLibraries(packages ?? []).browser
+    if (nextStatus === "ready" && browserPackages.length > 0) {
+      setPendingPackages(new Set(browserPackages))
+      postToWorker({ type: "install", packages: browserPackages })
     }
     onStatusChange?.(nextStatus)
   })
@@ -134,6 +136,12 @@ export function usePython({ packages, onStatusChange }: UsePythonOptions = {}): 
         case "trace-result":
         case "trace-error":
           // Respostas do visualizador: quem pediu (`requestTrace`) é que as trata.
+          return
+        case "term-output":
+        case "term-input-request":
+        case "term-done":
+        case "term-error":
+          // Mensagens do terminal: quem as trata é o cliente do terminal (`python-terminal-client`).
           return
       }
     }

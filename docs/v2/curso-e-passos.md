@@ -261,7 +261,9 @@ são do P2b (§6.4); todos têm padrão (`codigo`, `[]`, `""`, `{}`), então um 
   Conteúdo com passo `Previsão` exige o executor (`RUNNER_URL`, `RUNNER_TOKEN`) para gerar a saída esperada.
 - `pnpm content:check` → lint do conteúdo sem executar: slugs únicos, passos numerados, exercício com
   solução + verificação + ≥1 solução errada, dicas ≤ 3, quiz com exatamente uma correta, `checkpoint`
-  referenciando instrução existente, `runtime`/`bibliotecas` coerentes, texto sem "TODO".
+  referenciando instrução existente, `runtime`/`bibliotecas` coerentes (toda biblioteca precisa estar no
+  manifesto `packages/contracts/src/library-manifest.ts`, com motor para o `runtime` da lição; ver
+  `docs/v2/motores-e-ide.md`), texto sem "TODO".
 - `pnpm content:verify [--curso n1-fundamentos] [--licao slug]` → com o runner real
   (`RUNNER_URL`, `RUNNER_TOKEN`): a solução de cada passo APROVA, o código inicial REPROVA,
   cada solução errada REPROVA. Relatório por lição; código de saída ≠ 0 em falha.

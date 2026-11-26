@@ -137,9 +137,10 @@ Enquanto edita, o professor vê a aula como o aluno verá, ao lado do editor (`/
 - **Comportamento:** navegação livre entre passos; quiz corrige no navegador mostrando a correta e a
   explicação (`correctIndexes` só é passada pela prévia; o DTO `LessonStep` continua sem `correct_index`);
   "Executar" roda no Pyodide do navegador; a previsão roda o código do passo no Pyodide e compara com o que
-  o professor digitar; lacunas e ordenar funcionam. "Verificar" mostra "A correção roda no servidor"
-  (`PreviewVerifyUnavailable`); `createPreviewBackend(..., { verify })` é o ponto de extensão do
-  "Testar gabarito" (Fase F).
+  o professor digitar; lacunas e ordenar funcionam. "Verificar" corrige a submissão contra o passo do rascunho na API
+  (`preview-verify.ts`, pelo ponto de extensão `createPreviewBackend(..., { verify })`), sem gravar progresso.
+  O botão "Testar gabarito" da aba Passos roda referência, código inicial e soluções erradas de cada passo
+  (`gabarito-test-panel.tsx`; regra e limites em `motores-e-ide.md` §3).
 - **Avisos de conteúdo** (`preview-model.ts`, `contentWarnings`, mais Mermaid assíncrono): fórmula KaTeX
   inválida, diagrama Mermaid inválido, imagem sem texto alternativo e passo sem campos obrigatórios aparecem
   num bloco `role="status"` no topo da prévia; erro de renderização cai no `PreviewErrorBoundary`.
@@ -156,6 +157,21 @@ Enquanto edita, o professor vê a aula como o aluno verá, ao lado do editor (`/
   `final_project_*` (o projeto é uma lição) e a página `/impacto` e os contadores da home, que
   traziam números sem fonte (`/impacto` redireciona para `/sobre`).
 - HSTS em produção e redirects no `next.config.mjs`.
+
+## Terminal no navegador (Fase F)
+
+Aba "Terminal" ao lado do Console nos exercícios do player (`ConsoleTerminalTabs`): xterm.js sobre o
+Pyodide do worker compartilhado, carregado só quando a aba é aberta. **Decisão de cabeçalhos: o site
+não usa COOP/COEP e o terminal não usa SharedArrayBuffer** (`input()` por suspensão de pilha com
+fallback de reexecução; Ctrl+C reinicia o worker). Motivos, protocolo, limites e pendências em
+`terminal-no-navegador.md`.
+
+**Executar por nível.** Abaixo do nível que libera o "Executar" (`RUN_BUTTON_MIN_LEVEL` ou o limite do curso), o
+botão fica desabilitado com a faixa "Executar libera no nível N; até lá, use o terminal: python main.py" e a aba
+Terminal abre no lugar do Console (`run-button-gate.tsx`, `run-lock-notice.tsx`, `isTerminalPreferred` do
+`ConsoleTerminalTabs`). Vale no player de passos e na lição clássica (que ganhou a aba Terminal e o atalho
+Ctrl+Enter bloqueado). Professor, admin e a prévia do professor sempre veem o botão. O admin ajusta o limite em
+Admin → Cursos → "Nível do Executar". Regra, conta e proposta de limite em `motores-e-ide.md` §4.
 
 ## Testes
 

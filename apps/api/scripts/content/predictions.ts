@@ -73,7 +73,7 @@ export async function runSnippet(runner: SnippetRunner, lesson: BundleLesson, fi
     probes: [{ id: RUN_PROBE_ID, kind: "run", stdin: "" }],
     limits: { ...DEFAULT_RUNNER_LIMITS },
     runtime: lesson.runtime,
-    ...(lesson.runtime === "python-dados" ? { libraries: lesson.libraries } : {}),
+    ...(lesson.runtime !== "python" ? { libraries: lesson.libraries } : {}),
   })
   const observation = result.observations.find((candidate) => candidate.id === RUN_PROBE_ID)
   if (!observation) return { ok: false, message: "o executor não devolveu a observação da execução" }

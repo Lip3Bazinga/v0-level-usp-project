@@ -2,7 +2,7 @@ import { Body, Controller, Get, HttpCode, Param, Patch, Post } from "@nestjs/com
 import { ApiTags } from "@nestjs/swagger"
 import {
   libraryCatalogToggleSchema, libraryRequestInputSchema, reviewLibraryRequestSchema,
-  type LibraryCatalogToggleInput, type LibraryRequestInput, type ReviewLibraryRequestInput, type LibraryCatalog, type LibraryRequest } from "@levelusp/contracts"
+  type LibraryCatalogToggleInput, type LibraryRequestInput, type ReviewLibraryRequestInput, type LibraryCatalog, type LibraryManifestPending, type LibraryRequest } from "@levelusp/contracts"
 import { CurrentUser, Public, Roles } from "@/common/decorators/auth.decorators"
 import type { AuthUser } from "@/common/http/request"
 import { UuidPipe } from "@/common/pipes/uuid.pipe"
@@ -49,6 +49,12 @@ export class LibraryController {
   @Get("admin/library/requests")
   listRequests(): Promise<LibraryRequest[]> {
     return this.library.listRequests()
+  }
+
+  @Roles("admin")
+  @Get("admin/library/manifest-pending")
+  listManifestPending(): Promise<LibraryManifestPending[]> {
+    return this.library.listManifestPending()
   }
 
   @Roles("admin")

@@ -113,8 +113,8 @@ titulo: Olá, Python                 # ≥ 3 caracteres
 descricao: Seu primeiro programa e como o Python o executa.
 dificuldade: iniciante              # iniciante | intermediario | avancado
 tipo: guiada                        # guiada | pratica | leitura | quiz
-runtime: python                     # python | python-dados (ver §6)
-bibliotecas: []                     # só para python-dados: [numpy, pandas, scikit-learn…]
+runtime: python                     # python | python-dados | python-completo (ver §6)
+bibliotecas: []                     # python-dados: [numpy, pandas, scikit-learn…]; python-completo: [torch, numpy…]
 xp: 100                             # XP ao concluir a lição (padrão 50)
 tempo_min: 25                       # tempo estimado de estudo (padrão 10)
 publicada: true                     # padrão true
@@ -710,6 +710,11 @@ implementação de referência (deve passar) e contra implementações defeituos
 `runtime: python-dados` corrige no motor Pyodide, com as bibliotecas de `bibliotecas`
 (`numpy` e `pandas` usam o perfil `dados`; `scipy`, `scikit-learn` e `matplotlib` o perfil
 `ml`, mais pesado). `runtime: python` exige `bibliotecas: []`.
+
+`runtime: python-completo` corrige em CPython nativo com PyTorch (`bibliotecas`: `torch`, `numpy`,
+`pandas`, `scikit-learn`). O motor é desligado por padrão no executor: só use em conteúdo quando o
+ambiente de destino o tiver ligado. No navegador o Executar e o terminal não têm `torch` (o aluno
+vê um aviso e usa o Verificar); detalhes em `docs/v2/motores-e-ide.md` §6.
 
 ````markdown
 ---

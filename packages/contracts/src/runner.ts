@@ -12,10 +12,12 @@ export const DEFAULT_RUNNER_LIMITS = { timeoutMs: 10_000, memoryMb: 128 } as con
 
 /**
  * Motores do executor: `python` é o CPython WASI (Wasmtime); `python-dados` é o Pyodide
- * (numpy, pandas, scikit-learn...) em workers do Node. Os mesmos valores de
- * `LESSON_RUNTIMES` em `lessons.ts` (a unificação dos dois fica para depois).
+ * (numpy, pandas, scikit-learn...) em workers do Node; `python-completo` é o CPython nativo
+ * num contêiner gVisor de uso único (numpy, pandas, scikit-learn e PyTorch), desligado por
+ * padrão no executor (responde 501). Os mesmos valores de `LESSON_RUNTIMES` em `lessons.ts`
+ * (a unificação dos dois fica para depois).
  */
-export const PYTHON_RUNTIMES = ["python", "python-dados"] as const
+export const PYTHON_RUNTIMES = ["python", "python-dados", "python-completo"] as const
 export const pythonRuntimeSchema = z.enum(PYTHON_RUNTIMES)
 /** Motor pedido num job do executor. */
 export type PythonRuntime = z.infer<typeof pythonRuntimeSchema>
@@ -65,6 +67,24 @@ export type ProbeKind = Probe["kind"]
  */
 export const STRICT_PROBE_KINDS: ReadonlySet<ProbeKind> = new Set<ProbeKind>(["legacy", "unittest"])
 
+/**
+ * Motores sem modo estrito. No `python-completo` o aluno roda CPython nativo com `ctypes`: ele
+ * alcança os frames do harness (`pythonapi.PyEval_GetFrame`, `f_back`) e, com eles, o nonce e as
+ * sondas do lote, por mais que o harness bloqueie a introspecção em Python. As sondas estritas
+ * dependem justamente de o aluno não ver isso (a `unittest` carrega a implementação de referência
+ * do professor; a `legacy`, os asserts com os valores esperados), então esse motor as recusa.
+ */
+export const RUNTIMES_WITHOUT_STRICT_MODE: ReadonlySet<PythonRuntime> = new Set<PythonRuntime>(["python-completo"])
+
+/**
+ * Diz se o motor `runtime` aceita uma sonda do tipo `kind` (os tipos de caso `unittest` e
+ * `legacy` do gabarito têm o mesmo nome das sondas que geram). Falso só para sonda estrita
+ * ({@link STRICT_PROBE_KINDS}) em motor sem modo estrito ({@link RUNTIMES_WITHOUT_STRICT_MODE}).
+ */
+export function runtimeSupportsProbe(runtime: PythonRuntime, kind: ProbeKind): boolean {
+  return !(RUNTIMES_WITHOUT_STRICT_MODE.has(runtime) && STRICT_PROBE_KINDS.has(kind))
+}
+
 export const runnerJobSchema = z.object({
   files: z.array(projectFileSchema).min(1).max(30),
   entry: z.string().default(DEFAULT_ENTRY_FILE),
@@ -78,8 +98,9 @@ export const runnerJobSchema = z.object({
   /** Motor que roda o lote; ausente = `DEFAULT_PYTHON_RUNTIME` (CPython WASI). */
   runtime: pythonRuntimeSchema.optional(),
   /**
-   * Pacotes do Pyodide que o lote precisa (`numpy`, `pandas`, `scikit-learn`...); só
-   * vale para `python-dados`, que escolhe o perfil de worker por eles. Ausente = `[]`.
+   * Bibliotecas que o lote precisa (`numpy`, `pandas`, `scikit-learn`...). O `python-dados`
+   * escolhe o perfil de worker por elas e o `python-completo` só confere se as oferece; o
+   * `python` ignora. Ausente = `[]`.
    */
   libraries: z.array(z.string().trim().min(1).max(60)).max(MAX_JOB_LIBRARIES).optional(),
 })

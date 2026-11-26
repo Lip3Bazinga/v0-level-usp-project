@@ -1,8 +1,14 @@
 import {
-  assembleParsonsCode, DEFAULT_ENTRY_FILE, DEFAULT_RUNNER_LIMITS, parsonsSolutionPlacements,
+  DEFAULT_ENTRY_FILE, DEFAULT_RUNNER_LIMITS, findManifestLibrary,
   type BundleCourse, type BundleLesson, type BundleModule, type BundleStep, type ContentBundle, type GradeResult, type ProjectFile, type RunnerJob, type RunnerResult, type TestCase,
 } from "@levelusp/contracts"
+import {
+  concludeStepVerification, planStepVerification, resolveStepStarter, UNASSEMBLED_PARSONS_DETAIL,
+  type StarterCode, type WrongSolutionResult,
+} from "../../src/modules/authoring/step-verification.domain"
 import { buildProbes, grade } from "../../src/modules/grading/grading.domain"
+
+export { resolveSolution, wrongSolutionFiles, type StarterCode, type WrongSolutionResult } from "../../src/modules/authoring/step-verification.domain"
 
 /**
  * Verificação do conteúdo com o executor REAL (`pnpm content:verify`), com o
@@ -11,7 +17,8 @@ import { buildProbes, grade } from "../../src/modules/grading/grading.domain"
  * REPROVADA (prova de que os casos pegam os erros comuns). Num exercício
  * `ordenar`, a "solução" é o código MONTADO com as linhas do passo e o "código
  * inicial" são as linhas na ordem embaralhada em que o aluno as recebe. Lições
- * `python-dados` pedem o motor e as bibliotecas ao executor.
+ * `python-dados` e `python-completo` pedem o motor e as bibliotecas ao executor. A regra de um passo vive em
+ * `src/modules/authoring/step-verification.domain.ts` (a API usa a mesma no "Testar gabarito").
  */
 
 /** O que a verificação precisa do executor: o `RunnerClient` da API e um executor falso servem. */
@@ -34,15 +41,6 @@ export interface VerifyOptions extends VerifyFilter {
   heavyConcurrency?: number
 }
 
-/** Código inicial efetivo do passo: o próprio ou, numa lição guiada, a solução do exercício anterior. */
-export interface StarterCode {
-  files: ProjectFile[]
-  /** `order` do passo de que a solução foi herdada; null quando o passo tem código inicial próprio. */
-  inheritedFrom: number | null
-  /** As linhas de um exercício `ordenar` na ordem embaralhada, sem indentação (o que o aluno vê ao abrir). */
-  isShuffledOrder?: true
-}
-
 /** Um passo de exercício a verificar, com o contexto de onde está. */
 export interface ExerciseTarget {
   course: BundleCourse
@@ -54,12 +52,6 @@ export interface ExerciseTarget {
 
 /** Veredito de um passo: `ok` coerente, `falha` algum veredito errado, `erro` falha do executor. */
 export type VerdictStatus = "ok" | "falha" | "erro"
-
-/** Correção de uma solução errada, pelo nome dela. */
-export interface WrongSolutionResult {
-  name: string
-  result: GradeResult
-}
 
 /** Resultado da verificação de um passo, com as explicações das falhas. */
 export interface StepVerdict {
@@ -99,14 +91,11 @@ export const DEFAULT_VERIFY_CONCURRENCY = 4
 export const HEAVY_VERIFY_CONCURRENCY = 1
 /** Tempo limite de cada pedido HTTP ao executor (fila + aquecimento do perfil + lote). */
 export const RUNNER_REQUEST_TIMEOUT_MS = 120_000
-/** Bibliotecas do perfil `dados` do executor; qualquer outra leva a lição ao perfil `ml` (espelha `pyodide-profiles.ts`). */
-const LIGHT_LIBRARIES: ReadonlySet<string> = new Set(["numpy", "pandas"])
 /** Tentativas contra o executor quando ele responde "ocupado" (503). */
 const MAX_BUSY_RETRIES = 3
 const DEFAULT_RETRY_AFTER_SECONDS = 5
 const MAX_RETRY_AFTER_SECONDS = 30
 const MS_PER_SECOND = 1_000
-const MAX_PRINTED_FAILURES = 5
 const MAX_BODY_IN_ERROR = 300
 const TITLE_COLUMN_WIDTH = 36
 
@@ -142,10 +131,15 @@ export function createPool(limit: number): Scheduler {
 
 const runImmediately: Scheduler = (task) => task()
 
-/** Diz se a lição roda no perfil `ml` do executor (`python-dados` com biblioteca além de numpy e pandas). */
+/**
+ * Diz se a lição pede uma instância pesada do executor: `python-dados` com biblioteca cujo `pyodide_profile` no
+ * manifesto não é `dados` (o que o manifesto não conhece também conta como pesado, por prudência), ou qualquer
+ * lição `python-completo` (um contêiner de até 1 GB por lote).
+ */
 export function usesHeavyProfile(lesson: BundleLesson): boolean {
+  if (lesson.runtime === "python-completo") return true
   if (lesson.runtime !== "python-dados") return false
-  return lesson.libraries.some((library) => !LIGHT_LIBRARIES.has(library.trim().toLowerCase().replace(/[-_.]+/g, "-")))
+  return lesson.libraries.some((library) => findManifestLibrary(library)?.pyodide_profile !== "dados")
 }
 
 /**
@@ -153,14 +147,10 @@ export function usesHeavyProfile(lesson: BundleLesson): boolean {
  * anterior; num exercício `ordenar`, as linhas na ordem embaralhada (sem indentação).
  */
 export function resolveStarter(lesson: BundleLesson, step: BundleStep): StarterCode | null {
-  if (step.exercise_mode === "ordenar") {
-    const shuffledCode = assembleParsonsCode(step.parsons_lines, step.parsons_lines.map((line) => ({ line_id: line.id, indent: 0 })))
-    return shuffledCode === null ? null : { files: [{ path: DEFAULT_ENTRY_FILE, content: shuffledCode }], inheritedFrom: null, isShuffledOrder: true }
-  }
-  if (step.starter_files.length > 0) return { files: step.starter_files, inheritedFrom: null }
-  if (lesson.lesson_type !== "guided") return null
-  const previous = lesson.steps.filter((candidate) => candidate.kind === "exercicio" && candidate.order < step.order && candidate.solution_files.length > 0).pop()
-  return previous ? { files: previous.solution_files, inheritedFrom: previous.order } : null
+  const previous = lesson.lesson_type === "guided"
+    ? lesson.steps.filter((candidate) => candidate.kind === "exercicio" && candidate.order < step.order && candidate.solution_files.length > 0).pop()
+    : undefined
+  return resolveStepStarter(step, previous ? { order: previous.order, files: previous.solution_files } : null)
 }
 
 /** Passos de exercício do pacote, na ordem do pacote, respeitando o filtro. */
@@ -180,28 +170,6 @@ export function listExerciseTargets(bundle: ContentBundle, filter: VerifyFilter 
   return targets
 }
 
-/**
- * Solução que a verificação roda: num exercício `ordenar`, o código montado com as linhas do
- * passo (null quando elas não montam a solução); nos demais, os arquivos de `### Solução`.
- */
-export function resolveSolution(step: BundleStep): ProjectFile[] | null {
-  if (step.exercise_mode !== "ordenar") return step.solution_files
-  const solution = step.solution_files.find((file) => file.path === DEFAULT_ENTRY_FILE)
-  const placements = solution ? parsonsSolutionPlacements(step.parsons_lines, solution.content) : null
-  const assembled = placements ? assembleParsonsCode(step.parsons_lines, placements) : null
-  return assembled === null ? null : [{ path: DEFAULT_ENTRY_FILE, content: assembled }]
-}
-
-/**
- * Projeto que uma solução errada roda: os arquivos de `### Solução` com os que a solução errada
- * declara por cima (mesmo caminho substitui). Assim a errada só repete o arquivo que tem o defeito,
- * e nunca reprova só porque faltou um arquivo de dados ou um módulo do projeto.
- */
-export function wrongSolutionFiles(step: BundleStep, wrongFiles: readonly ProjectFile[]): ProjectFile[] {
-  const overridden = new Set(wrongFiles.map((file) => file.path))
-  return [...step.solution_files.filter((file) => !overridden.has(file.path)), ...wrongFiles]
-}
-
 /** Pedido ao executor para um projeto contra os casos do passo, com o motor (e as bibliotecas) da lição. */
 export function buildVerifyJob(lesson: BundleLesson, files: ProjectFile[], cases: TestCase[]): RunnerJob {
   return {
@@ -210,7 +178,7 @@ export function buildVerifyJob(lesson: BundleLesson, files: ProjectFile[], cases
     probes: buildProbes(cases),
     limits: { ...DEFAULT_RUNNER_LIMITS },
     runtime: lesson.runtime,
-    ...(lesson.runtime === "python-dados" ? { libraries: lesson.libraries } : {}),
+    ...(lesson.runtime !== "python" ? { libraries: lesson.libraries } : {}),
   }
 }
 
@@ -219,52 +187,23 @@ async function gradeOnRunner(runner: StepRunner, lesson: BundleLesson, files: Pr
   return grade(cases, result.observations, result.durationMs)
 }
 
-function passedCaseIds(result: GradeResult): string {
-  return result.cases.filter((caseResult) => caseResult.passed).map((caseResult) => caseResult.id).join(", ")
-}
-
-function describeProblems(target: ExerciseTarget, solution: GradeResult, starter: GradeResult | null, wrong: readonly WrongSolutionResult[]): string[] {
-  const details: string[] = []
-  if (solution.strength !== "strong") details.push("o gabarito tem casos legacy: converta para casos declarativos")
-  if (!solution.allPassed) {
-    details.push("solução de referência REPROVADA:")
-    for (const failure of solution.failureDetails.slice(0, MAX_PRINTED_FAILURES)) details.push(`  ${failure}`)
-    if (solution.failureDetails.length > MAX_PRINTED_FAILURES) details.push(`  … e mais ${solution.failureDetails.length - MAX_PRINTED_FAILURES}`)
-  }
-  if (starter?.allPassed && target.starter) {
-    const origin = target.starter.inheritedFrom === null ? "código inicial" : `código inicial herdado do passo ${target.starter.inheritedFrom}`
-    details.push(
-      target.starter.isShuffledOrder
-        ? `a ordem embaralhada (linhas como o aluno recebe, sem indentação) foi APROVADA (casos que passaram: ${passedCaseIds(starter)})`
-        : `${origin} APROVADO sem o aluno fazer nada (casos que passaram: ${passedCaseIds(starter)})`,
-    )
-  }
-  if (target.step.wrong_solutions.length === 0) details.push("sem soluções erradas: adicione ao menos uma em ### Soluções erradas")
-  for (const entry of wrong) {
-    if (entry.result.allPassed) details.push(`solução errada APROVADA: "${entry.name}" (casos que passaram quando deviam falhar: ${passedCaseIds(entry.result)})`)
-  }
-  return details
-}
-
 /** Verifica um passo: solução (montada, no modo `ordenar`) aprova, código inicial ou ordem embaralhada reprova, cada solução errada reprova. */
 export async function verifyStep(target: ExerciseTarget, runner: StepRunner, schedule: Scheduler = runImmediately): Promise<StepVerdict> {
   const { lesson, step } = target
   const cases = step.test_cases
   const run = (files: ProjectFile[]): Promise<GradeResult> => schedule(() => gradeOnRunner(runner, lesson, files, cases))
-  const solutionFiles = resolveSolution(step)
-  if (solutionFiles === null) {
-    return { target, status: "falha", solution: null, starter: null, wrong: [], details: ["as linhas do exercício de ordenar não montam a solução"], durationMs: 0 }
+  const plan = planStepVerification(step, target.starter)
+  if (plan === null) {
+    return { target, status: "falha", solution: null, starter: null, wrong: [], details: [UNASSEMBLED_PARSONS_DETAIL], durationMs: 0 }
   }
   try {
-    const [solution, starter, wrongResults] = await Promise.all([
-      run(solutionFiles),
-      target.starter ? run(target.starter.files) : Promise.resolve(null),
-      Promise.all(step.wrong_solutions.map((wrongSolution) => run(wrongSolutionFiles(step, wrongSolution.files)))),
+    const [solution, starter, wrong] = await Promise.all([
+      run(plan.solution),
+      plan.starter ? run(plan.starter.files) : Promise.resolve(null),
+      Promise.all(plan.wrong.map(async (entry): Promise<WrongSolutionResult> => ({ name: entry.name, result: await run(entry.files) }))),
     ])
-    const wrong = wrongResults.map((result, index): WrongSolutionResult => ({ name: step.wrong_solutions[index]?.name ?? `#${index + 1}`, result }))
-    const details = describeProblems(target, solution, starter, wrong)
-    const durationMs = [solution, starter, ...wrong.map((entry) => entry.result)].reduce((total, result) => total + (result?.durationMs ?? 0), 0)
-    return { target, status: details.length === 0 ? "ok" : "falha", solution, starter, wrong, details, durationMs }
+    const outcome = concludeStepVerification(step, target.starter, { solution, starter, wrong }, { requireWrongSolutions: true })
+    return { target, status: outcome.status, solution, starter, wrong, details: outcome.details, durationMs: outcome.durationMs }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     return { target, status: "erro", solution: null, starter: null, wrong: [], details: [`executor: ${message}`], durationMs: 0 }

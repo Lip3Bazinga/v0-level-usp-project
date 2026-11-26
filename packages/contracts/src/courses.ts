@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { difficultySchema, slugSchema, type Difficulty } from "./common"
+import { MAX_RUN_BUTTON_LEVEL, MIN_RUN_BUTTON_LEVEL } from "./run-button"
 import { patchSchemaOf } from "./schema"
 
 /**
@@ -61,6 +62,8 @@ export interface Course {
   prerequisite_course_id: string | null
   /** Lições só podem ser abertas na ordem. */
   sequential: boolean
+  /** Nível do jogador que libera o "Executar" nas lições do curso; null = `RUN_BUTTON_MIN_LEVEL`, 1 = sempre liberado. */
+  run_button_min_level: number | null
   /** Campos agregados opcionais. */
   lesson_count?: number
   enrolled?: boolean
@@ -80,6 +83,8 @@ export const courseInputSchema = z.object({
   slug: slugSchema.nullable().optional(),
   prerequisite_course_id: z.uuid().nullable().optional(),
   sequential: z.boolean().optional(),
+  /** Só admins alteram (403 para os demais); null volta ao padrão `RUN_BUTTON_MIN_LEVEL`. */
+  run_button_min_level: z.number().int().min(MIN_RUN_BUTTON_LEVEL).max(MAX_RUN_BUTTON_LEVEL).nullable().optional(),
 })
 /** Corpo de `POST /courses` (professor ou admin; o autor vira dono). */
 export type CourseInput = z.infer<typeof courseInputSchema>

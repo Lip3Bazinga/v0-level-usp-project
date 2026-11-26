@@ -91,6 +91,22 @@ describe("lintContent", () => {
     expect(lint({ [GUIDED]: withLibraries })).toEqual([`${GUIDED}:${lineOf(withLibraries, "bibliotecas:")}: runtime python não aceita bibliotecas (use runtime: python-dados ou bibliotecas: [])`])
   })
 
+  it("recusa biblioteca fora do manifesto; aceita nome e apelido do manifesto", () => {
+    const unknown = guidedLesson({ runtime: "python-dados", bibliotecas: "[numpy, xgboost]" })
+    expect(lint({ [GUIDED]: unknown })).toEqual([`${GUIDED}:${lineOf(unknown, "bibliotecas:")}: biblioteca fora do manifesto: xgboost (confira o nome ou peça a liberação: docs/v2/motores-e-ide.md)`])
+    expect(lint({ [GUIDED]: guidedLesson({ runtime: "python-dados", bibliotecas: "[Numpy, sklearn, scikit-learn]" }) })).toEqual([])
+  })
+
+  it("runtime python-completo: aceita o que o manifesto libera para ele (PyTorch) e recusa o resto", () => {
+    expect(lint({ [GUIDED]: guidedLesson({ runtime: "python-completo", bibliotecas: "[torch, numpy, sklearn]" }) })).toEqual([])
+    const noLibraries = guidedLesson({ runtime: "python-completo" })
+    expect(lint({ [GUIDED]: noLibraries })).toEqual([`${GUIDED}:${lineOf(noLibraries, "runtime:")}: runtime python-completo exige bibliotecas (ex.: [numpy, pandas])`])
+    const browserOnly = guidedLesson({ runtime: "python-completo", bibliotecas: "[torch, matplotlib]" })
+    expect(lint({ [GUIDED]: browserOnly })).toEqual([`${GUIDED}:${lineOf(browserOnly, "bibliotecas:")}: biblioteca sem motor para o runtime python-completo: matplotlib`])
+    const wrongEngine = guidedLesson({ runtime: "python-dados", bibliotecas: "[numpy, torch]" })
+    expect(lint({ [GUIDED]: wrongEngine })).toEqual([`${GUIDED}:${lineOf(wrongEngine, "bibliotecas:")}: biblioteca sem motor para o runtime python-dados: torch`])
+  })
+
   it("nenhum texto TODO, Em breve ou lorem", () => {
     const todo = `${frontmatter()}\n${readingStep(1, `${"x".repeat(200)} TODO revisar`)}`
     expect(lint({ [GUIDED]: todo })).toEqual([`${GUIDED}:${lineOf(todo, "## Passo 1")}: passo 1 (Leitura · O que é um programa): narrativa contém texto provisório ("TODO")`])
@@ -124,6 +140,16 @@ describe("lintContent", () => {
     const verification = '```json\n[ { "id": "antigo", "kind": "legacy", "code": "assert True" } ]\n```'
     const text = `${frontmatter({ slug: "pratica-teste", tipo: "pratica" })}\n${exerciseStep({ number: 1, verification })}`
     expect(lint({ [PRACTICE]: text })).toEqual([`${PRACTICE}:${lineOf(text, '"id": "antigo"')}: passo 1 (Exercício · Seu primeiro print): o caso "antigo" é legacy (roda dentro do sandbox); use io, call, variable, source, expr ou unittest`])
+  })
+
+  it("lição python-completo não aceita caso unittest (o motor não tem modo estrito)", () => {
+    const verification = '```json\n[ { "id": "suite", "kind": "unittest", "expect": "pass", "min_tests": 1 } ]\n```'
+    const completo = `${frontmatter({ slug: "pratica-teste", tipo: "pratica", runtime: "python-completo", bibliotecas: "[torch]" })}\n${exerciseStep({ number: 1, verification })}`
+    expect(lint({ [PRACTICE]: completo })).toEqual([
+      `${PRACTICE}:${lineOf(completo, '"id": "suite"')}: passo 1 (Exercício · Seu primeiro print): o caso "suite" é unittest, que o runtime python-completo não aceita (sem modo estrito, a referência do professor ficaria ao alcance do aluno); use io, call, variable, source ou expr`,
+    ])
+    const dados = `${frontmatter({ slug: "pratica-teste", tipo: "pratica", runtime: "python-dados", bibliotecas: "[numpy]" })}\n${exerciseStep({ number: 1, verification })}`
+    expect(lint({ [PRACTICE]: dados })).toEqual([])
   })
 
   it("títulos com ≥ 3 caracteres", () => {

@@ -2,7 +2,7 @@ import type { HintReveal, LessonStepInput, ParsonsPlacement, ProjectFile, Soluti
 import { MAIN_FILE_PATH } from "@/lib/constants"
 import { StepBackendError, type StepBackend } from "@/components/lesson-steps/step-backend"
 
-/** "Verificar" na prévia: a correção (casos ocultos) só existe no servidor. */
+/** "Verificar" numa prévia sem `verify`: a correção (casos ocultos) só existe no servidor. */
 export class PreviewVerifyUnavailable extends StepBackendError {
   constructor() {
     super("A correção roda no servidor. Na prévia, use Executar para testar o código.")
@@ -30,8 +30,8 @@ export type PreviewSubmission = { kind: "files"; files: readonly ProjectFile[] }
 /** Opções de {@link createPreviewBackend}. */
 export interface PreviewBackendOptions {
   /**
-   * Ponto de extensão da Fase F ("Testar gabarito"): quando informado, o "Verificar" da prévia
-   * delega a esta função em vez de recusar. Hoje ninguém o informa.
+   * "Verificar" da prévia: quando informado, delega a esta função em vez de recusar. A prévia do
+   * editor informa `createPreviewVerify` (a API corrige o passo do rascunho sem gravar nada).
    */
   verify?: (step: LessonStepInput, submission: PreviewSubmission) => Promise<StepSubmitResult>
 }
@@ -52,9 +52,10 @@ const noOutcome = (): StepOutcome => ({ step_completed: false, xp_awarded: 0, le
 const settle = <T>(task: () => T | Promise<T>): Promise<T> => new Promise<T>((resolve) => resolve(task()))
 
 /**
- * Backend dos passos para a prévia do professor: nada sai do navegador. Dicas e solução vêm do
+ * Backend dos passos para a prévia do professor: nada é gravado. Dicas e solução vêm do
  * passo que o professor está editando; a previsão roda o código (`starter_files`) no Pyodide e
- * compara com o digitado; "Verificar" não corrige (ver {@link PreviewVerifyUnavailable}).
+ * compara com o digitado; "Verificar" delega a `options.verify` e, sem ela, não corrige (ver
+ * {@link PreviewVerifyUnavailable}).
  * Guarda em memória quantas dicas foram reveladas e as tentativas de cada passo, então use uma
  * instância por abertura da prévia (e passe uma função em `steps` para enxergar edições novas).
  *

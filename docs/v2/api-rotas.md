@@ -35,7 +35,7 @@ Tipos em `packages/contracts`. Respostas em snake_case.
 | GET | /courses/:id/lessons | 🔓(opcional) | → Lesson[] publicadas do curso (dono/admin: todas) |
 | GET | /teacher/courses | 🎓 | → Course[] do professor (admin: todos) |
 | POST | /courses | 🎓 | CourseInput → Course |
-| PATCH | /courses/:id | 🎓 dono | CourseUpdateInput → Course |
+| PATCH | /courses/:id | 🎓 dono | CourseUpdateInput → Course; `run_button_min_level` só admin (403), auditado |
 | DELETE | /courses/:id | 🎓 dono | → 204 |
 | PATCH | /courses/:id/publish | 🎓 dono | {published} → Course |
 | PUT | /courses/:id/lessons/order | 🎓 dono | {lesson_ids} → 204 |
@@ -46,7 +46,7 @@ Tipos em `packages/contracts`. Respostas em snake_case.
 | GET | /me/enrollments | 👤 | → string[] (ids de curso) |
 | GET | /lessons/summaries | 🔓 | → LessonSummary[] publicadas |
 | GET | /lessons | 🔓 | → Lesson[] publicadas |
-| GET | /lessons/:id | 🔓(opcional) | → Lesson (sem gabarito); rascunho só dono/admin |
+| GET | /lessons/:id | 🔓(opcional) | → Lesson (sem gabarito, com `run_button_min_level` do curso); rascunho só dono/admin |
 | GET | /lessons/:id/authoring | 🎓 dono | → LessonWithTests |
 | GET | /teacher/lessons | 🎓 | → Lesson[] do professor (admin: todas) |
 | GET | /teacher/metrics | 🎓 | → LessonMetrics[] das lições do professor |
@@ -54,6 +54,8 @@ Tipos em `packages/contracts`. Respostas em snake_case.
 | PATCH | /lessons/:id | 🎓 dono | LessonUpdateInput → LessonWithTests |
 | DELETE | /lessons/:id | 🎓 dono | → 204 |
 | PATCH | /lessons/:id/publish | 🎓 dono | {published} → Lesson |
+| POST | /teacher/draft-steps/verify | 🎓 | "Testar gabarito" do editor: {runtime, libraries, step (passo de exercício do rascunho + wrong_solutions, até 5), inherited_starter} → DraftStepVerifyResult (referência precisa aprovar; código inicial e cada solução errada precisam reprovar; a regra do `content:verify`). Um passo por pedido; nada é gravado. Limite por usuário de 60 EXECUÇÕES/min, somado com `submit`: o verify consome uma por projeto (solução + código inicial + cada errada) e responde 429 sem rodar nada se não couber inteiro; 409 `DRAFT_GRADING_IN_PROGRESS` se já há um pedido do usuário em andamento; 503 se o executor falhar (`RUNNER_BUSY` devolve as execuções que não rodaram) |
+| POST | /teacher/draft-steps/submit | 🎓 | "Verificar" da prévia do editor: {runtime, libraries, step, files \| arrangement} → StepSubmitResult com a gamificação zerada (sem submissão, tentativa, progresso nem XP). Consome 1 execução do mesmo limite; 409 e 503 como no verify |
 
 ## Aprendizado e correção
 | GET | /me/progress | 👤 | → LessonProgress[] |
@@ -86,13 +88,14 @@ Tipos em `packages/contracts`. Respostas em snake_case.
 | GET | /me/notifications?limit | 👤 | → Notification[] |
 | POST | /me/notifications/:id/read | 👤 | → 204 |
 | POST | /me/notifications/read-all | 👤 | → 204 |
-| GET | /library | 🔓 | → LibraryCatalog[] ativos |
-| POST | /library/requests | 🎓 | LibraryRequestInput → LibraryRequest |
+| GET | /library | 🔓 | → LibraryCatalog[] ativos e presentes no manifesto (`library-manifest.ts`) |
+| POST | /library/requests | 🎓 | LibraryRequestInput → LibraryRequest (409 `ALREADY_AVAILABLE` se já está no manifesto) |
 | GET | /me/library/requests | 🎓 | → LibraryRequest[] |
 | GET | /admin/library | 🛡️ | → LibraryCatalog[] |
 | PATCH | /admin/library/:id | 🛡️ | {active} → 204 |
 | GET | /admin/library/requests | 🛡️ | → LibraryRequest[] (+requester_name) |
-| POST | /admin/library/requests/:id/review | 🛡️ | ReviewLibraryRequestInput → LibraryRequest |
+| GET | /admin/library/manifest-pending | 🛡️ | → LibraryManifestPending[] (aprovadas aguardando o PR no manifesto, com rascunho da entrada) |
+| POST | /admin/library/requests/:id/review | 🛡️ | ReviewLibraryRequestInput → LibraryRequest (aprovar não altera o catálogo; devolve `manifest_snippet`) |
 | POST | /me/teacher-request | 👤 | TeacherRequestInput → TeacherApproval |
 | GET | /me/teacher-request | 👤 | → TeacherApproval \| null |
 
