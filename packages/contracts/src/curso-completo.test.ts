@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
-  contentBundleSchema, eventsBatchSchema, EVENT_TYPES, LESSON_TYPES, lessonInputSchema, lessonStepSchema, lessonStepsSchema,
+  CLIENT_EVENT_TYPES, contentBundleSchema, eventsBatchSchema, EVENT_TYPES, LESSON_TYPES, lessonInputSchema, lessonStepSchema, lessonStepsSchema,
   lessonUpdateSchema, levelForXp, MAX_EVENT_PAYLOAD_BYTES, MAX_EVENTS_PER_BATCH, SUBMISSION_STATUSES, testCasesSchema, trackUpdateSchema,
   xpForLevel,
 } from "./index"
@@ -92,14 +92,23 @@ describe("passos de lição", () => {
 
 describe("experimento", () => {
   it("lote de eventos respeita a lista fechada, o tamanho do lote e o payload", () => {
-    expect(eventsBatchSchema.parse({ events: [{ type: "login" }] }).events[0]).toEqual({ type: "login", payload: {} })
+    expect(eventsBatchSchema.parse({ events: [{ type: "lesson_viewed" }] }).events[0]).toEqual({ type: "lesson_viewed", payload: {} })
     expect(eventsBatchSchema.safeParse({ events: [{ type: "page_scrolled" }] }).success).toBe(false)
     expect(eventsBatchSchema.safeParse({ events: [] }).success).toBe(false)
-    const tooMany = Array.from({ length: MAX_EVENTS_PER_BATCH + 1 }, () => ({ type: EVENT_TYPES[0] }))
+    const tooMany = Array.from({ length: MAX_EVENTS_PER_BATCH + 1 }, () => ({ type: CLIENT_EVENT_TYPES[0] }))
     expect(eventsBatchSchema.safeParse({ events: tooMany }).success).toBe(false)
     const bigPayload = { note: "x".repeat(MAX_EVENT_PAYLOAD_BYTES) }
     expect(eventsBatchSchema.safeParse({ events: [{ type: "lesson_viewed", payload: bigPayload }] }).success).toBe(false)
     expect(eventsBatchSchema.safeParse({ events: [{ type: "lesson_viewed", payload: { lesson_id: "abc", xp: 10 } }] }).success).toBe(true)
+  })
+
+  it("o cliente só envia os tipos de uso; os que o servidor decide são recusados, e um deles derruba o lote inteiro", () => {
+    expect(CLIENT_EVENT_TYPES).toEqual(["lesson_viewed"])
+    for (const type of EVENT_TYPES) {
+      const isClientType = (CLIENT_EVENT_TYPES as readonly string[]).includes(type)
+      expect(eventsBatchSchema.safeParse({ events: [{ type }] }).success).toBe(isClientType)
+    }
+    expect(eventsBatchSchema.safeParse({ events: [{ type: "lesson_viewed" }, { type: "lesson_completed" }] }).success).toBe(false)
   })
 
   it("PATCH de trilha não aplica defaults", () => {

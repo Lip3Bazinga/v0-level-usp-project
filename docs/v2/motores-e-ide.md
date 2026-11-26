@@ -131,7 +131,7 @@ O que é derivado dele (nada é copiado à mão):
   navegador, então a API não valida nada: não é regra de segurança. "Verificar" e "Visualizar" não mudam.
 - **Constante e função pura** (`packages/contracts/src/run-button.ts`): `RUN_BUTTON_MIN_LEVEL = 10`,
   `resolveRunButtonMinLevel(limiteDoCurso)` e `isRunButtonUnlocked(nivelDoJogador, limiteDoCurso)`.
-- **Ajuste por curso.** `courses.run_button_min_level` (migração `0006_executar_por_nivel`; inteiro ≥ 1, nulo = usa a
+- **Ajuste por curso.** `courses.run_button_min_level` (migração `0007_executar_por_nivel_e_python_completo`; inteiro ≥ 1, nulo = usa a
   constante, 1 = sempre liberado). Entra em `courseInputSchema`/`courseUpdateSchema` (1 a 100 ou `null`) e sai em
   `Course`. Só o admin muda o valor (`PATCH /courses/:id` responde 403 ao professor que tentar; reenviar o valor atual
   é aceito) e a mudança vai para a auditoria (`course.run_button_min_level`, com `from`/`to`). Tela: Admin → Cursos →
@@ -168,7 +168,7 @@ O que é derivado dele (nada é copiado à mão):
 ## 6. Motor `python-completo` (CPython nativo em gVisor)
 
 Terceiro motor do executor, para o que o WebAssembly não roda: **PyTorch**. Runtime de lição `python-completo`
-(`LESSON_RUNTIMES`/`PYTHON_RUNTIMES` em `packages/contracts`; a migração `0007_motor_python_completo` amplia o `CHECK` de
+(`LESSON_RUNTIMES`/`PYTHON_RUNTIMES` em `packages/contracts`; a migração `0007_executar_por_nivel_e_python_completo` amplia o `CHECK` de
 `lessons.runtime`). Bibliotecas: `numpy`, `pandas`, `scikit-learn` (mesmas versões do Pyodide) e `torch` 2.15.0 só CPU
 (apelido `pytorch`; `browser: false`). **Desligado por padrão** em todo ambiente: sem ele o executor responde 501
 (`runtime_unavailable`) e a API mostra "corretor indisponível".

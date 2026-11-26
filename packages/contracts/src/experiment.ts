@@ -3,8 +3,10 @@ import { jsonSchema, type Json } from "./grading"
 
 /**
  * Experimento de gamificação (pedido da auditoria): cada participante recebe um
- * grupo e o cliente registra eventos de uso num log append-only (`events`), que
- * o admin exporta em CSV. Não existe rota de alteração ou exclusão de evento.
+ * grupo e os eventos de uso vão para um log append-only (`events`), que o admin
+ * exporta em CSV. O servidor grava os eventos que ele mesmo decide; o cliente só
+ * envia os de {@link CLIENT_EVENT_TYPES}. Não existe rota de alteração ou exclusão
+ * de evento, e o banco recusa UPDATE e DELETE na tabela.
  */
 
 export const EXPERIMENT_CONDITIONS = ["gamificada", "controle"] as const
@@ -16,7 +18,10 @@ export const setExperimentConditionSchema = z.object({ experiment_condition: exp
 /** Corpo de `PATCH /admin/users/:id/experiment-condition` (null tira o usuário do experimento). */
 export type SetExperimentConditionInput = z.infer<typeof setExperimentConditionSchema>
 
-/** Tipos de evento aceitos por `POST /me/events` (lista fechada: qualquer outro é recusado). */
+/**
+ * Todos os tipos de evento do log (coluna `events.type` e exportação do admin). Fora
+ * {@link CLIENT_EVENT_TYPES}, são gravados só pelo servidor, depois de um veredito ou ação dele.
+ */
 export const EVENT_TYPES = [
   "lesson_viewed", "step_submitted", "step_completed", "hint_revealed", "solution_viewed", "lesson_completed",
   "quiz_answered", "exam_started", "exam_submitted", "certificate_issued", "login",
@@ -24,6 +29,15 @@ export const EVENT_TYPES = [
 export const eventTypeSchema = z.enum(EVENT_TYPES)
 /** Tipo de um evento do experimento. */
 export type EventType = z.infer<typeof eventTypeSchema>
+
+/**
+ * Tipos de evento aceitos por `POST /me/events` (lista fechada: qualquer outro é recusado com 400,
+ * inclusive os que só o servidor grava, como `lesson_completed` e `certificate_issued`).
+ */
+export const CLIENT_EVENT_TYPES = ["lesson_viewed"] as const satisfies readonly EventType[]
+export const clientEventTypeSchema = z.enum(CLIENT_EVENT_TYPES)
+/** Tipo de evento que o cliente pode enviar. */
+export type ClientEventType = z.infer<typeof clientEventTypeSchema>
 
 /** Tamanho máximo do `payload` serializado em JSON (UTF-8). */
 export const MAX_EVENT_PAYLOAD_BYTES = 4096
@@ -42,7 +56,7 @@ export const eventPayloadSchema = z
 export type EventPayload = z.infer<typeof eventPayloadSchema>
 
 export const eventInputSchema = z.object({
-  type: eventTypeSchema,
+  type: clientEventTypeSchema,
   payload: eventPayloadSchema.default({}),
 })
 /** Um evento enviado pelo cliente; o servidor acrescenta o usuário da sessão e o instante. */
