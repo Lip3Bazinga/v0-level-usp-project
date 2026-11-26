@@ -1,7 +1,7 @@
 # Rastreabilidade dos diagramas do TCC
 
 Cada caixa e cada seta dos seis diagramas aponta para `arquivo:linha` do repositório (caminhos a partir
-da raiz). As linhas foram conferidas no commit `5add24f` (26/11/2026); se o código mudar, as linhas
+da raiz). As linhas foram conferidas no commit `5add24f` (26/11/2026) e as de `events` reconferidas no `0fc634b`; se o código mudar, as linhas
 andam, mas o nome da função ou da chave citada permanece o mesmo.
 
 Convenções:
@@ -104,7 +104,7 @@ Convenções:
 | 19. `createSubmission` com `status=graded`, `result`, `engine` | `apps/api/src/modules/learning/submission-grader.ts:59-61`; `apps/api/src/modules/learning/learning.repository.ts:61`; `packages/db/src/schema/learning.ts:86-108` (`submissions`) |
 | 20. `completeStep` só se aprovado | `apps/api/src/modules/learning/steps.service.ts:78`; `apps/api/src/modules/gamification/gamification.service.ts:82-121` (transação: `markStepCompleted`, `creditXp`, `touchStreak`, `completeLessonIn`, `grantBadges`) |
 | Reprovado: `incrementAttempts` | `apps/api/src/modules/learning/steps.service.ts:79` |
-| 21. Evento `step_submitted` | `apps/api/src/modules/learning/steps.service.ts:80`; `apps/api/src/modules/experiment/events.service.ts:37` |
+| 21. Evento `step_submitted` | `apps/api/src/modules/learning/steps.service.ts:80`; `apps/api/src/modules/experiment/events.service.ts:38` |
 | 22. Resposta `StepSubmitResult` com `cases` por `toStepCases`, `attempts`, `solution_available` | `apps/api/src/modules/learning/steps.service.ts:82-89`; `apps/api/src/modules/learning/steps.domain.ts:24-30` |
 | Nota "esperado e obtido só se o caso tem `reveal`" | `apps/api/src/modules/grading/grading.domain.ts:204` (`testCase.reveal ? ... esperado ... : ...não é o esperado`) |
 | Nota "a solução só sai pela rota própria, depois das tentativas" | `apps/api/src/modules/learning/steps.service.ts:148-159` (`revealSolution`, `SOLUTION_LOCKED`) |
@@ -167,7 +167,7 @@ Todas as entidades vêm do schema Drizzle em `packages/db/src/schema/`. A linha 
 | `exam_questions` | `packages/db/src/schema/exams.ts:38` | `exam_id`: `exams.ts:42`; `correct_index`: `exams.ts:45` |
 | `exam_attempts` | `packages/db/src/schema/exams.ts:60` | `exam_id`: `exams.ts:64`; `user_id`: `exams.ts:65` |
 | `certificates` | `packages/db/src/schema/exams.ts:80` | `user_id`, `course_id`: `exams.ts:84-85`; `project_status`: `exams.ts:88` |
-| `events` | `packages/db/src/schema/events.ts:11` | `user_id` nulável (`set null`): `events.ts:15`; "só inserção": `events.ts:6-10` |
+| `events` | `packages/db/src/schema/events.ts:15` | `user_id` nulável (`set null`): `events.ts:19`; "só inserção": `events.ts:6-14` e gatilho `events_append_only` em `packages/db/migrations/0006_eventos_so_acrescimo.sql:17` (função) e `:37` (gatilho) |
 | `badges` | `packages/db/src/schema/gamification.ts:6` | - |
 | `user_badges` | `packages/db/src/schema/gamification.ts:31` | `user_id`, `badge_id`: `gamification.ts:34-35` |
 | Tabelas fora do desenho (existem) | `password_reset_tokens` (`auth.ts:47`), `oauth_accounts` (`auth.ts:56`), `notes` (`learning.ts:130`), `notifications`, `audit_log`, `platform_settings`, `teacher_approvals`, `library_catalog`, `library_requests`, `uploads` (`platform.ts:9-135`), `content_assets` (`content.ts:204`) | - |
