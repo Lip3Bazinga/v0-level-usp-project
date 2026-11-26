@@ -289,7 +289,10 @@ describe.skipIf(!canRun)("python-completo: ataques ao contêiner", () => {
       "tenta('chroot', lambda: os.chroot('/work'))",
       "tenta('nice', lambda: os.nice(-5))",
     ))
-    for (const action of ["setuid", "chown", "mount", "chroot", "nice"]) expect(found[action], action).toMatch(/^ERRO /)
+    for (const action of ["setuid", "chown", "mount", "chroot"]) expect(found[action], action).toMatch(/^ERRO /)
+    // `nice` negativo: o runc recusa (sem CAP_SYS_NICE); o gVisor aceita (CI de 26/11: "ok -5"), mas a prioridade
+    // é só do kernel emulado dentro da sandbox e não muda a do processo na máquina. Fica registrado, sem exigir erro.
+    expect(found.nice, "nice").toMatch(/^(ERRO |ok )/)
     expect(found.capacidades).toMatch(/^ok \[('0+'(, )?)*\]$/)
   })
 

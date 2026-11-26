@@ -1,4 +1,4 @@
-import { expect, type APIResponse, type Page } from "@playwright/test"
+import { expect, type APIResponse, type Browser, type Page } from "@playwright/test"
 import type { Course, LessonSummary } from "@levelusp/contracts"
 import { MAIN_FILE_PATH, ROUTES } from "@/lib/constants"
 
@@ -77,4 +77,23 @@ export async function fetchLessonId(page: Page, slug = DEFAULT_LESSON_SLUG): Pro
   const lesson = lessons.find((summary) => summary.slug === slug)
   expect(lesson, `lição ${slug} do seed de homologação`).toBeTruthy()
   return lesson?.id ?? ""
+}
+
+/**
+ * Libera o botão "Executar" para qualquer nível em todos os cursos publicados (a aluna do seed está
+ * abaixo do `RUN_BUTTON_MIN_LEVEL`). Entra como admin num contexto à parte, sem tocar na sessão do teste.
+ */
+export async function unlockRunButton(browser: Browser): Promise<void> {
+  const context = await browser.newContext()
+  try {
+    const page = await context.newPage()
+    await login(page, ADMIN, ROUTES.admin)
+    const courses = await readJson<Course[]>(await page.request.get("/api/courses"))
+    for (const course of courses) {
+      const response = await page.request.patch(`/api/courses/${course.id}`, { data: { run_button_min_level: 1 }, headers: CSRF_HEADERS })
+      expect(response.ok(), `liberar o Executar no curso ${course.slug}`).toBe(true)
+    }
+  } finally {
+    await context.close()
+  }
 }

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test"
 import { ROUTES } from "@/lib/constants"
 import type { LessonSummary } from "@levelusp/contracts"
-import { LESSON_LOAD_TIMEOUT_MS, STUDENT, apiPost, fetchLessonId, login, readJson } from "./helpers"
+import { LESSON_LOAD_TIMEOUT_MS, STUDENT, apiPost, fetchLessonId, login, readJson, unlockRunButton } from "./helpers"
 
 /**
  * Lição guiada com os recursos de apresentação (diagrama, visualizador de execução, Previsão,
@@ -26,8 +26,9 @@ async function openStep(page: Page, label: string): Promise<void> {
   await stepButton.click()
 }
 
-test("lição guiada: diagrama, visualizador, previsão, lacunas e ordenar", async ({ page }) => {
+test("lição guiada: diagrama, visualizador, previsão, lacunas e ordenar", async ({ page, browser }) => {
   test.setTimeout(240_000)
+  await unlockRunButton(browser)
   await login(page, STUDENT)
   await page.goto(ROUTES.lesson(await fetchLessonId(page, WHILE_LESSON_SLUG)))
   await expect(page.getByRole("heading", { name: "Repetição com while" })).toBeVisible({ timeout: LESSON_LOAD_TIMEOUT_MS })

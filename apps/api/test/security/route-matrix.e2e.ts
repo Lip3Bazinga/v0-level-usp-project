@@ -103,6 +103,8 @@ const TEACHER_ROUTES = [
   "DELETE /api/courses/:id/lessons/:lessonId",
   "GET /api/teacher/lessons",
   "GET /api/teacher/metrics",
+  "POST /api/teacher/draft-steps/verify",
+  "POST /api/teacher/draft-steps/submit",
   "GET /api/lessons/:id/authoring",
   "POST /api/lessons",
   "PATCH /api/lessons/:id",
