@@ -8,7 +8,7 @@ export interface EventWithConditionRow extends EventRow {
   experimentCondition: string | null
 }
 
-/** Log append-only do experimento: só insere e lê (não existe update nem delete). */
+/** Log append-only do experimento: só insere e lê (não existe update nem delete, e o gatilho `events_append_only` os recusa no banco). */
 @Injectable()
 export class EventsRepository {
   constructor(@InjectDb() private readonly db: Database) {}

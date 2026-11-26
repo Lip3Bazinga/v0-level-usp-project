@@ -12,7 +12,7 @@ import { EventsService } from "./events.service"
 export class ExperimentController {
   constructor(private readonly events: EventsService) {}
 
-  /** Lote de eventos de uso do cliente; só tipos da lista fechada, sempre em nome da sessão. */
+  /** Lote de eventos de uso do cliente; só os tipos de `CLIENT_EVENT_TYPES` (os que o servidor decide dão 400), sempre em nome da sessão. */
   @HttpCode(204)
   @Post("me/events")
   async createMyEvents(@CurrentUser() user: AuthUser, @Body(new ZodPipe(eventsBatchSchema)) body: EventsBatchInput): Promise<void> {
