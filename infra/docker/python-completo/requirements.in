@@ -1,0 +1,7 @@
+# Bibliotecas do motor python-completo (variante enxuta, sem PyTorch). As versões são as do
+# manifesto (packages/contracts/src/library-manifest.ts), iguais às do Pyodide do navegador.
+# Para gerar o arquivo travado com hashes, veja infra/docker/python-completo/travar.sh.
+numpy==2.4.6
+pandas==3.0.2
+scikit-learn==1.8.0
+scipy==1.18.0

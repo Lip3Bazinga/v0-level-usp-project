@@ -17,9 +17,12 @@ export const lessonTypeSchema = z.enum(LESSON_TYPES)
  */
 export type LessonType = z.infer<typeof lessonTypeSchema>
 
-export const LESSON_RUNTIMES = ["python", "python-dados"] as const
+export const LESSON_RUNTIMES = ["python", "python-dados", "python-completo"] as const
 export const lessonRuntimeSchema = z.enum(LESSON_RUNTIMES)
-/** Motor que corrige a lição: CPython WASI (`python`) ou Pyodide com numpy/pandas/scikit-learn (`python-dados`). */
+/**
+ * Motor que corrige a lição: CPython WASI (`python`), Pyodide com numpy/pandas/scikit-learn
+ * (`python-dados`) ou CPython nativo em contêiner gVisor, com PyTorch (`python-completo`).
+ */
 export type LessonRuntime = z.infer<typeof lessonRuntimeSchema>
 
 /** Objetivos de aprendizagem por lição. */

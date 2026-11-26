@@ -79,8 +79,9 @@ levantamento aponta `arquivo:linha` do estado em `develop` antes da mudança (co
 
 Fonte única: `packages/contracts/src/library-manifest.ts` (`LIBRARY_MANIFEST`). Cada entrada tem `name` (nome do pacote
 como no `pyodide-lock.json`, PEP 503), `version` fixada, `aliases` (ex.: `sklearn`), `display_name`, `description`,
-`category`, `browser` (disponível no Pyodide do navegador), `engines` (runtimes do servidor que a oferecem, hoje só
-`python-dados`) e `pyodide_profile` (`dados` ou `ml`, o perfil de worker mínimo do executor).
+`category`, `browser` (disponível no Pyodide do navegador), `engines` (runtimes do servidor que a oferecem:
+`python-dados` e/ou `python-completo`) e `pyodide_profile` (`dados` ou `ml`, o perfil de worker mínimo do motor Pyodide;
+`null` quando só o `python-completo` a oferece, como o `torch`).
 
 O que é derivado dele (nada é copiado à mão):
 
@@ -94,8 +95,9 @@ O que é derivado dele (nada é copiado à mão):
   pacote com `browser` contra o `pyodide-lock.json` da dependência `pyodide` (existe e tem a mesma versão), confere o
   `PACKAGES` do `fetch-pyodide.sh` e os perfis/mapa de bibliotecas do runner (`pyodide-profiles.ts`) contra o manifesto, e
   confere o hash do lock contra `apps/web/src/lib/python/pyodide-runtime.json`. Diferença quebra o CI com a lista do que falta.
-- Fora do escopo (item 6): quando o motor `python-completo` entrar, ele ganha um valor em `engines` e o runner passa a
-  derivar `LIBRARY_PROFILES` do manifesto em vez de só ser conferido contra ele.
+- Motor `python-completo` (§6): as bibliotecas que ele aceita são lidas direto do manifesto (`engines` contém
+  `python-completo`), e o mesmo teste do runner confere os `requirements*.txt` da imagem contra as versões do manifesto.
+  Os perfis do motor Pyodide continuam conferidos por teste, não derivados (ver `divida-tecnica.md`).
 
 ## 2. Solicitação de biblioteca pelo professor
 
@@ -163,8 +165,73 @@ O que é derivado dele (nada é copiado à mão):
   limite 4 — libera na 5ª lição do módulo 5 do N1, depois de os módulos 2 a 4 terem sido feitos pelo terminal — ou 3,
   se a ideia for liberar já na entrada do módulo 4. Dá para aplicar só ao N1 pela tela do admin, sem mexer na constante.
 
+## 6. Motor `python-completo` (CPython nativo em gVisor)
+
+Terceiro motor do executor, para o que o WebAssembly não roda: **PyTorch**. Runtime de lição `python-completo`
+(`LESSON_RUNTIMES`/`PYTHON_RUNTIMES` em `packages/contracts`; a migração `0007_motor_python_completo` amplia o `CHECK` de
+`lessons.runtime`). Bibliotecas: `numpy`, `pandas`, `scikit-learn` (mesmas versões do Pyodide) e `torch` 2.15.0 só CPU
+(apelido `pytorch`; `browser: false`). **Desligado por padrão** em todo ambiente: sem ele o executor responde 501
+(`runtime_unavailable`) e a API mostra "corretor indisponível".
+
+- **Como roda** (`apps/runner/src/native-engine.ts`, `Engine` de nome `nativo`). Cada lote roda num contêiner Docker de
+  uso único, criado por `docker run` com `--runtime=runsc` (gVisor), `--network=none`, `--read-only`, tmpfs só em `/work`
+  (projeto, `MAX_JOB_DISK_MB`) e `/tmp` (16 MB), ambos `noexec`, usuário `65534`, `--cap-drop=ALL`, `no-new-privileges`,
+  `--cpus`, `--memory` (= `--memory-swap`), `--pids-limit`, `--ulimit` de CPU/arquivos, `--pull=never` e `--log-driver=none`.
+  Nenhum volume, socket ou variável do executor entra no contêiner. Lista completa e motivo de cada item:
+  `buildDockerRunArgs`.
+- **Protocolo.** O mesmo `harness.py` e as mesmas sondas dos outros motores. O contêiner sobe com
+  `python -I -B -c <native_bootstrap.py>`; o lote entra todo pela entrada padrão: um cabeçalho (`<n>\n` + JSON com os
+  arquivos do aluno e o código do harness, que o bootstrap grava em `/work`) e depois o JSON das sondas (nonce + ids
+  posicionais), que o harness lê até o fim antes de rodar o aluno. As observações voltam pela saída padrão com o nonce.
+  A comparação com o gabarito continua na API: nenhum valor esperado entra no contêiner.
+- **Pool aquecido.** `RUNNER_NATIVE_WARM` contêineres ficam prontos (interpretador no ar e `RUNNER_NATIVE_PRELOAD`
+  importado) esperando um lote; cada um atende um lote e morre, e o pool é reposto depois. Sem contêiner pronto o lote
+  sobe o próprio. Contêiner ocioso que morre não é reposto em laço (5 s de espera; depois de 3 mortes seguidas só volta
+  no próximo lote). Na partida o motor remove órfãos pelo rótulo `levelusp.engine=python-completo`: por isso, **um
+  executor por daemon do Docker**.
+- **Limites.** Tempo de parede do lote (`limits.timeoutMs`; ao vencer, o contêiner é removido à força), saída (8 MB) e
+  os do contêiner. `limits.memoryMb` do job não se aplica: o teto é `RUNNER_NATIVE_MEMORY_MB`, fixado na criação do
+  contêiner. Contêiner morto pelo teto de memória (código 137) vira "Memória insuficiente". Os contêineres são irmãos
+  do executor (fora do cgroup dele): não entram no orçamento `RUNNER_MEMORY`; o teto real é
+  (`CONCURRENCY` + pool) × `RUNNER_NATIVE_MEMORY_MB`.
+- **Política runsc/runc** (`native-policy.ts`, conferida na partida com `docker info`). Há `runsc` → usa `runsc`. Não
+  há → só sobe com `runc` se `RUNNER_ALLOW_INSECURE_NATIVE=1` **e** `NODE_ENV=development` (aviso no log, `INSEGURO` nas
+  versões da resposta). Qualquer outro caso: o motor não sobe, o resto do executor segue e o runtime responde 501.
+- **Imagem** (`infra/docker/python-completo.Dockerfile`): `python:3.14.10-slim-bookworm` fixada por digest; rodas
+  instaladas com `--require-hashes --only-binary=:all: --no-deps` a partir de `infra/docker/python-completo/requirements.txt`
+  (numpy 2.4.6, pandas 3.0.2, scikit-learn 1.8.0, scipy 1.18.0) e `requirements-torch.txt` (`torch==2.15.0+cpu`, do
+  índice CPU do PyTorch). `--build-arg WITH_TORCH=0` gera a variante enxuta (643 MB) usada no CI. Para trocar versões:
+  edite os `.in` e rode `travar.sh` dentro da imagem base. O executor nunca baixa imagem: ela precisa existir no daemon.
+- **Variáveis** (`apps/runner/src/config.ts`): `RUNNER_NATIVE_ENGINE` (`off`|`gvisor`), `RUNNER_ALLOW_INSECURE_NATIVE`,
+  `RUNNER_NATIVE_IMAGE` (padrão `levelusp/python-completo:local`), `DOCKER_BIN`, `RUNNER_NATIVE_WARM` (1),
+  `RUNNER_NATIVE_MEMORY_MB` (1024), `RUNNER_NATIVE_CPUS` (1), `RUNNER_NATIVE_PIDS_LIMIT` (64),
+  `RUNNER_NATIVE_BOOT_TIMEOUT_MS` (60000), `RUNNER_NATIVE_PRELOAD` (`numpy,pandas`), `NATIVE_BOOTSTRAP_PATH`.
+- **Executar e terminal numa lição `python-completo`.** O navegador (Pyodide) não tem PyTorch. Regra: o Executar, o
+  terminal e o Visualizar carregam só as bibliotecas da lição com `browser: true` no manifesto
+  (`splitBrowserLibraries`, aplicado em `use-python.ts` e `trace-client.ts`); as demais não são nem tentadas. O aluno
+  vê o aviso "torch só existe na correção do servidor… Use Verificar" (no console ao abrir a lição clássica e a cada
+  Executar na lição guiada), e um `import torch` no navegador falha com `ModuleNotFoundError`. O Verificar roda tudo
+  no servidor. Consequência para quem escreve conteúdo: numa lição `python-completo`, o que depende de `torch` só é
+  conferível pelo Verificar; passos de exploração (numpy/pandas) continuam rodando no navegador.
+- **Conteúdo.** `content:check` aceita `runtime: python-completo` com as bibliotecas que o manifesto libera para ele
+  (exige ao menos uma) e recusa as demais ("biblioteca sem motor para o runtime python-completo"); a publicação pela
+  API usa a mesma regra (`LIBRARY_RUNTIME`). `content:verify` trata toda lição `python-completo` como pesada (um lote
+  por vez) e só passa com o motor ligado no executor usado.
+- **Para experimentar em desenvolvimento (sem gVisor, modo inseguro):** construa a imagem enxuta
+  (`docker build -f infra/docker/python-completo.Dockerfile --build-arg WITH_TORCH=0 -t levelusp/python-completo:local .`)
+  e rode o executor **fora** de contêiner com `RUNNER_NATIVE_ENGINE=gvisor RUNNER_ALLOW_INSECURE_NATIVE=1 NODE_ENV=development`.
+- **Produção.** Não ligado em `compose.yml` (valor fixo `off`) e o serviço `runner` não recebe o socket do Docker.
+  O desenho proposto para ligar, os riscos e o que falta estão em
+  [seguranca.md](./seguranca.md#motor-python-completo-cpython-nativo-em-gvisor).
+
 ## Testes
 
+- Motor `python-completo`: `apps/runner/test/native-engine.test.ts` (Docker simulado: argumentos de isolamento, política
+  runsc/runc, liga/desliga, pool, protocolo, tempo, saída, memória, partida que falha) e
+  `apps/runner/test/attacks/native.attack.ts` (Docker real, só com `runsc`: rede, disco, `noexec`, segredos, privilégio,
+  tempo, memória, fork bomb, saída, uso único). O job `gvisor` do CI instala o runsc (SHA-512 conferido), constrói a
+  imagem enxuta e roda os ataques com `NATIVE_ATTACKS_REQUIRED=1` (sem runsc o teste falha em vez de pular).
+  `library-manifest.test.ts` do runner confere os `requirements*.txt` (versões do manifesto, hash em toda roda).
 - Executar por nível: `packages/contracts/src/run-button.test.ts`, `catalog.domain.spec.ts` (`canSetRunButtonLevel`),
   `run-button-gate.test.tsx`, `exercise-step-run-lock.test.tsx`, `run-toolbar.test.tsx`, `ide-context.test.tsx`,
   `console-terminal-tabs.test.tsx` e `run-level-modal.test.tsx`. Sem e2e novo para o PATCH do curso.

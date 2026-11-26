@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
-  checkLibraries, findManifestLibrary, LIBRARY_MANIFEST, listManifestLibrariesFor, normalizeLibraryName, validateLibraryManifest, type LibraryManifestEntry,
+  checkLibraries, findManifestLibrary, LIBRARY_MANIFEST, listManifestLibrariesFor, normalizeLibraryName, splitBrowserLibraries, validateLibraryManifest, type LibraryManifestEntry,
 } from "./index"
 
 const NUMPY: LibraryManifestEntry = {
@@ -33,6 +33,18 @@ describe("manifesto de bibliotecas", () => {
   it("lista só o que o motor oferece", () => {
     expect(listManifestLibrariesFor("python-dados").map((entry) => entry.name)).toContain("pandas")
     expect(listManifestLibrariesFor("python")).toEqual([])
+  })
+
+  it("o motor python-completo oferece numpy, pandas, scikit-learn e PyTorch (que o navegador não tem)", () => {
+    expect(listManifestLibrariesFor("python-completo").map((entry) => entry.name)).toEqual(["numpy", "pandas", "scikit-learn", "torch"])
+    expect(findManifestLibrary("pytorch")).toMatchObject({ name: "torch", browser: false, pyodide_profile: null })
+    expect(checkLibraries("python-completo", ["torch", "sklearn", "matplotlib"])).toEqual({ pending: [], unavailable: ["matplotlib"] })
+    expect(checkLibraries("python-dados", ["torch"])).toEqual({ pending: [], unavailable: ["torch"] })
+  })
+
+  it("separa o que o navegador carrega do que só o servidor tem", () => {
+    expect(splitBrowserLibraries(["numpy", "Torch", "sklearn", "xgboost"])).toEqual({ browser: ["numpy", "sklearn"], serverOnly: ["Torch", "xgboost"] })
+    expect(splitBrowserLibraries([])).toEqual({ browser: [], serverOnly: [] })
   })
 
   it("separa biblioteca pendente (fora do manifesto) de biblioteca fora do motor da lição", () => {

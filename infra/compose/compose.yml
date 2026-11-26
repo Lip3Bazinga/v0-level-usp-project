@@ -94,6 +94,12 @@ services:
       RUNNER_MEMORY: ${RUNNER_MEMORY:-2g}
       RUNNER_MEMORY_RESERVE_MB: ${RUNNER_MEMORY_RESERVE_MB:-512}
       RUNNER_BATCH_MEMORY_MB: ${RUNNER_BATCH_MEMORY_MB:-python:0,dados:256,ml:1229}
+      # Motor python-completo (CPython nativo + PyTorch em contêiner gVisor): DESLIGADO, e fixo
+      # aqui de propósito (não vem do .env). Ligar exige dar ao executor acesso a um daemon do
+      # Docker, e o socket do Docker da máquina equivale a root nela. Este serviço NÃO monta o
+      # socket; o desenho aceito para produção (máquina dedicada, Docker rootless + runsc) está
+      # em docs/v2/seguranca.md, "Motor python-completo". Desligado, o runtime responde 501.
+      RUNNER_NATIVE_ENGINE: "off"
     # Defesa em profundidade (além do sandbox WASI/Pyodide): sem rede externa, sistema de
     # arquivos somente leitura, sem privilégios, limites de CPU/memória/processos.
     networks: [runner]

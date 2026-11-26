@@ -23,6 +23,8 @@ export interface ServerDeps {
   readiness?: RunnerReadiness
   /** Prontidão do motor Pyodide, informada em `/healthz` (`pyodide: {...}`); o motor é opcional e não derruba a saúde. */
   pyodideReadiness?: PyodideReadiness
+  /** Prontidão do motor `python-completo` (gVisor), informada em `/healthz` (`completo: {...}`); opcional como o Pyodide. */
+  nativeReadiness?: EngineReadiness
 }
 
 /** Estado do autoteste do sandbox: enquanto `ready` for falso, `/healthz` responde 503 com o motivo. */
@@ -31,7 +33,7 @@ export type RunnerReadiness = EngineReadiness
 class BodyTooLargeError extends Error {}
 
 /** HTTP mínimo (sem framework): menos superfície num serviço que roda código não confiável. */
-export function buildServer({ executor, token, log, stats, readiness, pyodideReadiness }: ServerDeps): Server {
+export function buildServer({ executor, token, log, stats, readiness, pyodideReadiness, nativeReadiness }: ServerDeps): Server {
   const expectedAuthorization = Buffer.from(`Bearer ${token}`)
 
   const isAuthorized = (request: IncomingMessage): boolean => {
@@ -41,8 +43,9 @@ export function buildServer({ executor, token, log, stats, readiness, pyodideRea
 
   const health = (response: ServerResponse): void => {
     const pyodide = pyodideReadiness ? { pyodide: { ready: pyodideReadiness.ready, reason: pyodideReadiness.reason, policy: pyodideReadiness.policy, profiles: pyodideReadiness.profiles, warm: pyodideReadiness.warm } } : {}
-    if (readiness && !readiness.ready) return sendJson(response, 503, { status: "unavailable", reason: readiness.reason, ...pyodide })
-    return sendJson(response, 200, { status: "ok", ...pyodide })
+    const native = nativeReadiness ? { completo: { ready: nativeReadiness.ready, reason: nativeReadiness.reason } } : {}
+    if (readiness && !readiness.ready) return sendJson(response, 503, { status: "unavailable", reason: readiness.reason, ...pyodide, ...native })
+    return sendJson(response, 200, { status: "ok", ...pyodide, ...native })
   }
 
   const runJob = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {

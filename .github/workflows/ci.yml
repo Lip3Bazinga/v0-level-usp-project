@@ -141,6 +141,48 @@ jobs:
       - if: failure()
         run: tail -n 100 runner.log
 
+  # Motor python-completo: o único job com gVisor. Fica fora do `needs` do job "publicar":
+  # uma falha aqui aparece no PR, mas não bloqueia os outros jobs nem a publicação (o motor é
+  # desligado por padrão em todo ambiente).
+  gvisor:
+    name: Motor python-completo (gVisor, ataques ao contêiner)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      # Versão do gVisor fixada; o SHA-512 é o do gvisor.tar.bz2 dessa versão (conferido antes de instalar).
+      GVISOR_RELEASE: "20261116"
+      GVISOR_SHA512: c87d792d5842efb70c38ee822124cfe0821a547715e7abcf3f2b14997cd02784edaa0b91e238ec5c27a25a1b9e00bf98113398eb62a0778d8d20d4e222f8b0e0
+      NATIVE_ATTACKS_IMAGE: levelusp/python-completo:enxuta
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: gVisor (runsc) com SHA-512 verificado, registrado no Docker
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/gvisor.tar.bz2 "https://storage.googleapis.com/gvisor/releases/release/${GVISOR_RELEASE}/x86_64/gvisor.tar.bz2"
+          echo "${GVISOR_SHA512}  /tmp/gvisor.tar.bz2" | sha512sum --check --strict
+          # O pacote traz o runsc, o shim do containerd e a pasta gvisor-bin/ (que fica ao lado do runsc).
+          sudo tar -xjf /tmp/gvisor.tar.bz2 -C /usr/local/bin --no-same-owner
+          sudo chmod -R a+rX,go-w /usr/local/bin/runsc /usr/local/bin/containerd-shim-runsc-v1 /usr/local/bin/gvisor-bin
+          sudo /usr/local/bin/runsc install
+          sudo systemctl restart docker
+          docker info --format '{{range $name, $_ := .Runtimes}}{{$name}} {{end}}' > /tmp/runtimes.txt
+          cat /tmp/runtimes.txt
+          grep -qw runsc /tmp/runtimes.txt
+      - name: Imagem enxuta do motor (sem PyTorch; rodas com SHA-256 verificado)
+        run: docker build -f infra/docker/python-completo.Dockerfile --build-arg WITH_TORCH=0 -t "$NATIVE_ATTACKS_IMAGE" .
+      - name: O contêiner sobe no gVisor (kernel 4.4.0 do gVisor, não o da máquina)
+        run: docker run --rm --runtime=runsc --network=none "$NATIVE_ATTACKS_IMAGE" -I -c "import os, numpy; print(os.uname().release, numpy.__version__)"
+      - run: pnpm --filter @levelusp/contracts build
+      - name: Ataques ao motor python-completo (rede, disco, fork bomb, memória, tempo, segredos)
+        run: pnpm --filter @levelusp/runner exec vitest run --config test/attacks/vitest.config.ts native
+        env: { NATIVE_ATTACKS_REQUIRED: "1", SKIP_PYODIDE_TESTS: "1" }
+      - if: failure()
+        run: docker info; sudo journalctl -u docker --no-pager -n 80 || true
+
   e2e:
     name: Ponta a ponta (Playwright)
     runs-on: ubuntu-latest

@@ -16,13 +16,16 @@ export type PyodideProfileId = (typeof PYODIDE_PROFILE_IDS)[number]
 
 /** Nome de pacote normalizado (PEP 503): minúsculas, dígitos e hífens. */
 const NORMALIZED_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
-/** Versão fixada igual à do `pyodide-lock.json` (ex.: `2.4.6`). */
+/** Versão fixada igual à do `pyodide-lock.json` ou à da imagem do motor `python-completo` (ex.: `2.4.6`). */
 const PINNED_VERSION = /^\d+(?:\.\d+){1,3}$/
 
 export const libraryManifestEntrySchema = z.strictObject({
-  /** Nome do pacote como no `pyodide-lock.json`; é o que a lição escreve em `bibliotecas`. */
+  /** Nome do pacote como no `pyodide-lock.json` (ou no PyPI, se só o `python-completo` a oferece); é o que a lição escreve em `bibliotecas`. */
   name: z.string().regex(NORMALIZED_NAME),
-  /** Versão do pacote no Pyodide do navegador e do executor (conferida contra o lock no CI). */
+  /**
+   * Versão do pacote no Pyodide do navegador e do executor (conferida contra o lock no CI) e, para o
+   * motor `python-completo`, na imagem dele (conferida contra `infra/docker/python-completo/requirements*.txt`).
+   */
   version: z.string().regex(PINNED_VERSION),
   /** Outros nomes aceitos para a mesma biblioteca (ex.: `sklearn`). */
   aliases: z.array(z.string().regex(NORMALIZED_NAME)),
@@ -40,8 +43,9 @@ export const libraryManifestEntrySchema = z.strictObject({
 export type LibraryManifestEntry = z.infer<typeof libraryManifestEntrySchema>
 
 /**
- * Bibliotecas liberadas, em ordem alfabética. Acrescentar uma entrada exige que o pacote exista no
- * `pyodide-lock.json` da versão usada (teste do runner) e esteja no `PACKAGES` de `fetch-pyodide.sh`.
+ * Bibliotecas liberadas, em ordem alfabética. Acrescentar uma entrada com `browser` exige que o pacote
+ * exista no `pyodide-lock.json` da versão usada e esteja no `PACKAGES` de `fetch-pyodide.sh`; com o motor
+ * `python-completo`, que esteja na mesma versão nos `requirements*.txt` da imagem (testes do runner).
  */
 export const LIBRARY_MANIFEST: readonly LibraryManifestEntry[] = [
   {
@@ -74,7 +78,7 @@ export const LIBRARY_MANIFEST: readonly LibraryManifestEntry[] = [
     description: "Arrays numéricos, álgebra linear e operações vetorizadas.",
     category: "data-science",
     browser: true,
-    engines: ["python-dados"],
+    engines: ["python-dados", "python-completo"],
     pyodide_profile: "dados",
   },
   {
@@ -85,7 +89,7 @@ export const LIBRARY_MANIFEST: readonly LibraryManifestEntry[] = [
     description: "Tabelas (DataFrame), limpeza, agrupamento e análise de dados.",
     category: "data-science",
     browser: true,
-    engines: ["python-dados"],
+    engines: ["python-dados", "python-completo"],
     pyodide_profile: "dados",
   },
   {
@@ -96,7 +100,7 @@ export const LIBRARY_MANIFEST: readonly LibraryManifestEntry[] = [
     description: "Aprendizado de máquina clássico: regressão, classificação, validação e métricas.",
     category: "ml",
     browser: true,
-    engines: ["python-dados"],
+    engines: ["python-dados", "python-completo"],
     pyodide_profile: "ml",
   },
   {
@@ -132,6 +136,17 @@ export const LIBRARY_MANIFEST: readonly LibraryManifestEntry[] = [
     engines: ["python-dados"],
     pyodide_profile: "ml",
   },
+  {
+    name: "torch",
+    version: "2.15.0",
+    aliases: ["pytorch"],
+    display_name: "PyTorch",
+    description: "Redes neurais e tensores (só CPU). Roda só na correção do servidor, não no navegador.",
+    category: "ml",
+    browser: false,
+    engines: ["python-completo"],
+    pyodide_profile: null,
+  },
 ]
 
 /** Nome normalizado como no `pyodide-lock.json` (PEP 503): minúsculas, `_`/`.` viram `-`. */
@@ -152,6 +167,28 @@ export function findManifestLibrary(name: string, manifest: readonly LibraryMani
 /** Bibliotecas que o motor `runtime` do servidor oferece. */
 export function listManifestLibrariesFor(runtime: PythonRuntime, manifest: readonly LibraryManifestEntry[] = LIBRARY_MANIFEST): LibraryManifestEntry[] {
   return manifest.filter((entry) => entry.engines.includes(runtime))
+}
+
+/** Resultado de {@link splitBrowserLibraries}: nomes (como digitados) separados pelo que o navegador consegue carregar. */
+export interface BrowserLibrarySplit {
+  /** O Pyodide do navegador carrega (botão Executar e terminal). */
+  browser: string[]
+  /** Só o servidor oferece (ex.: `torch`) ou está fora do manifesto: o navegador não tenta instalar. */
+  serverOnly: string[]
+}
+
+/**
+ * Separa as bibliotecas de uma lição pelo que o Pyodide do navegador tem. Numa lição `python-completo`
+ * o Executar e o terminal carregam só `browser`; o código que importa uma de `serverOnly` só roda no
+ * Verificar (correção no servidor). Ver `docs/v2/motores-e-ide.md` §6.
+ */
+export function splitBrowserLibraries(libraries: readonly string[], manifest: readonly LibraryManifestEntry[] = LIBRARY_MANIFEST): BrowserLibrarySplit {
+  const split: BrowserLibrarySplit = { browser: [], serverOnly: [] }
+  for (const library of libraries) {
+    if (findManifestLibrary(library, manifest)?.browser === true) split.browser.push(library)
+    else split.serverOnly.push(library)
+  }
+  return split
 }
 
 /** Resultado de {@link checkLibraries}: nomes (como digitados) que não podem ser usados, por motivo. */

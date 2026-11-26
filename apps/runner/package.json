@@ -2,7 +2,7 @@
   "name": "@levelusp/runner",
   "version": "0.1.0",
   "private": true,
-  "description": "Executor isolado: roda código Python dos alunos em CPython 3.14 WASI (Wasmtime) e, para lições python-dados, em Pyodide (numpy, pandas, scikit-learn) dentro de workers do Node. Sem segredos, sem banco, sem rede.",
+  "description": "Executor isolado: roda código Python dos alunos em CPython 3.14 WASI (Wasmtime) e, para lições python-dados, em Pyodide (numpy, pandas, scikit-learn) dentro de workers do Node; opcionalmente (python-completo, desligado por padrão), em CPython nativo com PyTorch em contêineres gVisor de uso único. Sem segredos, sem banco, sem rede.",
   "type": "module",
   "main": "dist/main.js",
   "scripts": {

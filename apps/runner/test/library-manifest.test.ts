@@ -10,7 +10,8 @@ import { PYODIDE_KNOWN_LIBRARIES, PYODIDE_PROFILES, resolveProfile } from "../sr
 /**
  * O manifesto de bibliotecas (`packages/contracts/src/library-manifest.ts`) é a fonte única; aqui o CI confere que
  * o que o executor realmente instala e aceita não saiu dele: o `pyodide-lock.json` da dependência `pyodide`
- * (pacotes e versões), o `PACKAGES` da imagem (`fetch-pyodide.sh`) e os perfis de worker do motor Pyodide.
+ * (pacotes e versões), o `PACKAGES` da imagem (`fetch-pyodide.sh`), os perfis de worker do motor Pyodide e os
+ * `requirements*.txt` da imagem do motor python-completo (`infra/docker/python-completo/`).
  * Biblioteca nova: acrescente a entrada no manifesto e ajuste os dois lugares apontados nas mensagens.
  */
 
@@ -27,6 +28,19 @@ const lock = JSON.parse(readFileSync(lockPath, "utf8")) as PyodideLock
 
 const pyodideEntries = listManifestLibrariesFor("python-dados")
 const names = (entries: readonly { name: string }[]): string[] => entries.map((entry) => entry.name).sort()
+
+const completoEntries = listManifestLibrariesFor("python-completo")
+const completoDir = path.join(repoRoot, "infra/docker/python-completo")
+
+/** Pacotes fixados num `requirements*.txt` (nome normalizado → versão, sem o sufixo local `+cpu`). */
+function pinnedRequirements(file: string): Map<string, string> {
+  const pinned = new Map<string, string>()
+  for (const line of readFileSync(path.join(completoDir, file), "utf8").split("\n")) {
+    const match = /^([A-Za-z0-9][A-Za-z0-9._-]*)==([^\s+\\]+)/.exec(line)
+    if (match?.[1] !== undefined && match[2] !== undefined) pinned.set(match[1].toLowerCase().replace(/[-_.]+/g, "-"), match[2])
+  }
+  return pinned
+}
 
 describe("manifesto de bibliotecas × executor", () => {
   it("cada pacote do navegador existe no pyodide-lock.json, na versão do manifesto", () => {
@@ -59,6 +73,32 @@ describe("manifesto de bibliotecas × executor", () => {
   it("os perfis de worker carregam as bibliotecas do manifesto (ml contém dados)", () => {
     expect([...PYODIDE_PROFILES.dados.packages].sort()).toEqual(names(pyodideEntries.filter((entry) => entry.pyodide_profile === "dados")))
     expect([...PYODIDE_PROFILES.ml.packages].sort()).toEqual(names(pyodideEntries))
+  })
+
+  it("a imagem do motor python-completo instala cada biblioteca do manifesto, na versão dele", () => {
+    const installed = new Map([...pinnedRequirements("requirements.txt"), ...pinnedRequirements("requirements-torch.txt")])
+    const wrong = completoEntries.flatMap((entry) => {
+      const version = installed.get(entry.name)
+      if (version === undefined) return [`${entry.name}: não está em infra/docker/python-completo/requirements*.txt`]
+      return version === entry.version ? [] : [`${entry.name}: manifesto ${entry.version}, imagem ${version}`]
+    })
+    expect(wrong).toEqual([])
+  })
+
+  it("a variante enxuta da imagem (CI) só deixa de fora o que o navegador também não tem", () => {
+    const lean = pinnedRequirements("requirements.txt")
+    expect(completoEntries.filter((entry) => !lean.has(entry.name)).map((entry) => ({ name: entry.name, browser: entry.browser }))).toEqual([{ name: "torch", browser: false }])
+  })
+
+  it("toda roda da imagem do python-completo é travada por versão e SHA-256", () => {
+    for (const file of ["requirements.txt", "requirements-torch.txt"]) {
+      const blocks = readFileSync(path.join(completoDir, file), "utf8").split(/\n(?=[A-Za-z0-9])/).filter((block) => /^[A-Za-z0-9]/.test(block))
+      const unhashed = blocks.filter((block) => !/^[A-Za-z0-9][A-Za-z0-9._-]*==\S+ \\\r?\n\s+--hash=sha256:[0-9a-f]{64}/.test(block)).map((block) => block.split("\n")[0])
+      expect(unhashed, file).toEqual([])
+    }
+    const dockerfile = readFileSync(path.join(repoRoot, "infra/docker/python-completo.Dockerfile"), "utf8")
+    expect(dockerfile.match(/pip install [^\n]*--require-hashes/g)).toHaveLength(2)
+    expect(dockerfile).toMatch(/^ARG PYTHON_IMAGE=python:3\.14\.\d+-slim-bookworm@sha256:[0-9a-f]{64}$/m)
   })
 
   it("o executor e o navegador usam a mesma distribuição do Pyodide", () => {

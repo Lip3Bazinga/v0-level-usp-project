@@ -19,7 +19,7 @@ export interface GradedSubmission extends GradeResult {
 /** Motor e pacotes da lição; ausentes = CPython WASI sem bibliotecas. */
 export interface GradingEngineOptions {
   runtime?: LessonRuntime
-  /** Pacotes do Pyodide (`numpy`, `pandas`…); só valem para `python-dados`. */
+  /** Bibliotecas da lição (`numpy`, `pandas`, `torch`…); só valem para `python-dados` e `python-completo`. */
   libraries?: readonly string[]
   /** Orçamento de execução da correção (2–25 s). Não confundir com `lessons.time_limit` (minutos de estudo). */
   timeoutSeconds?: number
@@ -49,8 +49,8 @@ export class GradingService {
       entry: DEFAULT_ENTRY_FILE,
       probes: buildProbes(cases),
       limits: { timeoutMs, memoryMb: DEFAULT_RUNNER_LIMITS.memoryMb },
-      // Só as lições de dados mandam motor e pacotes: o job das lições de Python puro fica como sempre foi.
-      ...(options.runtime === "python-dados" ? { runtime: options.runtime, libraries: [...(options.libraries ?? [])] } : {}),
+      // Só as lições com bibliotecas (python-dados, python-completo) mandam motor e pacotes: o job das lições de Python puro fica como sempre foi.
+      ...(options.runtime !== undefined && options.runtime !== "python" ? { runtime: options.runtime, libraries: [...(options.libraries ?? [])] } : {}),
     })
     return { ...grade(cases, result.observations, result.durationMs), engine: `${result.engine.python} / ${result.engine.runtime}` }
   }

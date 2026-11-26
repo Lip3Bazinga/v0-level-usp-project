@@ -223,7 +223,7 @@ function checkLesson(ctx: LintContext, lesson: BundleLesson): void {
   checkTitle(ctx, lesson, "lição")
   checkPlaceholders(ctx, lesson, "title", [lesson.title, lesson.description, ...lesson.objectives], `lição ${lesson.slug}`)
   if (lesson.published && lesson.objectives.length === 0) flag(ctx, lesson, "objectives", `lição publicada sem objetivos (objetivos: liste ao menos um)`)
-  if (lesson.runtime === "python-dados" && lesson.libraries.length === 0) flag(ctx, lesson, "runtime", "runtime python-dados exige bibliotecas (ex.: [numpy, pandas])")
+  if (lesson.runtime !== "python" && lesson.libraries.length === 0) flag(ctx, lesson, "runtime", `runtime ${lesson.runtime} exige bibliotecas (ex.: [numpy, pandas])`)
   if (lesson.runtime === "python" && lesson.libraries.length > 0) flag(ctx, lesson, "libraries", "runtime python não aceita bibliotecas (use runtime: python-dados ou bibliotecas: [])")
   else checkLessonLibraries(ctx, lesson)
   let hasPreviousExercise = false

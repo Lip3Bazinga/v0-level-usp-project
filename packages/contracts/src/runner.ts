@@ -12,10 +12,12 @@ export const DEFAULT_RUNNER_LIMITS = { timeoutMs: 10_000, memoryMb: 128 } as con
 
 /**
  * Motores do executor: `python` é o CPython WASI (Wasmtime); `python-dados` é o Pyodide
- * (numpy, pandas, scikit-learn...) em workers do Node. Os mesmos valores de
- * `LESSON_RUNTIMES` em `lessons.ts` (a unificação dos dois fica para depois).
+ * (numpy, pandas, scikit-learn...) em workers do Node; `python-completo` é o CPython nativo
+ * num contêiner gVisor de uso único (numpy, pandas, scikit-learn e PyTorch), desligado por
+ * padrão no executor (responde 501). Os mesmos valores de `LESSON_RUNTIMES` em `lessons.ts`
+ * (a unificação dos dois fica para depois).
  */
-export const PYTHON_RUNTIMES = ["python", "python-dados"] as const
+export const PYTHON_RUNTIMES = ["python", "python-dados", "python-completo"] as const
 export const pythonRuntimeSchema = z.enum(PYTHON_RUNTIMES)
 /** Motor pedido num job do executor. */
 export type PythonRuntime = z.infer<typeof pythonRuntimeSchema>
@@ -78,8 +80,9 @@ export const runnerJobSchema = z.object({
   /** Motor que roda o lote; ausente = `DEFAULT_PYTHON_RUNTIME` (CPython WASI). */
   runtime: pythonRuntimeSchema.optional(),
   /**
-   * Pacotes do Pyodide que o lote precisa (`numpy`, `pandas`, `scikit-learn`...); só
-   * vale para `python-dados`, que escolhe o perfil de worker por eles. Ausente = `[]`.
+   * Bibliotecas que o lote precisa (`numpy`, `pandas`, `scikit-learn`...). O `python-dados`
+   * escolhe o perfil de worker por elas e o `python-completo` só confere se as oferece; o
+   * `python` ignora. Ausente = `[]`.
    */
   libraries: z.array(z.string().trim().min(1).max(60)).max(MAX_JOB_LIBRARIES).optional(),
 })

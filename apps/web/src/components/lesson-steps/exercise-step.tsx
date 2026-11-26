@@ -9,6 +9,7 @@ import { Spinner } from "@/components/design-system/spinner"
 import { ConsoleTerminalTabs } from "@/components/terminal/console-terminal-tabs"
 import { usePython, type ExecutionResult } from "@/hooks/use-python"
 import { MAIN_FILE_PATH } from "@/lib/constants"
+import { serverOnlyLibrariesNotice } from "@/lib/python/server-only-libraries"
 import type { ConsoleOutput } from "@/lib/types"
 import { cn, hasFile, updateFileContent } from "@/lib/utils"
 import {
@@ -159,7 +160,11 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
       return
     }
     const entryPath = mode === "codigo" && hasFile(project, activePath) ? activePath : MAIN_FILE_PATH
-    setOutputs([toConsoleOutput({ type: "info", message: `Executando ${entryPath}...` })])
+    const serverOnlyNotice = serverOnlyLibrariesNotice(lesson.libraries)
+    setOutputs([
+      ...(serverOnlyNotice === null ? [] : [toConsoleOutput({ type: "warning", message: serverOnlyNotice })]),
+      toConsoleOutput({ type: "info", message: `Executando ${entryPath}...` }),
+    ])
     execute(
       { files: project, entryPath, stdin },
       {

@@ -99,7 +99,7 @@ export const lessons = pgTable(
     published: boolean("published").notNull().default(false),
     courseId: uuid("course_id").references(() => courses.id, { onDelete: "set null" }),
     createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
-    /** Motor da correção: CPython WASI (`python`) ou Pyodide com bibliotecas de dados (`python-dados`). */
+    /** Motor da correção: CPython WASI (`python`), Pyodide com bibliotecas de dados (`python-dados`) ou CPython nativo em gVisor (`python-completo`). */
     runtime: text("runtime", { enum: LESSON_RUNTIMES }).notNull().default("python"),
     /** Projeto do nível: conta para o certificado do curso. */
     isProject: boolean("is_project").notNull().default(false),

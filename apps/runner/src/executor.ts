@@ -8,10 +8,11 @@ import type { RunnerStats } from "./stats.js"
 
 const BYTES_PER_MEGABYTE = 1e6
 
-/** Motores disponíveis, pelo `runtime` que atendem; o Pyodide é opcional. */
+/** Motores disponíveis, pelo `runtime` que atendem; o Pyodide e o nativo (gVisor) são opcionais. */
 export interface EngineRegistry {
   python: Engine
   "python-dados"?: Engine
+  "python-completo"?: Engine
 }
 
 /** Executa um job inteiro (todas as sondas) e devolve uma observação por sonda. */
@@ -89,7 +90,8 @@ interface PlannedBatch {
  * com a fila cheia. Pelo mesmo motivo, se um lote falha (ou vence o prazo na fila), os outros
  * lotes do job que ainda esperam são cancelados.
  *
- * O motor vem do `runtime` do job (`python` = WASI, `python-dados` = Pyodide); os lotes só de
+ * O motor vem do `runtime` do job (`python` = WASI, `python-dados` = Pyodide, `python-completo` =
+ * CPython nativo em gVisor, desligado por padrão: sem ele o job recebe 501); os lotes só de
  * análise estrutural (`ast`) sempre vão ao WASI, que não executa o código do aluno e custa
  * ~130 ms em vez de um worker do Pyodide. Os dois motores dividem o mesmo semáforo.
  *

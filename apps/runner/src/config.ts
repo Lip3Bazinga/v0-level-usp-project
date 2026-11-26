@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url"
 import { isPublishedSecret } from "@levelusp/contracts"
 import { z } from "zod"
 import { BATCH_MEMORY_KEYS, DEFAULT_BATCH_MEMORY_MB, type BatchMemoryKey, type BatchMemoryMb } from "./memory-budget.js"
+import { NATIVE_ENGINE_MODES } from "./native-policy.js"
 import { PYODIDE_PROFILE_NAMES, type PyodideProfileName } from "./pyodide-profiles.js"
 import { PYODIDE_POLICIES, type PyodidePolicies, type PyodidePolicy } from "./pyodide-protocol.js"
 
@@ -221,6 +222,37 @@ const envSchema = z.object({
   RUNNER_PYODIDE_BOOT_TIMEOUT_MS: z.coerce.number().int().min(10_000).max(600_000).default(90_000),
   /** Script compilado do worker; ausente = `pyodide-worker.js` ao lado do `main.js` (ou em `dist/` no modo dev). */
   PYODIDE_WORKER_PATH: z.string().optional(),
+
+  // ── Motor python-completo (CPython nativo em contêiner gVisor) ─────────────
+  /**
+   * `off` (padrão) ou `gvisor`. Desligado, o runtime `python-completo` responde 501. Ligado, o
+   * executor precisa do binário `docker` e de acesso a um daemon: leia os riscos em
+   * `docs/v2/seguranca.md` antes (o socket do Docker equivale a root na máquina do daemon).
+   */
+  RUNNER_NATIVE_ENGINE: z.preprocess((value) => (typeof value === "string" ? value.trim().toLowerCase() || "off" : value), z.enum(NATIVE_ENGINE_MODES)).default("off"),
+  /**
+   * Aceita subir o motor com `runc` quando o Docker não tem `runsc`. Só vale com
+   * `NODE_ENV=development` (ver `decideNativeRuntime`): em qualquer outro ambiente o motor não sobe.
+   */
+  RUNNER_ALLOW_INSECURE_NATIVE: booleanFlag.default(false),
+  /** Imagem do motor (`infra/docker/python-completo.Dockerfile`). O motor nunca baixa imagem (`--pull=never`). */
+  RUNNER_NATIVE_IMAGE: z.string().min(1).default("levelusp/python-completo:local"),
+  /** Binário do Docker (nome no PATH ou caminho). */
+  DOCKER_BIN: z.string().min(1).default("docker"),
+  /** Contêineres prontos esperando um lote (cada um segura a memória do interpretador e das bibliotecas importadas). */
+  RUNNER_NATIVE_WARM: z.coerce.number().int().min(0).max(16).default(1),
+  /** Teto de memória de cada contêiner (MB), sem swap. O PyTorch importado ocupa ~250 MB. */
+  RUNNER_NATIVE_MEMORY_MB: z.coerce.number().int().min(128).max(16_384).default(1_024),
+  /** CPUs de cada contêiner (pode ser fração). */
+  RUNNER_NATIVE_CPUS: z.coerce.number().min(0.25).max(16).default(1),
+  /** Processos e threads simultâneos por contêiner (barra fork bomb). */
+  RUNNER_NATIVE_PIDS_LIMIT: z.coerce.number().int().min(8).max(1_024).default(64),
+  /** Prazo para um contêiner novo ficar pronto (partida do gVisor + importações). */
+  RUNNER_NATIVE_BOOT_TIMEOUT_MS: z.coerce.number().int().min(2_000).max(300_000).default(60_000),
+  /** Módulos importados no aquecimento, separados por vírgula (os que a imagem não tiver são ignorados). */
+  RUNNER_NATIVE_PRELOAD: z.string().default("numpy,pandas").transform((value) => value.split(",").map((name) => name.trim()).filter((name) => name !== "")),
+  /** Script de partida do contêiner; ausente = `native_bootstrap.py` ao lado do harness. */
+  NATIVE_BOOTSTRAP_PATH: z.string().optional(),
 }).superRefine((env, ctx) => {
   // Em produção, recusa os tokens de exemplo/dev/CI publicados no repositório (a API faz o mesmo).
   if (env.NODE_ENV === "production" && isPublishedSecret(env.RUNNER_TOKEN)) {

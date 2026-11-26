@@ -31,20 +31,20 @@ flowchart LR
 | Contratos | `packages/contracts` | Tipos e schemas Zod compartilhados (fonte única do formato dos dados). |
 | Aplicação/Domínio | `apps/api/src/modules/*` | Controllers finos → services (regras e autorização) → repositories (SQL). Regras puras em `*.domain.ts`. Verbos `list`/`find`/`get`/`create`/`update`/`delete` (`padroes-de-codigo.md` §2.1). |
 | Infraestrutura | `apps/api/src/infra`, `packages/db` | Banco, executor, e-mail, armazenamento de imagens, migrações. |
-| Execução isolada | `apps/runner` | Roda código Python do aluno em WebAssembly; sem segredos, banco ou rede. |
+| Execução isolada | `apps/runner` | Roda código Python do aluno em WebAssembly (e, opcional e desligado por padrão, em contêineres gVisor de uso único); sem segredos, banco ou rede. |
 
 ## Estrutura de pastas
 
 ```
 apps/
   api/         NestJS: src/{config,common,infra,modules}, test/e2e
-  runner/      src/ (servidor HTTP mínimo, sandbox, plano de lotes), python/harness.py
+  runner/      src/ (servidor HTTP mínimo, sandbox, motores Pyodide e nativo, plano de lotes), python/harness.py
   web/         Next.js: src/{app,components,contexts,hooks,lib/{api,constants,utils,python,types}}, e2e/ (Playwright)
 packages/
   contracts/   schemas Zod + tipos (users, auth, courses, lessons, grading, exams, …)
   db/          schema Drizzle, migrations/, seed/, tools/ (conversor de gabaritos)
 infra/
-  docker/      Dockerfiles (api, runner, web)
+  docker/      Dockerfiles (api, runner, web) e python-completo (imagem em que o código do aluno roda no motor nativo)
   compose/     compose.yml (homolog/prod), compose.vm.yml (produção na VM), compose.dev.yml, compose.build.yml
   caddy/       Caddyfile (HTTPS automático na VM, opção ao túnel)
   env/         *.env.example (os .env reais não são versionados)
@@ -91,6 +91,7 @@ grupo do participante). Especificação em [curso-e-passos.md](./curso-e-passos.
 | Sessão opaca em cookie httpOnly | Token inacessível ao JavaScript; revogação imediata no banco | Uma consulta por requisição (indexada) |
 | Front e API na mesma origem (rewrite) | Cookie de primeira parte, sem CORS | O Next precisa conhecer a URL interna da API no build |
 | Executor separado, em WASI | Isolamento por capacidades; sem segredos no processo | ~3× mais lento que CPython nativo; sem numpy no servidor |
+| Motor `python-completo` em contêiner gVisor, desligado por padrão | PyTorch e bibliotecas nativas que o WebAssembly não roda; kernel de espaço de usuário entre o aluno e a máquina | O executor precisa de acesso a um daemon do Docker (risco em [seguranca.md](./seguranca.md)); até ~1 GB por contêiner; o navegador não roda PyTorch (Executar só com o que o Pyodide tem) |
 | Gabarito declarativo | Comparação fora do sandbox: aluno não forja aprovação | Gabaritos antigos precisam de conversão |
 | Pyodide no navegador para "Executar" | CPU do aluno, resposta imediata, gráficos; mesmo Python 3.14 do executor, com paridade testada ([paridade-python.md](./paridade-python.md)) | Download inicial do runtime (~13 MB, servido pelo próprio front com cache de 1 ano) |
 | Notebook + Cloudflare Tunnel | Custo zero e controle total na fase de testes | Disponibilidade depende do notebook |
@@ -112,7 +113,9 @@ content/*.lvl.md ──content:check──▶ lint (formato, fórmulas, diagrama
   lint e pelo executor real antes de entrar no pacote. Guia do formato: `content/README.md`.
 - O gabarito de cada passo (casos, solução, saída esperada da previsão, ordem do Parsons) vai no
   pacote e fica só na API; o DTO público do passo não o carrega.
-- Dois motores de correção atrás da mesma interface: CPython WASI (`runtime: python`, todo o
-  Nível 1) e Pyodide em workers do Node (`runtime: python-dados`, níveis 4 a 6).
+- Três motores de correção atrás da mesma interface (`Engine`): CPython WASI (`runtime: python`, todo o
+  Nível 1), Pyodide em workers do Node (`runtime: python-dados`, níveis 4 a 6) e CPython nativo com PyTorch
+  em contêiner gVisor de uso único (`runtime: python-completo`, desligado por padrão; ver
+  [motores-e-ide.md](./motores-e-ide.md) §6).
 - Trilha → curso (nível certificável) → módulo → lição → passo. Certificado do curso = 100 % das
   lições (com o projeto) + prova ≥ nota mínima; certificado da trilha = todos os cursos certificados.

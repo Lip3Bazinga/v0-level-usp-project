@@ -97,6 +97,16 @@ describe("lintContent", () => {
     expect(lint({ [GUIDED]: guidedLesson({ runtime: "python-dados", bibliotecas: "[Numpy, sklearn, scikit-learn]" }) })).toEqual([])
   })
 
+  it("runtime python-completo: aceita o que o manifesto libera para ele (PyTorch) e recusa o resto", () => {
+    expect(lint({ [GUIDED]: guidedLesson({ runtime: "python-completo", bibliotecas: "[torch, numpy, sklearn]" }) })).toEqual([])
+    const noLibraries = guidedLesson({ runtime: "python-completo" })
+    expect(lint({ [GUIDED]: noLibraries })).toEqual([`${GUIDED}:${lineOf(noLibraries, "runtime:")}: runtime python-completo exige bibliotecas (ex.: [numpy, pandas])`])
+    const browserOnly = guidedLesson({ runtime: "python-completo", bibliotecas: "[torch, matplotlib]" })
+    expect(lint({ [GUIDED]: browserOnly })).toEqual([`${GUIDED}:${lineOf(browserOnly, "bibliotecas:")}: biblioteca sem motor para o runtime python-completo: matplotlib`])
+    const wrongEngine = guidedLesson({ runtime: "python-dados", bibliotecas: "[numpy, torch]" })
+    expect(lint({ [GUIDED]: wrongEngine })).toEqual([`${GUIDED}:${lineOf(wrongEngine, "bibliotecas:")}: biblioteca sem motor para o runtime python-dados: torch`])
+  })
+
   it("nenhum texto TODO, Em breve ou lorem", () => {
     const todo = `${frontmatter()}\n${readingStep(1, `${"x".repeat(200)} TODO revisar`)}`
     expect(lint({ [GUIDED]: todo })).toEqual([`${GUIDED}:${lineOf(todo, "## Passo 1")}: passo 1 (Leitura · O que é um programa): narrativa contém texto provisório ("TODO")`])

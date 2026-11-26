@@ -17,7 +17,7 @@ export { resolveSolution, wrongSolutionFiles, type StarterCode, type WrongSoluti
  * REPROVADA (prova de que os casos pegam os erros comuns). Num exercício
  * `ordenar`, a "solução" é o código MONTADO com as linhas do passo e o "código
  * inicial" são as linhas na ordem embaralhada em que o aluno as recebe. Lições
- * `python-dados` pedem o motor e as bibliotecas ao executor. A regra de um passo vive em
+ * `python-dados` e `python-completo` pedem o motor e as bibliotecas ao executor. A regra de um passo vive em
  * `src/modules/authoring/step-verification.domain.ts` (a API usa a mesma no "Testar gabarito").
  */
 
@@ -132,10 +132,12 @@ export function createPool(limit: number): Scheduler {
 const runImmediately: Scheduler = (task) => task()
 
 /**
- * Diz se a lição roda no perfil `ml` do executor: `python-dados` com biblioteca cujo `pyodide_profile` no
- * manifesto não é `dados` (o que o manifesto não conhece também conta como pesado, por prudência).
+ * Diz se a lição pede uma instância pesada do executor: `python-dados` com biblioteca cujo `pyodide_profile` no
+ * manifesto não é `dados` (o que o manifesto não conhece também conta como pesado, por prudência), ou qualquer
+ * lição `python-completo` (um contêiner de até 1 GB por lote).
  */
 export function usesHeavyProfile(lesson: BundleLesson): boolean {
+  if (lesson.runtime === "python-completo") return true
   if (lesson.runtime !== "python-dados") return false
   return lesson.libraries.some((library) => findManifestLibrary(library)?.pyodide_profile !== "dados")
 }
@@ -176,7 +178,7 @@ export function buildVerifyJob(lesson: BundleLesson, files: ProjectFile[], cases
     probes: buildProbes(cases),
     limits: { ...DEFAULT_RUNNER_LIMITS },
     runtime: lesson.runtime,
-    ...(lesson.runtime === "python-dados" ? { libraries: lesson.libraries } : {}),
+    ...(lesson.runtime !== "python" ? { libraries: lesson.libraries } : {}),
   }
 }
 

@@ -454,6 +454,83 @@ o seguinte observa o numpy original, sem trace e sem o arquivo). Todos devem ser
   (navegador); isto é sobre o Pyodide do **servidor**, onde `eval`/`Function` do
   worker são desligados.
 
+### Motor python-completo (CPython nativo em gVisor)
+
+O motor `python-completo` ([motores-e-ide.md](motores-e-ide.md) §6) roda o código do aluno em
+**CPython nativo**, com extensões em C (numpy, PyTorch), num contêiner Docker de uso único.
+Aqui não há WebAssembly entre o aluno e a máquina: a fronteira é o **gVisor** (`runsc`), um
+kernel em espaço de usuário que atende as chamadas de sistema do contêiner no lugar do kernel
+da máquina. O motor é **desligado por padrão** (`RUNNER_NATIVE_ENGINE=off`) e fixo em `off` no
+`compose.yml` de homologação e produção.
+
+**Modelo de ameaça.** O atacante envia Python arbitrário e pode carregar código nativo
+(`ctypes`, extensões): dentro do contêiner ele faz o que quiser. As barreiras ficam fora do
+processo dele:
+
+| Barreira | Como | Teste |
+|---|---|---|
+| Kernel da máquina fora do alcance | `--runtime=runsc`; sem `runsc` o motor não sobe (`decideNativeRuntime`) | `native-engine.test.ts` (política), `native.attack.ts` (kernel 4.4.0 do gVisor) |
+| Sem rede | `--network=none` (só loopback) | `native.attack.ts`: TCP, UDP, DNS, HTTP, metadados de nuvem |
+| Sem escrita fora do projeto | `--read-only`; tmpfs `noexec,nosuid,nodev` em `/work` e `/tmp`, com teto | `native.attack.ts`: raiz, `/etc`, site-packages, stdlib, `/proc`, encher o tmpfs, executar binário gravado |
+| Sem privilégio | usuário `65534`, `--cap-drop=ALL`, `no-new-privileges` | `native.attack.ts`: `setuid`, `chown`, `mount`, `chroot`, capabilities zeradas |
+| Recursos | `--cpus`, `--memory` = `--memory-swap`, `--pids-limit`, `--ulimit` (CPU, arquivos, core), tempo de parede com remoção forçada, saída de 8 MB | `native.attack.ts`: laço infinito, alocação além do teto, fork bomb, inundação de saída |
+| Sem segredos | o contêiner não herda ambiente, volume nem socket; o `docker` é chamado com ambiente recortado (`dockerEnvironment`), sem `RUNNER_TOKEN` | `native.attack.ts` (segredo plantado no ambiente do executor), `native-engine.test.ts` |
+| Sem estado entre alunos | um contêiner por lote, destruído depois (`--rm`); nada montado da máquina | `native.attack.ts` (arquivos e módulos alterados não chegam ao lote seguinte) |
+| Gabarito fora | só entram arquivos do aluno, o harness e sondas com ids posicionais; a comparação é na API | `native-engine.test.ts` (o que chega pela entrada padrão e pelo argv) |
+| Imagem íntegra | base fixada por digest; rodas com `--require-hashes`, só binárias; `--pull=never` | `library-manifest.test.ts` do runner |
+
+**O que só o CI prova.** Os ataques rodam contra o Docker real apenas quando há `runsc` (job
+`gvisor`, Ubuntu). Em desenvolvimento no Windows/macOS não há `runsc`: o motor só sobe com
+`RUNNER_ALLOW_INSECURE_NATIVE=1` e `NODE_ENV=development`, com `runc`, e nesse modo **o aluno
+divide o kernel da máquina** (uma falha do kernel ou do `runc` vira fuga). Esse modo nunca sobe
+com outro `NODE_ENV`.
+
+**O socket do Docker (risco principal, por isso o motor não está ligado em produção).** Para
+criar contêineres, o executor precisa falar com um daemon do Docker. Quem alcança o socket de um
+daemon com privilégio de root consegue root na máquina dele (basta criar um contêiner
+privilegiado com `/` montado). Montar `/var/run/docker.sock` no serviço `runner` faria de
+qualquer falha no executor (um serviço que existe para receber código não confiável) um
+comprometimento da máquina inteira, com o banco e os segredos da API ao lado. Um proxy de socket
+que filtra rotas não resolve: a rota de criar contêiner precisa ficar liberada, e é ela que dá
+root. **Por isso o `compose.yml` não monta o socket e não deve passar a montar.**
+
+Desenho proposto para ligar em produção (não implementado; ver `divida-tecnica.md`):
+
+1. **Máquina (ou VM) só do executor `python-completo`**, sem banco, sem API e sem os segredos
+   da plataforma; a API fala com ela pela rede interna, com o `RUNNER_TOKEN`, como já faz.
+2. **Docker rootless** nessa máquina, rodando como um usuário sem privilégio, com o `runsc`
+   registrado (`runsc install` no `daemon.json` do usuário; o gVisor em modo rootless usa
+   `--ignore-cgroups` ou cgroup v2 delegado). O executor roda como esse mesmo usuário, fora de
+   contêiner, e usa o socket do daemon rootless (`DOCKER_HOST=unix:///run/user/<uid>/docker.sock`).
+   Tomar esse socket dá os poderes desse usuário, não root.
+3. Imagem `python-completo` carregada nessa máquina por quem opera (o motor nunca faz `pull`).
+4. `NODE_ENV=production` e `RUNNER_ALLOW_INSECURE_NATIVE` ausente: sem `runsc` o motor não sobe.
+
+Se um dia o motor for ligado na mesma máquina da pilha (não recomendado), o risco acima
+precisa ser aceito por escrito aqui, com o nome de quem aceitou.
+
+**Riscos residuais do motor.**
+
+- **Fuga do gVisor**: uma falha no `runsc` é o que separa o aluno do kernel. Mitigação:
+  manter o gVisor atualizado (a versão do CI é fixada em `ci.yml`), usuário sem privilégio e
+  nenhuma capability dentro do contêiner, máquina dedicada.
+- **Instância compartilhada dentro do lote**: como nos outros motores, as sondas `call`/`io`/
+  `variable`/`expr` de um mesmo lote dividem o interpretador (sem modo estrito), e aqui o aluno
+  tem `ctypes`: ler o nonce da memória do processo é mais fácil que no WASI. A garantia continua
+  a mesma: forjar uma observação exige conhecer o valor esperado, que não está no contêiner.
+- **Modo estrito com código nativo (não auditado)**: as proteções do harness para
+  `unittest`/`legacy` foram atacadas no WASI e no Pyodide (`strict-mode.attack.ts`,
+  `pyodide.attack.ts`), onde não existe `ctypes` utilizável. No CPython nativo o aluno tem
+  `ctypes` e extensões em C, e a suíte de modo estrito ainda não roda contra este motor. Até
+  rodar, evite casos `unittest` com mutantes e `legacy` em lições `python-completo` (o
+  `content:check` não impede).
+- **Memória fora do orçamento**: os contêineres não entram em `RUNNER_MEMORY`; o teto é
+  (`CONCURRENCY` + pool) × `RUNNER_NATIVE_MEMORY_MB`. Dimensione a máquina por essa conta.
+- **`--pids-limit` sob gVisor**: o limite vale para as threads do sandbox na máquina; o teste
+  de fork bomb aceita os dois desfechos (fork recusado ou contêiner morto).
+- **Um executor por daemon**: a limpeza de órfãos na partida remove todo contêiner com o
+  rótulo do motor.
+
 ### Riscos residuais (não corrigidos)
 
 - **Instâncias compartilhadas** (`call`/`io`/`variable`/`expr`) não têm modo

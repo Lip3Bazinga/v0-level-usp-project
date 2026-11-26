@@ -2,13 +2,14 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
-import type { Lesson, ProjectFile, SubmissionResult } from "@levelusp/contracts"
+import { splitBrowserLibraries, type Lesson, type ProjectFile, type SubmissionResult } from "@levelusp/contracts"
 import { useAuth } from "@/contexts/auth-context"
 import { useProgress } from "@/contexts/progress-context"
 import { useRunButtonGate } from "@/components/lesson-steps/run-button-gate"
 import { usePython, type ExecutionResult, type PyodideStatus } from "@/hooks/use-python"
 import { fetchProgressSnapshot, HTTP_STATUS, isApiError, updateProgressSnapshot, submitLessonCode } from "@/lib/api"
 import { CONSOLE_COMMAND_FILE_PATH, MAIN_FILE_PATH, ROUTES, SNAPSHOT_SAVE_DEBOUNCE_MS } from "@/lib/constants"
+import { serverOnlyLibrariesNotice } from "@/lib/python/server-only-libraries"
 import type { ConsoleOutput, ConsoleOutputType } from "@/lib/types"
 import {
   addFile,
@@ -183,19 +184,21 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
 
   const reachProgress = useCallback((milestone: number) => setLessonProgress((current) => Math.max(current, milestone)), [])
 
-  const libraries = lesson.libraries
+  const libraries = useMemo(() => splitBrowserLibraries(lesson.libraries ?? []).browser, [lesson.libraries])
+  const serverOnlyNotice = serverOnlyLibrariesNotice(lesson.libraries)
   const handlePythonStatus = useCallback(
     (status: PyodideStatus) => {
       if (status === "loading") replaceWithLine({ type: "info", message: "Inicializando Python no navegador..." })
       if (status === "ready") {
-        if (libraries?.length) addOutput("info", `Instalando pacotes: ${libraries.join(", ")}...`)
+        if (libraries.length > 0) addOutput("info", `Instalando pacotes: ${libraries.join(", ")}...`)
         addOutput("success", "Python pronto! Você pode executar seu código.")
+        if (serverOnlyNotice !== null) addOutput("warning", serverOnlyNotice)
       }
       if (status === "error") {
         addOutput("error", "Erro ao carregar Python. Verifique sua conexão e recarregue a página.")
       }
     },
-    [libraries, addOutput, replaceWithLine],
+    [libraries, serverOnlyNotice, addOutput, replaceWithLine],
   )
   const { status: pythonStatus, isExecuting, isInstalling, execute, stop } = usePython({
     packages: libraries,

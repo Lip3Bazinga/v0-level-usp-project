@@ -3,6 +3,7 @@ import type { Engine } from "./engine.js"
 import { Executor, hostInfo, type EngineRegistry } from "./executor.js"
 import { createLogger } from "./logger.js"
 import { BATCH_MEMORY_KEYS, MemoryBudget } from "./memory-budget.js"
+import { createNativeEngine } from "./native-setup.js"
 import { PyodideEngine } from "./pyodide-engine.js"
 import { WasmtimeSandbox } from "./sandbox.js"
 import { Semaphore } from "./semaphore.js"
@@ -73,8 +74,13 @@ const pyodide = isPyodideEnabled(config)
       log,
     })
   : undefined
-const engines: EngineRegistry = { python: sandbox, ...(pyodide ? { "python-dados": pyodide } : {}) }
-const engineList: Engine[] = pyodide ? [sandbox, pyodide] : [sandbox]
+/**
+ * Motor python-completo (CPython nativo em gVisor): desligado por padrão. Ligado, só sobe se a
+ * política de isolamento aceitar o que o Docker oferece (`createNativeEngine` registra o motivo).
+ */
+const native = await createNativeEngine(config, log)
+const engines: EngineRegistry = { python: sandbox, ...(pyodide ? { "python-dados": pyodide } : {}), ...(native ? { "python-completo": native } : {}) }
+const engineList: Engine[] = [sandbox, ...(pyodide ? [pyodide] : []), ...(native ? [native] : [])]
 const stats = new RunnerStats(semaphore, engineList, budget)
 const executor = new Executor(engines, semaphore, { stats, maxQueueWaitMs: config.MAX_QUEUE_WAIT_MS, budget })
 const server = buildServer({
@@ -84,6 +90,7 @@ const server = buildServer({
   stats,
   readiness: sandbox.readiness,
   ...(pyodide ? { pyodideReadiness: pyodide.readiness } : {}),
+  ...(native ? { nativeReadiness: native.readiness } : {}),
 })
 
 /**
@@ -104,6 +111,15 @@ if (pyodide) {
   log("info", "motor python-dados desligado", { pyodideDir: config.PYODIDE_DIR })
 }
 
+if (native) {
+  void native.start().then(() => {
+    if (native.readiness.ready) log("info", "motor python-completo pronto", { ...native.versions, image: config.RUNNER_NATIVE_IMAGE, warm: config.RUNNER_NATIVE_WARM })
+    else log("error", "autoteste do motor python-completo FALHOU: lições python-completo não serão corrigidas", { reason: native.readiness.reason, image: config.RUNNER_NATIVE_IMAGE })
+  })
+} else {
+  log("info", "motor python-completo desligado", { mode: config.RUNNER_NATIVE_ENGINE })
+}
+
 server.listen(config.PORT, config.HOST, () => {
   log("info", "executor ouvindo", {
     port: config.PORT,
@@ -111,6 +127,7 @@ server.listen(config.PORT, config.HOST, () => {
     maxQueue: config.MAX_QUEUE,
     maxQueueWaitMs: config.MAX_QUEUE_WAIT_MS,
     pyodide: pyodide !== undefined,
+    nativo: native !== undefined,
     ...hostInfo(),
     memoryBudgetMb: budget.isLimited ? budget.limitMb : "ilimitado",
     memoryReserveMb: config.RUNNER_MEMORY_RESERVE_MB,
@@ -122,7 +139,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
     log("info", "encerrando", { signal })
     server.close(() => {
-      void (pyodide?.shutdown() ?? Promise.resolve()).finally(() => process.exit(0))
+      void Promise.allSettled([pyodide?.shutdown(), native?.shutdown()]).finally(() => process.exit(0))
     })
     setTimeout(() => process.exit(0), SHUTDOWN_GRACE_MS).unref()
   })

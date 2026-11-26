@@ -1,0 +1,2 @@
+ALTER TABLE "lessons" DROP CONSTRAINT "lessons_runtime_check";--> statement-breakpoint
+ALTER TABLE "lessons" ADD CONSTRAINT "lessons_runtime_check" CHECK ("lessons"."runtime" in ('python','python-dados','python-completo'));
