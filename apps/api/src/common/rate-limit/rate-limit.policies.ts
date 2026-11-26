@@ -52,6 +52,12 @@ export const RATE_LIMITS = {
   },
   /** Dicas e soluções reveladas por minuto (cada uma é uma escrita no progresso). */
   stepReveal: { scope: "step.reveal", limit: 30, windowMs: MS_PER_MINUTE },
+  /**
+   * "Testar gabarito" e "Verificar" da prévia do professor (passo do rascunho, nada é gravado). Cada
+   * teste são até 7 execuções no executor que os alunos também usam; 60/min deixa testar de uma vez
+   * uma lição com o máximo de passos (50) e ainda verificar na prévia.
+   */
+  draftStepGrading: { scope: "teacher.draft_step", limit: 60, windowMs: MS_PER_MINUTE, message: "Muitos testes de gabarito seguidos. Aguarde um instante." },
   contentImport: { scope: "admin.content_import", limit: 20, windowMs: MS_PER_HOUR, message: TRY_LATER },
   adminInvite: { scope: "admin.invite", limit: 50, windowMs: MS_PER_HOUR, message: "Muitos convites seguidos. Aguarde um pouco." },
 } as const satisfies Record<string, RateLimitPolicy>
