@@ -89,7 +89,7 @@ function lessonWith(steps: LessonStep[]): Lesson {
     id: "l1", title: "Média", description: "", slug: "media", module: "Módulo 1", order: 1, difficulty: "iniciante", content_markdown: "",
     starter_code: "", starter_files: [], checkpoints: [], libraries: [], xp_reward: 100, time_limit: 20, lesson_type: "guided", quiz_passing_score: 70,
     course_id: "c1", module_id: "m1", published: true, created_at: "", updated_at: "", runtime: "python", is_project: false, objectives: [],
-    solution_after_attempts: 2, steps,
+    solution_after_attempts: 2, steps, run_button_min_level: 1,
   }
 }
 

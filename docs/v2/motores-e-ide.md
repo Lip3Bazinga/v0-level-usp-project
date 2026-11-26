@@ -122,8 +122,52 @@ O que é derivado dele (nada é copiado à mão):
 - Lição publicada antes do manifesto não é reavaliada: o `update` só checa biblioteca quando o PATCH traz `libraries` ou `runtime`.
 - A tela do admin (`libraries-page.tsx`) só mudou o aviso ao aprovar; mostrar a lista de pendências fica na dívida técnica.
 
+## 4. Executar por nível
+
+- **Regra (só de interface).** Na lição do aluno o botão "Executar" fica bloqueado até o jogador chegar ao nível
+  do limite; antes disso ele roda o código pelo terminal do navegador (`python main.py`). O "Executar" roda no
+  navegador, então a API não valida nada: não é regra de segurança. "Verificar" e "Visualizar" não mudam.
+- **Constante e função pura** (`packages/contracts/src/run-button.ts`): `RUN_BUTTON_MIN_LEVEL = 10`,
+  `resolveRunButtonMinLevel(limiteDoCurso)` e `isRunButtonUnlocked(nivelDoJogador, limiteDoCurso)`.
+- **Ajuste por curso.** `courses.run_button_min_level` (migração `0006_executar_por_nivel`; inteiro ≥ 1, nulo = usa a
+  constante, 1 = sempre liberado). Entra em `courseInputSchema`/`courseUpdateSchema` (1 a 100 ou `null`) e sai em
+  `Course`. Só o admin muda o valor (`PATCH /courses/:id` responde 403 ao professor que tentar; reenviar o valor atual
+  é aceito) e a mudança vai para a auditoria (`course.run_button_min_level`, com `from`/`to`). Tela: Admin → Cursos →
+  botão "Nível do Executar" de cada curso (`run-level-modal.tsx`). O pacote de conteúdo (`curso.yaml`) não tem o
+  campo: reimportar o conteúdo preserva o que o admin gravou.
+- **Como chega à web.** `GET /lessons/:id` devolve `run_button_min_level` (o do curso da lição; `null` em lição
+  avulsa ou curso sem ajuste). Sem rota nova; as listagens de lições não trazem o campo.
+- **Quem nunca fica bloqueado.** Professor e admin (pelo papel do perfil) e a prévia do professor (os passos só
+  recebem o bloqueio dentro do `RunButtonGateProvider`, que só o player do aluno monta).
+- **Web** (`components/lesson-steps/run-button-gate.tsx`): `useRunButtonGate` compara `profile.level` do
+  `AuthContext` com o limite; quando o aluno sobe de nível o perfil é recarregado e o botão libera sem recarregar a
+  página. Bloqueado: botão desabilitado com cadeado, faixa "Executar libera no nível N; até lá, use o terminal:
+  python main.py", a aba Terminal abre no lugar do Console e o atalho Ctrl+Enter (lição clássica) só escreve o
+  motivo no console. Na lição clássica o "Verificar" deixa de exigir uma execução pelo botão enquanto ele está
+  bloqueado, e o console ganhou a aba Terminal. O grupo `controle` do experimento segue a mesma regra, mas a faixa
+  não cita o nível ("Por enquanto, rode seu código pelo terminal: python main.py").
+- **A conta** (`node scripts/nivel-do-executar.mjs [nível] [curso]`, sobre `packages/db/seed/trilha-python-ia.json`).
+  Aluno típico: tudo em ordem, sem ver solução. XP contado: o de cada passo mais o da lição; badges, sequência,
+  provas e certificados não dão XP e ficam fora. O Nível 1 inteiro soma 8 010 XP (nível 5); o nível 10 pede
+  27 000 XP e só chega na lição 25 do N4 (`n4-m6-03-estatistica-descritiva`, 146ª lição da trilha).
+
+  | Nível | XP | Lição em que chega |
+  |---|---|---|
+  | 2 | 1 000 | N1, lição 8 (`n1-m2-03-numeros-e-operadores`) |
+  | 3 | 2 500 | N1, lição 17 (`n1-m4-01-while`) |
+  | 4 | 4 500 | N1, lição 28 (`n1-m5-05-dicionarios`) |
+  | 5 | 7 000 | N1, lição 43 (`n1-m8-01-tipos-de-erro-e-tracebacks`) |
+  | 10 | 27 000 | N4, lição 25 (`n4-m6-03-estatistica-descritiva`) |
+
+  Com o padrão 10 o aluno termina três níveis inteiros sem o botão. **Proposta (não aplicada, decisão do Filipe):**
+  limite 4 — libera na 5ª lição do módulo 5 do N1, depois de os módulos 2 a 4 terem sido feitos pelo terminal — ou 3,
+  se a ideia for liberar já na entrada do módulo 4. Dá para aplicar só ao N1 pela tela do admin, sem mexer na constante.
+
 ## Testes
 
+- Executar por nível: `packages/contracts/src/run-button.test.ts`, `catalog.domain.spec.ts` (`canSetRunButtonLevel`),
+  `run-button-gate.test.tsx`, `exercise-step-run-lock.test.tsx`, `run-toolbar.test.tsx`, `ide-context.test.tsx`,
+  `console-terminal-tabs.test.tsx` e `run-level-modal.test.tsx`. Sem e2e novo para o PATCH do curso.
 - `packages/contracts/src/library-manifest.test.ts` (consistência do manifesto, normalização, apelidos, `checkLibraries`).
 - `apps/runner/test/library-manifest.test.ts` (manifesto × lock × `PACKAGES` × perfis do runner).
 - `apps/api/test/unit/content/lint.test.ts` (content:check recusa biblioteca fora do manifesto) e

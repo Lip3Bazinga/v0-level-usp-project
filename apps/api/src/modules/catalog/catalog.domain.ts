@@ -1,4 +1,4 @@
-import { checkLibraries, type LessonRuntime, type LessonType } from "@levelusp/contracts"
+import { checkLibraries, type LessonRuntime, type LessonType, type UserRole } from "@levelusp/contracts"
 
 /** Slug usado quando o título não tem nenhum caractere aproveitável. */
 export const DEFAULT_SLUG = "licao"
@@ -102,4 +102,12 @@ export function publishBlocker(lesson: PublishCandidate): PublishBlocker | null 
 /** Taxa de aprovação (0–1) das submissões; null quando não há submissões. */
 export function passRate(passed: number, total: number): number | null {
   return total > 0 ? passed / total : null
+}
+
+/**
+ * Se o usuário pode gravar `requested` como nível que libera o "Executar" do curso. O ajuste é do
+ * admin; o professor dono pode omitir o campo ou reenviar o valor atual, mas não mudá-lo.
+ */
+export function canSetRunButtonLevel(role: UserRole, requested: number | null | undefined, current: number | null): boolean {
+  return requested === undefined || requested === current || role === "admin"
 }

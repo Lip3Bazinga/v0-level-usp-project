@@ -20,6 +20,7 @@ import { checkpointStatuses, clearStepDraft, writeStepDraft, type CheckpointStat
 import { BlanksEditor } from "./blanks-editor"
 import { ExecutionVisualizer } from "./execution-visualizer"
 import { ParsonsBoard } from "./parsons-board"
+import { useProvidedRunButtonGate } from "./run-button-gate"
 import { RunToolbar } from "./run-toolbar"
 import { StdinField } from "./stdin-field"
 import { useStepBackend } from "./step-backend"
@@ -69,7 +70,8 @@ const EMPTY_ARRANGEMENT_MESSAGE = "Leve pelo menos uma linha para a sua resposta
  * editor (`codigo`), o código com lacunas (`lacunas`) ou as linhas para ordenar (`ordenar`).
  * "Executar" e "Visualizar" rodam no navegador; "Verificar" manda a resposta para a API, que
  * corrige com os casos ocultos. Dicas saem uma a uma e a solução só aparece depois das
- * tentativas que a lição exige. Na prévia do professor (`useStepBackend().isPreview`) os
+ * tentativas que a lição exige. Abaixo do nível que libera o "Executar" (`RunButtonGateProvider`) o
+ * botão fica bloqueado com o motivo e a aba Terminal abre no lugar do Console. Na prévia do professor (`useStepBackend().isPreview`) os
  * rascunhos do navegador ficam desligados e o "Verificar" é o do backend da prévia.
  */
 export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress, onVerified, onContinue, onUnauthorized }: ExerciseStepProps): React.JSX.Element {
@@ -90,6 +92,7 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
   const { status: pythonStatus, isExecuting, isInstalling, execute, stop } = usePython({ packages: lesson.libraries })
   const help = useStepHelp({ lessonId: lesson.id, stepId: step.id, progress, onProgress, onUnauthorized })
   const trace = useExecutionTrace()
+  const runGate = useProvidedRunButtonGate()
 
   const isCompleted = progress?.status === "completed"
   const isBusy = help.busy !== null
@@ -145,6 +148,7 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
   }
 
   const handleRun = (): void => {
+    if (runGate.isLocked) return
     if (pythonStatus !== "ready" || isInstalling) {
       appendLines([{ type: "warning", message: "O Python ainda está carregando. Aguarde um instante." }])
       return
@@ -307,6 +311,7 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
                   isRunning={isExecuting}
                   isInstalling={isInstalling}
                   pythonStatus={pythonStatus}
+                  runLockedMessage={runGate.message}
                 />
               ) : (
                 <>
@@ -318,6 +323,7 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
                     onStop={stop}
                     onVisualize={handleVisualize}
                     onReset={handleReset}
+                    runLockedMessage={runGate.message}
                   />
                   <div className="min-h-0 flex-1">
                     {mode === "lacunas"
@@ -331,7 +337,7 @@ export function ExerciseStep({ lesson, step, initialFiles, progress, onProgress,
             {trace.state.status === "error" && <p role="alert" className="border-t border-border bg-red-50 px-3 py-1.5 text-xs text-red-700">{trace.state.message}</p>}
             <StdinField value={stdin} onChange={setStdin} isSuggested={usesInput} />
             <div className="min-h-0 flex-[2] border-t border-border">
-              <ConsoleTerminalTabs files={runnableFiles() ?? files} console={<ConsolePanel outputs={outputs} onClear={() => setOutputs([])} isRunning={isExecuting} />} />
+              <ConsoleTerminalTabs files={runnableFiles() ?? files} isTerminalPreferred={runGate.isLocked} console={<ConsolePanel outputs={outputs} onClear={() => setOutputs([])} isRunning={isExecuting} />} />
             </div>
           </>
         )}

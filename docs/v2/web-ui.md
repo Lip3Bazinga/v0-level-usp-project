@@ -165,6 +165,13 @@ não usa COOP/COEP e o terminal não usa SharedArrayBuffer** (`input()` por susp
 fallback de reexecução; Ctrl+C reinicia o worker). Motivos, protocolo, limites e pendências em
 `terminal-no-navegador.md`.
 
+**Executar por nível.** Abaixo do nível que libera o "Executar" (`RUN_BUTTON_MIN_LEVEL` ou o limite do curso), o
+botão fica desabilitado com a faixa "Executar libera no nível N; até lá, use o terminal: python main.py" e a aba
+Terminal abre no lugar do Console (`run-button-gate.tsx`, `run-lock-notice.tsx`, `isTerminalPreferred` do
+`ConsoleTerminalTabs`). Vale no player de passos e na lição clássica (que ganhou a aba Terminal e o atalho
+Ctrl+Enter bloqueado). Professor, admin e a prévia do professor sempre veem o botão. O admin ajusta o limite em
+Admin → Cursos → "Nível do Executar". Regra, conta e proposta de limite em `motores-e-ide.md` §4.
+
 ## Testes
 
 `pnpm --filter @levelusp/web typecheck lint test build`. Testes novos: player (`guided-lesson-layout.test.tsx`),

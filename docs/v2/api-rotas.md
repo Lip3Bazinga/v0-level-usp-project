@@ -35,7 +35,7 @@ Tipos em `packages/contracts`. Respostas em snake_case.
 | GET | /courses/:id/lessons | 🔓(opcional) | → Lesson[] publicadas do curso (dono/admin: todas) |
 | GET | /teacher/courses | 🎓 | → Course[] do professor (admin: todos) |
 | POST | /courses | 🎓 | CourseInput → Course |
-| PATCH | /courses/:id | 🎓 dono | CourseUpdateInput → Course |
+| PATCH | /courses/:id | 🎓 dono | CourseUpdateInput → Course; `run_button_min_level` só admin (403), auditado |
 | DELETE | /courses/:id | 🎓 dono | → 204 |
 | PATCH | /courses/:id/publish | 🎓 dono | {published} → Course |
 | PUT | /courses/:id/lessons/order | 🎓 dono | {lesson_ids} → 204 |
@@ -46,7 +46,7 @@ Tipos em `packages/contracts`. Respostas em snake_case.
 | GET | /me/enrollments | 👤 | → string[] (ids de curso) |
 | GET | /lessons/summaries | 🔓 | → LessonSummary[] publicadas |
 | GET | /lessons | 🔓 | → Lesson[] publicadas |
-| GET | /lessons/:id | 🔓(opcional) | → Lesson (sem gabarito); rascunho só dono/admin |
+| GET | /lessons/:id | 🔓(opcional) | → Lesson (sem gabarito, com `run_button_min_level` do curso); rascunho só dono/admin |
 | GET | /lessons/:id/authoring | 🎓 dono | → LessonWithTests |
 | GET | /teacher/lessons | 🎓 | → Lesson[] do professor (admin: todas) |
 | GET | /teacher/metrics | 🎓 | → LessonMetrics[] das lições do professor |
@@ -54,6 +54,8 @@ Tipos em `packages/contracts`. Respostas em snake_case.
 | PATCH | /lessons/:id | 🎓 dono | LessonUpdateInput → LessonWithTests |
 | DELETE | /lessons/:id | 🎓 dono | → 204 |
 | PATCH | /lessons/:id/publish | 🎓 dono | {published} → Lesson |
+| POST | /teacher/draft-steps/verify | 🎓 | "Testar gabarito" do editor: {runtime, libraries, step (passo de exercício do rascunho + wrong_solutions, até 5), inherited_starter} → DraftStepVerifyResult (referência precisa aprovar; código inicial e cada solução errada precisam reprovar; a regra do `content:verify`). Um passo por pedido; nada é gravado. 60/min por usuário (somado com `submit`); 503 se o executor falhar |
+| POST | /teacher/draft-steps/submit | 🎓 | "Verificar" da prévia do editor: {runtime, libraries, step, files \| arrangement} → StepSubmitResult com a gamificação zerada (sem submissão, tentativa, progresso nem XP) |
 
 ## Aprendizado e correção
 | GET | /me/progress | 👤 | → LessonProgress[] |

@@ -15,7 +15,7 @@ function course(id: string, position: number, status: TrackCourseStatus, prerequ
   return {
     id, title: `Nível ${position}`, description: `Descrição ${position}`, long_description: "", cover_image_url: null, level: "iniciante", tags: [], total_xp: 0,
     estimated_hours: 50, published: true, created_by: null, created_at: "", updated_at: "", final_project_title: null, final_project_description: null,
-    final_project_starter_code: null, slug: id, prerequisite_course_id: prerequisite, sequential: false, lesson_count: 47, position, student_status: status,
+    final_project_starter_code: null, slug: id, prerequisite_course_id: prerequisite, sequential: false, run_button_min_level: null, lesson_count: 47, position, student_status: status,
   }
 }
 

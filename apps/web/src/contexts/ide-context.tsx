@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import type { Lesson, ProjectFile, SubmissionResult } from "@levelusp/contracts"
 import { useAuth } from "@/contexts/auth-context"
 import { useProgress } from "@/contexts/progress-context"
+import { useRunButtonGate } from "@/components/lesson-steps/run-button-gate"
 import { usePython, type ExecutionResult, type PyodideStatus } from "@/hooks/use-python"
 import { fetchProgressSnapshot, HTTP_STATUS, isApiError, updateProgressSnapshot, submitLessonCode } from "@/lib/api"
 import { CONSOLE_COMMAND_FILE_PATH, MAIN_FILE_PATH, ROUTES, SNAPSHOT_SAVE_DEBOUNCE_MS } from "@/lib/constants"
@@ -80,6 +81,8 @@ export interface IDERuntime {
   pythonStatus: PyodideStatus
   isExecuting: boolean
   isInstalling: boolean
+  /** Motivo do bloqueio do "Executar" (nível do jogador abaixo do limite do curso); `null` = liberado. */
+  runLockedMessage: string | null
   /** Texto que `input()` lê no Executar (campo "Entrada (stdin)"), uma linha por chamada. */
   stdin: string
   setStdin: (stdin: string) => void
@@ -92,7 +95,7 @@ export interface IDERuntime {
 export interface IDELessonState {
   hasRun: boolean
   hasOutput: boolean
-  /** A última execução terminou sem erros e o código não mudou desde então. */
+  /** A última execução terminou sem erros e o código não mudou desde então (ou o "Executar" está bloqueado). */
   canVerify: boolean
   lessonProgress: number
   allPassed: boolean
@@ -159,6 +162,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
   const { applyCompletion } = useProgress()
   const { user, profile } = useAuth()
   const userId = user?.id
+  const { isLocked: isRunLocked, message: runLockedMessage } = useRunButtonGate(lesson.run_button_min_level)
   const { consoleOutputs, appendLines, replaceWithLine, addOutput, clearConsole } = useConsoleOutputs()
 
   const [files, setFiles] = useState<ProjectFile[]>(() => resolveStarterFiles(lesson))
@@ -323,6 +327,11 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
   )
 
   const run = useCallback(() => {
+    // Vale também para o atalho Ctrl+Enter: abaixo do nível, o código roda pelo terminal.
+    if (runLockedMessage !== null) {
+      addOutput("warning", runLockedMessage)
+      return
+    }
     if (pythonStatus === "loading") {
       addOutput("warning", "O runtime Python ainda está carregando. Aguarde...")
       return
@@ -347,7 +356,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
       { files, entryPath, stdin },
       { onResult: (result) => handleRunResult(entryPath, result), onError: handleRunError },
     )
-  }, [files, tabs.activePath, stdin, pythonStatus, isInstalling, execute, addOutput, replaceWithLine, reachProgress, handleRunResult, handleRunError])
+  }, [files, tabs.activePath, stdin, pythonStatus, isInstalling, runLockedMessage, execute, addOutput, replaceWithLine, reachProgress, handleRunResult, handleRunError])
 
   const handleVerificationResult = useCallback(
     async (result: SubmissionResult, levelAtStart: number | null) => {
@@ -382,7 +391,8 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
       addOutput("warning", "Aguarde a instalação dos pacotes terminar antes de verificar.")
       return
     }
-    if (!runSucceeded) {
+    // Com o "Executar" bloqueado o aluno roda pelo terminal, que não marca `runSucceeded`.
+    if (!runSucceeded && !isRunLocked) {
       addOutput("warning", "Execute seu código sem erros antes de verificar a resposta (Ctrl+Enter).")
       return
     }
@@ -402,7 +412,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
       }
       appendLines([verificationErrorLine(error)])
     }
-  }, [files, isInstalling, runSucceeded, lesson.id, profile?.level, addOutput, appendLines, handleVerificationResult, router])
+  }, [files, isInstalling, runSucceeded, isRunLocked, lesson.id, profile?.level, addOutput, appendLines, handleVerificationResult, router])
 
   const runConsoleCommand = useCallback(
     (command: string) => {
@@ -460,6 +470,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
       pythonStatus,
       isExecuting,
       isInstalling,
+      runLockedMessage,
       stdin,
       setStdin,
       stop,
@@ -468,7 +479,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
       verify,
       hasRun,
       hasOutput,
-      canVerify: runSucceeded,
+      canVerify: runSucceeded || isRunLocked,
       lessonProgress,
       allPassed,
       isVerifying: isVerifying || isInstalling,
@@ -479,7 +490,7 @@ export function IDEProvider({ lesson, children }: { lesson: Lesson; children: Re
     }),
     [
       files, tabs, setActivePath, openFile, closeTab, handleContentChange, createFile, renameFile, deleteFile,
-      consoleOutputs, clearConsole, addOutput, runConsoleCommand, pythonStatus, isExecuting, isInstalling, stdin, stop,
+      consoleOutputs, clearConsole, addOutput, runConsoleCommand, pythonStatus, isExecuting, isInstalling, runLockedMessage, isRunLocked, stdin, stop,
       run, reset, verify, hasRun, hasOutput, runSucceeded, lessonProgress, allPassed, isVerifying, lastResult,
       levelBefore, isSuccessOpen,
     ],

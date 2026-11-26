@@ -60,6 +60,11 @@ export interface Lesson {
   solution_after_attempts: number
   /** Passos da lição guiada, na ordem; vazio nas lições clássicas (`coding`/`theory`/`quiz`). */
   steps: LessonStep[]
+  /**
+   * Limite do curso para liberar o "Executar" (`courses.run_button_min_level`). Só vem em
+   * `GET /lessons/:id`; ausente ou null = `RUN_BUTTON_MIN_LEVEL` (ver `isRunButtonUnlocked`).
+   */
+  run_button_min_level?: number | null
 }
 
 /** Lição como o professor dono (ou admin) vê: inclui os casos de teste e a solução de referência. */

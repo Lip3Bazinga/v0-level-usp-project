@@ -83,14 +83,16 @@ export class LessonsService {
   }
 
   /**
-   * Visão do aluno: a lição com os passos públicos (sem solução, casos, dicas nem `correct_index`).
+   * Visão do aluno: a lição com os passos públicos (sem solução, casos, dicas nem `correct_index`)
+   * e o limite do curso para o "Executar" (`run_button_min_level`; null em lição avulsa).
    *
    * @throws AppError 404 lição inexistente ou rascunho de outra pessoa.
    */
   async get(user: AuthUser | undefined, id: string): Promise<Lesson> {
     const lesson = await this.repo.findPublic(id)
     if (!lesson || !canViewContent(user, lesson)) throw NotFound("Lição")
-    return toLessonWithSteps(lesson, (await this.steps.listByLesson(id)).map(toLessonStep))
+    const course = lesson.courseId ? await this.courses.findById(lesson.courseId) : undefined
+    return toLessonWithSteps(lesson, (await this.steps.listByLesson(id)).map(toLessonStep), course?.runButtonMinLevel ?? null)
   }
 
   /**

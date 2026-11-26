@@ -29,17 +29,30 @@ interface ConsoleTerminalTabsProps {
   console: ReactNode
   /** Arquivos do projeto que o terminal enxerga. */
   files: readonly ProjectFile[]
+  /** Abre já no Terminal, e passa para ele quando vira `true` (o "Executar" está bloqueado). */
+  isTerminalPreferred?: boolean
 }
 
 /**
  * Ponto de encaixe do terminal no player: duas abas, "Console" (o de sempre) e "Terminal". O
  * terminal só é carregado e montado quando a aba é aberta pela primeira vez e depois fica
- * montado (escondido), para não perder o histórico nem o REPL ao alternar.
+ * montado (escondido), para não perder o histórico nem o REPL ao alternar. Com
+ * `isTerminalPreferred` o terminal é a aba inicial; deixar de ser preferido não troca a aba.
  */
-export function ConsoleTerminalTabs({ console: consoleNode, files }: ConsoleTerminalTabsProps): React.JSX.Element {
+export function ConsoleTerminalTabs({ console: consoleNode, files, isTerminalPreferred = false }: ConsoleTerminalTabsProps): React.JSX.Element {
   const baseId = useId()
-  const [active, setActive] = useState<TabId>("console")
-  const [hasOpenedTerminal, setHasOpenedTerminal] = useState(false)
+  const [active, setActive] = useState<TabId>(isTerminalPreferred ? "terminal" : "console")
+  const [hasOpenedTerminal, setHasOpenedTerminal] = useState(isTerminalPreferred)
+  const [wasTerminalPreferred, setWasTerminalPreferred] = useState(isTerminalPreferred)
+
+  // O bloqueio pode chegar depois da primeira renderização (a sessão ainda carregava).
+  if (isTerminalPreferred !== wasTerminalPreferred) {
+    setWasTerminalPreferred(isTerminalPreferred)
+    if (isTerminalPreferred) {
+      setActive("terminal")
+      setHasOpenedTerminal(true)
+    }
+  }
 
   const select = (id: TabId): void => {
     setActive(id)

@@ -2,15 +2,16 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { BookOpen, Clock, Edit3, Eye, EyeOff, Globe, GraduationCap, Loader2, Search, Trash2, Zap } from "lucide-react"
+import { BookOpen, Clock, Edit3, Eye, EyeOff, Globe, GraduationCap, Loader2, Play, Search, Trash2, Zap } from "lucide-react"
 import type { Course } from "@levelusp/contracts"
 import { useAsyncResource } from "@/hooks/use-async-resource"
-import { deleteCourse, fetchTeacherCourses, getErrorMessage, setCoursePublished } from "@/lib/api"
+import { deleteCourse, fetchTeacherCourses, getErrorMessage, setCoursePublished, updateCourse } from "@/lib/api"
 import { DIFFICULTY_BADGE_CLASSES, DIFFICULTY_LABELS, ROUTES } from "@/lib/constants"
 import type { OnToast } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { swalConfirm } from "@/lib/swal"
 import { PanelSpinner } from "./panel-spinner"
+import { runLevelLabel, RunLevelModal } from "./run-level-modal"
 
 const ICON_ACTION_CLASS =
   "flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-level-purple-light hover:text-level-purple transition-colors"
@@ -35,6 +36,7 @@ export function CoursesPage({ onToast }: CoursesPageProps): React.JSX.Element {
   const [search, setSearch] = useState("")
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [runLevelCourse, setRunLevelCourse] = useState<Course | null>(null)
 
   const allCourses = courses.status === "success" ? courses.data : []
   const filtered = allCourses.filter((course) => matchesSearch(course, search))
@@ -65,6 +67,17 @@ export function CoursesPage({ onToast }: CoursesPageProps): React.JSX.Element {
       onToast(getErrorMessage(error, "Erro ao excluir"), "error")
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  const handleSaveRunLevel = async (course: Course, level: number | null): Promise<void> => {
+    try {
+      const updated = await updateCourse(course.id, { run_button_min_level: level })
+      courses.setData((current) => current.map((item) => (item.id === course.id ? { ...item, run_button_min_level: updated.run_button_min_level } : item)))
+      setRunLevelCourse(null)
+      onToast("Nível do Executar atualizado", "success")
+    } catch (error) {
+      onToast(getErrorMessage(error, "Erro ao salvar o nível do Executar"), "error")
     }
   }
 
@@ -110,11 +123,21 @@ export function CoursesPage({ onToast }: CoursesPageProps): React.JSX.Element {
                 isDeleting={deletingId === course.id}
                 onTogglePublished={() => void handleTogglePublished(course)}
                 onDelete={() => void handleDelete(course)}
+                onEditRunLevel={() => setRunLevelCourse(course)}
               />
             ))}
           </div>
         )}
       </div>
+
+      {runLevelCourse && (
+        <RunLevelModal
+          key={runLevelCourse.id}
+          course={runLevelCourse}
+          onClose={() => setRunLevelCourse(null)}
+          onSave={(level) => handleSaveRunLevel(runLevelCourse, level)}
+        />
+      )}
     </div>
   )
 }
@@ -125,9 +148,10 @@ interface CourseRowProps {
   isDeleting: boolean
   onTogglePublished: () => void
   onDelete: () => void
+  onEditRunLevel: () => void
 }
 
-function CourseRow({ course, isToggling, isDeleting, onTogglePublished, onDelete }: CourseRowProps): React.JSX.Element {
+function CourseRow({ course, isToggling, isDeleting, onTogglePublished, onDelete, onEditRunLevel }: CourseRowProps): React.JSX.Element {
   const toggleLabel = course.published ? "Despublicar" : "Publicar"
   return (
     <div className="flex items-center gap-4 p-4 hover:bg-muted/20 transition-colors">
@@ -161,6 +185,7 @@ function CourseRow({ course, isToggling, isDeleting, onTogglePublished, onDelete
           {course.estimated_hours > 0 && (
             <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{course.estimated_hours}h</span>
           )}
+          <span className="flex items-center gap-1"><Play className="h-3 w-3" />{runLevelLabel(course.run_button_min_level)}</span>
         </div>
       </div>
 
@@ -181,6 +206,9 @@ function CourseRow({ course, isToggling, isDeleting, onTogglePublished, onDelete
             <Eye className="h-4 w-4" />
           </Link>
         )}
+        <button type="button" onClick={onEditRunLevel} title="Nível do Executar" aria-label={`Nível do Executar de ${course.title}`} className={ICON_ACTION_CLASS}>
+          <Play className="h-4 w-4" />
+        </button>
         <Link href={ROUTES.teacherCourse(course.id)} title="Editar" className={ICON_ACTION_CLASS}>
           <Edit3 className="h-4 w-4" />
         </Link>

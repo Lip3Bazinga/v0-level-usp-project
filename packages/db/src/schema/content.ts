@@ -33,11 +33,14 @@ export const courses = pgTable(
     prerequisiteCourseId: uuid("prerequisite_course_id").references((): AnyPgColumn => courses.id, { onDelete: "set null" }),
     /** Lições só podem ser abertas na ordem. */
     sequential: boolean("sequential").notNull().default(false),
+    /** Nível do jogador que libera o "Executar" nas lições do curso; null = `RUN_BUTTON_MIN_LEVEL` do contrato. */
+    runButtonMinLevel: integer("run_button_min_level"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (table) => [
     check("courses_level_check", isOneOf(table.level, DIFFICULTIES)),
+    check("courses_run_button_min_level_check", sql`${table.runButtonMinLevel} >= 1`),
     index("courses_published_idx").on(table.published),
   ],
 )

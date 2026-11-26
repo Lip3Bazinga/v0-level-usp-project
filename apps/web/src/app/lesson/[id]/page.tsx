@@ -20,6 +20,7 @@ import { QuizLessonLayout } from "@/components/ide/quiz-lesson-layout"
 import { ROUTES } from "@/lib/constants"
 import { callsInput } from "@/lib/utils/stdin"
 import { StdinField } from "@/components/lesson-steps/stdin-field"
+import { ConsoleTerminalTabs } from "@/components/terminal/console-terminal-tabs"
 
 // CodeMirror e o player de passos só entram no bundle de quem abre esse tipo de lição
 // (lições teóricas e de quiz não baixam o editor).
@@ -42,7 +43,7 @@ function LessonWorkspace({ lesson, allLessons, currentIndex }: LessonPageData): 
     files, activePath, openPaths, setActivePath, openFile, closeTab, updateFileContent,
     createFile, renameFile, deleteFile,
     consoleOutputs, clearConsole, runConsoleCommand,
-    pythonStatus, isExecuting, isInstalling, stop, stdin, setStdin,
+    pythonStatus, isExecuting, isInstalling, runLockedMessage, stop, stdin, setStdin,
     run, reset, verify,
     hasRun, hasOutput, canVerify, lessonProgress, allPassed, isVerifying,
     lastResult, levelBefore, isSuccessOpen, setIsSuccessOpen,
@@ -70,6 +71,7 @@ function LessonWorkspace({ lesson, allLessons, currentIndex }: LessonPageData): 
               isVerifying={isVerifying}
               canVerify={canVerify || allPassed}
               isVerified={allPassed}
+              runLockedMessage={runLockedMessage}
             />
           }
           editor={
@@ -85,17 +87,17 @@ function LessonWorkspace({ lesson, allLessons, currentIndex }: LessonPageData): 
               isRunning={isExecuting}
               isInstalling={isInstalling}
               pythonStatus={pythonStatus}
+              runLockedMessage={runLockedMessage}
             />
           }
           console={
             <div className="flex h-full flex-col">
               <StdinField value={stdin} onChange={setStdin} isSuggested={files.some((file) => callsInput(file.content))} />
               <div className="min-h-0 flex-1">
-                <ConsolePanel
-                  outputs={consoleOutputs}
-                  onClear={clearConsole}
-                  isRunning={isExecuting}
-                  onRunCommand={runConsoleCommand}
+                <ConsoleTerminalTabs
+                  files={files}
+                  isTerminalPreferred={runLockedMessage !== null}
+                  console={<ConsolePanel outputs={consoleOutputs} onClear={clearConsole} isRunning={isExecuting} onRunCommand={runConsoleCommand} />}
                 />
               </div>
             </div>

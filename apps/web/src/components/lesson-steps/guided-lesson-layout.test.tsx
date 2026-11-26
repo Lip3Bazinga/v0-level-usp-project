@@ -59,7 +59,7 @@ const LESSON: Lesson = {
   id: "l1", title: "Funções", description: "", slug: "funcoes", module: "Módulo 6", order: 1, difficulty: "iniciante", content_markdown: "",
   starter_code: "", starter_files: [], checkpoints: [], libraries: [], xp_reward: 100, time_limit: 20, lesson_type: "guided", quiz_passing_score: 70,
   course_id: "c1", module_id: "m1", published: true, created_at: "", updated_at: "", runtime: "python", is_project: false, objectives: [],
-  solution_after_attempts: 3, steps: STEPS,
+  solution_after_attempts: 3, steps: STEPS, run_button_min_level: 1,
 }
 
 const NOT_COMPLETED: StepOutcome = { step_completed: false, xp_awarded: 0, lesson_completed: false, granted_badges: [], level_up: false, new_level: 0 }

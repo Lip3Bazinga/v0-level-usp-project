@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { checkReorder, generateSlug, nextOrder, passRate, pickUniqueSlug, publishBlocker, withRandomSuffix, type PublishCandidate } from "./catalog.domain"
+import { canSetRunButtonLevel, checkReorder, generateSlug, nextOrder, passRate, pickUniqueSlug, publishBlocker, withRandomSuffix, type PublishCandidate } from "./catalog.domain"
 
 describe("generateSlug / pickUniqueSlug", () => {
   it("remove acentos e símbolos", () => {
@@ -78,5 +78,19 @@ describe("passRate", () => {
   it("é null sem submissões", () => {
     expect(passRate(0, 0)).toBeNull()
     expect(passRate(1, 4)).toBe(0.25)
+  })
+})
+
+describe("canSetRunButtonLevel", () => {
+  it("admin muda o limite, inclusive de volta para o padrão (null)", () => {
+    expect(canSetRunButtonLevel("admin", 4, null)).toBe(true)
+    expect(canSetRunButtonLevel("admin", null, 4)).toBe(true)
+  })
+  it("professor só pode omitir o campo ou reenviar o valor atual", () => {
+    expect(canSetRunButtonLevel("teacher", undefined, 4)).toBe(true)
+    expect(canSetRunButtonLevel("teacher", 4, 4)).toBe(true)
+    expect(canSetRunButtonLevel("teacher", null, null)).toBe(true)
+    expect(canSetRunButtonLevel("teacher", 1, null)).toBe(false)
+    expect(canSetRunButtonLevel("teacher", null, 4)).toBe(false)
   })
 })

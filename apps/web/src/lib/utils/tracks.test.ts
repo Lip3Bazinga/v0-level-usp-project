@@ -6,7 +6,7 @@ function course(id: string, status: TrackCourseStatus, prerequisite: string | nu
   return {
     id, title: `Curso ${id}`, description: "", long_description: "", cover_image_url: null, level: "iniciante", tags: [], total_xp: 0, estimated_hours: 50,
     published: true, created_by: null, created_at: "", updated_at: "", final_project_title: null, final_project_description: null,
-    final_project_starter_code: null, slug: id, prerequisite_course_id: prerequisite, sequential: false, position: 1, student_status: status,
+    final_project_starter_code: null, slug: id, prerequisite_course_id: prerequisite, sequential: false, run_button_min_level: null, position: 1, student_status: status,
   }
 }
 

@@ -52,4 +52,20 @@ describe("ConsoleTerminalTabs", () => {
     const panel = screen.getByRole("tabpanel", { name: "Console" })
     expect(tab.getAttribute("aria-controls")).toBe(panel.id)
   })
+
+  it("com o terminal preferido, abre direto no Terminal", () => {
+    render(<ConsoleTerminalTabs files={FILES} console={<p>saída do console</p>} isTerminalPreferred />)
+    expect(screen.getByRole("tab", { name: "Terminal" })).toHaveAttribute("aria-selected", "true")
+    expect(screen.getByTestId("terminal-panel")).toBeVisible()
+    expect(screen.getByText("saída do console")).not.toBeVisible()
+  })
+
+  it("passa para o Terminal quando ele vira o preferido e não volta sozinho ao Console", () => {
+    const view = render(<ConsoleTerminalTabs files={FILES} console={<p>x</p>} />)
+    expect(screen.getByRole("tab", { name: "Console" })).toHaveAttribute("aria-selected", "true")
+    view.rerender(<ConsoleTerminalTabs files={FILES} console={<p>x</p>} isTerminalPreferred />)
+    expect(screen.getByRole("tab", { name: "Terminal" })).toHaveAttribute("aria-selected", "true")
+    view.rerender(<ConsoleTerminalTabs files={FILES} console={<p>x</p>} />)
+    expect(screen.getByRole("tab", { name: "Terminal" })).toHaveAttribute("aria-selected", "true")
+  })
 })

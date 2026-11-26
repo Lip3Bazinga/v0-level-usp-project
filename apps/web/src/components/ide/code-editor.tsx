@@ -1,7 +1,7 @@
 "use client"
 
-import type { ReactNode } from "react"
-import { X, Play, Square, RotateCcw, Copy, Check, Footprints } from "lucide-react"
+import { useId, type ReactNode } from "react"
+import { X, Play, Square, RotateCcw, Copy, Check, Footprints, Lock } from "lucide-react"
 import CodeMirror, { EditorView } from "@uiw/react-codemirror"
 import { python } from "@codemirror/lang-python"
 import { oneDark } from "@codemirror/theme-one-dark"
@@ -14,6 +14,7 @@ import type { PyodideStatus } from "@/hooks/use-python"
 import { COPIED_FEEDBACK_DURATION_MS } from "@/lib/constants"
 import { BROWSER_PYTHON_MINOR_VERSION } from "@/lib/python/runtime-config"
 import { cn } from "@/lib/utils"
+import { RunLockNotice } from "./run-lock-notice"
 
 interface CodeEditorProps {
   /** Abas abertas, na ordem em que aparecem. */
@@ -30,6 +31,8 @@ interface CodeEditorProps {
   isRunning?: boolean
   isInstalling?: boolean
   pythonStatus?: PyodideStatus
+  /** Motivo do bloqueio do "Executar" (nível do jogador abaixo do limite); ausente = liberado. */
+  runLockedMessage?: string | null | undefined
 }
 
 // Nome acessível do editor: o Tab indenta, então a saída do teclado precisa ser anunciada.
@@ -82,7 +85,9 @@ export function CodeEditor({
   isRunning = false,
   isInstalling = false,
   pythonStatus = "idle",
+  runLockedMessage,
 }: CodeEditorProps): React.JSX.Element {
+  const lockNoticeId = useId()
   const copiedFeedback = useTransientFlag(COPIED_FEEDBACK_DURATION_MS)
   const activeFile = tabs.find((tab) => tab.path === activePath)
 
@@ -144,10 +149,18 @@ export function CodeEditor({
               </Tooltip>
             )}
 
-            <RunButton isRunning={isRunning} isInstalling={isInstalling} pythonStatus={pythonStatus} onRun={onRun} />
+            <RunButton
+              isRunning={isRunning}
+              isInstalling={isInstalling}
+              pythonStatus={pythonStatus}
+              onRun={onRun}
+              lockNoticeId={runLockedMessage ? lockNoticeId : null}
+            />
           </TooltipProvider>
         </div>
       </div>
+
+      {runLockedMessage && <RunLockNotice id={lockNoticeId} message={runLockedMessage} />}
 
       <div className="flex-1 overflow-auto">
         <CodeMirror
@@ -244,17 +257,27 @@ interface RunButtonProps {
   isInstalling: boolean
   pythonStatus: PyodideStatus
   onRun: () => void
+  /** Id do aviso de bloqueio; `null` com o botão liberado. */
+  lockNoticeId: string | null
 }
 
 /** Rótulo do botão enquanto ele está ocupado; `null` quando está livre para executar. */
-function busyLabel({ isRunning, isInstalling, pythonStatus }: Omit<RunButtonProps, "onRun">): string | null {
+function busyLabel({ isRunning, isInstalling, pythonStatus }: Pick<RunButtonProps, "isRunning" | "isInstalling" | "pythonStatus">): string | null {
   if (isInstalling) return "Instalando..."
   if (isRunning) return "Executando..."
   if (pythonStatus === "loading") return "Carregando..."
   return null
 }
 
-function RunButton({ isRunning, isInstalling, pythonStatus, onRun }: RunButtonProps): React.JSX.Element {
+function RunButton({ isRunning, isInstalling, pythonStatus, onRun, lockNoticeId }: RunButtonProps): React.JSX.Element {
+  if (lockNoticeId !== null) {
+    return (
+      <Button size="sm" className="ml-2 gap-2 rounded-lg bg-level-purple text-white disabled:opacity-50" disabled aria-describedby={lockNoticeId}>
+        <Lock className="h-4 w-4" aria-hidden="true" />
+        Executar
+      </Button>
+    )
+  }
   const label = busyLabel({ isRunning, isInstalling, pythonStatus })
   const tooltip = isInstalling
     ? "Aguarde a instalação dos pacotes"
