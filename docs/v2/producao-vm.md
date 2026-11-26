@@ -58,7 +58,7 @@ flowchart LR
 
 | Item | Detalhe | Onde entra |
 |---|---|---|
-| **VM** | Ubuntu Server 24.04 LTS (ou 22.04), x86_64, **2 vCPU / 4 GB** (mínimo) ou 4 vCPU / 8 GB (turmas de 40+ verificando ao mesmo tempo), 40 GB de disco + espaço para backups (estimativa: 15 × tamanho do dump). Acesso SSH por chave e `sudo`. | Seção 3 |
+| **VM** | Ubuntu Server 24.04 LTS (ou 22.04), x86_64, **2 vCPU / 4 GB** (mínimo; não roda lições `ml`) ou 4 vCPU / 8 GB (turmas de 40+ verificando ao mesmo tempo ou cursos com `ml`), 40 GB de disco + espaço para backups (estimativa: 15 × tamanho do dump). Acesso SSH por chave e `sudo`. | Seção 3 |
 | **Entrada pública** (uma) | (a) **Túnel nomeado da Cloudflare**: conta gratuita + domínio na Cloudflare (ou subdomínio delegado) e o **token do túnel**. A VM precisa de saída para a Cloudflare na porta 7844 (TCP e UDP). (b) **Domínio próprio com Caddy**: registro DNS `A`/`AAAA` apontando para o IP público da VM e portas 80/443 liberadas até ela (pedir à STI). | `INGRESS`, `CLOUDFLARE_TUNNEL_TOKEN` ou `PUBLIC_DOMAIN` + `ACME_EMAIL` |
 | **Domínio/URL** | O endereço final, ex.: `https://levelusp.exemplo.usp.br`. | `PUBLIC_BASE_URL` |
 | **SMTP** | Host, porta (587 STARTTLS ou 465 TLS), usuário, senha e o remetente autorizado (com SPF/DKIM no domínio do remetente). Ver seção 9. | `SMTP_URL`, `MAIL_FROM` |
@@ -217,13 +217,31 @@ propósito; nem todos atingem o pico juntos). Para **4 vCPU / 8 GB**:
 | `PG_SHARED_BUFFERS` / `PG_EFFECTIVE_CACHE_SIZE` | 256MB / 768MB | 512MB / 1536MB |
 | `API_CPUS` / `API_MEMORY` / `API_HEAP_MB` | 1.0 / 768m / 512 | 2.0 / 1g / 768 |
 | `WEB_CPUS` / `WEB_MEMORY` / `WEB_HEAP_MB` | 1.0 / 512m / 384 | 1.5 / 768m / 512 |
-| `RUNNER_CPUS` / `RUNNER_MEMORY` / `RUNNER_CONCURRENCY` | 1.5 / 1g / 2 | 3.0 / 2g / 4 |
+| `RUNNER_CPUS` / `RUNNER_MEMORY` / `RUNNER_CONCURRENCY` | 1.5 / 2g / 2 | 3.0 / 3g / 4 |
 | `RUNNER_MAX_QUEUE_WAIT_MS` / `WEB_KEEP_ALIVE_TIMEOUT_MS` | 20000 / 125000 | 20000 / 125000 |
 | `DATABASE_POOL_MAX` | 10 | 20 |
 
-`cpus` não pode passar do número de núcleos da VM (o Docker recusa o contêiner). Cada execução
-do executor usa até 128 MB: mantenha `RUNNER_CONCURRENCY × 128 MB` abaixo de `RUNNER_MEMORY`.
+`cpus` não pode passar do número de núcleos da VM (o Docker recusa o contêiner).
 `RUNNER_CONCURRENCY` = número de vCPUs da VM.
+
+**Memória do executor.** O executor admite cada lote pelo orçamento
+`RUNNER_MEMORY − reserva` (reserva `RUNNER_MEMORY_RESERVE_MB` = 512 MiB). Cada worker vivo reserva
+o peso do seu perfil: `python` 0, `dados` 256 MiB, `ml` 1229 MiB (`RUNNER_BATCH_MEMORY_MB`). Sem
+memória livre o lote espera na fila ou recebe 503; nunca derruba o contêiner por OOM. Workers que
+cabem (`floor(orçamento / peso)`):
+
+| `RUNNER_MEMORY` | Orçamento | Workers `dados` | Workers `ml` |
+|---|---|---|---|
+| 1536m | 1024 MiB | 4 | 0 (lição `ml` recusada) |
+| 2g | 1536 MiB | 6 | 1 |
+| 3g | 2560 MiB | 10 | 2 |
+
+> **Aviso: 2 vCPU / 4 GB NÃO roda lições `ml`. Para cursos com `ml`, use 4 vCPU / 8 GB**
+> (`RUNNER_MEMORY=3g` ou mais). Com 2g cabe um único worker `ml` por vez (as demais esperam na
+> fila) e a soma dos tetos dos contêineres passa da memória da VM: PostgreSQL 1g + API 768m +
+> web 512m + executor 2g = 4,25 GiB, ou 4,5 GiB com o proxy/túnel ativo (cloudflared ou caddy,
+> 256m; só um sobe, conforme `INGRESS`; o `migrate` de 512m termina antes dos demais). Se todos
+> chegarem ao teto juntos, o kernel mata algum processo.
 
 Capacidade medida com os tetos da coluna de 2 vCPU ([desempenho-e-carga.md](./desempenho-e-carga.md)):
 uma turma de **40 alunos clicando em Verificar em 10 s** é corrigida com p95 de 0,7 s; 80, com

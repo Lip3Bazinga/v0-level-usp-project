@@ -1,8 +1,10 @@
 # Desempenho e carga
 
 Medições de capacidade do LevelUSP para o estudo com turmas (20–40 alunos, às vezes uma turma
-inteira clicando em **Verificar** ao mesmo tempo num laboratório), feitas em 03/11/2026 com a
-pilha de produção (web standalone + API + executor + PostgreSQL) numa máquina de 2 vCPU.
+inteira clicando em **Verificar** ao mesmo tempo num laboratório), feitas em 03/11/2026 com
+processos locais gerados pelo `pnpm build` (web standalone, API e executor como processos Node,
+sem contêiner) e PostgreSQL 16.15, numa máquina de 2 vCPU. Não foi a pilha do Docker Compose, que
+usa PostgreSQL 17 e limites de cgroup dos contêineres.
 Ferramenta: `pnpm load:turma` (`tools/load`).
 
 ## 1. Resumo
