@@ -29,7 +29,7 @@ flowchart TB
       HMIG["migrate (roda e sai)"]
     end
     subgraph HNETRUN["rede runner (internal, sem internet)"]
-      HRUN["runner<br/>read_only, cap_drop ALL, no-new-privileges,<br/>pids 128, mem 1g, 2 CPUs"]
+      HRUN["runner<br/>read_only, cap_drop ALL, no-new-privileges,<br/>pids 128, mem 2g, 2 CPUs"]
     end
     PS --> HWEB
     HTUN --> HWEB
@@ -50,7 +50,7 @@ flowchart TB
     VINGRESS["Entrada pública, uma das duas:<br/>cloudflared com túnel NOMEADO (nenhuma porta aberta)<br/>ou Caddy 80/443 com HTTPS automático"]
     VWEB["web"]
     VAPI["api<br/>1 CPU, 768 MB (tetos)"]
-    VRUN["runner WASI + Pyodide<br/>1,5 CPU, 1,5 GB (tetos)<br/>rede runner internal"]
+    VRUN["runner WASI + Pyodide<br/>1,5 CPU, 2 GB (tetos; RUNNER_MEMORY)<br/>rede runner internal"]
     VPG[("postgres 17<br/>1 CPU, 1 GB")]
     VCRON["cron do host: health-check, backup (cópia externa cifrada, opcional),<br/>teste de restauração (levelusp-vm.sh, backup.sh)"]
     VINGRESS --> VWEB --> VAPI
