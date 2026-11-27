@@ -146,6 +146,7 @@ interface RichTextEditorProps {
 }
 
 function useLessonEditor({ value, onChange, placeholder }: Pick<RichTextEditorProps, "value" | "onChange"> & { placeholder: string }): Editor | null {
+  // O tipo do TipTap omite o `null` do primeiro render no cliente; o runtime o devolve (ver RichTextEditor).
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -186,7 +187,7 @@ function useLessonEditor({ value, onChange, placeholder }: Pick<RichTextEditorPr
         "aria-label": placeholder,
       },
     },
-  })
+  }) as Editor | null
 
   // Conteúdo trocado por fora (ex.: lição carregada depois de montar o editor).
   useEffect(() => {
@@ -205,16 +206,15 @@ function useLessonEditor({ value, onChange, placeholder }: Pick<RichTextEditorPr
 export function RichTextEditor({ value, onChange, placeholder = "Escreva o conteúdo da aula aqui…", ...rest }: RichTextEditorProps): React.JSX.Element | null {
   const editor = useLessonEditor({ value, onChange, placeholder })
   if (!editor) return null
-  return <RichTextEditorView editor={editor} placeholder={placeholder} {...rest} />
+  return <RichTextEditorView editor={editor} {...rest} />
 }
 
 function RichTextEditorView({
   editor,
-  placeholder,
   minHeight = 320,
   onUploadImage,
   onUploadError,
-}: Omit<RichTextEditorProps, "value" | "onChange" | "placeholder"> & { editor: Editor; placeholder: string }): React.JSX.Element {
+}: Omit<RichTextEditorProps, "value" | "onChange" | "placeholder"> & { editor: Editor }): React.JSX.Element {
   const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE)
   const [textColor, setTextColor] = useState(DEFAULT_TEXT_COLOR)
   const [imageUrl, setImageUrl] = useState("")
