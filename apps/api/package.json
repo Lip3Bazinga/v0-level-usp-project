@@ -5,7 +5,7 @@
   "description": "API NestJS do LevelUSP: autenticação, regras de negócio, correção e gamificação.",
   "scripts": {
     "build": "nest build",
-    "dev": "nest start --watch",
+    "dev": "nest start --watch --exec \"node --env-file-if-exists=.env\"",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint .",

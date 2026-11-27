@@ -412,6 +412,12 @@ Um nível por sessão: escrever o `PLANO.md` do nível a partir dos roteiros, es
   - Achado: com `CONCURRENCY` padrão (uma por CPU) o executor foi morto por OOM no ml (≈ 1,2 GiB por lote); limitar `CONCURRENCY` pela
     memória em produção. A rodada inválida fica em `carga.csv` (ml N ≥ 25), a válida em `carga-ml-concorrencia4.csv`.
   - Decisão do Filipe: aquecer workers ml (`RUNNER_PYODIDE_WARM=...,ml:K`) ou usar `reuse` para o ml caber no limite de 10 s.
+- **Fase T concluída (2026-11-27), branch `fix/telas-localhost`:** as telas não carregavam porque a API não subia em dev
+  (`pnpm dev` do `apps/api` não lia `apps/api/.env`: faltava `RUNNER_TOKEN`); corrigido com `--env-file-if-exists=.env`. Também: `/notas`
+  quebrava com `Cannot read properties of null (reading 'isActive')` (TipTap v3 devolve `null` no 1º render; `RichTextEditor` agora só monta
+  a barra com a instância pronta). Scripts do banco exigem `DATABASE_URL` exportada (documentado). Varredura permanente: `apps/web/e2e/rotas.spec.ts`
+  (71 telas, 3 papéis, 0 problemas; relatório em `.claude-transfer/telas/relatorio.md`). Senha do admin local redefinida para a dos e2e.
+
 - **Fase D2 concluída (2026-11-25), branch `fix/executor-memoria`:** o executor admite lotes também por orçamento de memória
   (`RUNNER_MEMORY` − `RUNNER_MEMORY_RESERVE_MB`, peso por worker em `RUNNER_BATCH_MEMORY_MB`, padrão `python:0,dados:256,ml:1229`);
   sem memória o lote espera na fila ou recebe 503 com `Retry-After`; perfil que não cabe no orçamento recebe 501. Política por perfil:

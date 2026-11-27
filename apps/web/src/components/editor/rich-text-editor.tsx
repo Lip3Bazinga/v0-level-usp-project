@@ -145,7 +145,8 @@ interface RichTextEditorProps {
   onUploadError?: (message: string) => void
 }
 
-function useLessonEditor({ value, onChange, placeholder }: Pick<RichTextEditorProps, "value" | "onChange"> & { placeholder: string }): Editor {
+function useLessonEditor({ value, onChange, placeholder }: Pick<RichTextEditorProps, "value" | "onChange"> & { placeholder: string }): Editor | null {
+  // O tipo do TipTap omite o `null` do primeiro render no cliente; o runtime o devolve (ver RichTextEditor).
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -186,11 +187,11 @@ function useLessonEditor({ value, onChange, placeholder }: Pick<RichTextEditorPr
         "aria-label": placeholder,
       },
     },
-  })
+  }) as Editor | null
 
   // Conteúdo trocado por fora (ex.: lição carregada depois de montar o editor).
   useEffect(() => {
-    if (editor.getHTML() === value) return
+    if (!editor || editor.getHTML() === value) return
     // TipTap v3: o 2º argumento é um objeto de opções; sem emitir update, o onChange não volta em laço.
     editor.commands.setContent(value, { emitUpdate: false })
   }, [value, editor])
@@ -198,15 +199,22 @@ function useLessonEditor({ value, onChange, placeholder }: Pick<RichTextEditorPr
   return editor
 }
 
-export function RichTextEditor({
-  value,
-  onChange,
-  placeholder = "Escreva o conteúdo da aula aqui…",
+/**
+ * Editor de texto rico da aula. O TipTap v3 devolve `null` até a instância existir (primeiro
+ * render no cliente); a barra de ferramentas só monta depois, para não ler `isActive` de null.
+ */
+export function RichTextEditor({ value, onChange, placeholder = "Escreva o conteúdo da aula aqui…", ...rest }: RichTextEditorProps): React.JSX.Element | null {
+  const editor = useLessonEditor({ value, onChange, placeholder })
+  if (!editor) return null
+  return <RichTextEditorView editor={editor} {...rest} />
+}
+
+function RichTextEditorView({
+  editor,
   minHeight = 320,
   onUploadImage,
   onUploadError,
-}: RichTextEditorProps): React.JSX.Element | null {
-  const editor = useLessonEditor({ value, onChange, placeholder })
+}: Omit<RichTextEditorProps, "value" | "onChange" | "placeholder"> & { editor: Editor }): React.JSX.Element {
   const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE)
   const [textColor, setTextColor] = useState(DEFAULT_TEXT_COLOR)
   const [imageUrl, setImageUrl] = useState("")
