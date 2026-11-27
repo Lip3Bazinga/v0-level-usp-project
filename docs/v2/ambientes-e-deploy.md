@@ -101,6 +101,15 @@ pnpm install
 docker compose -f infra/compose/compose.dev.yml up -d       # Postgres
 pnpm --filter @levelusp/runner setup:python                 # Wasmtime + CPython WASI (Linux/WSL)
 cp apps/api/.env.example apps/api/.env
+# Os scripts do banco não leem apps/api/.env: exporte a mesma DATABASE_URL (Postgres do compose de dev).
+export DATABASE_URL=postgres://levelusp:levelusp@localhost:5432/levelusp_dev
 pnpm build && pnpm db:migrate && SEED_DEMO_USERS=true pnpm db:seed
-pnpm dev                                                    # web :3000, api :4000, runner :8081
+# Admin local (os e2e usam admin@levelusp.dev / adminLevelusp2026): acrescente
+#   SEED_ADMIN_EMAIL=admin@levelusp.dev SEED_ADMIN_PASSWORD=adminLevelusp2026
+# ao comando do seed. Se a conta já existir, o seed não troca a senha dela.
+pnpm dev                                                    # web :3000, api :4000 (lê apps/api/.env), runner :8081
 ```
+
+Varredura de telas (todas as rotas, nos três papéis, sem erro de console nem 5xx), com a pilha no ar:
+`E2E_BASE_URL=http://localhost:3000 pnpm --filter @levelusp/web test:e2e e2e/rotas.spec.ts`
+(`ROTAS_RELATORIO=1` grava `.claude-transfer/telas/relatorio.md`).
