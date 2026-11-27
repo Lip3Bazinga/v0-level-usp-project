@@ -1,15 +1,19 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
-import { sql } from "drizzle-orm"
+import { sql, type SQL } from "drizzle-orm"
 import { contentAssets, lessonSteps, type LessonStepRow } from "@levelusp/db"
 import type { ApiErrorBody, SessionResponse, StepPredictResult, StepSubmitResult, TestCase } from "@levelusp/contracts"
-import { agent, bodyOf, countRows, createLesson, createTestApp, required, signUp, type SignedUpUser, type TestContext } from "../e2e/harness"
+import { agent, bodyOf, countRows, createLesson, createTestApp, CSRF_HEADER_NAME, queryRows, required, signUp, type SignedUpUser, type TestContext } from "../e2e/harness"
 
 /*
  * Ataque "forjar progresso nos passos": o cliente tenta concluir um passo sem veredito,
  * pular a ordem, arrancar a solução ou o gabarito (inclusive a saída esperada da previsão e a
  * ordem do exercício de ordenar), ler arquivos pela rota de assets e escrever no log do
- * experimento em nome de outra pessoa. Tudo o que vale XP precisa nascer de um veredito do servidor.
+ * experimento em nome de outra pessoa ou com um tipo que só o servidor grava. Tudo o que vale XP
+ * precisa nascer de um veredito do servidor.
  */
+
+/** SQLSTATE `restrict_violation`, levantado pelo gatilho `events_append_only`. */
+const APPEND_ONLY_SQLSTATE = "23001"
 
 const SECRET_SOLUTION = "SOLUCAO-SO-DO-PROFESSOR"
 const SECRET_EXPECTED = 424242
@@ -125,20 +129,69 @@ describe("Passos sob ataque (forja de progresso, salto de ordem, vazamento de ga
     expect(await countRows(ctx.db, sql`select count(*)::int as n from lesson_step_progress`)).toBe(0)
   })
 
+  /** SQLSTATE do erro de uma instrução SQL direta no banco (null quando ela é aceita). */
+  async function sqlStateOf(statement: SQL): Promise<string | null> {
+    try {
+      await ctx.db.execute(statement)
+      return null
+    } catch (error) {
+      const failure = error as { code?: unknown; cause?: { code?: unknown } }
+      return String(failure.cause?.code ?? failure.code ?? "sem código")
+    }
+  }
+
   it("o log do experimento é só de inserção e sempre em nome da sessão", async () => {
     const other = await signUp(ctx.app)
+    const countEvents = (filter: SQL): Promise<number> => countRows(ctx.db, sql`select count(*)::int as n from events where ${filter}`)
     await student.agent.post("/api/me/events", { events: [{ type: "lesson_viewed", payload: {}, user_id: other.id, id: 1 }] })
-    expect(await countRows(ctx.db, sql`select count(*)::int as n from events where user_id = ${other.id} and type = 'lesson_viewed'`)).toBe(0)
-    expect(await countRows(ctx.db, sql`select count(*)::int as n from events where user_id = ${student.id} and type = 'lesson_viewed'`)).toBe(1)
-    // Tipos que o servidor decide (aprovação, certificado) também passam pela lista, mas não mudam progresso algum.
-    await student.agent.post("/api/me/events", { events: [{ type: "lesson_completed", payload: { lesson_id: lessonId } }] })
+    expect(await countEvents(sql`user_id = ${other.id} and type = 'lesson_viewed'`)).toBe(0)
+    expect(await countEvents(sql`user_id = ${student.id} and type = 'lesson_viewed'`)).toBe(1)
+
+    // Tipos que só o servidor grava (aprovação, certificado) são recusados, e um deles derruba o lote inteiro.
+    for (const type of ["lesson_completed", "certificate_issued"]) {
+      const forged = await student.agent.post("/api/me/events", { events: [{ type: "lesson_viewed", payload: { forjado: true } }, { type, payload: { lesson_id: lessonId } }] })
+      expect(forged.status).toBe(400)
+      expect(await countEvents(sql`type = ${type}`)).toBe(0)
+    }
+    expect(await countEvents(sql`type = 'lesson_viewed'`)).toBe(1)
     expect(await totalXp()).toBe(0)
+
     expect((await student.agent.put("/api/me/events", {})).status).toBe(404)
     expect((await student.agent.patch("/api/me/events", {})).status).toBe(404)
     expect((await student.agent.delete("/api/me/events")).status).toBe(404)
     // Payload gigante é recusado na validação.
-    const huge = await student.agent.post("/api/me/events", { events: [{ type: "login", payload: { blob: "x".repeat(5000) } }] })
+    const huge = await student.agent.post("/api/me/events", { events: [{ type: "lesson_viewed", payload: { blob: "x".repeat(5000) } }] })
     expect(huge.status).toBe(400)
+
+    // Direto no banco: o gatilho recusa DELETE e todo UPDATE da sessão, inclusive o que só anonimiza conta viva.
+    const mine = sql`user_id = ${student.id} and type = 'lesson_viewed'`
+    const [stored] = await queryRows<{ id: string; created_at: string }>(ctx.db, sql`select id::text as id, created_at::text as created_at from events where ${mine}`)
+    const original = required(stored, "evento do aluno")
+    const intact = sql`id = ${original.id}::bigint and type = 'lesson_viewed' and payload = '{}'::jsonb and created_at::text = ${original.created_at}`
+    const refused = [
+      sql`update events set user_id = null where ${mine}`,
+      sql`update events set id = id + 1000000 where ${mine}`,
+      sql`insert into events (id, user_id, type, payload) values (${original.id}::bigint, ${student.id}, 'lesson_viewed', '{"xp": 9999}'::jsonb)
+          on conflict (id) do update set payload = excluded.payload`,
+      sql`insert into events (id, user_id, type) values (${original.id}::bigint, null, 'lesson_viewed') on conflict (id) do update set user_id = null`,
+      sql`delete from events where ${mine}`,
+      sql`update events set type = 'lesson_completed' where ${mine}`,
+      sql`update events set payload = '{"xp": 9999}'::jsonb where ${mine}`,
+      sql`update events set created_at = now() - interval '1 year' where ${mine}`,
+      sql`update events set user_id = ${other.id} where ${mine}`,
+      sql`update events set user_id = null, payload = '{"xp": 9999}'::jsonb where ${mine}`,
+    ]
+    for (const statement of refused) expect(await sqlStateOf(statement)).toBe(APPEND_ONLY_SQLSTATE)
+    expect(await countEvents(sql`${intact} and user_id = ${student.id}`)).toBe(1)
+    expect(await countEvents(sql`type = 'lesson_viewed'`)).toBe(1)
+    expect(await countEvents(sql`type in ('lesson_completed', 'certificate_issued')`)).toBe(0)
+
+    // Apagar a conta ainda anonimiza o evento (FK com ON DELETE SET NULL), sem apagá-lo nem alterá-lo.
+    const deleted = await student.agent.raw.delete("/api/me").set(CSRF_HEADER_NAME, "1").send({ password: student.password })
+    expect(deleted.status).toBe(204)
+    expect(await countRows(ctx.db, sql`select count(*)::int as n from profiles where id = ${student.id}`)).toBe(0)
+    expect(await countEvents(sql`user_id = ${student.id}`)).toBe(0)
+    expect(await countEvents(sql`${intact} and user_id is null`)).toBe(1)
   })
 
   /** Lição só com os formatos do P2b: previsão → ordenar. O gabarito de cada um é um marcador único. */

@@ -1,0 +1,4 @@
+motor,n_saturacao,criterio,limite_p95_ms,limite_erro,maior_n_sem_saturar,regra_saturacao
+python,,não saturou até N=100,10000,0.01,100,"p95 das respostas 200 > 10000 ms (com ao menos 20 respostas 200); OU taxa de erro > 1% E ao menos 3 erros. Erro = 503, timeout, rede e 5xx; 429 (limite por usuário) é contado à parte e não satura"
+dados,,não saturou até N=100,10000,0.01,100,"p95 das respostas 200 > 10000 ms (com ao menos 20 respostas 200); OU taxa de erro > 1% E ao menos 3 erros. Erro = 503, timeout, rede e 5xx; 429 (limite por usuário) é contado à parte e não satura"
+ml,100,p95 10736 ms > 10000 ms; erro 2.4% (15 erros) > 1%,10000,0.01,50,"p95 das respostas 200 > 10000 ms (com ao menos 20 respostas 200); OU taxa de erro > 1% E ao menos 3 erros. Erro = 503, timeout, rede e 5xx; 429 (limite por usuário) é contado à parte e não satura"

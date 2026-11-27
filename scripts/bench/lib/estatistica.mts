@@ -78,8 +78,19 @@ export function appendCsv(file: string, rows: readonly (readonly (string | numbe
   appendFileSync(file, `${rows.map(csvLine).join("\n")}\n`, "utf8")
 }
 
+/** Tabela lida de um CSV: cabeçalho e linhas indexadas pelo nome da coluna. */
+export interface CsvTable {
+  header: string[]
+  rows: Record<string, string>[]
+}
+
 /** Lê um CSV produzido por estes scripts (aspas duplas e vírgulas dentro de campos entre aspas). */
 export function readCsv(file: string): Record<string, string>[] {
+  return readCsvTable(file).rows
+}
+
+/** Como `readCsv`, mas devolve também o cabeçalho (arquivo vazio = cabeçalho vazio). */
+export function readCsvTable(file: string): CsvTable {
   const text = readFileSync(file, "utf8").replace(/^﻿/, "")
   const records: string[][] = []
   let field = ""
@@ -116,7 +127,7 @@ export function readCsv(file: string): Record<string, string>[] {
     records.push(record)
   }
   const [header = [], ...body] = records
-  return body.map((values) => Object.fromEntries(header.map((name, index) => [name, values[index] ?? ""])))
+  return { header, rows: body.map((values) => Object.fromEntries(header.map((name, index) => [name, values[index] ?? ""]))) }
 }
 
 /** Número de uma célula de CSV; vazio ou inválido vira `null`. */

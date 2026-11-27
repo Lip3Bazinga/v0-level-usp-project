@@ -18,8 +18,8 @@ C4Container
     ContainerDb(db, "PostgreSQL 17", "Drizzle ORM, migrações SQL", "Usuários, cursos, lições e passos COM gabarito, progresso, submissões, eventos")
   }
 
-  Container_Boundary(fronteiraExecutor, "Fronteira 3 - executor isolado (rede runner, internal, sem internet). Confiança: ZERO (roda código do aluno, sem segredos, sem banco). Custo: 1 vaga por CPU (CONCURRENCY), fila com 503") {
-    Container(runner, "runner", "Node (HTTP mínimo)", "Autentica a API por token, valida o job, planeja lotes, controla fila e semáforo. Devolve só observações")
+  Container_Boundary(fronteiraExecutor, "Fronteira 3 - executor isolado (rede runner, internal, sem internet). Confiança: ZERO (roda código do aluno, sem segredos, sem banco). Custo: 1 vaga por CPU (CONCURRENCY) e admissão por memória: orçamento = RUNNER_MEMORY - reserva de 512 MiB (RUNNER_MEMORY_RESERVE_MB); peso por worker python 0, dados 256, ml 1229 MiB (RUNNER_BATCH_MEMORY_MB); sem vaga ou sem orçamento o lote espera na fila ou recebe 503") {
+    Container(runner, "runner", "Node (HTTP mínimo)", "Autentica a API por token, valida o job, planeja lotes, controla fila, semáforo e orçamento de memória (MemoryBudget). Devolve só observações")
     Container(wasi, "Motor python (WASI)", "Wasmtime 49 + CPython 3.14 WASI", "Um processo novo por lote, sem rede, sem ambiente, só /lib, /harness e /work. Nível 1 e demais lições python")
     Container(pyServer, "Motor python-dados (Pyodide)", "Pyodide em worker_threads, perfis dados e ml", "numpy, pandas, scikit-learn. Pool aquecido. Mesmo harness e mesmo protocolo do WASI")
   }

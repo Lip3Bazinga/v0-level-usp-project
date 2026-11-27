@@ -19,14 +19,14 @@ describe("fila de eventos do experimento", () => {
   it("envia em lote depois do intervalo", async () => {
     const post = vi.spyOn(api, "post").mockResolvedValue(undefined)
     trackEvent("lesson_viewed", { lesson_id: "l1" })
-    trackEvent("step_completed", { step_id: "s1", code: "segredo" })
+    trackEvent("lesson_viewed", { lesson_id: "l2", code: "segredo" })
     expect(post).not.toHaveBeenCalled()
     await vi.advanceTimersByTimeAsync(FLUSH_INTERVAL_MS)
     expect(post).toHaveBeenCalledTimes(1)
     expect(post).toHaveBeenCalledWith("/me/events", {
       events: [
         { type: "lesson_viewed", payload: { lesson_id: "l1" } },
-        { type: "step_completed", payload: { step_id: "s1" } },
+        { type: "lesson_viewed", payload: { lesson_id: "l2" } },
       ],
     })
     expect(queuedEventCount()).toBe(0)
@@ -41,7 +41,7 @@ describe("fila de eventos do experimento", () => {
 
   it("falha de rede devolve os eventos à fila; recusa da API descarta", async () => {
     const post = vi.spyOn(api, "post").mockRejectedValueOnce(new TypeError("rede"))
-    trackEvent("login")
+    trackEvent("lesson_viewed")
     await flushEvents()
     expect(queuedEventCount()).toBe(1)
 

@@ -1,21 +1,23 @@
-%% Pipeline de conteúdo: .lvl.md -> check -> build -> verify -> pacote -> importação.
+%% Pipeline de conteúdo: .lvl.md -> check -> build -> pacote -> verify (portão) -> importação.
 %% Rastreabilidade de cada caixa e seta: docs/tcc/diagramas/rastreabilidade.md, seção 04.
-%% Linha cheia = dependência de dados. Linha tracejada = o passo executa código no runner real
-%% ou é um portão de qualidade pela convenção da equipe (nenhum job do CI roda content:verify).
+%% Linha cheia = dependência de dados. Linha tracejada = o passo executa código no runner real.
+%% Tudo roda na máquina do autor: nenhum job de .github/workflows roda content:*.
+%% O portão do verify é CONVENÇÃO da equipe: o seed e a rota de importação não checam se o verify
+%% passou, então nada impede tecnicamente importar um pacote sem verificar.
 flowchart LR
   FONTE["content/ (texto versionado)<br/>trilhas/*.yaml, cursos/CURSO/curso.yaml, prova.yaml,<br/>MODULO/modulo.yaml, MODULO/NN-slug.lvl.md, MODULO/assets/"]
 
-  subgraph AUTORIA["Máquina do autor ou CI (apps/api/scripts)"]
+  subgraph AUTORIA["Máquina do autor (apps/api/scripts), fora do CI"]
     CHECK["1. pnpm content:check<br/>compileContent + lintContent<br/>NÃO executa código"]
-    BUILD["2. pnpm content:build<br/>compileContent + lintContent<br/>+ gera saída dos passos Previsão<br/>+ validateBundle (contentBundleSchema)"]
-    VERIFY["3. pnpm content:verify<br/>solução APROVA, código inicial REPROVA,<br/>cada solução errada REPROVA,<br/>previsões e blocos visualizar rodam"]
+    BUILD["2. pnpm content:build<br/>compileContent + lintContent (o mesmo do check)<br/>+ gera a saída dos passos Previsão no runner<br/>+ validateBundle (contentBundleSchema)<br/>+ grava o pacote"]
+    VERIFY{"3. PORTÃO pnpm content:verify<br/>(convenção da equipe, sem trava técnica)<br/>solução APROVA, código inicial REPROVA,<br/>cada solução errada REPROVA,<br/>previsões e blocos visualizar rodam"}
   end
 
   RUNNER["runner real<br/>(RUNNER_URL, RUNNER_TOKEN)<br/>mesmo motor de correção da API:<br/>buildProbes + grade"]
 
-  PACOTE[["4. Pacote formato 2<br/>packages/db/seed/trilha-python-ia.json<br/>(traz gabaritos e wrong_solutions: wrong_solutions nunca é gravada no banco)"]]
+  PACOTE[["Pacote formato 2<br/>packages/db/seed/trilha-python-ia.json<br/>(traz gabaritos e wrong_solutions: wrong_solutions nunca é gravada no banco)"]]
 
-  subgraph IMPORTACAO["5. Importação (upsert por slug, uma transação, ids preservados)"]
+  subgraph IMPORTACAO["4. Importação (upsert por slug, uma transação, ids preservados)"]
     SEED["pnpm db:seed<br/>seed.ts -> importContentBundle"]
     ADMIN["POST /api/admin/content/import (papel admin)<br/>ContentController -> ContentService -> importContentBundle"]
   end
@@ -25,11 +27,11 @@ flowchart LR
   FONTE --> CHECK
   CHECK -- "sem problemas" --> BUILD
   BUILD -- "pacote validado" --> PACOTE
-  FONTE -. "compila de novo em memória" .-> VERIFY
+  FONTE -. "compila de novo em memória (não lê o pacote)" .-> VERIFY
   BUILD -. "só lições com Previsão" .-> RUNNER
   VERIFY -. "job com sondas, por passo" .-> RUNNER
-  VERIFY -. "portão manual antes de importar" .-> PACOTE
-  PACOTE --> SEED
-  PACOTE --> ADMIN
+  PACOTE -- "aguarda o portão (convenção)" --> VERIFY
+  VERIFY -- "aprovado: pacote pode ser importado" --> SEED
+  VERIFY -- "aprovado: pacote pode ser importado" --> ADMIN
   SEED --> BANCO
   ADMIN --> BANCO

@@ -417,3 +417,32 @@ Um nível por sessão: escrever o `PLANO.md` do nível a partir dos roteiros, es
   quebrava com `Cannot read properties of null (reading 'isActive')` (TipTap v3 devolve `null` no 1º render; `RichTextEditor` agora só monta
   a barra com a instância pronta). Scripts do banco exigem `DATABASE_URL` exportada (documentado). Varredura permanente: `apps/web/e2e/rotas.spec.ts`
   (71 telas, 3 papéis, 0 problemas; relatório em `.claude-transfer/telas/relatorio.md`). Senha do admin local redefinida para a dos e2e.
+
+- **Fase D2 concluída (2026-11-25), branch `fix/executor-memoria`:** o executor admite lotes também por orçamento de memória
+  (`RUNNER_MEMORY` − `RUNNER_MEMORY_RESERVE_MB`, peso por worker em `RUNNER_BATCH_MEMORY_MB`, padrão `python:0,dados:256,ml:1229`);
+  sem memória o lote espera na fila ou recebe 503 com `Retry-After`; perfil que não cabe no orçamento recebe 501. Política por perfil:
+  `RUNNER_PYODIDE_POLICY=dados:fresh,ml:reuse` é o padrão de produção e homologação (resolve a decisão acima). Detalhes em
+  `docs/v2/motor-de-correcao.md`; medições em `docs/tcc/medicoes.md` seção 7 e `docs/tcc/dados/d2/`.
+  - Resultados: ml quente 0,11 s (antes ≈ 9,5 s em todo envio); ml sustenta 50 alunos (p95 8,2 s) e satura em 100 (p95 10,7 s, 2,4 % de 503),
+    sem OOM com `CONCURRENCY` padrão; python e dados não saturam até 100. Custo para 100 alunos: de 16 vCPU / 10,2 GiB para ≈ 11 vCPU / 4,5 GiB
+    (piso 3 vCPU / 3,6 GiB tudo quente; teto 19 vCPU / 11,9 GiB tudo frio).
+  - Decisões pendentes do Filipe: (a) pesos medidos (256/1229) × pesos de pior caso (≈ `dados:700,ml:1560`): a reserva de 512 MiB só cobre o
+    crescimento de um worker até `MAX_HEAP_MB`; (b) `mem_limit` padrão do runner em `compose.yml` subiu de 1g para 2g (abaixo disso o ml
+    recebe 501; a VM fica em 1536m, sem ml); (c) reciclagem por heap em 256 MB com folga de só 69 MB no ml; (d) fila FIFO: `dados` espera
+    atrás de `ml` bloqueado por memória; (e) o `dados` em `fresh` virou o item caro (p50 4,8 s com 100 alunos): avaliar `reuse` ou pool maior;
+    (f) typecheck de `scripts/bench` acusa 3 erros antigos em `apps/api/scripts/content` (fora do escopo da fase).
+- **Fase H, Parte 1 concluída (2026-11-26), branch `fix/achados-questionario`:** achados do questionário do TCC (itens 1 a 3).
+  - Eventos do experimento: `POST /me/events` aceita só `CLIENT_EVENT_TYPES` (`lesson_viewed`, o único tipo que a web emite); os outros dez
+    tipos de `EVENT_TYPES` só a API grava (`EventsService.record`) e dão 400 se vierem do cliente (lote inteiro recusado). Migração
+    `0006_eventos_so_acrescimo`: gatilho `events_append_only` recusa DELETE e UPDATE em `events`; só passa a anonimização de `user_id` feita
+    pela FK na exclusão da conta (`pg_trigger_depth() > 1`). Limites conhecidos: TRUNCATE não é bloqueado (o harness e2e usa) e quem tem DDL
+    pode desligar o gatilho. Testes em `apps/api/test/security/steps-forgery.e2e.ts`.
+  - VM: `RUNNER_MEMORY` padrão 2g em `compose.vm.yml` e `vm.env.example`; `producao-vm.md` com a regra de memória da D2 e o aviso de que
+    2 vCPU / 4 GB não roda lições `ml`; `desempenho-e-carga.md` corrigido (teste de 03/11 com processos do `pnpm build` e PostgreSQL 16.15).
+  - Diagramas 02 (admissão por memória), 04 (sem CI; `content:verify` como portão por convenção) e 06 (runner 2g na VM e na homologação);
+    `rastreabilidade.md` reconferida no commit `5add24f`.
+  - Pendente do Filipe: (a) ratificar `RUNNER_MEMORY` 3g na coluna 4 vCPU / 8 GB de `producao-vm.md` (era 2g; não estava no pedido);
+    (b) os três `.mmd` alterados não foram renderizados (sem `mmdc` no ambiente): conferir a linha 21 do diagrama 02 (rótulo longo com `;`);
+    (c) em produção, o papel do banco não deveria ter TRUNCATE em `events` (hoje a aplicação usa o dono das tabelas).
+  - **Falta a Parte 2 (itens 4 a 8), só depois do merge da Fase F em `develop`:** forja universal no pacote atual, `content:verify` dos 7
+    cursos, rajada nas lições `unittest`, carga mista e `docs/tcc/medicoes.md` §8. Roteiro em `.claude-transfer/fases/H-achados-questionario.md`.

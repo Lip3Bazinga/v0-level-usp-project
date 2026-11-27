@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http"
 import { timingSafeEqual } from "node:crypto"
 import { runnerJobSchema } from "@levelusp/contracts"
-import { EngineRequestError, RuntimeUnavailableError, type EngineReadiness } from "./engine.js"
+import { EngineRequestError, InsufficientMemoryError, RuntimeUnavailableError, type EngineReadiness } from "./engine.js"
 import type { JobExecutor } from "./executor.js"
 import type { Logger } from "./logger.js"
 import type { PyodideReadiness } from "./pyodide-engine.js"
@@ -83,6 +83,8 @@ export function buildServer({ executor, token, log, stats, readiness, pyodideRea
       }
       if (error instanceof EngineRequestError) return sendJson(response, 400, { error: error.code, message: error.message })
       if (error instanceof RuntimeUnavailableError) return sendJson(response, 501, { error: "runtime_unavailable", message: error.message })
+      // 501 e não 503: para a API, 503 é "ocupado, tente de novo", e tentar de novo aqui nunca adianta.
+      if (error instanceof InsufficientMemoryError) return sendJson(response, 501, { error: "insufficient_memory", message: error.message })
       if (error instanceof BodyTooLargeError) return sendJson(response, 413, { error: "too_large" })
       if (error instanceof SyntaxError) return sendJson(response, 400, { error: "invalid_json" })
       stats?.recordFailed()

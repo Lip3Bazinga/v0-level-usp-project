@@ -1,4 +1,4 @@
-# Medições do TCC (Fase D)
+# Medições do TCC (Fases D e D2)
 
 Todas as medições foram feitas em 2026-11-25, sobre o código da `develop` com as Fases B e C já
 mescladas, **uma de cada vez e com a máquina parada** (nenhum teste, verify ou navegador usando o
@@ -135,6 +135,105 @@ vale a leitura desta página, em que o `ml` não sustenta 100 alunos com `ml:0` 
 simultâneos. Para sustentar o `ml` seria preciso aquecer workers (`ml:K`), com custo de ~1,2 GiB
 cada, ou mais instâncias do executor.
 
+## 7. Depois da Fase D2: `ml` em `reuse` e admissão por memória
+
+Remedido em 2026-11-25, com a máquina parada e uma medição por vez, sobre a branch
+`fix/executor-memoria`. Dados em `docs/tcc/dados/d2/` (todos saídos dos scripts; `ambiente.json`
+lista cada rodada). O que mudou no executor entre o "antes" (seções 1 a 6) e o "depois":
+
+| Item | Antes (Fase D) | Depois (Fase D2) |
+|---|---|---|
+| Política do Pyodide | `fresh` nos dois perfis | `dados:fresh,ml:reuse` |
+| Pool aquecido | `dados:1,ml:0` | igual (o worker `ml` fica vivo depois do primeiro lote) |
+| Admissão | só semáforo por CPU (`CONCURRENCY`) | CPU **e** orçamento de memória: `RUNNER_MEMORY` − reserva de 512 MiB, peso por worker `python:0,dados:256,ml:1229` MiB |
+| Medição | `RUNNER_MEMORY=6g`; `ml` exigiu `CONCURRENCY=4` à mão | `RUNNER_MEMORY=6g` (orçamento de 5632 MiB), `CONCURRENCY` no padrão (32) |
+
+### 7.1 Latência (tempo total na API, ms, 30 repetições)
+
+| Cenário | Condição | Antes p50 / p95 | Depois p50 / p95 / p99 |
+|---|---|---|---|
+| c — `dados` (pandas, N4) | quente | 90 / 164 | 102 / 168 / 203 |
+| c — `dados` | frio (executor reiniciado) | ≈ 2435 (p50) | 3382 / 3534 / 3708 |
+| d — `ml` (scikit-learn, N5) | quente | não existia (todo envio era frio) | 114 / 139 / 217 (n = 29) |
+| d — `ml` | frio | 9457 / 9650 | 12396 / 12571 / 12592 |
+| piso `ml` | quente | não existia | 76 / 81 / 85 (n = 28) |
+| a, b — `python` | quente | 227–231 (p50) | 258 / 362 / 420 e 269 / 336 / 367 |
+
+Leitura:
+
+- **`ml` quente:** com `reuse`, 29 de 30 envios do cenário d respondem em ≈ 0,11 s; só o primeiro
+  depois de subir o executor paga o aquecimento (≈ 12 s). Antes, todos pagavam ≈ 9,5 s.
+- **Frio mais lento que na Fase D nos três motores:** o `python`, cujo caminho não mudou, também
+  subiu ≈ 20 %, e uma rodada de controle com o `ml` em `fresh` no código novo deu 11,0–11,4 s.
+  A diferença entre dias é da máquina, não da mudança. A `reuse` em si soma ≈ 1,2 s ao aquecimento
+  do `ml` (a fotografia do estado usada para restaurar o worker entre lotes).
+- A classificação quente/frio na `reuse` vem do contador de workers iniciados do executor
+  (coluna `booted_delta` de `latencia.csv`), não de suposição do script.
+
+### 7.2 Carga (300 s por nível, pensar 30–60 s)
+
+| Motor | N | Envios | Erros (503) | p50 (ms) | p95 (ms) | p99 (ms) | Saturou |
+|---|---:|---:|---:|---:|---:|---:|---|
+| python | 10 / 25 / 50 / 100 | 64 / 159 / 320 / 654 | 0 | 254 / 249 / 245 / 245 | 365 / 305 / 310 / 297 | 408 / 361 / 346 / 381 | não |
+| dados | 10 | 63 | 0 | 193 | 3495 | 3768 | não |
+| dados | 25 | 155 | 0 | 2603 | 4079 | 4281 | não |
+| dados | 50 | 303 | 0 | 3529 | 4516 | 4834 | não |
+| dados | 100 | 601 | 0 | 4777 | 5771 | 6557 | não |
+| ml | 10 | 67 | 0 | 385 | 563 | 12816 | não |
+| ml | 25 | 159 | 0 | 391 | 952 | 12121 | não |
+| ml | 50 | 314 | 2 (0,6 %) | 389 | 8198 | 11466 | não |
+| ml | 100 | 628 | 15 (2,4 %) | 451 | 10736 | 13272 | **sim** |
+
+Antes × depois no `ml` (cada usuário virtual envia só `ml`):
+
+| N | Antes (`fresh`, `ml:0`, `CONCURRENCY=4`) | Depois (`reuse`, limite por memória, `CONCURRENCY=32`) |
+|---:|---|---|
+| 10 | p95 12,7 s — saturado | p95 0,56 s |
+| 25 | 14,8 % de erro | p95 0,95 s, sem erro |
+| 50 | 60,5 % de erro | p95 8,2 s, 0,6 % de erro |
+| 100 | 81,3 % de erro | p95 10,7 s, 2,4 % de erro — saturado |
+| `CONCURRENCY` padrão | executor morto por OOM | `OOMKilled=false`, nenhum reinício |
+
+- O executor ficou de pé nas doze rodadas com `CONCURRENCY=32`: no `ml` nunca houve mais de 4
+  workers vivos (pico reservado de 5172 MiB em 5632), e os lotes sem memória esperaram na fila
+  (p95 de fila de 5,6 s em N=50 e 8,8 s em N=100) ou receberam 503 com `Retry-After`.
+- O p99 do `ml` em ≈ 12 s é o aquecimento de cada worker novo (o primeiro lote de cada um).
+- O `dados` chegou ao teto do orçamento em N=100 (22 workers, 5632 MiB reservados) sem erro; como
+  segue em `fresh`, sob carga quase todo lote paga o aquecimento (p50 de 4,8 s em N=100, contra
+  4,6 s de p95 na Fase D: mesma ordem, um pouco pior no dia).
+- O `ml` passa de "não sustenta 10 alunos" para "sustenta 50 alunos enviando só `ml`"; com 100
+  alunos só de `ml` e 6 GiB, satura por fila de memória, não por queda.
+
+### 7.3 Memória por worker (MiB, k = 1 / 2 / 4 lotes simultâneos)
+
+| Motor | Por worker | Pico do contêiner |
+|---|---|---:|
+| python | 13 / 13 / 12 | 408 |
+| dados | 198 / 218 / 229 | 1319 |
+| ml | 1166 / 1143 / 1134 | 4886 |
+
+Executor ocioso: ≈ 350–400 MiB. Os pesos padrão da admissão (256 e 1229 MiB) cobrem o medido.
+
+### 7.4 Custo para 100 alunos (mesmo mix: python 0,4; dados 0,4; ml 0,2)
+
+Saída de `custo.mts --dir-dados docs/tcc/dados/d2`, nas duas condições que o script oferece:
+
+| Condição do tempo de serviço | Workers (python / dados / ml) | vCPU | Memória |
+|---|---|---:|---:|
+| Fase D, pior (frio) | 1 / 3 / 5 | 16 | 10,2 GiB |
+| D2, `--condicao quente` | 1 / 1 / 1 | 3 | 3,6 GiB |
+| D2, `--condicao pior` (frio) | 1 / 4 / 6 | 19 | 11,9 GiB |
+
+- A condição `pior` deixou de descrever o `ml`: com `reuse` só o primeiro lote de cada worker é
+  frio. Ela subiu de 16 para 19 vCPU apenas porque o frio do dia foi mais lento.
+- A condição `quente` é o piso: vale para o `python` e o `ml`, mas o `dados` segue em `fresh` e,
+  sob carga, trabalha perto do frio. Aplicando a mesma fórmula com `dados` no frio e os outros no
+  quente (conta feita aqui, não saída do script): (0,24 + 6,62 + 0,05 + 1) × 1,3 → **11 vCPU** e
+  (13 + 917 + 1166 + 402 + 1024) × 1,3 → **≈ 4,5 GiB**. O `ml` deixa de ser o item caro
+  (de 5 workers e 5,4 GiB para 1 worker e 1,2 GiB); o custo passa a ser dominado pelo `dados`.
+- A validação do script marca "ml não aguenta 100" porque a carga põe 100 alunos só no `ml`; no
+  mix, 20 % são ≈ 20 alunos de `ml`, abaixo dos 50 sustentados.
+
 ## Reprodução
 
 ```bash
@@ -149,4 +248,16 @@ node scripts/bench/carga.mts --niveis 10,25,50,100 --duracao-s 300
 # ml com a concorrência limitada pela memória (variável CONCURRENCY=4 no executor):
 node scripts/bench/carga.mts --motores ml --niveis 10,25,50,100 --duracao-s 300 --saida docs/tcc/dados/carga-ml-concorrencia4.csv
 node scripts/bench/custo.mts --alunos 100 --mix python=0.4,dados=0.4,ml=0.2
+```
+
+Fase D2 (seção 7): as opções `--saida` e `--anexar` deixaram de existir; cada script grava e mescla na
+pasta de `--dir-dados`.
+
+```bash
+RUNNER_MEMORY=6g RUNNER_PYODIDE_POLICY=dados:fresh,ml:reuse docker compose -f infra/compose/compose.dev.yml --profile runner up -d --build runner
+D=docs/tcc/dados/d2
+node scripts/bench/latencia.mts --repeticoes 30 --dir-dados $D --cmd-reinicio "docker compose -f infra/compose/compose.dev.yml --profile runner restart runner"
+node scripts/bench/recursos.mts workers --motores python,dados,ml --k 1,2,4 --dir-dados $D
+node scripts/bench/carga.mts --niveis 10,25,50,100 --duracao-s 300 --dir-dados $D
+node scripts/bench/custo.mts --alunos 100 --mix python=0.4,dados=0.4,ml=0.2 --dir-dados $D --condicao quente   # ou pior
 ```

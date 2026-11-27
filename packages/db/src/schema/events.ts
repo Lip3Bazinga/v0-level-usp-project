@@ -4,9 +4,13 @@ import { profiles } from "./profiles"
 import { createdAt, isOneOf } from "./_helpers"
 
 /**
- * Log de eventos do experimento de gamificação: só inserção (nenhuma rota altera ou
- * apaga). Quando a conta é apagada, o evento fica anônimo (`user_id` null) para
- * preservar a série do estudo sem dado pessoal.
+ * Log de eventos do experimento de gamificação: só inserção. Nenhuma rota altera ou
+ * apaga, e o gatilho `events_append_only` (migração 0006) recusa DELETE e UPDATE no
+ * banco. A única alteração aceita é a anonimização: quando a conta é apagada, a FK
+ * põe `user_id` em null e o resto da linha fica igual, preservando a série do estudo
+ * sem dado pessoal. Só a ação referencial da FK passa (`pg_trigger_depth() > 1`): um
+ * `UPDATE ... SET user_id = NULL` direto da sessão é recusado. Limite conhecido:
+ * TRUNCATE não passa pelo gatilho (é o que os testes e2e usam para zerar o banco).
  */
 export const events = pgTable(
   "events",
